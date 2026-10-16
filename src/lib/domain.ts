@@ -1136,6 +1136,12 @@ export type LandingMemberConfig = {
    * Logistik tetap diatur saklarnya sendiri (show_schedule, show_logistics).
    */
   home?: { order?: string[]; hidden?: string[] };
+  /**
+   * Label menu Outfit di portal Gathering Horizon (bilah atas, Menu, judul
+   * halaman, baris Beranda). Kosong = "Outfit". Paling panjang 16 huruf.
+   * Disunting di Agenda > Section > Outfit, disimpan lewat Area peserta.
+   */
+  outfit_label?: string | null;
 };
 
 export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";
@@ -1754,6 +1760,7 @@ export type ApiErrorCode =
   | "RUNDOWN_SECTION_NOT_FOUND"
   | "RUNDOWN_ITEM_NOT_FOUND"
   | "DUPLICATE_RUNDOWN_SLUG"
+  | "OUTFIT_NOT_READY"
   | "UNDIAN_PRIZE_NOT_FOUND"
   | "UNDIAN_PRIZE_IN_USE"
   | "UNDIAN_NO_ACTIVE_PRIZE"

@@ -7,6 +7,8 @@ import { useToast } from "@/components/toast";
 import { normalizeBranding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
 import { DEFAULT_HEADER, formatClock, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
+import { eventApiPath } from "@/lib/event-url";
+import { OUTFIT_BATAS, OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, OUTFIT_MAX, type OutfitEntry } from "@/lib/outfit";
 import { bandingkanBagian, bandingkanBaris, geserBagian, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal } from "@/lib/rundown-urutan";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -38,6 +40,19 @@ type Draft = { start_time: string; end_time: string; title: string; subtitle: st
 type Panel = "baris" | "bagian" | "header";
 
 const EMPTY_DRAFT: Draft = { start_time: "", end_time: "", title: "", subtitle: "", is_break: false };
+
+/** Satu isian Outfit yang sedang disunting. Teks kosong = tidak diisi. */
+type OutfitDraft = { when: string; what: string; note: string; photo_url: string | null };
+/**
+ * Outfit dari /api/admin/rundown/sections/outfit. `available` false: kolomnya
+ * belum ada (migrasi 202610160001 belum dijalankan). `horizon`: kelompok Outfit
+ * hanya tampil untuk preset Gathering Horizon, satu-satunya portal yang punya
+ * halaman Outfit.
+ */
+type OutfitInfo = { available: boolean; horizon: boolean; label: string | null };
+
+const keDraftOutfit = (list: OutfitEntry[]): OutfitDraft[] =>
+  list.map((entry) => ({ when: entry.when ?? "", what: entry.what, note: entry.note ?? "", photo_url: entry.photo_url ?? null }));
 
 // Petunjuk satu kalimat per aturan: baris per pembicara, label, format.
 const HINT_KETERANGAN = "One line per speaker. A line ending in a colon becomes a label (e.g. Moderator:). Bold, italic, theme colour and lists show on the event page.";
@@ -107,6 +122,15 @@ export default function RundownAdminPage() {
   const [dropTarget, setDropTarget] = useState<{ id: number; after: boolean } | null>(null);
   const [reorderNote, setReorderNote] = useState("");
   const [error, setError] = useState("");
+  // Outfit per bagian: dimuat sekali saat halaman dibuka, terpisah dari load()
+  // yang dipanggil ulang tiap simpan, supaya suntingan outfit yang belum
+  // disimpan tidak tertimpa saat admin menyimpan baris atau bagian.
+  const [outfitInfo, setOutfitInfo] = useState<OutfitInfo | null>(null);
+  const [outfitSaved, setOutfitSaved] = useState<Record<number, OutfitDraft[]>>({});
+  const [outfitDrafts, setOutfitDrafts] = useState<Record<number, OutfitDraft[]>>({});
+  const [outfitLabel, setOutfitLabel] = useState("");
+  const [outfitTried, setOutfitTried] = useState(false);
+  const [uploadingOutfit, setUploadingOutfit] = useState<number | null>(null);
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
   // "Kamis" di CMS sementara tamu membaca "Rabu".
@@ -136,8 +160,18 @@ export default function RundownAdminPage() {
 
   // setState langsung di badan effect ditolak React Compiler, jadi pemuatan awal
   // ditunda satu tick. Pola yang sama dipakai di seluruh halaman admin.
+  async function loadOutfit() {
+    // Gagal dimuat = kelompok Outfit tidak tampil; sisa halaman tetap berjalan.
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    const data = (await response.json()) as OutfitInfo & { sections: Array<{ id: number; outfit: OutfitEntry[] }> };
+    setOutfitInfo({ available: data.available, horizon: data.horizon, label: data.label });
+    setOutfitLabel(data.label ?? "");
+    setOutfitSaved(Object.fromEntries(data.sections.map((row) => [row.id, keDraftOutfit(row.outfit)])));
+  }
+
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); }, 0);
+    const timer = window.setTimeout(() => { void load(); void loadOutfit(); }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -303,6 +337,10 @@ export default function RundownAdminPage() {
   }
 
   async function saveSection(section: RundownSection) {
+    // Outfit ikut tersimpan lewat Save section, tombol utama panel. Isian yang
+    // tidak lengkap ditolak sebelum apa pun dikirim, supaya tidak setengah tersimpan.
+    const simpanOutfit = outfitBerubah(section.id);
+    if (simpanOutfit && !outfitLengkap()) return;
     setSavingSection(true); setError("");
     const response = await fetch("/api/admin/rundown/sections", {
       method: "PATCH",
@@ -323,13 +361,16 @@ export default function RundownAdminPage() {
       }),
     });
     const data = await response.json();
-    setSavingSection(false);
     if (!response.ok) {
+      setSavingSection(false);
       const failure = failureMessage(data, "Section not saved.");
       setError(failure); toast.error("Section not saved", failure);
       return;
     }
-    toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
+    // Gagal menyimpan outfit sudah menampilkan pesannya sendiri; drafnya tetap ada.
+    const outfitOk = simpanOutfit ? await saveOutfit(section) : true;
+    setSavingSection(false);
+    if (outfitOk) toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
     await load();
   }
 
@@ -526,6 +567,109 @@ export default function RundownAdminPage() {
       const tujuan = posisi === 0 ? "down" : posisi === next.length - 1 ? "up" : null;
       if (tujuan) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-move="${tujuan}"]`)?.focus());
     }
+  }
+
+  // ---- Outfit bagian aktif ------------------------------------------------------
+  // Portal hanya menampilkan hari yang punya butir publik berjudul (loadAgendaPreview).
+  const adaButirPublik = activeItems.some((item) => item.is_published && Boolean(item.title?.trim()));
+  const outfitAktif: OutfitDraft[] = active ? (outfitDrafts[active.id] ?? outfitSaved[active.id] ?? []) : [];
+
+  function setOutfitAktif(next: OutfitDraft[]) {
+    if (!active) return;
+    setOutfitDrafts((current) => ({ ...current, [active.id]: next }));
+  }
+
+  /** Draf outfit bagian ini atau label menu berbeda dari yang tersimpan. */
+  function outfitBerubah(sectionId: number) {
+    if (!outfitInfo?.available) return false;
+    const draf = outfitDrafts[sectionId];
+    const drafBerubah = draf !== undefined && JSON.stringify(draf) !== JSON.stringify(outfitSaved[sectionId] ?? []);
+    return drafBerubah || outfitLabel.trim() !== (outfitInfo.label ?? "");
+  }
+
+  function outfitLengkap() {
+    setOutfitTried(true);
+    const kosong = outfitAktif.findIndex((entry) => !entry.what.trim());
+    if (kosong < 0) return true;
+    const failure = `Fill in What to wear for outfit ${kosong + 1}, or remove it.`;
+    setError(failure); toast.error("Section not saved", failure);
+    return false;
+  }
+
+  function updateOutfit(index: number, changes: Partial<OutfitDraft>) {
+    setOutfitAktif(outfitAktif.map((entry, i) => (i === index ? { ...entry, ...changes } : entry)));
+  }
+
+  /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk state sampai Save section. */
+  async function uploadOutfitPhoto(index: number, file: File) {
+    setUploadingOutfit(index); setError("");
+    const form = new FormData();
+    form.append("file", file);
+    const response = await fetch("/api/display/background", { method: "POST", body: form }).catch(() => null);
+    const data = response ? await response.json().catch(() => null) : null;
+    setUploadingOutfit(null);
+    if (!response?.ok) {
+      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Image upload failed.";
+      setError(failure);
+      toast.error("Image upload failed", failure);
+      return;
+    }
+    updateOutfit(index, { photo_url: data.url });
+    toast.info("Photo uploaded", "Select Save section to show it to participants.");
+  }
+
+  /** Dipanggil dari saveSection sesudah bagian tersimpan. true = outfit tersimpan. */
+  async function saveOutfit(section: RundownSection): Promise<boolean> {
+    // Label menu berlaku untuk seluruh acara: disimpan lewat Area peserta, yang
+    // menggabungkan `member` dan tidak menyentuh setelan lainnya.
+    const label = outfitLabel.trim();
+    if (outfitInfo && label !== (outfitInfo.label ?? "")) {
+      const response = await fetch(eventApiPath("/api/admin/area-peserta"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ member: { outfit_label: label || null } }),
+      }).catch(() => null);
+      const data = response ? await response.json().catch(() => ({})) : {};
+      if (!response?.ok) {
+        const failure = response ? failureMessage(data, "Menu label not saved.") : "Check your connection and try again.";
+        setError(failure); toast.error("Menu label not saved", failure);
+        return false;
+      }
+      const tersimpan = (data as { member?: { outfit_label?: string | null } }).member?.outfit_label ?? null;
+      setOutfitInfo((current) => current && { ...current, label: tersimpan });
+      setOutfitLabel(tersimpan ?? "");
+    }
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: section.id,
+        outfit: outfitAktif.map((entry) => ({
+          when: entry.when.trim() || null,
+          what: entry.what.trim(),
+          note: entry.note.trim() || null,
+          photo_url: entry.photo_url,
+        })),
+      }),
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok) {
+      if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "OUTFIT_NOT_READY") {
+        setOutfitInfo((current) => current && { ...current, available: false });
+      }
+      const failure = response ? failureMessage(data, "Outfit not saved.") : "Check your connection and try again.";
+      setError(failure); toast.error("Outfit not saved", failure);
+      return false;
+    }
+    const simpanan = keDraftOutfit((data as { outfit: OutfitEntry[] }).outfit ?? []);
+    setOutfitSaved((current) => ({ ...current, [section.id]: simpanan }));
+    setOutfitDrafts((current) => {
+      const next = { ...current };
+      delete next[section.id];
+      return next;
+    });
+    setOutfitTried(false);
+    return true;
   }
 
   const publishedCount = sections.filter((row) => row.is_published).length;
@@ -861,6 +1005,109 @@ export default function RundownAdminPage() {
           description={`/rundown?sesi=${active.slug}`}
         />
       </Kelompok>
+      {outfitInfo?.horizon ? (
+        <Kelompok
+          title="Outfit"
+          note={outfitInfo.available
+            ? adaButirPublik
+              ? `Participants see it on the Outfit page for this day, and on Home. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
+              : `Participants see it once this section has a public agenda item. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
+            : undefined}
+        >
+          {!outfitInfo.available ? (
+            <p className="text-body-medium text-on-surface-variant">Outfit needs a database update first (migration 202610160001).</p>
+          ) : (
+            <>
+              <TextField
+                label="Menu label"
+                optional
+                placeholder={OUTFIT_LABEL_BAWAAN}
+                maxLength={OUTFIT_LABEL_MAX}
+                counter
+                hint={`Applies to the whole event: the participant menu, the page title and the Home row. Left empty, it reads ${OUTFIT_LABEL_BAWAAN}.`}
+                value={outfitLabel}
+                onChange={(event) => setOutfitLabel(event.target.value)}
+              />
+              {outfitAktif.map((entry, index) => (
+                <div key={index} className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 flex-1 text-body-medium font-medium text-on-surface">Outfit {index + 1}</p>
+                    <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setOutfitAktif(outfitAktif.filter((_, i) => i !== index))}>
+                      Remove
+                    </Button>
+                  </div>
+                  <TextField
+                    label="When"
+                    optional
+                    placeholder="e.g. Gala dinner • 19.00"
+                    maxLength={OUTFIT_BATAS.when}
+                    value={entry.when}
+                    onChange={(event) => updateOutfit(index, { when: event.target.value })}
+                  />
+                  <TextField
+                    label="What to wear"
+                    placeholder="e.g. Long-sleeved batik, formal shoes"
+                    maxLength={OUTFIT_BATAS.what}
+                    error={outfitTried && !entry.what.trim() ? "Required. Fill it in or remove this outfit." : undefined}
+                    value={entry.what}
+                    onChange={(event) => updateOutfit(index, { what: event.target.value })}
+                  />
+                  <TextField
+                    label="Note"
+                    optional
+                    placeholder="e.g. Women: batik or a modern kebaya"
+                    maxLength={OUTFIT_BATAS.note}
+                    value={entry.note}
+                    onChange={(event) => updateOutfit(index, { note: event.target.value })}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    {entry.photo_url ? (
+                      <span aria-hidden className="h-15 w-12 shrink-0 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${entry.photo_url})` }} />
+                    ) : null}
+                    <label className={cx(
+                      "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium font-medium text-on-surface hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
+                      uploadingOutfit === index && "pointer-events-none opacity-60",
+                    )}>
+                      <UploadSimple size={16} aria-hidden />
+                      {uploadingOutfit === index ? "Uploading…" : entry.photo_url ? "Replace photo" : "Upload photo"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="sr-only"
+                        disabled={uploadingOutfit !== null}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void uploadOutfitPhoto(index, file);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {entry.photo_url ? (
+                      <Button variant="text" size="sm" className="text-error" onClick={() => updateOutfit(index, { photo_url: null })}>Remove photo</Button>
+                    ) : (
+                      <span className="text-body-small text-on-surface-variant">Optional. Portrait works best.</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {outfitAktif.length < OUTFIT_MAX ? (
+                  <Button
+                    variant="text"
+                    size="sm"
+                    icon={<Plus size={16} />}
+                    onClick={() => setOutfitAktif([...outfitAktif, { when: "", what: "", note: "", photo_url: null }])}
+                  >
+                    Add outfit
+                  </Button>
+                ) : (
+                  <span className="text-body-small text-on-surface-variant">{OUTFIT_MAX} outfits is the most per section.</span>
+                )}
+              </div>
+            </>
+          )}
+        </Kelompok>
+      ) : null}
       <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
         <div className="min-w-0 flex-1">
           <p className="text-body-medium font-medium text-on-surface">Delete section</p>

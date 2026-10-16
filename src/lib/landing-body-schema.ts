@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
+import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
@@ -241,6 +242,17 @@ export const memberSchema = z.object({
   feedback_url: z.string().trim().url().max(600).nullable().optional(),
   /** Beranda halaman peserta: id bawaan (MEMBER_HOME_BUILTINS) atau id blok. */
   home: z.object({ order: z.array(idBeranda).max(MAX_BLOCKS + 10).optional(), hidden: z.array(idBeranda).max(MAX_BLOCKS + 10).optional() }).optional(),
+  /**
+   * Label menu Outfit portal Horizon. Kosong = bawaan "Outfit" (disimpan null).
+   * Tidak dikirim = tidak diubah: transform mengembalikan undefined, jadi
+   * kuncinya tidak muncul di hasil parse dan gabungan `member` mempertahankannya.
+   */
+  outfit_label: z
+    .string()
+    .trim()
+    .max(OUTFIT_LABEL_MAX)
+    .nullish()
+    .transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
 });
 
 /** Satu pembicara (`landing_config.speakers[]`), disimpan di halaman Speakers. */

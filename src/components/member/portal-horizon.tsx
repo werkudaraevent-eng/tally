@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowsOut, Bell, CalendarDots, CaretRight, Compass, List, QrCode, Suitcase, Train, X } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowsOut, Bell, CalendarDots, CaretRight, CoatHanger, Compass, List, QrCode, Suitcase, Train, X } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { PemicuQr } from "@/components/member/qr-fokus";
@@ -31,7 +31,7 @@ const PIL_EMAS =
 export type TabHorizon = { id: Exclude<PortalTab, "qr">; label: string; labelPendek: string; href: string };
 
 // Profil di ponsel menjadi "Menu": halaman yang juga memuat Perjalanan, kontak, dan Keluar.
-const IKON_TAB = { beranda: Compass, jadwal: CalendarDots, perjalanan: Suitcase, info: Bell, profil: List } as const;
+const IKON_TAB = { beranda: Compass, jadwal: CalendarDots, perjalanan: Suitcase, outfit: CoatHanger, info: Bell, profil: List } as const;
 
 /** Bilah navy atas (frame "Portal navigation" / "Portal header"): logo, tab, inisial. */
 export function KepalaHorizon({
@@ -714,5 +714,66 @@ export function PerjalananBusHorizon({ baris }: { baris: { kunci: string; judul:
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Pilihan hari di ponsel (halaman Outfit): pil yang sama dengan pilihan hari
+ * tab Jadwal Horizon. Layar lebar memakai HariJadwalHorizon di kiri.
+ */
+export function ChipHariHorizon({ hari, aria }: { hari: { label: string; href: string; aktif: boolean }[]; aria: string }) {
+  return (
+    <nav aria-label={aria} className="-mx-5 overflow-x-auto px-5 [mask-image:linear-gradient(to_right,transparent,#000_20px,#000_calc(100%-56px),transparent)] sm:mx-0 sm:px-0 sm:[mask-image:none] lg:hidden">
+      <ul className="flex gap-2">
+        {hari.map((item) => (
+          <li key={item.href} className="shrink-0">
+            <Link
+              href={item.href}
+              aria-current={item.aktif ? "page" : undefined}
+              className={`m3-state inline-flex min-h-12 min-w-[104px] items-center justify-center whitespace-nowrap rounded-full px-5 text-[14px] font-semibold leading-5 ${
+                item.aktif ? "bg-[var(--hz-emas)] text-[var(--hz-on-emas)]" : "bg-white text-[#1A2333] shadow-[inset_0_0_0_1px_#E6E9EE]"
+              }`}
+            >
+              {item.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Kartu satu outfit (pola "Attire" Zola, "Tonight's Attire" Royal Caribbean):
+ * foto contoh 4:5 bila ada (tanpa kotak kosong bila tidak), waktu sebagai alis
+ * biru, pakaiannya sebagai judul, catatan redup.
+ */
+export function KartuOutfitHorizon({ kapan, apa, catatan, foto }: { kapan: string | null; apa: string; catatan: string | null; foto: string | null }) {
+  // Rancangan yang Mas Hanung setujui: foto kecil 4:5 di samping teks, jadi satu
+  // hari dengan tiga pakaian tetap terbaca sekilas. Ketuk foto untuk ukuran penuh.
+  return (
+    <article className="flex min-w-0 items-start gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5" style={{ color: TINTA }}>
+      {foto ? (
+        <a href={foto} target="_blank" rel="noreferrer noopener" className="m3-state block w-24 shrink-0 overflow-hidden rounded-[16px] md:w-32">
+          {/* Foto dari unggahan admin: ukuran asli tidak diketahui, jadi <img> biasa dipotong 4:5.
+              Hiasan: isi kartu sudah menyebut pakaiannya. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={foto} alt="" loading="lazy" decoding="async" className="aspect-[4/5] w-full bg-[#EEF1F6] object-cover" />
+        </a>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
+        {kapan ? (
+          <p className="text-[12px] font-bold uppercase leading-4 tracking-[0.8px] [overflow-wrap:anywhere]" style={{ color: BIRU }}>
+            {kapan}
+          </p>
+        ) : null}
+        <h3 className="text-[17px] font-semibold leading-6 [overflow-wrap:anywhere] md:text-[20px] md:leading-7">{apa}</h3>
+        {catatan ? (
+          <p className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+            {catatan}
+          </p>
+        ) : null}
+      </div>
+    </article>
   );
 }

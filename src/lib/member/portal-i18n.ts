@@ -77,6 +77,24 @@ export type PortalUiText = {
       trainRow: string;
       seatLine: (gerbong: string | null, kursi: string | null) => string | null;
     };
+    /**
+     * Halaman Outfit (dress code per hari dari Agenda). Labelnya per acara
+     * (`member.outfit_label`, bawaan "Outfit"), jadi kalimat yang memuatnya
+     * berupa fungsi. Alis baris Beranda ditampilkan huruf besar.
+     */
+    outfit: {
+      note: string;
+      empty: string;
+      dayEmpty: string;
+      menuRow: string;
+      row: {
+        hariIni: (label: string) => string;
+        besok: (label: string) => string;
+        pertama: (label: string) => string;
+        terakhir: (label: string) => string;
+        nanti: (label: string, hari: string) => string;
+      };
+    };
     welcome: string;
     heading: (namaDepan: string) => string;
     headingMobile: (namaDepan: string) => string;
@@ -170,6 +188,19 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         trainRow: "Kereta",
         seatLine: (gerbong, kursi) => [gerbong ? `Gerbong ${gerbong}` : null, kursi ? `kursi ${kursi}` : null].filter(Boolean).join(", ") || null,
       },
+      outfit: {
+        note: "Pakaian tiap hari, dari panitia.",
+        empty: "Panitia belum membagikan pakaian untuk acara ini.",
+        dayEmpty: "Tidak ada ketentuan pakaian khusus.",
+        menuRow: "Pakaian tiap hari",
+        row: {
+          hariIni: (label) => `${label} hari ini`,
+          besok: (label) => `${label} besok`,
+          pertama: (label) => `${label} hari pertama`,
+          terakhir: (label) => `${label} hari terakhir`,
+          nanti: (label, hari) => `${label} • ${hari}`,
+        },
+      },
       welcome: "Perjalananmu dimulai di sini",
       heading: (nama) => `${nama}, siap bikin cerita baru?`,
       headingMobile: (nama) => `${nama},\nini perjalananmu.`,
@@ -262,6 +293,19 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         mainBus: "Main bus",
         trainRow: "Train",
         seatLine: (gerbong, kursi) => [gerbong ? `Carriage ${gerbong}` : null, kursi ? `seat ${kursi}` : null].filter(Boolean).join(", ") || null,
+      },
+      outfit: {
+        note: "What to wear each day, from the organisers.",
+        empty: "The organisers haven't shared what to wear yet.",
+        dayEmpty: "No set dress code.",
+        menuRow: "What to wear each day",
+        row: {
+          hariIni: (label) => `Today's ${label}`,
+          besok: (label) => `Tomorrow's ${label}`,
+          pertama: (label) => `Day one ${label}`,
+          terakhir: (label) => `Last day ${label}`,
+          nanti: (label, hari) => `${label} • ${hari}`,
+        },
       },
       welcome: "Your journey starts here",
       heading: (nama) => `${nama}, ready for a new story?`,
