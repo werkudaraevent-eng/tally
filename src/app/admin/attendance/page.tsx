@@ -95,6 +95,13 @@ export default function AttendanceAdminPage() {
   const [hapusMeja, setHapusMeja] = useState<Jalur | null>(null);
   const toast = useToast();
   const { zone, abbr } = useEventTimeZone();
+  // `?tab=checkpoint`: tautan "Edit in Check-in" dari Participant home.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (new URLSearchParams(window.location.search).get("tab") === "checkpoint") setBagian("checkpoint");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const load = useCallback(async () => {
     const [sesi, jalur, item] = await Promise.all([

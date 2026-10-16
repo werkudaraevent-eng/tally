@@ -28,7 +28,11 @@ export async function renderPratinjauPeserta(slug: string, pesertaId: string, dr
   if (!sesi) return { ok: false, pesan: "This participant is no longer in the Participant list. Choose another one." };
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   // Mata Participant home yang baru dinyalakan ikut berlaku, sama dengan saat disimpan.
-  const sections = parsed.data.home ? sectionsDenganBlokPeserta(landing.sections, landing.blocks, parsed.data.home.hidden ?? []) : landing.sections;
+  // Draf sudah memuat blok lama yang mati sebagai tersembunyi (GET Area peserta),
+  // jadi blok khusus peserta yang tidak tersembunyi di draf = matanya menyala.
+  const tersembunyi: readonly string[] | undefined = parsed.data.home?.hidden;
+  const nyala = tersembunyi ? (landing.blocks ?? []).map((block) => block.id as string).filter((id) => !tersembunyi.includes(id)) : [];
+  const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyala);
   const acara = sections === landing.sections ? event : { ...event, landing_config: { ...landing, sections } };
   const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi);
   return isi ? { ok: true, isi } : { ok: false, pesan: "Participant home is only on the Modern and Gathering layouts." };

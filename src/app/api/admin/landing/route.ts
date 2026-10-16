@@ -2,7 +2,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { landingBodySchema as bodySchema } from "@/lib/landing-body-schema";
-import { type RegistrationFormConfig } from "@/lib/domain";
+import { sectionsDariEventPage, type LandingBlock, type LandingSectionEntry, type RegistrationFormConfig } from "@/lib/domain";
 import { DEFAULT_REGISTRATION_SEED, withDerivedRoles } from "@/lib/registration-theme";
 
 export async function PATCH(request: Request) {
@@ -75,6 +75,12 @@ export async function PATCH(request: Request) {
           contact_name: tersimpan.landing_config?.contact_name,
           contact_phone: tersimpan.landing_config?.contact_phone,
           contact_email: tersimpan.landing_config?.contact_email,
+          // Saklar blok khusus peserta milik Participant home: yang tersimpan dipakai.
+          sections: sectionsDariEventPage(
+            landing.sections as LandingSectionEntry[] | undefined,
+            landing.blocks as LandingBlock[] | undefined,
+            tersimpan.landing_config?.sections as LandingSectionEntry[] | undefined,
+          ),
           // Peran warna diturunkan di server, sama seperti tema form pendaftaran.
           // Halaman publiknya menerima hex jadi dan tidak memuat pustaka warna.
           theme: landing.theme ? withDerivedRoles(landing.theme) : undefined,

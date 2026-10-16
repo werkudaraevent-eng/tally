@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowSquareOut, DotsSixVertical, Eye, EyeSlash, Plus } from "@phosphor-icons/react";
+import { CaretRight, DotsSixVertical, Eye, EyeSlash, Plus } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import Link from "@/components/event-link";
 import { Button } from "@/components/m3";
-import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeId, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { useToast } from "@/components/toast";
+import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
 import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
 import { TambahBlokDialog } from "../landing/blocks";
@@ -34,21 +35,16 @@ export type BlokPeserta = {
   empty: boolean;
 };
 
-type Baris = { id: string; judul: string; sub: string; blok: boolean; tampil: boolean; mati: string | null; tetap: boolean };
-
-/**
- * Tempat isi tiap baris bawaan disunting. Barisnya diisi otomatis dari data
- * acara, jadi tautannya menunjuk layar sumber, bukan editor salinan di sini:
- * satu data, satu tempat menyuntingnya.
- */
-const SUMBER: Record<MemberHomeId, { label: string; href: string }> = {
-  quick: { label: "Event page", href: "/admin/landing" },
-  announcements: { label: "Messages", href: "/admin/pengumuman/lonceng" },
-  next: { label: "Agenda", href: "/admin/rundown" },
-  checkpoints: { label: "Check-in", href: "/admin/attendance" },
-  logistics: { label: "Logistics", href: "/admin/logistik" },
-  roommates: { label: "Logistics", href: "/admin/logistik" },
-  agenda: { label: "Agenda", href: "/admin/rundown" },
+type Baris = {
+  id: string;
+  judul: string;
+  sub: string;
+  blok: boolean;
+  tampil: boolean;
+  mati: string | null;
+  tetap: boolean;
+  /** Tempat isinya disunting: layar sumber untuk baris otomatis, Event page untuk blok. */
+  sumber: MemberHomeSource;
 };
 
 /** Batas jumlah blok per acara, sama dengan Event page dan skema server. */
@@ -131,7 +127,8 @@ export function SusunanBeranda({
   const gathering = layout === "gathering";
   const router = useRouter();
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
-  const [catatanTambah, setCatatanTambah] = useState<string | null>(null);
+  const [tolakTambah, setTolakTambah] = useState<"penuh" | "berubah" | null>(null);
+  const toast = useToast();
   const [seret, setSeret] = useState<number | null>(null);
   const [sasaran, setSasaran] = useState<number | null>(null);
   const { order: urutanPenuh, hidden } = memberHomeOrder(member.home, blocks.map((block) => block.id), gathering);
@@ -173,18 +170,19 @@ export function SusunanBeranda({
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
     // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
-    const sub = id === "announcements" && slot === 3 ? `Top on phones, after Next up on wide screens · ${bawaan?.sub}` : `Automatic · ${bawaan?.sub ?? ""}`;
-    if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id) };
+    const sub = id === "announcements" && slot === 3 ? `Top on phones, after Next up on wide screens · ${bawaan?.sub}` : bawaan?.sub ?? "";
+    if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id), sumber: bawaan.source };
     const block = blocks.find((item) => item.id === id)!;
     const jenis = LANDING_BLOCK_LABELS[block.type];
     return {
       id,
       judul: block.heading || LANDING_BLOCK_LABELS[block.type],
-      sub: block.show_on === "both" ? `Your block · ${jenis} · also on the Event page` : `Your block · ${jenis}`,
+      sub: block.show_on === "both" ? `${jenis} · also on the Event page` : jenis,
       blok: true,
       tampil: !hidden.has(id),
       mati: block.hidden_on_page ? "Hidden in Page sections" : block.empty ? "Empty, add content on the Event page" : null,
       tetap: false,
+      sumber: { label: "Event page", href: `/admin/landing?blok=${encodeURIComponent(id)}` },
     };
   });
 
@@ -219,6 +217,24 @@ export function SusunanBeranda({
     // Fokus ikut barisnya, supaya panah berikutnya memindahkan baris yang sama.
     window.requestAnimationFrame(() => document.getElementById(`pegangan-${order[index]}`)?.focus());
   };
+
+  // Tempat isi baris disunting. Pindah layar membuang urutan dan mata yang
+  // belum disimpan, jadi ditahan dulu selama ada perubahan.
+  const tautanSumber = (b: Baris, letak: string) => (
+    <Link
+      href={b.sumber.href}
+      onClick={(event) => {
+        if (!adaPerubahan) return;
+        event.preventDefault();
+        toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
+      }}
+      className={cx("m3-state min-h-9 items-center gap-0.5 whitespace-nowrap rounded-md px-1 text-label-large font-medium text-primary sm:pl-2", letak)}
+      aria-label={b.blok ? `Edit ${b.judul}` : `Edit ${b.judul} in ${b.sumber.label}`}
+    >
+      {b.blok ? "Edit" : `Edit in ${b.sumber.label}`}
+      <CaretRight size={14} aria-hidden />
+    </Link>
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -262,28 +278,20 @@ export function SusunanBeranda({
             >
               {index + 1}
             </span>
-            <button type="button" onClick={() => onPilih(b.id)} className="m3-state min-w-0 flex-1 self-stretch rounded-sm px-1 py-2 text-left" aria-label={`${b.judul}: show in preview`}>
-              <span className={cx("block truncate text-body-medium font-medium", b.tampil && !b.mati ? "text-on-surface" : "text-on-surface-variant")}>{b.judul}</span>
-              <span className="block truncate text-body-small text-on-surface-variant">
-                {[!b.tampil ? "Hidden" : b.mati, b.tetap ? "Fixed place" : null, b.sub].filter(Boolean).join(" · ")}
-              </span>
-            </button>
-            {b.blok ? (
-              <Link href={`/admin/landing?blok=${encodeURIComponent(b.id)}`} className="m3-state inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-label-large font-medium text-primary" aria-label={`Edit ${b.judul}`} title="Edit">
-                <span className="hidden sm:inline">Edit</span>
-                <ArrowSquareOut size={14} aria-hidden />
-              </Link>
-            ) : SUMBER[b.id as MemberHomeId] ? (
-              <Link
-                href={SUMBER[b.id as MemberHomeId].href}
-                className="m3-state inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-label-large font-medium text-primary"
-                aria-label={`Edit ${b.judul} in ${SUMBER[b.id as MemberHomeId].label}`}
-                title={`Edit in ${SUMBER[b.id as MemberHomeId].label}`}
-              >
-                <span className="hidden sm:inline">Edit in {SUMBER[b.id as MemberHomeId].label}</span>
-                <ArrowSquareOut size={14} aria-hidden />
-              </Link>
-            ) : null}
+            {/* Ponsel: tautan sumber di baris sendiri di bawah judul, supaya judul
+                dan tempat menyuntingnya sama-sama terbaca utuh. */}
+            <div className="flex min-w-0 flex-1 flex-col self-stretch py-1 sm:py-0">
+              <button type="button" onClick={() => onPilih(b.id)} className="m3-state min-w-0 flex-1 rounded-sm px-1 py-1 text-left sm:py-2" aria-label={`${b.judul}: show in preview`}>
+                <span className={cx("block truncate text-body-medium font-medium", b.tampil && !b.mati ? "text-on-surface" : "text-on-surface-variant")}>{b.judul}</span>
+                {/* Jenis baris selalu terbaca; keterangannya yang terpotong bila sempit. */}
+                <span className="flex min-w-0 gap-1 text-body-small text-on-surface-variant">
+                  <span className="shrink-0 font-medium">{b.blok ? "Your block" : "Automatic"}</span>
+                  <span className="truncate">{["", !b.tampil ? "Hidden" : b.mati, b.tetap ? "Fixed place" : null, b.sub].filter((bagian) => bagian !== null).join(" · ")}</span>
+                </span>
+              </button>
+              {tautanSumber(b, "inline-flex self-start sm:hidden")}
+            </div>
+            {tautanSumber(b, "hidden shrink-0 sm:inline-flex")}
             <button
               type="button"
               aria-label={b.tampil ? `Hide ${b.judul}` : `Show ${b.judul}`}
@@ -310,15 +318,20 @@ export function SusunanBeranda({
           size="sm"
           icon={<Plus size={16} aria-hidden />}
           onClick={() => {
-            if (jumlahBlok >= MAKS_BLOK) { setCatatanTambah(`This event already has ${MAKS_BLOK} blocks, the most allowed. Delete one on the Event page first.`); return; }
-            if (adaPerubahan) { setCatatanTambah("Save or cancel your changes first. Adding a block opens it on the Event page."); return; }
-            setCatatanTambah(null);
+            if (jumlahBlok >= MAKS_BLOK) { setTolakTambah("penuh"); return; }
+            if (adaPerubahan) { setTolakTambah("berubah"); return; }
+            setTolakTambah(null);
             setTambahTerbuka(true);
           }}
         >
           Add block
         </Button>
-        {catatanTambah ? <p role="status" className="text-body-small text-on-surface-variant">{catatanTambah}</p> : null}
+        {/* Alasannya hilang sendiri begitu tidak berlaku lagi (setelah Save atau Cancel). */}
+        {tolakTambah === "penuh" && jumlahBlok >= MAKS_BLOK ? (
+          <p role="status" className="text-body-small text-on-surface-variant">This event already has {MAKS_BLOK} blocks, the most allowed. Delete one on the Event page first.</p>
+        ) : tolakTambah === "berubah" && adaPerubahan ? (
+          <p role="status" className="text-body-small text-on-surface-variant">Save or cancel your changes first. Adding a block opens it on the Event page.</p>
+        ) : null}
       </div>
       <TambahBlokDialog
         open={tambahTerbuka}

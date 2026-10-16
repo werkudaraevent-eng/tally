@@ -2587,7 +2587,8 @@ export default function LandingCmsPage() {
     alamat.searchParams.delete("tambah");
     alamat.searchParams.delete("untuk");
     window.history.replaceState(window.history.state, "", alamat.pathname + alamat.search + alamat.hash);
-    if (!LANDING_BLOCK_MEMBER_TYPES.includes(jenis as LandingBlockType) || (landing.blocks ?? []).length >= 30) return;
+    if (!LANDING_BLOCK_MEMBER_TYPES.includes(jenis as LandingBlockType)) { toast.error("Block not added", "That block type doesn't exist. Use Add block in Participant area."); return; }
+    if ((landing.blocks ?? []).length >= 30) { toast.error("Block not added", "This event already has 30 blocks, the most allowed. Delete one first."); return; }
     const timer = window.setTimeout(() => {
       gulirKeBaris(tambahBlok(jenis as LandingBlockType, "member"));
     }, 0);
@@ -2856,7 +2857,11 @@ export default function LandingCmsPage() {
 
   // Blok tambahan yang tersembunyi: satu-satunya yang bisa dihapus massal.
   // Bagian bawaan (Pembicara, FAQ, ...) hanya bisa disembunyikan.
-  const tersembunyi = sections.filter((section) => !section.enabled);
+  // Blok khusus peserta tidak dihitung: saklarnya di Participant home, bukan di sini.
+  const tersembunyi = sections.filter((section) => {
+    const blok = isLandingBlockId(section.id) ? blokById.get(section.id) : undefined;
+    return !section.enabled && !(blok && landingBlockMemberOnly(blok));
+  });
   const blokTersembunyi = tersembunyi.filter((section) => isLandingBlockId(section.id) && blokById.has(section.id)).map((section) => section.id);
   // Forum menyimpan bagian tersembunyinya sendiri (forum.hidden), urutannya tetap.
   // Bagian Portal peserta otomatis (gathering) ikut dihitung: tanpa itu,
@@ -2944,7 +2949,8 @@ export default function LandingCmsPage() {
           // Participant area > Participant home, jadi tidak ikut disaring di sini.
           const blokPeserta = isLandingBlockId(section.id) && blokById.get(section.id);
           const khususPeserta = Boolean(blokPeserta && landingBlockMemberOnly(blokPeserta));
-          if (!section.enabled && !tampilTersembunyi && !khususPeserta) return null;
+          // Baris yang sedang terbuka tetap ada walau Show on-nya baru diganti.
+          if (!section.enabled && !tampilTersembunyi && !khususPeserta && terbuka !== section.id) return null;
           const saklar = { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) };
 
           // Bagian otomatis gaya gathering: isinya tetap, tempatnya bisa digeser,

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { gatheringHorizon, landingBlockHasContent, landingBlockMemberOnly, landingBlockShownOn, normalizeLandingSections, sectionsDenganBlokPeserta, type EventLandingConfig, type LandingMemberConfig } from "@/lib/domain";
@@ -131,13 +132,16 @@ export async function GET(request: Request) {
 }
 
 /**
- * Setelan baru di atas salinan server. Mata Participant home yang menyalakan
- * blok khusus peserta ikut menyalakannya di Page sections, satu-satunya tempat
- * lama yang bisa mematikannya (sectionsDenganBlokPeserta).
+ * Setelan baru di atas salinan server. Mata Participant home yang dinyalakan
+ * admin (`nyalakan`) untuk blok khusus peserta ikut menyalakannya di Page
+ * sections, satu-satunya tempat lama yang bisa mematikannya. Hanya mata yang
+ * dinyalakan, bukan semua yang tidak tersembunyi: salinan basi tidak
+ * menyalakan blok yang baru dimatikan di layar lain.
  */
-function gabung(landing: EventLandingConfig, patch: Partial<LandingMemberConfig>): EventLandingConfig {
+function gabung(landing: EventLandingConfig, patch: Partial<LandingMemberConfig>, nyalakan: string[]): EventLandingConfig {
   const member = { ...(landing.member ?? {}), ...patch } as LandingMemberConfig;
-  const sections = patch.home ? sectionsDenganBlokPeserta(landing.sections, landing.blocks, patch.home.hidden ?? []) : landing.sections;
+  const tersembunyi = patch.home?.hidden ?? landing.member?.home?.hidden ?? [];
+  const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyalakan.filter((id) => !tersembunyi.includes(id)));
   return { ...landing, member, ...(sections !== landing.sections ? { sections } : {}) };
 }
 
@@ -147,8 +151,11 @@ export async function PATCH(request: Request) {
 
   // `enabled` boleh tidak dikirim: Agenda > Section > Outfit hanya mengirim
   // `outfit_label`, dan gabungan di bawah mempertahankan kunci lainnya.
-  const parsed = memberSchema.partial({ enabled: true }).safeParse((await request.json().catch(() => null))?.member);
+  const body = await request.json().catch(() => null);
+  const parsed = memberSchema.partial({ enabled: true }).safeParse(body?.member);
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  const nyalakan = z.array(z.string().max(40)).max(60).safeParse(body?.blok_nyala ?? []);
+  if (!nyalakan.success) return apiError("VALIDATION_ERROR", 422, nyalakan.error.flatten());
 
   const client = getSupabaseServiceClient();
   // Dibaca ulang tepat sebelum menulis, dan ditulis hanya kalau updated_at masih
@@ -169,7 +176,7 @@ export async function PATCH(request: Request) {
       .from("events")
       // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
       // show_roommates) tetap tersimpan.
-      .update({ landing_config: gabung(landing, parsed.data), updated_at: new Date().toISOString() } as never)
+      .update({ landing_config: gabung(landing, parsed.data, nyalakan.data), updated_at: new Date().toISOString() } as never)
       .eq("id", auth.scope.event.id)
       .eq("updated_at", baris.updated_at)
       .select("landing_config")
