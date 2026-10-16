@@ -37,9 +37,15 @@ export async function GET(request: Request) {
   // dipakai layar untuk menawarkan pengarsipannya, karena keadaan itu mustahil
   // ditemukan sendiri oleh panitia — yang terlihat hanya hadiah yang terus
   // menolak diundi tanpa alasan yang tertulis di mana pun.
+  //
+  // Wajib difilter event, sama seperti route arsipnya (sessions/adopt). Tanpa
+  // filter, angka ini menghitung pemenang tanpa sesi milik SEMUA event: acara
+  // baru tanpa satu pun undian ikut menampilkan "4 pemenang belum masuk sesi",
+  // dan tombol arsipnya selalu ditolak karena event ini memang tidak punya.
   const { count: orphanCount } = await client
     .from("undian_winners")
     .select("id", { count: "exact", head: true })
+    .eq("event_id", eventId)
     .is("session_id", null);
 
   const sessions = ((data ?? []) as Record<string, unknown>[]).map(normalizeSessionSummary);

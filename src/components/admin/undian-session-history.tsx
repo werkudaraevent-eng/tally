@@ -136,7 +136,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     const data = await response.json().catch(() => ({}));
     setAdopting(false);
     if (!response.ok) {
-      const failure = data?.error?.message ?? "Hasil lama gagal diarsipkan.";
+      const failure = data?.error?.details?.form?.[0] ?? data?.error?.message ?? "Hasil lama gagal diarsipkan.";
       setError(failure); toast.error("Gagal mengarsipkan", failure); return;
     }
     await loadSessions();
