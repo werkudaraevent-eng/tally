@@ -80,7 +80,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     kodeLabel: "Kode 6 digit",
     kirimUlang: "Kirim ulang kode",
     gantiEmail: "Ganti email",
-    kodeBaru: "Kode baru sudah dikirim. Kode sebelumnya tidak berlaku lagi.",
+    kodeBaru: "Bila email ini terdaftar, kode baru sedang dikirim. Pakai kode dari email terbaru.",
     kolomCatatan: "Isi sesuai data yang Anda berikan ke panitia.",
   },
   en: {
@@ -112,13 +112,13 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     kodeLabel: "6-digit code",
     kirimUlang: "Resend code",
     gantiEmail: "Change email",
-    kodeBaru: "A new code has been sent. The previous code no longer works.",
+    kodeBaru: "If this email is registered, a new code is on its way. Use the code from the latest email.",
     kolomCatatan: "Enter the details you gave the organisers.",
     galat: (kode, mode, menit) => {
       switch (kode) {
         case "RATE_LIMITED":
           menit = Math.max(1, menit ?? 1);
-          return `Too many attempts${mode === "kolom" ? "" : " for this email"}. Try again in ${menit} ${menit === 1 ? "minute" : "minutes"}.`;
+          return `Too many ${mode === "kode" || mode === "verifikasi" ? "code requests or attempts" : "attempts"}${mode === "kolom" ? "" : " for this email"}. Try again in ${menit} ${menit === 1 ? "minute" : "minutes"}.`;
         case "METHOD_OFF":
           return "The sign-in method for this event has changed. Reload the page.";
         case "NOT_ELIGIBLE":

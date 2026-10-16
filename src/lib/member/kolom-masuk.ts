@@ -11,7 +11,10 @@ import type { EventLandingConfig, RegistrationField, RegistrationFormConfig } fr
  * berbeda di ketiganya.
  *
  * Kolom yang boleh dipilih: email, telepon, nama, dan pertanyaan tambahan form
- * (kecuali unggahan). Sengaja TIDAK bisa: perusahaan, jabatan, tipe peserta,
+ * berisian bebas (Text, Email, Phone, Number). Pertanyaan pilihan (dropdown,
+ * radio, centang) dan tanggal tidak bisa: jawabannya sedikit kemungkinan,
+ * mis. Gender, sehingga "dua kolom" praktis jadi satu. Sengaja juga TIDAK
+ * bisa: perusahaan, jabatan, tipe peserta,
  * status RSVP (dipakai banyak orang sekaligus, jadi bukan pengenal), dan kode
  * QR/kode peserta (tercetak di tiket dan badge, dan kode itu sendiri sudah
  * membuka check-in atas nama orang itu).
@@ -34,8 +37,15 @@ const DASAR: Record<KolomMasukDasar, { admin: string; id: string; en: string; je
   name: { admin: "Full name", id: "Nama lengkap", en: "Full name", jenis: "text" },
 };
 
+/** Jenis pertanyaan yang jawabannya bebas diketik, jadi bisa jadi pengenal. */
+const JENIS_BOLEH = new Set<RegistrationField["type"]>(["text", "email", "tel", "number"]);
+
+function bolehDipilih(field: RegistrationField) {
+  return JENIS_BOLEH.has(field.type) && KOLOM_MASUK_POLA.test(`x:${field.key}`);
+}
+
 function pertanyaan(fields: RegistrationField[], id: KolomMasukId) {
-  return id.startsWith("x:") ? fields.find((field) => field.key === id.slice(2) && field.type !== "file") ?? null : null;
+  return id.startsWith("x:") ? fields.find((field) => field.key === id.slice(2) && bolehDipilih(field)) ?? null : null;
 }
 
 function jenisPertanyaan(field: RegistrationField): JenisIsian {
@@ -47,7 +57,7 @@ export function pilihanKolomMasuk(fields: RegistrationField[]): PilihanKolomMasu
   return [
     ...(Object.keys(DASAR) as KolomMasukDasar[]).map((id) => ({ id, label: DASAR[id].admin, jenis: DASAR[id].jenis })),
     ...fields
-      .filter((field) => field.type !== "file" && KOLOM_MASUK_POLA.test(`x:${field.key}`))
+      .filter(bolehDipilih)
       .map((field) => ({ id: `x:${field.key}`, label: field.label.trim() || field.key, jenis: jenisPertanyaan(field) })),
   ];
 }
@@ -63,7 +73,10 @@ export function kolomMasukPublik(id: KolomMasukId, fields: RegistrationField[], 
 }
 
 /**
- * Isian -> bentuk pembanding. Kosong = tidak bisa dipakai masuk.
+ * Isian -> bentuk pembanding, untuk kunci batas salah isi dan untuk menolak
+ * isian kosong. Pencocokan dengan data peserta memakai aturan yang sama di
+ * basis data (peserta_samakan_isian, migrasi 202610160003). Kosong = tidak
+ * bisa dipakai masuk.
  *
  *   email   huruf kecil, tanpa spasi tepi
  *   telepon hanya angka; 62.. dan 8.. disamakan dengan 0.. (0812 = +62 812 =
@@ -78,7 +91,7 @@ export function samakanIsian(id: KolomMasukId, jenis: JenisIsian, nilai: unknown
   if (typeof nilai !== "string" && typeof nilai !== "number") return "";
   const teks = String(nilai).trim();
   if (!teks) return "";
-  if (id === "email") return teks.toLowerCase();
+  if (id === "email" || jenis === "email") return teks.toLowerCase();
   if (jenis === "tel") return telepon(teks);
   return teks.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}@]/gu, "");
 }

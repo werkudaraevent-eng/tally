@@ -21,9 +21,19 @@ const fields = [
   { key: "nik", label: "NIK", type: "text", required: false },
   { key: "ktp", label: "Foto KTP", type: "file", required: false },
   { key: "hp_kantor", label: "HP kantor", type: "tel", required: false },
+  { key: "gender", label: "Gender", type: "radio", required: false, options: ["L", "P"] },
+  { key: "ukuran", label: "Ukuran kaos", type: "select", required: false, options: ["S", "M"] },
+  { key: "lahir", label: "Tanggal lahir", type: "date", required: false },
+  { key: "setuju", label: "Setuju", type: "checkbox", required: false },
+  { key: "no_pegawai", label: "No. pegawai", type: "number", required: false },
+  { key: "email_kantor", label: "Email kantor", type: "email", required: false },
 ] as never;
 const pilihan = pilihanKolomMasuk(fields).map((item) => item.id);
-assert.deepEqual(pilihan, ["email", "phone", "name", "x:nik", "x:hp_kantor"]);
+// Pilihan, tanggal, dan centang tidak bisa: jawabannya sedikit kemungkinan.
+assert.deepEqual(pilihan, ["email", "phone", "name", "x:nik", "x:hp_kantor", "x:no_pegawai", "x:email_kantor"]);
+for (const id of ["x:gender", "x:ukuran", "x:lahir", "x:setuju"]) assert.equal(kolomMasukPublik(id, fields, "id"), null, id);
+// Pertanyaan berjenis Email disamakan seperti email: titiknya tetap.
+assert.equal(samakanIsian("x:email_kantor", "email", " A.B@X.com"), "a.b@x.com");
 for (const id of ["qr_code", "company", "title", "x:", "x:a-b", "x:a.b"]) assert.equal(KOLOM_MASUK_POLA.test(id), false, id);
 assert.equal(kolomMasukPublik("x:ktp", fields, "id"), null);
 assert.deepEqual(kolomMasukPublik("phone", fields, "en"), { label: "Phone number", jenis: "tel" });

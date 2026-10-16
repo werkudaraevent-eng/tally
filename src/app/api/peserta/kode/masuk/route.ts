@@ -15,6 +15,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Ketik 6 angka dari email.");
 
-  const outcome = await masukDenganKode(resolved.event, resolved.member, parsed.data);
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip");
+  const outcome = await masukDenganKode(resolved.event, resolved.member, { ...parsed.data, ip });
   return outcomeResponse(outcome, "Kode tidak cocok atau sudah kedaluwarsa. Periksa lagi, atau minta kode baru.");
 }

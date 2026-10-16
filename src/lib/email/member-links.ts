@@ -36,7 +36,6 @@ const ISI: Isi = {
     tombol: null,
     catatan: "Bila Anda tidak memintanya, abaikan email ini.",
   },
-  // Walk-in yang baru didaftarkan petugas di meja registrasi (sendWalkinLink).
   // Kode masuk 6 digit (Participant area > Email code). Kodenya di `kode`.
   kode: {
     subjek: (acara) => `Kode masuk area peserta — ${acara}`,
@@ -44,6 +43,7 @@ const ISI: Isi = {
     tombol: null,
     catatan: "Kode ini berlaku 10 menit dan hanya bisa dipakai sekali. Jangan berikan kode ini kepada siapa pun, termasuk panitia. Bila Anda tidak memintanya, abaikan email ini.",
   },
+  // Walk-in yang baru didaftarkan petugas di meja registrasi (sendWalkinLink).
   walkin: {
     subjek: (acara) => `Akses area peserta — ${acara}`,
     pembuka: "Anda sudah terdaftar di meja registrasi. Buat kata sandi lewat tombol di bawah untuk membuka tiket dan info acara Anda di area peserta.",

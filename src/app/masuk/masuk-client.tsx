@@ -82,6 +82,7 @@ const FIELD =
   "h-[52px] w-full rounded-md border border-[color-mix(in_srgb,var(--reg-on-surface)_58%,var(--reg-field,#ffffff))] bg-[var(--reg-field)] px-4 placeholder:text-[var(--reg-on-surface-variant)] text-body-large text-[var(--reg-on-surface)] outline-none focus-visible:border-[var(--reg-primary)] focus-visible:ring-2 focus-visible:ring-[var(--reg-primary)]";
 const LABEL = "flex flex-col gap-2 text-body-large font-medium";
 const TAUTAN = "min-h-11 self-start font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
+const TAUTAN_48 = "min-h-12 self-start font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
 
 /**
  * Halaman masuk untuk tata letak selain Modern (Modern memakai dialog). Satu
@@ -288,8 +289,8 @@ export function MasukClient({
 
       {mode === "verifikasi" ? (
         <div className="-mt-2 flex flex-wrap justify-between gap-x-4">
-          <button type="button" onClick={() => void kirimUlang()} className={TAUTAN}>{t.kirimUlang}</button>
-          <button type="button" onClick={() => { setMode("kode"); setGalat(""); setCatatan(""); }} className={TAUTAN}>{t.gantiEmail}</button>
+          <button type="button" onClick={() => void kirimUlang()} className={TAUTAN_48}>{t.kirimUlang}</button>
+          <button type="button" onClick={() => { setMode("kode"); setGalat(""); setCatatan(""); }} className={TAUTAN_48}>{t.gantiEmail}</button>
         </div>
       ) : null}
 

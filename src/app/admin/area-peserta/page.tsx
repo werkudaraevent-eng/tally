@@ -392,7 +392,7 @@ function CaraMasuk({ anggota, set, data }: { anggota: LandingMemberConfig; set: 
               <span className="block font-semibold">
                 Anyone who knows a participant&apos;s {label(kolom[0])} and {label(kolom[1])} can open their area.
               </span>
-              Colleagues often know both, and phone numbers appear on name lists. They would see the ticket QR code, seat and room. ID numbers such as NIK are personal data: everyone with access to the Participant list or Export can see them. Use this only when the organiser accepts that risk.
+              Colleagues often know both, and phone numbers appear on name lists. They would see the ticket QR code, seat and room. ID numbers such as NIK are personal data: everyone with access to the Participant list or Export can see them. Use this only when the organiser accepts that risk. Switching to another sign-in method later signs out everyone who signed in this way.
             </Banner>
           ) : null}
         </>

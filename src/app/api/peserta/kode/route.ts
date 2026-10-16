@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
 import { caraMasuk, kirimKodeMasuk } from "@/lib/member/masuk-lain";
@@ -21,10 +22,13 @@ export async function POST(request: Request) {
   const hasil = await kirimKodeMasuk(resolved.event, resolved.member, { email: parsed.data.email, ip, requestUrl: await linkOrigin(request, resolved.event.id), lang: parsed.data.lang });
   switch (hasil.status) {
     case "sent":
+      // Mencari peserta, membuat kode, dan mengirim email berjalan setelah
+      // jawaban: lama jawaban sama untuk email terdaftar maupun tidak.
+      if (hasil.kirim) after(hasil.kirim);
       return Response.json({ ok: true });
-    case "not_configured":
-      return memberError("EMAIL_NOT_CONFIGURED", 503, "Pengiriman email belum aktif untuk acara ini. Hubungi panitia.");
+    case "rate_limited":
+      return memberError("RATE_LIMITED", 429, `Terlalu banyak permintaan kode. Coba lagi dalam ${Math.max(1, Math.ceil(hasil.retryAfterSeconds / 60))} menit.`, { retry_after_seconds: hasil.retryAfterSeconds });
     default:
-      return memberError("EMAIL_FAILED", 502, "Email belum terkirim. Coba lagi sebentar lagi.");
+      return memberError("EMAIL_NOT_CONFIGURED", 503, "Pengiriman email belum aktif untuk acara ini. Hubungi panitia.");
   }
 }

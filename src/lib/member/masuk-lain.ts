@@ -33,11 +33,39 @@ export function caraMasuk(member: Pick<LandingMemberConfig, "sign_in"> | null | 
 // ---- Kode dari email ------------------------------------------------------
 
 const MASA_KODE_MS = 10 * 60 * 1000;
-/** Sama dengan "Kirim tautan ke email" (links.ts): per email dan per IP. */
-const BATAS_EMAIL = 3;
-const JENDELA_EMAIL = 15 * 60 * 1000;
-const BATAS_IP = 20;
+/**
+ * Batas permintaan kode, semuanya dari participant_link_requests (dicatat
+ * untuk setiap permintaan, terdaftar atau tidak, jadi batasnya tidak
+ * membocorkan siapa yang terdaftar):
+ *   per email + IP  3 per 15 menit. Peminta yang sama mendapat "tunggu".
+ *   per IP          60 per 10 menit. Peminta yang sama mendapat "tunggu".
+ *                   Longgar: peserta di lokasi acara berbagi satu wifi.
+ *   per email       10 per jam dari IP mana pun. Diam (tetap "terkirim"),
+ *                   karena yang kena bisa orang lain.
+ * Ditambah 20 kode per email per 24 jam (dihitung dari kode yang dibuat).
+ */
+const BATAS_PASANGAN = 3;
+const JENDELA_PASANGAN = 15 * 60 * 1000;
+const BATAS_IP = 60;
 const JENDELA_IP = 10 * 60 * 1000;
+const BATAS_EMAIL_JAM = 10;
+const JENDELA_EMAIL_JAM = 60 * 60 * 1000;
+const BATAS_KODE_HARI = 20;
+/**
+ * Kode yang diuji setiap tebakan: kode terbaru dari tiap IP peminta, paling
+ * banyak lima. Permintaan dari IP lain tidak membatalkan kode yang sedang
+ * dipegang peserta. Setiap tebakan salah menambah hitungan semua kode yang
+ * diuji; kode hangus di tebakan salah ke-5 (peserta_kode_salah).
+ */
+const KODE_DIUJI = 5;
+/**
+ * Tebakan salah per IP, di semua email: 60 per 10 menit (wifi lokasi acara).
+ * Yang benar-benar menahan tebakan adalah kode yang hangus di salah ke-5
+ * dan 20 kode per email per hari: paling banyak 100 tebakan per email sehari.
+ */
+const BATAS_SALAH_IP = 60;
+const JENDELA_SALAH_IP = 10 * 60 * 1000;
+const KUNCI_SALAH_KODE = "kode-salah";
 
 /**
  * Hash kode bersama id barisnya. Kode hanya 6 digit, jadi tanpa id dua email
@@ -49,12 +77,19 @@ function hashKode(id: string, kode: string) {
   return createHash("sha256").update(`${id}:${kode}`).digest("hex");
 }
 
-export type KirimKodeOutcome = { status: "sent" } | { status: "not_configured" } | { status: "failed" };
+const sejak = (ms: number) => new Date(Date.now() - ms).toISOString();
+
+export type KirimKodeOutcome =
+  /** `kirim`: dijalankan route di after(), supaya jawabannya tidak menunggu basis data dan penyedia email. */
+  | { status: "sent"; kirim?: () => Promise<void> }
+  | { status: "rate_limited"; retryAfterSeconds: number }
+  | { status: "not_configured" };
 
 /**
- * Kirim kode masuk. Jawabannya SAMA untuk email terdaftar maupun tidak
- * (`sent`), juga saat kena batas, supaya formulir ini tidak bisa dipakai
- * menebak siapa yang terdaftar (alasan yang sama dengan requestPasswordLink).
+ * Kirim kode masuk. Jawabannya SAMA untuk email terdaftar maupun tidak, dan
+ * datang SEBELUM email dicari: mencari peserta, membuat kode, dan mengirim
+ * email berjalan di `kirim` (after()), jadi lama jawaban dan kegagalan
+ * penyedia email tidak membocorkan siapa yang terdaftar.
  */
 export async function kirimKodeMasuk(
   event: EventRow,
@@ -64,53 +99,65 @@ export async function kirimKodeMasuk(
   if (!isEmailConfigured()) return { status: "not_configured" };
   const email = normalizeEmail(input.email);
   const client = getSupabaseServiceClient();
+  const hitung = () => client.from("participant_link_requests").select("id", { head: true, count: "exact" }).eq("event_id", event.id);
 
-  const [perEmail, perIp] = await Promise.all([
-    client
-      .from("participant_link_requests")
-      .select("id", { head: true, count: "exact" })
-      .eq("event_id", event.id)
-      .eq("email", email)
-      .gte("created_at", new Date(Date.now() - JENDELA_EMAIL).toISOString()),
+  const [pasangan, perIp, perEmail] = await Promise.all([
+    input.ip ? hitung().eq("email", email).eq("ip", input.ip).gte("created_at", sejak(JENDELA_PASANGAN)) : Promise.resolve({ count: 0 }),
     input.ip
-      ? client
-        .from("participant_link_requests")
+      ? hitung().eq("ip", input.ip).neq("email", KUNCI_SALAH_KODE).not("email", "like", "kolom:%").gte("created_at", sejak(JENDELA_IP))
+      : Promise.resolve({ count: 0 }),
+    hitung().eq("email", email).gte("created_at", sejak(JENDELA_EMAIL_JAM)),
+  ]);
+  if ((pasangan.count ?? 0) >= BATAS_PASANGAN) return { status: "rate_limited", retryAfterSeconds: Math.round(JENDELA_PASANGAN / 1000) };
+  if ((perIp.count ?? 0) >= BATAS_IP) return { status: "rate_limited", retryAfterSeconds: Math.round(JENDELA_IP / 1000) };
+  await client.from("participant_link_requests").insert({ event_id: event.id, email, ip: input.ip } as never);
+  if ((perEmail.count ?? 0) >= BATAS_EMAIL_JAM) return { status: "sent" };
+
+  const kirim = async () => {
+    try {
+      const sasaran = await cariSasaran(event, member, email);
+      if (!sasaran) return;
+      const versi = versiBahasa(event, input.lang, input.requestUrl);
+
+      // Terdaftar, tetapi "Who can sign in" belum membuka aksesnya: dikabari, tanpa kode.
+      if (sasaran.tertutup) {
+        await sendMemberLink({ eventId: event.id, kind: "tertutup", to: email, name: sasaran.name, eventName: versi.eventName, url: null, lang: versi.lang });
+        return;
+      }
+
+      const { count: hariIni } = await client
+        .from("participant_account_tokens")
         .select("id", { head: true, count: "exact" })
         .eq("event_id", event.id)
-        .eq("ip", input.ip)
-        .gte("created_at", new Date(Date.now() - JENDELA_IP).toISOString())
-      : Promise.resolve({ count: 0 }),
-  ]);
-  await client.from("participant_link_requests").insert({ event_id: event.id, email, ip: input.ip } as never);
-  if ((perEmail.count ?? 0) >= BATAS_EMAIL || (perIp.count ?? 0) >= BATAS_IP) return { status: "sent" };
+        .eq("email", email)
+        .eq("purpose", "kode")
+        .gte("created_at", sejak(24 * 60 * 60 * 1000));
+      if ((hariIni ?? 0) >= BATAS_KODE_HARI) return;
 
-  const sasaran = await cariSasaran(event, member, email);
-  if (!sasaran) return { status: "sent" };
-  const versi = versiBahasa(event, input.lang, input.requestUrl);
-
-  // Terdaftar, tetapi "Who can sign in" belum membuka aksesnya: dikabari, tanpa kode.
-  if (sasaran.tertutup) {
-    const hasil = await sendMemberLink({ eventId: event.id, kind: "tertutup", to: email, name: sasaran.name, eventName: versi.eventName, url: null, lang: versi.lang });
-    return hasil.state === "sent" ? { status: "sent" } : { status: "failed" };
-  }
-
-  const id = randomUUID();
-  const kode = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const { error } = await client.from("participant_account_tokens").insert({
-    id,
-    event_id: event.id,
-    purpose: "kode",
-    token_hash: hashKode(id, kode),
-    email,
-    account_id: sasaran.sasaran.accountId ?? null,
-    participant_id: sasaran.sasaran.participantId ?? null,
-    registration_id: sasaran.sasaran.registrationId ?? null,
-    expires_at: new Date(Date.now() + MASA_KODE_MS).toISOString(),
-  } as never);
-  if (error) return { status: "failed" };
-
-  const hasil = await sendMemberLink({ eventId: event.id, kind: "kode", to: email, name: sasaran.name, eventName: versi.eventName, url: null, kode, lang: versi.lang });
-  return hasil.state === "sent" ? { status: "sent" } : { status: "failed" };
+      const id = randomUUID();
+      const kode = String(randomInt(0, 1_000_000)).padStart(6, "0");
+      const { error } = await client.from("participant_account_tokens").insert({
+        id,
+        event_id: event.id,
+        purpose: "kode",
+        token_hash: hashKode(id, kode),
+        email,
+        ip: input.ip,
+        account_id: sasaran.sasaran.accountId ?? null,
+        participant_id: sasaran.sasaran.participantId ?? null,
+        registration_id: sasaran.sasaran.registrationId ?? null,
+        expires_at: new Date(Date.now() + MASA_KODE_MS).toISOString(),
+      } as never);
+      if (error) {
+        console.warn("[peserta] kode masuk gagal disimpan", event.id, error.code);
+        return;
+      }
+      await sendMemberLink({ eventId: event.id, kind: "kode", to: email, name: sasaran.name, eventName: versi.eventName, url: null, kode, lang: versi.lang });
+    } catch (galat) {
+      console.warn("[peserta] kode masuk gagal dikirim", event.id, galat instanceof Error ? galat.message : galat);
+    }
+  };
+  return { status: "sent", kirim };
 }
 
 /** Batas tebakan kode, per email: begin_login_attempt (6 per 10 menit, lalu terkunci bertahap). */
@@ -121,58 +168,85 @@ async function gerbang(kunci: string): Promise<MemberOutcome | null> {
   return null;
 }
 
+type BarisKode = {
+  id: string;
+  token_hash: string;
+  ip: string | null;
+  account_id: string | null;
+  participant_id: string | null;
+  registration_id: string | null;
+};
+
 /**
- * Masuk dengan kode. Hanya kode TERBARU email ini yang berlaku: meminta kode
- * baru membatalkan yang lama, jadi tebakan tidak bisa menyebar ke beberapa
- * kode yang masih hidup sekaligus.
+ * Masuk dengan kode. Tiga batas tebakan:
+ *   per kode   hangus di tebakan salah ke-5; peserta meminta kode baru
+ *   per email  begin_login_attempt (6 per 10 menit, terkunci bertahap)
+ *   per IP     60 tebakan salah per 10 menit, di semua email
  */
 export async function masukDenganKode(
   event: EventRow,
   member: LandingMemberConfig,
-  input: { email: string; kode: string },
+  input: { email: string; kode: string; ip: string | null },
 ): Promise<MemberOutcome> {
   const email = normalizeEmail(input.email);
+  const client = getSupabaseServiceClient();
+  if (input.ip) {
+    const { count } = await client
+      .from("participant_link_requests")
+      .select("id", { head: true, count: "exact" })
+      .eq("event_id", event.id)
+      .eq("email", KUNCI_SALAH_KODE)
+      .eq("ip", input.ip)
+      .gte("created_at", sejak(JENDELA_SALAH_IP));
+    if ((count ?? 0) >= BATAS_SALAH_IP) return { status: "rate_limited", retryAfterSeconds: Math.round(JENDELA_SALAH_IP / 1000) };
+  }
   const kunci = `peserta-kode:${event.id}:${email}`;
   const tertahan = await gerbang(kunci);
   if (tertahan) return tertahan;
 
-  const client = getSupabaseServiceClient();
   const { data } = await client
     .from("participant_account_tokens")
-    .select("id,token_hash,account_id,participant_id,registration_id,expires_at,used_at")
+    .select("id,token_hash,ip,account_id,participant_id,registration_id")
     .eq("event_id", event.id)
     .eq("email", email)
     .eq("purpose", "kode")
+    .is("used_at", null)
+    .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const baris = data as {
-    id: string;
-    token_hash: string;
-    account_id: string | null;
-    participant_id: string | null;
-    registration_id: string | null;
-    expires_at: string;
-    used_at: string | null;
-  } | null;
-  if (!baris || baris.used_at || new Date(baris.expires_at).getTime() < Date.now()) return { status: "invalid" };
-  if (!/^\d{6}$/.test(input.kode) || !sama(hashKode(baris.id, input.kode), baris.token_hash)) return { status: "invalid" };
+    .limit(50);
+  // Kode terbaru dari tiap IP peminta.
+  const perIp = new Map<string, BarisKode>();
+  for (const baris of (data ?? []) as BarisKode[]) {
+    const ip = baris.ip ?? "";
+    if (!perIp.has(ip)) perIp.set(ip, baris);
+  }
+  const diuji = [...perIp.values()].slice(0, KODE_DIUJI);
+  const cocok = /^\d{6}$/.test(input.kode) ? diuji.find((baris) => sama(hashKode(baris.id, input.kode), baris.token_hash)) : undefined;
+
+  if (!cocok) {
+    await Promise.all([
+      diuji.length ? client.rpc("peserta_kode_salah" as never, { p_ids: diuji.map((baris) => baris.id) } as never) : null,
+      client.from("participant_link_requests").insert({ event_id: event.id, email: KUNCI_SALAH_KODE, ip: input.ip } as never),
+    ]);
+    return { status: "invalid" };
+  }
 
   // Dipakai lebih dulu, baru diproses: dua kiriman serentak, hanya satu lolos.
   const { data: dipakai } = await client
     .from("participant_account_tokens")
     .update({ used_at: new Date().toISOString() } as never)
-    .eq("id", baris.id)
+    .eq("id", cocok.id)
     .is("used_at", null)
     .select("id");
   if (!dipakai || (dipakai as unknown[]).length === 0) return { status: "invalid" };
 
   const hasil = await masukkanSasaran(event, member, {
-    sasaran: { accountId: baris.account_id ?? undefined, participantId: baris.participant_id ?? undefined, registrationId: baris.registration_id ?? undefined },
+    sasaran: { accountId: cocok.account_id ?? undefined, participantId: cocok.participant_id ?? undefined, registrationId: cocok.registration_id ?? undefined },
     email,
     terbukti: true,
+    cara: "email_code",
   });
-  if (hasil.status === "ok") await getSupabaseServiceClient().rpc("clear_login_attempts" as never, { p_username: kunci } as never);
+  if (hasil.status === "ok") await client.rpc("clear_login_attempts" as never, { p_username: kunci } as never);
   return hasil;
 }
 
@@ -186,11 +260,12 @@ function sama(a: string, b: string) {
 
 /**
  * Batas salah isi, dicatat di participant_link_requests dengan "email" berupa
- * kunci `kolom:<hash>` (bukan alamat email; isiannya sendiri tidak disimpan).
+ * kunci `kolom:<hmac>` (bukan alamat email; isiannya sendiri tidak disimpan).
  *   per isian: 5 salah per 15 menit untuk tiap isian, jadi menebak NIK
  *              seseorang yang nomor HP-nya diketahui tertahan di 5 kali.
  *   per IP:    60 salah per 10 menit. Longgar dengan sengaja: peserta di
- *              lokasi acara sering berbagi satu jaringan wifi.
+ *              lokasi acara sering berbagi satu jaringan wifi. Hanya kunci
+ *              pertama yang membawa IP, jadi satu salah = satu hitungan.
  */
 const BATAS_ISIAN = 5;
 const JENDELA_ISIAN = 15 * 60 * 1000;
@@ -200,7 +275,8 @@ const JENDELA_IP_KOLOM = 10 * 60 * 1000;
 function kunciIsian(eventId: string, id: KolomMasukId, nilai: string) {
   // HMAC dengan rahasia server: NIK atau nomor HP yang salah ketik tidak bisa
   // ditebak balik dari tabel ini oleh siapa pun yang hanya bisa membacanya.
-  const rahasia = process.env.SESSION_SECRET ?? "";
+  const rahasia = process.env.SESSION_SECRET;
+  if (!rahasia) throw new Error("SESSION_SECRET is missing.");
   return `kolom:${createHmac("sha256", rahasia).update(`${eventId}:${id}:${nilai}`).digest("hex").slice(0, 40)}`;
 }
 
@@ -220,51 +296,17 @@ export function formFields(event: Pick<EventRow, "registration_form_config">): R
   return ((event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
 }
 
-type BarisPeserta = { id: string; name: string | null; email: string | null; phone: string | null; extra: Record<string, unknown> | null };
-
-function nilaiKolom(baris: BarisPeserta, id: KolomMasukId): unknown {
-  if (id === "email") return baris.email;
-  if (id === "phone") return baris.phone;
-  if (id === "name") return baris.name;
-  return baris.extra?.[id.slice(2)];
-}
-
-/** `%` dan `_` dicari apa adanya, bukan sebagai wildcard ilike. */
-function polaPersis(teks: string) {
-  return teks.replace(/[\\%_]/g, (huruf) => `\\${huruf}`);
-}
-
-/**
- * Peserta aktif acara ini, per halaman 1.000 baris (batas baca PostgREST),
- * diurutkan id supaya halamannya stabil. `email` mempersempit ke satu email
- * bila salah satu kolomnya email.
- */
-async function* semuaPeserta(eventId: string, email?: string): AsyncGenerator<BarisPeserta[]> {
-  const client = getSupabaseServiceClient();
-  let setelah: string | null = null;
-  for (let halaman = 0; halaman < 50; halaman++) {
-    let kueri = client
-      .from("participants")
-      .select("id,name,email,phone,extra")
-      .eq("event_id", eventId)
-      .is("source_removed_at", null)
-      .order("id")
-      .limit(1000);
-    if (email) kueri = kueri.ilike("email", polaPersis(email));
-    if (setelah) kueri = kueri.gt("id", setelah);
-    const { data, error } = await kueri;
-    if (error) throw new Error("Peserta gagal dibaca.");
-    const baris = (data ?? []) as BarisPeserta[];
-    if (baris.length) yield baris;
-    if (baris.length < 1000) return;
-    setelah = baris[baris.length - 1].id;
-  }
+/** Argumen RPC pencocokan: id kolom dan jenisnya, sama urutannya. */
+function argKolom(kolom: [KolomTerpilih, KolomTerpilih]) {
+  return { p_kolom: kolom.map((k) => k.id), p_jenis: kolom.map((k) => k.jenis) };
 }
 
 /**
  * Masuk dengan dua isian. Cocok hanya bila TEPAT SATU peserta punya keduanya;
  * dua peserta dengan isian yang sama (kombinasi kembar) tidak bisa masuk
- * dengan cara ini, dan layar admin menghitung berapa yang begitu.
+ * dengan cara ini, dan layar admin menghitung berapa yang begitu. Pencocokan
+ * satu kueri di basis data (peserta_cocok_kolom), bukan membaca seluruh
+ * daftar peserta.
  */
 export async function masukDenganKolom(
   event: EventRow,
@@ -278,7 +320,6 @@ export async function masukDenganKolom(
 
   const client = getSupabaseServiceClient();
   const kunci = kolom.map((k, i) => kunciIsian(event.id, k.id, isian[i]));
-  const sejak = (ms: number) => new Date(Date.now() - ms).toISOString();
   const [a, b, ip] = await Promise.all([
     ...kunci.map((k) => client.from("participant_link_requests").select("id", { head: true, count: "exact" }).eq("event_id", event.id).eq("email", k).gte("created_at", sejak(JENDELA_ISIAN))),
     input.ip
@@ -290,27 +331,28 @@ export async function masukDenganKolom(
   }
 
   const salah = async (): Promise<MemberOutcome> => {
-    await client.from("participant_link_requests").insert(kunci.map((k) => ({ event_id: event.id, email: k, ip: input.ip })) as never);
+    await client.from("participant_link_requests").insert(kunci.map((k, i) => ({ event_id: event.id, email: k, ip: i === 0 ? input.ip : null })) as never);
     return { status: "invalid" };
   };
 
-  const indeksEmail = kolom.findIndex((k) => k.id === "email");
-  const cocok: BarisPeserta[] = [];
-  try {
-    for await (const halaman of semuaPeserta(event.id, indeksEmail >= 0 ? isian[indeksEmail] : undefined)) {
-      for (const baris of halaman) {
-        if (kolom.every((k, i) => samakanIsian(k.id, k.jenis, nilaiKolom(baris, k.id)) === isian[i])) cocok.push(baris);
-      }
-      if (cocok.length > 1) break;
-    }
-  } catch {
+  const { data, error } = await client.rpc("peserta_cocok_kolom" as never, { p_event: event.id, ...argKolom(kolom), p_nilai: input.nilai } as never);
+  if (error) {
+    console.warn("[peserta] pencocokan dua kolom gagal", event.id, error.code);
     return { status: "invalid" };
   }
+  const cocok = (data ?? []) as unknown as string[];
   if (cocok.length !== 1) return salah();
 
-  const peserta = cocok[0];
-  const email = peserta.email ? normalizeEmail(peserta.email) : null;
-  const hasil = await masukkanSasaran(event, member, { sasaran: { participantId: peserta.id }, email: email && /^[^\s@]+@[^\s@]+$/.test(email) ? email : null, terbukti: false });
+  const { data: peserta } = await client.from("participants").select("id,email").eq("id", cocok[0]).eq("event_id", event.id).maybeSingle();
+  if (!peserta) return salah();
+  const mentah = (peserta as { email: string | null }).email;
+  const email = mentah ? normalizeEmail(mentah) : null;
+  const hasil = await masukkanSasaran(event, member, {
+    sasaran: { participantId: cocok[0] },
+    email: email && /^[^\s@]+@[^\s@]+$/.test(email) ? email : null,
+    terbukti: false,
+    cara: "fields",
+  });
   if (hasil.status === "invalid") return salah();
   return hasil;
 }
@@ -322,24 +364,10 @@ export async function ringkasKolom(
 ): Promise<{ participants: number; filled: number; duplicates: number } | null> {
   const kolom = kolomTerpilih(event, { enabled: true, sign_in_fields: ids });
   if (!kolom) return null;
-  let participants = 0;
-  const kombinasi = new Map<string, number>();
-  for await (const halaman of semuaPeserta(event.id)) {
-    participants += halaman.length;
-    for (const baris of halaman) {
-      const [x, y] = kolom.map((k) => samakanIsian(k.id, k.jenis, nilaiKolom(baris, k.id)));
-      if (!x || !y) continue;
-      const kunci = JSON.stringify([x, y]);
-      kombinasi.set(kunci, (kombinasi.get(kunci) ?? 0) + 1);
-    }
-  }
-  let filled = 0;
-  let duplicates = 0;
-  for (const jumlah of kombinasi.values()) {
-    filled += jumlah;
-    if (jumlah > 1) duplicates += jumlah;
-  }
-  return { participants, filled, duplicates };
+  const { data, error } = await getSupabaseServiceClient().rpc("peserta_ringkas_kolom" as never, { p_event: event.id, ...argKolom(kolom) } as never);
+  if (error) throw new Error("Ringkasan dua kolom gagal dibaca.");
+  const baris = ((data ?? []) as unknown as { participants: number; filled: number; duplicates: number }[])[0];
+  return { participants: Number(baris?.participants ?? 0), filled: Number(baris?.filled ?? 0), duplicates: Number(baris?.duplicates ?? 0) };
 }
 
 // ---- Bersama ---------------------------------------------------------------
@@ -357,7 +385,7 @@ export async function ringkasKolom(
 async function masukkanSasaran(
   event: EventRow,
   member: LandingMemberConfig,
-  input: { sasaran: Sasaran; email: string | null; terbukti: boolean },
+  input: { sasaran: Sasaran; email: string | null; terbukti: boolean; cara: "email_code" | "fields" },
 ): Promise<MemberOutcome> {
   const client = getSupabaseServiceClient();
   const sekarang = new Date().toISOString();
@@ -394,6 +422,12 @@ async function masukkanSasaran(
       .from("participant_accounts")
       .update({ last_login_at: sekarang, ...(input.terbukti ? { email_verified_at: sekarang } : {}) } as never)
       .eq("id", accountId);
+    // Akun tanpa email (dua kolom data peserta) yang kini masuk dengan kode:
+    // email yang baru terbukti menjadi email akunnya. Email yang sudah
+    // dipakai akun lain dibiarkan (23505).
+    if (input.terbukti && input.email) {
+      await client.from("participant_accounts").update({ email: input.email } as never).eq("id", accountId).is("email", null);
+    }
   } else {
     const password_hash = await bcrypt.hash(randomBytes(32).toString("base64url"), HASH_ROUNDS);
     const baru = (email: string | null) =>
@@ -405,6 +439,9 @@ async function masukkanSasaran(
           registration_id: registrationId ?? null,
           email,
           password_hash,
+          // Kata sandi acak, bukan buatan peserta: Pesan peserta mengirim
+          // tautan buat kata sandi bila acaranya kembali ke kata sandi.
+          password_set_at: null,
           email_verified_at: input.terbukti && email ? sekarang : null,
           last_login_at: sekarang,
         } as never)
@@ -418,6 +455,6 @@ async function masukkanSasaran(
   }
 
   if (input.email) await clearGate(event.id, input.email);
-  await startSession(accountId);
+  await startSession(accountId, input.cara);
   return { status: "ok" };
 }

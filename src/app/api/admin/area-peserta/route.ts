@@ -154,6 +154,11 @@ export async function PATCH(request: Request) {
   if (akhir.sign_in === "fields" && !kolomTerpilih(auth.scope.event, { enabled: true, ...akhir })) {
     return apiError("VALIDATION_ERROR", 422, { formErrors: ["Choose two different participant fields to sign in with."], fieldErrors: {} });
   }
+  // Pindah ke Email code tanpa pengiriman email: tidak ada yang bisa masuk.
+  const sebelumnya = ((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member?.sign_in;
+  if (parsed.data.sign_in === "email_code" && sebelumnya !== "email_code" && !isEmailConfigured()) {
+    return apiError("VALIDATION_ERROR", 422, { formErrors: ["Email sending isn't set up, so participants can't get a code. Choose another sign-in method."], fieldErrors: {} });
+  }
 
   const client = getSupabaseServiceClient();
   // Dibaca ulang tepat sebelum menulis, dan ditulis hanya kalau updated_at masih

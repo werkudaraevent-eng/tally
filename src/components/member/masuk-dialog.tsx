@@ -106,6 +106,8 @@ const LABEL = "block text-label-large font-semibold";
 const KOLOM = `${REG_CONTROL} font-normal border-[color-mix(in_srgb,var(--reg-on-surface)_58%,var(--reg-field,#ffffff))]! placeholder:text-[var(--reg-on-surface-variant)] focus:border-[var(--reg-primary)]! focus-visible:outline-none! focus-visible:shadow-[0_0_0_2px_var(--reg-primary)]! aria-invalid:border-[var(--reg-error)]! aria-invalid:focus-visible:shadow-[0_0_0_2px_var(--reg-error)]!`;
 // 44px di layar lebar seperti dulu, 48px di ponsel (target sentuh halaman publik).
 const TAUTAN = "inline-flex min-h-11 max-[599px]:min-h-12 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
+/** Tautan yang berdiri sendiri (Kirim ulang kode, Ganti email): 48 px di semua lebar. */
+const TAUTAN_48 = "inline-flex min-h-12 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
 
 export function MasukDialog({
   slug,
@@ -671,10 +673,10 @@ export function MasukDialog({
           </button>}
           {mode === "verifikasi" ? (
             <div className="mt-3 flex flex-wrap justify-between gap-x-4">
-              <button type="button" onClick={() => void kirimUlang()} className={`text-label-large ${TAUTAN}`}>
+              <button type="button" onClick={() => void kirimUlang()} className={`text-label-large ${TAUTAN_48}`}>
                 {t.kirimUlang}
               </button>
-              <button type="button" onClick={gantiEmail} className={`text-label-large ${TAUTAN}`}>
+              <button type="button" onClick={gantiEmail} className={`text-label-large ${TAUTAN_48}`}>
                 {t.gantiEmail}
               </button>
             </div>
