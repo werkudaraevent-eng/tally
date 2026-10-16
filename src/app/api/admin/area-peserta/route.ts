@@ -4,6 +4,9 @@ import { gatheringHorizon, landingBlockHasContent, landingBlockShownOn, normaliz
 import { memberSchema } from "@/lib/landing-body-schema";
 import { loadSetelanCheckpoint } from "@/lib/checkpoint/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { isEmailConfigured } from "@/lib/email/client";
+import { KOLOM_MASUK_POLA, pilihanKolomMasuk } from "@/lib/member/kolom-masuk";
+import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain";
 
 /**
  * Setelan area peserta (menu admin "Area peserta").
@@ -62,6 +65,19 @@ export async function GET(request: Request) {
   const client = getSupabaseServiceClient();
   const landing = (auth.scope.event.landing_config ?? {}) as EventLandingConfig;
 
+  // Cara masuk dua kolom: berapa peserta punya kedua isian, dan berapa kembar.
+  const kolom = new URL(request.url).searchParams.get("kolom");
+  if (kolom !== null) {
+    const ids = kolom.split(",");
+    if (ids.length !== 2 || !ids.every((id) => KOLOM_MASUK_POLA.test(id))) return apiError("VALIDATION_ERROR", 422);
+    try {
+      const ringkas = await ringkasKolom(auth.scope.event, [ids[0], ids[1]]);
+      return ringkas ? Response.json(ringkas) : apiError("VALIDATION_ERROR", 422);
+    } catch {
+      return apiError("INTERNAL_ERROR", 500);
+    }
+  }
+
   const cari = new URL(request.url).searchParams.get("cari");
   if (cari !== null) {
     const teks = cari.trim().slice(0, 80);
@@ -109,6 +125,10 @@ export async function GET(request: Request) {
     checkpoints_on: layout ? (await loadSetelanCheckpoint(eventId))?.enabled === true : false,
     // Gathering Horizon tidak menampilkan "Today's agenda": barisnya disembunyikan di CMS.
     horizon: gatheringHorizon(landing),
+    // Cara masuk: kolom yang boleh dipilih untuk "Participant fields", dan
+    // apakah email bisa terkirim (Email code membutuhkannya).
+    sign_in_options: pilihanKolomMasuk(formFields(auth.scope.event)),
+    email_ready: isEmailConfigured(),
     // null bila hitungan gagal: layar menyembunyikan angkanya, bukan menampilkan 0.
     counts: {
       participants: peserta.error ? null : peserta.count ?? 0,
@@ -127,6 +147,13 @@ export async function PATCH(request: Request) {
   // `outfit_label`, dan gabungan di bawah mempertahankan kunci lainnya.
   const parsed = memberSchema.partial({ enabled: true }).safeParse((await request.json().catch(() => null))?.member);
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  // Dua kolom wajib dipilih, dan keduanya masih ada di form, sebelum cara
+  // dua kolom bisa disimpan. Tanpanya tidak ada peserta yang bisa masuk.
+  const akhir = { ...((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member, ...parsed.data };
+  if (akhir.sign_in === "fields" && !kolomTerpilih(auth.scope.event, { enabled: true, ...akhir })) {
+    return apiError("VALIDATION_ERROR", 422, { formErrors: ["Choose two different participant fields to sign in with."], fieldErrors: {} });
+  }
 
   const client = getSupabaseServiceClient();
   // Dibaca ulang tepat sebelum menulis, dan ditulis hanya kalau updated_at masih

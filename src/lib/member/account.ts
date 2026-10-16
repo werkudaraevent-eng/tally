@@ -221,7 +221,8 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
     participant_accounts: {
       id: string;
       event_id: string;
-      email: string;
+      /** Kosong: akun dari cara masuk dua kolom, peserta tanpa email. */
+      email: string | null;
       participant_id: string | null;
       registration_id: string | null;
       email_verified_at: string | null;
@@ -232,8 +233,10 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
   const dasar = {
     accountId: akun.id,
     sessionId: sesi.id,
-    email: akun.email,
-    emailVerified: Boolean(akun.email_verified_at),
+    email: akun.email ?? "",
+    // Pengingat "konfirmasi email" hanya berarti untuk cara email + kata sandi:
+    // ia menjaga jalan pulih "Lupa kata sandi?". Cara lain tidak memakainya.
+    emailVerified: Boolean(akun.email_verified_at) || !akun.email || (member.sign_in ?? "password") !== "password",
   };
 
   if (akun.participant_id) {

@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { MASUK_UI } from "@/lib/member/masuk-i18n";
+import type { CaraMasukPublik } from "@/lib/member/kolom-masuk";
 
 /**
  * Tiga mode masuk area peserta:
@@ -13,7 +14,22 @@ import { MASUK_UI } from "@/lib/member/masuk-i18n";
  *
  * Kode peserta tidak lagi dipakai di sini; kodenya untuk QR check-in.
  */
-export type MasukMode = "masuk" | "tautan" | "sandi";
+export type MasukMode = "masuk" | "tautan" | "sandi" | "kode" | "verifikasi" | "kolom";
+
+/** Mode pembuka tiap cara masuk acara (landing_config.member.sign_in). */
+export function modeDasar(cara: CaraMasukPublik): MasukMode {
+  return cara.jenis === "email_code" ? "kode" : cara.jenis === "fields" ? "kolom" : "masuk";
+}
+
+/**
+ * Mode dari alamat (`?mode=tautan`) dan halaman, untuk cara acara ini. Lupa
+ * kata sandi hanya ada di cara email + kata sandi; tautan sandi dari email
+ * (`sandi`) tetap berlaku di semua cara.
+ */
+export function modeAwalUntuk(awal: MasukMode, cara: CaraMasukPublik): MasukMode {
+  if (cara.jenis === "password" || awal === "sandi") return awal;
+  return modeDasar(cara);
+}
 
 /** Tautan sandi dari email: masih berlaku (dengan emailnya), atau sudah tidak. */
 export type MasukSandi = { token: string; email: string } | "invalid" | null;
@@ -28,12 +44,18 @@ export const TAUTAN_TIDAK_BERLAKU = MASUK_UI.id.tautanTidakBerlaku;
 export async function kirimMasuk(
   slug: string,
   mode: MasukMode,
-  isian: { email: string; password: string; token?: string },
+  isian: { email: string; password: string; token?: string; kode?: string; nilai?: [string, string] },
   lang: LandingLang = "id",
 ): Promise<{ ok: true } | { ok: false; pesan: string }> {
   const { email, password, token } = isian;
-  const body = mode === "masuk" ? { email, password } : mode === "tautan" ? (lang === "en" ? { email, lang } : { email }) : { token, password };
-  const response = await fetch(`/e/${encodeURIComponent(slug)}/api/peserta/${mode}`, {
+  const body =
+    mode === "masuk" ? { email, password }
+    : mode === "tautan" || mode === "kode" ? (lang === "en" ? { email, lang } : { email })
+    : mode === "verifikasi" ? { email, kode: isian.kode ?? "" }
+    : mode === "kolom" ? { nilai: isian.nilai ?? ["", ""] }
+    : { token, password };
+  const jalur = mode === "verifikasi" ? "kode/masuk" : mode;
+  const response = await fetch(`/e/${encodeURIComponent(slug)}/api/peserta/${jalur}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -73,6 +95,7 @@ export function MasukClient({
   sandi = null,
   lang = "id",
   halamanUrl = `/e/${slug}`,
+  cara = { jenis: "password" },
 }: {
   slug: string;
   modeAwal: MasukMode;
@@ -81,11 +104,16 @@ export function MasukClient({
   lang?: LandingLang;
   /** Halaman acara dalam bahasa ini; setelah masuk peserta diantar ke `<halamanUrl>/peserta`. */
   halamanUrl?: string;
+  /** Cara masuk acara ini (landing_config.member.sign_in). */
+  cara?: CaraMasukPublik;
 }) {
   const t = MASUK_UI[lang];
-  const [mode, setMode] = useState<MasukMode>(modeAwal);
+  const [mode, setMode] = useState<MasukMode>(modeAwalUntuk(modeAwal, cara));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [kode, setKode] = useState("");
+  const [nilai, setNilai] = useState<[string, string]>(["", ""]);
+  const [catatan, setCatatan] = useState("");
   const [galat, setGalat] = useState(sandi === "invalid" ? t.tautanTidakBerlaku : "");
   const [terkirim, setTerkirim] = useState("");
   const [sibuk, setSibuk] = useState(false);
@@ -102,10 +130,16 @@ export function MasukClient({
     event.preventDefault();
     setGalat("");
     setSibuk(true);
-    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token }, lang);
+    setCatatan("");
+    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token, kode, nilai }, lang);
     setSibuk(false);
     if (!hasil.ok) {
       setGalat(hasil.pesan);
+      return;
+    }
+    if (mode === "kode") {
+      setKode("");
+      setMode("verifikasi");
       return;
     }
     if (mode === "tautan") {
@@ -115,7 +149,19 @@ export function MasukClient({
     window.location.assign(`${halamanUrl}/peserta`);
   }
 
-  const judul = mode === "masuk" ? t.masuk : t.judul[mode];
+  async function kirimUlang() {
+    setGalat("");
+    setCatatan("");
+    setSibuk(true);
+    const hasil = await kirimMasuk(slug, "kode", { email, password: "" }, lang);
+    setSibuk(false);
+    if (hasil.ok) {
+      setKode("");
+      setCatatan(t.kodeBaru);
+    } else setGalat(hasil.pesan);
+  }
+
+  const judul = mode === "masuk" || mode === "kode" || mode === "kolom" ? t.masuk : t.judul[mode];
 
   return (
     <form onSubmit={kirim} className="flex w-full max-w-[440px] flex-col gap-6">
@@ -126,6 +172,12 @@ export function MasukClient({
         </p>
       ) : mode === "sandi" && token ? (
         <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">{t.untuk(token.email)}</p>
+      ) : mode === "kode" ? (
+        <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">{t.kodeCatatan}</p>
+      ) : mode === "verifikasi" ? (
+        <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">{t.kodeTerkirim(email)}</p>
+      ) : mode === "kolom" ? (
+        <p className="-mt-2 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">{t.kolomCatatan}</p>
       ) : null}
 
       {galat ? (
@@ -134,13 +186,50 @@ export function MasukClient({
         </p>
       ) : null}
 
-      {terkirim ? (
+      {terkirim || catatan ? (
         <p role="status" className="rounded-md bg-[var(--reg-primary-container)] px-4 py-3 text-body-large leading-6 text-[var(--reg-on-primary-container)]">
-          {terkirim}
+          {terkirim || catatan}
         </p>
       ) : null}
 
-      {mode !== "sandi" && !terkirim ? (
+      {mode === "verifikasi" ? (
+        <label className={LABEL}>
+          {t.kodeLabel}
+          <input
+            type="text"
+            required
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9 ]{6,7}"
+            maxLength={7}
+            value={kode}
+            onChange={(event) => setKode(event.target.value.replace(/[^0-9 ]/g, ""))}
+            className={`${FIELD} text-center text-[22px] font-semibold tracking-[0.4em] tabular-nums`}
+          />
+        </label>
+      ) : null}
+
+      {mode === "kolom" && cara.jenis === "fields"
+        ? cara.kolom.map((kolom, indeks) => (
+          <label key={indeks} className={LABEL}>
+            {kolom.label}
+            <input
+              type={kolom.jenis}
+              required
+              inputMode={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : undefined}
+              autoComplete={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : "off"}
+              value={nilai[indeks]}
+              onChange={(event) => {
+                const isi = event.target.value;
+                setNilai((lama) => (indeks === 0 ? [isi, lama[1]] : [lama[0], isi]));
+              }}
+              className={FIELD}
+            />
+          </label>
+        ))
+        : null}
+
+      {(mode === "masuk" || mode === "tautan" || mode === "kode") && !terkirim ? (
         <label className={LABEL}>
           {t.emailLabel}
           <input
@@ -156,7 +245,7 @@ export function MasukClient({
         </label>
       ) : null}
 
-      {mode !== "tautan" ? (
+      {mode === "masuk" || mode === "sandi" ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-4">
             <label htmlFor="kata-sandi" className="text-body-large font-medium">
@@ -197,7 +286,14 @@ export function MasukClient({
         </button>
       ) : null}
 
-      <div className="flex flex-col gap-2 border-t border-[var(--reg-outline-variant)] pt-6 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
+      {mode === "verifikasi" ? (
+        <div className="-mt-2 flex flex-wrap justify-between gap-x-4">
+          <button type="button" onClick={() => void kirimUlang()} className={TAUTAN}>{t.kirimUlang}</button>
+          <button type="button" onClick={() => { setMode("kode"); setGalat(""); setCatatan(""); }} className={TAUTAN}>{t.gantiEmail}</button>
+        </div>
+      ) : null}
+
+      {cara.jenis === "password" ? <div className="flex flex-col gap-2 border-t border-[var(--reg-outline-variant)] pt-6 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
         {mode === "masuk" ? (
           <>
             <span>{t.belumPunya}</span>
@@ -210,7 +306,7 @@ export function MasukClient({
             {t.sudahPunya} {t.masuk}
           </button>
         )}
-      </div>
+      </div> : null}
     </form>
   );
 }

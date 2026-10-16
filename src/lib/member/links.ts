@@ -37,7 +37,7 @@ const JENDELA_EMAIL = 15 * 60 * 1000;
 const BATAS_IP = 20;
 const JENDELA_IP = 10 * 60 * 1000;
 
-type Sasaran = { accountId?: string; participantId?: string; registrationId?: string };
+export type Sasaran = { accountId?: string; participantId?: string; registrationId?: string };
 
 async function buatToken(eventId: string, purpose: "konfirmasi" | "sandi", email: string, sasaran: Sasaran) {
   const token = randomBytes(32).toString("base64url");
@@ -220,7 +220,7 @@ export async function requestPasswordLink(
 }
 
 /** Akun yang sudah ada, lalu peserta tanpa akun, lalu pendaftaran tanpa akun. */
-async function cariSasaran(
+export async function cariSasaran(
   event: EventRow,
   member: LandingMemberConfig,
   email: string,
