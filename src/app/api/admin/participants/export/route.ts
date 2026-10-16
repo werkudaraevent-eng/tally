@@ -10,6 +10,7 @@ import {
   exportHeaders,
   importHeaders,
   loadParticipantExportRows,
+  sesiEkspor,
   templateFilename,
   templateRows,
 } from "@/lib/participants-io";
@@ -46,12 +47,13 @@ export async function GET(request: Request) {
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
 
   try {
-    const headers = isTemplate ? importHeaders(fields) : exportHeaders(fields);
+    const sesi = isTemplate ? [] : await sesiEkspor(auth.scope.event.id);
+    const headers = isTemplate ? importHeaders(fields) : exportHeaders(fields, sesi);
     const zona = normalizeTimeZone(auth.scope.event.time_zone);
     // Saringan yang sedang dipakai di daftar ikut ke berkas: yang diunduh adalah
     // yang terlihat. Tanpa saringan, seluruh acara seperti sebelumnya.
     const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona);
-    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined);
+    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi);
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(body as BodyInit, {
       headers: {
@@ -86,8 +88,9 @@ export async function POST(request: Request) {
 
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
   try {
-    const rows = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids));
-    const headers = exportHeaders(fields);
+    const sesi = await sesiEkspor(auth.scope.event.id);
+    const rows = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids), sesi);
+    const headers = exportHeaders(fields, sesi);
     const isi = body.data.format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(isi as BodyInit, {
       headers: {

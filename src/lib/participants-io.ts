@@ -75,9 +75,63 @@ export function importHeaders(fields: RegistrationField[]): string[] {
  * suntingannya akan diabaikan tidak boleh menghalangi kolom yang tidak.
  * Jawaban berkas ikut di ekspor sebagai penanda ada/tidak, di antara keduanya.
  */
-export function exportHeaders(fields: RegistrationField[]): string[] {
+export function exportHeaders(fields: RegistrationField[], sesi: SesiEkspor[] = []): string[] {
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type)).map((field) => field.key);
-  return [...importHeaders(fields), ...berkas, ...READONLY_HEADERS];
+  return [...importHeaders(fields), ...berkas, ...READONLY_HEADERS, ...sesi.map(kolomSesi)];
+}
+
+/** Sesi kehadiran (/scan) acara, urut seperti kolomnya di daftar peserta. */
+export type SesiEkspor = { id: number; name: string };
+
+/**
+ * Satu kolom per sesi, berisi jam check-in pertama -- sama dengan kolom sesi di
+ * daftar peserta ("Registration", "Workshop", ...). `check_in` di atas hanyalah
+ * salinan Scanner API dan berisi "N" untuk semua orang yang dipindai di /scan.
+ * Awalan `check_in: ` menjauhkan namanya dari kunci/label pertanyaan tambahan,
+ * dan importir mengabaikan kolom yang tidak dikenalinya.
+ */
+function kolomSesi(sesi: SesiEkspor): string {
+  return `check_in: ${sesi.name}`;
+}
+
+export async function sesiEkspor(eventId: string): Promise<SesiEkspor[]> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("attendance_sessions")
+    .select("id,name")
+    .eq("event_id", eventId)
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SesiEkspor[];
+}
+
+/**
+ * Pemindaian pertama per peserta per sesi, dari attendance_scans -- sumber yang
+ * sama dengan kolom sesi di tabel (min(scanned_at) di list_event_participants).
+ * Dibaca per 1000 baris dengan keyset id, karena PostgREST memotong di 1000.
+ */
+async function checkInPertama(eventId: string): Promise<Map<string, string>> {
+  const client = getSupabaseServiceClient();
+  const pertama = new Map<string, string>();
+  for (let setelah = 0; ; ) {
+    const { data, error } = await client
+      .from("attendance_scans")
+      .select("id,participant_id,session_id,scanned_at")
+      .eq("event_id", eventId)
+      .gt("id", setelah)
+      .order("id", { ascending: true })
+      .limit(1000);
+    if (error) throw new Error(error.message);
+    const baris1000 = (data ?? []) as Array<{ id: number; participant_id: string; session_id: number; scanned_at: string }>;
+    for (const baris of baris1000) {
+      const kunci = `${baris.participant_id}:${baris.session_id}`;
+      const lama = pertama.get(kunci);
+      if (!lama || Date.parse(baris.scanned_at) < Date.parse(lama)) pertama.set(kunci, baris.scanned_at);
+    }
+    if (baris1000.length < 1000) break;
+    setelah = baris1000[baris1000.length - 1].id;
+  }
+  return pertama;
 }
 
 export type ImportRow = Partial<Record<ImportField, string>> & { extra?: Record<string, string> };
@@ -292,7 +346,11 @@ async function pendaftaranPertama(eventId: string): Promise<Map<string, string>>
  * jadi offset tetap cukup.
  */
 function waktuMasuk(dibuat: string, formDikirim: string | undefined, zone: EventTimeZone): string {
-  const iso = formDikirim && Date.parse(formDikirim) < Date.parse(dibuat) ? formDikirim : dibuat;
+  return waktuZona(formDikirim && Date.parse(formDikirim) < Date.parse(dibuat) ? formDikirim : dibuat, zone);
+}
+
+/** Waktu dalam zona acara dengan offset eksplisit, mis. 2026-10-12T14:56:00+07:00. */
+function waktuZona(iso: string, zone: EventTimeZone): string {
   const offset = timeZoneOffset(zone);
   const [, tanda, jam, menit] = /^([+-])(\d{2}):(\d{2})$/.exec(offset) ?? ["", "+", "07", "00"];
   const geser = (tanda === "-" ? -1 : 1) * (Number(jam) * 60 + Number(menit)) * 60000;
@@ -340,8 +398,13 @@ export async function loadParticipantExportRows(
   fields: RegistrationField[],
   zone: EventTimeZone = DEFAULT_TIME_ZONE,
   ids?: ReadonlySet<string>,
+  sesi: SesiEkspor[] = [],
 ) {
-  const [data, formDikirim] = await Promise.all([semuaPeserta(eventId), pendaftaranPertama(eventId)]);
+  const [data, formDikirim, checkIn] = await Promise.all([
+    semuaPeserta(eventId),
+    pendaftaranPertama(eventId),
+    sesi.length ? checkInPertama(eventId) : Promise.resolve(new Map<string, string>()),
+  ]);
 
   const tambahan = importableFields(fields);
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type));
@@ -370,6 +433,7 @@ export async function loadParticipantExportRows(
     (row.seats ?? []).map((seat) => seat.label).join(" | "),
     row.source_removed_at ?? "",
     row.id,
+    ...sesi.map((satu) => { const jam = checkIn.get(`${row.id}:${satu.id}`); return jam ? waktuZona(jam, zone) : ""; }),
   ]);
 }
 
