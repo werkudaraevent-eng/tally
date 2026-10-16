@@ -90,8 +90,10 @@ export type SesiEkspor = { id: number; name: string };
  * Awalan `check_in: ` menjauhkan namanya dari kunci/label pertanyaan tambahan,
  * dan importir mengabaikan kolom yang tidak dikenalinya.
  */
+const AWALAN_SESI = "check_in: ";
+
 function kolomSesi(sesi: SesiEkspor): string {
-  return `check_in: ${sesi.name}`;
+  return `${AWALAN_SESI}${sesi.name}`;
 }
 
 export async function sesiEkspor(eventId: string): Promise<SesiEkspor[]> {
@@ -159,7 +161,11 @@ export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
     byLabel.set(normalizeHeader(field.label), field.key);
   }
 
-  const columns = headerRow.map((cell) => kolomImpor(cell ?? "", byLabel));
+  // Kolom sesi milik ekspor dilewati sebelum dicocokkan: "check_in: Registration"
+  // dinormalkan menjadi check_in_registration, dan pertanyaan form berlabel
+  // "Check-in: Registration" akan tertimpa jam check-in saat berkas ekspor
+  // diunggah ulang. Hanya ejaan ekspor persis; label buatan panitia tetap dibaca.
+  const columns = headerRow.map((cell) => ((cell ?? "").startsWith(AWALAN_SESI) ? null : kolomImpor(cell ?? "", byLabel)));
   // Kolom kursi "seat" tidak ikut ke RPC impor: kursi ditulis terpisah oleh
   // route lewat `seat-tally`. Kolom "kursi" milik ekspor SENGAJA tidak dibaca:
   // isinya gabungan kursi dari semua sumber (scanner, sesi lama) dan berkas
