@@ -150,8 +150,11 @@ export async function PATCH(request: Request) {
 
   // Dua kolom wajib dipilih, dan keduanya masih ada di form, sebelum cara
   // dua kolom bisa disimpan. Tanpanya tidak ada peserta yang bisa masuk.
+  // Hanya bila cara masuk ikut dikirim: simpanan Buses / Outfit tidak boleh
+  // gagal karena pertanyaan form yang dipakai kemudian dihapus.
   const akhir = { ...((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member, ...parsed.data };
-  if (akhir.sign_in === "fields" && !kolomTerpilih(auth.scope.event, { enabled: true, ...akhir })) {
+  const ubahCaraMasuk = parsed.data.sign_in !== undefined || parsed.data.sign_in_fields !== undefined;
+  if (ubahCaraMasuk && akhir.sign_in === "fields" && !kolomTerpilih(auth.scope.event, { enabled: true, ...akhir })) {
     return apiError("VALIDATION_ERROR", 422, { formErrors: ["Choose two different participant fields to sign in with."], fieldErrors: {} });
   }
   // Pindah ke Email code tanpa pengiriman email: tidak ada yang bisa masuk.
