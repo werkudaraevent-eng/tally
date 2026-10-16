@@ -44,7 +44,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const client = getSupabaseServiceClient();
-  const { data: current } = await client.from("undian_sessions").select(SESSION_COLUMNS).eq("id", id).maybeSingle();
+  // Difilter event seperti DELETE di bawah: tanpa itu, id sesi acara lain
+  // menjawab 409 "sudah ditutup" atau gagal 500, bukan 404, dan membocorkan
+  // status sesi acara lain.
+  const { data: current } = await client.from("undian_sessions").select(SESSION_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("UNDIAN_SESSION_NOT_FOUND", 404);
   if ((current as { status: string }).status === "closed") return apiError("UNDIAN_SESSION_CLOSED", 409);
 
