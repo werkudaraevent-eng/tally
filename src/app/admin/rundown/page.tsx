@@ -130,7 +130,6 @@ export default function RundownAdminPage() {
   const [outfitDrafts, setOutfitDrafts] = useState<Record<number, OutfitDraft[]>>({});
   const [outfitLabel, setOutfitLabel] = useState("");
   const [outfitTried, setOutfitTried] = useState(false);
-  const [savingOutfit, setSavingOutfit] = useState(false);
   const [uploadingOutfit, setUploadingOutfit] = useState<number | null>(null);
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
@@ -338,6 +337,10 @@ export default function RundownAdminPage() {
   }
 
   async function saveSection(section: RundownSection) {
+    // Outfit ikut tersimpan lewat Save section, tombol utama panel. Isian yang
+    // tidak lengkap ditolak sebelum apa pun dikirim, supaya tidak setengah tersimpan.
+    const simpanOutfit = outfitBerubah(section.id);
+    if (simpanOutfit && !outfitLengkap()) return;
     setSavingSection(true); setError("");
     const response = await fetch("/api/admin/rundown/sections", {
       method: "PATCH",
@@ -358,13 +361,16 @@ export default function RundownAdminPage() {
       }),
     });
     const data = await response.json();
-    setSavingSection(false);
     if (!response.ok) {
+      setSavingSection(false);
       const failure = failureMessage(data, "Section not saved.");
       setError(failure); toast.error("Section not saved", failure);
       return;
     }
-    toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
+    // Gagal menyimpan outfit sudah menampilkan pesannya sendiri; drafnya tetap ada.
+    const outfitOk = simpanOutfit ? await saveOutfit(section) : true;
+    setSavingSection(false);
+    if (outfitOk) toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
     await load();
   }
 
@@ -564,6 +570,8 @@ export default function RundownAdminPage() {
   }
 
   // ---- Outfit bagian aktif ------------------------------------------------------
+  // Portal hanya menampilkan hari yang punya butir publik berjudul (loadAgendaPreview).
+  const adaButirPublik = activeItems.some((item) => item.is_published && Boolean(item.title?.trim()));
   const outfitAktif: OutfitDraft[] = active ? (outfitDrafts[active.id] ?? outfitSaved[active.id] ?? []) : [];
 
   function setOutfitAktif(next: OutfitDraft[]) {
@@ -571,11 +579,28 @@ export default function RundownAdminPage() {
     setOutfitDrafts((current) => ({ ...current, [active.id]: next }));
   }
 
+  /** Draf outfit bagian ini atau label menu berbeda dari yang tersimpan. */
+  function outfitBerubah(sectionId: number) {
+    if (!outfitInfo?.available) return false;
+    const draf = outfitDrafts[sectionId];
+    const drafBerubah = draf !== undefined && JSON.stringify(draf) !== JSON.stringify(outfitSaved[sectionId] ?? []);
+    return drafBerubah || outfitLabel.trim() !== (outfitInfo.label ?? "");
+  }
+
+  function outfitLengkap() {
+    setOutfitTried(true);
+    const kosong = outfitAktif.findIndex((entry) => !entry.what.trim());
+    if (kosong < 0) return true;
+    const failure = `Fill in What to wear for outfit ${kosong + 1}, or remove it.`;
+    setError(failure); toast.error("Section not saved", failure);
+    return false;
+  }
+
   function updateOutfit(index: number, changes: Partial<OutfitDraft>) {
     setOutfitAktif(outfitAktif.map((entry, i) => (i === index ? { ...entry, ...changes } : entry)));
   }
 
-  /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk state sampai Save outfit. */
+  /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk state sampai Save section. */
   async function uploadOutfitPhoto(index: number, file: File) {
     setUploadingOutfit(index); setError("");
     const form = new FormData();
@@ -590,18 +615,11 @@ export default function RundownAdminPage() {
       return;
     }
     updateOutfit(index, { photo_url: data.url });
-    toast.info("Photo uploaded", "Select Save outfit to show it to participants.");
+    toast.info("Photo uploaded", "Select Save section to show it to participants.");
   }
 
-  async function saveOutfit(section: RundownSection) {
-    setOutfitTried(true);
-    const kosong = outfitAktif.findIndex((entry) => !entry.what.trim());
-    if (kosong >= 0) {
-      const failure = `Fill in What to wear for outfit ${kosong + 1}, or remove it.`;
-      setError(failure); toast.error("Outfit not saved", failure);
-      return;
-    }
-    setSavingOutfit(true); setError("");
+  /** Dipanggil dari saveSection sesudah bagian tersimpan. true = outfit tersimpan. */
+  async function saveOutfit(section: RundownSection): Promise<boolean> {
     // Label menu berlaku untuk seluruh acara: disimpan lewat Area peserta, yang
     // menggabungkan `member` dan tidak menyentuh setelan lainnya.
     const label = outfitLabel.trim();
@@ -613,10 +631,9 @@ export default function RundownAdminPage() {
       }).catch(() => null);
       const data = response ? await response.json().catch(() => ({})) : {};
       if (!response?.ok) {
-        setSavingOutfit(false);
         const failure = response ? failureMessage(data, "Menu label not saved.") : "Check your connection and try again.";
         setError(failure); toast.error("Menu label not saved", failure);
-        return;
+        return false;
       }
       const tersimpan = (data as { member?: { outfit_label?: string | null } }).member?.outfit_label ?? null;
       setOutfitInfo((current) => current && { ...current, label: tersimpan });
@@ -636,14 +653,13 @@ export default function RundownAdminPage() {
       }),
     }).catch(() => null);
     const data = response ? await response.json().catch(() => ({})) : {};
-    setSavingOutfit(false);
     if (!response?.ok) {
       if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "OUTFIT_NOT_READY") {
         setOutfitInfo((current) => current && { ...current, available: false });
       }
       const failure = response ? failureMessage(data, "Outfit not saved.") : "Check your connection and try again.";
       setError(failure); toast.error("Outfit not saved", failure);
-      return;
+      return false;
     }
     const simpanan = keDraftOutfit((data as { outfit: OutfitEntry[] }).outfit ?? []);
     setOutfitSaved((current) => ({ ...current, [section.id]: simpanan }));
@@ -653,7 +669,7 @@ export default function RundownAdminPage() {
       return next;
     });
     setOutfitTried(false);
-    toast.success("Outfit saved", section.is_published ? "Participants see it on the Outfit page for this day." : "Participants see it once this section is public.");
+    return true;
   }
 
   const publishedCount = sections.filter((row) => row.is_published).length;
@@ -992,7 +1008,11 @@ export default function RundownAdminPage() {
       {outfitInfo?.horizon ? (
         <Kelompok
           title="Outfit"
-          note={outfitInfo.available ? `Participants see it on the Outfit page for this day, and on Home. Up to ${OUTFIT_MAX} per section.` : undefined}
+          note={outfitInfo.available
+            ? adaButirPublik
+              ? `Participants see it on the Outfit page for this day, and on Home. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
+              : `Participants see it once this section has a public agenda item. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
+            : undefined}
         >
           {!outfitInfo.available ? (
             <p className="text-body-medium text-on-surface-variant">Outfit needs a database update first (migration 202610160001).</p>
@@ -1083,8 +1103,6 @@ export default function RundownAdminPage() {
                 ) : (
                   <span className="text-body-small text-on-surface-variant">{OUTFIT_MAX} outfits is the most per section.</span>
                 )}
-                {/* Outlined: tombol utama panel tetap Save section di kaki panel. */}
-                <Button simpan variant="outlined" size="sm" className="ml-auto" onClick={() => void saveOutfit(active)} loading={savingOutfit}>Save outfit</Button>
               </div>
             </>
           )}
