@@ -1,7 +1,8 @@
-import { ArrowSquareOut, Bed, Bus, CheckCircle, Package, Train } from "@phosphor-icons/react/dist/ssr";
+import { ArrowSquareOut, Bed, Bus, CheckCircle, Package, Phone, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { ReactNode } from "react";
 import type { EventTimeZone } from "@/lib/timezone";
-import type { LogistikAgenda, LogistikPeserta } from "@/lib/logistik/peserta";
+import { nomorKru } from "@/lib/logistik/kontak-kru";
+import type { LogistikAgenda, LogistikDetailBus, LogistikPeserta } from "@/lib/logistik/peserta";
 import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { HEAD, LABEL_BAGIAN, MUTED } from "@/components/landing/modern/styles";
 
@@ -177,11 +178,46 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
               ))}
             </ul>
           ) : null}
+          {logistik.buses.length > 0 ? <DetailBus buses={logistik.buses} /> : null}
         </>
       ) : (
         <Disiapkan>Nomor bus dan titik kumpul Anda muncul di sini begitu panitia selesai mengaturnya.</Disiapkan>
       )}
     </section>
+  );
+}
+
+/**
+ * Plat nomor dan kontak kru bus yang dinaiki peserta, bila panitia
+ * menampilkannya (Logistics > Buses). Satu baris per bus; nomor pertama di
+ * kontak kru mendapat tombol Telepon dan WhatsApp setinggi 48 px.
+ */
+function DetailBus({ buses }: { buses: LogistikDetailBus[] }) {
+  const tombol = "inline-flex min-h-12 items-center gap-2 rounded-full border border-[var(--reg-outline-variant)] px-4 text-label-large font-semibold text-[var(--reg-primary)]";
+  return (
+    <ul className="mt-4 flex flex-col gap-4">
+      {buses.map((bus) => {
+        const nomor = nomorKru(bus.crew);
+        return (
+          <li key={bus.code} className="flex flex-col gap-1">
+            <p className="font-semibold">{[bus.code, bus.plate ? `Plat ${bus.plate}` : null].filter(Boolean).join(" · ")}</p>
+            {bus.crew ? <p className={`whitespace-pre-line text-body-medium ${MUTED}`}>Kru: {bus.crew}</p> : null}
+            {nomor ? (
+              <div className="mt-1 flex flex-wrap gap-2">
+                <a href={`tel:${nomor.tel}`} aria-label={`Telepon kru ${bus.code}`} className={tombol}>
+                  <Phone size={18} aria-hidden />
+                  Telepon
+                </a>
+                <a href={nomor.wa} target="_blank" rel="noreferrer noopener" aria-label={`WhatsApp kru ${bus.code}`} className={tombol}>
+                  <WhatsappLogo size={18} aria-hidden />
+                  WhatsApp
+                </a>
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

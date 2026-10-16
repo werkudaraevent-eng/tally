@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import type { RegistrationFormConfig } from "@/lib/domain";
+import type { EventLandingConfig, RegistrationFormConfig } from "@/lib/domain";
 import { bacaTiketKereta, klien, semuaBaris } from "@/lib/logistik/server";
 import type { LogistikData, LogistikField } from "@/lib/logistik/types";
 
@@ -104,6 +104,10 @@ export async function GET(request: Request) {
       .map((baris) => ({ item_id: baris.item_id, session_id: baris.session_id, session_name: baris.attendance_sessions?.name ?? "" })),
     trains: kereta ?? [],
     trains_ready: kereta !== null,
+    bus_shown: {
+      plate: (auth.scope.event.landing_config as EventLandingConfig | null)?.member?.show_bus_plate === true,
+      crew: (auth.scope.event.landing_config as EventLandingConfig | null)?.member?.show_bus_crew === true,
+    },
   };
   return Response.json(body);
 }

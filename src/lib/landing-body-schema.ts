@@ -237,6 +237,9 @@ export const memberSchema = z.object({
   show_logistics: z.boolean().optional(),
   /** Dibaca member_logistics di database; bawaan tampil. */
   show_roommates: z.boolean().optional(),
+  /** Plat nomor dan kontak kru bus peserta (Logistics > Buses). Bawaan mati. */
+  show_bus_plate: z.boolean().optional(),
+  show_bus_crew: z.boolean().optional(),
   /** Email Sign-in link ke walk-in baru. Bawaan mati. */
   walkin_link: z.boolean().optional(),
   feedback_url: z.string().trim().url().max(600).nullable().optional(),

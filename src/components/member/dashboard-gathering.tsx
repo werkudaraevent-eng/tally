@@ -41,6 +41,7 @@ import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
 import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
+import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
 import { KartuKereta } from "@/components/member/kartu-logistik";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
@@ -72,6 +73,7 @@ import {
   KartuInfoHorizon,
   KartuOutfitHorizon,
   KepalaHorizon,
+  KontakKruHorizon,
   LATAR_PORTAL_HORIZON,
   NavBawahHorizon,
   PassHorizon,
@@ -216,7 +218,7 @@ export async function DashboardGathering({
   // dan tidak disembunyikan di Participant home.
   const [logistik, checkpoint] = peserta
     ? await Promise.all([
-        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true),
+        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
         tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
       ])
     : [null, null];
@@ -804,16 +806,32 @@ export async function DashboardGathering({
       />
     ) : null;
     const busUtama = logistik?.transport?.default_bus ?? namaBus;
+    // Plat dan kru hanya ada bila panitia menyalakannya di Logistics > Buses.
+    const detailBus = new Map((logistik?.buses ?? []).map((bus) => [bus.code, bus]));
+    const utama = busUtama ? detailBus.get(busUtama) : undefined;
+    const kontakKru = (bus: string, teks: string, label: string | null) => (
+      <KontakKruHorizon
+        label={label}
+        teks={teks}
+        nomor={nomorKru(teks)}
+        aksi={{ call: tv.call, whatsapp: tv.whatsapp, callAria: tv.contactLabel(tv.call, bus), whatsappAria: tv.contactLabel(tv.whatsapp, bus) }}
+      />
+    );
     const kartuBusHorizon =
       busUtama || perjalananBusHorizon.length > 0 ? (
         <KartuInfoHorizon
           judul={tv.busTitle}
           Ikon={Bus}
           kolom={3}
-          fakta={busUtama ? [{ label: tv.mainBus, nilai: busUtama, besar: true }] : []}
+          fakta={busUtama ? [{ label: tv.mainBus, nilai: busUtama, besar: true }, ...(utama?.plate ? [{ label: tv.plate, nilai: utama.plate }] : [])] : []}
         >
+          {busUtama && utama?.crew ? kontakKru(busUtama, utama.crew, tv.crew) : null}
           <PerjalananBusHorizon
-            baris={perjalananBusHorizon.map((trip, index) => ({
+            baris={perjalananBusHorizon.map((trip, index) => {
+              // Bus lain dari bus utama: plat ditulis bersama namanya, kru di bawahnya.
+              const lain = trip.bus && (trip.differs_from_default || !busUtama) ? trip.bus : null;
+              const detail = lain ? detailBus.get(lain) : undefined;
+              return {
               kunci: `${index}-${trip.name}`,
               judul: trip.name,
               jam: trip.depart_at ? hariJamHorizon(trip.depart_at, zona, lang) : null,
@@ -821,9 +839,11 @@ export async function DashboardGathering({
                 [trip.origin?.trim(), trip.destination?.trim()].filter(Boolean).join(" → "),
                 trip.meeting_point?.trim() ? `${tv.meetingPoint}: ${trip.meeting_point.trim()}` : "",
                 // Nama bus dari Logistics sudah berbunyi "Bus 5"; hanya ditulis bila berbeda dari bus utama.
-                trip.bus && (trip.differs_from_default || !busUtama) ? trip.bus : "",
+                lain ? [lain, detail?.plate].filter(Boolean).join(" · ") : "",
               ].filter(Boolean),
-            }))}
+              kru: lain && detail?.crew ? kontakKru(lain, detail.crew, null) : undefined,
+              };
+            })}
           />
         </KartuInfoHorizon>
       ) : null;

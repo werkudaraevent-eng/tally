@@ -154,7 +154,7 @@ export async function DashboardModern({
   // tidak diulang di kartu "Barang untuk Anda".
   const [logistik, checkpoint] = peserta
     ? await Promise.all([
-        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true),
+        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
         diBeranda("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
       ])
     : [null, null];

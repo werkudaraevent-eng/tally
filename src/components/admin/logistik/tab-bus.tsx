@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowCounterClockwise, Bus as IkonBus, CalendarDots, SignOut, Warning } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, Bus as IkonBus, CalendarDots, Eye, SignOut, Warning } from "@phosphor-icons/react";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
@@ -64,6 +64,8 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
   const [tambah, setTambah] = useState(false);
   const [hapus, setHapus] = useState<Bus | null>(null);
   const [cari, setCari] = useState("");
+  const [tampilan, setTampilan] = useState(false);
+  const tampil = data.bus_shown;
 
   const penumpang = useMemo(() => {
     const peta = new Map<number, LogistikPeserta[]>();
@@ -79,7 +81,15 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
 
   const daftar = (
     <Pane aria-label="Buses">
-      {atas ? <PaneHeader className="px-3 py-2.5">{atas}</PaneHeader> : null}
+      {atas ? (
+        <PaneHeader className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+          {atas}
+          {/* Sama dengan Room rules di tab Rooms: disetel sekali, cukup terlihat. */}
+          <Button variant="text" size="sm" className="ml-auto" icon={<Eye size={16} />} onClick={() => setTampilan(true)}>
+            {tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see bus name only"}
+          </Button>
+        </PaneHeader>
+      ) : null}
       <PaneBody>
         {data.vehicles.length === 0 ? (
           <EmptyState
@@ -160,7 +170,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         {bus.crew_contact ? (
           <DetailSection title="Crew">
             <p className="whitespace-pre-line text-body-medium text-on-surface">{bus.crew_contact}</p>
-            <p className="text-body-small text-on-surface-variant">Never shown to participants.</p>
+            <p className="text-body-small text-on-surface-variant">{tampil.crew ? "Shown to this bus's passengers in their Participant area." : "Not shown to participants."}</p>
           </DetailSection>
         ) : null}
         <DetailSection title="Default passengers">
@@ -219,6 +229,14 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           onSubmit={async (ids) => Boolean(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: bus.id, participant_ids: ids }))}
         />
       ) : null}
+
+      <DialogTampilan
+        open={tampilan}
+        onClose={() => setTampilan(false)}
+        busy={busy}
+        awal={tampil}
+        simpan={async (nilai) => Boolean(await kirim("/api/admin/area-peserta", "PATCH", { member: { show_bus_plate: nilai.plate, show_bus_crew: nilai.crew } }))}
+      />
 
       <FormBus
         bus={baru ? { id: 0, code: "", capacity: null, plate_number: null, crew_contact: null, sort_order: 0 } : ubah}
@@ -599,6 +617,55 @@ function FormAgenda({ agenda, busy, zone, onClose, simpan }: {
           />
         ) : null}
       </form>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------ Dialog */
+
+/**
+ * Yang peserta lihat tentang busnya, untuk seluruh acara (bukan per bus):
+ * nama bus selalu, plat nomor dan kontak kru hanya bila dinyalakan. Disimpan
+ * di `landing_config.member` lewat Area peserta, tempat sakelar portal lainnya.
+ */
+function DialogTampilan({ open, onClose, busy, awal, simpan }: {
+  open: boolean;
+  onClose: () => void;
+  busy: boolean;
+  awal: { plate: boolean; crew: boolean };
+  simpan: (nilai: { plate: boolean; crew: boolean }) => Promise<boolean>;
+}) {
+  const [draf, setDraf] = useState<{ plate: boolean; crew: boolean } | null>(null);
+  const nilai = draf ?? awal;
+  function tutup() { setDraf(null); onClose(); }
+  return (
+    <Dialog
+      open={open}
+      onClose={tutup}
+      dismissible={!busy}
+      title="What participants see"
+      description="Participants always see their bus name, such as Bus 3, on their bus card. These apply to every bus in this event, and only to the buses each participant rides."
+      actions={
+        <>
+          <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
+          <Button simpan loading={busy} onClick={async () => { if (await simpan(nilai)) tutup(); }}>Save</Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Switch
+          checked={nilai.plate}
+          onChange={(plate) => setDraf({ ...nilai, plate })}
+          label="Plate number"
+          description="Helps participants find their bus in the car park."
+        />
+        <Switch
+          checked={nilai.crew}
+          onChange={(crew) => setDraf({ ...nilai, crew })}
+          label="Crew contact"
+          description="Shown as written, with Call and WhatsApp buttons for the phone number. Ask the crew before turning this on."
+        />
+      </div>
     </Dialog>
   );
 }

@@ -111,6 +111,8 @@ export type LogistikData = {
   trains: TiketKereta[];
   /** false = tabel `train_tickets` belum ada di database (migrasi 202610140001 belum dijalankan). */
   trains_ready: boolean;
+  /** Plat nomor dan kontak kru di kartu Bus peserta (`landing_config.member`). Bawaan mati. */
+  bus_shown: { plate: boolean; crew: boolean };
 };
 
 /** Pembanding jenis kelamin yang sama dengan `lodging_gender_of` di database. */

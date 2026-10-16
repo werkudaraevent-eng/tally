@@ -50,14 +50,28 @@ export type LogistikKereta = {
   booking_code: string | null;
 };
 
+/**
+ * Plat nomor dan kontak kru bus yang dinaiki peserta. Hanya bila panitia
+ * menyalakannya (Logistics > Buses > What participants see); yang mati selalu
+ * null di sini, jadi tidak pernah sampai ke HTML peserta.
+ */
+export type LogistikDetailBus = { code: string; plate: string | null; crew: string | null };
+
 export type LogistikPeserta = {
   lodging: LogistikKamar | null;
   transport: { default_bus: string | null; trips: LogistikAgenda[] } | null;
   items: LogistikBarang[];
   trains: LogistikKereta[];
+  /** Kosong bila kedua sakelar mati: kartu Bus tampil seperti sebelumnya. */
+  buses: LogistikDetailBus[];
 };
 
-export async function loadMemberLogistics(eventId: string, participantId: string, tampil: boolean): Promise<LogistikPeserta | null> {
+export async function loadMemberLogistics(
+  eventId: string,
+  participantId: string,
+  tampil: boolean,
+  bus: { plate: boolean; crew: boolean } = { plate: false, crew: false },
+): Promise<LogistikPeserta | null> {
   if (!tampil) return null;
   try {
     const db = getSupabaseServiceClient();
@@ -67,9 +81,44 @@ export async function loadMemberLogistics(eventId: string, participantId: string
     ]);
     if (error || !data || typeof data !== "object") return null;
     const hasil = data as Partial<LogistikPeserta>;
-    return { lodging: hasil.lodging ?? null, transport: hasil.transport ?? null, items: hasil.items ?? [], trains };
+    const transport = hasil.transport ?? null;
+    const buses = await loadBusDetails(eventId, transport, bus);
+    return { lodging: hasil.lodging ?? null, transport, items: hasil.items ?? [], trains, buses };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Detail bus yang memang dinaiki peserta ini (bus bawaan dan bus per agenda
+ * dari member_logistics), dicari dengan kode bus yang unik per acara. Galat
+ * menjadi daftar kosong: kartu Bus tetap tampil dengan nama busnya saja.
+ */
+async function loadBusDetails(
+  eventId: string,
+  transport: LogistikPeserta["transport"],
+  tampil: { plate: boolean; crew: boolean },
+): Promise<LogistikDetailBus[]> {
+  if (!transport || (!tampil.plate && !tampil.crew)) return [];
+  const kode = [...new Set([transport.default_bus, ...transport.trips.map((trip) => trip.bus)].filter((nama): nama is string => Boolean(nama)))];
+  if (kode.length === 0) return [];
+  try {
+    const { data, error } = await getSupabaseServiceClient()
+      .from("transport_vehicles")
+      .select("code,plate_number,crew_contact")
+      .eq("event_id", eventId)
+      .in("code", kode);
+    if (error || !Array.isArray(data)) return [];
+    return (data as Array<{ code: string; plate_number: string | null; crew_contact: string | null }>)
+      .map((baris) => ({
+        code: baris.code,
+        plate: tampil.plate ? baris.plate_number?.trim() || null : null,
+        crew: tampil.crew ? baris.crew_contact?.trim() || null : null,
+      }))
+      .filter((baris) => baris.plate || baris.crew)
+      .sort((a, b) => kode.indexOf(a.code) - kode.indexOf(b.code));
+  } catch {
+    return [];
   }
 }
 

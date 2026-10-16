@@ -109,6 +109,9 @@ export default function AreaPesertaPage() {
     // sini, jadi salinan lama di layar ini tidak menimpa label yang baru disimpan.
     const setelan: Partial<LandingMemberConfig> = { ...anggota, feedback_url: umpanBalik };
     delete setelan.outfit_label;
+    // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
+    delete setelan.show_bus_plate;
+    delete setelan.show_bus_crew;
     const response = await fetch(eventApiPath("/api/admin/area-peserta"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
