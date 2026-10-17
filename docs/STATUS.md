@@ -209,7 +209,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #76 F2/F3: Users & roles hides assignments on archived events from the super admin too, and the event-id `.in()` list grows the URL.
 - #82 N2: an unknown event id returns 404 with a VALIDATION_ERROR body.
 - #83 Lows: "shares an event" counts archived events, the PATCH access lookup has no paging, and /users gets 400 from the booths API once 2+ events are active, so booth labels fall back to "#1".
-- #61 L2-L7/L9: client-domain copy after the 72 h stop, a 20 px "Batalkan domain" button, the client host serves the /events and /workspace shells, a misleading error when the domain is already in the project, a WhatsApp `link_origin` note, root shorthands drop the event, and the HTTPS step has no "Periksa sekarang".
+- #61 L2-L7/L9: client-domain copy after the 72 h stop, a 20 px "Batalkan domain" button, a misleading error when the domain is already in the project, a WhatsApp `link_origin` note, root shorthands drop the event, and the HTTPS step has no "Periksa sekarang".
 - #93: at 390 the selection bar row leaves a lot of empty tint (cosmetic).
 
 ### Other
