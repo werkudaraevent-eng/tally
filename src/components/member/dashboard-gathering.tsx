@@ -27,7 +27,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
-import { kontakPanitia } from "@/lib/kontak-panitia";
+import { kontakPanitia, telHref } from "@/lib/kontak-panitia";
 import { logoNavPutih, isPortalEntry, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
@@ -77,6 +77,7 @@ import {
   LATAR_PORTAL_HORIZON,
   NavBawahHorizon,
   PassHorizon,
+  ProfilHorizon,
   PerjalananBusHorizon,
   PitaKepalaHorizon,
   QrHorizon,
@@ -616,7 +617,7 @@ export async function DashboardGathering({
   let isi: ReactNode;
   let kepala: ReactNode;
   // Horizon: judul tab di atas latar krem seperti sapaan Beranda, bukan pita navy.
-  let judulHorizon: { alis: string; judul: string; catatan: string } | null = null;
+  let judulHorizon: { alis: string; judul: string; judulPonsel?: string; catatan: string } | null = null;
   if (tabAktif === "beranda") {
     kepala = (
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -966,6 +967,55 @@ export async function DashboardGathering({
         )}
       </div>
     );
+  } else if (horizon) {
+    // Profil Horizon: header sama dengan tab lain, lalu kartu tiket, data diri, dan bantuan.
+    const tp = tH.profile;
+    const statusLabel = sesi.status === "approved" ? p.status.approved : sesi.status === "rejected" ? p.status.rejected : p.status.pending;
+    const instansi = peserta ? [peserta.title, peserta.company].filter(Boolean).join(" · ") : "";
+    const tautanTelepon = telepon ? telHref(telepon) : null;
+    judulHorizon = { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabsShort.profil, catatan: tp.note };
+    isi = (
+      <ProfilHorizon
+        sisipan={pitaEmail || statusPendaftaran ? <div className="flex flex-col gap-4">{pitaEmail}{statusPendaftaran}</div> : null}
+        kartu={{
+          inisial,
+          nama: sesi.name,
+          catatan: instansi || null,
+          status: statusLabel,
+          qr:
+            tampilKode && peserta
+              ? { href: keTab("qr", { dari: "profil" }), label: t.ticket, kode: peserta.qr_code, petunjuk: tp.ticketHint, perbesar: tp.enlarge, gambar: <QrMini code={peserta.qr_code} alt="" /> }
+              : null,
+        }}
+        menu={{
+          judul: tp.menu,
+          baris: [
+            ...(adaPerjalanan ? [{ href: keTab("perjalanan"), judul: tH.tabs.perjalanan, isi: tH.travel.menuRow, Ikon: Suitcase }] : []),
+            ...(adaOutfit ? [{ href: keTab("outfit"), judul: labelMenuOutfit, isi: tH.outfit.menuRow, Ikon: CoatHanger }] : []),
+          ],
+        }}
+        data={{
+          judul: tp.details,
+          fakta: [
+            { label: tp.name, nilai: sesi.name },
+            ...((peserta?.email ?? sesi.email) ? [{ label: tp.email, nilai: peserta?.email ?? sesi.email }] : []),
+            ...(peserta?.company ? [{ label: tp.company, nilai: peserta.company }] : []),
+            ...(peserta?.title ? [{ label: tp.jobTitle, nilai: peserta.title }] : []),
+            ...(tampilKode && peserta ? [{ label: tp.code, nilai: peserta.qr_code }] : []),
+          ],
+          salah: tautanTelepon ? { teks: tp.wrong, tautan: { href: tautanTelepon, label: tp.contact } } : null,
+        }}
+        bantuan={{
+          judul: tp.help,
+          baris: [
+            ...(tautanTelepon ? [{ href: tautanTelepon, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(" · "), Ikon: Phone, luar: true }] : []),
+            ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: tp.language, isi: t.languageRow, Ikon: Globe }] : []),
+            { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
+          ],
+        }}
+        keluar={{ action: `/e/${encodeURIComponent(event.slug)}/api/peserta/keluar`, label: t.signOut }}
+      />
+    );
   } else {
     const statusLabel = sesi.status === "approved" ? p.status.approved : sesi.status === "rejected" ? p.status.rejected : p.status.pending;
     judulHorizon = { alis: statusLabel, judul: sesi.name, catatan: peserta ? [peserta.title, peserta.company].filter(Boolean).join(" · ") : "" };
@@ -983,22 +1033,14 @@ export async function DashboardGathering({
     );
     const baris: { href: string; judul: string; isi: string | null; Ikon: typeof House; luar?: boolean; pemicuQr?: string }[] = [
       ...(tampilKode && peserta ? [{ href: keTab("qr"), judul: t.ticket, isi: peserta.qr_code, Ikon: Ticket, pemicuQr: "pemicu-qr-profil" }] : []),
-      // Horizon: kamar, bus, dan kereta punya halaman Perjalanan sendiri; di ponsel halaman ini adalah Menu.
-      ...(horizon
-        ? adaPerjalanan
-          ? [{ href: keTab("perjalanan"), judul: tH.tabs.perjalanan, isi: tH.travel.menuRow, Ikon: Suitcase }]
-          : []
-        : [
-            ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: [kamar.room_number, teman?.map((o) => o.name).join(", ")].filter(Boolean).join(" · "), Ikon: Bed }] : []),
-            ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
-          ]),
-      ...(adaOutfit ? [{ href: keTab("outfit"), judul: labelMenuOutfit, isi: tH.outfit.menuRow, Ikon: CoatHanger }] : []),
+      ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: [kamar.room_number, teman?.map((o) => o.name).join(", ")].filter(Boolean).join(" · "), Ikon: Bed }] : []),
+      ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
       ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(" · "), Ikon: Phone, luar: true }] : []),
       ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: t.languageRow, isi: null, Ikon: Globe }] : []),
       { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
     ];
     isi = (
-      <div className={`flex w-full max-w-[560px] flex-col gap-3 ${horizon ? "" : "mx-auto"}`}>
+      <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3">
         {pitaEmail}
         {statusPendaftaran}
         <ul className="flex flex-col gap-3">
@@ -1218,7 +1260,7 @@ export async function DashboardGathering({
             <SapaanHorizon
               alis={judulHorizon.alis}
               judul={judulHorizon.judul}
-              judulPonsel={judulHorizon.judul}
+              judulPonsel={judulHorizon.judulPonsel ?? judulHorizon.judul}
               catatan={judulHorizon.catatan}
               catatanPonsel
               kembali={tabAktif === "perjalanan" || tabAktif === "outfit" ? { href: keTab("profil"), label: tH.travel.backToMenu } : null}

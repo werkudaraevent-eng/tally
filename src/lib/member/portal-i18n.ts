@@ -123,6 +123,23 @@ export type PortalUiText = {
     roommateTitle: (jumlah: number) => string;
     roomNo: (nomor: string) => string;
     profileAria: string;
+    /** Halaman Profil Horizon: kartu tiket, data diri, bantuan dan pengaturan. */
+    profile: {
+      note: string;
+      ticketHint: string;
+      enlarge: string;
+      details: string;
+      name: string;
+      email: string;
+      company: string;
+      jobTitle: string;
+      code: string;
+      wrong: string;
+      contact: string;
+      help: string;
+      language: string;
+      menu: string;
+    };
   };
 };
 
@@ -236,6 +253,22 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
       roomNo: (nomor) => `Kamar ${nomor}`,
       profileAria: "Profil",
+      profile: {
+        note: "Tiket, data diri, dan bantuan acara.",
+        ticketHint: "Tunjukkan QR ini saat check-in.",
+        enlarge: "Perbesar QR",
+        details: "Data diri",
+        name: "Nama lengkap",
+        email: "Email",
+        company: "Instansi",
+        jobTitle: "Jabatan",
+        code: "Kode registrasi",
+        wrong: "Ada data yang salah?",
+        contact: "Hubungi panitia",
+        help: "Bantuan dan pengaturan",
+        language: "Bahasa",
+        menu: "Menu",
+      },
     },
   },
   en: {
@@ -347,6 +380,22 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
       roomNo: (nomor) => `Room ${nomor}`,
       profileAria: "Profile",
+      profile: {
+        note: "Your ticket, details and event help.",
+        ticketHint: "Show this QR at check-in.",
+        enlarge: "Enlarge QR",
+        details: "Your details",
+        name: "Full name",
+        email: "Email",
+        company: "Organisation",
+        jobTitle: "Job title",
+        code: "Registration code",
+        wrong: "Something wrong?",
+        contact: "Contact the organisers",
+        help: "Help and settings",
+        language: "Language",
+        menu: "Menu",
+      },
     },
   },
 };
