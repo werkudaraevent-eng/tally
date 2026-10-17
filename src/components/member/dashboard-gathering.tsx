@@ -998,10 +998,9 @@ export async function DashboardGathering({
           judul: tp.details,
           fakta: [
             { label: tp.name, nilai: sesi.name },
-            ...((peserta?.email ?? sesi.email) ? [{ label: tp.email, nilai: peserta?.email ?? sesi.email }] : []),
+            ...((peserta?.email?.trim() || sesi.email) ? [{ label: tp.email, nilai: peserta?.email?.trim() || sesi.email }] : []),
             ...(peserta?.company ? [{ label: tp.company, nilai: peserta.company }] : []),
             ...(peserta?.title ? [{ label: tp.jobTitle, nilai: peserta.title }] : []),
-            ...(tampilKode && peserta ? [{ label: tp.code, nilai: peserta.qr_code }] : []),
           ],
           salah: tautanTelepon ? { teks: tp.wrong, tautan: { href: tautanTelepon, label: tp.contact } } : null,
         }}

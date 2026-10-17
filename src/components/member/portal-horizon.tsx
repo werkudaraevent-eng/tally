@@ -968,9 +968,9 @@ export function ProfilHorizon({
               ))}
             </dl>
             {data.salah ? (
-              <p className="border-t border-[#E6E8EC] pt-4 text-[14px]" style={{ color: REDUP }}>
-                {data.salah.teks}{" "}
-                <a href={data.salah.tautan.href} className="font-semibold underline-offset-2 hover:underline" style={{ color: BIRU }}>
+              <p className="flex flex-wrap items-center gap-x-1 border-t border-[#E6E8EC] pt-2 text-[14px]" style={{ color: REDUP }}>
+                {data.salah.teks}
+                <a href={data.salah.tautan.href} className="inline-flex min-h-12 items-center font-semibold underline-offset-2 hover:underline" style={{ color: BIRU }}>
                   {data.salah.tautan.label}
                 </a>
               </p>

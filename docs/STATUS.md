@@ -89,6 +89,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #187 L3/L4: three simultaneous member saves can return 409, and the day-pill fade hides the last pill at 390 even when all fit.
 
 ### Horizon portal
+- #198 L2/L3/L5: at 1280x588 the "Perbesar QR" pill sits on the fold, at 390 the contact row is lower than before (below Data diri), and a rejected registration gets the same gold status chip as "Terdaftar".
 - #105 L5: closing the QR opened from Profil returns to Beranda and loses focus; Escape and Tutup also push history entries.
 - #166 L1/L3/L5/L6: items are keyed by label, the bus label is a single word, Bus and Kamar sit on different rows at 768/1024, and `justify-between` spreads the second row.
 - #171: the last day's entries sit under the fold until the list sticks, and the Jadwal wrapper is full width below lg (L3).

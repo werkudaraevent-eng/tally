@@ -133,7 +133,6 @@ export type PortalUiText = {
       email: string;
       company: string;
       jobTitle: string;
-      code: string;
       wrong: string;
       contact: string;
       help: string;
@@ -262,7 +261,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         email: "Email",
         company: "Instansi",
         jobTitle: "Jabatan",
-        code: "Kode registrasi",
         wrong: "Ada data yang salah?",
         contact: "Hubungi panitia",
         help: "Bantuan dan pengaturan",
@@ -389,7 +387,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         email: "Email",
         company: "Organisation",
         jobTitle: "Job title",
-        code: "Registration code",
         wrong: "Something wrong?",
         contact: "Contact the organisers",
         help: "Help and settings",
