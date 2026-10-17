@@ -25,6 +25,7 @@ import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landi
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { MasukDialog } from "@/components/member/masuk-dialog";
+import { caraMasukPublik } from "@/lib/member/kolom-masuk";
 import type { MasukMode, MasukSandi } from "@/app/masuk/masuk-client";
 import { timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { loadLandingLodging, type LandingHotel } from "@/lib/landing-hotel";
@@ -1287,6 +1288,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           sandi={sandi}
           lang={lang}
           aksi={gaya}
+          cara={caraMasukPublik(event, lang)}
           kepala={{
             nama,
             keterangan: [nama, formatEventDateRingkas(event, lang) ?? tanggal].filter(Boolean).join(" · "),

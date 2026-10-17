@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
 import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
+import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
@@ -237,8 +238,19 @@ export const memberSchema = z.object({
   show_logistics: z.boolean().optional(),
   /** Dibaca member_logistics di database; bawaan tampil. */
   show_roommates: z.boolean().optional(),
+  /** Plat nomor dan kontak kru bus peserta (Logistics > Buses). Bawaan mati. */
+  show_bus_plate: z.boolean().optional(),
+  show_bus_crew: z.boolean().optional(),
   /** Email Sign-in link ke walk-in baru. Bawaan mati. */
   walkin_link: z.boolean().optional(),
+  /** Cara masuk peserta. Kosong = email + kata sandi. */
+  sign_in: z.enum(["password", "email_code", "fields"]).optional(),
+  /** Dua kolom berbeda untuk `sign_in: "fields"` (lib/member/kolom-masuk.ts). */
+  sign_in_fields: z
+    .tuple([z.string().regex(KOLOM_MASUK_POLA), z.string().regex(KOLOM_MASUK_POLA)])
+    .refine(([a, b]) => a !== b, "Choose two different fields")
+    .nullable()
+    .optional(),
   feedback_url: z.string().trim().url().max(600).nullable().optional(),
   /** Beranda halaman peserta: id bawaan (MEMBER_HOME_BUILTINS) atau id blok. */
   home: z.object({ order: z.array(idBeranda).max(MAX_BLOCKS + 10).optional(), hidden: z.array(idBeranda).max(MAX_BLOCKS + 10).optional() }).optional(),

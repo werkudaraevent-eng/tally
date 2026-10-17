@@ -5,6 +5,9 @@ import { gatheringHorizon, landingBlockHasContent, landingBlockMemberOnly, landi
 import { memberSchema } from "@/lib/landing-body-schema";
 import { loadSetelanCheckpoint } from "@/lib/checkpoint/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { isEmailConfigured } from "@/lib/email/client";
+import { KOLOM_MASUK_POLA, pilihanKolomMasuk } from "@/lib/member/kolom-masuk";
+import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain";
 
 /**
  * Setelan area peserta (menu admin "Area peserta").
@@ -62,6 +65,19 @@ export async function GET(request: Request) {
   const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
   const landing = (auth.scope.event.landing_config ?? {}) as EventLandingConfig;
+
+  // Cara masuk dua kolom: berapa peserta punya kedua isian, dan berapa kembar.
+  const kolom = new URL(request.url).searchParams.get("kolom");
+  if (kolom !== null) {
+    const ids = kolom.split(",");
+    if (ids.length !== 2 || !ids.every((id) => KOLOM_MASUK_POLA.test(id))) return apiError("VALIDATION_ERROR", 422);
+    try {
+      const ringkas = await ringkasKolom(auth.scope.event, [ids[0], ids[1]]);
+      return ringkas ? Response.json(ringkas) : apiError("VALIDATION_ERROR", 422);
+    } catch {
+      return apiError("INTERNAL_ERROR", 500);
+    }
+  }
 
   const cari = new URL(request.url).searchParams.get("cari");
   if (cari !== null) {
@@ -121,6 +137,10 @@ export async function GET(request: Request) {
     checkpoints_on: layout ? (await loadSetelanCheckpoint(eventId))?.enabled === true : false,
     // Gathering Horizon tidak menampilkan "Today's agenda": barisnya disembunyikan di CMS.
     horizon: gatheringHorizon(landing),
+    // Cara masuk: kolom yang boleh dipilih untuk "Participant fields", dan
+    // apakah email bisa terkirim (Email code membutuhkannya).
+    sign_in_options: pilihanKolomMasuk(formFields(auth.scope.event)),
+    email_ready: isEmailConfigured(),
     // null bila hitungan gagal: layar menyembunyikan angkanya, bukan menampilkan 0.
     counts: {
       participants: peserta.error ? null : peserta.count ?? 0,
@@ -157,6 +177,21 @@ export async function PATCH(request: Request) {
   const nyalakan = z.array(z.string().max(40)).max(60).safeParse(body?.blok_nyala ?? []);
   if (!nyalakan.success) return apiError("VALIDATION_ERROR", 422, nyalakan.error.flatten());
 
+  // Dua kolom wajib dipilih, dan keduanya masih ada di form, sebelum cara
+  // dua kolom bisa disimpan. Tanpanya tidak ada peserta yang bisa masuk.
+  // Hanya bila cara masuk ikut dikirim: simpanan Buses / Outfit tidak boleh
+  // gagal karena pertanyaan form yang dipakai kemudian dihapus.
+  const akhir = { ...((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member, ...parsed.data };
+  const ubahCaraMasuk = parsed.data.sign_in !== undefined || parsed.data.sign_in_fields !== undefined;
+  if (ubahCaraMasuk && akhir.sign_in === "fields" && !kolomTerpilih(auth.scope.event, { enabled: true, ...akhir })) {
+    return apiError("VALIDATION_ERROR", 422, { formErrors: ["Choose two different participant fields to sign in with."], fieldErrors: {} });
+  }
+  // Pindah ke Email code tanpa pengiriman email: tidak ada yang bisa masuk.
+  const sebelumnya = ((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member?.sign_in;
+  if (parsed.data.sign_in === "email_code" && sebelumnya !== "email_code" && !isEmailConfigured()) {
+    return apiError("VALIDATION_ERROR", 422, { formErrors: ["Email sending isn't set up, so participants can't get a code. Choose another sign-in method."], fieldErrors: {} });
+  }
+
   const client = getSupabaseServiceClient();
   // Dibaca ulang tepat sebelum menulis, dan ditulis hanya kalau updated_at masih
   // sama: editor Halaman acara dan halaman Speakers menulis kolom yang sama.
@@ -172,11 +207,14 @@ export async function PATCH(request: Request) {
     if (galatBaca || !terkini) return apiError("INTERNAL_ERROR", 500);
     const baris = terkini as { landing_config?: EventLandingConfig | null; updated_at: string };
     landing = (baris.landing_config ?? {}) as EventLandingConfig;
+    // Masuk ke cara dua kolom (lagi): sesi dua kolom dari masa sebelumnya
+    // tidak hidup kembali (getMemberSession membandingkan dengan waktu ini).
+    const mulaiKolom = parsed.data.sign_in === "fields" && landing.member?.sign_in !== "fields" ? { sign_in_since: new Date().toISOString() } : {};
     const hasil = await client
       .from("events")
       // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
       // show_roommates) tetap tersimpan.
-      .update({ landing_config: gabung(landing, parsed.data, nyalakan.data), updated_at: new Date().toISOString() } as never)
+      .update({ landing_config: gabung(landing, { ...parsed.data, ...mulaiKolom }, nyalakan.data), updated_at: new Date().toISOString() } as never)
       .eq("id", auth.scope.event.id)
       .eq("updated_at", baris.updated_at)
       .select("landing_config")

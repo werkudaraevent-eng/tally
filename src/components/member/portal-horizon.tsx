@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowsOut, Bell, CalendarDots, CaretRight, CoatHanger, Compass, List, QrCode, Suitcase, Train, X } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowsOut, Bell, CalendarDots, CaretRight, CoatHanger, Compass, List, Phone, QrCode, Suitcase, Train, WhatsappLogo, X } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { PemicuQr } from "@/components/member/qr-fokus";
@@ -696,7 +696,7 @@ export function KartuInfoHorizon({
 }
 
 /** Perjalanan bus per agenda di kartu Bus: nama agenda, jam, rute, titik kumpul. */
-export function PerjalananBusHorizon({ baris }: { baris: { kunci: string; judul: string; jam: string | null; detail: string[] }[] }) {
+export function PerjalananBusHorizon({ baris }: { baris: { kunci: string; judul: string; jam: string | null; detail: string[]; kru?: ReactNode }[] }) {
   if (baris.length === 0) return null;
   return (
     <ol className="flex flex-col border-t border-dashed" style={{ borderColor: "#C9D1DE" }}>
@@ -711,9 +711,53 @@ export function PerjalananBusHorizon({ baris }: { baris: { kunci: string; judul:
               {teks}
             </p>
           ))}
+          {item.kru}
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Kontak kru bus (Logistics > Buses, bila panitia menampilkannya): teks panitia
+ * apa adanya, lalu tombol Telepon dan WhatsApp untuk nomor pertama di dalamnya.
+ * Tombol 48 px; tanpa nomor yang terbaca hanya teksnya yang tampil.
+ */
+export function KontakKruHorizon({
+  label,
+  teks,
+  nomor,
+  aksi,
+}: {
+  /** Mis. "Kru bus" di kartu bus utama; null di baris agenda (sudah jelas dari konteks). */
+  label: string | null;
+  teks: string;
+  nomor: { tel: string; wa: string } | null;
+  aksi: { call: string; whatsapp: string; callAria: string; whatsappAria: string };
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label ? (
+        <p className="text-[11px] font-semibold uppercase tracking-[0.8px]" style={{ color: LABEL }}>
+          {label}
+        </p>
+      ) : null}
+      <p className="whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: label ? TINTA : REDUP }}>
+        {teks}
+      </p>
+      {nomor ? (
+        <div className="mt-1 flex flex-wrap gap-2">
+          <a href={`tel:${nomor.tel}`} aria-label={aksi.callAria} className="inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold" style={{ color: BIRU, borderColor: "#C9D1DE" }}>
+            <Phone size={18} weight="bold" aria-hidden />
+            {aksi.call}
+          </a>
+          <a href={nomor.wa} target="_blank" rel="noreferrer noopener" aria-label={aksi.whatsappAria} className="inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold" style={{ color: BIRU, borderColor: "#C9D1DE" }}>
+            <WhatsappLogo size={18} weight="bold" aria-hidden />
+            {aksi.whatsapp}
+          </a>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

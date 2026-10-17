@@ -1147,6 +1147,8 @@ export type LandingSpeaker = {
  */
 export type LandingMemberAudience = "approved" | "all";
 
+export type LandingMemberSignIn = "password" | "email_code" | "fields";
+
 export type LandingMemberConfig = {
   enabled: boolean;
   audience?: LandingMemberAudience;
@@ -1163,10 +1165,33 @@ export type LandingMemberConfig = {
   /** Teman sekamar di kartu Kamar (dibaca member_logistics). Bawaan tampil. */
   show_roommates?: boolean;
   /**
+   * Plat nomor dan kontak kru bus yang dinaiki peserta, di kartu Bus. Bawaan
+   * MATI: kontak kru adalah nomor pribadi. Diatur di Logistics > Buses.
+   */
+  show_bus_plate?: boolean;
+  show_bus_crew?: boolean;
+  /**
    * Email Sign-in link ke walk-in yang baru didaftarkan petugas (lihat
    * sendWalkinLink). Bawaan MATI: menyalakannya tidak mengirim ke peserta lama.
    */
   walkin_link?: boolean;
+  /**
+   * Cara peserta masuk (Participant area > How participants sign in). Kosong =
+   * "password", sama dengan sebelum pilihan ini ada.
+   *   password    email + kata sandi (tautan email untuk membuat kata sandi)
+   *   email_code  email, lalu kode 6 digit ke email itu setiap kali masuk
+   *   fields      dua kolom data peserta pilihan admin (`sign_in_fields`).
+   *               Paling lemah: isinya sering diketahui rekan kerja.
+   */
+  sign_in?: LandingMemberSignIn;
+  /** Dua kolom untuk `sign_in: "fields"`: "email", "phone", "name", atau "x:<kunci pertanyaan tambahan>". */
+  sign_in_fields?: [string, string] | null;
+  /**
+   * Kapan acara ini terakhir pindah KE cara dua kolom. Diisi server
+   * (api/admin/area-peserta), bukan layar admin: sesi dua kolom yang lebih
+   * tua ditolak, jadi pindah ke cara lain lalu kembali tidak menghidupkannya.
+   */
+  sign_in_since?: string;
   feedback_url?: string | null;
   /**
    * Beranda halaman peserta (Participant area > Participant home): urutan id

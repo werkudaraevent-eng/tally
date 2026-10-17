@@ -166,7 +166,10 @@ export async function enqueueBlast(
       // Undangan lama TIDAK dicabut di sini, tetapi saat undangan baru benar-benar
       // terkirim (cabutTautanLama). Jadwal yang dibatalkan atau kiriman yang
       // gagal tidak meninggalkan peserta tanpa tautan yang berlaku.
-      const token = terkirim.filter((baris) => !baris.accountId).map((baris) => ({
+      // Akun tanpa kata sandi buatan peserta (dari kode email atau dua kolom
+      // data peserta) juga mendapat tautan: token dengan account_id, yang
+      // memberi kata sandi ke akun itu (setPasswordWithToken).
+      const token = terkirim.filter((baris) => !baris.accountId || !baris.passwordSet).map((baris) => ({
         event_id: event.id,
         purpose: "undangan",
         token_hash: inviteTokenHash(blastId, baris.participant.id),
@@ -502,11 +505,16 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
       if (ids.length) {
         const [{ data: p, error: galatP }, { data: a, error: galatA }] = await Promise.all([
           client.from("participants").select("id,company,email,email_opt_out_at,email_invalid_at,source_removed_at").in("id", ids),
-          client.from("participant_accounts").select("participant_id").eq("event_id", blast.event_id).in("participant_id", ids),
+          client.from("participant_accounts").select("participant_id,password_set_at").eq("event_id", blast.event_id).in("participant_id", ids),
         ]);
         if (galatP || galatA) throw new Error((galatP ?? galatA)!.message);
         for (const row of (p ?? []) as PesertaKini[]) peserta.set(row.id, row);
-        for (const row of (a ?? []) as { participant_id: string }[]) punyaAkun.add(row.participant_id);
+        // Akun dari kode email atau dua kolom data peserta belum punya kata
+        // sandi buatan pesertanya (password_set_at kosong): mereka tetap
+        // mendapat tautan buat kata sandi, bukan tautan masuk biasa.
+        for (const row of (a ?? []) as { participant_id: string; password_set_at: string | null }[]) {
+          if (row.password_set_at) punyaAkun.add(row.participant_id);
+        }
       }
 
       // Tamu undangan SAAT INI: undangan, email peserta aktif, dan penekanan.

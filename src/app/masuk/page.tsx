@@ -7,6 +7,7 @@ import { memberPageStyle } from "@/lib/member/page-theme";
 import type { EventLandingConfig } from "@/lib/domain";
 import { landingDefaultLang, landingEnAvailable, landingFormOnly, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { MASUK_UI } from "@/lib/member/masuk-i18n";
+import { caraMasukPublik } from "@/lib/member/kolom-masuk";
 import { renderLanding } from "@/components/landing/render-landing";
 import { asalSitus } from "@/app/e/[slug]/landing-metadata";
 import { peekPasswordToken } from "@/lib/member/links";
@@ -95,7 +96,7 @@ export default async function MasukPage({
       return (
         <BingkaiModern lang={lang} halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={null} eyebrow={lang === "en" ? "Participant area" : "Area peserta"}>
           <div className="mx-auto w-full max-w-[440px]">
-            <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} lang={lang} halamanUrl={halamanUrl} />
+            <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} lang={lang} halamanUrl={halamanUrl} cara={caraMasukPublik(event, lang)} />
             <Link href={`${halamanUrl}/daftar`} className="mt-6 inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
               {lang === "en" ? "Not registered yet? Register here" : "Belum terdaftar? Daftar di sini"}
             </Link>
@@ -138,7 +139,7 @@ export default async function MasukPage({
         </div>
 
         <div className="flex flex-col justify-center py-10 lg:col-span-5 lg:col-start-7 lg:py-12">
-          <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} />
+          <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} cara={caraMasukPublik(event, "id")} />
         </div>
       </div>
     </main>

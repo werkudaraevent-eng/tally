@@ -73,6 +73,12 @@ export type PortalUiText = {
       meetingPoint: string;
       /** Label bus di kartu Bus (judul kartunya sudah "Bus"). */
       mainBus: string;
+      plate: string;
+      crew: string;
+      call: string;
+      whatsapp: string;
+      /** Label aksesibel tombol kontak kru, mis. "Telepon kru Bus 3". */
+      contactLabel: (aksi: string, bus: string) => string;
       /** Baris tiket kereta di Beranda: "Kereta • Kam, 5 Nov". */
       trainRow: string;
       seatLine: (gerbong: string | null, kursi: string | null) => string | null;
@@ -185,6 +191,11 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         busTitle: "Bus",
         meetingPoint: "Titik kumpul",
         mainBus: "Bus utama",
+        plate: "Plat nomor",
+        crew: "Kru bus",
+        call: "Telepon",
+        whatsapp: "WhatsApp",
+        contactLabel: (aksi, bus) => `${aksi} kru ${bus}`,
         trainRow: "Kereta",
         seatLine: (gerbong, kursi) => [gerbong ? `Gerbong ${gerbong}` : null, kursi ? `kursi ${kursi}` : null].filter(Boolean).join(", ") || null,
       },
@@ -291,6 +302,11 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         busTitle: "Bus",
         meetingPoint: "Meeting point",
         mainBus: "Main bus",
+        plate: "Plate number",
+        crew: "Bus crew",
+        call: "Call",
+        whatsapp: "WhatsApp",
+        contactLabel: (aksi, bus) => `${aksi} the ${bus} crew`,
         trainRow: "Train",
         seatLine: (gerbong, kursi) => [gerbong ? `Carriage ${gerbong}` : null, kursi ? `seat ${kursi}` : null].filter(Boolean).join(", ") || null,
       },
