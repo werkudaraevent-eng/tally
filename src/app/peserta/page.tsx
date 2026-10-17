@@ -45,6 +45,9 @@ import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type La
  *
  * Membuka halaman ini menandai semua pengumuman terbaca. Daftarnya dimuat
  * DULU, jadi titik "baru" di halaman ini tetap menunjuk yang baru masuk.
+ * Portal Gathering bertab berbeda (U-03): hanya tab Pengumuman yang menandai
+ * terbaca (components/member/tandai-pengumuman), jadi membuka QR atau Jadwal
+ * tidak menghapus tanda "Baru" sebelum pengumumannya dilihat.
  */
 
 export const dynamic = "force-dynamic";
@@ -89,10 +92,11 @@ export default async function AreaPesertaPage({
   const kursi = (peserta?.seats ?? []).filter((seat) => seat.label?.trim());
   const konfirmasi = kueri.konfirmasi === "ok" ? "ok" : kueri.konfirmasi === "gagal" ? "gagal" : null;
   const pengumuman = await loadMemberAnnouncements(event.id, sesi);
-  if (pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
+  const gathering = landing.layout === "modern" && landing.gathering === true;
+  if (!gathering && pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
 
   // Preset Gathering: portal bergaya aplikasi dengan tab (rancangan 2026-10-07).
-  if (landing.layout === "modern" && landing.gathering === true) {
+  if (gathering) {
     const tab: PortalTab =
       kueri.tab === "jadwal" || kueri.tab === "perjalanan" || kueri.tab === "outfit" || kueri.tab === "info" || kueri.tab === "profil" || kueri.tab === "qr" ? kueri.tab : "beranda";
     const hari = typeof kueri.hari === "string" && /^\d{1,2}$/.test(kueri.hari) ? Number(kueri.hari) : null;

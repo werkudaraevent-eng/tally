@@ -20,3 +20,19 @@ export function GulirHariAktif() {
 
   return <span ref={penanda} hidden />;
 }
+
+/** Menggulir deret chip hari (mendatar) sampai chip terpilih di tengah, hanya bila deretnya lebih lebar dari layar (U-06). */
+export function GulirChipAktif() {
+  const penanda = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const deret = penanda.current?.parentElement;
+    const aktif = deret?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!deret || !aktif || deret.scrollWidth <= deret.clientWidth) return;
+    const kotak = deret.getBoundingClientRect();
+    const chip = aktif.getBoundingClientRect();
+    deret.scrollLeft += chip.left - kotak.left - (kotak.width - chip.width) / 2;
+  }, []);
+
+  return <span ref={penanda} hidden />;
+}

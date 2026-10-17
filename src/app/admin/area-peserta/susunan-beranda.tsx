@@ -6,7 +6,7 @@ import { useState, type DragEvent, type KeyboardEvent } from "react";
 import Link from "@/components/event-link";
 import { Button } from "@/components/m3";
 import { useToast } from "@/components/toast";
-import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, slotPengumumanHorizon, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig, type SlotPengumumanHorizon } from "@/lib/domain";
 import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
 import { TambahBlokDialog } from "../landing/blocks";
@@ -51,12 +51,13 @@ type Baris = {
 const MAKS_BLOK = 30;
 
 /**
- * Gathering Horizon menaruh isi bawaan di tempat tetap (pass, tiket, panduan
- * checkpoint, Next up, teman sekamar). Yang dipakai dari urutan hanya posisi
- * Announcements terhadap Bus and room dan Next up, dan urutan blok di bawah.
- * Quick links dan Today's agenda tidak dirender, jadi tidak ditawarkan.
+ * Gathering Horizon menaruh isi bawaan di tempat tetap, urutan ponsel: Next up
+ * (Berlangsung dan Berikutnya), panduan checkpoint, Bus and room (pass, tiket),
+ * teman sekamar. Yang dipakai dari urutan hanya posisi Announcements, dan
+ * urutan blok di bawah. Layar lebar: Next up, Announcements, lalu checkpoint di
+ * kolom kanan. Quick links dan Today's agenda tidak dirender, jadi tidak ditawarkan.
  */
-const HORIZON_TETAP = ["checkpoints", "logistics", "next", "roommates"] as const;
+const HORIZON_TETAP = ["next", "checkpoints", "logistics", "roommates"] as const;
 const HORIZON_TANPA = ["quick", "agenda"];
 
 function geser(order: string[], dari: number, ke: number) {
@@ -74,26 +75,35 @@ function geser(order: string[], dari: number, ke: number) {
  * layar lebar (urutan lama dari Gathering klasik; dipertahankan sampai admin
  * memindahkannya sendiri).
  */
-type SlotPengumuman = 0 | 1 | 2 | 3;
-
-function slotPengumuman(order: string[]): SlotPengumuman | null {
-  const posisi = (id: string) => order.indexOf(id);
-  if (!order.includes("announcements")) return null;
-  const sebelumBus = posisi("announcements") < posisi("logistics");
-  const sebelumNext = posisi("announcements") < posisi("next");
-  return sebelumBus ? (sebelumNext ? 0 : 3) : sebelumNext ? 1 : 2;
-}
+type SlotPengumuman = SlotPengumumanHorizon;
 
 /** Urutan yang tampil di editor: urutan ponsel, lalu blok. */
 function tampilanHorizon(slot: SlotPengumuman | null, blok: string[]): string[] {
   const isi: string[] = [...HORIZON_TETAP];
-  if (slot !== null) isi.splice(slot === 0 || slot === 3 ? 0 : slot === 1 ? isi.indexOf("next") : isi.indexOf("roommates"), 0, "announcements");
+  if (slot !== null) isi.splice(slot === 0 || slot === 3 ? 0 : slot === 2 ? isi.indexOf("next") + 1 : isi.indexOf("roommates"), 0, "announcements");
   return [...isi, ...blok];
 }
 
-/** Urutan yang disimpan: sama dengan tampilan, kecuali slot 3 yang butuh Next up di depan. */
+/** Tempat Announcements setelah dipindah di editor: dibaca dari urutan TAMPILAN (ponsel). */
+function slotDariTampilan(order: string[]): SlotPengumuman | null {
+  const posisi = order.indexOf("announcements");
+  if (posisi < 0) return null;
+  if (posisi < order.indexOf("next")) return 0;
+  return posisi < order.indexOf("logistics") ? 2 : 1;
+}
+
+/**
+ * Urutan yang disimpan: bentuk lama yang dibaca slotPengumumanHorizon
+ * (posisi terhadap Bus and room dan Next up), jadi simpanan lama tetap sama artinya.
+ */
 function simpananHorizon(slot: SlotPengumuman | null, blok: string[]): string[] {
-  return slot === 3 ? ["next", "announcements", "checkpoints", "logistics", "roommates", ...blok] : tampilanHorizon(slot, blok);
+  const bawaan =
+    slot === 3 ? ["next", "announcements", "checkpoints", "logistics", "roommates"]
+      : slot === 2 ? ["checkpoints", "logistics", "next", "announcements", "roommates"]
+        : slot === 1 ? ["checkpoints", "logistics", "announcements", "next", "roommates"]
+          : slot === 0 ? ["announcements", "checkpoints", "logistics", "next", "roommates"]
+            : ["checkpoints", "logistics", "next", "roommates"];
+  return [...bawaan, ...blok];
 }
 
 export function SusunanBeranda({
@@ -136,7 +146,7 @@ export function SusunanBeranda({
   const tetap = new Set<string>(diHorizon ? HORIZON_TETAP : []);
   const tanpa = new Set(diHorizon ? HORIZON_TANPA : []);
   const blokDari = (ids: string[]) => ids.filter((id) => !tetap.has(id) && !tanpa.has(id) && id !== "announcements");
-  const slot = diHorizon ? slotPengumuman(urutanPenuh) : null;
+  const slot = diHorizon ? slotPengumumanHorizon(urutanPenuh) : null;
   const order = diHorizon ? tampilanHorizon(slot, blokDari(urutanPenuh)) : urutanPenuh;
   /**
    * Urutan tampilan setelah satu baris dipindah menjadi urutan simpanan. Di
@@ -146,7 +156,7 @@ export function SusunanBeranda({
   const keSimpanan = (next: string[], yangDipindah: string | null) => {
     if (!diHorizon) return next;
     const slotBaru: SlotPengumuman | null =
-      yangDipindah === "announcements" ? slotPengumuman(next) : slot;
+      yangDipindah === "announcements" ? slotDariTampilan(next) : slot;
     return simpananHorizon(slotBaru, blokDari(next));
   };
   // Baris yang tidak ditawarkan kembali tepat sebelum isi yang dulu mengikutinya.
@@ -170,7 +180,8 @@ export function SusunanBeranda({
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
     // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
-    const sub = id === "announcements" && slot === 3 ? `Top on phones, after Next up on wide screens · ${bawaan?.sub}` : bawaan?.sub ?? "";
+    // Horizon di layar lebar: Announcements selalu setelah Next up di kolom kanan. Disebut, bukan diam-diam.
+    const sub = id === "announcements" && diHorizon ? `After Next up on wide screens · ${bawaan?.sub}` : bawaan?.sub ?? "";
     if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id), sumber: bawaan.source };
     const block = blocks.find((item) => item.id === id)!;
     const jenis = LANDING_BLOCK_LABELS[block.type];
@@ -180,7 +191,13 @@ export function SusunanBeranda({
       sub: block.show_on === "both" ? `${jenis} · also on the Event page` : jenis,
       blok: true,
       tampil: !hidden.has(id),
-      mati: block.hidden_on_page ? "Hidden in Page sections" : block.empty ? "Empty, add content on the Event page" : null,
+      mati: block.hidden_on_page
+        ? "Hidden in Page sections"
+        : block.empty
+          ? "Empty, add content on the Event page"
+          : diHorizon && member.help_block === id
+            ? "Shown in Menu as Emergency and help"
+            : null,
       tetap: false,
       sumber: { label: "Event page", href: `/admin/landing?blok=${encodeURIComponent(id)}` },
     };

@@ -71,10 +71,16 @@ export type PortalUiText = {
       checkOut: string;
       busTitle: string;
       meetingPoint: string;
-      /** Label bus di kartu Bus (judul kartunya sudah "Bus"). */
+      /** Label bus di kartu Bus (judul kartunya sudah "Bus"). "Bus utama" hanya bila ada perjalanan dengan bus lain (U-33). */
       mainBus: string;
+      onlyBus: string;
       plate: string;
       crew: string;
+      trips: string;
+      /** Peta titik kumpul (E-12). */
+      openMeetingMap: string;
+      /** Berkas kalender per tiket kereta (E-07). */
+      addToCalendar: string;
       call: string;
       whatsapp: string;
       /** Label aksesibel tombol kontak kru, mis. "Telepon kru Bus 3". */
@@ -123,6 +129,50 @@ export type PortalUiText = {
     roommateTitle: (jumlah: number) => string;
     roomNo: (nomor: string) => string;
     profileAria: string;
+    /** Nama aksesibel inisial di bilah atas, memuat teks yang terlihat ("HS, Profil"). */
+    profileAriaWith: (inisial: string) => string;
+    /** Lencana angka di tab Pengumuman. */
+    unread: (jumlah: number) => string;
+    /** Garis kemajuan saat pindah tab. */
+    loading: string;
+    /** Kartu Berlangsung dan Berikutnya di Beranda (U-05, E-06). */
+    agenda: {
+      now: string;
+      until: (jam: string) => string;
+      next: string;
+      inTime: (menit: number) => string;
+      seeSchedule: (label: string | null) => string;
+      seeDay: (hari: string) => string;
+      tripLink: string;
+    };
+    /** Pengumuman di Beranda: yang belum dibaca dulu (U-03). */
+    pinnedMore: (jumlah: number) => string;
+    /** Baris Simpan QR ke galeri menjelang keberangkatan (U-02). */
+    saveQrRow: { eyebrow: string; title: string; note: string; failed: string };
+    /** Kartu Hubungi panitia (U-07). */
+    helpCard: { eyebrow: string; title: string; note: string; noteEmail: string; noteTravel: string; noteProfile: string; email: string };
+    /** Judul kartu darurat bila blok panitia tanpa judul (E-03). */
+    emergency: string;
+    /** Fakta pass sebagai tautan ke Perjalanan (U-16): "Detail perjalanan: hotel, bus, kereta". */
+    travelDetails: (isi: string) => string;
+    travelParts: { hotel: string; bus: string; train: string };
+    subtitleDates: (tanggal: string, adaKamar: boolean) => string;
+    /** Layar QR (U-20, U-28, U-02). */
+    qr: {
+      codeLabel: string;
+      save: string;
+      showNote: string;
+      showNoteCheckpoint: string;
+      saved: string;
+      savedAt: (waktu: string) => string;
+      awake: string;
+      offline: string;
+      offlineNote: string;
+      showQr: string;
+      retry: string;
+    };
+    /** Jadwal (U-06, U-01, U-24). */
+    schedule: { timeNote: (zona: string) => string; part: (n: number) => string; partsAria: string };
     /** Halaman Profil Horizon: kartu tiket, data diri, bantuan dan pengaturan. */
     profile: {
       note: string;
@@ -207,8 +257,12 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         busTitle: "Bus",
         meetingPoint: "Titik kumpul",
         mainBus: "Bus utama",
-        plate: "Plat nomor",
+        onlyBus: "Bus",
+        plate: "Pelat nomor",
         crew: "Kru bus",
+        trips: "Perjalanan bus",
+        openMeetingMap: "Buka peta",
+        addToCalendar: "Simpan ke kalender",
         call: "Telepon",
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} kru ${bus}`,
@@ -252,10 +306,56 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
       roomNo: (nomor) => `Kamar ${nomor}`,
       profileAria: "Profil",
+      profileAriaWith: (inisial) => `${inisial}, Profil`,
+      unread: (jumlah) => `${jumlah} belum dibaca`,
+      loading: "Memuat halaman",
+      agenda: {
+        now: "Berlangsung",
+        until: (jam) => `sampai ${jam}`,
+        next: "Berikutnya",
+        inTime: (menit) => {
+          if (menit < 60) return `${menit} menit lagi`;
+          const jam = Math.floor(menit / 60);
+          return menit % 60 ? `${jam} jam ${menit % 60} menit lagi` : `${jam} jam lagi`;
+        },
+        seeSchedule: (label) => (label ? `Lihat jadwal ${label}` : "Lihat jadwal"),
+        seeDay: (hari) => `Lihat jadwal ${hari}`,
+        tripLink: "Bus dan titik kumpul ada di Perjalanan",
+      },
+      pinnedMore: (jumlah) => `+${jumlah} disematkan`,
+      saveQrRow: { eyebrow: "Sebelum berangkat", title: "Simpan QR ke galeri", note: "Tetap bisa ditunjukkan tanpa sinyal.", failed: "Gambar QR gagal dibuat. Buka QR lalu coba lagi." },
+      helpCard: {
+        eyebrow: "Butuh bantuan?",
+        title: "Hubungi panitia",
+        note: "Langsung ke panitia lewat telepon atau WhatsApp.",
+        noteEmail: "Kirim email ke panitia.",
+        noteTravel: "Tertinggal rombongan atau ada kendala di perjalanan.",
+        noteProfile: "Ada data yang salah atau butuh bantuan?",
+        email: "Email",
+      },
+      emergency: "Darurat dan bantuan",
+      travelDetails: (isi) => (isi ? `Detail perjalanan: ${isi}` : "Detail perjalanan"),
+      travelParts: { hotel: "hotel", bus: "bus", train: "kereta" },
+      subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Tiket, kamar, dan jadwalmu untuk ${tanggal}.` : `Tiket dan jadwalmu untuk ${tanggal}.`),
+      qr: {
+        codeLabel: "Kode, bila QR tidak terbaca",
+        save: "Simpan QR ke galeri",
+        showNote: "saat registrasi",
+        showNoteCheckpoint: "saat registrasi dan di setiap checkpoint",
+        saved: "Tersimpan di ponsel ini, bisa dibuka tanpa sinyal",
+        savedAt: (waktu) => `Tersimpan ${waktu} di ponsel ini`,
+        awake: "Layar tetap menyala selama QR terbuka.",
+        offline: "Kamu sedang offline.",
+        offlineNote: "QR yang tersimpan tetap bisa ditunjukkan ke panitia.",
+        showQr: "Tampilkan QR",
+        retry: "Coba lagi",
+      },
+      schedule: { timeNote: (zona) => `semua jam ${zona}`, part: (n) => `Bagian ${n}`, partsAria: "Pilih bagian" },
       profile: {
         note: "Tiket, data diri, dan bantuan acara.",
-        ticketHint: "Tunjukkan QR ini saat check-in.",
-        enlarge: "Perbesar QR",
+        // Tanda hubung tak terputus (U+2011): "check-in" tidak terpotong di akhir baris (U-33).
+        ticketHint: "Tunjukkan QR ini saat check‑in.",
+        enlarge: "Tampilkan QR",
         details: "Data diri",
         name: "Nama lengkap",
         email: "Email",
@@ -333,8 +433,12 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         busTitle: "Bus",
         meetingPoint: "Meeting point",
         mainBus: "Main bus",
+        onlyBus: "Bus",
         plate: "Plate number",
         crew: "Bus crew",
+        trips: "Bus trips",
+        openMeetingMap: "Open map",
+        addToCalendar: "Add to calendar",
         call: "Call",
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} the ${bus} crew`,
@@ -378,10 +482,55 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
       roomNo: (nomor) => `Room ${nomor}`,
       profileAria: "Profile",
+      profileAriaWith: (inisial) => `${inisial}, Profile`,
+      unread: (jumlah) => `${jumlah} unread`,
+      loading: "Loading page",
+      agenda: {
+        now: "Happening now",
+        until: (jam) => `until ${jam}`,
+        next: "Next up",
+        inTime: (menit) => {
+          if (menit < 60) return `in ${menit} min`;
+          const jam = Math.floor(menit / 60);
+          return menit % 60 ? `in ${jam} h ${menit % 60} min` : `in ${jam} h`;
+        },
+        seeSchedule: (label) => (label ? `See the ${label} schedule` : "See the schedule"),
+        seeDay: (hari) => `See ${hari}`,
+        tripLink: "Your bus and meeting point are in Travel",
+      },
+      pinnedMore: (jumlah) => `+${jumlah} pinned`,
+      saveQrRow: { eyebrow: "Before you leave", title: "Save QR to your photos", note: "You can show it without signal.", failed: "Couldn't create the QR image. Open the QR and try again." },
+      helpCard: {
+        eyebrow: "Need help?",
+        title: "Contact the organisers",
+        note: "Reach the organisers by phone or WhatsApp.",
+        noteEmail: "Email the organisers.",
+        noteTravel: "Left behind or having trouble on the way?",
+        noteProfile: "Wrong details or need help?",
+        email: "Email",
+      },
+      emergency: "Emergency and help",
+      travelDetails: (isi) => (isi ? `Travel details: ${isi}` : "Travel details"),
+      travelParts: { hotel: "hotel", bus: "bus", train: "train" },
+      subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Your ticket, room and schedule for ${tanggal}.` : `Your ticket and schedule for ${tanggal}.`),
+      qr: {
+        codeLabel: "Code, if the QR won't scan",
+        save: "Save QR to your photos",
+        showNote: "at registration",
+        showNoteCheckpoint: "at registration and at every checkpoint",
+        saved: "Saved on this phone, opens without signal",
+        savedAt: (waktu) => `Saved on this phone ${waktu}`,
+        awake: "Your screen stays on while the QR is open.",
+        offline: "You're offline.",
+        offlineNote: "The saved QR can still be shown to the organisers.",
+        showQr: "Show QR",
+        retry: "Try again",
+      },
+      schedule: { timeNote: (zona) => `all times ${zona}`, part: (n) => `Part ${n}`, partsAria: "Choose a part" },
       profile: {
         note: "Your ticket, details and event help.",
-        ticketHint: "Show this QR at check-in.",
-        enlarge: "Enlarge QR",
+        ticketHint: "Show this QR at check‑in.",
+        enlarge: "Show QR",
         details: "Your details",
         name: "Full name",
         email: "Email",

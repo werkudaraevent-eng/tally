@@ -1207,6 +1207,12 @@ export type LandingMemberConfig = {
    * Disunting di Agenda > Section > Outfit, disimpan lewat Area peserta.
    */
   outfit_label?: string | null;
+  /**
+   * Kartu darurat dan bantuan di Menu portal Gathering Horizon (E-03): satu
+   * blok khusus peserta pilihan panitia, tampil di bawah Perjalanan dan
+   * ditaut dari kartu bantuan Perjalanan, bukan di Beranda. Kosong = tidak ada.
+   */
+  help_block?: string | null;
 };
 
 export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";
@@ -1254,6 +1260,24 @@ export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id:
  * berikutnya dalam urutan bawaan yang sudah ada. Dipakai CMS dan kedua
  * dashboard, jadi daftar di CMS selalu sama dengan halamannya.
  */
+/**
+ * Tempat Announcements di Beranda Gathering Horizon, dibaca dari urutan
+ * tersimpan (posisinya terhadap Bus and room dan Next up). 0 = paling atas,
+ * 1 = setelah Bus and room, 2 = setelah Next up, 3 = urutan lama Gathering
+ * klasik (Next up di depan), di ponsel sama dengan 0. Isi bawaan lain di
+ * Horizon tempatnya tetap; dashboard dan editor Participant home memakai
+ * fungsi yang sama, jadi keduanya selalu sepakat.
+ */
+export type SlotPengumumanHorizon = 0 | 1 | 2 | 3;
+
+export function slotPengumumanHorizon(order: readonly string[]): SlotPengumumanHorizon | null {
+  const posisi = (id: string) => order.indexOf(id);
+  if (!order.includes("announcements")) return null;
+  const sebelumBus = posisi("announcements") < posisi("logistics");
+  const sebelumNext = posisi("announcements") < posisi("next");
+  return sebelumBus ? (sebelumNext ? 0 : 3) : sebelumNext ? 1 : 2;
+}
+
 export function memberHomeOrder(home: LandingMemberConfig["home"], blockIds: readonly string[], gathering: boolean): { order: string[]; hidden: Set<string> } {
   const bawaan = MEMBER_HOME_BUILTINS[gathering ? "gathering" : "modern"].map((item) => item.id as string);
   const posisiAgenda = bawaan.indexOf("agenda");
