@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { getEventBySlugPublic, requireEventScope } from "@/lib/auth/event-scope";
-import type { EventLandingConfig, EventRow } from "@/lib/domain";
+import { sectionsDenganBlokPeserta, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { memberSchema } from "@/lib/landing-body-schema";
 import { previewMemberSession } from "@/lib/member/account";
 import { renderBerandaPratinjau } from "./render";
@@ -27,6 +27,13 @@ export async function renderPratinjauPeserta(slug: string, pesertaId: string, dr
   const sesi = await previewMemberSession(event.id, pesertaId);
   if (!sesi) return { ok: false, pesan: "This participant is no longer in the Participant list. Choose another one." };
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
-  const isi = await renderBerandaPratinjau(event, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi);
+  // Mata Participant home yang baru dinyalakan ikut berlaku, sama dengan saat disimpan.
+  // Draf sudah memuat blok lama yang mati sebagai tersembunyi (GET Area peserta),
+  // jadi blok khusus peserta yang tidak tersembunyi di draf = matanya menyala.
+  const tersembunyi: readonly string[] | undefined = parsed.data.home?.hidden;
+  const nyala = tersembunyi ? (landing.blocks ?? []).map((block) => block.id as string).filter((id) => !tersembunyi.includes(id)) : [];
+  const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyala);
+  const acara = sections === landing.sections ? event : { ...event, landing_config: { ...landing, sections } };
+  const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi);
   return isi ? { ok: true, isi } : { ok: false, pesan: "Participant home is only on the Modern and Gathering layouts." };
 }

@@ -30,6 +30,8 @@ import {
   HORIZON_TEXT_MAX,
   LANDING_EYEBROW_DEFAULT,
   LANDING_BLOCK_LABELS,
+  LANDING_BLOCK_MEMBER_TYPES,
+  landingBlockMemberOnly,
   isLandingBlockId,
   landingBlockHasContent,
   landingBlockLimits,
@@ -39,6 +41,7 @@ import {
   susunanDenganPortal,
   type LandingBlock,
   type LandingBlockItem,
+  type LandingBlockShowOn,
   type LandingBlockType,
   type EventLandingConfig,
   type LandingForumPage,
@@ -2558,8 +2561,8 @@ export default function LandingCmsPage() {
     setLanding({ ...landing, blocks: (landing.blocks ?? []).map((item) => (item.id === next.id ? next : item)) });
   }
 
-  function tambahBlok(type: LandingBlockType) {
-    const blok = buatBlok(type);
+  function tambahBlok(type: LandingBlockType, showOn?: LandingBlockShowOn) {
+    const blok: LandingBlock = { ...buatBlok(type), ...(showOn ? { show_on: showOn } : {}) };
     // Blok baru masuk di akhir isi, tetap di atas Portal peserta yang ada di ujung.
     const ujungPortal = sections.length > 0 && isPortalEntry(sections[sections.length - 1]);
     const next = ujungPortal ? [...sections.slice(0, -1), { id: blok.id, enabled: true }, sections[sections.length - 1]] : [...sections, { id: blok.id, enabled: true }];
@@ -2567,7 +2570,30 @@ export default function LandingCmsPage() {
     setTambahTerbuka(false);
     setBagian("susunan");
     setTerbuka(blok.id);
+    return blok.id;
   }
+
+  // `?tambah=<jenis>&untuk=peserta`: Add block dari Participant area >
+  // Participant home. Bloknya dibuat di sini, khusus peserta, dan terbuka
+  // untuk diisi; tersimpan lewat Save seperti blok lain. Parameternya dihapus
+  // dari alamat supaya muat ulang tidak menambah blok kedua.
+  const tambahDariTautan = useRef(false);
+  useEffect(() => {
+    if (tambahDariTautan.current || !facts) return;
+    tambahDariTautan.current = true;
+    const alamat = new URL(window.location.href);
+    const jenis = alamat.searchParams.get("tambah");
+    if (!jenis) return;
+    alamat.searchParams.delete("tambah");
+    alamat.searchParams.delete("untuk");
+    window.history.replaceState(window.history.state, "", alamat.pathname + alamat.search + alamat.hash);
+    if (!LANDING_BLOCK_MEMBER_TYPES.includes(jenis as LandingBlockType)) { toast.error("Block not added", "That block type doesn't exist. Use Add block in Participant area."); return; }
+    if ((landing.blocks ?? []).length >= 30) { toast.error("Block not added", "This event already has 30 blocks, the most allowed. Delete one first."); return; }
+    const timer = window.setTimeout(() => {
+      gulirKeBaris(tambahBlok(jenis as LandingBlockType, "member"));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [facts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Seret-lepas di daftar susunan. Tombol panah tetap ada untuk papan ketik. */
   function lepas(target: number) {
@@ -2744,11 +2770,14 @@ export default function LandingCmsPage() {
     if (blok) {
       items.push({ label: "Duplicate", icon: <CopySimple size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => duplikatBlok(index, blok) });
     }
-    items.push({
-      label: tampil ? "Hide" : "Show",
-      icon: tampil ? <EyeSlash size={18} /> : <Eye size={18} />,
-      onSelect: () => setTampil(index, !tampil),
-    });
+    // Blok khusus peserta disembunyikan di Participant home, tempat ia tampil.
+    if (!blok || !landingBlockMemberOnly(blok)) {
+      items.push({
+        label: tampil ? "Hide" : "Show",
+        icon: tampil ? <EyeSlash size={18} /> : <Eye size={18} />,
+        onSelect: () => setTampil(index, !tampil),
+      });
+    }
     if (blok) {
       items.push({ label: "Delete block…", icon: <Trash size={18} />, bahaya: true, onSelect: () => setKonfirmasiHapus({ ids: [blok.id], judul }) });
     }
@@ -2828,7 +2857,11 @@ export default function LandingCmsPage() {
 
   // Blok tambahan yang tersembunyi: satu-satunya yang bisa dihapus massal.
   // Bagian bawaan (Pembicara, FAQ, ...) hanya bisa disembunyikan.
-  const tersembunyi = sections.filter((section) => !section.enabled);
+  // Blok khusus peserta tidak dihitung: saklarnya di Participant home, bukan di sini.
+  const tersembunyi = sections.filter((section) => {
+    const blok = isLandingBlockId(section.id) ? blokById.get(section.id) : undefined;
+    return !section.enabled && !(blok && landingBlockMemberOnly(blok));
+  });
   const blokTersembunyi = tersembunyi.filter((section) => isLandingBlockId(section.id) && blokById.has(section.id)).map((section) => section.id);
   // Forum menyimpan bagian tersembunyinya sendiri (forum.hidden), urutannya tetap.
   // Bagian Portal peserta otomatis (gathering) ikut dihitung: tanpa itu,
@@ -2912,7 +2945,12 @@ export default function LandingCmsPage() {
       <ol className="flex flex-col">
         {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: horizon ? "Top bar, title, button, hero image" : gathering ? "Top bar, title, portal preview, buttons" : modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
         {sections.map((section, index) => {
-          if (!section.enabled && !tampilTersembunyi) return null;
+          // Blok khusus peserta tidak tampil di halaman ini; matanya ada di
+          // Participant area > Participant home, jadi tidak ikut disaring di sini.
+          const blokPeserta = isLandingBlockId(section.id) && blokById.get(section.id);
+          const khususPeserta = Boolean(blokPeserta && landingBlockMemberOnly(blokPeserta));
+          // Baris yang sedang terbuka tetap ada walau Show on-nya baru diganti.
+          if (!section.enabled && !tampilTersembunyi && !khususPeserta && terbuka !== section.id) return null;
           const saklar = { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) };
 
           // Bagian otomatis gaya gathering: isinya tetap, tempatnya bisa digeser,
@@ -2943,9 +2981,9 @@ export default function LandingCmsPage() {
               id: section.id,
               nomor: index + 2,
               judul,
-              sub: ringkas && ringkas !== judul ? `${jenis} · ${ringkas}` : jenis,
-              lencana: section.enabled && !landingBlockHasContent(blok) ? "No content yet" : null,
-              saklar,
+              sub: [jenis, ringkas && ringkas !== judul ? ringkas : null, khususPeserta ? "Participant page only" : null].filter(Boolean).join(" · "),
+              lencana: (section.enabled || khususPeserta) && !landingBlockHasContent(blok) ? "No content yet" : null,
+              saklar: khususPeserta ? undefined : saklar,
               indeks: index,
               menu: menuBaris(index, judul, blok),
               isi: <BlockEditor block={blok} onChange={ubahBlok} semuaBlok={landing.blocks ?? []} warnaHalaman={warnaHalaman} warnaTema={{ brand: tokensHero.brand, accent: tokensHero.accent ?? null }} ubinRute={ubinRute} />,

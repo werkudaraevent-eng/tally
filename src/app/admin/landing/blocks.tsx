@@ -123,7 +123,17 @@ function Sketsa({ type }: { type: LandingBlockType }) {
   );
 }
 
-export function TambahBlokDialog({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (type: LandingBlockType) => void }) {
+export function TambahBlokDialog({
+  open,
+  onClose,
+  onPick,
+  description = "New blocks go at the end of the page. Drag the handle or use the ⋯ menu to move them.",
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (type: LandingBlockType) => void;
+  description?: string;
+}) {
   const [pilih, setPilih] = useState<LandingBlockType>("text_image");
   return (
     <Dialog
@@ -131,7 +141,7 @@ export function TambahBlokDialog({ open, onClose, onPick }: { open: boolean; onC
       onClose={onClose}
       size="xl"
       title="Add block"
-      description="New blocks go at the end of the page. Drag the handle or use the ⋯ menu to move them."
+      description={description}
       actions={
         <>
           <Button variant="text" onClick={onClose}>Cancel</Button>

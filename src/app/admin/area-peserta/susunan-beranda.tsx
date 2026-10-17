@@ -1,10 +1,15 @@
 "use client";
 
-import { ArrowSquareOut, DotsSixVertical, Eye, EyeSlash } from "@phosphor-icons/react";
+import { CaretRight, DotsSixVertical, Eye, EyeSlash, Plus } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import Link from "@/components/event-link";
-import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { Button } from "@/components/m3";
+import { useToast } from "@/components/toast";
+import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
+import { TambahBlokDialog } from "../landing/blocks";
 
 /**
  * Participant home: urutan Beranda halaman peserta, pola yang sama dengan
@@ -30,7 +35,20 @@ export type BlokPeserta = {
   empty: boolean;
 };
 
-type Baris = { id: string; judul: string; sub: string; blok: boolean; tampil: boolean; mati: string | null; tetap: boolean };
+type Baris = {
+  id: string;
+  judul: string;
+  sub: string;
+  blok: boolean;
+  tampil: boolean;
+  mati: string | null;
+  tetap: boolean;
+  /** Tempat isinya disunting: layar sumber untuk baris otomatis, Event page untuk blok. */
+  sumber: MemberHomeSource;
+};
+
+/** Batas jumlah blok per acara, sama dengan Event page dan skema server. */
+const MAKS_BLOK = 30;
 
 /**
  * Gathering Horizon menaruh isi bawaan di tempat tetap (pass, tiket, panduan
@@ -84,6 +102,8 @@ export function SusunanBeranda({
   blocks,
   checkpointsOn,
   horizon = false,
+  jumlahBlok,
+  adaPerubahan,
   set,
   dipilih,
   onPilih,
@@ -95,12 +115,20 @@ export function SusunanBeranda({
   checkpointsOn: boolean;
   /** Gathering Horizon tidak menampilkan "Today's agenda": barisnya tidak ditawarkan, datanya tetap. */
   horizon?: boolean;
+  /** Semua blok acara, untuk batas Add block. */
+  jumlahBlok: number;
+  /** Ada setelan yang belum disimpan: Add block membuka Event page, jadi disimpan dulu. */
+  adaPerubahan: boolean;
   set: (patch: Partial<LandingMemberConfig>) => void;
   /** Baris yang sedang disorot di pratinjau. */
   dipilih: string | null;
   onPilih: (id: string) => void;
 }) {
   const gathering = layout === "gathering";
+  const router = useRouter();
+  const [tambahTerbuka, setTambahTerbuka] = useState(false);
+  const [tolakTambah, setTolakTambah] = useState<"penuh" | "berubah" | null>(null);
+  const toast = useToast();
   const [seret, setSeret] = useState<number | null>(null);
   const [sasaran, setSasaran] = useState<number | null>(null);
   const { order: urutanPenuh, hidden } = memberHomeOrder(member.home, blocks.map((block) => block.id), gathering);
@@ -143,17 +171,18 @@ export function SusunanBeranda({
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
     // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
     const sub = id === "announcements" && slot === 3 ? `Top on phones, after Next up on wide screens · ${bawaan?.sub}` : bawaan?.sub ?? "";
-    if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id) };
+    if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id), sumber: bawaan.source };
     const block = blocks.find((item) => item.id === id)!;
-    const jenis = `${LANDING_BLOCK_LABELS[block.type]} block`;
+    const jenis = LANDING_BLOCK_LABELS[block.type];
     return {
       id,
       judul: block.heading || LANDING_BLOCK_LABELS[block.type],
-      sub: block.show_on === "both" ? `${jenis} · also on the Event page` : `${jenis} · participant page only`,
+      sub: block.show_on === "both" ? `${jenis} · also on the Event page` : jenis,
       blok: true,
       tampil: !hidden.has(id),
       mati: block.hidden_on_page ? "Hidden in Page sections" : block.empty ? "Empty, add content on the Event page" : null,
       tetap: false,
+      sumber: { label: "Event page", href: `/admin/landing?blok=${encodeURIComponent(id)}` },
     };
   });
 
@@ -188,6 +217,24 @@ export function SusunanBeranda({
     // Fokus ikut barisnya, supaya panah berikutnya memindahkan baris yang sama.
     window.requestAnimationFrame(() => document.getElementById(`pegangan-${order[index]}`)?.focus());
   };
+
+  // Tempat isi baris disunting. Pindah layar membuang urutan dan mata yang
+  // belum disimpan, jadi ditahan dulu selama ada perubahan.
+  const tautanSumber = (b: Baris, letak: string) => (
+    <Link
+      href={b.sumber.href}
+      onClick={(event) => {
+        if (!adaPerubahan) return;
+        event.preventDefault();
+        toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
+      }}
+      className={cx("m3-state min-h-9 items-center gap-0.5 whitespace-nowrap rounded-md px-1 text-label-large font-medium text-primary sm:pl-2", letak)}
+      aria-label={b.blok ? `Edit ${b.judul}` : `Edit ${b.judul} in ${b.sumber.label}`}
+    >
+      {b.blok ? "Edit" : `Edit in ${b.sumber.label}`}
+      <CaretRight size={14} aria-hidden />
+    </Link>
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -231,17 +278,20 @@ export function SusunanBeranda({
             >
               {index + 1}
             </span>
-            <button type="button" onClick={() => onPilih(b.id)} className="m3-state min-w-0 flex-1 self-stretch rounded-sm px-1 py-2 text-left" aria-label={`${b.judul}: show in preview`}>
-              <span className={cx("block truncate text-body-medium font-medium", b.tampil && !b.mati ? "text-on-surface" : "text-on-surface-variant")}>{b.judul}</span>
-              <span className="block truncate text-body-small text-on-surface-variant">
-                {[!b.tampil ? "Hidden" : b.mati, b.tetap ? "Fixed place" : null, b.sub].filter(Boolean).join(" · ")}
-              </span>
-            </button>
-            {b.blok ? (
-              <Link href={`/admin/landing?blok=${encodeURIComponent(b.id)}`} className="m3-state inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 text-label-large font-medium text-primary" aria-label={`Edit ${b.judul} on the Event page`}>
-                Edit <ArrowSquareOut size={14} aria-hidden />
-              </Link>
-            ) : null}
+            {/* Ponsel: tautan sumber di baris sendiri di bawah judul, supaya judul
+                dan tempat menyuntingnya sama-sama terbaca utuh. */}
+            <div className="flex min-w-0 flex-1 flex-col self-stretch py-1 sm:py-0">
+              <button type="button" onClick={() => onPilih(b.id)} className="m3-state min-w-0 flex-1 rounded-sm px-1 py-1 text-left sm:py-2" aria-label={`${b.judul}: show in preview`}>
+                <span className={cx("block truncate text-body-medium font-medium", b.tampil && !b.mati ? "text-on-surface" : "text-on-surface-variant")}>{b.judul}</span>
+                {/* Jenis baris selalu terbaca; keterangannya yang terpotong bila sempit. */}
+                <span className="flex min-w-0 gap-1 text-body-small text-on-surface-variant">
+                  <span className="shrink-0 font-medium">{b.blok ? "Your block" : "Automatic"}</span>
+                  <span className="truncate">{["", !b.tampil ? "Hidden" : b.mati, b.tetap ? "Fixed place" : null, b.sub].filter((bagian) => bagian !== null).join(" · ")}</span>
+                </span>
+              </button>
+              {tautanSumber(b, "inline-flex self-start sm:hidden")}
+            </div>
+            {tautanSumber(b, "hidden shrink-0 sm:inline-flex")}
             <button
               type="button"
               aria-label={b.tampil ? `Hide ${b.judul}` : `Show ${b.judul}`}
@@ -260,9 +310,38 @@ export function SusunanBeranda({
           : gathering
           ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
           : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}
-        To add your own content, add a block on the{" "}
-        <Link href="/admin/landing" className="rounded-sm font-medium text-primary hover:underline">Event page</Link> and set Show on to Participant page.
+        Automatic rows fill themselves from your event data: edit them where their link points.
       </p>
+      <div className="flex flex-col items-start gap-1.5">
+        <Button
+          variant="outlined"
+          size="sm"
+          icon={<Plus size={16} aria-hidden />}
+          onClick={() => {
+            if (jumlahBlok >= MAKS_BLOK) { setTolakTambah("penuh"); return; }
+            if (adaPerubahan) { setTolakTambah("berubah"); return; }
+            setTolakTambah(null);
+            setTambahTerbuka(true);
+          }}
+        >
+          Add block
+        </Button>
+        {/* Alasannya hilang sendiri begitu tidak berlaku lagi (setelah Save atau Cancel). */}
+        {tolakTambah === "penuh" && jumlahBlok >= MAKS_BLOK ? (
+          <p role="status" className="text-body-small text-on-surface-variant">This event already has {MAKS_BLOK} blocks, the most allowed. Delete one on the Event page first.</p>
+        ) : tolakTambah === "berubah" && adaPerubahan ? (
+          <p role="status" className="text-body-small text-on-surface-variant">Save or cancel your changes first. Adding a block opens it on the Event page.</p>
+        ) : null}
+      </div>
+      <TambahBlokDialog
+        open={tambahTerbuka}
+        onClose={() => setTambahTerbuka(false)}
+        description="Only signed-in participants see it. You fill it in on the Event page and save there; it then joins your blocks in this list."
+        onPick={(type) => {
+          setTambahTerbuka(false);
+          router.push(withEventPrefix(`/admin/landing?tambah=${type}&untuk=peserta`, window.location.pathname));
+        }}
+      />
     </div>
   );
 }

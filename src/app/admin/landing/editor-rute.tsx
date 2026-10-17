@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowUp, Plus, Trash } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import Link from "@/components/event-link";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { IconButton, SegmentedButton, SelectField, TextArea, TextField } from "@/components/m3";
 import {
@@ -36,11 +37,14 @@ export function TampilDi({ block, ubah }: { block: LandingBlock; ubah: (patch: P
         options={LANDING_BLOCK_SHOW_ON.map((value) => ({ value, label: LANDING_BLOCK_SHOW_ON_LABELS[value] }))}
       />
       <p className="text-body-small text-on-surface-variant">
-        {nilai === "public"
-          ? "Everyone who opens the Event page sees it."
-          : nilai === "member"
-            ? "Only signed-in participants see it, on their own page. Arrange it in Participant area \u203a Participant home."
-            : "On the Event page and on the participant\u2019s own page, arranged in Participant area \u203a Participant home."}
+        {nilai === "public" ? (
+          "Everyone who opens the Event page sees it."
+        ) : (
+          <>
+            {nilai === "member" ? "Only signed-in participants see it, on their own page. Move or hide it in " : "On the Event page and on the participant\u2019s own page. Its place there is set in "}
+            <Link href="/admin/area-peserta" className="rounded-sm font-medium text-primary hover:underline">Participant area › Participant home</Link>.
+          </>
+        )}
       </p>
     </div>
   );

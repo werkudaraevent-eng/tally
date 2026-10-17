@@ -32,6 +32,8 @@ type Muat = {
   /** Tata letak dashboard peserta; null = Editorial atau Forum, tanpa Participant home. */
   layout: "gathering" | "modern" | null;
   blocks: BlokPeserta[];
+  /** Semua blok acara, untuk batas Add block. */
+  blocks_count?: number;
   /** Peserta bawaan pratinjau: yang pertama punya kamar dan bus. */
   preview: PesertaPratinjau | null;
   /** Check-in > Checkpoints dinyalakan. */
@@ -104,6 +106,13 @@ function Pilihan({ checked, onSelect, label, description, name = "siapa-masuk", 
 
 const TAUTAN = "rounded-sm font-medium text-primary hover:underline";
 
+/** Blok khusus peserta yang tersembunyi saat dimuat dan kini matanya menyala. */
+function blokDinyalakan(data: Muat | null, anggota: LandingMemberConfig): string[] {
+  const awal = new Set(data?.member.home?.hidden ?? []);
+  const kini = new Set(anggota.home?.hidden ?? []);
+  return (data?.blocks ?? []).filter((block) => block.show_on === "member" && awal.has(block.id) && !kini.has(block.id)).map((block) => block.id);
+}
+
 export default function AreaPesertaPage() {
   const [data, setData] = useState<Muat | null>(null);
   const [anggota, setAnggotaState] = useState<LandingMemberConfig | null>(null);
@@ -149,7 +158,9 @@ export default function AreaPesertaPage() {
     const response = await fetch(eventApiPath("/api/admin/area-peserta"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ member: setelan }),
+      // Mata blok khusus peserta yang dinyalakan di sini sejak dimuat: hanya
+      // itu yang dinyalakan lagi di Page sections (lihat PATCH Area peserta).
+      body: JSON.stringify({ member: setelan, blok_nyala: blokDinyalakan(data, anggota) }),
     }).catch(() => null);
     setSimpan(false);
     if (!response) { toast.error("Connection failed", "Reload to see the current state."); return; }
@@ -238,6 +249,8 @@ export default function AreaPesertaPage() {
                       blocks={data.blocks}
                       checkpointsOn={data.checkpoints_on === true}
                       horizon={data.horizon === true}
+                      jumlahBlok={data.blocks_count ?? data.blocks.length}
+                      adaPerubahan={berubah}
                       set={set}
                       dipilih={sorot?.id ?? null}
                       onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}

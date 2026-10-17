@@ -799,6 +799,46 @@ export function landingMemberBlocks(saved: LandingSectionEntry[] | undefined, bl
 }
 
 /**
+ * Blok khusus peserta: Show on = Participant page. Tampil-sembunyinya diatur di
+ * Participant area > Participant home (`member.home.hidden`), bukan di Page
+ * sections Event page, karena halaman publik memang tidak menampilkannya.
+ */
+export function landingBlockMemberOnly(block: Pick<LandingBlock, "type" | "show_on">): boolean {
+  return landingBlockShownOn(block, "member") && !landingBlockShownOn(block, "public");
+}
+
+/**
+ * Page sections setelah mata Participant home disimpan: blok khusus peserta di
+ * `nyalakan` (mata yang dinyalakan admin di layar itu) dinyalakan lagi di
+ * susunan. Blok lama yang dulu dimatikan di Page sections tampil di
+ * Participant home sebagai tersembunyi (lihat GET Area peserta), jadi hanya
+ * mata yang memang dinyalakan yang mengubah susunan, bukan salinan basi.
+ * Tanpa perubahan: susunan yang sama.
+ */
+export function sectionsDenganBlokPeserta(saved: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = [], nyalakan: readonly string[] = []): LandingSectionEntry[] | undefined {
+  if (!saved) return saved;
+  const ids = new Set(blocks.filter((block) => landingBlockMemberOnly(block) && nyalakan.includes(block.id)).map((block) => block.id as string));
+  if (!saved.some((section) => !section.enabled && ids.has(section.id))) return saved;
+  return saved.map((section) => (!section.enabled && ids.has(section.id) ? { ...section, enabled: true } : section));
+}
+
+/**
+ * Page sections dari editor Event page: saklar blok khusus peserta yang sudah
+ * tersimpan diambil dari server, karena editor itu tidak lagi memilikinya
+ * (diatur mata Participant home). Salinan editor yang basi tidak
+ * menyembunyikan lagi blok yang baru dinyalakan di Participant home.
+ */
+export function sectionsDariEventPage(kirim: LandingSectionEntry[] | undefined, blocks: LandingBlock[] = [], tersimpan: LandingSectionEntry[] | undefined): LandingSectionEntry[] | undefined {
+  if (!kirim || !tersimpan) return kirim;
+  const lama = new Map<string, boolean>(tersimpan.map((section) => [section.id, section.enabled]));
+  const peserta = new Set(blocks.filter(landingBlockMemberOnly).map((block) => block.id as string));
+  return kirim.map((section) => {
+    const enabled = lama.get(section.id);
+    return peserta.has(section.id) && enabled !== undefined && enabled !== section.enabled ? { ...section, enabled } : section;
+  });
+}
+
+/**
  * Susunan gaya gathering: `normalizeLandingSections` plus entri Portal peserta
  * di tempat yang disimpan admin. Tempatnya diukur dari bagian sebelum entri itu
  * di susunan tersimpan, jadi bagian yang ditambahkan normalisasi tidak
@@ -1177,23 +1217,34 @@ export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | 
  * acara yang belum menyentuhnya tidak bergeser satu piksel pun. Blok peserta
  * masuk tepat sebelum `agenda`.
  */
-export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id: MemberHomeId; label: string; sub: string; side?: boolean }[]> = {
+export type MemberHomeSource = { label: string; href: string };
+const SUMBER_AGENDA: MemberHomeSource = { label: "Agenda", href: "/admin/rundown" };
+const SUMBER_LOGISTIK: MemberHomeSource = { label: "Logistics", href: "/admin/logistik" };
+const SUMBER_PESAN: MemberHomeSource = { label: "Messages", href: "/admin/pengumuman/lonceng" };
+const SUMBER_CHECKPOINT: MemberHomeSource = { label: "Check-in", href: "/admin/attendance?tab=checkpoint" };
+const SUMBER_HALAMAN: MemberHomeSource = { label: "Event page", href: "/admin/landing" };
+
+/**
+ * `source`: layar tempat isi baris itu disunting. Participant home menautkannya
+ * ("Edit in Agenda"), bukan menyalin editornya: satu data, satu tempat.
+ */
+export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id: MemberHomeId; label: string; sub: string; source: MemberHomeSource; side?: boolean }[]> = {
   gathering: [
-    { id: "quick", label: "Quick links", sub: "Ticket, map, organisers", side: true },
-    { id: "announcements", label: "Announcements", sub: "Latest message from Messages \u2192 Announcements" },
-    { id: "next", label: "Next up", sub: "The next session, from the Agenda" },
-    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step, from Check-in \u2192 Checkpoints" },
-    { id: "logistics", label: "Bus and room", sub: "From Logistics", side: true },
-    { id: "roommates", label: "Roommates", sub: "From Logistics", side: true },
-    { id: "agenda", label: "Today\u2019s agenda", sub: "From the Agenda" },
+    { id: "quick", label: "Quick links", sub: "Ticket, map, organisers", source: SUMBER_HALAMAN, side: true },
+    { id: "announcements", label: "Announcements", sub: "Latest announcement", source: SUMBER_PESAN },
+    { id: "next", label: "Next up", sub: "The next session", source: SUMBER_AGENDA },
+    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step", source: SUMBER_CHECKPOINT },
+    { id: "logistics", label: "Bus and room", sub: "Their bus and room", source: SUMBER_LOGISTIK, side: true },
+    { id: "roommates", label: "Roommates", sub: "Who shares their room", source: SUMBER_LOGISTIK, side: true },
+    { id: "agenda", label: "Today\u2019s agenda", sub: "Today\u2019s sessions", source: SUMBER_AGENDA },
   ],
   modern: [
-    { id: "next", label: "Next bus", sub: "The next trip, from Logistics" },
-    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step, from Check-in \u2192 Checkpoints" },
-    { id: "announcements", label: "Announcements", sub: "Messages \u2192 Announcements" },
-    { id: "agenda", label: "Agenda", sub: "From the Agenda" },
-    { id: "logistics", label: "Room, bus and items", sub: "From Logistics", side: true },
-    { id: "quick", label: "Quick links", sub: "Voting, feedback, map", side: true },
+    { id: "next", label: "Next bus", sub: "The next trip", source: SUMBER_LOGISTIK },
+    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step", source: SUMBER_CHECKPOINT },
+    { id: "announcements", label: "Announcements", sub: "Latest announcement", source: SUMBER_PESAN },
+    { id: "agenda", label: "Agenda", sub: "Their sessions", source: SUMBER_AGENDA },
+    { id: "logistics", label: "Room, bus and items", sub: "Their room, bus and kit items", source: SUMBER_LOGISTIK, side: true },
+    { id: "quick", label: "Quick links", sub: "Voting, feedback, map", source: SUMBER_HALAMAN, side: true },
   ],
 };
 
