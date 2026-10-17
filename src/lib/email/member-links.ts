@@ -12,7 +12,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
  * isinya tidak berubah.
  */
 
-export type MemberLinkKind = "konfirmasi" | "sandi" | "tertutup" | "walkin";
+export type MemberLinkKind = "konfirmasi" | "sandi" | "tertutup" | "walkin" | "kode";
 
 type Isi = Record<MemberLinkKind, { subjek: (acara: string) => string; pembuka: string; tombol: string | null; catatan: string }>;
 
@@ -35,6 +35,13 @@ const ISI: Isi = {
     pembuka: "ada permintaan tautan kata sandi area peserta untuk email ini. Email ini terdaftar sebagai peserta, tetapi area peserta belum dibuka untuk Anda. Hubungi panitia acara bila Anda memerlukan akses.",
     tombol: null,
     catatan: "Bila Anda tidak memintanya, abaikan email ini.",
+  },
+  // Kode masuk 6 digit (Participant area > Email code). Kodenya di `kode`.
+  kode: {
+    subjek: (acara) => `Kode masuk area peserta — ${acara}`,
+    pembuka: "ini kode untuk masuk ke area peserta. Ketik kode ini di halaman masuk.",
+    tombol: null,
+    catatan: "Kode ini berlaku 10 menit dan hanya bisa dipakai sekali. Jangan berikan kode ini kepada siapa pun, termasuk panitia. Bila Anda tidak memintanya, abaikan email ini.",
   },
   // Walk-in yang baru didaftarkan petugas di meja registrasi (sendWalkinLink).
   walkin: {
@@ -64,6 +71,12 @@ const ISI_EN: Isi = {
     tombol: null,
     catatan: "If you did not ask for it, ignore this email.",
   },
+  kode: {
+    subjek: (acara) => `Your participant area sign-in code — ${acara}`,
+    pembuka: "here is your code to sign in to the participant area. Enter it on the sign-in page.",
+    tombol: null,
+    catatan: "This code is valid for 10 minutes and works once. Do not share it with anyone, including the organisers. If you did not ask for it, ignore this email.",
+  },
   walkin: {
     subjek: (acara) => `Your participant area — ${acara}`,
     pembuka: "you have been registered at the registration desk. Create a password with the button below to open your ticket and event information in the participant area.",
@@ -80,6 +93,8 @@ export async function sendMemberLink(input: {
   name: string | null;
   eventName: string;
   url: string | null;
+  /** Kode masuk 6 digit, untuk `kind: "kode"`. */
+  kode?: string;
   lang?: LandingLang;
 }): Promise<{ state: "sent" } | { state: "failed"; error: string } | { state: "not_configured" }> {
   if (!isEmailConfigured()) return { state: "not_configured" };
@@ -93,6 +108,7 @@ export async function sendMemberLink(input: {
     <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#2649D0;font-weight:600;">${en ? "Participant area" : "Area peserta"}</p>
     <h1 style="margin:12px 0 0;font-size:24px;line-height:1.25;font-weight:600;">${escapeHtml(input.eventName)}</h1>
     <p style="margin:28px 0 0;font-size:15px;line-height:1.6;">${escapeHtml(sapaan + isi.pembuka)}</p>
+    ${input.kode ? `<p style="margin:24px 0 0;text-align:center;font-size:32px;line-height:1.2;font-weight:700;letter-spacing:0.25em;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">${escapeHtml(input.kode)}</p>` : ""}
     ${input.url && isi.tombol ? `<p style="margin:24px 0 0;text-align:center;"><a href="${escapeHtml(input.url)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">${isi.tombol}</a></p>
     <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#66736C;">${en ? "Button not working? Copy this address into your browser:" : "Tombol tidak bisa diklik? Salin alamat ini ke peramban:"}<br><span style="word-break:break-all;">${escapeHtml(input.url)}</span></p>` : ""}
     <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">${escapeHtml(isi.catatan)}</p>
@@ -104,6 +120,7 @@ export async function sendMemberLink(input: {
     "",
     sapaan + isi.pembuka,
     "",
+    ...(input.kode ? [input.kode, ""] : []),
     ...(input.url && isi.tombol ? [`${isi.tombol}: ${input.url}`, ""] : []),
     isi.catatan,
   ].join("\n");

@@ -46,7 +46,8 @@ export async function prepareWalkinLink(
   input: { participantId: string; email: string | null; name: string; request: Request },
 ): Promise<{ result: WalkinLinkResult; kirim?: () => Promise<void> }> {
   const member = memberConfig(event);
-  if (!member?.enabled || !member.walkin_link) return { result: { state: "skipped", reason: "off" } };
+  // Email itu berisi tautan buat kata sandi: hanya untuk cara email + kata sandi.
+  if (!member?.enabled || !member.walkin_link || (member.sign_in ?? "password") !== "password") return { result: { state: "skipped", reason: "off" } };
   const email = input.email ? normalizeEmail(input.email) : "";
   if (!email) return { result: { state: "skipped", reason: "no_email" } };
   if (!isEmailConfigured()) return { result: { state: "skipped", reason: "email_not_configured" } };

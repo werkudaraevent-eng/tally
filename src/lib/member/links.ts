@@ -37,7 +37,7 @@ const JENDELA_EMAIL = 15 * 60 * 1000;
 const BATAS_IP = 20;
 const JENDELA_IP = 10 * 60 * 1000;
 
-type Sasaran = { accountId?: string; participantId?: string; registrationId?: string };
+export type Sasaran = { accountId?: string; participantId?: string; registrationId?: string };
 
 async function buatToken(eventId: string, purpose: "konfirmasi" | "sandi", email: string, sasaran: Sasaran) {
   const token = randomBytes(32).toString("base64url");
@@ -220,7 +220,7 @@ export async function requestPasswordLink(
 }
 
 /** Akun yang sudah ada, lalu peserta tanpa akun, lalu pendaftaran tanpa akun. */
-async function cariSasaran(
+export async function cariSasaran(
   event: EventRow,
   member: LandingMemberConfig,
   email: string,
@@ -243,7 +243,14 @@ async function cariSasaran(
   let tertutup: { name: string } | null = null;
   for (const p of (daftarPeserta ?? []) as { id: string; name: string; email: string | null }[]) {
     if (normalizeEmail(p.email ?? "") !== email) continue;
-    if (await eligible(event.id, p.id, member)) return { sasaran: { participantId: p.id }, name: p.name };
+    if (await eligible(event.id, p.id, member)) {
+      // Peserta yang sudah berakun tanpa email (dua kolom data peserta) atau
+      // dengan email lain: tautan dan kodenya untuk akun itu, bukan akun baru
+      // yang akan bertabrakan dengan participant_accounts_participant_unique.
+      const { data: milik } = await client.from("participant_accounts").select("id").eq("event_id", event.id).eq("participant_id", p.id).maybeSingle();
+      const accountId = (milik as { id: string } | null)?.id;
+      return { sasaran: accountId ? { accountId, participantId: p.id } : { participantId: p.id }, name: p.name };
+    }
     tertutup ??= { name: p.name };
   }
 
@@ -321,6 +328,13 @@ export async function setPasswordWithToken(
   const sekarang = new Date().toISOString();
   const password_hash = await bcrypt.hash(input.password, HASH_ROUNDS);
   let accountId = baris.account_id;
+  // Tautan untuk peserta (impor, atau undangan Pesan peserta) yang ternyata
+  // sudah berakun, mis. dari kode email atau dua kolom data peserta: akun itu
+  // yang diberi kata sandi.
+  if (!accountId && baris.participant_id) {
+    const { data: milik } = await client.from("participant_accounts").select("id").eq("event_id", event.id).eq("participant_id", baris.participant_id).maybeSingle();
+    accountId = (milik as { id: string } | null)?.id ?? null;
+  }
 
   if (accountId) {
     const { error } = await client
@@ -328,6 +342,10 @@ export async function setPasswordWithToken(
       .update({ password_hash, password_set_at: sekarang, email_verified_at: sekarang, last_login_at: sekarang } as never)
       .eq("id", accountId);
     if (error) return { status: "invalid" };
+    // Akun tanpa email (dua kolom data peserta): email tautan ini, yang baru
+    // saja terbukti, menjadi email akunnya, supaya masuk dengan email + kata
+    // sandi bisa. Email yang sudah dipakai akun lain dibiarkan (23505).
+    await client.from("participant_accounts").update({ email: baris.email } as never).eq("id", accountId).is("email", null);
     // Mengganti kata sandi mengeluarkan semua perangkat lain.
     await client.from("participant_sessions").delete().eq("account_id", accountId);
   } else {

@@ -109,12 +109,18 @@ export async function eligible(eventId: string, participantId: string, member: L
   return (data ?? []).length > 0;
 }
 
-export async function startSession(accountId: string) {
+/**
+ * `cara`: cara masuk yang membuat sesi ini, bila bukan email + kata sandi.
+ * Sesi dari dua kolom data peserta ditolak getMemberSession begitu acaranya
+ * pindah ke cara lain. Kolomnya hanya ditulis bila terisi, jadi masuk dengan
+ * kata sandi tidak bergantung pada migrasi 202610160003.
+ */
+export async function startSession(accountId: string, cara?: "email_code" | "fields") {
   const token = randomBytes(32).toString("base64url");
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const { error } = await getSupabaseServiceClient()
     .from("participant_sessions")
-    .insert({ account_id: accountId, token_hash: hashToken(token), expires_at: expires.toISOString() } as never);
+    .insert({ account_id: accountId, token_hash: hashToken(token), expires_at: expires.toISOString(), ...(cara ? { cara } : {}) } as never);
   if (error) throw new Error("Sesi peserta gagal dibuat.");
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
@@ -212,28 +218,38 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
   const client = getSupabaseServiceClient();
   const { data } = await client
     .from("participant_sessions")
-    .select("id,expires_at,participant_accounts!inner(id,event_id,email,participant_id,registration_id,email_verified_at)")
+    // `*`: kolom `cara` baru ada setelah migrasi 202610160003; sesi kata sandi
+    // tetap terbaca sebelum migrasinya berjalan.
+    .select("*,participant_accounts!inner(id,event_id,email,participant_id,registration_id,email_verified_at)")
     .eq("token_hash", hashToken(token))
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
   const sesi = data as {
     id: string;
+    cara?: string | null;
     participant_accounts: {
       id: string;
       event_id: string;
-      email: string;
+      /** Kosong: akun dari cara masuk dua kolom, peserta tanpa email. */
+      email: string | null;
       participant_id: string | null;
       registration_id: string | null;
       email_verified_at: string | null;
     };
   } | null;
   if (!sesi || sesi.participant_accounts.event_id !== event.id) return null;
+  // Masuk dengan dua kolom data peserta (cara paling lemah) hanya berlaku
+  // selama acaranya memakai cara itu. Pindah ke kata sandi atau kode email
+  // mengeluarkan semua yang masuk dengan dua kolom.
+  if (sesi.cara === "fields" && member.sign_in !== "fields") return null;
   const akun = sesi.participant_accounts;
   const dasar = {
     accountId: akun.id,
     sessionId: sesi.id,
-    email: akun.email,
-    emailVerified: Boolean(akun.email_verified_at),
+    email: akun.email ?? "",
+    // Pengingat "konfirmasi email" hanya berarti untuk cara email + kata sandi:
+    // ia menjaga jalan pulih "Lupa kata sandi?". Cara lain tidak memakainya.
+    emailVerified: Boolean(akun.email_verified_at) || !akun.email || (member.sign_in ?? "password") !== "password",
   };
 
   if (akun.participant_id) {

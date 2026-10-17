@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { EnvelopeSimple, X } from "@phosphor-icons/react";
 import { REG_CONTROL } from "@/components/registration-field-input";
-import { kirimMasuk, pesanTautanTerkirim, type MasukMode, type MasukSandi } from "@/app/masuk/masuk-client";
+import { kirimMasuk, modeAwalUntuk, modeDasar, pesanTautanTerkirim, type MasukMode, type MasukSandi } from "@/app/masuk/masuk-client";
+import type { CaraMasukPublik } from "@/lib/member/kolom-masuk";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { MASUK_UI } from "@/lib/member/masuk-i18n";
 
@@ -40,6 +41,10 @@ import { MASUK_UI } from "@/lib/member/masuk-i18n";
  * judul, serta tanggal. Formulirnya duduk di lembar bersudut di atas pita.
  * Pita ikut bergulir, jadi begitu papan ketik terbuka kolomnya yang tampil.
  * Layar >= 600px tetap kotak 440px seperti sebelumnya.
+ *
+ * Cara masuk (`cara`) mengikuti setelan acara: email + kata sandi (masuk,
+ * tautan, sandi), kode dari email (kode lalu verifikasi), atau dua kolom data
+ * peserta (kolom). Tautan sandi dari email tetap bekerja di semua cara.
  */
 
 /** Wajah acara di dialog layar penuh (ponsel). Semua dari CMS halaman acara. */
@@ -101,6 +106,8 @@ const LABEL = "block text-label-large font-semibold";
 const KOLOM = `${REG_CONTROL} font-normal border-[color-mix(in_srgb,var(--reg-on-surface)_58%,var(--reg-field,#ffffff))]! placeholder:text-[var(--reg-on-surface-variant)] focus:border-[var(--reg-primary)]! focus-visible:outline-none! focus-visible:shadow-[0_0_0_2px_var(--reg-primary)]! aria-invalid:border-[var(--reg-error)]! aria-invalid:focus-visible:shadow-[0_0_0_2px_var(--reg-error)]!`;
 // 44px di layar lebar seperti dulu, 48px di ponsel (target sentuh halaman publik).
 const TAUTAN = "inline-flex min-h-11 max-[599px]:min-h-12 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
+/** Tautan yang berdiri sendiri (Kirim ulang kode, Ganti email): 48 px di semua lebar. */
+const TAUTAN_48 = "inline-flex min-h-12 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline";
 
 export function MasukDialog({
   slug,
@@ -113,6 +120,7 @@ export function MasukDialog({
   lang = "id",
   aksi = false,
   kepala = null,
+  cara = { jenis: "password" },
 }: {
   slug: string;
   /** `/e/<slug>/masuk`: alamat dialog, juga href tautan pemicunya. */
@@ -134,6 +142,8 @@ export function MasukDialog({
   aksi?: boolean;
   /** Wajah acara untuk dialog layar penuh di ponsel. Tanpanya ponsel memakai lembar polos. */
   kepala?: KepalaMasuk | null;
+  /** Cara masuk acara ini (landing_config.member.sign_in). */
+  cara?: CaraMasukPublik;
 }) {
   const t = MASUK_UI[lang];
   const judulId = useId();
@@ -141,6 +151,8 @@ export function MasukDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const sandiRef = useRef<HTMLInputElement>(null);
+  const kodeRef = useRef<HTMLInputElement>(null);
+  const kolomRef = useRef<HTMLInputElement>(null);
   const pemicuRef = useRef<HTMLElement | null>(null);
   const galatRef = useRef<HTMLParagraphElement>(null);
   const isiRef = useRef<HTMLDivElement>(null);
@@ -149,10 +161,15 @@ export function MasukDialog({
   // menaruh fokus di tombol Masuk.
   const pernahTerbuka = useRef(false);
 
+  const dasar = modeDasar(cara);
   const [terbuka, setTerbuka] = useState(awal !== null);
-  const [mode, setMode] = useState<MasukMode>(awal ?? "masuk");
+  const [mode, setMode] = useState<MasukMode>(awal ? modeAwalUntuk(awal, cara) : dasar);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [kode, setKode] = useState("");
+  const [nilai, setNilai] = useState<[string, string]>(["", ""]);
+  // Kode baru terkirim dari layar verifikasi.
+  const [catatan, setCatatan] = useState("");
   const [galat, setGalat] = useState(sandi === "invalid" ? t.tautanTidakBerlaku : "");
   // Tautan terkirim: formulirnya diganti kalimat hasil.
   const [terkirim, setTerkirim] = useState("");
@@ -168,6 +185,7 @@ export function MasukDialog({
     setMode(dengan);
     setGalat("");
     setTerkirim("");
+    setCatatan("");
     setTerbuka(true);
   }, []);
 
@@ -177,6 +195,7 @@ export function MasukDialog({
   const tertutup = useCallback(() => {
     setTerbuka(false);
     setPassword("");
+    setKode("");
     setGalat("");
     setSibuk(false);
     // Kosongkan agar pergantian mode setelah dibuka ulang tetap dibacakan.
@@ -209,7 +228,7 @@ export function MasukDialog({
       event.stopPropagation();
       pemicuRef.current = tautan as HTMLElement;
       window.history.pushState(null, "", masukUrl);
-      buka("masuk");
+      buka(dasar);
     }
     function riwayat() {
       if (window.location.pathname === masukUrl) setTerbuka(true);
@@ -221,7 +240,7 @@ export function MasukDialog({
       document.removeEventListener("click", klik, true);
       window.removeEventListener("popstate", riwayat);
     };
-  }, [buka, masukUrl, tertutup]);
+  }, [buka, dasar, masukUrl, tertutup]);
 
   // Buka/tutup <dialog>, kunci gulir di belakangnya, kembalikan fokus.
   useEffect(() => {
@@ -240,7 +259,7 @@ export function MasukDialog({
       akar.style.scrollbarGutter = "auto";
       akar.style.overflow = "hidden";
       if (celah > 0) document.body.style.paddingRight = `${celah}px`;
-      (emailRef.current ?? sandiRef.current)?.focus();
+      (emailRef.current ?? sandiRef.current ?? kodeRef.current ?? kolomRef.current)?.focus();
       return () => {
         akar.style.overflow = sebelum.overflow;
         akar.style.scrollbarGutter = sebelum.gutter;
@@ -315,10 +334,20 @@ export function MasukDialog({
     if (sibuk) return;
     setGalat("");
     setSibuk(true);
-    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token }, lang);
+    setCatatan("");
+    const hasil = await kirimMasuk(slug, mode, { email, password, token: token?.token, kode, nilai }, lang);
     if (hasil.ok && mode === "tautan") {
       setSibuk(false);
       setTerkirim(pesanTautanTerkirim(email, lang));
+      return;
+    }
+    if (hasil.ok && mode === "kode") {
+      // Langkah dua: kode dari email. Judulnya berganti, fokus ke kolom kode.
+      setSibuk(false);
+      setKode("");
+      setMode("verifikasi");
+      setPengumuman(t.judul.verifikasi);
+      requestAnimationFrame(() => kodeRef.current?.focus());
       return;
     }
     if (hasil.ok) {
@@ -329,12 +358,35 @@ export function MasukDialog({
     setGalat(hasil.pesan);
   }
 
+  // Layar verifikasi: minta kode baru ke email yang sama, atau kembali ke kolom email.
+  async function kirimUlang() {
+    if (sibuk) return;
+    setGalat("");
+    setCatatan("");
+    setSibuk(true);
+    const hasil = await kirimMasuk(slug, "kode", { email, password: "" }, lang);
+    setSibuk(false);
+    if (hasil.ok) {
+      setKode("");
+      setCatatan(t.kodeBaru);
+      kodeRef.current?.focus();
+    } else setGalat(hasil.pesan);
+  }
+  function gantiEmail() {
+    setMode("kode");
+    setGalat("");
+    setCatatan("");
+    setKode("");
+    setPengumuman(t.judul.kode);
+    requestAnimationFrame(() => emailRef.current?.focus());
+  }
+
   // Klik di luar kotak (pada ::backdrop, yang target kliknya <dialog>) menutup
   // mode Masuk, tapi tidak bila sudah ada yang diketik atau sedang di mode
   // lain: salah klik tidak boleh membuang isian.
   function klikLatar(event: MouseEvent<HTMLDialogElement>) {
     if (event.target !== event.currentTarget) return;
-    if (mode === "masuk" && !email && !password) tutup();
+    if (mode === dasar && !email && !password && !nilai[0] && !nilai[1]) tutup();
   }
 
   // showModal() membuat isi di belakang inert, tetapi Tab dari elemen terakhir
@@ -477,6 +529,10 @@ export function MasukDialog({
           </p>
         ) : mode === "sandi" && token ? (
           <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">{t.untuk(token.email)}</p>
+        ) : mode === "verifikasi" ? (
+          <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">{t.kodeTerkirim(email)}</p>
+        ) : mode === "kolom" ? (
+          <p className="mt-2 text-body-medium text-[var(--reg-on-surface-variant)]">{t.kolomCatatan}</p>
         ) : null}
 
         <form onSubmit={kirim} className="mt-3 flex flex-col">
@@ -486,13 +542,13 @@ export function MasukDialog({
             </p>
           ) : null}
 
-          {terkirim ? (
+          {terkirim || catatan ? (
             <p role="status" className="mt-2 rounded-md bg-[var(--reg-primary-container)] px-4 py-3 text-body-medium text-[var(--reg-on-primary-container)]">
-              {terkirim}
+              {terkirim || catatan}
             </p>
           ) : null}
 
-          {mode !== "sandi" && !terkirim ? (
+          {(mode === "masuk" || mode === "tautan" || mode === "kode") && !terkirim ? (
             <label className={`${LABEL} mt-4`}>
               {t.emailLabel}
               <input
@@ -506,16 +562,68 @@ export function MasukDialog({
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 aria-invalid={invalid}
-                aria-describedby={describedGalat}
+                aria-describedby={[mode === "kode" ? `${judulId}-kode-catatan` : null, describedGalat].filter(Boolean).join(" ") || undefined}
                 className={KOLOM}
+              />
+              {mode === "kode" ? (
+                <span id={`${judulId}-kode-catatan`} className="mt-2 block text-body-small font-normal text-[var(--reg-on-surface-variant)]">
+                  {t.kodeCatatan}
+                </span>
+              ) : null}
+            </label>
+          ) : null}
+
+          {mode === "verifikasi" ? (
+            <label className={`${LABEL} mt-4`}>
+              {t.kodeLabel}
+              <input
+                ref={kodeRef}
+                type="text"
+                name="kode"
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9 ]{6,7}"
+                maxLength={7}
+                enterKeyHint="go"
+                value={kode}
+                onChange={(event) => setKode(event.target.value.replace(/[^0-9 ]/g, ""))}
+                aria-invalid={invalid}
+                aria-describedby={describedGalat}
+                className={`${KOLOM} text-center text-[22px]! font-semibold tracking-[0.4em] tabular-nums`}
               />
             </label>
           ) : null}
 
+          {mode === "kolom" && cara.jenis === "fields"
+            ? cara.kolom.map((kolom, indeks) => (
+              <label key={indeks} className={`${LABEL} mt-4`}>
+                {kolom.label}
+                <input
+                  ref={indeks === 0 ? kolomRef : undefined}
+                  type={kolom.jenis}
+                  name={`kolom-${indeks}`}
+                  required
+                  inputMode={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : undefined}
+                  autoComplete={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : "off"}
+                  enterKeyHint={indeks === 1 ? "go" : "next"}
+                  value={nilai[indeks]}
+                  onChange={(event) => {
+                    const isi = event.target.value;
+                    setNilai((lama) => (indeks === 0 ? [isi, lama[1]] : [lama[0], isi]));
+                  }}
+                  aria-invalid={invalid}
+                  aria-describedby={describedGalat}
+                  className={KOLOM}
+                />
+              </label>
+            ))
+            : null}
+
           {/* "Lupa kata sandi?" di LUAR label: tombol di dalam <label> ikut
               menjadi nama kolom bagi pembaca layar. Baris label setinggi
               tombolnya (44px), jadi jaraknya dari kolom di atas lebih kecil. */}
-          {mode !== "tautan" ? (
+          {mode === "masuk" || mode === "sandi" ? (
             <div className={mode === "masuk" ? "mt-1" : "mt-4"}>
               <div className={`flex justify-between gap-4 ${mode === "masuk" ? "min-h-11 items-end" : ""}`}>
                 <label htmlFor={`${judulId}-sandi`} className={LABEL}>
@@ -563,9 +671,19 @@ export function MasukDialog({
           >
             {sibuk ? t.memproses : t.tombol[mode]}
           </button>}
+          {mode === "verifikasi" ? (
+            <div className="mt-3 flex flex-wrap justify-between gap-x-4">
+              <button type="button" onClick={() => void kirimUlang()} className={`text-label-large ${TAUTAN_48}`}>
+                {t.kirimUlang}
+              </button>
+              <button type="button" onClick={gantiEmail} className={`text-label-large ${TAUTAN_48}`}>
+                {t.gantiEmail}
+              </button>
+            </div>
+          ) : null}
         </form>
 
-        {kepala ? (
+        {kepala && cara.jenis === "password" ? (
           // Ponsel: pindah mode sebagai tombol bergaris selebar layar (48px),
           // bukan tautan kecil di akhir kalimat.
           <div className="mt-6 min-[600px]:hidden">
@@ -584,12 +702,12 @@ export function MasukDialog({
             </button>
           </div>
         ) : null}
-        <p className={`${kepala ? "hidden min-[600px]:flex" : "flex"} mt-5 flex-wrap items-center gap-x-1 border-t border-[var(--reg-outline-variant)] pt-3 text-body-medium text-[var(--reg-on-surface-variant)]`}>
+        {cara.jenis === "password" ? <p className={`${kepala ? "hidden min-[600px]:flex" : "flex"} mt-5 flex-wrap items-center gap-x-1 border-t border-[var(--reg-outline-variant)] pt-3 text-body-medium text-[var(--reg-on-surface-variant)]`}>
           <span>{mode === "masuk" ? t.belumPunya : t.sudahPunya}</span>
           <button type="button" onClick={() => ganti(mode === "masuk" ? "tautan" : "masuk")} className={`text-left ${TAUTAN}`}>
             {mode === "masuk" ? t.kirimTautan : t.masuk}
           </button>
-        </p>
+        </p> : null}
         {kepala?.bantuan ? (
           <p className="mt-auto pt-8 text-center text-body-medium text-[var(--reg-on-surface-variant)] min-[600px]:hidden">
             {t.bantuan}{" "}
