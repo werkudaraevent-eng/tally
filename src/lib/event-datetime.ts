@@ -85,8 +85,9 @@ export function daysUntil(eventDate: string | null, now: Date): number | null {
  * Rentang tanggal ringkas gaya gathering (rancangan pen.dev): "6–8 Nov 2026"
  * (bulan pendek) atau "6–8 November 2026". Beda bulan: "30 Okt – 2 Nov 2026";
  * beda tahun: kedua tanggal lengkap. Satu hari: "6 Nov 2026".
+ * `tahun: false` untuk kalimat ("untuk 6–8 November"); beda tahun tetap lengkap.
  */
-export function formatEventDateRingkas(schedule: EventSchedule, bahasa: TanggalBahasa = "id", bulanPendek = true): string | null {
+export function formatEventDateRingkas(schedule: EventSchedule, bahasa: TanggalBahasa = "id", bulanPendek = true, tahun = true): string | null {
   if (!schedule.event_date) return null;
   const bagian = (iso: string) => {
     const parts = new Intl.DateTimeFormat(bahasa === "en" ? "en-GB" : "id-ID", {
@@ -98,10 +99,11 @@ export function formatEventDateRingkas(schedule: EventSchedule, bahasa: TanggalB
     const ambil = (jenis: string) => parts.find((part) => part.type === jenis)?.value.replace(".", "") ?? "";
     return { hari: ambil("day"), bulan: ambil("month"), tahun: ambil("year") };
   };
+  const denganTahun = (teks: string, angka: string) => (tahun ? `${teks} ${angka}` : teks);
   const awal = bagian(schedule.event_date);
-  if (!schedule.end_date || schedule.end_date === schedule.event_date) return `${awal.hari} ${awal.bulan} ${awal.tahun}`;
+  if (!schedule.end_date || schedule.end_date === schedule.event_date) return denganTahun(`${awal.hari} ${awal.bulan}`, awal.tahun);
   const akhir = bagian(schedule.end_date);
   if (awal.tahun !== akhir.tahun) return `${awal.hari} ${awal.bulan} ${awal.tahun} – ${akhir.hari} ${akhir.bulan} ${akhir.tahun}`;
-  if (awal.bulan !== akhir.bulan) return `${awal.hari} ${awal.bulan} – ${akhir.hari} ${akhir.bulan} ${akhir.tahun}`;
-  return `${awal.hari}–${akhir.hari} ${akhir.bulan} ${akhir.tahun}`;
+  if (awal.bulan !== akhir.bulan) return denganTahun(`${awal.hari} ${awal.bulan} – ${akhir.hari} ${akhir.bulan}`, akhir.tahun);
+  return denganTahun(`${awal.hari}–${akhir.hari} ${akhir.bulan}`, akhir.tahun);
 }
