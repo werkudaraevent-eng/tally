@@ -7,6 +7,7 @@ import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, SelectField,
 import { SettingRow } from "@/components/admin/settings-panel";
 import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
+import { PilihBlokDarurat } from "./blok-darurat";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
@@ -261,27 +262,9 @@ export default function AreaPesertaPage() {
                   <SettingRow
                     stacked={berpratinjau}
                     title="Emergency and help"
-                    description="One participant block shown in Menu, under Travel, and linked from the help card on Travel. Use it for the 24-hour organiser number, medical team, hotel reception, nearest clinic and what to do if left behind."
+                    description="One participant-only Columns block shown in Menu, under Travel, instead of Participant home, and linked from the help card on Travel. Use it for the medical team, hotel reception, nearest clinic and what to do if left behind."
                   >
-                    <SelectField
-                      label="Block"
-                      value={anggota.help_block ?? ""}
-                      onChange={(event) => set({ help_block: event.target.value || null })}
-                      hint={
-                        data.blocks.some((block) => block.show_on === "member")
-                          ? "The block shows in Menu instead of Participant home."
-                          : "Add a participant-only block in Participant home first, for example Cards with one card per contact."
-                      }
-                    >
-                      <option value="">None</option>
-                      {data.blocks
-                        .filter((block) => block.show_on === "member")
-                        .map((block) => (
-                          <option key={block.id} value={block.id}>
-                            {block.heading || "Untitled block"}
-                          </option>
-                        ))}
-                    </SelectField>
+                    <PilihBlokDarurat blocks={data.blocks} value={anggota.help_block ?? null} onChange={(id) => set({ help_block: id })} adaPerubahan={berubah} />
                   </SettingRow>
                 ) : null}
                 <SettingRow stacked={berpratinjau} title="Shown in the Participant area">

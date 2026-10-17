@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- #199 Horizon participant portal fixes from the 17 Oct audit, as approved in the mockups: compact top bar, next and happening-now cards with real dates and every batch labelled, unread announcements first with a count badge, date chips and batch switch in Schedule, QR layer that opens instantly and offline (screen wake lock, small service worker, guest offline note), help card with call and WhatsApp, bus trips with maps, train tickets to calendar, an emergency card chosen in Participant area. Draft; waiting on Mas's merge time (KSO in client review).
+- #199 Horizon participant portal fixes from the 17 Oct audit, as approved in the mockups: compact top bar, next and happening-now cards with real dates and every batch labelled, unread announcements first with a count badge, date chips and batch switch in Schedule, QR layer that opens instantly and offline (screen wake lock, small service worker, guest offline note), help card with call and WhatsApp, bus trips with maps, train tickets to calendar, an emergency card made from a participant-only Columns block chosen in Participant area. Draft; waiting on Mas's merge time (KSO in client review).
 - #198 Horizon Profil redesign (ticket card with QR, personal details, help card; two columns on desktop): coordinator QA running; then a merge-timing card for Mas (KSO in client review).
 - Bus trips "Pick from Agenda" in Logistics > Add trip: mockup on the real dialog in progress; needs a small SQL link column (Mas runs it) before code.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
@@ -99,7 +99,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #175 D1/D2/L2/L3: the phone note is 17 px instead of 15 and has no overflow-wrap, and a long unbroken announcement word overflows.
 - #180 L2: the fold also applies on tablets; booking codes of 17+ characters may overflow at 390.
 - #183 L1/L2: re-inserting moves Agenda and Quick links in classic order, and the drop indicator on a fixed row does nothing.
-- Portal audit branch: the cashier offline banner still shows on public pages other than the participant portal; offline, every portal address shows the saved QR page (by design); Schedule links to Travel only for agenda rows that share date and time with the participant's bus trip.
+- Portal audit branch: the cashier offline banner still shows on public pages other than the participant portal; offline, every portal address shows the saved QR page (by design); Schedule links to Travel only for agenda rows that share date and time with the participant's bus trip. Emergency card: rows have no icons (the approved mockup had icon tiles), office numbers (0274 ...) show as text and cannot be tapped, it is not in the saved offline page (offline shows the QR only), and the Participant area preview shows Home only, so the card is checked on the portal Menu tab.
 - #185 L3: `?tab=perjalanan` with no travel data shows no active tab.
 - #194 L8/L9: the short description has no tooltip, and block rows say only "Edit ›".
 - #132 Lows: at 390 the "Preview as" button shrinks to about 28 px and clips the name, and clicking a home row can scroll the preview toolbar out of view.

@@ -35,7 +35,7 @@ import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
 import { formatEventDate, formatEventDateRingkas, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
-import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
@@ -63,7 +63,7 @@ import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern
 import { LatarKv, inisialNama as inisialAcara } from "@/components/landing/modern/gathering-app";
 import { teksPolos } from "@/lib/landing-teks-kaya";
 import { kontras } from "@/lib/landing-hitung-mundur";
-import { HORIZON_GOLD_DEFAULT } from "@/lib/landing-tokens";
+import { HORIZON_GOLD_DEFAULT, sorotHorizon } from "@/lib/landing-tokens";
 import { gayaHorizon } from "@/components/landing/modern/horizon";
 import {
   BarisTautanHorizon,
@@ -97,6 +97,8 @@ import {
 } from "@/components/member/portal-horizon";
 import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
+import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
+import { HtmlLang } from "@/components/html-lang";
 import { gabungMeta } from "@/lib/typography";
 import { QrHorizon } from "@/components/member/qr-horizon";
 import { PenyediaQr, PesanLuringQr, StatusQrHalaman, type DataLapisanQr } from "@/components/member/lapisan-qr";
@@ -210,7 +212,8 @@ export async function DashboardGathering({
     const dataQr = dataLapisanQr();
     const busQr = logistikQr ? namaBusPeserta(logistikQr, sekarang) : null;
     return (
-      <main className="min-h-dvh" style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
+      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="min-h-dvh" style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
+        <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         <TutupQrEscape href={tutupQr} />
         <QrHorizon
           judul={t.qrTitle}
@@ -303,10 +306,13 @@ export async function DashboardGathering({
   // Participant home (bawaannya tepat sebelum Rundown hari ini).
   const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
   const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
-  // Kartu darurat dan bantuan (E-03): blok khusus peserta pilihan panitia, di
-  // Menu tepat di bawah Perjalanan dan ditaut dari kartu bantuan Perjalanan,
-  // jadi tidak ikut di Beranda.
-  const blokDarurat = horizon && member.help_block ? (blokPeserta.find((block) => block.id === member.help_block && landingBlockMemberOnly(block)) ?? null) : null;
+  // Kartu darurat dan bantuan (E-03): blok Columns khusus peserta pilihan
+  // panitia, di Menu tepat di bawah Perjalanan dan ditaut dari kartu bantuan
+  // Perjalanan, jadi tidak ikut di Beranda. Jenis lain tidak punya baris yang
+  // bisa dibaca kartunya (lib/member/blok-darurat.ts), jadi tetap di Beranda.
+  const blokDarurat = horizon && member.help_block
+    ? (blokPeserta.find((block) => block.id === member.help_block && landingBlockMemberOnly(block) && jenisBlokDarurat(block.type)) ?? null)
+    : null;
   const judulDarurat = blokDarurat?.heading?.trim() || tH.emergency;
   const tokensTema = landingTokens(config, "modern");
   const warnaTema = { brand: tokensTema.brand, accent: tokensTema.accent ?? null };
@@ -1600,7 +1606,8 @@ export async function DashboardGathering({
       // `data-luring-sendiri`: portal punya pesan luring sendiri untuk tamu, jadi
       // spanduk kasir global tidak tampil di sini (U-02). Bilah bawah dipakai sampai
       // 1024 px (U-18), jadi ruang bawahnya juga.
-      <main data-luring-sendiri className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
+      <main data-luring-sendiri lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
+        <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         {dataQr ? <PenyediaQr data={dataQr}>{isiPortal}</PenyediaQr> : isiPortal}
       </main>
     );
@@ -1725,7 +1732,9 @@ function gayaPortal(config: EventLandingConfig, horizon: boolean): CSSProperties
   // Gathering Horizon (rancangan V5): navy dan emas dari Tema, latar krem.
   if (horizon) {
     const emas = [config.button_color, tokensTema.accent].find((nilai) => /^#[0-9a-f]{6}$/i.test(nilai ?? "")) ?? HORIZON_GOLD_DEFAULT;
-    Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff"), { backgroundColor: LATAR_PORTAL_HORIZON });
+    // Teks emas di atas navy (label dan sorot kartu checkpoint) memakai sorot yang
+    // diukur kontrasnya, sama dengan halaman acara; emas yang sudah terbaca tidak berubah.
+    Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff", sorotHorizon(emas, tokensTema.accent, tokensTema.brand)), { backgroundColor: LATAR_PORTAL_HORIZON });
   }
   return gaya;
 }
