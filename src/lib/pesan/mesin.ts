@@ -166,7 +166,10 @@ export async function enqueueBlast(
       // Undangan lama TIDAK dicabut di sini, tetapi saat undangan baru benar-benar
       // terkirim (cabutTautanLama). Jadwal yang dibatalkan atau kiriman yang
       // gagal tidak meninggalkan peserta tanpa tautan yang berlaku.
-      const token = terkirim.filter((baris) => !baris.accountId).map((baris) => ({
+      // Akun tanpa kata sandi buatan peserta (dari kode email atau dua kolom
+      // data peserta) juga mendapat tautan: token dengan account_id, yang
+      // memberi kata sandi ke akun itu (setPasswordWithToken).
+      const token = terkirim.filter((baris) => !baris.accountId || !baris.passwordSet).map((baris) => ({
         event_id: event.id,
         purpose: "undangan",
         token_hash: inviteTokenHash(blastId, baris.participant.id),

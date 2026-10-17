@@ -227,6 +227,7 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
   const sesi = data as {
     id: string;
     cara?: string | null;
+    created_at: string;
     participant_accounts: {
       id: string;
       event_id: string;
@@ -241,7 +242,11 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
   // Masuk dengan dua kolom data peserta (cara paling lemah) hanya berlaku
   // selama acaranya memakai cara itu. Pindah ke kata sandi atau kode email
   // mengeluarkan semua yang masuk dengan dua kolom.
-  if (sesi.cara === "fields" && member.sign_in !== "fields") return null;
+  if (sesi.cara === "fields") {
+    if (member.sign_in !== "fields") return null;
+    // Sesi dari masa dua kolom sebelumnya (fields -> lain -> fields).
+    if (member.sign_in_since && new Date(sesi.created_at).getTime() < new Date(member.sign_in_since).getTime()) return null;
+  }
   const akun = sesi.participant_accounts;
   const dasar = {
     accountId: akun.id,

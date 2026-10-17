@@ -13,6 +13,7 @@ import { confirmationLinkUrl, sendConfirmationLink } from "@/lib/member/links";
 import { linkOrigin } from "@/lib/domain-klien/asal";
 import { invitationSettings, type InvitationRow } from "@/lib/undangan/data";
 import { notifyInviteUsedElsewhere, readInvite } from "@/lib/undangan/publik";
+import { ipKlien } from "@/lib/ip-klien";
 
 /**
  * Pendaftaran peserta dari form publik. TANPA login — satu-satunya endpoint
@@ -51,16 +52,9 @@ const submitSchema = z.object({
   lang: z.enum(["id", "en"]).optional(),
 });
 
-/**
- * IP pendaftar. Di belakang proxy Vercel, `x-forwarded-for` berisi rantai dan
- * yang PALING KIRI adalah klien; mengambil elemen lain berarti seluruh
- * pendaftar tampak berasal dari satu alamat dan pembatasan di bawah tidak
- * pernah menggigit.
- */
+/** IP pendaftar untuk pembatasan di bawah (lib/ip-klien.ts). */
 function clientIp(request: Request): string | null {
-  const chain = request.headers.get("x-forwarded-for");
-  if (chain) return chain.split(",")[0].trim() || null;
-  return request.headers.get("x-real-ip");
+  return ipKlien(request.headers);
 }
 
 export async function POST(request: Request) {

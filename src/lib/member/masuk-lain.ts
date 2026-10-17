@@ -34,34 +34,40 @@ export function caraMasuk(member: Pick<LandingMemberConfig, "sign_in"> | null | 
 
 const MASA_KODE_MS = 10 * 60 * 1000;
 /**
- * Batas permintaan kode, semuanya dari participant_link_requests (dicatat
- * untuk setiap permintaan, terdaftar atau tidak, jadi batasnya tidak
- * membocorkan siapa yang terdaftar):
- *   per email + IP  3 per 15 menit. Peminta yang sama mendapat "tunggu".
- *   per IP          60 per 10 menit. Peminta yang sama mendapat "tunggu".
+ * Batas permintaan kode. Satu IP penyerang tidak boleh bisa menghentikan kode
+ * untuk peserta yang memintanya dari IP lain, jadi batas yang terlihat dan
+ * batas harian dihitung per email + IP:
+ *   per email + IP  3 per 15 menit, peminta yang sama mendapat "tunggu";
+ *                   20 kode per 24 jam (dihitung dari kode yang dibuat).
+ *   per IP          60 per 10 menit, peminta yang sama mendapat "tunggu".
  *                   Longgar: peserta di lokasi acara berbagi satu wifi.
- *   per email       10 per jam dari IP mana pun. Diam (tetap "terkirim"),
- *                   karena yang kena bisa orang lain.
- * Ditambah 20 kode per email per 24 jam (dihitung dari kode yang dibuat).
+ *   per email       50 kode per 24 jam dari semua IP, diam. Plafon untuk
+ *                   penebak yang berganti-ganti IP: paling banyak 250 tebakan
+ *                   kode per email sehari. Butuh 3 IP atau lebih untuk
+ *                   mencapainya, jadi satu IP tidak bisa.
+ * Permintaan dicatat di participant_link_requests untuk setiap email,
+ * terdaftar atau tidak, jadi batas yang terlihat tidak membocorkan siapa yang
+ * terdaftar.
  */
 const BATAS_PASANGAN = 3;
 const JENDELA_PASANGAN = 15 * 60 * 1000;
 const BATAS_IP = 60;
 const JENDELA_IP = 10 * 60 * 1000;
-const BATAS_EMAIL_JAM = 10;
-const JENDELA_EMAIL_JAM = 60 * 60 * 1000;
-const BATAS_KODE_HARI = 20;
+const BATAS_KODE_HARI_PASANGAN = 20;
+const BATAS_KODE_HARI_EMAIL = 50;
+const HARI = 24 * 60 * 60 * 1000;
 /**
- * Kode yang diuji setiap tebakan: kode terbaru dari tiap IP peminta, paling
- * banyak lima. Permintaan dari IP lain tidak membatalkan kode yang sedang
- * dipegang peserta. Setiap tebakan salah menambah hitungan semua kode yang
- * diuji; kode hangus di tebakan salah ke-5 (peserta_kode_salah).
+ * Kode yang diuji setiap tebakan: kode terbaru dari IP penebak, lalu kode
+ * terbaru dari tiap IP peminta lain, paling banyak lima. Permintaan dari IP
+ * lain tidak pernah menggeser kode yang diminta dari IP peserta sendiri.
+ * Setiap tebakan salah menambah hitungan semua kode yang diuji; kode hangus
+ * di tebakan salah ke-5 (peserta_kode_salah).
  */
 const KODE_DIUJI = 5;
 /**
  * Tebakan salah per IP, di semua email: 60 per 10 menit (wifi lokasi acara).
  * Yang benar-benar menahan tebakan adalah kode yang hangus di salah ke-5
- * dan 20 kode per email per hari: paling banyak 100 tebakan per email sehari.
+ * dan plafon 50 kode per email per hari: paling banyak 250 tebakan kode.
  */
 const BATAS_SALAH_IP = 60;
 const JENDELA_SALAH_IP = 10 * 60 * 1000;
@@ -101,17 +107,16 @@ export async function kirimKodeMasuk(
   const client = getSupabaseServiceClient();
   const hitung = () => client.from("participant_link_requests").select("id", { head: true, count: "exact" }).eq("event_id", event.id);
 
-  const [pasangan, perIp, perEmail] = await Promise.all([
-    input.ip ? hitung().eq("email", email).eq("ip", input.ip).gte("created_at", sejak(JENDELA_PASANGAN)) : Promise.resolve({ count: 0 }),
+  const pasanganKueri = hitung().eq("email", email).gte("created_at", sejak(JENDELA_PASANGAN));
+  const [pasangan, perIp] = await Promise.all([
+    input.ip ? pasanganKueri.eq("ip", input.ip) : pasanganKueri.is("ip", null),
     input.ip
       ? hitung().eq("ip", input.ip).neq("email", KUNCI_SALAH_KODE).not("email", "like", "kolom:%").gte("created_at", sejak(JENDELA_IP))
       : Promise.resolve({ count: 0 }),
-    hitung().eq("email", email).gte("created_at", sejak(JENDELA_EMAIL_JAM)),
   ]);
   if ((pasangan.count ?? 0) >= BATAS_PASANGAN) return { status: "rate_limited", retryAfterSeconds: Math.round(JENDELA_PASANGAN / 1000) };
   if ((perIp.count ?? 0) >= BATAS_IP) return { status: "rate_limited", retryAfterSeconds: Math.round(JENDELA_IP / 1000) };
   await client.from("participant_link_requests").insert({ event_id: event.id, email, ip: input.ip } as never);
-  if ((perEmail.count ?? 0) >= BATAS_EMAIL_JAM) return { status: "sent" };
 
   const kirim = async () => {
     try {
@@ -125,14 +130,16 @@ export async function kirimKodeMasuk(
         return;
       }
 
-      const { count: hariIni } = await client
-        .from("participant_account_tokens")
-        .select("id", { head: true, count: "exact" })
-        .eq("event_id", event.id)
-        .eq("email", email)
-        .eq("purpose", "kode")
-        .gte("created_at", sejak(24 * 60 * 60 * 1000));
-      if ((hariIni ?? 0) >= BATAS_KODE_HARI) return;
+      const kodeHariIni = () =>
+        client
+          .from("participant_account_tokens")
+          .select("id", { head: true, count: "exact" })
+          .eq("event_id", event.id)
+          .eq("email", email)
+          .eq("purpose", "kode")
+          .gte("created_at", sejak(HARI));
+      const [dariIpIni, semua] = await Promise.all([input.ip ? kodeHariIni().eq("ip", input.ip) : kodeHariIni().is("ip", null), kodeHariIni()]);
+      if ((dariIpIni.count ?? 0) >= BATAS_KODE_HARI_PASANGAN || (semua.count ?? 0) >= BATAS_KODE_HARI_EMAIL) return;
 
       const id = randomUUID();
       const kode = String(randomInt(0, 1_000_000)).padStart(6, "0");
@@ -214,13 +221,14 @@ export async function masukDenganKode(
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
     .limit(50);
-  // Kode terbaru dari tiap IP peminta.
+  // Kode terbaru dari tiap IP peminta; yang dari IP penebak selalu ikut.
   const perIp = new Map<string, BarisKode>();
   for (const baris of (data ?? []) as BarisKode[]) {
     const ip = baris.ip ?? "";
     if (!perIp.has(ip)) perIp.set(ip, baris);
   }
-  const diuji = [...perIp.values()].slice(0, KODE_DIUJI);
+  const milikSendiri = perIp.get(input.ip ?? "");
+  const diuji = [...(milikSendiri ? [milikSendiri] : []), ...[...perIp.values()].filter((baris) => baris !== milikSendiri)].slice(0, KODE_DIUJI);
   const cocok = /^\d{6}$/.test(input.kode) ? diuji.find((baris) => sama(hashKode(baris.id, input.kode), baris.token_hash)) : undefined;
 
   if (!cocok) {

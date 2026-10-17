@@ -3,6 +3,7 @@ import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { FIELD_KEY_PATTERN } from "@/lib/registration-fields";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { ipKlien } from "@/lib/ip-klien";
 
 /**
  * Unggahan berkas dari form pendaftaran publik.
@@ -40,9 +41,7 @@ const RATE_WINDOW_MS = 10 * 60_000;
 const RATE_LIMIT = 20;
 
 function clientIp(request: Request): string | null {
-  const chain = request.headers.get("x-forwarded-for");
-  if (chain) return chain.split(",")[0].trim() || null;
-  return request.headers.get("x-real-ip");
+  return ipKlien(request.headers);
 }
 
 export async function POST(request: Request) {

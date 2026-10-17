@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { memberError, outcomeResponse, requireMemberEvent } from "@/lib/member/api";
 import { caraMasuk, masukDenganKolom } from "@/lib/member/masuk-lain";
+import { ipKlien } from "@/lib/ip-klien";
 
 /**
  * Masuk dengan dua kolom data peserta (cara masuk Participant fields). Hanya
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Isi kedua kolom.");
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip");
+  const ip = ipKlien(request.headers);
   const outcome = await masukDenganKolom(resolved.event, resolved.member, { nilai: parsed.data.nilai, ip });
   if (outcome.status === "rate_limited") {
     return memberError("RATE_LIMITED", 429, `Terlalu banyak percobaan. Coba lagi dalam ${Math.max(1, Math.ceil(outcome.retryAfterSeconds / 60))} menit.`, { retry_after_seconds: outcome.retryAfterSeconds });

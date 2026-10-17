@@ -150,8 +150,11 @@ export async function PATCH(request: Request) {
 
   // Dua kolom wajib dipilih, dan keduanya masih ada di form, sebelum cara
   // dua kolom bisa disimpan. Tanpanya tidak ada peserta yang bisa masuk.
+  // Hanya bila cara masuk ikut dikirim: simpanan Buses / Outfit tidak boleh
+  // gagal karena pertanyaan form yang dipakai kemudian dihapus.
   const akhir = { ...((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member, ...parsed.data };
-  if (akhir.sign_in === "fields" && !kolomTerpilih(auth.scope.event, { enabled: true, ...akhir })) {
+  const ubahCaraMasuk = parsed.data.sign_in !== undefined || parsed.data.sign_in_fields !== undefined;
+  if (ubahCaraMasuk && akhir.sign_in === "fields" && !kolomTerpilih(auth.scope.event, { enabled: true, ...akhir })) {
     return apiError("VALIDATION_ERROR", 422, { formErrors: ["Choose two different participant fields to sign in with."], fieldErrors: {} });
   }
   // Pindah ke Email code tanpa pengiriman email: tidak ada yang bisa masuk.
@@ -175,11 +178,14 @@ export async function PATCH(request: Request) {
     if (galatBaca || !terkini) return apiError("INTERNAL_ERROR", 500);
     const baris = terkini as { landing_config?: EventLandingConfig | null; updated_at: string };
     landing = (baris.landing_config ?? {}) as EventLandingConfig;
+    // Masuk ke cara dua kolom (lagi): sesi dua kolom dari masa sebelumnya
+    // tidak hidup kembali (getMemberSession membandingkan dengan waktu ini).
+    const mulaiKolom = parsed.data.sign_in === "fields" && landing.member?.sign_in !== "fields" ? { sign_in_since: new Date().toISOString() } : {};
     const hasil = await client
       .from("events")
       // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
       // show_roommates) tetap tersimpan.
-      .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data } }, updated_at: new Date().toISOString() } as never)
+      .update({ landing_config: { ...landing, member: { ...(landing.member ?? {}), ...parsed.data, ...mulaiKolom } }, updated_at: new Date().toISOString() } as never)
       .eq("id", auth.scope.event.id)
       .eq("updated_at", baris.updated_at)
       .select("landing_config")
