@@ -33,7 +33,7 @@ Read `docs/STATUS.md` before you start: it says what is in flight, what waits on
   - replay it on a local Postgres first;
   - code that depends on it merges only after Mas has run it and the post-check output is seen. Say what breaks if the code merges first.
 - Migration file versions (`supabase/migrations/YYYYMMDDNNNN_*.sql`) must not collide with ones already on `main`. Check before naming.
-- Production has some columns the repo migrations don't create (e.g. `participants.seats`, `participant_type`, `rsvp_status`, `source_*`). Local QA databases add them by hand.
+- Production has some columns the repo migrations don't create (e.g. `participants.seats`, `participant_type`, `rsvp_status`, some `source_*` columns). Local QA databases add them by hand.
 - Never push empty commits, never force-push someone else's branch, never skip or disable tests to get green.
 - Never rotate the invite-link secret (it breaks every link already sent). Cron secrets live in several places and rotate together.
 
@@ -79,6 +79,6 @@ Read `docs/STATUS.md` before you start: it says what is in flight, what waits on
 ## Working with Mas
 
 - Be a firm UI/UX partner, not a yes-man: give one recommendation, with a picture, and say why.
-- He reads on his phone: put mockups in a shareable page with images embedded, not local file paths. Give SQL for him inline, one statement or select per run.
+- He reads on his phone: put mockups in a shareable page with images embedded, not local file paths. Give SQL for him inline, one migration file or one select per run.
 - Merge only after he picks a merge time. If he says "merge sekarang" before QA ends, merge; QA continues and findings become a follow-up PR. Don't hold a merge for Lows.
 - Merges into `main` are timed around live events (see "Waiting on" in `docs/STATUS.md`).

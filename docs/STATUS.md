@@ -119,7 +119,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #178: with the editor open at 1280, the prize list hides prize names (pre-existing); the "SESI CHECK-IN SUDAH DIHAPUS" summary is literal uppercase.
 - #181 L14/L15: when the session list cannot be read, every participant prize is refused, and rule counts skip the deleted-session check.
 - #182 L2/L3/L5/L6/L8: a removed participant's reason reads "QR tidak ada", a header with no QR/Email column is read as headerless, rule cards and the odds table count differently, an over-max bonus is capped silently, and preview payloads carry all participant ids.
-- #182 L1b: on the `/e/<slug>/api` path, an oversize bonus list still hangs and then returns a bare 500.
+- #182 L1b: very large bonus lists are not handled gracefully.
 - #191 I1/N2: another event's entry group returns 500 instead of 404, and the orphan-winner banner stays after a 422.
 
 ### Export/Import
@@ -134,7 +134,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 
 ### Participant sign-in
 - #77 R2: on EN-primary events the unprefixed /peserta and /masuk titles are Indonesian.
-- #49 L1-L4/L6/L7/L10: the Tampilkan button radius and size are off, aria-pressed is used together with a label change, the password dialog has no Show, there is no "change email" after a link is sent, the confirmation email wording is off, and the token and link-request tables are never cleaned.
+- #49 L1-L4/L6/L7/L10: the Tampilkan button radius and size are off, aria-pressed is used together with a label change, the password dialog has no Show, there is no "change email" after a link is sent, the confirmation email wording is off, and old sign-in token rows are not pruned yet.
 - #162 L3: the "Hubungi panitia" help line needs the Contact section switched on, not only contact details (confirm intent).
 - #162 L4/L6/L7: with the phone keyboard open, Masuk must be scrolled into view, a few mock gaps and a stale comment remain, and /masuk shows the landing page until hydration.
 - #163 remaining: on the standalone /masuk page "Lupa kata sandi?" is still 44 px, and the form-only "Area peserta" eyebrow is 2.58:1 over the KV.
