@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- #194 Participant home clarity (Horizon "Automatic · Edit in <source> ↗", Your block, Add block): QA fixes done, merged `main` in after #195/#196 with one resolved conflict; waiting on a delta check of the conflict, then merge.
+- #198 Horizon Profil redesign (ticket card with QR, personal details, help card; two columns on desktop): coordinator QA running; then a merge-timing card for Mas (KSO in client review).
 - Bus trips "Pick from Agenda" in Logistics > Add trip: mockup on the real dialog in progress; needs a small SQL link column (Mas runs it) before code.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -23,6 +23,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #194 Participant home clarity: each row says where it is edited ("Automatic · Edit in <source>", "Your block"), Add block opens the Event page with a participant-only block, and participant-only blocks are shown or hidden only with the eye in Participant home.
 - #195 + #196 participant sign-in method per event (email + password default; email code; two participant fields). Every event stays on password until changed in Participant area > How participants sign in.
 - #192 bus plate and crew contact on the participant side (per-event switches, default off).
 - #190 faster participant list + filter RPC; #186 search rows only; #184 Vercel functions in sin1 (US-hosted outside calls such as email are ~200 ms further).
@@ -92,7 +93,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #166 L1/L3/L5/L6: items are keyed by label, the bus label is a single word, Bus and Kamar sit on different rows at 768/1024, and `justify-between` spreads the second row.
 - #171: the last day's entries sit under the fold until the list sticks, and the Jadwal wrapper is full width below lg (L3).
 - #174 L1/L2: phone focus order differs from visual order (CSS `order`), and the editor highlight is lost on remount.
-- #175 D1/D2/L2/L3: the phone note is 17 px instead of 15 and has no overflow-wrap, the desktop Profil column leaves empty space, and a long unbroken announcement word overflows.
+- #175 D1/D2/L2/L3: the phone note is 17 px instead of 15 and has no overflow-wrap, and a long unbroken announcement word overflows.
 - #180 L1/L2: focus does not return to the checkpoint QR button, and the fold also applies on tablets; booking codes of 17+ characters may overflow at 390.
 - #183 L1-L4: re-inserting moves Agenda and Quick links in classic order, the drop indicator on a fixed row does nothing, ArrowDown from slot 3 moves Announcements up, and the slot-3 note is cut at 390.
 - #185 L3: `?tab=perjalanan` with no travel data shows no active tab.
