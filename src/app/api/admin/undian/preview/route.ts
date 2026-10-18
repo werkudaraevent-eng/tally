@@ -13,7 +13,7 @@ import {
   type WeightConfig,
 } from "@/lib/undian";
 import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
-import { activeRulesFor, listAttendanceSessions, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
+import { activeRulesFor, listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
 
 // Pratinjau kolam: berapa peserta yang lolos syarat, dan bagaimana tiket terbagi.
 //
@@ -37,7 +37,7 @@ const TEXT_CMPS = ["eq", "neq", "contains", "not_contains", "starts_with", "ends
 
 const leafSchema = z.union([
   z.object({
-    var: z.enum(["total_spend", "booth_count", "scan_count"]),
+    var: z.enum(["total_spend", "booth_count", "scan_count", "checkpoint_points"]),
     cmp: z.enum(["gte", "gt", "lte", "lt", "eq"]),
     value: z.number().min(0).max(1_000_000_000),
   }),
@@ -47,7 +47,7 @@ const leafSchema = z.union([
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
   z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
-  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
+  z.object({ var: z.enum(["has_seat", "checkpoint_goal", "checkpoints_all"]), is: z.boolean() }),
   // Di sini teks kosong TIDAK ditolak, berbeda dengan endpoint penyimpanan.
   // Pratinjau dipanggil pada setiap ketikan, termasuk saat kolomnya masih kosong
   // karena baru saja ditambahkan; menolaknya membuat angka pratinjau berkedip
@@ -90,9 +90,10 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const eventId = auth.scope.event.id;
-  const [rawRules, attendanceSessions] = await Promise.all([
+  const [rawRules, attendanceSessions, checkpoint] = await Promise.all([
     activeRulesFor(eventId, parsed.data.prize_id ?? null),
     listAttendanceSessions(eventId),
+    loadCheckpointSummary(eventId),
   ]);
   if (!attendanceSessions) return apiError("INTERNAL_ERROR", 500);
   // Sesi yang sudah dihapus membuat syaratnya rusak, sama seperti di buildPool().
@@ -190,6 +191,7 @@ export async function POST(request: Request) {
     companies: distinct(rows.map((row) => row.company)),
     // Sesi kehadiran acara, untuk pilihan "di sesi" pada syarat check-in.
     attendance_sessions: attendanceSessions,
+    checkpoint,
     // Hanya terisi pada mode tiket tambahan. Urut dari tiket terbanyak.
     bonus_groups: [...bonusGroups.values()].sort((a, b) => b.tickets - a.tickets || b.count - a.count),
     bonus_rule_counts: bonusRuleCounts,

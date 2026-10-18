@@ -517,7 +517,7 @@ Measured at audit time:
 - Eventnook: The NookPass passport mockup puts "Collect 9 stamps to enter the draw" above the progress, with a "3 left" pill.
 - Recommendation: If points are exchanged for something, write one line with the goal at the head of "Panduan checkpoint" and say concretely what is left. If they are not exchanged for anything, hide the point numbers.
 - Left: KSO content (Mas): in Check-in > Checkpoints > Points goal, set the goal and what it is for, or turn Points off if points are not exchanged for anything (turning Points off hides every point number).
-- Decision on record or question for Mas: Open question for Mas: what KSO's points are exchanged for, if anything. If the answer is a lucky draw entry, the draw rules cannot check points yet: their conditions can count scans, not points (see E-13).
+- Decision on record or question for Mas: Open question for Mas: what KSO's points are exchanged for, if anything. If the answer is a lucky draw entry, use the draw condition "Checkpoint points goal" (reached), added in the lucky draw checkpoint conditions PR; it reads the same Points goal (see E-13).
 - Code: `src/lib/checkpoint/tujuan.ts` (tujuanPeserta, kalimatTujuan); `src/components/member/baris-tujuan-poin.tsx` (BarisTujuanPoin); `src/components/member/kartu-checkpoint-horizon.tsx`; `src/components/member/kartu-checkpoint.tsx`; `src/app/admin/attendance/checkpoints.tsx` (Points goal pane); `src/lib/checkpoint/server.ts` (loadSetelanCheckpoint); `supabase/migrations/202610170001_checkpoint_tujuan_poin.sql` (run by Mas on 18 Oct)
 - Related: E-13
 

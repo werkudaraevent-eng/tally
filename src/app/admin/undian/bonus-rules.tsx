@@ -313,7 +313,7 @@ function RuleDialog({
             checked={source === "conditions"}
             onSelect={() => setSource("conditions")}
             title="Participants meeting conditions"
-            description="From event data: session check-in, participant type, company or scan count."
+            description="From event data: session check-in, checkpoint points, participant type, company or scan count."
           />
         </fieldset>
         <label className="block font-medium" htmlFor="bonus-name">
@@ -340,6 +340,7 @@ function RuleDialog({
               rsvpStatuses={preview?.rsvp_statuses ?? []}
               companies={preview?.companies ?? []}
               sessions={previewFailed ? null : preview?.attendance_sessions}
+              checkpoint={preview?.checkpoint}
               onRetrySessions={onRetrySessions}
               onChange={setConditions}
             />

@@ -155,6 +155,7 @@ export function PrizeEditor({
                     rsvpStatuses={preview?.rsvp_statuses ?? []}
                     companies={preview?.companies ?? []}
                     sessions={previewFailed ? null : preview?.attendance_sessions}
+                    checkpoint={preview?.checkpoint}
                     onRetrySessions={onRetrySessions}
                     onChange={(next) => onChange({ conditions: next })}
                   />

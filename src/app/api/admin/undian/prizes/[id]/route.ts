@@ -14,7 +14,7 @@ const CMP_WITHOUT_VALUE: string[] = ["is_empty", "is_not_empty"];
 
 const leafSchema = z.union([
   z.object({
-    var: z.enum(["total_spend", "booth_count", "scan_count"]),
+    var: z.enum(["total_spend", "booth_count", "scan_count", "checkpoint_points"]),
     cmp: z.enum(["gte", "gt", "lte", "lt", "eq"]),
     value: z.number().min(0).max(1_000_000_000),
   }),
@@ -24,7 +24,7 @@ const leafSchema = z.union([
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
   z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
-  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
+  z.object({ var: z.enum(["has_seat", "checkpoint_goal", "checkpoints_all"]), is: z.boolean() }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
