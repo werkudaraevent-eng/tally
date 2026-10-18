@@ -33,7 +33,7 @@ const PIL_EMAS =
 
 export type TabHorizon = { id: Exclude<PortalTab, "qr">; label: string; labelPendek: string; href: string };
 
-// Profil di ponsel menjadi "Menu": halaman yang juga memuat Perjalanan, kontak, dan Keluar.
+// Profil di ponsel menjadi "Menu": halaman yang juga memuat Outfit, kontak, dan Keluar.
 const IKON_TAB = { beranda: Compass, jadwal: CalendarDots, perjalanan: Suitcase, outfit: CoatHanger, info: Bell, profil: List } as const;
 
 /**
@@ -1375,7 +1375,7 @@ export function ProfilHorizon({
               </PemicuQr>
             ) : null}
           </section>
-          {/* Layar lebar: Perjalanan dan Outfit sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
+          {/* Layar lebar: Outfit sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
           {menu.baris.length > 0 ? (
             <section aria-label={menu.judul} className="rounded-[20px] bg-white p-3 lg:hidden" style={{ color: TINTA }}>
               <DaftarProfil baris={menu.baris} rapat />

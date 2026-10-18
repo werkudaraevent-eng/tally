@@ -64,7 +64,6 @@ export type PortalUiText = {
       note: (zona: string) => string;
       empty: string;
       backToMenu: string;
-      menuRow: string;
       hotelTitle: string;
       floor: string;
       roomType: string;
@@ -250,7 +249,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: (zona) => `Hotel, kamar, bus, dan kereta kamu. Semua jam ${zona}.`,
         empty: "Info perjalanan belum dibagikan panitia.",
         backToMenu: "Menu",
-        menuRow: "Hotel, kamar, bus, kereta",
         hotelTitle: "Hotel & kamar",
         floor: "Lantai",
         roomType: "Tipe kamar",
@@ -426,7 +424,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: (zona) => `Your hotel, room, bus, and train. All times ${zona}.`,
         empty: "The organisers haven't shared travel details yet.",
         backToMenu: "Menu",
-        menuRow: "Hotel, room, bus, train",
         hotelTitle: "Hotel & room",
         floor: "Floor",
         roomType: "Room type",
