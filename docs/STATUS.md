@@ -17,7 +17,6 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Portal polish (U-06, U-14, U-17, U-24 zone note, U-31, U-33; this PR): desktop Schedule day list fades at the bottom while more days are below, Seat/Live voting/Feedback hidden in Participant area for Gathering layouts, Home train row opens Travel at the train card, "Semua jam WIB" in the Travel subtitle, navy browser bar on Horizon guest pages (root values now the surface colours), map link labels by link type, "Tutup pengumuman" on the phone bell. No SQL. Waits on coordinator QA and Mas's merge time (visible on KSO).
-- Lucky draw checkpoint conditions (this PR): Prizes & rules > Add condition has a Checkpoint group: points goal reached (reads Check-in > Checkpoints > Points goal), checkpoint points at least N, all checkpoints done. Works for prize conditions, exclusion rules and bonus-ticket rules; "Add condition" is now a grouped menu. No SQL. Rebased on #213 (merge after it); waits on coordinator QA and Mas's merge time. Next: a "Form answers" group with the event's custom registration fields (separate PR).
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Participant area tabs on a slow connection: a tab tapped before its prefetch finished kept Home on screen. The proxy now rewrites to `/peserta/e/<slug>[/<lang>]` instead of `/peserta?eventSlug=…&bahasa=…`, so each event and language has its own route and the tab stays the only query. No SQL, no public URL changes. Waits on coordinator QA and Mas's merge time.
@@ -25,6 +24,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #214 Lucky draw checkpoint conditions (merged 18 Oct): Prizes & rules > Add condition has a Checkpoint group: points goal reached (reads Check-in > Checkpoints > Points goal), checkpoint points at least N, all checkpoints done. Works for prize conditions, exclusion rules and bonus-ticket rules; "Add condition" is now a grouped menu. No SQL.
 - #213 Lucky draw admin in English (merged 18 Oct): screens, condition summaries, readiness, timeline; the Excel export stays Indonesian; written with opencode.
 - #217 Emergency contacts follow-up (E-03, merged 18 Oct): stricter phone reading (time and number ranges stay text), English fields for the card and each contact when the event has an English page (copied from the old block too), tidier copied notes, map links only for exact map hosts. No SQL.
 - #209 Emergency contacts (E-03, merged 18 Oct): Participant area > Emergency and help has a form per contact (name or role, phone, note, map link) with Call, WhatsApp and Map buttons on the portal Menu card and a live Menu preview; an existing Columns block keeps working until "Copy into contacts". No SQL.
