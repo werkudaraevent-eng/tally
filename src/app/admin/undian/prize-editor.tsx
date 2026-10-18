@@ -28,7 +28,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "");
  */
 export function PrizeEditor({
   draft, isNew, legacyFormula, groups, preview, previewFailed, saving, uploading, error,
-  onChange, onSave, onClose, onUpload, onDelete,
+  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions,
 }: {
   draft: Draft; isNew: boolean; legacyFormula: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
   saving: boolean; uploading: boolean; error: string;
@@ -36,6 +36,7 @@ export function PrizeEditor({
   onSave: () => void; onClose: () => void; onUpload: (file: File) => void;
   /** Tidak ada untuk hadiah baru. */
   onDelete?: () => void;
+  onRetrySessions?: () => void;
 }) {
   const animasi = ANIMATIONS.find((item) => item.value === draft.animation);
   const modeBerhenti = SPIN_MODES.find((item) => item.value === draft.spin_mode);
@@ -154,6 +155,7 @@ export function PrizeEditor({
                     rsvpStatuses={preview?.rsvp_statuses ?? []}
                     companies={preview?.companies ?? []}
                     sessions={previewFailed ? null : preview?.attendance_sessions}
+                    onRetrySessions={onRetrySessions}
                     onChange={(next) => onChange({ conditions: next })}
                   />
                 </div>
@@ -190,6 +192,7 @@ export function PrizeEditor({
                   winnerQuota={draft.winner_quota}
                   preview={preview}
                   previewFailed={previewFailed}
+                  onRetrySessions={onRetrySessions}
                   onChange={(bonus_rules) => onChange({ bonus_rules })}
                   onWeightMax={(weight_max) => onChange({ weight_max })}
                 />
