@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const resolved = await requireMemberEvent(request);
   if (resolved.response) return resolved.response;
   const sesi = await getMemberSession(resolved.event);
-  if (!sesi) return memberError("UNAUTHORIZED", 401, "Masuk dulu ke area peserta.");
+  if (!sesi) return memberError("UNAUTHORIZED", 401, "Masuk dulu ke Dashboard saya.");
   if (sesi.emailVerified) return Response.json({ ok: true });
   const hasil = await resendConfirmationLink(resolved.event, {
     accountId: sesi.accountId,

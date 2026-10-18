@@ -740,7 +740,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     portalNewsNote: "The latest from the organisers",
     portalCta: "Sign in to My dashboard",
     navPortalSignIn: "Sign in",
-    navPortal: "Your trip",
+    navPortal: "Travel",
     miniTitle: "Your trip",
     miniBus: "Your bus",
     miniRoom: "Your room",

@@ -113,7 +113,7 @@ export async function POST(request: Request) {
   if (member && (parsed.data.password ?? "").length < PASSWORD_MIN) {
     return apiErrorPeserta("VALIDATION_ERROR", 422, {
       password: `Kata sandi minimal ${PASSWORD_MIN} karakter.`,
-      message: `Buat kata sandi minimal ${PASSWORD_MIN} karakter untuk area peserta.`,
+      message: `Buat kata sandi minimal ${PASSWORD_MIN} karakter untuk Dashboard saya.`,
     });
   }
   const { issues, clean } = validateAnswers(fields, parsed.data.extra);

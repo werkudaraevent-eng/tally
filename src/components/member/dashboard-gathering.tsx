@@ -345,8 +345,7 @@ export async function DashboardGathering({
     const posisiPortal = urutan.findIndex(isPortalEntry);
     const posisiNav = (id: string) => urutan.findIndex((section) => section.id === (id === "program" ? (tampil("about") ? "about" : "agenda") : id));
     const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
-    // Horizon: "Perjalanan" di bilah atas membuka tab Perjalanan (U-21).
-    const tautan = { id: "portal", label: LANDING_UI[lang].navPortal, ...(horizon ? { href: keTab("perjalanan") } : {}) };
+    const tautan = { id: "portal", label: LANDING_UI[lang].navPortal };
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
   const navPeserta = await muatNavPeserta(event, sesi, lang, { data: pengumuman });
@@ -405,9 +404,10 @@ export async function DashboardGathering({
     ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, label: t.quick.panitia, Ikon: Phone, warna: "text-[var(--aksen-teks)]", luar: true }] : []),
   ];
 
-  const menuTab: { id: Exclude<PortalTab, "qr">; label: string; Ikon: typeof House }[] = [
+  // `pendek`: label bilah bawah ponsel, satu baris di 360 px (sama dengan Horizon).
+  const menuTab: { id: Exclude<PortalTab, "qr">; label: string; pendek?: string; Ikon: typeof House }[] = [
     { id: "beranda", label: t.tabs.beranda, Ikon: House },
-    { id: "jadwal", label: t.tabs.jadwal, Ikon: CalendarBlank },
+    { id: "jadwal", label: t.tabs.jadwal, pendek: t.horizon.tabsShort.jadwal, Ikon: CalendarBlank },
     { id: "info", label: t.tabs.info, Ikon: Bell },
     { id: "profil", label: t.tabs.profil, Ikon: User },
   ];
@@ -1691,7 +1691,7 @@ export async function DashboardGathering({
       {/* ---- Bilah tab bawah (ponsel) -------------------------------------- */}
       <nav aria-label={t.tabsAria} className="fixed inset-x-0 bottom-0 z-20 border-t border-[#E6E9EE] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
         <ul className="mx-auto grid max-w-[560px] grid-cols-4">
-          {menuTab.map(({ id, label, Ikon }) => (
+          {menuTab.map(({ id, label, pendek, Ikon }) => (
             <li key={id}>
               <Link
                 href={keTab(id)}
@@ -1699,7 +1699,7 @@ export async function DashboardGathering({
                 className={`m3-state flex min-h-16 flex-col items-center justify-center gap-1 text-label-large font-bold ${id === tabAktif ? "text-[var(--alis)]" : MUTED}`}
               >
                 <Ikon size={24} weight={id === tabAktif ? "fill" : "regular"} aria-hidden />
-                {label}
+                {pendek ?? label}
               </Link>
             </li>
           ))}

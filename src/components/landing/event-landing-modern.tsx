@@ -422,8 +422,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     if (!portalTampil || navSections.some((section) => section.id === "portal")) return navSections;
     const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
     // Peserta Horizon yang sudah disetujui: "Perjalanan" membuka tab Perjalanan
-    // portalnya, bukan pita ajakan masuk yang tidak lagi berlaku (U-21).
-    const tautan = { id: "portal", label: t.navPortal, ...(horizon && peserta && sesi?.status === "approved" ? { href: withQuery(peserta.dashboardHref, { tab: "perjalanan" }) } : {}) };
+    // portalnya, bukan pita ajakan masuk yang tidak lagi berlaku (U-21). Tanpa
+    // info perjalanan (logistik dimatikan) tab itu tidak ada, jadi tetap ke pita.
+    const keTabPerjalanan = horizon && peserta && sesi?.status === "approved" && member?.show_logistics === true;
+    const tautan = { id: "portal", label: t.navPortal, ...(keTabPerjalanan ? { href: withQuery(peserta.dashboardHref, { tab: "perjalanan" }) } : {}) };
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
 
