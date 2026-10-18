@@ -75,4 +75,13 @@ assert.deepEqual(ringkasanBeranda(agenda, "2026-11-09", "2026-11-10", 600), { be
 // Jauh sebelum acara: hari pertama, "nanti".
 assert.equal(ringkasanBeranda(agenda, "2026-10-17", "2026-10-18", 600).berikutnya?.kapan, "nanti");
 
+// Peserta Batch 2 (Agenda > Who it's for): bagian Batch 1 dilewati, labelnya tetap.
+const kamisB2 = ringkasanBeranda(agenda, "2026-11-05", "2026-11-06", 19 * 60 + 30, new Set([1]));
+assert.deepEqual(kamisB2.berikutnya?.butir.map((item) => [item.label, item.item.id]), [["Batch 2", 30]]);
+const jumatB2 = ringkasanBeranda(agenda, "2026-11-06", "2026-11-07", 6 * 60 + 20, new Set([1]));
+assert.deepEqual(jumatB2.berlangsung.map((item) => [item.label, item.item.id]), [["Batch 2", 30]]);
+assert.deepEqual(jumatB2.berikutnya?.butir.map((item) => item.item.id), [31]);
+// Hari yang seluruhnya bukan milik peserta dilewati; hari berikutnya yang dipakai.
+assert.deepEqual(ringkasanBeranda(agenda, "2026-11-05", "2026-11-06", 23 * 60, new Set([1, 2])).berikutnya?.butir.map((item) => item.item.id), [41]);
+
 console.log("hari-agenda: ok");

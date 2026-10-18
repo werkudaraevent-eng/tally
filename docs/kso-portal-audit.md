@@ -22,7 +22,7 @@ Status per item as of 18 Oct 2026, after #199 to #202. This is the working copy 
 Suggested order:
 
 1. Mas: the KSO content items in the CMS. They need no code.
-2. "Your batch" (U-01 step 2, E-01, E-06, E-10): an "Applies to" setting per Agenda section that reads the staff-only Batch column from #201. Mockup first, then a small SQL file Mas runs.
+2. "Your batch" (U-01 step 2, E-01, E-06, E-10): in PR "Batch kamu" as Agenda > Section > Who it's for, reading a dropdown participant field such as the staff-only Batch column from #201. Mockup OK'd; waits on QA and migration 202610180002.
 3. Code: the "After KSO" list (accessibility, polish, language), in small PRs; U-12, U-13, U-19 and U-29 are done.
 
 ## What already works (keep it)

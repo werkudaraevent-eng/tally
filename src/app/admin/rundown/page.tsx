@@ -12,13 +12,14 @@ import { DEFAULT_HEADER, formatClock, type RundownHeader, type RundownItem, type
 import { eventApiPath } from "@/lib/event-url";
 import { hrefTrip, jamBerangkatBaru, kalimatHapus, kapanBerangkat, selisihMenit, type TripTertaut } from "@/lib/logistik/trip-agenda";
 import type { EventTimeZone } from "@/lib/timezone";
+import { bacaSasaran, type KolomSasaran, type SasaranBagian } from "@/lib/sasaran-bagian";
 import { OUTFIT_BATAS, OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, OUTFIT_MAX, type OutfitEntry } from "@/lib/outfit";
 import { bandingkanBagian, bandingkanBaris, geserBagian, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal } from "@/lib/rundown-urutan";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
-  Banner, Button, ButtonLink, Dialog, EmptyState, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
-  SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
+  Banner, Button, ButtonLink, Dialog, EmptyState, FilterChip, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
+  SegmentedButton, SelectMenu, StatusChip, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { Kelompok } from "@/components/admin/compact-form";
 import { teksPolos } from "@/lib/landing-teks-kaya";
@@ -61,6 +62,13 @@ type OutfitDraft = { when: string; what: string; note: string; photo_url: string
  * halaman Outfit.
  */
 type OutfitInfo = { available: boolean; horizon: boolean; label: string | null };
+
+/**
+ * Untuk siapa tiap bagian, dari /api/admin/rundown/sections/sasaran.
+ * `available` false: migrasi 202610180002 belum dijalankan. Hanya untuk
+ * Gathering Horizon, satu-satunya portal yang membuka bagian milik peserta.
+ */
+type SasaranInfo = { available: boolean; horizon: boolean; fields: KolomSasaran[] };
 
 const keDraftOutfit = (list: OutfitEntry[]): OutfitDraft[] =>
   list.map((entry) => ({ when: entry.when ?? "", what: entry.what, note: entry.note ?? "", photo_url: entry.photo_url ?? null }));
@@ -165,6 +173,11 @@ export default function RundownAdminPage() {
   const [outfitLabel, setOutfitLabel] = useState("");
   const [outfitTried, setOutfitTried] = useState(false);
   const [uploadingOutfit, setUploadingOutfit] = useState<number | null>(null);
+  // Untuk siapa bagian ini: dimuat dan disimpan seperti outfit. Draf null =
+  // untuk semua peserta; tidak ada di peta = belum disentuh.
+  const [sasaranInfo, setSasaranInfo] = useState<SasaranInfo | null>(null);
+  const [sasaranSaved, setSasaranSaved] = useState<Record<number, SasaranBagian | null>>({});
+  const [sasaranDrafts, setSasaranDrafts] = useState<Record<number, SasaranBagian | null>>({});
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
   // "Kamis" di CMS sementara tamu membaca "Rabu". Jam trip bus juga dibaca di
@@ -207,6 +220,15 @@ export default function RundownAdminPage() {
     setOutfitSaved(Object.fromEntries(data.sections.map((row) => [row.id, keDraftOutfit(row.outfit)])));
   }
 
+  async function loadSasaran() {
+    // Gagal dimuat = kelompok Who it's for tidak tampil; sisa halaman tetap berjalan.
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/sasaran"), { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    const data = (await response.json()) as SasaranInfo & { sections: Array<{ id: number; audience: unknown }> };
+    setSasaranInfo({ available: data.available, horizon: data.horizon, fields: data.fields });
+    setSasaranSaved(Object.fromEntries(data.sections.map((row) => [row.id, bacaSasaran(row.audience)])));
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       // ?section=<id>&item=<id> dari "Edit in Agenda" di Logistics: tab baris
@@ -225,6 +247,7 @@ export default function RundownAdminPage() {
       }
       void load();
       void loadOutfit();
+      void loadSasaran();
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -407,6 +430,8 @@ export default function RundownAdminPage() {
     // tidak lengkap ditolak sebelum apa pun dikirim, supaya tidak setengah tersimpan.
     const simpanOutfit = outfitBerubah(section.id);
     if (simpanOutfit && !outfitLengkap()) return;
+    const simpanSasaran = sasaranBerubah(section.id);
+    if (simpanSasaran && !sasaranLengkap(section.id)) return;
     setSavingSection(true); setError("");
     const response = await fetch("/api/admin/rundown/sections", {
       method: "PATCH",
@@ -435,8 +460,9 @@ export default function RundownAdminPage() {
     }
     // Gagal menyimpan outfit sudah menampilkan pesannya sendiri; drafnya tetap ada.
     const outfitOk = simpanOutfit ? await saveOutfit(section) : true;
+    const sasaranOk = simpanSasaran ? await saveSasaran(section) : true;
     setSavingSection(false);
-    if (outfitOk) toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
+    if (outfitOk && sasaranOk) toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
     await load();
   }
 
@@ -682,6 +708,52 @@ export default function RundownAdminPage() {
     }
     updateOutfit(index, { photo_url: data.url });
     toast.info("Photo uploaded", "Select Save section to show it to participants.");
+  }
+
+  // ---- Untuk siapa bagian aktif ---------------------------------------------------
+  const sasaranAktif: SasaranBagian | null = active ? (active.id in sasaranDrafts ? sasaranDrafts[active.id] : sasaranSaved[active.id] ?? null) : null;
+
+  function setSasaranAktif(next: SasaranBagian | null) {
+    if (!active) return;
+    setSasaranDrafts((current) => ({ ...current, [active.id]: next }));
+  }
+
+  function sasaranBerubah(sectionId: number) {
+    if (!sasaranInfo?.available || !(sectionId in sasaranDrafts)) return false;
+    return JSON.stringify(sasaranDrafts[sectionId]) !== JSON.stringify(sasaranSaved[sectionId] ?? null);
+  }
+
+  /** "One group" tanpa jawaban terpilih tidak disimpan setengah jadi. */
+  function sasaranLengkap(sectionId: number) {
+    const draf = sasaranDrafts[sectionId];
+    if (!draf || draf.values.length > 0) return true;
+    const failure = "Choose at least one answer under Who it's for, or select Everyone.";
+    setError(failure); toast.error("Section not saved", failure);
+    return false;
+  }
+
+  async function saveSasaran(section: RundownSection): Promise<boolean> {
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/sasaran"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: section.id, audience: sasaranDrafts[section.id] ?? null }),
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok) {
+      if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "AUDIENCE_NOT_READY") {
+        setSasaranInfo((current) => current && { ...current, available: false });
+      }
+      const failure = response ? failureMessage(data, "Who it's for not saved.") : "Check your connection and try again.";
+      setError(failure); toast.error("Who it's for not saved", failure);
+      return false;
+    }
+    setSasaranSaved((current) => ({ ...current, [section.id]: bacaSasaran((data as { audience?: unknown }).audience) }));
+    setSasaranDrafts((current) => {
+      const next = { ...current };
+      delete next[section.id];
+      return next;
+    });
+    return true;
   }
 
   /** Dipanggil dari saveSection sesudah bagian tersimpan. true = outfit tersimpan. */
@@ -1093,6 +1165,7 @@ export default function RundownAdminPage() {
           description={`/rundown?sesi=${active.slug}`}
         />
       </Kelompok>
+      {sasaranInfo?.horizon ? <KelompokSasaran info={sasaranInfo} value={sasaranAktif} onChange={setSasaranAktif} /> : null}
       {outfitInfo?.horizon ? (
         <Kelompok
           title="Outfit"
@@ -1524,5 +1597,80 @@ function CatatanBus({ item, trips, jamTersimpan, tanggalTersimpan, zone }: {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Agenda > This section > Who it's for. Everyone (bawaan) atau satu kelompok:
+ * satu pertanyaan pilihan dan satu atau beberapa jawabannya. Peserta kelompok
+ * itu melihat bagian ini lebih dulu di Home dan Schedule; yang lain tetap bisa
+ * membukanya. Disimpan lewat Save section, seperti Outfit.
+ */
+function KelompokSasaran({ info, value, onChange }: { info: SasaranInfo; value: SasaranBagian | null; onChange: (next: SasaranBagian | null) => void }) {
+  const kolom = value ? info.fields.find((isi) => isi.key === value.field) ?? null : null;
+  const pilih = (field: string) => onChange({ field, values: [] });
+  const TAUTAN = "inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline";
+  return (
+    <Kelompok
+      title="Who it's for"
+      note={info.available && info.fields.length > 0 ? "Participants in this group see this section first on Home and Schedule. Everyone else can still open it. Saved with Save section." : undefined}
+    >
+      {!info.available ? (
+        <p className="text-body-medium text-on-surface-variant">Who it&apos;s for needs a database update first (migration 202610180002).</p>
+      ) : info.fields.length === 0 ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-body-medium text-on-surface-variant">Add a dropdown or single-choice participant field first, such as Batch. It can be staff only.</p>
+          <Link href="/admin/registrasi" target="_blank" rel="noreferrer" className={TAUTAN}>
+            Edit in Registration <ArrowSquareOut size={14} aria-hidden /><span className="sr-only">(new tab)</span>
+          </Link>
+        </div>
+      ) : (
+        <>
+          <SegmentedButton
+            label="Who it's for"
+            options={[{ value: "semua", label: "Everyone" }, { value: "kelompok", label: "One group" }]}
+            value={value ? "kelompok" : "semua"}
+            onChange={(next) => onChange(next === "semua" ? null : { field: value?.field ?? info.fields[0].key, values: value?.values ?? [] })}
+          />
+          {value ? (
+            <>
+              <div className="flex flex-col gap-1">
+                <p className="text-body-medium font-medium text-on-surface">Participant field</p>
+                <SelectMenu<string>
+                  label="Participant field"
+                  width="100%"
+                  value={kolom ? value.field : ""}
+                  onChange={(field) => { if (field && field !== value.field) pilih(field); }}
+                  options={[
+                    ...(kolom ? [] : [{ value: "", label: "Choose a field" }]),
+                    ...info.fields.map((isi) => ({ value: isi.key, label: isi.staff ? `${isi.label} (staff only)` : isi.label })),
+                  ]}
+                />
+              </div>
+              {kolom ? (
+                <div className="flex flex-col gap-2">
+                  <p id="sasaran-nilai" className="text-body-medium font-medium text-on-surface">Answers in this group</p>
+                  <div role="group" aria-labelledby="sasaran-nilai" className="flex flex-wrap gap-2">
+                    {kolom.options.map((nilai) => {
+                      const aktif = value.values.includes(nilai);
+                      return (
+                        <FilterChip
+                          key={nilai}
+                          selected={aktif}
+                          onClick={() => onChange({ field: value.field, values: aktif ? value.values.filter((isi) => isi !== nilai) : [...value.values, nilai] })}
+                        >
+                          {nilai}
+                        </FilterChip>
+                      );
+                    })}
+                  </div>
+                  {value.values.length === 0 ? <p className="text-body-small text-on-surface-variant">Choose at least one answer.</p> : null}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      )}
+    </Kelompok>
   );
 }
