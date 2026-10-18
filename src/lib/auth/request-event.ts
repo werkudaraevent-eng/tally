@@ -1,6 +1,7 @@
 import type { UserRole } from "./roles";
 import { getEventBySlugPublic, listActiveEvents, requireEventScope } from "./event-scope";
-import { eventSlugFromRequest } from "./event-slug";
+import { headers } from "next/headers";
+import { eventSlugFromRequest, PAGE_LANG_HEADER, PAGE_SLUG_HEADER } from "./event-slug";
 import { isWriteBlocked } from "./event-writable";
 
 export { eventSlugFromRequest };
@@ -85,10 +86,23 @@ export async function getPublicRequestEvent(request: Request) {
 export async function getPublicPageEvent(
   searchParams?: Promise<Record<string, string | string[] | undefined>>,
 ) {
-  const params = searchParams ? await searchParams : undefined;
-  const raw = params?.eventSlug;
+  const params = await pageSearchParams(searchParams);
+  const raw = params.eventSlug;
   const slug = Array.isArray(raw) ? raw[0] : raw;
   if (slug) return getEventBySlugPublic(slug);
   const active = await listActiveEvents();
   return active.length === 1 ? active[0] : null;
+}
+/**
+ * Query halaman ditambah slug dan bahasa yang src/proxy.ts bawa lewat header
+ * untuk halaman bertab query (slugKeHeader). Query yang ditulis sendiri menang.
+ */
+export async function pageSearchParams(
+  searchParams?: Promise<Record<string, string | string[] | undefined>>,
+): Promise<Record<string, string | string[] | undefined>> {
+  const kueri = { ...(searchParams ? await searchParams : {}) };
+  const h = await headers();
+  kueri.eventSlug ??= h.get(PAGE_SLUG_HEADER) ?? undefined;
+  kueri.bahasa ??= h.get(PAGE_LANG_HEADER) ?? undefined;
+  return kueri;
 }

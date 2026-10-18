@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 
 // Ekstensi .ts ditulis eksplisit karena berkas ini dijalankan langsung oleh
 // Node (ESM), bukan lewat bundler Next.
-import { eventSlugFromRequest, HOST_SLUG_HEADER } from "./event-slug.ts";
+import { eventSlugFromRequest, HOST_SLUG_HEADER, slugKeHeader } from "./event-slug.ts";
 
 function req(url: string, referer?: string) {
   return new Request(url, referer ? { headers: { referer } } : undefined);
@@ -59,3 +59,16 @@ assert.equal(
   "ilo",
 );
 console.log("event-slug.check.ts: header domain klien OK");
+
+// Area peserta: slug dan bahasa pindah ke header, query tab tetap. Halaman lain tidak disentuh.
+{
+  const tujuan = new URL(`${BASE}/peserta?tab=perjalanan&eventSlug=kso&bahasa=en`);
+  assert.deepEqual(slugKeHeader(tujuan), { slug: "kso", lang: "en" });
+  assert.equal(tujuan.search, "?tab=perjalanan");
+  const daftar = new URL(`${BASE}/daftar?eventSlug=kso&bahasa=en`);
+  assert.deepEqual(slugKeHeader(daftar), { slug: null, lang: null });
+  assert.equal(daftar.search, "?eventSlug=kso&bahasa=en");
+  const pratinjau = new URL(`${BASE}/peserta/pratinjau?eventSlug=kso`);
+  assert.deepEqual(slugKeHeader(pratinjau), { slug: null, lang: null });
+}
+console.log("event-slug.check.ts: slugKeHeader OK");

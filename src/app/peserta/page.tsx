@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowRight, ArrowSquareOut, CheckCircle, EnvelopeSimple, Hourglass, XCircle } from "@phosphor-icons/react/dist/ssr";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { AgendaTabs } from "@/components/landing/agenda-tabs";
-import { getPublicPageEvent } from "@/lib/auth/request-event";
+import { getPublicPageEvent, pageSearchParams } from "@/lib/auth/request-event";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
@@ -44,7 +44,7 @@ import { warnaBilahPeramban } from "@/lib/landing-tokens";
  * masih memakai halaman di bawah ini, ditambah daftar pengumuman.
  *
  * Bahasa: bahasa utama di `/e/<slug>/peserta`, bahasa lain di
- * `/e/<slug>/en/peserta` (src/proxy.ts mengisi `?bahasa=`). Sama dengan
+ * `/e/<slug>/en/peserta` (src/proxy.ts mengisi bahasa lewat header, pageSearchParams). Sama dengan
  * formulir: alamat bahasa lain yang tidak berlaku dialihkan ke alamat utama.
  *
  * Membuka halaman ini menandai semua pengumuman terbaca. Daftarnya dimuat
@@ -64,7 +64,7 @@ export async function generateViewport({ searchParams }: { searchParams: Promise
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // `bahasa` dari proxy (/en/peserta). Alamat yang tidak berlaku dialihkan halamannya.
-  const kueri = await searchParams;
+  const kueri = await pageSearchParams(searchParams);
   const robots = { index: false, follow: false };
   const event = await getPublicPageEvent(searchParams);
   const landing = (event?.landing_config ?? {}) as EventLandingConfig;
@@ -114,7 +114,7 @@ export default async function AreaPesertaPage({
   if (!event || event.status === "archived") notFound();
   const member = memberConfig(event);
   if (!member) notFound();
-  const kueri = await searchParams;
+  const kueri = await pageSearchParams(searchParams);
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   const utama = landingDefaultLang(landing);
   const minta: LandingLang | null = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : null;
