@@ -153,6 +153,8 @@ export type PortalUiText = {
     helpCard: { eyebrow: string; title: string; note: string; noteEmail: string; noteTravel: string; noteProfile: string; email: string };
     /** Judul kartu darurat bila blok panitia tanpa judul (E-03). */
     emergency: string;
+    /** Tombol peta pada kontak darurat (E-03). */
+    emergencyMap: string;
     /** Fakta pass sebagai tautan ke Perjalanan (U-16): "Detail perjalanan: hotel, bus, kereta". */
     travelDetails: (isi: string) => string;
     travelParts: { hotel: string; bus: string; train: string };
@@ -334,6 +336,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         email: "Email",
       },
       emergency: "Darurat dan bantuan",
+      emergencyMap: "Peta",
       travelDetails: (isi) => (isi ? `Detail perjalanan: ${isi}` : "Detail perjalanan"),
       travelParts: { hotel: "hotel", bus: "bus", train: "kereta" },
       subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Tiket, kamar, dan jadwalmu untuk ${tanggal}.` : `Tiket dan jadwalmu untuk ${tanggal}.`),
@@ -510,6 +513,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         email: "Email",
       },
       emergency: "Emergency and help",
+      emergencyMap: "Map",
       travelDetails: (isi) => (isi ? `Travel details: ${isi}` : "Travel details"),
       travelParts: { hotel: "hotel", bus: "bus", train: "train" },
       subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Your ticket, room and schedule for ${tanggal}.` : `Your ticket and schedule for ${tanggal}.`),

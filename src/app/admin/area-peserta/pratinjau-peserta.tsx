@@ -138,13 +138,17 @@ export function PratinjauPeserta({
   }, []);
 
   const kirim = (pesanBingkai: object) => bingkai.current?.contentWindow?.postMessage(pesanBingkai, window.location.origin);
+  // Kartu darurat ada di Menu (tab Profil), bukan di Beranda: sorot "darurat" memindah pratinjau ke sana.
+  const tabDari = (id: string | null | undefined) => (id === "darurat" ? "profil" : "beranda");
+  const tabTerkirim = useRef("beranda");
 
   // Pesan dari bingkai: siap (kirim draf terkini), hasil render, hasil gulir.
   useEffect(() => {
     function terima(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== bingkai.current?.contentWindow) return;
       if (event.data?.jenis === "tally-beranda-siap") {
-        kirim({ jenis: "tally-beranda-draf", member: terkini.current.member, sorot: terkini.current.sorot?.id ?? null });
+        tabTerkirim.current = tabDari(terkini.current.sorot?.id);
+        kirim({ jenis: "tally-beranda-draf", member: terkini.current.member, sorot: terkini.current.sorot?.id ?? null, tab: tabTerkirim.current });
       } else if (event.data?.jenis === "tally-beranda-hasil") {
         setPesan(event.data.ok ? null : String(event.data.pesan ?? "The preview couldn't load."));
       } else if (event.data?.jenis === "tally-beranda-gulir") {
@@ -156,8 +160,14 @@ export function PratinjauPeserta({
   }, []);
 
   const cuplikan = JSON.stringify(member);
-  useEffect(() => { kirim({ jenis: "tally-beranda-draf", member: JSON.parse(cuplikan) }); }, [cuplikan]);
-  useEffect(() => { if (sorot) kirim({ jenis: "tally-beranda-sorot", id: sorot.id }); }, [sorot]);
+  useEffect(() => { kirim({ jenis: "tally-beranda-draf", member: JSON.parse(cuplikan), tab: tabTerkirim.current }); }, [cuplikan]);
+  useEffect(() => {
+    if (!sorot) return;
+    const tab = tabDari(sorot.id);
+    if (tab === tabTerkirim.current) { kirim({ jenis: "tally-beranda-sorot", id: sorot.id }); return; }
+    tabTerkirim.current = tab;
+    kirim({ jenis: "tally-beranda-draf", member: terkini.current.member, sorot: sorot.id, tab });
+  }, [sorot]);
 
   useEffect(() => {
     if (!besar) return;

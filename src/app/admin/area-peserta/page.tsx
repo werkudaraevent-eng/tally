@@ -7,13 +7,14 @@ import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, SelectField,
 import { SettingRow } from "@/components/admin/settings-panel";
 import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
-import { PilihBlokDarurat } from "./blok-darurat";
+import { KontakDaruratForm } from "./kontak-darurat";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
 import type { PilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
+import { rapikanBantuan } from "@/lib/member/kontak-darurat";
 import { plural } from "@/lib/plural";
 
 /**
@@ -123,6 +124,7 @@ export default function AreaPesertaPage() {
   const [slug, setSlug] = useState<string | null>(null);
   const [pesertaPratinjau, setPesertaPratinjau] = useState<PesertaPratinjau | null>(null);
   const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
+  const [tanpaNama, setTanpaNama] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setGalatMuat("");
@@ -148,10 +150,20 @@ export default function AreaPesertaPage() {
       toast.error("Link not valid", "The feedback form link must start with https:// or be left empty.");
       return;
     }
+    const bantuan = rapikanBantuan(anggota.help);
+    setTanpaNama(bantuan.tanpaNama);
+    if (bantuan.tanpaNama !== null) {
+      toast.error("A contact has no name", "Add a name or role in Emergency and help, or remove that contact.");
+      window.requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-kontak="${bantuan.tanpaNama}"]`)?.focus());
+      return;
+    }
     setSimpan(true);
     // Label Outfit disunting di Agenda > Section > Outfit. Tidak dikirim dari
     // sini, jadi salinan lama di layar ini tidak menimpa label yang baru disimpan.
-    const setelan: Partial<LandingMemberConfig> = { ...anggota, feedback_url: umpanBalik };
+    const setelan: Partial<LandingMemberConfig> = { ...anggota, feedback_url: umpanBalik, help: bantuan.help };
+    // Kontak darurat hanya dikirim bila diubah di layar ini, supaya tab lain
+    // yang basi tidak menghapus kontak yang baru disimpan di tab ini.
+    if (JSON.stringify(anggota.help ?? null) === JSON.stringify(data?.member.help ?? null)) delete setelan.help;
     delete setelan.outfit_label;
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
@@ -213,7 +225,9 @@ export default function AreaPesertaPage() {
       ) : (
         <div className={berpratinjau ? "flex min-h-0 flex-1 flex-col gap-4 lg:flex-row" : "contents"}>
         {berpratinjau && slug ? (
-          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
+          // Layar pendek (1280x588): halaman bergulir utuh, jadi pratinjau menempel
+          // di bawah bilah atas agar tetap terlihat saat menyunting bagian bawah.
+          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0 lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:h-[calc(100dvh-var(--workspace-top,58px)-32px)] lg:short:self-start">
             <PratinjauPeserta slug={slug} peserta={pesertaPratinjau} onPeserta={setPesertaPratinjau} member={anggota} sorot={sorot} reloadKey={0} />
           </div>
         ) : null}
@@ -262,9 +276,17 @@ export default function AreaPesertaPage() {
                   <SettingRow
                     stacked={berpratinjau}
                     title="Emergency and help"
-                    description="One participant-only Columns block shown in Menu, under Travel, instead of Participant home, and linked from the help card on Travel. Use it for the medical team, hotel reception, nearest clinic and what to do if left behind."
+                    description="Contacts shown in Menu, under Travel, and linked from the help card on Travel. Each contact gets Call, WhatsApp and Map buttons where they apply."
                   >
-                    <PilihBlokDarurat blocks={data.blocks} value={anggota.help_block ?? null} onChange={(id) => set({ help_block: id })} adaPerubahan={berubah} />
+                    <KontakDaruratForm
+                      help={anggota.help}
+                      onChange={(help) => set({ help })}
+                      blocks={data.blocks}
+                      helpBlock={anggota.help_block ?? null}
+                      onSalin={(help) => set({ help })}
+                      onFokus={() => setSorot((current) => (current?.id === "darurat" ? current : { id: "darurat", n: (current?.n ?? 0) + 1 }))}
+                      tanpaNama={tanpaNama}
+                    />
                   </SettingRow>
                 ) : null}
                 <SettingRow stacked={berpratinjau} title="Shown in the Participant area">
