@@ -24,6 +24,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #216 Lucky draw form-answer conditions (merged 18 Oct): Add condition has a "Form answers" group listing the event's own Registration > Edit form questions (staff-only ones included, file uploads left out). Choice questions match ticked values (checkboxes as Yes/No, like the Participant list); others compare text. A deleted question makes its condition fail; an active exclusion rule with one blocks the draw (Readiness, rule list and operator panel say which rule), and saves reject unknown questions. No SQL.
 - #214 Lucky draw checkpoint conditions (merged 18 Oct): Prizes & rules > Add condition has a Checkpoint group: points goal reached (reads Check-in > Checkpoints > Points goal), checkpoint points at least N, all checkpoints done. Works for prize conditions, exclusion rules and bonus-ticket rules; "Add condition" is now a grouped menu. No SQL.
 - #213 Lucky draw admin in English (merged 18 Oct): screens, condition summaries, readiness, timeline; the Excel export stays Indonesian; written with opencode.
 - #217 Emergency contacts follow-up (E-03, merged 18 Oct): stricter phone reading (time and number ranges stay text), English fields for the card and each contact when the event has an English page (copied from the old block too), tidier copied notes, map links only for exact map hosts. No SQL.
@@ -149,6 +150,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #182 L2/L3/L5/L6/L8: a removed participant's reason reads "QR tidak ada", a header with no QR/Email column is read as headerless, rule cards and the odds table count differently, an over-max bonus is capped silently, and preview payloads carry all participant ids.
 - #182 L1b: very large bonus lists are not handled gracefully.
 - #191 I1/N2: another event's entry group returns 500 instead of 404, and the orphan-winner banner stays after a 422.
+- #214/#216 L1/L10: any check-in or scan condition now also reads checkpoints and form answers, so one failed read refuses that draw too; the new leaf editors still mix native fields with SelectMenu (part of the restyle batch); rules that already rely on new conditions read as unreadable on a build without these PRs, so do not revert them once used.
 
 ### Export/Import
 - #188 L2: duplicate session names give duplicate export headers.
