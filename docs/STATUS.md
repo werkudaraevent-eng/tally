@@ -15,15 +15,17 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- #198 Horizon Profil redesign (ticket card with QR, personal details, help card; two columns on desktop): coordinator QA running; then a merge-timing card for Mas (KSO in client review).
-- Staff-only columns (branch feat/kolom-staf, no SQL), as approved in the 17-18 Oct mockups: an "Ask on the registration form" switch per question in Registration > Edit form (missing = asked, so every event changes by 0 px). Off = a Participant list column only: not on the public or walk-in desk form, never required, values in a public or desk submission dropped; Edit participant and the details panel show it under "Staff only" (or "Filled in by participants" when participants can update it); "Add a column in Registration" in the Columns menu adds one and comes back with it ticked (not offered on a closed event, with 20 questions, or while Edit participant is open); a new question's data key follows its text until the first save or until the Data key is typed, and never reuses the key of a question deleted in an earlier save (kept in `retired_keys`, so old answers stay hidden); the Edit form footer sticks on short screens. Two copy lines outside the mockups to confirm with Mas: the Import template note ("the extra questions (including staff-only ones)") and the Add a column discard dialog ("If you discard them, the new column isn't added."). Rendered on a local fake database on 18 Oct; then Mas's merge time (KSO in client review).
-- Bus trips "Pick from Agenda" in Logistics > Add trip: mockup on the real dialog in progress; needs a small SQL link column (Mas runs it) before code.
+- #201 Staff-only columns: an "Ask on the registration form" switch per question, so a column such as KSO's Batch is not asked on the form; "Add a column in Registration" in the Participant list Columns menu. No SQL. Draft, rendered locally and reviewed; waiting on Mas's merge time.
+- #202 Bus trips linked to an Agenda row (Logistics > Buses > Trips; the bus time moves with its row, and the participant Schedule links that row). Migration 202610170002 run by Mas on 18 Oct (post-check true). Draft, rendered locally and reviewed; waiting on Mas's merge time.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
 
+- #200 E-08 checkpoint points goal (merged 18 Oct): Check-in > Checkpoints > Points goal adds one line to the participant checkpoint card ("20 poin lagi untuk masuk undian malam puncak."); no line while Points is off, no goal is set, or the goal is above the points on offer. Migration 202610170001 was run by Mas on 18 Oct.
+- #199 Horizon participant portal fixes from the 17 Oct audit (merged 18 Oct): compact top bar, next and happening-now cards with real dates and every batch labelled, unread announcements first with a count badge, date chips and batch switch in Schedule, QR layer that opens instantly and offline (wake lock, small service worker, guest offline note), help card with call and WhatsApp, bus trips with maps, train tickets to calendar, an emergency card from a participant-only Columns block (Participant area > Emergency and help).
+- #198 Horizon Profil redesign: ticket card with QR, personal details, help card; two columns on desktop.
 - #194 Participant home clarity: each row says where it is edited ("Automatic · Edit in <source>", "Your block"), Add block opens the Event page with a participant-only block, and participant-only blocks are shown or hidden only with the eye in Participant home.
 - #195 + #196 participant sign-in method per event (email + password default; email code; two participant fields). Every event stays on password until changed in Participant area > How participants sign in.
 - #192 bus plate and crew contact on the participant side (per-event switches, default off).
@@ -35,7 +37,16 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
-- Portal audit follow-ups: the staff-only Batch column (feat/kolom-staf) now gives each participant's batch; an "Applies to" setting per Agenda section (so Schedule and Home can say "your batch") still needs its own mockup and a small SQL file he runs.
+- Portal audit follow-up "your batch": an "Applies to" setting per Agenda section so Schedule and Home open the participant's own batch first. It needs its own mockup and a small SQL file he runs; #201 adds the staff-only Batch column it would read.
+
+## KSO participant-area audit (17 Oct): open items
+
+Numbers refer to the audit report Mas holds (U-xx findings, E-xx Eventnook lessons). Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08. The staff-only Batch column is #201 and bus trips linked to the Agenda are #202.
+
+- KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, bus trips per Agenda row in Logistics, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (fill the participant-only Columns block and choose it in Participant area > Emergency and help), E-08 (set the points goal, or turn Points off).
+- Needs a decision or a mockup from Mas first: "your batch" (U-01 step 2, E-01, E-06, E-10: an "Applies to" setting per Agenda section reading the #201 Batch column, then Home, Schedule and the QR show the participant's batch; small SQL), U-22 (one word for the schedule: Jadwal or Susunan acara), U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-14 (self-scan at quiet checkpoints), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
+- Code, partly done: U-02 (the cashier offline banner still shows on the reloaded QR page and other public pages), U-06 (no fade cue on the desktop Schedule day list), U-07 (no Readiness item for the organiser contact), U-09 (the event page day heading and the 01-NN counter count sections; no warning for sections outside the event dates), U-10 (the reloaded QR page still loads the full logistics), U-20/E-09 ("tiket" and "meja registrasi" still name the QR in places), U-24 (one metadata separator, the countdown date range, a zone note on Travel), U-26 (old Gathering cards in Announcements and Schedule), U-33 (tautanPeta for hotel map links, the bell close label), E-12 (map links for Agenda locations).
+- Code, not started: U-12 (focus ring on guest pages), U-13 (per-tab document titles; top bar and bottom nav outside main), U-14 (hide Seat, Live voting and Feedback link for Gathering layouts), U-17 (anchor to the train card), U-19 (reading order below lg), U-21 (one name for the participant area), U-23 ("kamu" or "Anda"), U-27 (Horizon blue from the Theme brand colour), U-29 (Profil active state), U-31 (theme-color from the event navy), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
 
 ## Parked Lows and open findings
 
@@ -92,13 +103,14 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 
 ### Horizon portal
 - #198 L2/L3/L5: at 1280x588 the "Perbesar QR" pill sits on the fold, at 390 the contact row is lower than before (below Data diri), and a rejected registration gets the same gold status chip as "Terdaftar".
-- #105 L5: closing the QR opened from Profil returns to Beranda and loses focus; Escape and Tutup also push history entries.
+- #105 L5 (remaining): on the QR page opened by reload or a shared link, Escape and Tutup push history entries. The QR opened inside the portal is a layer that closes with Back and returns focus.
 - #166 L1/L3/L5/L6: items are keyed by label, the bus label is a single word, Bus and Kamar sit on different rows at 768/1024, and `justify-between` spreads the second row.
 - #171: the last day's entries sit under the fold until the list sticks, and the Jadwal wrapper is full width below lg (L3).
 - #174 L1/L2: phone focus order differs from visual order (CSS `order`), and the editor highlight is lost on remount.
 - #175 D1/D2/L2/L3: the phone note is 17 px instead of 15 and has no overflow-wrap, and a long unbroken announcement word overflows.
-- #180 L1/L2: focus does not return to the checkpoint QR button, and the fold also applies on tablets; booking codes of 17+ characters may overflow at 390.
-- #183 L1-L4: re-inserting moves Agenda and Quick links in classic order, the drop indicator on a fixed row does nothing, ArrowDown from slot 3 moves Announcements up, and the slot-3 note is cut at 390.
+- #180 L2: the fold also applies on tablets; booking codes of 17+ characters may overflow at 390.
+- #183 L1/L2: re-inserting moves Agenda and Quick links in classic order, and the drop indicator on a fixed row does nothing.
+- #199: the cashier offline banner still shows on public pages other than the participant portal; offline, every portal address shows the saved QR page (by design); Schedule links to Travel only for agenda rows that share date and time with the participant's bus trip. Emergency card: rows have no icons (the approved mockup had icon tiles), office numbers (0274 ...) show as text and cannot be tapped, it is not in the saved offline page (offline shows the QR only), and the Participant area preview shows Home only, so the card is checked on the portal Menu tab.
 - #185 L3: `?tab=perjalanan` with no travel data shows no active tab.
 - #194 L8/L9: the short description has no tooltip, and block rows say only "Edit ›".
 - #132 Lows: at 390 the "Preview as" button shrinks to about 28 px and clips the name, and clicking a home row can scroll the preview toolbar out of view.
@@ -143,7 +155,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #162 L4/L6/L7: with the phone keyboard open, Masuk must be scrolled into view, a few mock gaps and a stale comment remain, and /masuk shows the landing page until hydration.
 - #163 remaining: on the standalone /masuk page "Lupa kata sandi?" is still 44 px, and the form-only "Area peserta" eyebrow is 2.58:1 over the KV.
 - #67 nit: top app bar aria labels sit outside `lang="en"`.
-- Staff-only columns branch: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
+- #201: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
 - #169 L2/L5: the post-check SQL misses grants and constraints, and POST returns 500 before the migration.
@@ -162,7 +174,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #92 R4: a form submitted with an imported participant's email creates a second participant (pre-existing).
 - #144 L4-L9: field errors and the email are Indonesian on EN events, the Modern dashboard puts the card on its own row at 1280, Classic hardcodes `lang="id"`, the post-check could miss a stray constraint, and an admin full save can overwrite a concurrent self-update.
 - #119 R2-L1-L3: deleting a participant does not clear the invitation's `rejected_at` or write a new-link audit row, and the invitation update seq-scans.
-- Staff-only columns branch: keys of questions deleted before this branch are not in `retired_keys`, so a new question named like one of those still gets its key and the answers stored under it; turning "Ask on the registration form" back on after saving it off leaves Required off; `/admin/registrasi?kolom=baru` opened as a new page (not from the Columns menu) shows the moderation screen until hydration; Client view > "Form answers the client sees" lists staff-only questions with no mark (needs a mockup).
+- #201: keys of questions deleted before this branch are not in `retired_keys`, so a new question named like one of those still gets its key and the answers stored under it; turning "Ask on the registration form" back on after saving it off leaves Required off; `/admin/registrasi?kolom=baru` opened as a new page (not from the Columns menu) shows the moderation screen until hydration; Client view > "Form answers the client sees" lists staff-only questions with no mark (needs a mockup).
 
 ### Landing/CMS
 - #108 L7: editor `data-sunting` attributes ship in public HTML (not re-confirmed).

@@ -1,4 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import type { LandingLang } from "@/lib/landing-i18n";
+import { bacaTujuan, tujuanPeserta, type TujuanPeserta, type TujuanPoin } from "@/lib/checkpoint/tujuan";
 
 /**
  * Checkpoint peserta (migrasi 202610140002): daftar langkah berurutan yang
@@ -22,20 +24,23 @@ export type BarisCheckpoint = {
   sort_order: number;
 };
 
-export type SetelanCheckpoint = { enabled: boolean; points_enabled: boolean };
+export type SetelanCheckpoint = { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
 
 const KOLOM = "id,title,title_en,place,place_en,session_id,item_id,points,sort_order";
 
 export async function loadSetelanCheckpoint(eventId: string): Promise<SetelanCheckpoint | null> {
   try {
+    // select *, bukan daftar kolom: sebelum migrasi 202610170001 kolom tujuan
+    // belum ada, dan menyebutnya membuat seluruh setelan gagal dibaca (kartu
+    // checkpoint dan catatan di layar scan hilang). Tanpa kolomnya = tanpa tujuan.
     const { data, error } = await getSupabaseServiceClient()
       .from("checkpoint_settings")
-      .select("enabled,points_enabled")
+      .select("*")
       .eq("event_id", eventId)
       .maybeSingle();
     if (error) return null;
-    const baris = data as SetelanCheckpoint | null;
-    return { enabled: baris?.enabled === true, points_enabled: baris?.points_enabled === true };
+    const baris = data as Record<string, unknown> | null;
+    return { enabled: baris?.enabled === true, points_enabled: baris?.points_enabled === true, goal: bacaTujuan(baris) };
   } catch {
     return null;
   }
@@ -125,13 +130,15 @@ export type CheckpointPeserta = {
   done: number;
   earned: number;
   total_points: number;
+  /** Baris tujuan poin (E-08). Null: kartu tanpa baris itu. */
+  goal: TujuanPeserta | null;
 };
 
 /**
  * Kartu Checkpoint di Dashboard saya. Null bila fitur mati, belum ada
  * checkpoint, atau ada galat: kartunya tidak tampil sama sekali.
  */
-export async function loadCheckpointPeserta(eventId: string, participantId: string, lang: "id" | "en"): Promise<CheckpointPeserta | null> {
+export async function loadCheckpointPeserta(eventId: string, participantId: string, lang: LandingLang): Promise<CheckpointPeserta | null> {
   try {
     const aktif = await muatAktif(eventId);
     if (!aktif) return null;
@@ -153,13 +160,16 @@ export async function loadCheckpointPeserta(eventId: string, participantId: stri
       done_at: selesai.get(cp.id)?.at ?? null,
       size: selesai.get(cp.id)?.size ?? null,
     }));
+    const earned = steps.reduce((jumlah, step) => jumlah + (step.done_at ? step.points ?? 0 : 0), 0);
+    const total_points = steps.reduce((jumlah, step) => jumlah + (step.points ?? 0), 0);
     return {
       item_names: barang.error ? [] : ((barang.data ?? []) as { name: string }[]).map((item) => item.name),
       points: setelan.points_enabled,
       steps,
       done: steps.filter((step) => step.done_at).length,
-      earned: steps.reduce((jumlah, step) => jumlah + (step.done_at ? step.points ?? 0 : 0), 0),
-      total_points: steps.reduce((jumlah, step) => jumlah + (step.points ?? 0), 0),
+      earned,
+      total_points,
+      goal: tujuanPeserta(setelan, { earned, total: total_points }, lang),
     };
   } catch {
     return null;

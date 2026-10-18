@@ -60,6 +60,13 @@ type Props = {
    * 220px bergaris tipis, kode di bawahnya, tombol simpan bergaris. Di atas putih.
    */
   horizon?: boolean;
+  /**
+   * Horizon: gambar QR yang sudah dibuat pemanggil (lapisan QR membuatnya saat
+   * portal dimuat, jadi QR tetap tampil walau sinyal hilang sesudahnya).
+   */
+  qrSiap?: string | null;
+  /** Horizon: label di atas kode dan label tombol simpan (U-20); kosong = teks bawaan formulir. */
+  teksHorizon?: { kode: string; simpan: string } | null;
 };
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
@@ -85,22 +92,60 @@ function bacaBisaBagikan() {
   return cacheBagikan;
 }
 
-export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id", layout = "tumpuk", children, qrBesar = false, horizon = false }: Props) {
+/**
+ * Gambar QR kode peserta (data URL PNG). Koreksi galat H: QR ini dipindai dari
+ * layar ponsel yang mungkin retak, berminyak, atau redup di tenda registrasi.
+ * H memulihkan sampai 30% modul yang tidak terbaca, dengan biaya QR yang
+ * sedikit lebih padat.
+ */
+export async function buatGambarQr(code: string): Promise<string> {
+  const QRCode = (await import("qrcode")).default;
+  return QRCode.toDataURL(code, { errorCorrectionLevel: "H", margin: 1, width: 512 });
+}
+
+/**
+ * Menyimpan kartu kode sebagai gambar: lembar berbagi (ponsel: "Simpan
+ * Gambar") atau unduhan. false bila dibatalkan peserta; melempar bila gagal.
+ */
+export async function simpanGambarKode({ qr, code, eventName, personName, schedule, lang = "id" }: { qr: string; code: string; eventName: string; personName: string; schedule: string | null; lang?: LandingLang }): Promise<boolean> {
   const t = DAFTAR_UI[lang].code;
-  const [qr, setQr] = useState<string | null>(null);
+  const blob = await gambarKartu({ qr, code, eventName, personName, schedule, catatan: t.showAtDesk });
+  const file = new File([blob], `kode-${code}.png`, { type: "image/png" });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: `${t.participantCode} ${eventName}` });
+      return true;
+    } catch (error) {
+      // Pembatalan oleh pengguna (menutup lembar berbagi) BUKAN galat.
+      if ((error as Error)?.name === "AbortError") return false;
+      throw error;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const tautan = document.createElement("a");
+  tautan.href = url;
+  tautan.download = file.name;
+  tautan.click();
+  // Dilepas setelah satu putaran event loop: mencabutnya seketika membatalkan
+  // unduhan di sebagian peramban sebelum berkasnya sempat ditulis.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
+}
+
+export function RegistrationCodeCard({ code, eventName, personName, schedule, inverse = false, lang = "id", layout = "tumpuk", children, qrBesar = false, horizon = false, qrSiap = null, teksHorizon = null }: Props) {
+  const t = DAFTAR_UI[lang].code;
+  const [qrSendiri, setQr] = useState<string | null>(null);
+  const qr = qrSiap ?? qrSendiri;
   const [sibuk, setSibuk] = useState(false);
   const [galat, setGalat] = useState("");
   const kartu = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (qrSiap) return;
     let batal = false;
     void (async () => {
       try {
-        const QRCode = (await import("qrcode")).default;
-        // Koreksi galat H: QR ini akan dipindai dari layar ponsel yang mungkin
-        // retak, berminyak, atau redup di tenda registrasi. H memulihkan sampai
-        // 30% modul yang tidak terbaca, dengan biaya QR yang sedikit lebih padat.
-        const url = await QRCode.toDataURL(code, { errorCorrectionLevel: "H", margin: 1, width: 512 });
+        const url = await buatGambarQr(code);
         if (!batal) setQr(url);
       } catch {
         // Kode teksnya sudah tampil di bawah dan itu yang dicocokkan panitia.
@@ -108,7 +153,7 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
       }
     })();
     return () => { batal = true; };
-  }, [code]);
+  }, [code, qrSiap]);
 
   // Kemampuan berbagi berkas dibaca lewat useSyncExternalStore, bukan efek yang
   // memanggil setState: server tidak punya `navigator`, dan render pertama di
@@ -122,26 +167,10 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
     setSibuk(true);
     setGalat("");
     try {
-      const blob = await gambarKartu({ qr, code, eventName, personName, schedule, catatan: t.showAtDesk });
-      const file = new File([blob], `kode-${code}.png`, { type: "image/png" });
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${t.participantCode} ${eventName}` });
-        return;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const tautan = document.createElement("a");
-      tautan.href = url;
-      tautan.download = file.name;
-      tautan.click();
-      // Dilepas setelah satu putaran event loop: mencabutnya seketika membatalkan
-      // unduhan di sebagian peramban sebelum berkasnya sempat ditulis.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      // Pembatalan oleh pengguna (menutup lembar berbagi) BUKAN galat, dan
-      // menampilkannya sebagai galat membuat orang mengira kodenya hilang.
-      if ((error as Error)?.name === "AbortError") return;
+      await simpanGambarKode({ qr, code, eventName, personName, schedule, lang });
+    } catch {
+      // Pembatalan oleh pengguna sudah disaring di simpanGambarKode; menampilkannya
+      // sebagai galat membuat orang mengira kodenya hilang.
       setGalat(t.imageFailed);
     } finally {
       setSibuk(false);
@@ -201,15 +230,16 @@ export function RegistrationCodeCard({ code, eventName, personName, schedule, in
           ) : null}
         </div>
         {/* Rancangan 11px; kode dibuat 15px supaya panitia bisa mengetiknya bila pemindai mati. */}
-        <p className="mt-4 select-all text-center font-mono text-[15px] font-bold tracking-[1px] text-[#526078]">{code}</p>
+        {teksHorizon ? <p className="mt-4 text-center text-[11px] font-bold uppercase tracking-[1px] text-[#4D5D77]">{teksHorizon.kode}</p> : null}
+        <p className={`${teksHorizon ? "mt-1" : "mt-4"} select-all text-center font-mono text-[15px] font-bold tracking-[1px] text-[#526078]`}>{code}</p>
         <button
           type="button"
           onClick={() => void simpan()}
           disabled={!qr || sibuk}
           className="m3-state mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#BCC7DA] px-5 text-[14px] font-bold text-[#101E38] disabled:opacity-50"
         >
-          {bisaBagikan ? <ShareNetwork size={18} weight="fill" /> : <DownloadSimple size={18} weight="fill" />}
-          {sibuk ? t.preparing : bisaBagikan ? t.saveOrShare : t.download}
+          {teksHorizon ? <DownloadSimple size={18} weight="bold" /> : bisaBagikan ? <ShareNetwork size={18} weight="fill" /> : <DownloadSimple size={18} weight="fill" />}
+          {sibuk ? t.preparing : teksHorizon ? teksHorizon.simpan : bisaBagikan ? t.saveOrShare : t.download}
         </button>
         {galat ? (
           <p role="alert" className="mt-3 text-body-medium font-medium text-[#B42318]">

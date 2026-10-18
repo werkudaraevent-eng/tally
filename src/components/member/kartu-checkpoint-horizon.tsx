@@ -1,9 +1,10 @@
-import Link from "next/link";
 import { Check, MapPin, QrCode } from "@phosphor-icons/react/dist/ssr";
 import type { CheckpointPeserta, LangkahPeserta } from "@/lib/checkpoint/server";
 import type { LandingLang } from "@/lib/landing-i18n";
 import type { EventTimeZone } from "@/lib/timezone";
+import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
 import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
+import { PemicuQr } from "@/components/member/qr-fokus";
 
 /**
  * Panduan checkpoint di Beranda Horizon: langkah wajib peserta, bukan rundown,
@@ -18,7 +19,8 @@ const TEKS = {
   id: {
     judul: "Panduan checkpoint",
     berikut: "Langkah berikutnya",
-    qr: "Tunjukkan QR ke petugas",
+    // Satu sebutan untuk yang memindai QR di seluruh portal: panitia (U-20).
+    qr: "Tunjukkan QR ke panitia",
     selesaiJam: (jam: string) => `Selesai ${jam}`,
     ukuran: (ukuran: string) => `ukuran ${ukuran}`,
     kemajuan: (selesai: number, total: number) => `${selesai} dari ${total} selesai`,
@@ -33,7 +35,7 @@ const TEKS = {
   en: {
     judul: "Checkpoint guide",
     berikut: "Next step",
-    qr: "Show QR to staff",
+    qr: "Show QR to the organisers",
     selesaiJam: (jam: string) => `Done ${jam}`,
     ukuran: (ukuran: string) => `size ${ukuran}`,
     kemajuan: (selesai: number, total: number) => `${selesai} of ${total} done`,
@@ -118,6 +120,16 @@ export function KartuCheckpointHorizon({ data, lang, zona, qrHref }: { data: Che
           <i key={step.id} className={`h-1.5 flex-1 rounded-full ${step.done_at ? w.isi : w.rel}`} />
         ))}
       </div>
+      {/* Tujuan poin (E-08): tepat di bawah bilah kemajuan selama ada langkah
+          tersisa; sesudah semuanya selesai, di bawah judul "Semua checkpoint selesai". */}
+      {data.goal && aktif ? (
+        <BarisTujuanPoin
+          tujuan={data.goal}
+          className="mt-3 text-[14px] leading-5"
+          tebalKelas="font-bold text-[var(--hz-sorot,var(--hz-emas))]"
+          sisaKelas="text-[#CDD7EA]"
+        />
+      ) : null}
       {berikut ? (
         <>
           <p className={`mt-5 text-[14px] font-medium ${w.redup}`}>{t.berikut}</p>
@@ -131,19 +143,25 @@ export function KartuCheckpointHorizon({ data, lang, zona, qrHref }: { data: Che
             </p>
           ) : null}
           {qrHref ? (
-            <Link
+            <PemicuQr
+              id="pemicu-qr-checkpoint"
               href={qrHref}
               className="m3-state mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--hz-emas)] px-5 text-[15px] font-semibold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]"
             >
               <QrCode size={20} weight="bold" aria-hidden />
               {t.qr}
-            </Link>
+            </PemicuQr>
           ) : null}
         </>
       ) : (
-        <h2 id="checkpoint-judul" className="mt-4 text-[20px] font-semibold leading-7">
-          {t.semuaSelesai}
-        </h2>
+        <>
+          <h2 id="checkpoint-judul" className="mt-4 text-[20px] font-semibold leading-7">
+            {t.semuaSelesai}
+          </h2>
+          {data.goal ? (
+            <BarisTujuanPoin tujuan={data.goal} className="mt-1 text-[14px] leading-5" tebalKelas="font-bold text-[#101E38]" sisaKelas={w.redup} />
+          ) : null}
+        </>
       )}
       {total > MAKS_PONSEL && belumSelesai.length > 0 ? (
         <CheckpointLipat

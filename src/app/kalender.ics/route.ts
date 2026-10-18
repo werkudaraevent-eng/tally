@@ -1,5 +1,6 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { tanpaBintang } from "@/lib/landing-tagline";
+import { escape, fold, toUtcStamp } from "@/lib/kalender-ics";
 import { timeZoneOffset } from "@/lib/timezone";
 
 /**
@@ -15,32 +16,6 @@ import { timeZoneOffset } from "@/lib/timezone";
  * bergeser satu jam, dan tidak ada apa pun di layar yang menjelaskan kenapa.
  */
 export const dynamic = "force-dynamic";
-
-/** "2026-08-06" + "09:00:00" + "+08:00" → "20260806T010000Z" */
-function toUtcStamp(date: string, time: string | null, offset: string): string {
-  const jam = time?.slice(0, 8) ?? "09:00:00";
-  const moment = new Date(`${date}T${jam}${offset}`);
-  return `${moment.toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`;
-}
-
-/**
- * Melipat baris pada 75 oktet, sesuai RFC 5545.
- *
- * Bukan kerapian: deskripsi acara sering lebih panjang dari itu, dan sebagian
- * klien kalender menolak SELURUH berkas bila ada satu baris yang melewatinya —
- * kegagalannya diam, tombolnya hanya tidak melakukan apa-apa.
- */
-function fold(line: string): string {
-  if (line.length <= 75) return line;
-  const parts: string[] = [line.slice(0, 75)];
-  for (let i = 75; i < line.length; i += 74) parts.push(` ${line.slice(i, i + 74)}`);
-  return parts.join("\r\n");
-}
-
-/** Koma, titik koma, dan baris baru punya arti khusus di iCalendar. */
-function escape(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/[;,]/g, (match) => `\\${match}`).replace(/\r?\n/g, "\\n");
-}
 
 /**
  * Slug datang dari query, bukan dari segmen path.

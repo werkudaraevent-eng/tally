@@ -17,6 +17,8 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     // kategori ini: ia menentukan siapa TIDAK BERHAK menang, dan pertanyaannya
     // ("kenapa perusahaan kami tidak muncul") baru datang setelah acara selesai.
     "leaderboard_exclusion_create", "leaderboard_exclusion_update", "leaderboard_exclusion_delete",
+    // Check-in > Checkpoints: sakelar dan tujuan poin (tujuan menjanjikan sesuatu ke peserta).
+    "checkpoint_settings_update",
   ],
   offers: ["special_offer_create", "special_offer_update", "special_offer_delete"],
   booths: ["booth_create", "booth_update"],
@@ -28,6 +30,8 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "rundown_header_update",
     "rundown_section_create", "rundown_section_update", "rundown_section_delete",
     "rundown_item_create", "rundown_item_update", "rundown_item_delete", "rundown_item_reorder",
+    // Outfit per bagian (Agenda > Outfit) sudah ditulis sejak 202610160001 tetapi belum terdaftar.
+    "rundown_section_outfit_update",
   ],
   // Undian. `undian_draw` sengaja dicatat meski frekuensinya lumayan: berbeda
   // dengan tombol next/prev reveal yang hanya mengganti tampilan, setiap undi
