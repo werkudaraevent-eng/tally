@@ -156,6 +156,7 @@ export function PrizeEditor({
                     companies={preview?.companies ?? []}
                     sessions={previewFailed ? null : preview?.attendance_sessions}
                     checkpoint={preview?.checkpoint}
+                    answerFields={preview?.answer_fields}
                     onRetrySessions={onRetrySessions}
                     onChange={(next) => onChange({ conditions: next })}
                   />

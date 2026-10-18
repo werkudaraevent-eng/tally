@@ -12,7 +12,7 @@ import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 import {
   EMPTY_CONDITIONS, describeConditions, isTrulyEmpty, normalizeExclusionRule,
-  type CheckpointSummary, type UndianConditionGroup, type UndianExclusionRule,
+  type CheckpointSummary, type UndianAnswerField, type UndianConditionGroup, type UndianExclusionRule,
 } from "@/lib/undian";
 import { INPUT } from "@/components/admin/compact-form";
 
@@ -95,6 +95,7 @@ export function ExclusionRuleManager({
   // null = gagal dimuat, berbeda dari acara yang memang tanpa sesi.
   const [sessions, setSessions] = useState<{ id: number; name: string }[] | null | undefined>(undefined);
   const [checkpoint, setCheckpoint] = useState<CheckpointSummary | null | undefined>(undefined);
+  const [answerFields, setAnswerFields] = useState<UndianAnswerField[] | null | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
@@ -122,6 +123,7 @@ export function ExclusionRuleManager({
     setCompanies(data.companies ?? []);
     setSessions(data.attendance_sessions === null ? null : data.attendance_sessions ?? []);
     setCheckpoint(data.checkpoint ?? null);
+    setAnswerFields(data.answer_fields === null ? null : data.answer_fields ?? []);
   }
 
   // setState langsung di badan effect ditolak React Compiler, jadi pemuatan awal
@@ -276,7 +278,7 @@ export function ExclusionRuleManager({
                       {!rule.is_active ? <StatusChip>Inactive</StatusChip> : null}
                       {rule.prize_id !== null ? <StatusChip tone="primary">{prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "Specific prize"}</StatusChip> : null}
                     </span>
-                    <span className="mt-0.5 block text-on-surface-variant">Exclude if: {describeConditions(rule.conditions, Array.isArray(sessions) ? Object.fromEntries(sessions.map((item) => [item.id, item.name])) : null)}</span>
+                    <span className="mt-0.5 block text-on-surface-variant">Exclude if: {describeConditions(rule.conditions, Array.isArray(sessions) ? Object.fromEntries(sessions.map((item) => [item.id, item.name])) : null, Array.isArray(answerFields) ? Object.fromEntries(answerFields.map((item) => [item.key, item.label])) : undefined)}</span>
                     {rule.note ? <span className="mt-0.5 block text-on-surface-variant">{rule.note}</span> : null}
                     {/* Angka nol ditandai, bukan disembunyikan. Aturan yang tidak
                         mengenai siapa pun hampir selalu salah tulis, dan itu
@@ -364,6 +366,7 @@ export function ExclusionRuleManager({
               companies={companies}
               sessions={sessions}
               checkpoint={checkpoint}
+              answerFields={answerFields}
               onRetrySessions={() => { void load(); }}
               tone="exclude"
               onChange={(next) => setDraft({ ...draft, conditions: next })}

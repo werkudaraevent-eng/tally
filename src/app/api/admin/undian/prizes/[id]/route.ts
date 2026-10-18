@@ -25,6 +25,19 @@ const leafSchema = z.union([
   }),
   z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
   z.object({ var: z.enum(["has_seat", "checkpoint_goal", "checkpoints_all"]), is: z.boolean() }),
+  // Jawaban form: daftar nilai untuk pertanyaan pilihan, teks untuk sisanya.
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["in", "not_in"]),
+    values: z.array(z.string().trim().min(1).max(200)).min(1).max(100),
+  }),
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["eq", "neq", "contains", "not_contains", "starts_with", "ends_with", "is_empty", "is_not_empty"]),
+    text: z.string().trim().max(200),
+  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Isi nilai pembandingnya." }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),

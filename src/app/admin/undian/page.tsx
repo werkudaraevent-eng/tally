@@ -59,6 +59,8 @@ export default function UndianAdminPage() {
   const [exclusions, setExclusions] = useState<Exclusion[]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [sessionNames, setSessionNames] = useState<Record<number, string> | null>({});
+  // Judul pertanyaan form untuk ringkasan syarat jawaban; tanpa daftar, kuncinya yang disebut.
+  const [answerLabels, setAnswerLabels] = useState<Record<string, string> | undefined>(undefined);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [previewRetry, setPreviewRetry] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -113,6 +115,7 @@ export default function UndianAdminPage() {
       setPrizes((data.prizes as Record<string, unknown>[]).map(normalizePrize));
       setWinnerCounts(data.winner_counts ?? {});
       setPools(data.pools ?? {});
+      setAnswerLabels(Array.isArray(data.answer_fields) ? Object.fromEntries((data.answer_fields as { key: string; label: string }[]).map((item) => [item.key, item.label])) : undefined);
       setSessionNames(data.attendance_sessions === null ? null : Object.fromEntries(((data.attendance_sessions ?? []) as { id: number; name: string }[]).map((item) => [item.id, item.name])));
       // Kegagalan pada bagian pendukung tidak menggagalkan seluruh halaman: daftar
       // hadiah tetap dapat disusun tanpa daftar entri dan daftar pengecualian.
@@ -398,7 +401,7 @@ export default function UndianAdminPage() {
           const selected = editingId === prize.id;
           const syarat = prize.source === "entries"
             ? `entry list "${groups.find((group) => group.id === prize.entry_group_id)?.name ?? "not selected"}"`
-            : describeConditions(prize.conditions, sessionNames);
+            : describeConditions(prize.conditions, sessionNames, answerLabels);
           return (
             <ListRow
               key={prize.id}

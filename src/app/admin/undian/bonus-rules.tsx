@@ -35,6 +35,7 @@ export function BonusRules({
   // Kartu aturan menulis "+N tiket" apa adanya; tanpa catatan ini, batas
   // maksimum memotong tiket diam-diam (+20 dengan maksimum 10 menjadi 10).
   const fullTickets = 1 + rules.reduce((sum, rule) => sum + rule.tickets, 0);
+  const answerLabels = Array.isArray(preview?.answer_fields) ? Object.fromEntries(preview.answer_fields.map((item) => [item.key, item.label])) : undefined;
   const sessionNames = preview?.attendance_sessions ? Object.fromEntries(preview.attendance_sessions.map((item) => [item.id, item.name])) : null;
 
   function save(rule: BonusRule) {
@@ -70,7 +71,7 @@ export function BonusRules({
                   <span className="min-w-0 break-words text-on-surface-variant">
                     {rule.source === "list"
                       ? [`${rule.participant_ids.length.toLocaleString("en-GB")} ${rule.participant_ids.length === 1 ? "person" : "people"}`, rule.file_name, uploadedLabel(rule.uploaded_at)].filter(Boolean).join(" · ")
-                      : `${describeConditions(rule.conditions, sessionNames)}${preview?.bonus_rule_counts ? ` · ${(preview.bonus_rule_counts[index] ?? 0).toLocaleString("en-GB")} ${(preview.bonus_rule_counts[index] ?? 0) === 1 ? "person" : "people"}` : ""}`}
+                      : `${describeConditions(rule.conditions, sessionNames, answerLabels)}${preview?.bonus_rule_counts ? ` · ${(preview.bonus_rule_counts[index] ?? 0).toLocaleString("en-GB")} ${(preview.bonus_rule_counts[index] ?? 0) === 1 ? "person" : "people"}` : ""}`}
                   </span>
                 </div>
                 <div className="-ml-2 flex flex-wrap">
@@ -341,6 +342,7 @@ function RuleDialog({
               companies={preview?.companies ?? []}
               sessions={previewFailed ? null : preview?.attendance_sessions}
               checkpoint={preview?.checkpoint}
+              answerFields={preview?.answer_fields}
               onRetrySessions={onRetrySessions}
               onChange={setConditions}
             />
