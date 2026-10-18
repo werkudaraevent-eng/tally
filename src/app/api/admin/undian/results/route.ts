@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const winners = await loadWinners(auth.scope.event.id, parsed.data.session ?? null);
     return Response.json({
       winners,
-      timeline: buildTimeline(winners),
+      timeline: buildTimeline(winners, "en"),
       recap: buildPrizeRecap(winners),
     });
   } catch {

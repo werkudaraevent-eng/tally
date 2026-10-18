@@ -47,41 +47,41 @@ type Props = {
 };
 
 const VAR_LABEL: Record<string, string> = {
-  company: "Perusahaan",
-  name: "Nama peserta",
-  job_title: "Jabatan",
-  participant_type: "Tipe peserta",
-  rsvp_status: "Status RSVP",
-  checked_in: "Status check-in",
-  has_seat: "Kepemilikan kursi",
-  seat_label: "Nomor kursi",
-  qr_code: "Kode QR / badge",
-  total_spend: "Total transaksi",
-  booth_count: "Jumlah booth dikunjungi",
-  scan_count: "Jumlah scan",
+  company: "Company",
+  name: "Participant name",
+  job_title: "Job title",
+  participant_type: "Participant type",
+  rsvp_status: "RSVP status",
+  checked_in: "Check-in status",
+  has_seat: "Seat assignment",
+  seat_label: "Seat number",
+  qr_code: "QR / badge code",
+  total_spend: "Total spend",
+  booth_count: "Booths visited",
+  scan_count: "Scan count",
 };
 
 // Dikelompokkan supaya daftar dua belas variabel tidak terbaca sebagai satu
 // gulungan panjang tanpa struktur.
 const VAR_GROUPS: { label: string; vars: string[] }[] = [
-  { label: "Identitas", vars: ["company", "name", "job_title", "qr_code"] },
-  { label: "Status peserta", vars: ["participant_type", "rsvp_status", "checked_in"] },
-  { label: "Kursi", vars: ["has_seat", "seat_label"] },
-  { label: "Aktivitas", vars: ["total_spend", "booth_count", "scan_count"] },
+  { label: "Identity", vars: ["company", "name", "job_title", "qr_code"] },
+  { label: "Participant status", vars: ["participant_type", "rsvp_status", "checked_in"] },
+  { label: "Seat", vars: ["has_seat", "seat_label"] },
+  { label: "Activity", vars: ["total_spend", "booth_count", "scan_count"] },
 ];
 
 const CMP_LABEL: Record<UndianCmp, string> = {
-  gte: "minimal",
-  gt: "lebih dari",
-  lte: "maksimal",
-  lt: "kurang dari",
-  eq: "tepat",
+  gte: "at least",
+  gt: "more than",
+  lte: "at most",
+  lt: "less than",
+  eq: "exactly",
 };
 
 const UNIT: Record<string, string> = { total_spend: "rupiah", booth_count: "booth", scan_count: "scan" };
 
 const digitsOnly = (value: string) => value.replace(/\D/g, "");
-const grouped = (value: number) => new Intl.NumberFormat("id-ID").format(value);
+const grouped = (value: number) => new Intl.NumberFormat("en-GB").format(value);
 
 const CONTROL = "h-9 rounded-md border border-outline bg-surface-container-lowest px-2 text-body-medium text-on-surface outline-none focus:border-primary";
 
@@ -130,9 +130,9 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
 
   return <div className={depth > 0 ? "border-l border-outline pl-3" : ""}>
     {value.children.length > 1 && <div className="mb-2 flex flex-wrap items-center gap-2 text-body-medium">
-      <span className="text-on-surface-variant">Gabungan:</span>
+      <span className="text-on-surface-variant">Match:</span>
       {(["and", "or"] as const).map((op) => <Pilihan key={op} on={value.op === op} onClick={() => onChange({ ...value, op })}>
-        {op === "and" ? "Semua harus terpenuhi" : "Salah satu cukup"}
+        {op === "and" ? "All conditions" : "Any condition"}
       </Pilihan>)}
     </div>}
 
@@ -140,8 +140,8 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
       {value.children.map((child, index) => <div key={index} className="rounded-md border border-outline-variant bg-surface-container-lowest p-3">
         {isConditionGroup(child) ? <div>
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-body-medium font-medium text-on-surface-variant">Grup syarat</span>
-            <TombolHapus label="Hapus grup" onClick={() => removeChild(index)} icon={<X size={16} />} />
+            <span className="text-body-medium font-medium text-on-surface-variant">Condition group</span>
+            <TombolHapus label="Delete group" onClick={() => removeChild(index)} icon={<X size={16} />} />
           </div>
           <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} sessions={sessions} onRetrySessions={onRetrySessions} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
         </div> : <LeafEditor
@@ -161,11 +161,11 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
     <div className="mt-2 flex flex-wrap gap-2">
       <select
         value=""
-        aria-label="Tambah syarat"
+        aria-label="Add condition"
         onChange={(event) => { if (event.target.value) onChange({ ...value, children: [...value.children, defaultLeaf(event.target.value)] }); }}
         className={cx(CONTROL, "font-medium")}
       >
-        <option value="">+ Tambah syarat</option>
+        <option value="">+ Add condition</option>
         {VAR_GROUPS.map((group) => <optgroup key={group.label} label={group.label}>
           {group.vars.map((key) => <option key={key} value={key}>{VAR_LABEL[key]}</option>)}
         </optgroup>)}
@@ -173,7 +173,7 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
       {/* Kedalaman dibatasi 2 agar aturan tetap terbaca. Lebih dalam dari itu
           hampir selalu tanda aturannya perlu dipecah jadi hadiah terpisah. */}
       {depth < 2 && <button type="button" onClick={() => onChange({ ...value, children: [...value.children, { op: "or", children: [] }] })} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium font-medium hover:bg-primary-soft">
-        <Plus size={14} aria-hidden /> Tambah grup
+        <Plus size={14} aria-hidden /> Add group
       </button>}
     </div>
 
@@ -182,8 +182,8 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
       // bernilai benar untuk semua orang, sehingga seluruh ruangan gugur. Database
       // menolaknya lewat CHECK, tapi pesan itu harus terbaca sebelum tombol Simpan
       // ditekan, bukan sesudahnya.
-      ? <p className="mt-2 text-body-medium font-medium text-error">Tambahkan minimal satu syarat. Aturan tanpa syarat akan mengecualikan semua peserta.</p>
-      : <p className="mt-2 text-body-medium text-on-surface-variant">Tanpa syarat, semua peserta aktif ikut diundi.</p>)}
+      ? <p className="mt-2 text-body-medium font-medium text-error">Add at least one condition. A rule without conditions excludes all participants.</p>
+      : <p className="mt-2 text-body-medium text-on-surface-variant">Without conditions, all active participants enter the draw.</p>)}
   </div>;
 }
 
@@ -226,10 +226,10 @@ function LeafEditor({
   if (leaf.var === "__invalid") {
     return <div className="flex flex-wrap items-center gap-2 text-body-medium">
       <span className="flex items-center gap-1.5 font-medium text-error">
-        <Warning size={16} aria-hidden /> Syarat ini tidak terbaca
+        <Warning size={16} aria-hidden /> This condition cannot be read
       </span>
-      <span className="text-on-surface-variant">Nilainya belum lengkap atau formatnya berubah. Hapus lalu susun ulang.</span>
-      <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />
+      <span className="text-on-surface-variant">Its values are incomplete or its format has changed. Delete it and create it again.</span>
+      <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
     </div>;
   }
 
@@ -237,7 +237,7 @@ function LeafEditor({
     <span className="font-medium">{VAR_LABEL[leaf.var]}</span>
 
     {numeric && <>
-      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as UndianCmp })} aria-label="Pembanding" className={CONTROL}>
+      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as UndianCmp })} aria-label="Comparison" className={CONTROL}>
         {Object.entries(CMP_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
       </select>
       <input
@@ -254,7 +254,7 @@ function LeafEditor({
       <select
         value={leaf.cmp}
         onChange={(event) => onChange({ ...leaf, cmp: event.target.value as UndianTextCmp })}
-        aria-label="Pembanding"
+        aria-label="Comparison"
         className={CONTROL}
       >
         {(Object.keys(TEXT_CMP_LABEL) as UndianTextCmp[]).map((key) => <option key={key} value={key}>{TEXT_CMP_LABEL[key]}</option>)}
@@ -266,9 +266,9 @@ function LeafEditor({
         <input
           value={leaf.text}
           onChange={(event) => onChange({ ...leaf, text: event.target.value })}
-          aria-label={`Nilai ${VAR_LABEL[leaf.var]}`}
+          aria-label={`${VAR_LABEL[leaf.var]} value`}
           list={leaf.var === "company" ? "undian-company-options" : undefined}
-          placeholder={leaf.var === "company" ? "PT PRIMA" : "ketik nilainya"}
+          placeholder={leaf.var === "company" ? "PT PRIMA" : "enter a value"}
           className={cx(CONTROL, "w-52 max-w-full")}
         />
         {/* Saran ketik dari nilai yang benar-benar ada di data. Ini yang mencegah
@@ -281,13 +281,13 @@ function LeafEditor({
     </>}
 
     {list && <>
-      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as "in" | "not_in" })} aria-label="Pembanding" className={CONTROL}>
-        <option value="in">adalah salah satu</option>
-        <option value="not_in">bukan salah satu</option>
+      <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as "in" | "not_in" })} aria-label="Comparison" className={CONTROL}>
+        <option value="in">is one of</option>
+        <option value="not_in">is not one of</option>
       </select>
       <div className="flex flex-wrap gap-1">
         {options.length === 0
-          ? <span className="text-on-surface-variant">Belum ada nilai di data peserta.</span>
+          ? <span className="text-on-surface-variant">No values in participant data yet.</span>
           : options.map((option) => {
             const chosen = leaf.values.includes(option);
             return <Pilihan key={option} on={chosen} onClick={() => onChange({ ...leaf, values: chosen ? leaf.values.filter((item) => item !== option) : [...leaf.values, option] })}>{option}</Pilihan>;
@@ -298,8 +298,8 @@ function LeafEditor({
     {(leaf.var === "checked_in" || leaf.var === "has_seat") && <div className="flex gap-1">
       {[true, false].map((option) => <Pilihan key={String(option)} on={leaf.is === option} onClick={() => onChange({ ...leaf, is: option })}>
         {leaf.var === "checked_in"
-          ? (option ? "Sudah check-in" : "Belum check-in")
-          : (option ? "Punya kursi" : "Tanpa kursi")}
+          ? (option ? "Checked in" : "Not checked in")
+          : (option ? "Has a seat" : "No seat")}
       </Pilihan>)}
     </div>}
 
@@ -313,20 +313,20 @@ function LeafEditor({
         const id = Number(event.target.value);
         onChange(id > 0 ? { ...leaf, session_id: id } : { var: "checked_in", is: leaf.is });
       }}
-      aria-label="Sesi check-in"
+      aria-label="Check-in session"
       className={cx(CONTROL, "max-w-56")}
     >
-      <option value={0}>di sesi mana pun</option>
-      {sessionList.map((session) => <option key={session.id} value={session.id}>di {session.name}</option>)}
-      {leaf.session_id !== undefined && !sessionList.some((session) => session.id === leaf.session_id) && <option value={leaf.session_id}>{sessionGone ? "di sesi yang sudah dihapus" : sessions === null ? "sesi gagal dimuat" : "memuat sesi..."}</option>}
+      <option value={0}>in any session</option>
+      {sessionList.map((session) => <option key={session.id} value={session.id}>in {session.name}</option>)}
+      {leaf.session_id !== undefined && !sessionList.some((session) => session.id === leaf.session_id) && <option value={leaf.session_id}>{sessionGone ? "in a deleted session" : sessions === null ? "could not load sessions" : "loading sessions..."}</option>}
     </select>}
     {/* Syarat dengan sesi terhapus selalu bernilai salah. Pada syarat hadiah
         artinya tidak ada yang lolos; pada aturan pengecualian artinya aturan
         ini tidak mengecualikan siapa pun. */}
     {sessionGone && <span role="alert" className="order-last flex basis-full items-center gap-1.5 font-medium text-error">
       <Warning size={16} aria-hidden className="shrink-0" /> {tone === "exclude"
-        ? "Sesi ini sudah dihapus, jadi aturan ini tidak mengecualikan siapa pun. Pilih sesi lain."
-        : "Sesi ini sudah dihapus, jadi tidak ada peserta yang lolos. Pilih sesi lain."}
+        ? "This session was deleted, so this rule excludes no one. Choose another session."
+        : "This session was deleted, so no participants qualify. Choose another session."}
     </span>}
 
     {leaf.var === "checked_in" && leaf.session_id !== undefined && sessions === null && <span role="status" className="order-last flex basis-full items-center gap-1.5 text-on-surface-variant">
@@ -334,7 +334,7 @@ function LeafEditor({
       {onRetrySessions && <button type="button" onClick={onRetrySessions} className="min-h-9 shrink-0 font-medium text-primary underline">Retry</button>}
     </span>}
 
-    <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />
+    <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
   </div>;
 }
 
