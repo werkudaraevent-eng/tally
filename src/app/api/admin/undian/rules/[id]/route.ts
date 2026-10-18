@@ -27,15 +27,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   if (Object.keys(parsed.data).length === 0) return apiError("VALIDATION_ERROR", 422);
-  // Hanya pohon yang DIKIRIM yang diperiksa: menyalakan atau mematikan saja
-  // tidak boleh terhalang oleh pertanyaan yang dihapus setelah disimpan.
-  const answerError = await unknownAnswerError(eventId, (parsed.data.conditions ? [parsed.data.conditions] : []) as UndianConditionNode[]);
-  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
-  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
-
   const client = getSupabaseServiceClient();
   const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("UNDIAN_RULE_NOT_FOUND", 404);
+
+  // Hanya pohon yang DIKIRIM yang diperiksa: menyalakan atau mematikan saja
+  // tidak boleh terhalang oleh pertanyaan yang dihapus setelah disimpan. Aturan
+  // yang akan nonaktif juga tidak diperiksa: ia tidak ikut undian, dan editor
+  // selalu mengirim pohonnya, jadi tanpa ini sakelar Active di editor tidak
+  // dapat mematikan aturan yang rusak.
+  const activeAfter = parsed.data.is_active ?? (current as { is_active: boolean }).is_active;
+  const trees = activeAfter && parsed.data.conditions ? [parsed.data.conditions] : [];
+  const answerError = await unknownAnswerError(eventId, trees as UndianConditionNode[]);
+  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
+  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
   // Hadiah sasaran juga harus milik event ini. Tanpa filter, aturan event A bisa
   // ditambatkan ke hadiah event B; FK komposit menolaknya, tetapi galat mentahnya

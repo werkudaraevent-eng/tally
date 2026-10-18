@@ -7,7 +7,7 @@ import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";
-import { ANIMATIONS, type UndianPrize, normalizePrize } from "@/lib/undian";
+import { ANIMATIONS, type UndianPrize, normalizePrize, ruleBrokenMessage } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneHeader,
@@ -147,7 +147,10 @@ export default function UndianControlPage() {
     const data = await response.json().catch(() => ({}));
     setBusy(null);
     if (!response.ok) {
-      const failure = data?.error?.message ?? "Action failed.";
+      const brokenRules: unknown = data?.error?.details?.rules;
+      const failure = data?.error?.code === "UNDIAN_RULE_BROKEN" && Array.isArray(brokenRules) && brokenRules.length > 0
+        ? ruleBrokenMessage(brokenRules.map(String))
+        : data?.error?.message ?? "Action failed.";
       setError(failure); toast.error("Action failed", failure);
       return false;
     }

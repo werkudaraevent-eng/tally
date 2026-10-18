@@ -21,6 +21,8 @@ export type Preview = {
   /** Mode tiket tambahan: kelompok menurut kombinasi aturan yang cocok, dan jumlah per aturan. */
   bonus_groups?: { rules: number[]; count: number; tickets: number }[];
   bonus_rule_counts?: number[];
+  /** Aturan pengecualian aktif pada pertanyaan form yang dihapus: undian ditolak. */
+  broken_rules?: string[];
 };
 
 /** Sesi kehadiran acara (Check-in > Sessions), untuk syarat check-in per sesi. */

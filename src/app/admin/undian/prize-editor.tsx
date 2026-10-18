@@ -5,7 +5,7 @@ import { Button, DetailSection, IconButton, Pane, PaneBody, PaneFooter, PaneHead
 import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
-  ANIMATIONS, EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL,
+  ANIMATIONS, EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL, ruleBrokenMessage,
   type ExcludeScope, type SpinMode, type UndianAnimation, type UndianPrize, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
@@ -248,6 +248,17 @@ function PoolPreview({ preview, failed }: { preview: Preview | null; failed: boo
       <p className="rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant" aria-live="polite">
         {failed ? "Could not calculate the participant pool. Change the conditions to try again." : "Calculating participant pool..."}
       </p>
+    );
+  }
+  // Undian akan ditolak selama aturan ini rusak, jadi jumlah nama tidak ditampilkan.
+  if (preview.broken_rules && preview.broken_rules.length > 0) {
+    return (
+      <div className="rounded-md bg-surface-container-high p-3 text-body-medium" aria-live="polite">
+        <p className="flex items-start gap-1.5 text-title-medium font-semibold text-error">
+          <Warning size={20} className="mt-0.5 shrink-0" aria-hidden /> Draw blocked
+        </p>
+        <p className="mt-1.5 text-on-surface-variant">{ruleBrokenMessage(preview.broken_rules)}</p>
+      </div>
     );
   }
   return (

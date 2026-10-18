@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { answerChoices, answerText, describeConditions, hasMissingAnswer, usesAnswer, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
+import { answerChoices, answerText, describeConditions, hasMissingAnswer, ruleBrokenMessage, usesAnswer, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
 
 // Syarat dari jawaban pertanyaan tambahan form registrasi.
 
@@ -59,5 +59,7 @@ assert.equal(hasMissingAnswer(nik, new Set(["divisi"])), true);
 assert.equal(hasMissingAnswer(nik, new Set(["nik"])), false);
 assert.equal(hasMissingAnswer(normalizeConditions({ op: "and", children: [{ var: "scan_count", cmp: "gte", value: 1 }] }), new Set()), false);
 assert.equal(usesAnswer(nik), true);
+assert.equal(ruleBrokenMessage(["Batch lama keluar"]), 'Exclusion rule "Batch lama keluar" uses a form question that no longer exists. Fix or turn off the rule in Exclusion rules before drawing.');
+assert.equal(ruleBrokenMessage(["A", "B"]), 'Exclusion rules "A", "B" use a form question that no longer exists. Fix or turn off these rules in Exclusion rules before drawing.');
 
 console.log("undian-jawaban.check: ok");
