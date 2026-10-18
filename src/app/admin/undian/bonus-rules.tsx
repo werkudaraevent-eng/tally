@@ -340,7 +340,7 @@ function RuleDialog({
               rsvpStatuses={preview?.rsvp_statuses ?? []}
               companies={preview?.companies ?? []}
               sessions={previewFailed ? null : preview?.attendance_sessions}
-              checkpoint={previewFailed ? null : preview?.checkpoint}
+              checkpoint={preview?.checkpoint}
               onRetrySessions={onRetrySessions}
               onChange={setConditions}
             />
