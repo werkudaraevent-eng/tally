@@ -156,6 +156,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #162 L4/L6/L7: with the phone keyboard open, Masuk must be scrolled into view, a few mock gaps and a stale comment remain, and /masuk shows the landing page until hydration.
 - #163 remaining: on the standalone /masuk page "Lupa kata sandi?" is still 44 px, and the form-only "Area peserta" eyebrow is 2.58:1 over the KV.
 - #67 nit: top app bar aria labels sit outside `lang="en"`.
+- #195/#196: Participant area saves the whole participant-area setting it loaded, so an admin tab left open from before a sign-in change puts the old sign-in method back when it saves anything. The server checks `updated_at` only against its own re-read, not against the tab's; fix by sending only changed keys, or by sending the loaded `updated_at` and answering 409.
 - #201: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
