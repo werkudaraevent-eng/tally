@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Horizon sign-in entry (this PR, draft): the hero's middle button opens the sign-in dialog for invited guests and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. Waiting on coordinator QA, then Mas's timing OK (visible on KSO). No SQL.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".

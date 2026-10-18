@@ -9,7 +9,7 @@ import { CINCIN_PUTIH } from "@/components/landing/modern/cincin-horizon";
 /**
  * Lonceng pengumuman di bilah atas halaman acara, untuk peserta yang sudah masuk.
  *
- * Tombol ikon 44px dengan lencana jumlah belum dibaca (M3 Badge, warna error)
+ * Tombol ikon 44px (48px di Horizon) dengan lencana jumlah belum dibaca (M3 Badge, warna error)
  * yang membuka panel di bawahnya. Panelnya non-modal: halaman di belakang tetap
  * bisa digulir, Esc atau ketukan di luar menutupnya, dan fokus kembali ke
  * lonceng saat ditutup dengan Esc.
@@ -43,6 +43,7 @@ export function LoncengPengumuman({
   dashboardHref,
   buka,
   onBukaChange,
+  besar = false,
 }: {
   slug: string;
   lang: LandingLang;
@@ -53,6 +54,8 @@ export function LoncengPengumuman({
   /** Dikendalikan bilah atas, supaya panel ini dan menu tidak terbuka bersamaan. */
   buka: boolean;
   onBukaChange: (buka: boolean) => void;
+  /** Horizon: 48px dengan ikon 24px, sama dengan tombol Menu di sebelahnya. */
+  besar?: boolean;
 }) {
   const t = LANDING_UI[lang];
   const setBuka = onBukaChange;
@@ -126,11 +129,11 @@ export function LoncengPengumuman({
         aria-controls={panelId}
         aria-label={t.announcementsButton(belum)}
         onClick={() => setBuka(!buka)}
-        className={`m3-state relative inline-flex size-11 items-center justify-center rounded-md ${
+        className={`m3-state relative inline-flex ${besar ? "size-12" : "size-11"} items-center justify-center rounded-md ${
           buka ? "bg-[color-mix(in_srgb,var(--nav-text)_10%,transparent)]" : ""
         }`}
       >
-        <Bell size={22} aria-hidden />
+        <Bell size={besar ? 24 : 22} aria-hidden />
         {belum > 0 ? (
           // Lencana besar M3: tinggi 16dp, minimal selebar tingginya, di pojok
           // kanan atas ikon. Cincin selaras latar bilah supaya tidak menyatu
