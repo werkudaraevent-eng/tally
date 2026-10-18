@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-17.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-18.
 
 ## How to update this file
 
@@ -15,14 +15,17 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- #198 Horizon Profil redesign (ticket card with QR, personal details, help card; two columns on desktop): coordinator QA running; then a merge-timing card for Mas (KSO in client review).
-- Bus trips "Pick from Agenda" in Logistics > Add trip: mockup on the real dialog in progress; needs a small SQL link column (Mas runs it) before code.
+- #200 E-08 checkpoint points goal (Check-in > Checkpoints > Points goal; one line on the participant checkpoint card, e.g. "20 poin lagi untuk masuk undian malam puncak."). Migration 202610170001 run by Mas on 18 Oct. Mas OK'd merging it on 18 Oct, right after #199.
+- #201 Staff-only columns: an "Ask on the registration form" switch per question, so a column such as KSO's Batch is not asked on the form; "Add a column in Registration" in the Participant list Columns menu. No SQL. Draft, rendered locally and reviewed; waiting on Mas's merge time.
+- #202 Bus trips linked to an Agenda row (Logistics > Buses > Trips; the bus time moves with its row, and the participant Schedule links that row). Migration 202610170002 run by Mas on 18 Oct (post-check true). Draft, rendered locally and reviewed; waiting on Mas's merge time.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
 
+- #199 Horizon participant portal fixes from the 17 Oct audit (merged 18 Oct): compact top bar, next and happening-now cards with real dates and every batch labelled, unread announcements first with a count badge, date chips and batch switch in Schedule, QR layer that opens instantly and offline (wake lock, small service worker, guest offline note), help card with call and WhatsApp, bus trips with maps, train tickets to calendar, an emergency card from a participant-only Columns block (Participant area > Emergency and help).
+- #198 Horizon Profil redesign: ticket card with QR, personal details, help card; two columns on desktop.
 - #194 Participant home clarity: each row says where it is edited ("Automatic · Edit in <source>", "Your block"), Add block opens the Event page with a participant-only block, and participant-only blocks are shown or hidden only with the eye in Participant home.
 - #195 + #196 participant sign-in method per event (email + password default; email code; two participant fields). Every event stays on password until changed in Participant area > How participants sign in.
 - #192 bus plate and crew contact on the participant side (per-event switches, default off).
@@ -34,6 +37,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
+- Portal audit follow-up "your batch": an "Applies to" setting per Agenda section so Schedule and Home open the participant's own batch first. It needs its own mockup and a small SQL file he runs; #201 adds the staff-only Batch column it would read.
 
 ## Parked Lows and open findings
 
@@ -90,13 +94,14 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 
 ### Horizon portal
 - #198 L2/L3/L5: at 1280x588 the "Perbesar QR" pill sits on the fold, at 390 the contact row is lower than before (below Data diri), and a rejected registration gets the same gold status chip as "Terdaftar".
-- #105 L5: closing the QR opened from Profil returns to Beranda and loses focus; Escape and Tutup also push history entries.
+- #105 L5 (remaining): on the QR page opened by reload or a shared link, Escape and Tutup push history entries. The QR opened inside the portal is a layer that closes with Back and returns focus.
 - #166 L1/L3/L5/L6: items are keyed by label, the bus label is a single word, Bus and Kamar sit on different rows at 768/1024, and `justify-between` spreads the second row.
 - #171: the last day's entries sit under the fold until the list sticks, and the Jadwal wrapper is full width below lg (L3).
 - #174 L1/L2: phone focus order differs from visual order (CSS `order`), and the editor highlight is lost on remount.
 - #175 D1/D2/L2/L3: the phone note is 17 px instead of 15 and has no overflow-wrap, and a long unbroken announcement word overflows.
-- #180 L1/L2: focus does not return to the checkpoint QR button, and the fold also applies on tablets; booking codes of 17+ characters may overflow at 390.
-- #183 L1-L4: re-inserting moves Agenda and Quick links in classic order, the drop indicator on a fixed row does nothing, ArrowDown from slot 3 moves Announcements up, and the slot-3 note is cut at 390.
+- #180 L2: the fold also applies on tablets; booking codes of 17+ characters may overflow at 390.
+- #183 L1/L2: re-inserting moves Agenda and Quick links in classic order, and the drop indicator on a fixed row does nothing.
+- #199: the cashier offline banner still shows on public pages other than the participant portal; offline, every portal address shows the saved QR page (by design); Schedule links to Travel only for agenda rows that share date and time with the participant's bus trip. Emergency card: rows have no icons (the approved mockup had icon tiles), office numbers (0274 ...) show as text and cannot be tapped, it is not in the saved offline page (offline shows the QR only), and the Participant area preview shows Home only, so the card is checked on the portal Menu tab.
 - #185 L3: `?tab=perjalanan` with no travel data shows no active tab.
 - #194 L8/L9: the short description has no tooltip, and block rows say only "Edit ›".
 - #132 Lows: at 390 the "Preview as" button shrinks to about 28 px and clips the name, and clicking a home row can scroll the preview toolbar out of view.

@@ -265,6 +265,8 @@ export const memberSchema = z.object({
     .max(OUTFIT_LABEL_MAX)
     .nullish()
     .transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
+  /** Blok peserta yang tampil di Menu sebagai kartu darurat dan bantuan (portal Horizon). Kosong = tidak ada. */
+  help_block: blockId.nullable().optional(),
 });
 
 /** Satu pembicara (`landing_config.speakers[]`), disimpan di halaman Speakers. */

@@ -7,6 +7,7 @@ import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, SelectField,
 import { SettingRow } from "@/components/admin/settings-panel";
 import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
+import { PilihBlokDarurat } from "./blok-darurat";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
@@ -255,6 +256,15 @@ export default function AreaPesertaPage() {
                       dipilih={sorot?.id ?? null}
                       onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}
                     />
+                  </SettingRow>
+                ) : null}
+                {data.horizon === true ? (
+                  <SettingRow
+                    stacked={berpratinjau}
+                    title="Emergency and help"
+                    description="One participant-only Columns block shown in Menu, under Travel, instead of Participant home, and linked from the help card on Travel. Use it for the medical team, hotel reception, nearest clinic and what to do if left behind."
+                  >
+                    <PilihBlokDarurat blocks={data.blocks} value={anggota.help_block ?? null} onChange={(id) => set({ help_block: id })} adaPerubahan={berubah} />
                   </SettingRow>
                 ) : null}
                 <SettingRow stacked={berpratinjau} title="Shown in the Participant area">

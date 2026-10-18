@@ -18,7 +18,8 @@ const BOLEH = new Set([
 
 function telusuri(dir: string): string[] {
   return readdirSync(dir).flatMap((nama) => {
-    const path = join(dir, nama);
+    // Garis miring maju juga di Windows, supaya cocok dengan daftar BOLEH.
+    const path = join(dir, nama).replaceAll("\\", "/");
     return statSync(path).isDirectory() ? telusuri(path) : /\.tsx?$/.test(nama) ? [path] : [];
   });
 }
