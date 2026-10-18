@@ -16,14 +16,14 @@ Status per item as of 18 Oct 2026, after #199 to #202. This is the working copy 
 | KSO content in the CMS (Mas) | 5 | U-04, U-08, U-15, U-34, U-35 |
 | Needs a decision or a mockup from Mas | 4 | U-22, U-25, U-30, E-13 |
 | Partly done | 12 | U-01, U-06, U-09, U-20, U-24, U-26, U-33, E-01, E-06, E-09, E-10, E-12 |
-| Not started | 17 | U-12, U-13, U-14, U-17, U-19, U-21, U-23, U-27, U-29, U-31, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
-| Done | 13 | U-02, U-03, U-05, U-07, U-10, U-11, U-16, U-18, U-28, E-03, E-07, E-08, E-14 |
+| Not started | 13 | U-14, U-17, U-21, U-23, U-27, U-31, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
+| Done | 17 | U-02, U-03, U-05, U-07, U-10, U-11, U-12, U-13, U-16, U-18, U-19, U-28, U-29, E-03, E-07, E-08, E-14 |
 
 Suggested order:
 
 1. Mas: the KSO content items in the CMS. They need no code.
 2. "Your batch" (U-01 step 2, E-01, E-06, E-10): an "Applies to" setting per Agenda section that reads the staff-only Batch column from #201. Mockup first, then a small SQL file Mas runs.
-3. Code: U-13, U-12 (U-02 done in #206).
+3. Code: the "After KSO" list (accessibility, polish, language), in small PRs; U-12, U-13, U-19 and U-29 are done.
 
 ## What already works (keep it)
 
@@ -164,22 +164,22 @@ Measured at audit time:
 
 ### U-12 Focus ring under 3:1 on navy areas, and on cream cards when the device is in dark mode
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: medium. Area: All guest pages (event page and portal). Scope: platform.
 - Finding: Keyboard users, for example on a hotel laptop or an iPad with a keyboard, cannot see where they are on the navy bar that every page has: the global ring colour (#2b4dd4) measures 2.46 to 2.62:1 on navy. In dark mode the ring also fails on cream and white cards (2.09:1 and 2.22:1), and with prefers-contrast it all but vanishes on navy, so in any setting a large part of the portal has no visible focus. Touch on phones does not show this ring.
 - Compared with: Tally's own Forum layout already flips the ring colour on dark areas (CINCIN_TERANG).
 - Recommendation: One shared helper for guest pages (the Horizon event page and the portal) that picks the ring colour per container with kontras(): event gold on navy (#e8c968, about 10:1) and navy ink on cream and white (#101E38, 15.6:1). Lock the values, including a light color-scheme, so dark mode and prefers-contrast do not swap them. This also closes #164 L12, #158 L11 and #112 L4. Then test Tab at 390, 768 and 1280x588, in light and dark.
-- Left: All of it. The global :focus-visible rule in src/app/globals.css still uses --md-sys-color-primary, and neither the Horizon event page nor the portal sets a ring colour or locks color-scheme; #201 and #202 add only admin CSS (scroll padding for a sticky footer, a ring for warning fields). Add the guest-page ring rule, then run the Tab test, which has not yet been done with real focus.
+- Left: Done in this PR: guest pages that use Horizon (the event page and the participant area) draw the focus ring from `--cincin-fokus` (globals.css). gayaHorizon sets navy ink #101E38 for cream and white areas and locks color-scheme to light; navy areas (portal top bar, pass, Profile ticket card, the navy checkpoint card, the QR screen and layer, the event page hero, Agenda band and footer) take the Theme gold through CINCIN_NAVY, or white when the gold is under 3:1 against the navy; the event page bar uses its own text colour, and the bell panel goes back to navy ink. Other layouts keep the primary colour. Not yet done: a Tab test with a real keyboard at 390, 768 and 1280x588 in light and dark (coordinator QA).
 - Code: `src/app/globals.css` (global :focus-visible rule); `src/components/landing/modern/horizon.tsx` (gayaHorizon, shared by the event page and the portal); `src/components/landing/forum/styles.ts` (CINCIN_TERANG); `src/lib/landing-hitung-mundur.ts` (kontras)
 
 ### U-13 Every tab of every event has the document title "Area peserta", so screen readers do not announce tab changes
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: medium. Area: All portal tabs. Scope: platform.
 - Finding: VoiceOver and TalkBack users who tap a tab such as "Jadwal" get no confirmation, because the Next.js route announcer only speaks when document.title changes. The browser tab and history also show "Area peserta" for every tab of every event.
 - Compared with: Tally's own public event pages already include the event name in the document title.
 - Recommendation: Give each tab its own title through generateMetadata in the form "`<Tab>` · `<event name>`" ("Beranda", "Jadwal", "Perjalanan", "Pengumuman", "Profil", "QR kehadiran"), using the same portal-i18n labels as the menu. Move the top bar and bottom nav out of `<main>`, and give the Home cards clear section names.
-- Left: 1) Per-tab titles "`<Tab>` · `<event name>`" from generateMetadata in src/app/peserta/page.tsx, which still returns "Area peserta" (or "Participant area") for every tab and event. Reuse the portal menu labels in src/lib/member/portal-i18n.ts. The Outfit tab is missing from the audit's list and takes its per-event label (labelOutfit in src/lib/outfit.ts, from the event's outfit_label setting). U-21 wants "Dashboard saya" instead of "Area peserta" in the same title, so settle both together. 2) Move KepalaHorizon and NavBawahHorizon out of the `<main>` element that DashboardGathering wraps around them. The third step, naming the Home cards, is largely in place: the pass and checkpoint cards were named before #199, and the "Berlangsung", "Berikutnya", announcements and help cards added in #199 carry aria-label or aria-labelledby. Check the remaining Home sections (the phone-only roommates list, CMS blocks) while doing steps 1 and 2.
+- Left: Done in this PR: generateMetadata in src/app/peserta/page.tsx gives each Gathering tab the title "`<Tab>` · `<event name>`" from the portal menu labels ("QR kehadiran" for the QR, the event's Outfit label for Outfit), and the portals without tabs get "Dashboard saya · `<event name>`" (U-21 step 2). KepalaHorizon and NavBawahHorizon now sit outside `<main>`, which holds only the tab content. The Home section names were already in place.
 - Code: `src/app/peserta/page.tsx` (generateMetadata); `src/components/member/dashboard-gathering.tsx` (DashboardGathering); `src/components/member/portal-horizon.tsx` (KepalaHorizon, NavBawahHorizon); `src/lib/member/portal-i18n.ts`; `src/lib/outfit.ts` (labelOutfit)
 - Related: U-21, U-10
 
@@ -238,11 +238,11 @@ Measured at audit time:
 
 ### U-19 Below 1024 px the Home reading and Tab order differ from the visual order
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: low. Area: Home (phone and tablet, below 1024 px). Scope: platform.
 - Finding: Below lg, Home reorders its cards with CSS order inside display: contents wrappers, so the DOM order is not the order phones show. In the current code, screen readers and the Tab key go through the pass, Save QR, train, outfit and help cards before Now, Next, Announcements and an unfinished checkpoint, while phones show Now, Next and an unfinished checkpoint above the pass, with Announcements first by default. All content stays reachable, but the reading order is wrong on phones and at tablet 768.
 - Recommendation: Do not move the mismatch to desktop. Cheapest step: reading-flow: flex-visual on the flex container below lg as progressive enhancement (Chromium 137 and later; check Safari and Firefox). Changing the DOM order is only worth it if U-05 also changes the desktop column order.
-- Left: Add reading-flow: flex-visual to the Home flex container in DashboardGathering below lg, as progressive enhancement (Chromium 137 and later; check Safari and Firefox), so screen-reader and Tab order follow the phone order. Keep desktop as it is: lg:order-none already removes the mismatch there. Change the DOM order only if U-05 also changes the desktop column order.
+- Left: Done in this PR: the Home flex container has reading-flow: flex-visual below lg, so in Chromium 137 and later the reading and Tab order follow the phone order. Safari and Firefox do not support it yet and keep the DOM order, as before. Desktop is unchanged.
 - Code: `src/components/member/dashboard-gathering.tsx` (DashboardGathering: Home flex container and its display: contents wrappers)
 - Related: U-05
 
@@ -349,12 +349,12 @@ Measured at audit time:
 
 ### U-29 Profile is the only tab whose active state is not a gold underline, and the active day in the desktop Schedule list is faint
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: low. Area: Top bar Profile initials (desktop and tablet) and the desktop Schedule day list. Scope: platform.
 - Finding: In the top bar, the active Profile tab is marked only by a faint circle behind the initials (1.32:1 against navy), unlike the gold underline on the other four tabs; the page stays clear thanks to the "Profil" H1. The active day in the desktop Schedule day list is a white plane at 1.06:1 against the cream background. Phones are not affected.
 - Compared with: Reference from DESIGN.md rather than another product: a selection is shown by colour, a check mark and shape.
 - Recommendation: Give the active initials a 2 px gold ring in the same colour as the tab underline. Optional for the active day in the desktop Schedule list: a 1-2 px border with at least 3:1 contrast against cream. Do not use a coloured left border, and do not make the text bolder again (the weight was lowered on purpose in commit 5b18dff).
-- Left: Give the active Profile initials a 2 px gold ring like the tab underline; optionally give the active desktop Schedule day a 1-2 px border at 3:1 or more against cream.
+- Left: Done in this PR: the active Profile initials get a 2 px gold ring (inset, the tab underline colour), and the active day in the desktop Schedule list gets a 1 px #6F7C94 outline (3.9:1 against the cream page) with the same weight as before.
 - Code: `src/components/member/portal-horizon.tsx` (KepalaHorizon: Profile initials link and tab underline; HariJadwalHorizon: active day)
 - Related: U-16, U-27
 

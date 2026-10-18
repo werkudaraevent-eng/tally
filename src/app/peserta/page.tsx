@@ -16,8 +16,10 @@ import { kartuLengkapi } from "@/lib/member/lengkapi";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
 import { waktuPengumuman } from "@/lib/member/nav";
-import { gatheringHorizon, type EventLandingConfig } from "@/lib/domain";
-import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { gatheringHorizon, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
+import { PORTAL_UI } from "@/lib/member/portal-i18n";
+import { labelOutfit } from "@/lib/outfit";
+import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -53,8 +55,30 @@ import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type La
 export const dynamic = "force-dynamic";
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // `bahasa` dari proxy (/en/peserta). Alamat yang tidak berlaku dialihkan halamannya.
-  const { bahasa } = await searchParams;
-  return { title: bahasa === "en" ? "Participant area" : "Area peserta", robots: { index: false, follow: false } };
+  const kueri = await searchParams;
+  const robots = { index: false, follow: false };
+  const event = await getPublicPageEvent(searchParams);
+  const landing = (event?.landing_config ?? {}) as EventLandingConfig;
+  const lang: LandingLang = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : landingDefaultLang(landing);
+  if (!event) return { title: LANDING_UI[lang].myDashboard, robots };
+  return { title: `${judulTabPortal(event, lang, kueri.tab)} · ${publicEventName(event)}`, robots };
+}
+
+/**
+ * Judul dokumen per tab (U-13, U-21): "Jadwal · <acara>". Pembaca layar hanya
+ * mengumumkan pindah halaman bila document.title berubah, jadi setiap tab
+ * portal bertab perlu judulnya sendiri. Portal tanpa tab memakai nama yang
+ * sama dengan tombol di bilah halaman acara, "Dashboard saya".
+ */
+function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | string[] | undefined): string {
+  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  const teks = PORTAL_UI[lang];
+  if (landing.layout !== "modern" || landing.gathering !== true) return LANDING_UI[lang].myDashboard;
+  const label = gatheringHorizon(landing) ? teks.horizon.tabs : { ...teks.horizon.tabs, ...teks.tabs };
+  if (tab === "qr") return teks.qrTitle;
+  if (tab === "outfit") return labelOutfit(memberConfig(event)?.outfit_label);
+  if (tab === "jadwal" || tab === "perjalanan" || tab === "info" || tab === "profil") return label[tab];
+  return label.beranda;
 }
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
