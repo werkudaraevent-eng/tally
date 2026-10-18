@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   if (resolved.response) return resolved.response;
   if (caraMasuk(resolved.member) !== "email_code") return memberError("METHOD_OFF", 404, "Cara masuk ini tidak dipakai acara ini. Muat ulang halaman.");
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Isi email pendaftaran Anda.");
+  if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Isi email pendaftaran.");
 
   const ip = ipKlien(request.headers);
   const hasil = await kirimKodeMasuk(resolved.event, resolved.member, { email: parsed.data.email, ip, requestUrl: await linkOrigin(request, resolved.event.id), lang: parsed.data.lang });

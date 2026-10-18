@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const resolved = await requireMemberEvent(request);
   if (resolved.response) return resolved.response;
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Isi email pendaftaran Anda.");
+  if (!parsed.success) return memberError("VALIDATION_ERROR", 400, "Isi email pendaftaran.");
 
   const ip = ipKlien(request.headers);
   const hasil = await requestPasswordLink(resolved.event, resolved.member, { email: parsed.data.email, ip, requestUrl: await linkOrigin(request, resolved.event.id), lang: parsed.data.lang });

@@ -105,7 +105,7 @@ export async function sendMemberLink(input: {
   const html = `<!doctype html>
 <html lang="${en ? "en" : "id"}"><body style="margin:0;padding:24px;background:#F5F4F0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#17211D;">
   <div style="max-width:520px;margin:0 auto;background:#FFFFFF;border:1px solid #D9DDD7;padding:32px;">
-    <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#2649D0;font-weight:600;">${en ? "Participant area" : "Area peserta"}</p>
+    <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#2649D0;font-weight:600;">${en ? "My dashboard" : "Dashboard saya"}</p>
     <h1 style="margin:12px 0 0;font-size:24px;line-height:1.25;font-weight:600;">${escapeHtml(input.eventName)}</h1>
     <p style="margin:28px 0 0;font-size:15px;line-height:1.6;">${escapeHtml(sapaan + isi.pembuka)}</p>
     ${input.kode ? `<p style="margin:24px 0 0;text-align:center;font-size:32px;line-height:1.2;font-weight:700;letter-spacing:0.25em;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">${escapeHtml(input.kode)}</p>` : ""}

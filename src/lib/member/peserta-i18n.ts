@@ -88,7 +88,7 @@ export const PESERTA_UI: Record<LandingLang, PesertaUiText> = {
     seatPending: "Kursi belum ditentukan panitia. Halaman ini diperbarui begitu kursinya diatur.",
     viewSeatingPlan: "Lihat denah",
     quickLinksAria: "Tautan acara",
-    vote: { judul: "Voting langsung", isi: "Terbuka saat sesi berlangsung. Kode peserta sudah terisi." },
+    vote: { judul: "Voting langsung", isi: "Terbuka saat sesi berlangsung. Kode sudah terisi." },
     feedback: { judul: "Umpan balik", isi: "Dibuka di tab baru." },
     map: { judul: "Lokasi & peta", isiCadangan: "Buka peta lokasi acara." },
     seatingPlan: { judul: "Denah kursi", isi: "Cari meja dan nomor kursi." },

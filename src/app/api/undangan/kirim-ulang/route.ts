@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const event = await getPublicRequestEvent(request);
   if (!event) return apiErrorPeserta("VALIDATION_ERROR", 404, { message: "Acara tidak ditemukan." });
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success || !parsed.data.email) return apiErrorPeserta("VALIDATION_ERROR", 422, { email: "Isi email Anda." });
+  if (!parsed.success || !parsed.data.email) return apiErrorPeserta("VALIDATION_ERROR", 422, { email: "Isi email." });
   const ip = requestIp(request.headers);
   if (ip && (await rateCount(event.id, "kirim_ulang", { ip }, 3_600_000)) >= PER_IP_PER_JAM) {
     return apiErrorPeserta("VALIDATION_ERROR", 429, { message: "Terlalu banyak permintaan dari perangkat ini. Coba lagi dalam satu jam, atau hubungi panitia." });

@@ -126,7 +126,7 @@ export const PUBLIK = {
     invalidTitle: "Tautan undangan tidak berlaku",
     invalidBody: "Tautan ini sudah diganti atau tidak lengkap. Minta tautan baru di bawah ini, atau hubungi panitia.",
     inviteOnlyTitle: "Pendaftaran khusus undangan",
-    inviteOnlyBody: "Acara ini hanya untuk tamu yang diundang. Gunakan tautan pribadi di email undangan Anda.",
+    inviteOnlyBody: "Acara ini hanya untuk tamu yang diundang. Gunakan tautan pribadi di email undangan.",
     resendTitle: "Kirim ulang undangan",
     resendHint: "Masukkan email yang menerima undangan. Bila email itu ada di daftar tamu, tautan pribadinya kami kirim ulang.",
     resendButton: "Kirim ulang",

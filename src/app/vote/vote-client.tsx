@@ -217,7 +217,7 @@ export default function VoteClient({
               : poll.type === "rating" ? `Beri nilai 1 sampai ${poll.rating_max}.`
               : poll.type === "wordcloud" ? `Ketik maksimal ${poll.max_words} kata.`
               : "Pilih satu."}
-            {poll.voter_mode === "participant_code" ? " Butuh kode peserta di badge Anda." : ""}
+            {poll.voter_mode === "participant_code" ? " Butuh kode peserta yang tertera di badge." : ""}
           </p>
 
           {alreadyVoted && <motion.p
@@ -228,7 +228,7 @@ export default function VoteClient({
             transition={expressive.spatial.default}
           >
             <CheckCircle size={20} weight="fill" className="shrink-0" aria-hidden />
-            Suara Anda sudah tercatat. Terima kasih.
+            Suara sudah tercatat. Terima kasih.
           </motion.p>}
 
           {poll.status !== "open" && !alreadyVoted && <p className="rounded-lg mt-4 border border-warning-soft-outline bg-warning-soft p-3 text-body-medium text-warning">
@@ -323,7 +323,7 @@ export default function VoteClient({
 
           {/* ---- Pilih nama dari daftar ---- */}
           {poll.voter_mode === "participant_pick" && !alreadyVoted && poll.status === "open" && <div className="mt-4">
-            <label className="block text-body-medium font-semibold">Nama Anda
+            <label className="block text-body-medium font-semibold">Nama
               <input
                 value={picked ? picked.name : nameQuery}
                 onChange={(event) => { setPicked(null); setNameQuery(event.target.value); setError(""); }}
@@ -347,7 +347,7 @@ export default function VoteClient({
           </div>}
 
           {/* ---- Ketik nama sendiri ---- */}
-          {poll.voter_mode === "name_text" && !alreadyVoted && poll.status === "open" && <label className="mt-4 block text-body-medium font-semibold">Nama Anda
+          {poll.voter_mode === "name_text" && !alreadyVoted && poll.status === "open" && <label className="mt-4 block text-body-medium font-semibold">Nama
             <input
               value={name}
               onChange={(event) => { setName(event.target.value); setError(""); }}

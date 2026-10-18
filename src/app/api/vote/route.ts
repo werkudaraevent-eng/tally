@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
   if (row.voter_mode === "participant_code") {
     const code = body.data.code?.trim();
-    if (!code) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Isi kode peserta di badge Anda." });
+    if (!code) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Isi kode peserta yang tertera di badge." });
     const { data: participant } = await client
       .from("participants").select("id,name,source_removed_at")
       .eq("event_id", event.id).eq("qr_code", code).maybeSingle();
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     displayName = found.name;
 
   } else if (row.voter_mode === "participant_pick") {
-    if (!body.data.participant_id) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Pilih nama Anda dari daftar." });
+    if (!body.data.participant_id) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Pilih nama dari daftar." });
     // Id yang dikirim tetap DIPERIKSA milik event ini. Tanpa itu, id peserta
     // acara lain yang bocor dari mana pun dapat dipakai memberi suara di sini.
     const { data: participant } = await client
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 
   } else if (row.voter_mode === "name_text") {
     const name = body.data.name?.trim();
-    if (!name) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Isi nama Anda lebih dulu." });
+    if (!name) return apiErrorPeserta("VOTE_INVALID_REQUEST", 422, { message: "Isi nama lebih dulu." });
     // Kuncinya PERANGKAT, bukan namanya. Nama yang diketik bebas tidak dapat
     // dijadikan kunci: dua orang bernama sama akan saling menghalangi, dan satu
     // orang bisa memilih berkali-kali hanya dengan mengubah satu huruf.

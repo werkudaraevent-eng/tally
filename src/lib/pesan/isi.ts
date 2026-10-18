@@ -72,8 +72,8 @@ export function renderEmail(input: {
   // Tamu undangan belum peserta: kaki email menyebut alasan yang benar.
   const alasan =
     input.kind === "invitation"
-      ? `Anda menerima email ini karena panitia ${input.eventName} mengundang Anda.`
-      : `Anda menerima email ini karena terdaftar sebagai peserta ${input.eventName}.`;
+      ? `Email ini dikirim karena ada undangan dari panitia ${input.eventName}.`
+      : `Email ini dikirim ke peserta terdaftar ${input.eventName}.`;
   const paragraf = isi
     .split(/\n{2,}/)
     .map((bagian) => bagian.trim())
