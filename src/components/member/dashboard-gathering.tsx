@@ -41,7 +41,7 @@ import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
 import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
-import { barisKontakDarurat } from "@/lib/member/kontak-darurat";
+import { bantuanBahasa, barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { agendaBerikutnya, loadMemberLogistics, type LogistikPeserta } from "@/lib/logistik/peserta";
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
@@ -318,10 +318,11 @@ export async function DashboardGathering({
     : null;
   // Kontak yang diisi langsung di Participant area > Emergency and help
   // menggantikan blok lama; blok tetap dipakai selama kontaknya kosong.
-  const kontakDarurat = horizon ? barisKontakDarurat(member.help?.contacts) : [];
+  const bantuan = bantuanBahasa(member.help, lang);
+  const kontakDarurat = horizon ? barisKontakDarurat(bantuan?.contacts) : [];
   const pakaiKontak = kontakDarurat.length > 0;
   const adaDarurat = pakaiKontak || Boolean(blokDarurat);
-  const judulDarurat = (pakaiKontak ? member.help?.title?.trim() : blokDarurat?.heading?.trim()) || tH.emergency;
+  const judulDarurat = (pakaiKontak ? bantuan?.title?.trim() : blokDarurat?.heading?.trim()) || tH.emergency;
   const tokensTema = landingTokens(config, "modern");
   const warnaTema = { brand: tokensTema.brand, accent: tokensTema.accent ?? null };
   const kartuBlok = new Map(
@@ -1167,7 +1168,7 @@ export async function DashboardGathering({
     const kartuDarurat = pakaiKontak ? (
       <KartuDaruratHorizon
         judul={judulDarurat}
-        isi={member.help?.note?.trim() || null}
+        isi={bantuan?.note?.trim() || null}
         label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
         baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta } }))}
       />

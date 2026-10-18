@@ -637,7 +637,7 @@ export function KartuPengumumanHorizon({
 }
 
 /** Nomor telepon panitia untuk tombol Telepon dan WhatsApp. */
-/** Tombol pil bergaris 48 px untuk kontak (panitia, kru bus, darurat). */
+/** Tombol pil bergaris 48 px: kontak (panitia, kru bus, darurat) dan kalender kereta. */
 const PIL_KONTAK = "m3-state inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold";
 const GAYA_PIL_KONTAK = { color: BIRU, borderColor: "#C9D1DE" };
 
@@ -964,7 +964,7 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
               </p>
             ) : null}
             {item.kalender ? (
-              <a href={item.kalender.href} className="m3-state inline-flex min-h-12 items-center gap-2 self-start rounded-full border px-4 text-[14px] font-semibold" style={{ color: BIRU, borderColor: "#C9D1DE" }}>
+              <a href={item.kalender.href} className={`${PIL_KONTAK} self-start`} style={GAYA_PIL_KONTAK}>
                 <CalendarPlus size={18} weight="bold" aria-hidden />
                 {item.kalender.label}
               </a>

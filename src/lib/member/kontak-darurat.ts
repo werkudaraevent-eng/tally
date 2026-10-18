@@ -6,8 +6,9 @@ import { nomorKru, PONSEL } from "../logistik/kontak-kru.ts";
  * catatan, tautan peta), bukan lagi lewat blok Columns di Event page.
  * Disimpan di `landing_config.member.help`.
  */
-export type KontakDarurat = { name: string; phone?: string | null; note?: string | null; map_url?: string | null };
-export type BantuanDarurat = { title?: string | null; note?: string | null; contacts?: KontakDarurat[] };
+export type TeksKontakEn = { name?: string | null; note?: string | null };
+export type KontakDarurat = { name: string; phone?: string | null; note?: string | null; map_url?: string | null; en?: TeksKontakEn | null };
+export type BantuanDarurat = { title?: string | null; note?: string | null; contacts?: KontakDarurat[]; en?: { title?: string | null; note?: string | null } | null };
 
 export const KONTAK_DARURAT_MAX = 8;
 // Nama dan judul sama dengan judul butir dan judul blok Columns (60); catatan
@@ -33,9 +34,11 @@ const KANTOR = /(?:\(0\d{1,3}\)|(?<![\d+])0[1-79]\d{1,3}|\+62[ \t.-]?[1-79]\d{1,
 
 /**
  * Nomor untuk tombol Telepon. Ponsel Indonesia jadi +62 (dan WhatsApp).
- * Nomor lain hanya bila isiannya satu nomor saja: angka, spasi, tanda hubung,
- * titik, kurung, dan + di depan; 7 sampai 15 digit, atau nomor darurat 1xx.
- * Jam, tanggal, dan teks lain tidak jadi tombol, agar tidak salah sambung.
+ * Nomor lain hanya bila isiannya satu nomor saja (angka, spasi, tanda hubung,
+ * titik, kurung, + di depan) dengan bentuk nomor sungguhan: diawali 0 (9
+ * sampai 13 digit, kode wilayah ikut), diawali + atau 62 (9 sampai 15 digit),
+ * atau nomor darurat 1xx. Jam, tanggal, dan rentang ("0900-1700",
+ * "0812-0813") tidak jadi tombol, agar tidak salah sambung.
  */
 export function nomorTelepon(teks: string | null | undefined): { tel: string; wa: string | null } | null {
   const isi = (teks ?? "").trim();
@@ -44,9 +47,10 @@ export function nomorTelepon(teks: string | null | undefined): { tel: string; wa
   if (ponsel) return { tel: ponsel.tel, wa: ponsel.wa };
   const angka = isi.replace(/\D/g, "");
   if (NOMOR_PENDEK.test(angka) && angka.length === isi.length) return { tel: angka, wa: null };
-  if (angka.length < 7 || angka.length > 15) return null;
   // 62 di depan tanpa + (62 21 5000800) tetap kode negara Indonesia.
-  return { tel: `${isi.startsWith("+") || angka.startsWith("62") ? "+" : ""}${angka}`, wa: null };
+  const negara = isi.startsWith("+") || angka.startsWith("62");
+  if (negara ? angka.length < 9 || angka.length > 15 : !angka.startsWith("0") || angka.length < 9 || angka.length > 13) return null;
+  return { tel: `${negara ? "+" : ""}${angka}`, wa: null };
 }
 
 /** Tautan peta hanya http(s). */
@@ -63,7 +67,8 @@ function alamatPeta(href: string): boolean {
     const host = hostname.toLowerCase().replace(/^www\./, "");
     if (host === "maps.app.goo.gl" || host === "maps.apple.com" || host === "maps.google.com") return true;
     if (host === "goo.gl") return pathname.startsWith("/maps");
-    return /^google\.[a-z.]+$/.test(host) && pathname.startsWith("/maps");
+    // google.com, google.co.id, google.com.sg, google.de: bukan google.evil.com.
+    return /^google\.(?:com|co\.[a-z]{2}|com\.[a-z]{2}|[a-z]{2})$/.test(host) && pathname.startsWith("/maps");
   } catch {
     return false;
   }
@@ -88,29 +93,63 @@ export function barisKontakDarurat(kontak: KontakDarurat[] | null | undefined): 
  * Butir tanpa judul mendapat nama kosong, jadi Save menunjuknya untuk diberi
  * nama. Tautan selain peta (grup WhatsApp, formulir) tetap di catatan.
  */
-export function kontakDariBlok(items: Array<{ title?: string | null; body?: string | null; href?: string | null }>): KontakDarurat[] {
+export function kontakDariBlok(
+  items: Array<{ title?: string | null; body?: string | null; href?: string | null; en?: { title?: string | null; body?: string | null } | null }>,
+): KontakDarurat[] {
   return items
     .filter((item) => item.title?.trim() || item.body?.trim())
     .slice(0, KONTAK_DARURAT_MAX)
     .map((item) => {
       const judul = item.title?.trim() || "";
       const teks = item.body?.trim() || "";
-      const cari = (sumber: string) => sumber.match(PONSEL)?.[0] ?? (JAM_ATAU_TANGGAL.test(sumber.match(KANTOR)?.[0] ?? "") ? null : (sumber.match(KANTOR)?.[0] ?? null));
-      const nomorTeks = cari(teks);
-      const nomorJudul = nomorTeks ? null : cari(judul);
-      const nomor = (nomorTeks ?? nomorJudul)?.trim() || null;
-      const sisa = nomorTeks ? teks.replace(nomorTeks, "").replace(/^[\s:,-]+|[\s:,-]+$/g, "").replace(/\s{2,}/g, " ") : teks;
-      const nama = nomorJudul ? judul.replace(nomorJudul, "").replace(/^[\s:,-]+|[\s:,-]+$/g, "") : judul;
+      const nomorTeks = cariNomor(teks);
+      const nomorJudul = nomorTeks ? null : cariNomor(judul);
+      const nomor = nomorTeks ?? nomorJudul;
       const href = item.href?.trim() || "";
       const peta = href && alamatPeta(href) ? href : null;
-      const catatan = [sisa, href && !peta ? href : ""].filter(Boolean).join("\n");
+      const tautan = href && !peta ? href : "";
+      const catatan = gabungCatatan(tanpaNomor(teks, nomorTeks), tautan);
+      // Teks English butir lama ikut (judul dan teks, tanpa nomor yang sama).
+      const judulEn = item.en?.title?.trim() || "";
+      const teksEn = item.en?.body?.trim() || "";
+      const en = {
+        name: judulEn && judul ? tanpaNomor(judulEn, nomorJudul).slice(0, KONTAK_DARURAT_BATAS.name) || null : null,
+        note: teksEn && catatan ? gabungCatatan(tanpaNomor(teksEn, nomor), tautan).slice(0, KONTAK_DARURAT_BATAS.note) || null : null,
+      };
       return {
-        name: nama.slice(0, KONTAK_DARURAT_BATAS.name),
+        name: tanpaNomor(judul, nomorJudul).slice(0, KONTAK_DARURAT_BATAS.name),
         phone: nomor,
         note: catatan.slice(0, KONTAK_DARURAT_BATAS.note) || null,
         map_url: peta,
+        ...(en.name || en.note ? { en } : {}),
       };
     });
+}
+
+/** Nomor pertama di teks yang benar-benar bisa ditelepon (ponsel, atau nomor kantor yang lolos nomorTelepon). */
+function cariNomor(teks: string): string | null {
+  for (const pola of [PONSEL, KANTOR]) {
+    for (const cocok of teks.matchAll(new RegExp(pola.source, "g"))) {
+      const calon = cocok[0].trim();
+      if (nomorTelepon(calon)) return calon;
+    }
+  }
+  return null;
+}
+
+/** Teks tanpa nomornya, dengan tanda baca sisa dirapikan ("Buka , lantai 2" jadi "Buka, lantai 2"). */
+function tanpaNomor(teks: string, nomor: string | null): string {
+  const sisa = nomor ? teks.replace(nomor, "") : teks;
+  return sisa
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/([,;:])(?:\s*[,;:])+/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^[\s:,;-]+|[\s:,;-]+$/g, "");
+}
+
+function gabungCatatan(teks: string, tautan: string): string {
+  return [teks, tautan].filter(Boolean).join("\n");
 }
 
 /**
@@ -123,14 +162,16 @@ export function rapikanBantuan(help: BantuanDarurat | null | undefined): { help:
   let tanpaNama: number | null = null;
   const contacts: KontakDarurat[] = [];
   (help?.contacts ?? []).forEach((item, index) => {
-    const rapi = { name: item.name?.trim() ?? "", phone: isi(item.phone), note: isi(item.note), map_url: isi(item.map_url) };
+    const en = { name: isi(item.en?.name), note: isi(item.en?.note) };
+    const rapi = { name: item.name?.trim() ?? "", phone: isi(item.phone), note: isi(item.note), map_url: isi(item.map_url), ...(en.name || en.note ? { en } : {}) };
     if (!rapi.name && !rapi.phone && !rapi.note && !rapi.map_url) return;
     if (!rapi.name && tanpaNama === null) tanpaNama = index;
     contacts.push(rapi);
   });
   const title = isi(help?.title);
   const note = isi(help?.note);
-  return { help: title || note || contacts.length ? { title, note, contacts } : null, tanpaNama };
+  const en = { title: isi(help?.en?.title), note: isi(help?.en?.note) };
+  return { help: title || note || contacts.length ? { title, note, contacts, ...(en.title || en.note ? { en } : {}) } : null, tanpaNama };
 }
 
 /**
@@ -141,4 +182,20 @@ export function bantuanPratinjau(help: BantuanDarurat | null | undefined): Bantu
   const { help: rapi } = rapikanBantuan(help);
   if (!rapi) return null;
   return { ...rapi, contacts: (rapi.contacts ?? []).filter((item) => item.name).map((item) => ({ ...item, map_url: tautanPeta(item.map_url) })) };
+}
+
+/**
+ * Kontak darurat dalam satu bahasa, aturan yang sama dengan halaman acara
+ * (landing-i18n tumpuk): teks English menggantikan teks Indonesia hanya bila
+ * keduanya terisi. Nomor dan peta sama di kedua bahasa.
+ */
+export function bantuanBahasa(help: BantuanDarurat | null | undefined, lang: "id" | "en"): BantuanDarurat | null {
+  if (!help || lang === "id") return help ?? null;
+  const pilih = (asli: string | null | undefined, en: string | null | undefined) => (asli?.trim() && en?.trim() ? en.trim() : asli);
+  return {
+    ...help,
+    title: pilih(help.title, help.en?.title),
+    note: pilih(help.note, help.en?.note),
+    contacts: help.contacts?.map((item) => ({ ...item, name: pilih(item.name, item.en?.name) ?? item.name, note: pilih(item.note, item.en?.note) })),
+  };
 }

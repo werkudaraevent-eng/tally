@@ -7,6 +7,7 @@ import { loadSetelanCheckpoint } from "@/lib/checkpoint/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { isEmailConfigured } from "@/lib/email/client";
 import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
+import { landingEnAvailable } from "@/lib/landing-i18n";
 import { KOLOM_MASUK_POLA, pilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain";
 
@@ -134,7 +135,11 @@ export async function GET(request: Request) {
         empty: !landingBlockHasContent(block),
         // Isi blok Columns khusus peserta, untuk "Copy into contacts" di Emergency and help.
         ...(landingBlockMemberOnly(block) && jenisBlokDarurat(block.type)
-          ? { body: block.body?.trim() || null, items: (block.items ?? []).map((item) => ({ title: item.title ?? null, body: item.body ?? null, href: item.href ?? null })) }
+          ? {
+              body: block.body?.trim() || null,
+              en: { heading: block.en?.heading ?? null, body: block.en?.body ?? null },
+              items: (block.items ?? []).map((item) => ({ title: item.title ?? null, body: item.body ?? null, href: item.href ?? null, en: { title: item.en?.title ?? null, body: item.en?.body ?? null } })),
+            }
           : {}),
       })),
     preview: layout ? await pesertaBawaan(eventId) : null,
@@ -142,6 +147,8 @@ export async function GET(request: Request) {
     checkpoints_on: layout ? (await loadSetelanCheckpoint(eventId))?.enabled === true : false,
     // Gathering Horizon tidak menampilkan "Today's agenda": barisnya disembunyikan di CMS.
     horizon: gatheringHorizon(landing),
+    // Halaman English ada: Emergency and help menampilkan isian English.
+    english: landingEnAvailable(landing),
     // Cara masuk: kolom yang boleh dipilih untuk "Participant fields", dan
     // apakah email bisa terkirim (Email code membutuhkannya).
     sign_in_options: pilihanKolomMasuk(formFields(auth.scope.event)),

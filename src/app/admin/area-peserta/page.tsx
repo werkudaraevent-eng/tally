@@ -42,6 +42,8 @@ type Muat = {
   checkpoints_on?: boolean;
   /** Gathering Horizon: Participant home tanpa "Today's agenda". */
   horizon?: boolean;
+  /** Halaman English ada: Emergency and help menampilkan isian English. */
+  english?: boolean;
   /** Kolom yang boleh dipakai cara masuk Participant fields. */
   sign_in_options?: PilihanKolomMasuk[];
   /** Pengiriman email aktif (Email code membutuhkannya). */
@@ -286,6 +288,7 @@ export default function AreaPesertaPage() {
                       onSalin={(help) => set({ help })}
                       onFokus={() => setSorot((current) => (current?.id === "darurat" ? current : { id: "darurat", n: (current?.n ?? 0) + 1 }))}
                       tanpaNama={tanpaNama}
+                      english={data.english === true}
                     />
                   </SettingRow>
                 ) : null}

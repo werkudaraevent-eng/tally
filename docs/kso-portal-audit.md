@@ -457,13 +457,13 @@ Measured at audit time:
 
 ### E-03 Emergency and help card, always in the same place
 
-- Status: Done (#199)
+- Status: Done (#199, #209)
 - Priority: medium. Area: Profile (Menu on phones), Travel. Scope: platform.
 - Finding: The only contacts in the portal were the crew of each bus, and the organiser help link did not show because KSO's organiser phone in Event settings was empty (the portal read only the phone). A participant who is ill, lost or misses the bus had no single place to look.
 - Eventnook: For corporate meetings, Eventnook's app content includes an emergency contacts page (coordinator, duty phone, hotel reception, local emergency numbers) and travel requirements.
 - Recommendation: Add a "Darurat dan bantuan" card in Profile (Menu on phones) with the 24-hour organiser number, the medical team, hotel reception, the nearest clinic with a map, and what to do after missing the bus. Link to it from Travel.
-- Left: KSO content (Mas). In Participant area > Emergency and help, add one contact per row (24-hour organiser, medical team, hotel reception, nearest hospital with a Maps link) and a note on what to do after missing the bus; the preview shows the Menu card while you type. Mobile numbers get Call and WhatsApp, office numbers get Call, a map link gets Map. An event that already chose a Columns block keeps it until "Copy into contacts". Fill in the organiser phone in Event settings (the "Kontak panitia" row): the Travel help card that links to the emergency card only shows when an organiser phone or email is set. Parked Lows (docs/STATUS.md): rows have no icons, and the card is not in the saved offline page.
-- Code: `src/components/member/portal-horizon.tsx` (KartuDaruratHorizon); `src/components/member/dashboard-gathering.tsx` (DashboardGathering: help, help_block fallback, Travel help card link); `src/app/admin/area-peserta/kontak-darurat.tsx` (KontakDaruratForm); `src/lib/member/kontak-darurat.ts` (barisKontakDarurat, nomorTelepon, kontakDariBlok); `src/app/peserta/pratinjau/` (preview opens Menu)
+- Left: KSO content (Mas). In Participant area > Emergency and help, add one contact per row (24-hour organiser, medical team, hotel reception, nearest hospital with a Maps link) and a note on what to do after missing the bus; the preview shows the Menu card while you type. Mobile numbers get Call and WhatsApp, office numbers get Call, a map link gets Map. With an English page on, each text has an English field (empty shows the Indonesian text). An event that already chose a Columns block keeps it until "Copy into contacts". Fill in the organiser phone in Event settings (the "Kontak panitia" row): the Travel help card that links to the emergency card only shows when an organiser phone or email is set. Parked Lows (docs/STATUS.md): rows have no icons, and the card is not in the saved offline page.
+- Code: `src/components/member/portal-horizon.tsx` (KartuDaruratHorizon); `src/components/member/dashboard-gathering.tsx` (DashboardGathering: help, help_block fallback, Travel help card link); `src/app/admin/area-peserta/kontak-darurat.tsx` (KontakDaruratForm); `src/lib/member/kontak-darurat.ts` (barisKontakDarurat, nomorTelepon, kontakDariBlok, bantuanBahasa); `src/app/peserta/pratinjau/` (preview opens Menu)
 - Related: U-07, U-08
 
 ### E-04 Add the portal to the Home Screen

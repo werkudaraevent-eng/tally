@@ -35,7 +35,8 @@ export type BlokPeserta = {
   empty: boolean;
   /** Blok Columns khusus peserta saja: isinya untuk "Copy into contacts" di Emergency and help. */
   body?: string | null;
-  items?: Array<{ title?: string | null; body?: string | null; href?: string | null }>;
+  en?: { heading?: string | null; body?: string | null };
+  items?: Array<{ title?: string | null; body?: string | null; href?: string | null; en?: { title?: string | null; body?: string | null } }>;
 };
 
 type Baris = {
