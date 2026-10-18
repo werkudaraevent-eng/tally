@@ -314,7 +314,7 @@ function RuleDialog({
             checked={source === "conditions"}
             onSelect={() => setSource("conditions")}
             title="Participants meeting conditions"
-            description="From event data: session check-in, checkpoint points, participant type, company or scan count."
+            description="From event data: session check-in, checkpoint points, form answers, participant type, company or scan count."
           />
         </fieldset>
         <label className="block font-medium" htmlFor="bonus-name">

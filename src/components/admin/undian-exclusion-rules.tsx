@@ -11,7 +11,7 @@ import { UndianConditionBuilder } from "@/components/admin/undian-condition-buil
 import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 import {
-  EMPTY_CONDITIONS, describeConditions, isTrulyEmpty, normalizeExclusionRule,
+  EMPTY_CONDITIONS, describeConditions, hasMissingAnswer, isTrulyEmpty, normalizeExclusionRule,
   type CheckpointSummary, type UndianAnswerField, type UndianConditionGroup, type UndianExclusionRule,
 } from "@/lib/undian";
 import { INPUT } from "@/components/admin/compact-form";
@@ -265,6 +265,10 @@ export function ExclusionRuleManager({
             {rules.map((rule) => {
               const hit = counts[rule.id] ?? 0;
               const selected = editingId === rule.id;
+              // Pertanyaan form yang sudah hilang: aturannya tidak mengecualikan
+              // siapa pun dan server menolak mengundi, jadi ditandai merah, bukan
+              // disamakan dengan ejaan yang keliru.
+              const broken = Array.isArray(answerFields) && hasMissingAnswer(rule.conditions, new Set(answerFields.map((field) => field.key)));
               return (
                 <li key={rule.id} className={cx("flex items-start gap-2 border-b border-outline-variant pr-3", selected ? "bg-secondary-container" : "hover:bg-primary-soft")}>
                   <button
@@ -278,14 +282,21 @@ export function ExclusionRuleManager({
                       {!rule.is_active ? <StatusChip>Inactive</StatusChip> : null}
                       {rule.prize_id !== null ? <StatusChip tone="primary">{prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "Specific prize"}</StatusChip> : null}
                     </span>
-                    <span className="mt-0.5 block text-on-surface-variant">Exclude if: {describeConditions(rule.conditions, Array.isArray(sessions) ? Object.fromEntries(sessions.map((item) => [item.id, item.name])) : null, Array.isArray(answerFields) ? Object.fromEntries(answerFields.map((item) => [item.key, item.label])) : undefined)}</span>
+                    <span className={cx("mt-0.5 block", broken ? "font-medium text-error" : "text-on-surface-variant")}>Exclude if: {describeConditions(rule.conditions, Array.isArray(sessions) ? Object.fromEntries(sessions.map((item) => [item.id, item.name])) : null, Array.isArray(answerFields) ? Object.fromEntries(answerFields.map((item) => [item.key, item.label])) : undefined)}</span>
                     {rule.note ? <span className="mt-0.5 block text-on-surface-variant">{rule.note}</span> : null}
                     {/* Angka nol ditandai, bukan disembunyikan. Aturan yang tidak
                         mengenai siapa pun hampir selalu salah tulis, dan itu
                         satu-satunya petunjuk yang tersedia sebelum acara. */}
-                    <span className={cx("mt-0.5 block tabular-nums", hit === 0 ? "font-medium text-warning" : "text-on-surface")}>
-                      {hit === 0 ? "No participants match. Check the spelling of the values." : `${hit} of ${totalParticipants} ${totalParticipants === 1 ? "participant" : "participants"} excluded`}
-                    </span>
+                    {broken ? (
+                      <span className="mt-0.5 flex items-start gap-1.5 font-medium text-error">
+                        <Warning size={16} aria-hidden className="mt-0.5 shrink-0" />
+                        <span>Question no longer in the form. {rule.is_active ? "Draws are refused until you fix or turn off this rule." : "Fix it before turning this rule on."}</span>
+                      </span>
+                    ) : (
+                      <span className={cx("mt-0.5 block tabular-nums", hit === 0 ? "font-medium text-warning" : "text-on-surface")}>
+                        {hit === 0 ? "No participants match. Check the spelling of the values." : `${hit} of ${totalParticipants} ${totalParticipants === 1 ? "participant" : "participants"} excluded`}
+                      </span>
+                    )}
                   </button>
                   <Button variant="text" size="sm" className="mt-1.5 shrink-0" loading={toggling === rule.id} onClick={() => void toggleActive(rule)}>
                     {rule.is_active ? "Deactivate" : "Activate"}
@@ -385,7 +396,7 @@ export function ExclusionRuleManager({
                       // berbeda pula: syarat yang belum lengkap harus dilengkapi,
                       // sedangkan syarat yang lengkap tapi tidak mengenai siapa pun
                       // berarti ejaannya keliru.
-                      ? "Some conditions are incomplete. This rule will not apply while their values are empty."
+                      ? "Some conditions are incomplete or use a deleted form question. This rule will not apply until they are fixed."
                       : "No participants match. Check the spelling of the values, or try the “contains” comparison."}
                   </p>
                 ) : (

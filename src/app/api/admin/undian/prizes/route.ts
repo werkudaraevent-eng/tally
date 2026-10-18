@@ -2,9 +2,9 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { auditPrize, normalizePrize, type UndianPrize } from "@/lib/undian";
+import { auditPrize, normalizePrize, type UndianConditionNode, type UndianPrize } from "@/lib/undian";
 import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
-import { buildPool, listAnswerFields, listAttendanceSessions, type AttendanceSessionOption } from "@/lib/undian-pool";
+import { buildPool, listAnswerFields, listAttendanceSessions, unknownAnswerError, type AttendanceSessionOption } from "@/lib/undian-pool";
 
 // CRUD hadiah undian. Admin saja.
 
@@ -194,7 +194,7 @@ export async function GET(request: Request) {
   // menyaring ratusan baris per hadiah; halaman kontrol operator yang menyegarkan
   // diri setiap 2 detik tidak boleh membayar biaya itu.
   const withPool = new URL(request.url).searchParams.get("pool") === "1";
-  const pools: Record<number, { eligible: number; candidates: number; tickets: number }> = {};
+  const pools: Record<number, { eligible: number; candidates: number; tickets: number; broken_rules?: string[] }> = {};
   // Nama sesi kehadiran, untuk ringkasan syarat "sudah check-in di Gala" di daftar.
   let attendanceSessions: AttendanceSessionOption[] | null = [];
   // Judul pertanyaan form, untuk ringkasan syarat jawaban di daftar.
@@ -203,6 +203,9 @@ export async function GET(request: Request) {
     [attendanceSessions, answerFields] = await Promise.all([listAttendanceSessions(eventId), listAnswerFields(eventId)]);
     for (const prize of prizes) {
       const result = await buildPool(eventId, prize);
+      // Hadiah yang terhalang aturan rusak dilaporkan nol kandidat beserta nama
+      // aturannya, supaya kesiapan mengunci tombol dan menyebut apa yang dibereskan.
+      if ("error" in result && result.error === "RULE_BROKEN") { pools[prize.id] = { eligible: 0, candidates: 0, tickets: 0, broken_rules: result.rules }; continue; }
       if ("error" in result) continue;
       pools[prize.id] = {
         eligible: result.eligible_count,
@@ -230,6 +233,10 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  const answerError = await unknownAnswerError(eventId, [parsed.data.conditions, ...parsed.data.bonus_rules.flatMap((rule) => "conditions" in rule && rule.conditions ? [rule.conditions] : [])] as UndianConditionNode[]);
+  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
+  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
   const client = getSupabaseServiceClient();
   // Daftar entri sasaran harus milik event ini.

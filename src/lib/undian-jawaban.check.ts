@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { answerChoices, answerText, describeConditions, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
+import { answerChoices, answerText, describeConditions, hasMissingAnswer, usesAnswer, matchesConditions, normalizeConditions, usesAttendance, type ParticipantPoolRow } from "./undian.ts";
 
 // Syarat dari jawaban pertanyaan tambahan form registrasi.
 
@@ -49,9 +49,15 @@ assert.equal(matchesConditions(ops, nikKosong), true);
 assert.equal(matchesConditions(row({ nik: "" }), bukanIt), false);
 assert.equal(matchesConditions(row(undefined), nikKosong), false);
 
-assert.equal(describeConditions(divisi, {}, { divisi: "Divisi" }), "Divisi IT/Keuangan");
-assert.equal(describeConditions(bukanIt, {}, { divisi: "Divisi" }), "Divisi not IT");
+assert.equal(describeConditions(divisi, {}, { divisi: "Divisi" }), "Divisi is IT/Keuangan");
+assert.equal(describeConditions(bukanIt, {}, { divisi: "Divisi" }), "Divisi is not IT");
 assert.equal(describeConditions(nik), 'nik starts with "34"');
 assert.equal(describeConditions(nik, {}, {}), "FORM QUESTION DELETED, choose again");
+
+// Pertanyaan yang sudah hilang dari form: aturan pengecualian ditolak mengundi.
+assert.equal(hasMissingAnswer(nik, new Set(["divisi"])), true);
+assert.equal(hasMissingAnswer(nik, new Set(["nik"])), false);
+assert.equal(hasMissingAnswer(normalizeConditions({ op: "and", children: [{ var: "scan_count", cmp: "gte", value: 1 }] }), new Set()), false);
+assert.equal(usesAnswer(nik), true);
 
 console.log("undian-jawaban.check: ok");

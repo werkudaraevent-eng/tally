@@ -241,6 +241,7 @@ export async function POST(request: Request) {
       }
 
       const pool = await buildPool(eventId, prize);
+      if ("error" in pool && pool.error === "RULE_BROKEN") return apiError("UNDIAN_RULE_BROKEN", 409, { rules: pool.rules });
       if ("error" in pool) return apiError("INTERNAL_ERROR", 500);
       if (pool.candidates.length === 0) return apiError("UNDIAN_POOL_EMPTY", 409);
 

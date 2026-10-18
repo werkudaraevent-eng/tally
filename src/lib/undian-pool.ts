@@ -3,12 +3,14 @@ import { checkpointState } from "@/lib/undian-checkpoint";
 import { loadDaftarCheckpoint, loadSetelanCheckpoint, type BarisCheckpoint, type SetelanCheckpoint } from "@/lib/checkpoint/server";
 import {
   answerText,
+  hasMissingAnswer,
   invalidateBonusSessions,
   invalidateUnknownSessions,
   isTrulyEmpty,
   matchesConditions,
   normalizeExclusionRule,
   participantToCandidate,
+  usesAnswer,
   usesAttendance,
   type Candidate,
   type CheckpointSummary,
@@ -137,6 +139,22 @@ async function loadFormFields(eventId: string): Promise<UndianAnswerField[] | nu
 export async function listAnswerFields(eventId: string): Promise<UndianAnswerField[] | null> {
   const fields = await loadFormFields(eventId);
   return fields ? fields.filter((field) => field.type !== "file") : null;
+}
+
+/**
+ * Pesan galat bila salah satu pohon memakai pertanyaan form yang tidak ada di
+ * form acara ini; `null` bila semuanya dikenal, `undefined` bila form gagal
+ * dibaca. Dipakai saat menyimpan: kunci yang tidak dikenal tersimpan sebagai
+ * syarat yang sejak awal tidak pernah terpenuhi.
+ */
+export async function unknownAnswerError(eventId: string, trees: UndianConditionNode[]): Promise<string | null | undefined> {
+  if (!trees.some(usesAnswer)) return null;
+  const fields = await listAnswerFields(eventId);
+  if (!fields) return undefined;
+  const keys = new Set(fields.map((field) => field.key));
+  return trees.some((tree) => hasMissingAnswer(tree, keys))
+    ? "A condition uses a form question that is not in this event's form. Delete it or choose another question."
+    : null;
 }
 
 /**
@@ -352,7 +370,10 @@ export async function activeRulesFor(eventId: string, prizeId: number | null): P
  * itu, sedangkan 'all_prizes' melihat semuanya. RPC tidak tahu hadiah mana yang
  * sedang diundi.
  */
-export async function buildPool(eventId: string, prize: UndianPrize): Promise<PoolResult | { error: "POOL_ERROR" }> {
+/** Aturan pengecualian aktif yang memakai pertanyaan form yang sudah tidak ada. */
+export type PoolRuleBroken = { error: "RULE_BROKEN"; rules: string[] };
+
+export async function buildPool(eventId: string, prize: UndianPrize): Promise<PoolResult | { error: "POOL_ERROR" } | PoolRuleBroken> {
   const client = getSupabaseServiceClient();
 
   if (prize.source === "entries") {
@@ -408,6 +429,17 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
 
   const [rawRules, sessions] = await Promise.all([activeRulesFor(eventId, prize.id), listAttendanceSessions(eventId)]);
   if (!sessions) return { error: "POOL_ERROR" };
+  // Aturan pengecualian yang pertanyaannya sudah hilang tidak mengecualikan siapa
+  // pun, dan undian akan berjalan dengan orang yang seharusnya tersingkir. Lebih
+  // baik undiannya ditolak dengan nama aturannya (kesiapan dan panel operator
+  // menyebutnya) daripada pemenang yang salah di atas panggung.
+  if (rawRules.some((rule) => usesAnswer(rule.conditions))) {
+    const fields = await listAnswerFields(eventId);
+    if (!fields) return { error: "POOL_ERROR" };
+    const keys = new Set(fields.map((field) => field.key));
+    const broken = rawRules.filter((rule) => hasMissingAnswer(rule.conditions, keys)).map((rule) => rule.name);
+    if (broken.length > 0) return { error: "RULE_BROKEN", rules: broken };
+  }
   const known = new Set(sessions.map((session) => session.id));
   const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
   const conditions = invalidateUnknownSessions(prize.conditions, known);

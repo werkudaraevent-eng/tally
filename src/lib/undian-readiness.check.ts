@@ -106,4 +106,16 @@ const step = (steps: ReturnType<typeof undianReadiness>, id: string) => steps.fi
   assert.equal(undianCanRun(steps), true);
 }
 
+// Aturan pengecualian dengan pertanyaan form yang sudah hilang: mengunci, dengan
+// sebab dan tab yang benar, bukan "tidak ada peserta yang cocok".
+{
+  const steps = undianReadiness(input({ pools: { 1: { candidates: 0, broken_rules: ["Batch 1 out"] } } }));
+  const kandidat = step(steps, "kandidat");
+  assert.equal(kandidat.done, false);
+  assert.equal(kandidat.tab, "rules");
+  assert.match(kandidat.detail, /Batch 1 out/);
+  assert.doesNotMatch(kandidat.detail, /No participants match/);
+  assert.equal(undianCanRun(steps), false);
+}
+
 console.log("undian-readiness.check.ts OK");

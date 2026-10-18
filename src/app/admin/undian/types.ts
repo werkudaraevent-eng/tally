@@ -3,7 +3,8 @@ import type { CheckpointSummary, PoolBreakdown, UndianAnswerField } from "@/lib/
 
 // Bentuk data CMS Undian yang dipakai bersama oleh halaman dan panel-panelnya.
 
-export type PoolStat = { eligible: number; candidates: number; tickets: number };
+/** `broken_rules`: aturan pengecualian aktif yang pertanyaan formnya sudah hilang; undian hadiah ini ditolak sampai dibereskan. */
+export type PoolStat = { eligible: number; candidates: number; tickets: number; broken_rules?: string[] };
 export type EntryGroup = { id: number; name: string; note: string | null; entry_count: number };
 export type Exclusion = { participant_id: string; name: string; company: string | null; reason: string | null };
 export type Preview = {

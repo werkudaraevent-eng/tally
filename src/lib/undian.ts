@@ -244,6 +244,24 @@ export function invalidateUnknownSessions(node: UndianConditionGroup, known: Set
   };
 }
 
+/** Apakah pohon memuat syarat jawaban form. */
+export function usesAnswer(node: UndianConditionNode): boolean {
+  if (isConditionGroup(node)) return node.children.some(usesAnswer);
+  return node.var === "answer";
+}
+
+/**
+ * Apakah pohon memuat syarat jawaban form yang pertanyaannya sudah tidak ada di
+ * form acara (dihapus, atau Data key-nya diganti). Pada syarat hadiah dan tiket
+ * bonus syarat seperti itu gagal tertutup dengan sendirinya. Pada aturan
+ * PENGECUALIAN gagal berarti tidak mengecualikan siapa pun, jadi kolam diam-diam
+ * melebar; karena itu buildPool menolak mengundi selama aturannya belum dibereskan.
+ */
+export function hasMissingAnswer(node: UndianConditionNode, known: Set<string>): boolean {
+  if (isConditionGroup(node)) return node.children.some((child) => hasMissingAnswer(child, known));
+  return node.var === "answer" && !known.has(node.key);
+}
+
 /** Apakah pohon memuat syarat yang tidak terbaca. Dipakai layar untuk memperingatkan. */
 export function hasInvalidLeaf(node: UndianConditionNode): boolean {
   if (isConditionGroup(node)) return node.children.some(hasInvalidLeaf);
@@ -958,7 +976,7 @@ export function describeConditions(node: UndianConditionGroup, sessionNames: Rec
       case "answer": {
         if (answerLabels && answerLabels[child.key] === undefined) return "FORM QUESTION DELETED, choose again";
         const label = answerLabels?.[child.key] ?? child.key;
-        if ("values" in child) return `${label} ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
+        if ("values" in child) return `${label} ${child.cmp === "in" ? "is" : "is not"} ${child.values.join("/")}`;
         if (TEXT_CMP_WITHOUT_VALUE.includes(child.cmp)) return `${label} ${TEXT_CMP_LABEL[child.cmp]}`;
         return `${label} ${TEXT_CMP_LABEL[child.cmp]} "${child.text}"`;
       }

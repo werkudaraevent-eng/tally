@@ -10,9 +10,10 @@ import {
   type CheckpointSummary,
   type ParticipantPoolRow,
   type UndianAnswerField,
+  type UndianConditionNode,
   type UndianExclusionRule,
 } from "@/lib/undian";
-import { listAnswerFields, listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, type AttendanceSessionOption } from "@/lib/undian-pool";
+import { listAnswerFields, listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, unknownAnswerError, type AttendanceSessionOption } from "@/lib/undian-pool";
 
 // Aturan pengecualian undian.
 //
@@ -151,6 +152,10 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  const answerError = await unknownAnswerError(eventId, [parsed.data.conditions as UndianConditionNode]);
+  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
+  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
   const client = getSupabaseServiceClient();
   // Hadiah sasaran harus milik event ini. FK komposit juga menolaknya, tetapi

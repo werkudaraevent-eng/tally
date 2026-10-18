@@ -2,7 +2,8 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { normalizeExclusionRule } from "@/lib/undian";
+import { normalizeExclusionRule, type UndianConditionNode } from "@/lib/undian";
+import { unknownAnswerError } from "@/lib/undian-pool";
 import { RULE_COLUMNS, groupSchema } from "../route";
 
 // Ubah dan hapus satu aturan pengecualian.
@@ -26,6 +27,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   if (Object.keys(parsed.data).length === 0) return apiError("VALIDATION_ERROR", 422);
+  // Hanya pohon yang DIKIRIM yang diperiksa: menyalakan atau mematikan saja
+  // tidak boleh terhalang oleh pertanyaan yang dihapus setelah disimpan.
+  const answerError = await unknownAnswerError(eventId, (parsed.data.conditions ? [parsed.data.conditions] : []) as UndianConditionNode[]);
+  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
+  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
   const client = getSupabaseServiceClient();
   const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();

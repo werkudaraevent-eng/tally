@@ -503,13 +503,16 @@ function AnswerEditor({ leaf, fields, tone, onChange, onRemove }: {
   // Pertanyaan sudah dihapus dari form: server menganggap syarat ini tidak
   // pernah terpenuhi. Hanya bila daftar pertanyaan benar-benar termuat.
   const gone = Array.isArray(fields) && !field;
-  const label = field?.label ?? (gone ? "Deleted question" : leaf.key);
+  const label = field?.label ?? (gone ? `Deleted question (${leaf.key})` : leaf.key);
   const choices = field ? answerChoices(field) : [];
   // Nilai tersimpan yang tidak ada lagi di pilihan tetap tampil, supaya syarat
   // tidak diam-diam berubah arti saat form dibuka lagi.
   const shownChoices = "values" in leaf ? [...choices, ...leaf.values.filter((item) => !choices.includes(item))] : [];
 
-  return <div className="flex flex-wrap items-center gap-2 text-body-medium">
+  // Tombol hapus di luar baris yang membungkus: tetap di kanan atas, tidak turun
+  // sendirian ke baris baru di antara pembanding dan chip.
+  return <div className="flex items-start gap-2 text-body-medium">
+   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
     <span className="font-medium">{label}</span>
     {"values" in leaf ? <>
       <SelectMenu label="Comparison" width="11.5rem" options={CHOICE_CMP_OPTIONS} value={leaf.cmp} onChange={(cmp) => onChange({ ...leaf, cmp })} />
@@ -530,16 +533,17 @@ function AnswerEditor({ leaf, fields, tone, onChange, onRemove }: {
         onChange={(event) => onChange({ ...leaf, text: event.target.value })}
         aria-label={`Value for ${label}`}
         placeholder="enter a value"
-        className={cx(CONTROL, "w-52 max-w-full")}
+        className={cx(CONTROL, "w-52 min-w-0 max-w-full flex-1 basis-40")}
       />}
     </>}
-    <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
-    {gone && <span role="alert" className="order-last flex basis-full items-center gap-1.5 font-medium text-error">
-      <Warning size={16} aria-hidden className="shrink-0" /> {tone === "exclude"
-        ? "This question was deleted from the form, so this rule excludes nobody. Delete this condition."
-        : "This question was deleted from the form, so no participant qualifies. Delete this condition."}
+    {gone && <span className="order-last flex basis-full items-start gap-1.5 font-medium text-error">
+      <Warning size={16} aria-hidden className="mt-0.5 shrink-0" /> <span>{tone === "exclude"
+        ? "This question was deleted from the form, so draws are refused until you delete this condition."
+        : "This question was deleted from the form, so no participant qualifies. Delete this condition."}</span>
     </span>}
     {fields === null && <span role="status" className="order-last basis-full text-on-surface-variant">Form questions could not be loaded. This condition is kept as it is.</span>}
+   </div>
+    <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
   </div>;
 }
 
