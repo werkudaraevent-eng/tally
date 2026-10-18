@@ -21,6 +21,7 @@ import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import { labelOutfit } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { warnaBilahPeramban } from "@/lib/landing-tokens";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -54,6 +55,13 @@ import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQu
  */
 
 export const dynamic = "force-dynamic";
+/** Bilah alamat ponsel navy pada portal Horizon, termasuk layar QR (U-31). */
+export async function generateViewport({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const event = await getPublicPageEvent(searchParams);
+  const warna = warnaBilahPeramban(event?.landing_config as EventLandingConfig | null | undefined);
+  return warna ? { themeColor: warna } : {};
+}
+
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // `bahasa` dari proxy (/en/peserta). Alamat yang tidak berlaku dialihkan halamannya.
   const kueri = await searchParams;

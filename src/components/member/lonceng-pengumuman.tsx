@@ -171,7 +171,7 @@ export function LoncengPengumuman({
                 setBuka(false);
                 tombolRef.current?.focus();
               }}
-              aria-label={t.closeMenu}
+              aria-label={t.closeAnnouncements}
               className="m3-state inline-flex size-11 items-center justify-center rounded-md sm:hidden"
             >
               <X size={20} aria-hidden />

@@ -69,6 +69,11 @@ export function landingPath(slug: string, lang: LandingLang, utama: LandingLang 
   return lang === utama ? `/e/${slug}` : `/e/${slug}/${lang}`;
 }
 
+/** Label tautan peta menurut jenis tautannya (U-33): Google Maps disebut namanya, tautan lain "Buka peta". */
+export function labelTautanPeta(url: string, lang: LandingLang): string {
+  return /google\.|goo\.gl/i.test(url) ? LANDING_UI[lang].openGoogleMaps : LANDING_UI[lang].openMap;
+}
+
 type Kueri = Record<string, string | string[] | undefined>;
 
 /**
@@ -348,6 +353,8 @@ export type LandingUiText = {
   navAria: string;
   openMenu: string;
   closeMenu: string;
+  /** Tombol tutup panel lonceng di ponsel (U-33). */
+  closeAnnouncements: string;
   register: string;
   registerNow: string;
   signIn: string;
@@ -519,6 +526,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     navAria: "Navigasi acara",
     openMenu: "Buka menu",
     closeMenu: "Tutup menu",
+    closeAnnouncements: "Tutup pengumuman",
     register: "Daftar",
     registerNow: "Daftar sekarang",
     signIn: "Masuk",
@@ -668,6 +676,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     navAria: "Event navigation",
     openMenu: "Open menu",
     closeMenu: "Close menu",
+    closeAnnouncements: "Close announcements",
     register: "Register",
     registerNow: "Register now",
     signIn: "Sign in",
