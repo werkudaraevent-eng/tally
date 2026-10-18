@@ -15,7 +15,6 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- #200 E-08 checkpoint points goal (Check-in > Checkpoints > Points goal; one line on the participant checkpoint card, e.g. "20 poin lagi untuk masuk undian malam puncak."). Migration 202610170001 run by Mas on 18 Oct. Mas OK'd merging it on 18 Oct, right after #199.
 - #201 Staff-only columns: an "Ask on the registration form" switch per question, so a column such as KSO's Batch is not asked on the form; "Add a column in Registration" in the Participant list Columns menu. No SQL. Draft, rendered locally and reviewed; waiting on Mas's merge time.
 - #202 Bus trips linked to an Agenda row (Logistics > Buses > Trips; the bus time moves with its row, and the participant Schedule links that row). Migration 202610170002 run by Mas on 18 Oct (post-check true). Draft, rendered locally and reviewed; waiting on Mas's merge time.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
@@ -24,6 +23,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #200 E-08 checkpoint points goal (merged 18 Oct): Check-in > Checkpoints > Points goal adds one line to the participant checkpoint card ("20 poin lagi untuk masuk undian malam puncak."); no line while Points is off, no goal is set, or the goal is above the points on offer. Migration 202610170001 was run by Mas on 18 Oct.
 - #199 Horizon participant portal fixes from the 17 Oct audit (merged 18 Oct): compact top bar, next and happening-now cards with real dates and every batch labelled, unread announcements first with a count badge, date chips and batch switch in Schedule, QR layer that opens instantly and offline (wake lock, small service worker, guest offline note), help card with call and WhatsApp, bus trips with maps, train tickets to calendar, an emergency card from a participant-only Columns block (Participant area > Emergency and help).
 - #198 Horizon Profil redesign: ticket card with QR, personal details, help card; two columns on desktop.
 - #194 Participant home clarity: each row says where it is edited ("Automatic · Edit in <source>", "Your block"), Add block opens the Event page with a participant-only block, and participant-only blocks are shown or hidden only with the eye in Participant home.
@@ -38,6 +38,15 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
 - Portal audit follow-up "your batch": an "Applies to" setting per Agenda section so Schedule and Home open the participant's own batch first. It needs its own mockup and a small SQL file he runs; #201 adds the staff-only Batch column it would read.
+
+## KSO participant-area audit (17 Oct): open items
+
+Numbers refer to the audit report Mas holds (U-xx findings, E-xx Eventnook lessons). Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08. The staff-only Batch column is #201 and bus trips linked to the Agenda are #202.
+
+- KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, bus trips per Agenda row in Logistics, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (fill the participant-only Columns block and choose it in Participant area > Emergency and help), E-08 (set the points goal, or turn Points off).
+- Needs a decision or a mockup from Mas first: "your batch" (U-01 step 2, E-01, E-06, E-10: an "Applies to" setting per Agenda section reading the #201 Batch column, then Home, Schedule and the QR show the participant's batch; small SQL), U-22 (one word for the schedule: Jadwal or Susunan acara), U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-14 (self-scan at quiet checkpoints), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
+- Code, partly done: U-02 (the cashier offline banner still shows on the reloaded QR page and other public pages), U-06 (no fade cue on the desktop Schedule day list), U-07 (no Readiness item for the organiser contact), U-09 (the event page day heading and the 01-NN counter count sections; no warning for sections outside the event dates), U-10 (the reloaded QR page still loads the full logistics), U-20/E-09 ("tiket" and "meja registrasi" still name the QR in places), U-24 (one metadata separator, the countdown date range, a zone note on Travel), U-26 (old Gathering cards in Announcements and Schedule), U-33 (tautanPeta for hotel map links, the bell close label), E-12 (map links for Agenda locations).
+- Code, not started: U-12 (focus ring on guest pages), U-13 (per-tab document titles; top bar and bottom nav outside main), U-14 (hide Seat, Live voting and Feedback link for Gathering layouts), U-17 (anchor to the train card), U-19 (reading order below lg), U-21 (one name for the participant area), U-23 ("kamu" or "Anda"), U-27 (Horizon blue from the Theme brand colour), U-29 (Profil active state), U-31 (theme-color from the event navy), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
 
 ## Parked Lows and open findings
 

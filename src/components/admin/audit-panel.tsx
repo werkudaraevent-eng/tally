@@ -61,6 +61,8 @@ const ACTION_LABEL: Record<string, string> = {
   rundown_item_update: "Mengubah baris rundown",
   rundown_item_delete: "Menghapus baris rundown",
   rundown_item_reorder: "Reordered agenda rows",
+  rundown_section_outfit_update: "Mengubah outfit bagian rundown",
+  checkpoint_settings_update: "Mengubah setelan checkpoint",
   undian_settings_update: "Mengubah setelan undian",
   undian_prize_create: "Menambah hadiah undian",
   undian_prize_update: "Mengubah hadiah undian",
@@ -133,6 +135,12 @@ const FIELD_LABEL: Record<string, string> = {
   label: "Label",
   requires_reference: "Butuh nomor referensi",
   reference_digits: "Jumlah digit referensi",
+  // Setelan checkpoint (checkpoint_settings_update).
+  checkpoints_enabled: "Checkpoint tampil di area peserta",
+  checkpoint_points_enabled: "Poin checkpoint",
+  points_goal: "Tujuan poin",
+  points_reward: "Untuk apa poinnya",
+  points_reward_en: "Untuk apa poinnya (English)",
   // Field Papan peringkat. Dicantumkan sebagai satu kelompok utuh, bukan hanya
   // saklar yang baru ditambahkan: semuanya muncul di diff
   // `display_settings_update` yang sama, dan satu label rapi di antara belasan
