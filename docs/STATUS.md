@@ -18,7 +18,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - PR "Kontak darurat" (E-03): emergency contacts filled in Participant area > Emergency and help (name or role, phone, note, map link per contact) with Call, WhatsApp and Map buttons on the portal Menu card; the Participant area preview opens Menu while that form is in use; an existing Columns block keeps working until "Copy into contacts". No SQL. Waiting on QA, then Mas's merge time.
-- Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
+- #NEW Check-in admin in English (Sessions, Desk lanes, Walk-in, Checkpoints labels; participant-facing previews unchanged; written with opencode): waiting on QA, then Mas's merge time.
+- Admin language phase 4a (remaining Indonesian strings on other admin screens): next batches by area.
 
 ## Recently merged (for context; details in the PRs)
 
