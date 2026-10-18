@@ -24,7 +24,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 ## Recently merged (for context; details in the PRs)
 
 - #208 Checkpoint self-scan (E-14, merged 18 Oct): Check-in > Checkpoints > "How it gets done" per checkpoint (Staff default, Participants, Both; kit items always Staff). Staff show a QR from the scanner app (Show QR) or `/checkpoint-qr` on a big screen; the code changes every 30 seconds; participants scan it from the checkpoint card. Migration 202610180001 was run by Mas on 18 Oct.
-- Tighter access checks (this PR): the scanner, print-station routes (only while desk badge printing is on, admins always), the staff event list, and event page image and map addresses (http(s), or a path on this site for block images). No SQL.
+- Tighter access checks: the scanner, print-station routes (only while desk badge printing is on, admins always), the staff event list, and event page image and map addresses (http(s), or a path on this site for block images). No SQL.
 - #202 Bus trips linked to an Agenda row (merged 18 Oct): Logistics > Buses > Trips > New/Edit trip has an optional "Agenda row" picker; a linked trip's departure moves with its row (triggers keep the bus offset when the row's time or its section's date changes; deleting the row keeps the trip, unlinked). Agenda shows a Bus chip on linked items, and the participant Schedule marks exactly the linked row. Migration 202610170002 was run by Mas on 18 Oct.
 - #201 Staff-only columns (merged 18 Oct): Registration > Edit form has an "Ask on the registration form" switch per question. Off makes the question a Participant list column only: not on the public form, the walk-in desk or participant pages, never required, and a value for it in a public or desk submission is dropped on the server. Participant list > Columns > "Add a column in Registration" opens Edit form on a new staff-only question. No SQL.
 - #200 E-08 checkpoint points goal (merged 18 Oct): Check-in > Checkpoints > Points goal adds one line to the participant checkpoint card ("20 poin lagi untuk masuk undian malam puncak."); no line while Points is off, no goal is set, or the goal is above the points on offer. Migration 202610170001 was run by Mas on 18 Oct.
@@ -164,7 +164,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
-- #208 QA Lows: self-scan still records on a completed event (staff scan returns 409); no Origin check on the self-scan POST; a Staff checkpoint sharing a session with a Participants checkpoint is completed by a self-scan; item checkpoint PATCH silently saves Staff while POST answers 422.
+- #208 QA Lows: a few follow-ups on self-scan validation, tracked privately.
 - Self-scan: the classic and modern checkpoint cards show "Tampilkan QR" next to the scan button only where the dashboard already passes a QR link (modern does not), so Both on modern has no fallback link on the card; the QR stays in the portal's own QR place.
 - #169 L2/L5: the post-check SQL misses grants and constraints, and POST returns 500 before the migration.
 - #172/#173 F4: Sessions tab strings are still Indonesian; F2, a ~120 ms Assignments-to-Kit flash, is accepted.
