@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bantuanPratinjau, barisKontakDarurat, kontakDariBlok, nomorTelepon, rapikanBantuan, tautanPeta } from "./kontak-darurat.ts";
+import { bantuanBahasa, bantuanPratinjau, barisKontakDarurat, kontakDariBlok, nomorTelepon, rapikanBantuan, tautanPeta } from "./kontak-darurat.ts";
 
 assert.deepEqual(nomorTelepon("0811 2836 676"), { tel: "+628112836676", wa: "https://wa.me/628112836676" });
 assert.deepEqual(nomorTelepon("+62 812-3456-7890"), { tel: "+6281234567890", wa: "https://wa.me/6281234567890" });
@@ -75,4 +75,32 @@ assert.deepEqual(bantuanPratinjau({ title: "Darurat KSO", contacts: [{ name: "" 
   note: null,
   contacts: [{ name: "B", phone: "0812", note: null, map_url: null }],
 });
+// QA #209 M4: rentang jam dan rentang nomor bukan nomor telepon.
+assert.equal(nomorTelepon("0900-1700"), null);
+assert.equal(nomorTelepon("0812-0813"), null);
+assert.equal(nomorTelepon("566 353"), null);
+assert.deepEqual(nomorTelepon("021 5000 800"), { tel: "0215000800", wa: null });
+assert.deepEqual(nomorTelepon("+65 6123 4567"), { tel: "+6561234567", wa: null });
+assert.deepEqual(kontakDariBlok([{ title: "Posko", body: "Buka 0900-1700, lantai 2" }]), [
+  { name: "Posko", phone: null, note: "Buka 0900-1700, lantai 2", map_url: null },
+]);
+assert.deepEqual(kontakDariBlok([{ title: "Posko", body: "Buka 0900-1700, hubungi 0812 3456 7890" }])[0].phone, "0812 3456 7890");
+assert.equal(kontakDariBlok([{ title: "Kamar", body: "0812-0813" }])[0].phone, null);
+// Tanda baca sisa dirapikan.
+assert.equal(kontakDariBlok([{ title: "Posko", body: "Buka (0274) 566 353, lantai 2" }])[0].note, "Buka, lantai 2");
+// Peta: hanya host persis.
+assert.equal(kontakDariBlok([{ title: "RS", href: "https://google.evil.com/maps/x" }])[0].map_url, null);
+assert.equal(kontakDariBlok([{ title: "RS", href: "https://www.google.co.id/maps/x" }])[0].map_url, "https://www.google.co.id/maps/x");
+// QA #209 M5: teks English blok lama ikut, nomor tidak diulang.
+assert.deepEqual(kontakDariBlok([{ title: "Tim medis", body: "Siaga 24 jam 0812 3456 7890", en: { title: "Medical team", body: "On call 24 hours 0812 3456 7890" } }]), [
+  { name: "Tim medis", phone: "0812 3456 7890", note: "Siaga 24 jam", map_url: null, en: { name: "Medical team", note: "On call 24 hours" } },
+]);
+const dwi = { title: "Darurat KSO", note: "Simpan nomor ini.", en: { title: "KSO emergency", note: null }, contacts: [{ name: "Tim medis", note: "Siaga", en: { name: "Medical team", note: "On call" } }, { name: "Hotel", note: "Lobi" }] };
+assert.deepEqual(bantuanBahasa(dwi, "en"), {
+  ...dwi,
+  title: "KSO emergency",
+  note: "Simpan nomor ini.",
+  contacts: [{ name: "Medical team", note: "On call", en: { name: "Medical team", note: "On call" } }, { name: "Hotel", note: "Lobi" }],
+});
+assert.equal(bantuanBahasa(dwi, "id"), dwi);
 console.log("kontak-darurat ok");

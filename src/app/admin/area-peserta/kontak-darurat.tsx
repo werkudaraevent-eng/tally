@@ -32,6 +32,7 @@ export function KontakDaruratForm({
   onSalin,
   onFokus,
   tanpaNama,
+  english,
 }: {
   help: Bantuan | null | undefined;
   onChange: (help: Bantuan) => void;
@@ -43,10 +44,14 @@ export function KontakDaruratForm({
   onFokus: () => void;
   /** Kontak yang belum punya nama saat Save ditekan. */
   tanpaNama: number | null;
+  /** Acara punya halaman English: tiap teks punya isian English (kosong = teks Indonesia). */
+  english: boolean;
 }) {
   const kontak = help?.contacts ?? [];
   const ubah = (contacts: KontakDarurat[]) => onChange({ ...help, contacts });
   const ubahSatu = (index: number, patch: Partial<KontakDarurat>) => ubah(kontak.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  const ubahEn = (patch: { title?: string; note?: string }) => onChange({ ...help, contacts: kontak, en: { ...help?.en, ...patch } });
+  const ubahEnSatu = (index: number, patch: { name?: string; note?: string }) => ubahSatu(index, { en: { ...kontak[index]?.en, ...patch } });
   const pindah = (index: number, arah: -1 | 1) => {
     const baru = [...kontak];
     [baru[index], baru[index + arah]] = [baru[index + arah], baru[index]];
@@ -67,7 +72,14 @@ export function KontakDaruratForm({
             variant="outlined"
             size="sm"
             icon={<Copy size={16} aria-hidden />}
-            onClick={() => onSalin({ title: blokLama.heading?.trim() || help?.title || null, note: blokLama.body?.trim() || help?.note || null, contacts: kontakDariBlok(blokLama.items ?? []) })}
+            onClick={() =>
+              onSalin({
+                title: blokLama.heading?.trim() || help?.title || null,
+                note: blokLama.body?.trim() || help?.note || null,
+                contacts: kontakDariBlok(blokLama.items ?? []),
+                en: { title: blokLama.en?.heading?.trim() || help?.en?.title || null, note: blokLama.en?.body?.trim() || help?.en?.note || null },
+              })
+            }
           >
             Copy into contacts
           </Button>
@@ -77,11 +89,20 @@ export function KontakDaruratForm({
         label="Card title"
         optional
         maxLength={KONTAK_DARURAT_BATAS.title}
-        placeholder="Darurat dan bantuan"
-        hint="Leave empty for the default in the participant's language."
+        hint={'Leave empty for "Darurat dan bantuan" on Indonesian pages and "Emergency and help" on English ones.'}
         value={help?.title ?? ""}
         onChange={(event) => onChange({ ...help, contacts: kontak, title: event.target.value })}
       />
+      {english ? (
+        <TextField
+          label="Card title in English"
+          optional
+          maxLength={KONTAK_DARURAT_BATAS.title}
+          hint="Used on English pages when Card title is filled. Empty = Card title shows there too."
+          value={help?.en?.title ?? ""}
+          onChange={(event) => ubahEn({ title: event.target.value })}
+        />
+      ) : null}
       <TextArea
         label="Note above the contacts"
         optional
@@ -92,6 +113,18 @@ export function KontakDaruratForm({
         value={help?.note ?? ""}
         onChange={(event) => onChange({ ...help, contacts: kontak, note: event.target.value })}
       />
+      {english ? (
+        <TextArea
+          label="Note above the contacts in English"
+          optional
+          rows={2}
+          maxLength={KONTAK_DARURAT_BATAS.catatan}
+          counter
+          hint="Empty = the Indonesian note shows on English pages too."
+          value={help?.en?.note ?? ""}
+          onChange={(event) => ubahEn({ note: event.target.value })}
+        />
+      ) : null}
       {kontak.length > 0 ? (
         <ol className="flex flex-col gap-3" aria-label="Contacts">
           {kontak.map((item, index) => {
@@ -139,6 +172,7 @@ export function KontakDaruratForm({
                       optional
                       rows={2}
                       maxLength={KONTAK_DARURAT_BATAS.note}
+                      counter
                       placeholder="Available 24 hours"
                       value={item.note ?? ""}
                       onChange={(event) => ubahSatu(index, { note: event.target.value })}
@@ -154,6 +188,27 @@ export function KontakDaruratForm({
                       hint={peta ? undefined : "Adds a Map button. For a hospital, clinic or meeting point."}
                       onChange={(event) => ubahSatu(index, { map_url: event.target.value })}
                     />
+                    {english ? (
+                      <>
+                        <TextField
+                          label="Name or role in English"
+                          hint="Empty = the name above shows on English pages."
+                          optional
+                          maxLength={KONTAK_DARURAT_BATAS.name}
+                          value={item.en?.name ?? ""}
+                          onChange={(event) => ubahEnSatu(index, { name: event.target.value })}
+                        />
+                        <TextArea
+                          label="Note in English"
+                          optional
+                          rows={2}
+                          maxLength={KONTAK_DARURAT_BATAS.note}
+                          counter
+                          value={item.en?.note ?? ""}
+                          onChange={(event) => ubahEnSatu(index, { note: event.target.value })}
+                        />
+                      </>
+                    ) : null}
                   </div>
                 </Card>
               </li>

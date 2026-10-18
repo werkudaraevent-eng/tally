@@ -281,9 +281,12 @@ export const memberSchema = z.object({
             phone: z.string().trim().max(KONTAK_DARURAT_BATAS.phone).nullish(),
             note: z.string().trim().max(KONTAK_DARURAT_BATAS.note).nullish(),
             map_url: z.string().trim().max(KONTAK_DARURAT_BATAS.map_url).regex(/^(https?:\/\/[^\s"'<>\\]+)?$/i, "Map links must start with http:// or https://").nullish(),
+            en: z.object({ name: z.string().trim().max(KONTAK_DARURAT_BATAS.name).nullish(), note: z.string().trim().max(KONTAK_DARURAT_BATAS.note).nullish() }).nullish(),
           }),
         )
         .max(KONTAK_DARURAT_MAX),
+      /** Teks English (halaman /en), aturan yang sama dengan blok halaman acara. */
+      en: z.object({ title: z.string().trim().max(KONTAK_DARURAT_BATAS.title).nullish(), note: z.string().trim().max(KONTAK_DARURAT_BATAS.catatan).nullish() }).nullish(),
     })
     .nullable()
     .optional(),
