@@ -82,12 +82,21 @@ function Penghitung({ id, count }: { id: string; count: Hitungan }) {
 	);
 }
 
-export function FieldMessages({ id, error, hint, count }: { id: string; error?: string; hint?: ReactNode; count?: Hitungan | null }) {
+export function FieldMessages({ id, error, hint, count, warning, action }: {
+	id: string;
+	error?: string;
+	hint?: ReactNode;
+	count?: Hitungan | null;
+	/** Petunjuk tampil sebagai peringatan: ikon dan teks kuning, tanpa role="alert". */
+	warning?: boolean;
+	/** Tombol di samping petunjuk, di luar elemen yang dibacakan aria-describedby. */
+	action?: ReactNode;
+}) {
 	if (count) {
 		return (
 			<div className="mt-2 flex items-start justify-between gap-3">
-				<div className="min-w-0 [&>p]:mt-0">
-					<FieldMessages id={id} error={error} hint={hint} />
+				<div className="min-w-0 [&>div]:mt-0 [&>p]:mt-0">
+					<FieldMessages id={id} error={error} hint={hint} warning={warning} action={action} />
 				</div>
 				<Penghitung id={id} count={count} />
 			</div>
@@ -102,11 +111,20 @@ export function FieldMessages({ id, error, hint, count }: { id: string; error?: 
 		);
 	}
 	if (hint) {
-		return (
-			<p id={`${id}-hint`} className="mt-2 text-body-small text-on-surface-variant">
+		const pesan = (
+			<p
+				id={`${id}-hint`}
+				className={cx(
+					!action && "mt-2",
+					warning ? "flex items-start gap-1.5 text-body-small font-medium text-warning" : "text-body-small text-on-surface-variant",
+					!!action && "min-w-0 flex-1",
+				)}
+			>
+				{warning ? <WarningCircle size={16} weight="fill" className="mt-px shrink-0" aria-hidden /> : null}
 				{hint}
 			</p>
 		);
+		return action ? <div className="mt-2 flex items-center gap-3">{pesan}{action}</div> : pesan;
 	}
 	return null;
 }
@@ -131,12 +149,16 @@ function FieldLabel({ htmlFor, children, optional }: { htmlFor: string; children
 const CONTROL_BASE =
 	"w-full rounded-lg border bg-surface-container-lowest px-3 text-body-large text-on-surface outline-none transition-[border-color,box-shadow] duration-150 ease-standard placeholder:text-on-surface-variant/70 disabled:opacity-50";
 
-function controlClass(error?: string | boolean) {
+function controlClass(error?: string | boolean, warning?: boolean) {
 	return cx(
 		CONTROL_BASE,
 		error
 			? "border-error focus:border-error"
-			: "border-outline focus:border-primary",
+			// Tepi kuning tetap kuning saat fokus, seperti pemilih Sesi di
+			// Speakers; penanda fokusnya `[data-warning]` di globals.css.
+			: warning
+				? "border-warning focus:border-warning"
+				: "border-outline focus:border-primary",
 	);
 }
 
@@ -156,11 +178,25 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "classN
 		 * kelas — dan itu persis cara markup tangan bertahan.
 		 */
 		inputClassName?: string;
+		/**
+		 * Tepi kuning: nilainya sah tetapi patut diperiksa, mis. jam berangkat
+		 * sehari sebelum baris Agenda-nya. Bukan galat, jadi tanpa `aria-invalid`
+		 * dan simpan tetap boleh; kalimatnya dikirim lewat `hint`, yang tampil
+		 * sebagai peringatan.
+		 */
+		warning?: boolean;
+		/**
+		 * Tombol di samping petunjuk, mis. perbaikan peringatan ("Move to Sat 7
+		 * Nov"). Di luar elemen petunjuk, jadi kolomnya tidak dibacakan beserta
+		 * nama tombolnya.
+		 */
+		hintAction?: ReactNode;
 	};
 
-export function TextField({ label, hint, error, optional, className, inputClassName, leading, trailing, size = "md", counter, ...rest }: TextFieldProps) {
+export function TextField({ label, hint, error, optional, className, inputClassName, leading, trailing, size = "md", counter, warning, hintAction, ...rest }: TextFieldProps) {
 	const { id, describedBy } = useFieldIds(error, hint);
 	const count = hitungan(counter, rest.value, rest.maxLength);
+	const peringatan = !!warning && !(error || melewati(count));
 	return (
 		<div className={className}>
 			<FieldLabel htmlFor={id} optional={optional}>
@@ -176,8 +212,9 @@ export function TextField({ label, hint, error, optional, className, inputClassN
 					{...rest}
 					id={id}
 					{...ariaKolom(id, describedBy, error, count, rest["aria-invalid"])}
+					data-warning={peringatan || undefined}
 					className={cx(
-						controlClass(error || melewati(count)),
+						controlClass(error || melewati(count), peringatan),
 						size === "lg" ? "m3-field-lg h-16" : "m3-field h-14",
 						!!leading && "pl-9",
 						!!trailing && "pr-9",
@@ -186,7 +223,7 @@ export function TextField({ label, hint, error, optional, className, inputClassN
 				/>
 				{trailing ? <span className="absolute right-3 top-1/2 -translate-y-1/2">{trailing}</span> : null}
 			</div>
-			<FieldMessages id={id} error={error} hint={hint} count={count} />
+			<FieldMessages id={id} error={error} hint={hint} count={count} warning={peringatan} action={hintAction} />
 		</div>
 	);
 }

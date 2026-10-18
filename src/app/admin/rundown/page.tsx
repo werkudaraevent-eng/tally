@@ -1,13 +1,17 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUp, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUp, Bus as IkonBus, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
+import { keInputWaktu } from "@/components/admin/logistik/bersama";
+import Link from "@/components/event-link";
 import { useToast } from "@/components/toast";
 import { normalizeBranding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
 import { DEFAULT_HEADER, formatClock, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { eventApiPath } from "@/lib/event-url";
+import { hrefTrip, jamBerangkatBaru, kalimatHapus, kapanBerangkat, selisihMenit, type TripTertaut } from "@/lib/logistik/trip-agenda";
+import type { EventTimeZone } from "@/lib/timezone";
 import { OUTFIT_BATAS, OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, OUTFIT_MAX, type OutfitEntry } from "@/lib/outfit";
 import { bandingkanBagian, bandingkanBaris, geserBagian, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal } from "@/lib/rundown-urutan";
 import { plural } from "@/lib/plural";
@@ -32,7 +36,14 @@ import { RichDetailsField } from "@/components/admin/rich-details-field";
 // Move up/Move down. Baris berjam unik tidak punya pegangan, karena menggesernya
 // ke luar slot jamnya akan membuat jadwal berbohong.
 
-type Payload = { sections: RundownSection[]; items: RundownItem[] };
+/**
+ * Baris di CMS. `bus_trips`: trip bus yang ditautkan ke baris ini di Logistics
+ * (tidak ada = tanpa tautan). Tautannya disunting di sana; di sini hanya chip
+ * Bus, catatan di Edit item, dan kalimat di dialog hapus.
+ */
+type ItemAgenda = RundownItem & { bus_trips?: TripTertaut[] };
+
+type Payload = { sections: RundownSection[]; items: ItemAgenda[] };
 
 /** Baris baru yang sedang diisi, per bagian. */
 type Draft = { start_time: string; end_time: string; title: string; subtitle: string; is_break: boolean };
@@ -84,11 +95,17 @@ function fokusJudulBaru() {
 
 export default function RundownAdminPage() {
   const [sections, setSections] = useState<RundownSection[]>([]);
-  const [items, setItems] = useState<RundownItem[]>([]);
+  const [items, setItems] = useState<ItemAgenda[]>([]);
   // Jam mulai yang terakhir tersimpan, per id. Suntingan jam yang belum disimpan
   // hidup di `items`; susun ulang dikunci selama ada yang berbeda dari sini,
   // karena server menilai slot dari jam yang tersimpan.
   const [savedStart, setSavedStart] = useState<Map<number, string>>(new Map());
+  // Tanggal bagian yang terakhir tersimpan, per id. Selisih trip bus terhadap
+  // barisnya dihitung dari nilai tersimpan: itulah yang dijaga pemicu database.
+  const [savedDate, setSavedDate] = useState<Map<number, string>>(new Map());
+  // Baris dari tautan ?section=&item= ("Edit in Agenda" di Logistics), digulir
+  // ke dalam layar sekali sesudah dimuat.
+  const barisTautan = useRef<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -113,7 +130,7 @@ export default function RundownAdminPage() {
   const [deletingItem, setDeletingItem] = useState<number | null>(null);
   // Konfirmasi hapus lewat dialog: satu klik tak sengaja tidak boleh langsung
   // membuang data.
-  const [confirmItem, setConfirmItem] = useState<RundownItem | null>(null);
+  const [confirmItem, setConfirmItem] = useState<ItemAgenda | null>(null);
   const [confirmSection, setConfirmSection] = useState<RundownSection | null>(null);
   // Susun ulang sesi paralel. Satu permintaan pada satu waktu: dua geseran yang
   // berbalapan bisa saling menimpa nomor urut.
@@ -133,8 +150,9 @@ export default function RundownAdminPage() {
   const [uploadingOutfit, setUploadingOutfit] = useState<number | null>(null);
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
-  // "Kamis" di CMS sementara tamu membaca "Rabu".
-  const { abbr } = useEventTimeZone();
+  // "Kamis" di CMS sementara tamu membaca "Rabu". Jam trip bus juga dibaca di
+  // zona ini.
+  const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
 
   async function load() {
@@ -151,6 +169,7 @@ export default function RundownAdminPage() {
     setSections(data.sections);
     setItems(data.items);
     setSavedStart(new Map(data.items.map((item) => [item.id, item.start_time])));
+    setSavedDate(new Map(data.sections.map((section) => [section.id, section.event_date])));
     setActiveId((current) => (current && data.sections.some((row) => row.id === current) ? current : data.sections[0]?.id ?? null));
     // Header yang gagal dimuat tidak menggagalkan seluruh halaman: jadwalnya tetap
     // bisa disusun, dan nilai bawaan tetap aman disimpan.
@@ -171,9 +190,38 @@ export default function RundownAdminPage() {
   }
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); void loadOutfit(); }, 0);
+    const timer = window.setTimeout(() => {
+      // ?section=<id>&item=<id> dari "Edit in Agenda" di Logistics: tab baris
+      // itu, dengan barisnya terbuka di Edit item. load() mempertahankan tab
+      // ini selama masih ada.
+      const query = new URLSearchParams(window.location.search);
+      const bagian = Number(query.get("section"));
+      const baris = Number(query.get("item"));
+      if (Number.isInteger(bagian) && bagian > 0) {
+        setActiveId(bagian);
+        if (Number.isInteger(baris) && baris > 0) {
+          setSelectedItemId(baris);
+          setPanel("baris");
+          barisTautan.current = baris;
+        }
+      }
+      void load();
+      void loadOutfit();
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  // Strip tab di 1280 px bergulir, dan jadwalnya bisa panjang: tab dan baris
+  // dari tautan digulir ke dalam layar.
+  useEffect(() => {
+    const baris = barisTautan.current;
+    if (!loaded || baris === null) return;
+    barisTautan.current = null;
+    window.requestAnimationFrame(() => {
+      document.getElementById(`bagian-tab-${activeId}`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      document.querySelector(`[data-rundown-row="${baris}"]`)?.scrollIntoView({ block: "nearest" });
+    });
+  }, [loaded, activeId]);
 
   const active = sections.find((row) => row.id === activeId) ?? null;
   // Tab tampil menurut sort_order lalu id, sama dengan halaman publik.
@@ -673,6 +721,9 @@ export default function RundownAdminPage() {
   }
 
   const publishedCount = sections.filter((row) => row.is_published).length;
+  // Menghapus bagian ikut menghapus barisnya: trip bus yang tertaut ke baris
+  // itu disebut di dialog hapus, sama dengan dialog hapus satu baris.
+  const tripBagian = kalimatHapus(activeItems.flatMap((item) => item.bus_trips ?? []).map((trip) => trip.name));
   // Tanpa bagian, hanya header yang bisa disunting.
   const panelAktif: Panel = active ? panel : "header";
 
@@ -747,6 +798,9 @@ export default function RundownAdminPage() {
                           </span>
                           {item.is_break ? <StatusChip>Break</StatusChip> : null}
                           {item.is_published ? null : <StatusChip tone="warning">Hidden</StatusChip>}
+                          {item.bus_trips?.length ? (
+                            <StatusChip title={item.bus_trips.length === 1 ? "Bus trip linked in Logistics" : `${item.bus_trips.length} bus trips linked in Logistics`}>Bus</StatusChip>
+                          ) : null}
                         </span>
                         {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
                       </span>
@@ -830,6 +884,15 @@ export default function RundownAdminPage() {
           value={selectedItem.end_time ? formatClock(selectedItem.end_time) : ""}
           onChange={(event) => updateItem(selectedItem.id, { end_time: event.target.value || null })}
         />
+        {selectedItem.bus_trips?.length ? (
+          <CatatanBus
+            item={selectedItem}
+            trips={selectedItem.bus_trips}
+            jamTersimpan={savedStart.get(selectedItem.id) ?? selectedItem.start_time}
+            tanggalTersimpan={savedDate.get(selectedItem.section_id) ?? active?.event_date ?? ""}
+            zone={zone}
+          />
+        ) : null}
       </div>
       <TextField label="Title" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
       {jamBelumDisimpan && selectedSlotLokal > 1 ? (
@@ -1343,7 +1406,9 @@ export default function RundownAdminPage() {
         dismissible={deletingItem === null}
         tone="danger"
         title={`Delete ${confirmItem?.title.trim() || "this item"}?`}
-        description="This item is removed from the agenda and the public page. A copy is kept in the audit log."
+        // Trip bus yang tertaut tetap ada dengan jam terakhirnya; tautannya
+        // dikosongkan database (FK on delete set null).
+        description={["This item is removed from the agenda and the public page.", kalimatHapus((confirmItem?.bus_trips ?? []).map((trip) => trip.name)), "A copy is kept in the audit log."].filter(Boolean).join(" ")}
         actions={
           <>
             <Button variant="outlined" disabled={deletingItem !== null} onClick={() => setConfirmItem(null)}>Cancel</Button>
@@ -1358,7 +1423,7 @@ export default function RundownAdminPage() {
         dismissible={!deletingSection}
         tone="danger"
         title={`Delete section ${confirmSection?.name ?? ""}?`}
-        description={`${confirmSection?.is_published ? "This section is on the public page now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}A copy is kept in the audit log.`}
+        description={`${confirmSection?.is_published ? "This section is on the public page now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}${tripBagian ? `${tripBagian} ` : ""}A copy is kept in the audit log.`}
         actions={
           <>
             <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Cancel</Button>
@@ -1368,5 +1433,71 @@ export default function RundownAdminPage() {
       />
       </div>
     </WorkspacePage>
+  );
+}
+
+/**
+ * Catatan di bawah Start dan End untuk baris yang ditautkan trip bus di
+ * Logistics. Tautannya disunting di sana ("Edit in Logistics"); di sini hanya
+ * diberi tahu bahwa jam busnya ikut bergeser bersama baris ini.
+ *
+ * Selisihnya dihitung dari jam dan tanggal yang tersimpan, yang dijaga pemicu
+ * database, lalu jam busnya dari jam mulai di kolom: jam yang belum disimpan
+ * langsung menunjukkan ke mana busnya akan bergeser.
+ */
+function CatatanBus({ item, trips, jamTersimpan, tanggalTersimpan, zone }: {
+  item: RundownItem;
+  trips: TripTertaut[];
+  jamTersimpan: string;
+  tanggalTersimpan: string;
+  zone: EventTimeZone;
+}) {
+  const waktu = (trip: TripTertaut) => {
+    if (!trip.depart_at) return null;
+    const berangkat = keInputWaktu(trip.depart_at, zone);
+    const selisih = selisihMenit(berangkat, tanggalTersimpan, jamTersimpan);
+    if (selisih === null) return null;
+    return { selisih, jam: jamBerangkatBaru(item.start_time, selisih) ?? berangkat.slice(11, 16) };
+  };
+  const TAUTAN = "inline-flex items-center gap-1 rounded-sm font-medium text-primary hover:underline";
+  const tabBaru = (
+    <>
+      <ArrowSquareOut size={14} aria-hidden />
+      <span className="sr-only">(new tab)</span>
+    </>
+  );
+  const [satu] = trips;
+  const waktuSatu = trips.length === 1 ? waktu(satu) : null;
+  return (
+    <div className="col-span-2 flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant">
+      <IkonBus size={16} className="mt-0.5 shrink-0" aria-hidden />
+      <div className="min-w-0">
+        {trips.length === 1 ? (
+          <>
+            <p>
+              Bus trip <span className="font-medium text-on-surface">{satu.name}</span>{" "}
+              {waktuSatu ? kapanBerangkat(waktuSatu.jam, waktuSatu.selisih) : "is linked to this item but has no departure time yet."}
+            </p>
+            <Link href={hrefTrip(satu.id)} target="_blank" rel="noreferrer" className={cx("mt-1", TAUTAN)}>Edit in Logistics{tabBaru}</Link>
+          </>
+        ) : (
+          // Dua trip atau lebih (berangkat dan pulang): tiap nama membuka tripnya.
+          <p>
+            {plural(trips.length, "bus trip")} move with this item:{" "}
+            {trips.map((trip, urutan) => {
+              const isi = waktu(trip);
+              return (
+                <Fragment key={trip.id}>
+                  {urutan > 0 ? ", " : ""}
+                  <Link href={hrefTrip(trip.id)} target="_blank" rel="noreferrer" className={TAUTAN}>{trip.name}{tabBaru}</Link>
+                  {` (${isi ? isi.jam : "no time yet"})`}
+                </Fragment>
+              );
+            })}
+            .
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

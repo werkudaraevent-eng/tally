@@ -1,6 +1,7 @@
 import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { TiketKereta } from "@/lib/logistik/types";
+import type { TripTertaut } from "@/lib/logistik/trip-agenda";
 
 /**
  * Potongan bersama route Logistik (kamar, bus, barang).
@@ -89,6 +90,9 @@ export const KOLOM_KERETA = "id,participant_id,direction,train_name,travel_class
 /** Galat PostgREST/Postgres untuk tabel yang belum ada. */
 export const tabelBelumAda = (error: { code?: string | number } | null) => ["PGRST205", "42P01"].includes(String(error?.code ?? ""));
 
+/** Galat untuk kolom yang belum ada: 42703 dari Postgres, PGRST204 dari cache skema PostgREST. */
+export const kolomBelumAda = (error: { code?: string | number } | null) => ["42703", "PGRST204"].includes(String(error?.code ?? ""));
+
 /**
  * Semua tiket kereta acara. null = tabelnya belum ada (migrasi 202610140001
  * belum dijalankan), supaya halaman Logistik tetap terbuka dan tab Trains
@@ -106,6 +110,35 @@ export async function bacaTiketKereta(eventId: string): Promise<TiketKereta[] | 
 
 export function klien() {
   return getSupabaseServiceClient();
+}
+
+/**
+ * Trip bus yang ditautkan ke baris Agenda acara, per id baris, urut jam
+ * berangkat. Dibaca CMS Agenda untuk chip Bus dan catatan di Edit item.
+ *
+ * Peta kosong bila bacaannya gagal, termasuk sebelum migrasi 202610170002
+ * dijalankan (kolom rundown_item_id belum ada, 42703): Agenda tetap terbuka,
+ * hanya tanpa penanda bus. Trip satu acara puluhan, jauh di bawah 1000.
+ */
+export async function tripPerBarisAgenda(eventId: string): Promise<Map<number, TripTertaut[]>> {
+  const hasil = new Map<number, TripTertaut[]>();
+  try {
+    const { data, error } = await klien()
+      .from("transport_trips")
+      .select("id,name,depart_at,rundown_item_id")
+      .eq("event_id", eventId)
+      .not("rundown_item_id", "is", null)
+      .order("depart_at", { ascending: true, nullsFirst: false })
+      .order("id")
+      .limit(1000);
+    if (error || !Array.isArray(data)) return hasil;
+    for (const trip of data as Array<TripTertaut & { rundown_item_id: number }>) {
+      hasil.set(trip.rundown_item_id, [...(hasil.get(trip.rundown_item_id) ?? []), { id: trip.id, name: trip.name, depart_at: trip.depart_at }]);
+    }
+  } catch {
+    // Sama dengan galat baca: Agenda tetap terbuka tanpa penanda bus.
+  }
+  return hasil;
 }
 
 export type LogistikRingkas = { kamar: string | null; bus: string | null };

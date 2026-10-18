@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowCounterClockwise, Bus as IkonBus, CalendarDots, Eye, SignOut, Warning } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, ArrowSquareOut, Bus as IkonBus, CalendarDots, Eye, SignOut, Warning } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
   PaneHeader, SelectField, StatusChip, Switch, TextField, EMPTY_VALUE,
 } from "@/components/m3";
+import { hrefBarisAgenda, jamPendek, keteranganTrip, namaMirip, petunjukBerangkat, selisihMenit, tanggalGanda, teksBaris } from "@/lib/logistik/trip-agenda";
 import type { Agenda, Bus, LogistikPeserta } from "@/lib/logistik/types";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
@@ -14,6 +15,7 @@ import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
   angkaAtauNull, BarisOrang, dariInputWaktu, formatWaktu, keInputWaktu, KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps,
 } from "./bersama";
+import { PilihBarisAgenda, useAgendaTrip, type AgendaTrip } from "./pilih-baris-agenda";
 
 /**
  * Tab Bus, dengan dua bagian: Daftar bus dan Agenda.
@@ -327,17 +329,36 @@ function FormBus({ bus, busy, onClose, simpan }: {
 
 /* ========================================================= Agenda bus */
 
-export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & { atas?: ReactNode }) {
+export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal }: TabProps & {
+  atas?: ReactNode;
+  /** Trip yang langsung terpilih (?tab=bus&trip=, dari "Edit in Logistics" di Agenda). */
+  pilihAwal?: number | null;
+}) {
   const { zone, abbr } = useEventTimeZone();
   const { orangById, busById, bawaan, pengganti, busDi } = usePetaBus(data);
-  const [pilih, setPilih] = useState<number | null>(null);
+  // Sebelum migrasi 202610170002 trip belum bisa ditautkan: tidak ada pemilih
+  // yang bisa dipakai lalu gagal saat disimpan, dan panel detail tetap seperti dulu.
+  const siapTautan = data.trip_agenda_ready;
+  const agendaTrip = useAgendaTrip(siapTautan);
+  // Isi bagian Agenda row untuk trip tertaut. Reload memindahkan fokus ke sini.
+  const kotakTautan = useRef<HTMLDivElement | null>(null);
+  const [pilih, setPilih] = useState<number | null>(pilihAwal ?? null);
   const [ubah, setUbah] = useState<Agenda | null>(null);
   const [ganti, setGanti] = useState(false);
   const [tujuan, setTujuan] = useState<string>("");
   const [hapus, setHapus] = useState<Agenda | null>(null);
 
-  const agendaBaru: Agenda = { id: 0, name: "", depart_at: null, origin: null, destination: null, meeting_point: null, follows_default: true, sort_order: 0 };
+  const agendaBaru: Agenda = { id: 0, name: "", depart_at: null, origin: null, destination: null, meeting_point: null, follows_default: true, sort_order: 0, rundown_item_id: null };
   const muatan = (agenda: Agenda) => data.overview.filter((baris) => baris.trip_id === agenda.id);
+  /** Baris Agenda tautan trip ini beserta tabnya, bila sudah dimuat. */
+  const lokasiTrip = (agenda: Agenda) => (agenda.rundown_item_id !== null ? agendaTrip.agenda?.peta.baris.get(agenda.rundown_item_id) ?? null : null);
+  const ganda = (tanggal: string) => (agendaTrip.agenda ? tanggalGanda(agendaTrip.agenda.bagian, tanggal) : false);
+  const keteranganChip = (agenda: Agenda) => {
+    const lokasi = lokasiTrip(agenda);
+    if (!lokasi) return "Linked to an agenda row";
+    const tab = ganda(lokasi.bagian.event_date) ? `, in the ${lokasi.bagian.name.trim()} tab` : "";
+    return `Linked to agenda row ${teksBaris(lokasi.bagian.event_date, lokasi.baris.start_time, lokasi.baris.title)}${tab}`;
+  };
 
   const daftar = (
     <Pane aria-label="Bus trips">
@@ -372,6 +393,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas }: TabProps
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="text-on-surface">{agenda.name}</span>
+                      {agenda.rundown_item_id !== null ? <StatusChip tone="neutral" title={keteranganChip(agenda)}>Agenda</StatusChip> : null}
                       {!agenda.follows_default ? <StatusChip tone="neutral">Own list</StatusChip> : null}
                       {lebih ? <StatusChip dot tone="error">Bus over capacity</StatusChip> : null}
                     </span>
@@ -400,6 +422,8 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas }: TabProps
     const isi = muatan(agenda);
     const total = isi.reduce((jumlah, baris) => jumlah + baris.load, 0);
     const lebih = isi.filter((baris) => baris.over_capacity);
+    const lokasi = lokasiTrip(agenda);
+    const selisih = lokasi && agenda.depart_at ? selisihMenit(keInputWaktu(agenda.depart_at, zone), lokasi.bagian.event_date, lokasi.baris.start_time) : null;
     return (
       <Pane as="aside" aria-label={`Trip ${agenda.name} details`}>
         <KepalaDetail
@@ -416,6 +440,44 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas }: TabProps
                 {lebih.map((baris) => busById.get(baris.vehicle_id)?.code).join(", ")} over capacity on this trip. Move some passengers to another bus.
               </Banner>
             </div>
+          ) : null}
+          {/* Tautannya disunting di dialog Edit; Agenda hanya dibuka untuk barisnya. */}
+          {siapTautan ? (
+            <DetailSection
+              title="Agenda row"
+              action={lokasi ? (
+                <Link href={hrefBarisAgenda(lokasi)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-sm text-body-medium font-medium text-primary hover:underline">
+                  Edit in Agenda
+                  <ArrowSquareOut size={14} aria-hidden />
+                  <span className="sr-only">(new tab)</span>
+                </Link>
+              ) : null}
+            >
+              {agenda.rundown_item_id === null ? (
+                <p className="text-body-medium text-on-surface-variant">Not linked. Pick a row under Edit so participants see their bus on it in their schedule.</p>
+              ) : (
+                // Satu wadah untuk semua keadaan tautan: fokus dari Reload tetap
+                // di sini saat tombolnya hilang bersama pesan gagalnya.
+                <div ref={kotakTautan} tabIndex={-1} className="text-body-medium outline-none">
+                  {lokasi ? (
+                    <>
+                      <p className="text-on-surface">{teksBaris(lokasi.bagian.event_date, lokasi.baris.start_time, lokasi.baris.title)}</p>
+                      {ganda(lokasi.bagian.event_date) ? <p className="text-on-surface-variant">In the {lokasi.bagian.name.trim()} tab.</p> : null}
+                      {selisih !== null ? <p className="text-on-surface-variant">{keteranganTrip(selisih)}</p> : null}
+                    </>
+                  ) : agendaTrip.memuat ? (
+                    <p className="text-on-surface-variant">Loading agenda…</p>
+                  ) : agendaTrip.agenda ? (
+                    <p className="text-on-surface-variant">This row is no longer in the agenda. Reload the page.</p>
+                  ) : (
+                    <p className="text-on-surface-variant">
+                      Agenda failed to load.{" "}
+                      <button type="button" onClick={() => { kotakTautan.current?.focus(); agendaTrip.muatUlang(); }} className="font-medium text-primary underline">Reload</button>
+                    </p>
+                  )}
+                </div>
+              )}
+            </DetailSection>
           ) : null}
           <DetailSection>
             <Switch simpan
@@ -527,6 +589,9 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas }: TabProps
 
       <FormAgenda
         agenda={baru ? agendaBaru : ubah}
+        trips={data.trips}
+        siapTautan={siapTautan}
+        agendaTrip={agendaTrip}
         busy={busy}
         zone={zone}
         onClose={() => { setUbah(null); tutupBaru(); }}
@@ -561,30 +626,111 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas }: TabProps
 
 type NilaiAgenda = Omit<Agenda, "id" | "sort_order">;
 
-function FormAgenda({ agenda, busy, zone, onClose, simpan }: {
+/**
+ * Dialog New trip / Edit trip.
+ *
+ * Kolom pertama, Agenda row, menautkan trip ke satu baris Agenda. Memilih
+ * baris mengisi Trip name dan Departs selama keduanya kosong atau masih berisi
+ * isian baris sebelumnya (Edit trip tertaut: baris tautannya); yang sudah
+ * diketik tidak ditimpa, dan petunjuk di bawah Departs menyebut selisihnya
+ * terhadap baris itu (12 jam atau lebih: peringatan dengan tombol perbaikan,
+ * simpan tetap boleh). Sebelum migrasi 202610170002 kolom itu diganti catatan.
+ *
+ * Edit hanya mengirim kolom yang berubah: jam trip tertaut bisa digeser dari
+ * Agenda (pemicu database) sejak dialog ini dibuka, dan simpanan yang tidak
+ * menyentuh Departs tidak boleh mengembalikannya ke jam lama.
+ */
+function FormAgenda({ agenda, trips, siapTautan, agendaTrip, busy, zone, onClose, simpan }: {
   /** `id` 0 = agenda baru. Null = dialog tertutup. */
   agenda: Agenda | null;
+  /** Semua trip acara ini: "Used by" di pemilih baris dan petunjuk nama yang mirip. */
+  trips: Agenda[];
+  /** false = kolom tautan Agenda belum ada di database (`trip_agenda_ready`). */
+  siapTautan: boolean;
+  agendaTrip: AgendaTrip;
   busy: boolean;
   zone: ReturnType<typeof useEventTimeZone>["zone"];
   onClose: () => void;
-  simpan: (nilai: NilaiAgenda, id?: number) => Promise<boolean>;
+  simpan: (nilai: Partial<NilaiAgenda>, id?: number) => Promise<boolean>;
 }) {
   const awal = {
+    rundown_item_id: agenda?.rundown_item_id ?? null,
     name: agenda?.name ?? "", depart_at: keInputWaktu(agenda?.depart_at ?? null, zone), origin: agenda?.origin ?? "",
     destination: agenda?.destination ?? "", meeting_point: agenda?.meeting_point ?? "", follows_default: agenda?.follows_default ?? true,
   };
   const [draf, setDraf] = useState<typeof awal | null>(null);
+  // Isian terakhir dari baris Agenda. Kolom yang masih sama dengan ini belum
+  // diubah tangan, jadi boleh diganti saat baris lain dipilih. Sebelum ada
+  // pilihan di dialog ini, isiannya dari baris tautan trip (Edit): jam yang
+  // masih sama dengan jam mulai baris itu ikut pindah ke baris baru.
+  const [isian, setIsian] = useState<{ name: string; depart_at: string } | null>(null);
+  const kolomBerangkat = useRef<HTMLDivElement | null>(null);
   const nilai = draf ?? awal;
-  function tutup() { setDraf(null); onClose(); }
+  function tutup() { setDraf(null); setIsian(null); onClose(); }
   const lama = agenda && agenda.id > 0 ? agenda : null;
   const sah = Boolean(nilai.name.trim());
 
+  const lain = trips.filter((trip) => trip.id !== lama?.id);
+  const dipakai = new Map<number, string[]>();
+  for (const trip of lain) {
+    if (trip.rundown_item_id !== null) dipakai.set(trip.rundown_item_id, [...(dipakai.get(trip.rundown_item_id) ?? []), trip.name]);
+  }
+  const lokasiDari = (id: number | null) => (id !== null ? agendaTrip.agenda?.peta.baris.get(id) ?? null : null);
+  const isianDari = (pilihan: NonNullable<ReturnType<typeof lokasiDari>>) => ({
+    name: pilihan.baris.title.trim(),
+    depart_at: `${pilihan.bagian.event_date}T${jamPendek(pilihan.baris.start_time)}`,
+  });
+  const lokasi = lokasiDari(nilai.rundown_item_id);
+  const lokasiAwal = lokasiDari(awal.rundown_item_id);
+  const isianKini = isian ?? (lokasiAwal ? isianDari(lokasiAwal) : null);
+  // Baris yang sama di Batch 1 dan Batch 2 mengisi nama yang sama: petunjuknya
+  // menyebut trip yang sudah ada sebagai contoh pembeda, bukan menebaknya.
+  const namaLain = namaMirip(nilai.name, lain.map((trip) => trip.name));
+  const petunjukJam = lokasi && nilai.depart_at ? petunjukBerangkat(nilai.depart_at, lokasi.bagian.event_date, lokasi.baris.start_time) : null;
+
+  function pilihBaris(id: number | null) {
+    const pilihan = lokasiDari(id);
+    if (!pilihan) {
+      setDraf({ ...nilai, rundown_item_id: id });
+      return;
+    }
+    const isi = isianDari(pilihan);
+    setDraf({
+      ...nilai,
+      rundown_item_id: id,
+      name: !nilai.name.trim() || nilai.name === isianKini?.name ? isi.name : nilai.name,
+      depart_at: !nilai.depart_at || nilai.depart_at === isianKini?.depart_at ? isi.depart_at : nilai.depart_at,
+    });
+    setIsian(isi);
+  }
+
+  function perbaikiJam(isi: string) {
+    setDraf({ ...nilai, depart_at: isi });
+    // Tombolnya hilang bersama peringatannya; fokus pindah ke kolom yang baru diperbaiki.
+    window.requestAnimationFrame(() => kolomBerangkat.current?.querySelector("input")?.focus());
+  }
+
+  const bentuk = (isi: typeof awal): NilaiAgenda => ({
+    rundown_item_id: isi.rundown_item_id,
+    name: isi.name.trim(), depart_at: dariInputWaktu(isi.depart_at, zone), origin: isi.origin.trim() || null,
+    destination: isi.destination.trim() || null, meeting_point: isi.meeting_point.trim() || null, follows_default: isi.follows_default,
+  });
+
   async function kirimForm() {
     if (!sah) return;
-    const ok = await simpan({
-      name: nilai.name.trim(), depart_at: dariInputWaktu(nilai.depart_at, zone), origin: nilai.origin.trim() || null,
-      destination: nilai.destination.trim() || null, meeting_point: nilai.meeting_point.trim() || null, follows_default: nilai.follows_default,
-    }, lama?.id);
+    const isi = bentuk(nilai);
+    let ok: boolean;
+    if (lama) {
+      const semula = bentuk(awal);
+      const berubah = Object.fromEntries(Object.entries(isi).filter(([kolom, isiKolom]) => isiKolom !== semula[kolom as keyof NilaiAgenda])) as Partial<NilaiAgenda>;
+      if (Object.keys(berubah).length === 0) { tutup(); return; }
+      ok = await simpan(berubah, lama.id);
+    } else {
+      // Trip baru tanpa baris tidak menyebut kolom tautannya: kolom itu belum
+      // ada sebelum migrasi 202610170002, dan trip seperti ini harus tetap tersimpan.
+      const { rundown_item_id: tautan, ...tanpaTautan } = isi;
+      ok = await simpan(tautan === null ? tanpaTautan : isi);
+    }
     if (ok) tutup();
   }
 
@@ -596,16 +742,54 @@ function FormAgenda({ agenda, busy, zone, onClose, simpan }: {
       title={lama ? `Edit ${lama.name}` : "New trip"}
       icon={<CalendarDots size={20} />}
       description="The name, time and meeting point appear in the participant area with the bus name."
+      // Dengan kolom Agenda row dialog ini melewati 90dvh di 1280x588: judul dan
+      // tombol tetap, hanya isinya yang bergulir.
+      scrollBody
       actions={
         <>
+          {/* Alasan tombol utama mati, di sampingnya. Kosong saat tombolnya hidup. */}
+          <span className="mr-auto self-center text-body-medium text-on-surface-variant empty:hidden" aria-live="polite">{sah ? "" : siapTautan ? "Pick a row or enter a name" : "Enter a name"}</span>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
           <Button simpan type="submit" form="form-agenda" loading={busy} disabled={!sah}>{lama ? "Save trip" : "Add trip"}</Button>
         </>
       }
     >
-      <form id="form-agenda" className="grid grid-cols-2 gap-4" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
-        <TextField label="Trip name" placeholder="e.g. Hotel to venue" autoFocus value={nilai.name} onChange={(event) => setDraf({ ...nilai, name: event.target.value })} className="col-span-2" />
-        <TextField label="Departs" optional type="datetime-local" value={nilai.depart_at} onChange={(event) => setDraf({ ...nilai, depart_at: event.target.value })} className="col-span-2" />
+      <form id="form-agenda" className="grid grid-cols-2 gap-4 pt-5" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
+        {siapTautan ? (
+          <PilihBarisAgenda value={nilai.rundown_item_id} onChange={pilihBaris} agendaTrip={agendaTrip} dipakai={dipakai} />
+        ) : (
+          // Sama dengan Outfit di Agenda: tanpa kolomnya, tidak ada kontrol yang bisa dipakai lalu gagal saat disimpan.
+          <p className="col-span-2 text-body-medium text-on-surface-variant">Linking a trip to an Agenda row needs a database update first (migration 202610170002).</p>
+        )}
+        {/* Fokus awal tetap di Trip name, seperti sebelum ada Agenda row: trip
+            tanpa baris langsung diketik, dan pemilihnya satu Shift+Tab di atas. */}
+        <TextField
+          label="Trip name"
+          placeholder="e.g. Hotel to venue"
+          autoFocus
+          value={nilai.name}
+          hint={namaLain ? <>Another trip is named <span className="font-medium text-on-surface">{namaLain}</span>. Add what tells the two apart.</> : undefined}
+          onChange={(event) => setDraf({ ...nilai, name: event.target.value })}
+          className="col-span-2"
+        />
+        <div ref={kolomBerangkat} className="col-span-2">
+          <TextField
+            label="Departs"
+            optional
+            type="datetime-local"
+            value={nilai.depart_at}
+            warning={petunjukJam?.jenis === "peringatan"}
+            hint={petunjukJam?.teks}
+            // Tombol perbaikan di samping peringatan, bukan di dalamnya: kolom
+            // ini dibacakan dengan kalimat peringatannya saja.
+            hintAction={petunjukJam?.jenis === "peringatan" ? (
+              <button type="button" onClick={() => perbaikiJam(petunjukJam.nilai)} className="inline-flex min-h-10 shrink-0 items-center rounded-sm text-body-medium font-semibold text-primary hover:underline">
+                {petunjukJam.tombol}
+              </button>
+            ) : undefined}
+            onChange={(event) => setDraf({ ...nilai, depart_at: event.target.value })}
+          />
+        </div>
         <TextField label="From" optional value={nilai.origin} onChange={(event) => setDraf({ ...nilai, origin: event.target.value })} className="max-sm:col-span-2" />
         <TextField label="To" optional value={nilai.destination} onChange={(event) => setDraf({ ...nilai, destination: event.target.value })} className="max-sm:col-span-2" />
         <TextField label="Meeting point" optional placeholder="e.g. Main lobby" value={nilai.meeting_point} onChange={(event) => setDraf({ ...nilai, meeting_point: event.target.value })} className="col-span-2" />

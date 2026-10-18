@@ -97,6 +97,7 @@ import {
 } from "@/components/member/portal-horizon";
 import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
+import { pencocokBarisTrip } from "@/lib/member/trip-jadwal";
 import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
 import { HtmlLang } from "@/components/html-lang";
 import { gabungMeta } from "@/lib/typography";
@@ -737,16 +738,11 @@ export async function DashboardGathering({
     const hrefBagian = (indeks: number) => keTab("jadwal", { hari: String(indeks + 1) });
     // Satu bentuk tanggal dan satu catatan zona waktu untuk seluruh halaman (U-24).
     judulHorizon = { alis: nama, judul: t.schedule, catatan: catatanJadwal };
-    // Perjalanan bus peserta yang berangkat pada butir ini (tanggal dan jam sama): tautan ke Perjalanan (U-08).
-    const jamTrip = new Set(
-      (logistik?.transport?.trips ?? [])
-        .filter((trip) => trip.bus && trip.depart_at)
-        .map((trip) => {
-          const waktu = sekarangDi(zona, new Date(trip.depart_at!));
-          return `${waktu.tanggal} ${waktu.menit}`;
-        }),
-    );
-    const adaTrip = (tanggalBagian: string | null, item: AgendaItem) => adaPerjalanan && tanggalBagian !== null && jamTrip.has(`${tanggalBagian} ${menitDari(item.time)}`);
+    // Perjalanan bus peserta di butir ini: tautan ke Perjalanan (U-08). Trip yang
+    // ditautkan ke baris Agenda menunjuk barisnya lewat id; trip tanpa tautan
+    // tetap lewat tanggal dan jam yang sama.
+    const barisTrip = pencocokBarisTrip(logistik?.transport?.trips ?? [], (iso) => sekarangDi(zona, new Date(iso)));
+    const adaTrip = (tanggalBagian: string | null, item: AgendaItem) => adaPerjalanan && barisTrip(tanggalBagian, item);
     isi =
       agenda.length === 0 ? (
         <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noSchedule}</p>

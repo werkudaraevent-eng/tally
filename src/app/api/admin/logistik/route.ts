@@ -1,8 +1,8 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { EventLandingConfig, RegistrationFormConfig } from "@/lib/domain";
-import { bacaTiketKereta, klien, semuaBaris } from "@/lib/logistik/server";
-import type { LogistikData, LogistikField } from "@/lib/logistik/types";
+import { bacaTiketKereta, klien, kolomBelumAda, semuaBaris } from "@/lib/logistik/server";
+import type { Agenda, LogistikData, LogistikField } from "@/lib/logistik/types";
 
 /**
  * Seluruh logistik acara dalam satu jawaban: kamar, bus, agenda, barang, dan
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const eventId = auth.scope.event.id;
   const db = klien();
 
-  const [settings, hotels, rooms, vehicles, trips, items, overview, recap, sesiBarang] = await Promise.all([
+  const [settings, hotels, rooms, vehicles, trips, items, overview, recap, sesiBarang, ujiTautan] = await Promise.all([
     db.from("lodging_settings").select("gender_field_key,enforce_same_gender").eq("event_id", eventId).maybeSingle(),
     db.from("lodging_hotels").select("id,name,address,map_url,check_in_at,check_out_at,sort_order").eq("event_id", eventId)
       .order("sort_order").order("id"),
@@ -27,13 +27,19 @@ export async function GET(request: Request) {
       .order("hotel_id").order("room_number"),
     db.from("transport_vehicles").select("id,code,capacity,plate_number,crew_contact,sort_order").eq("event_id", eventId)
       .order("sort_order").order("id"),
-    db.from("transport_trips").select("id,name,depart_at,origin,destination,meeting_point,follows_default,sort_order")
+    // `*`, bukan daftar kolom: rundown_item_id (migrasi 202610170002) belum ada
+    // sebelum migrasinya dijalankan, dan menyebutnya menggagalkan seluruh
+    // halaman Logistik. Bentuk jawabannya disusun di bawah.
+    db.from("transport_trips").select("*")
       .eq("event_id", eventId).order("sort_order").order("depart_at", { nullsFirst: false }).order("id"),
     db.from("pickup_items").select("id,name,size_field_key,pickup_note,sort_order").eq("event_id", eventId)
       .order("sort_order").order("id"),
     db.rpc("transport_overview" as never, { p_event_id: eventId } as never),
     db.rpc("pickup_item_recap" as never, { p_event_id: eventId } as never),
     db.from("attendance_session_items").select("item_id,session_id,attendance_sessions(name)").eq("event_id", eventId),
+    // Penguji kolom tautan Agenda. Baris trip tidak bisa dipakai untuk ini:
+    // acara tanpa trip tidak punya baris yang menunjukkan kolomnya ada.
+    db.from("transport_trips").select("rundown_item_id").eq("event_id", eventId).limit(1),
   ]);
 
   const [peserta, lodging, transport] = await Promise.all([
@@ -46,7 +52,10 @@ export async function GET(request: Request) {
       db.from("transport_assignments").select("trip_id,vehicle_id,participant_id").eq("event_id", eventId).order("id")),
   ]);
 
-  const gagal = [settings, hotels, rooms, vehicles, trips, items, overview, recap, sesiBarang].some((hasil) => hasil.error);
+  // Kolom tautan Agenda yang belum ada (migrasi 202610170002) bukan kegagalan:
+  // trip tetap bisa diatur, hanya belum bisa ditautkan (`trip_agenda_ready`).
+  const gagal = [settings, hotels, rooms, vehicles, trips, items, overview, recap, sesiBarang].some((hasil) => hasil.error)
+    || (ujiTautan.error !== null && !kolomBelumAda(ujiTautan.error));
   if (gagal || !peserta || !lodging || !transport) return apiError("INTERNAL_ERROR", 500);
 
   const kereta = await bacaTiketKereta(eventId);
@@ -92,7 +101,17 @@ export async function GET(request: Request) {
     rooms: (rooms.data ?? []) as LogistikData["rooms"],
     lodging,
     vehicles: (vehicles.data ?? []) as LogistikData["vehicles"],
-    trips: (trips.data ?? []) as LogistikData["trips"],
+    trips: ((trips.data ?? []) as unknown as Array<Omit<Agenda, "rundown_item_id"> & { rundown_item_id?: number | null }>).map((trip) => ({
+      id: trip.id,
+      name: trip.name,
+      depart_at: trip.depart_at,
+      origin: trip.origin,
+      destination: trip.destination,
+      meeting_point: trip.meeting_point,
+      follows_default: trip.follows_default,
+      sort_order: trip.sort_order,
+      rundown_item_id: trip.rundown_item_id ?? null,
+    })),
     transport,
     // bigint dari RPC bisa tiba sebagai string; dirapikan di sini supaya
     // halaman tidak menjumlahkan "3" + "2" menjadi "32".
@@ -105,6 +124,7 @@ export async function GET(request: Request) {
       .map((baris) => ({ item_id: baris.item_id, session_id: baris.session_id, session_name: baris.attendance_sessions?.name ?? "" })),
     trains: kereta ?? [],
     trains_ready: kereta !== null,
+    trip_agenda_ready: ujiTautan.error === null,
     bus_shown: {
       plate: anggota?.show_bus_plate === true,
       crew: anggota?.show_bus_crew === true,

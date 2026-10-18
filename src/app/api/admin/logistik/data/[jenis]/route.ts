@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { idDariQuery, klien, KOLOM_KERETA } from "@/lib/logistik/server";
+import type { ApiErrorCode } from "@/lib/domain";
+import { idDariQuery, klien, kolomBelumAda, KOLOM_KERETA } from "@/lib/logistik/server";
 import { plural } from "@/lib/plural";
 
 /**
@@ -34,7 +35,19 @@ type Jenis = {
    * membuang penempatan orang tidak bisa dikembalikan dari layar mana pun.
    */
   tahanHapus?: (eventId: string, id: number) => Promise<string | null>;
+  /**
+   * Kolom dari migrasi yang mungkin belum dijalankan di database ini. Saat
+   * membuat baris, nilai kosongnya tidak dikirim (bawaan kolomnya juga null),
+   * jadi baris tanpa isian ini tetap tersimpan sebelum migrasinya. Isian yang
+   * ditolak karena kolomnya belum ada dijawab 409 dengan `kode`.
+   */
+  kolomBaru?: { nama: string; kode: ApiErrorCode };
+  /** Pemeriksaan yang butuh database sebelum menulis, mis. induk milik acara yang sama. Respons galat, atau null. */
+  periksa?: (eventId: string, nilai: Record<string, unknown>) => Promise<Response | null>;
 };
+
+/** Baris Agenda tautan trip tidak ada di acara ini: sudah dihapus, atau id acara lain. */
+const BARIS_AGENDA_HILANG = "This agenda row was not found in this event. Reload the page, then pick the row again.";
 
 const JENIS: Record<string, Jenis> = {
   hotel: {
@@ -101,7 +114,9 @@ const JENIS: Record<string, Jenis> = {
   },
   agenda: {
     tabel: "transport_trips",
-    kolom: "id,name,depart_at,origin,destination,meeting_point,follows_default,sort_order",
+    // `*`, bukan daftar kolom: rundown_item_id belum ada sebelum migrasi
+    // 202610170002, dan menyebutnya di select menggagalkan setiap simpanan.
+    kolom: "*",
     skema: z.object({
       name: z.string().trim().min(1).max(120),
       depart_at: waktu,
@@ -110,7 +125,20 @@ const JENIS: Record<string, Jenis> = {
       meeting_point: teks(200),
       follows_default: z.boolean(),
       sort_order: urutan,
+      // Baris Agenda (rundown_items.id) tempat trip ini ditautkan. null = lepas tautan.
+      rundown_item_id: z.number().int().positive().nullable().optional(),
     }),
+    kolomBaru: { nama: "rundown_item_id", kode: "TRIP_AGENDA_NOT_READY" },
+    // FK komposit (event_id, rundown_item_id) menolak baris acara lain, atau
+    // baris yang terhapus di antara pemeriksaan di bawah dan penulisan.
+    indukHilang: BARIS_AGENDA_HILANG,
+    periksa: async (eventId, nilai) => {
+      const id = nilai.rundown_item_id;
+      if (typeof id !== "number") return null;
+      const { data, error } = await klien().from("rundown_items").select("id").eq("event_id", eventId).eq("id", id).maybeSingle();
+      if (error) return apiError("INTERNAL_ERROR", 500);
+      return data ? null : apiError("VALIDATION_ERROR", 422, { message: BARIS_AGENDA_HILANG });
+    },
     // Agenda boleh dihapus walau punya pengganti: penggantinya memang hanya
     // berarti untuk agenda itu, dan bus bawaan peserta tidak tersentuh.
   },
@@ -162,7 +190,10 @@ async function jenisDari(context: Konteks) {
   return Object.hasOwn(JENIS, jenis) ? JENIS[jenis] : null;
 }
 
-function galatTulis(jenis: Jenis, error: { code?: string | number }) {
+function galatTulis(jenis: Jenis, error: { code?: string | number }, nilai: Record<string, unknown>) {
+  if (jenis.kolomBaru && kolomBelumAda(error) && jenis.kolomBaru.nama in nilai) {
+    return apiError(jenis.kolomBaru.kode, 409);
+  }
   if (String(error.code) === "23505" && jenis.ganda) return apiError("VALIDATION_ERROR", 422, { message: jenis.ganda });
   if (String(error.code) === "23503" && jenis.indukHilang) return apiError("VALIDATION_ERROR", 422, { message: jenis.indukHilang });
   // Pelanggaran check constraint (kapasitas di luar rentang) sudah ditahan Zod;
@@ -178,13 +209,18 @@ export async function POST(request: Request, context: Konteks) {
 
   const parsed = jenis.skema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+  const nilai: Record<string, unknown> = { ...parsed.data };
+  if (jenis.kolomBaru && nilai[jenis.kolomBaru.nama] == null) delete nilai[jenis.kolomBaru.nama];
+
+  const tolak = await jenis.periksa?.(auth.scope.event.id, nilai);
+  if (tolak) return tolak;
 
   const { data, error } = await klien()
     .from(jenis.tabel)
-    .insert({ ...parsed.data, event_id: auth.scope.event.id } as never)
+    .insert({ ...nilai, event_id: auth.scope.event.id } as never)
     .select(jenis.kolom)
     .single();
-  if (error) return galatTulis(jenis, error);
+  if (error) return galatTulis(jenis, error, nilai);
   return Response.json(data);
 }
 
@@ -200,6 +236,9 @@ export async function PATCH(request: Request, context: Konteks) {
   const { id, ...patch } = parsed.data as { id: number } & Record<string, unknown>;
   if (Object.keys(patch).length === 0) return apiError("VALIDATION_ERROR", 422);
 
+  const tolak = await jenis.periksa?.(auth.scope.event.id, patch);
+  if (tolak) return tolak;
+
   const { data, error } = await klien()
     .from(jenis.tabel)
     .update({ ...patch, updated_at: new Date().toISOString() } as never)
@@ -209,7 +248,7 @@ export async function PATCH(request: Request, context: Konteks) {
     .eq("event_id", auth.scope.event.id)
     .select(jenis.kolom)
     .maybeSingle();
-  if (error) return galatTulis(jenis, error);
+  if (error) return galatTulis(jenis, error, patch);
   if (!data) return apiError("VALIDATION_ERROR", 404, { message: "This no longer exists. Reload the page." });
   return Response.json(data);
 }
