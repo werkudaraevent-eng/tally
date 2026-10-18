@@ -13,6 +13,7 @@ import {
   MagnifyingGlass,
   Printer,
   QrCode,
+  Scan,
   SpeakerHigh,
   SignOut,
   SpeakerSlash,
@@ -55,6 +56,7 @@ import { LembarScan, PilihMeja } from "./lembar-meja";
 import { usePemindaiKeyboard } from "./pemindai-keyboard";
 import { ResultSheet, TUTUP_OTOMATIS_MS } from "./result-sheet";
 import { bacaSuara, bukaSuara, bunyikan, simpanSuara } from "./umpan-balik";
+import { TampilQrCheckpoint } from "./tampil-qr";
 import { WalkinDialog } from "./walkin-dialog";
 import {
   FORM_KOSONG,
@@ -347,6 +349,13 @@ export default function ScanClient() {
   const [username, setUsername] = useState("");
   const [mode, setMode] = useState<Mode>("qr");
   const [scanning, setScanning] = useState(false);
+  // Show QR (scan mandiri) yang dipilih petugas per sesi. Bawaan: QR tampil,
+  // karena sesi itu memang disiapkan untuk dipindai peserta sendiri.
+  const [pilihTampilQr, setPilihTampilQr] = useState<Record<number, boolean>>({});
+  const mandiri = sessions.find((sesi) => sesi.id === sessionId)?.self_scan ?? null;
+  const tampilQr = mode === "qr" && sessionId !== null && (mandiri === "self" || (mandiri === "both" && (pilihTampilQr[sessionId] ?? true)));
+  // Kamera tidak menyala di belakang QR yang sedang ditampilkan.
+  const kamera = scanning && !tampilQr;
   const [hasil, setHasil] = useState<Hasil | null>(null);
   // Naik satu setiap ada jawaban baru. Dipakai sebagai `key` lembar hasil supaya
   // ia benar-benar berkedip sekali: dua tamu berturut-turut yang sama-sama
@@ -894,10 +903,10 @@ export default function ScanClient() {
 
   // Pemindai genggam yang mengetik kodenya, aktif selama tab Pindai QR terbuka,
   // termasuk saat lembar hasil menutupi layar.
-  usePemindaiKeyboard(mode === "qr" && !dialogWalkIn, (kode) => terbacaRef.current(kode, true), KOLOM_KODE);
+  usePemindaiKeyboard(mode === "qr" && !dialogWalkIn && !tampilQr, (kode) => terbacaRef.current(kode, true), KOLOM_KODE);
 
   useEffect(() => {
-    if (!scanning || mode !== "qr" || !videoRef.current) return;
+    if (!kamera || mode !== "qr" || !videoRef.current) return;
     // Hanya QR: membuang format lain memangkas kerja tiap frame. Jeda 150 ms,
     // bukan 500 ms bawaan zxing; lebih rapat lagi memanaskan Android murah.
     const petunjuk = new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]]]);
@@ -938,7 +947,7 @@ export default function ScanClient() {
       kontrolKameraRef.current = null;
       setSenter({ ada: false, nyala: false });
     };
-  }, [mode, scanning]);
+  }, [mode, kamera]);
 
   /**
    * Layar tidak meredup selama kamera menyala.
@@ -949,7 +958,7 @@ export default function ScanClient() {
    * saat itu, dan "Nyalakan kamera" memintanya lagi.
    */
   useEffect(() => {
-    if (!scanning) return;
+    if (!kamera) return;
     let kunci: { release: () => Promise<void> } | null = null;
     let lepas = false;
     const wl = (navigator as Navigator & { wakeLock?: { request: (jenis: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock;
@@ -957,7 +966,7 @@ export default function ScanClient() {
       .then((k) => { if (lepas) void k.release(); else kunci = k; })
       .catch(() => { /* ditolak atau tidak didukung: layar meredup seperti biasa */ });
     return () => { lepas = true; void kunci?.release().catch(() => {}); };
-  }, [scanning]);
+  }, [kamera]);
 
   async function gantiSenter() {
     const kontrol = kontrolKameraRef.current;
@@ -1473,7 +1482,7 @@ export default function ScanClient() {
             panjang tidak boleh melebarkan seluruh halaman. */}
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0 space-y-3">
-            {mode !== "riwayat" ? stripHadir : null}
+            {mode !== "riwayat" && !tampilQr ? stripHadir : null}
 
             {/* Di layar lebar tab tetap di atas panggung; di ponsel perannya
                 diambil navigasi bawah, yang terjangkau jempol. */}
@@ -1491,7 +1500,28 @@ export default function ScanClient() {
               />
             </div>
 
-            {mode === "qr" ? (
+            {mode === "qr" && mandiri === "both" && sessionId !== null ? (
+              // Seperti aplikasi kasir QRIS: memindai pembeli, atau menampilkan kode.
+              <SegmentedButton<"pindai" | "tampil">
+                label="Checkpoint mode"
+                size="lg"
+                value={tampilQr ? "tampil" : "pindai"}
+                onChange={(nilai) => {
+                  if (nilai === "tampil") setScanning(false);
+                  setPilihTampilQr((lama) => ({ ...lama, [sessionId]: nilai === "tampil" }));
+                }}
+                options={[
+                  { value: "pindai", label: "Scan participant", icon: <Scan size={20} aria-hidden /> },
+                  { value: "tampil", label: "Show QR", icon: <QrCode size={20} aria-hidden /> },
+                ]}
+              />
+            ) : null}
+
+            {tampilQr && sessionId !== null ? (
+              <div role="region" aria-label="Checkpoint QR">
+                <TampilQrCheckpoint key={sessionId} sesiId={sessionId} terdaftar={terdaftar} />
+              </div>
+            ) : mode === "qr" ? (
               <div role="tabpanel" id="mode-panel-qr" aria-label="Scan QR">
                 {/* 4:5 di ponsel, setinggi sisa layar di antara strip hadir dan
                     navigasi bawah. Tablet dan layar lebar tetap 4:3 dan 16:9. */}

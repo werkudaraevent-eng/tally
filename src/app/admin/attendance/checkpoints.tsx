@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag, Plus, Target, WarningCircle, X, XCircle } from "@phosphor-icons/react";
+import { ArrowSquareOut, Flag, Plus, QrCode, Target, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
@@ -18,6 +18,11 @@ import { cx } from "@/lib/m3/cx";
  * (tab Sessions) atau satu barang yang diserahkan (Logistics > Kit items).
  * Tidak ada pemindai baru; petugas tetap memakai /scan seperti biasa.
  *
+ * Scan mandiri (migrasi 202610180001): checkpoint sesi bisa diselesaikan
+ * peserta sendiri dengan memindai QR yang ditampilkan panitia (Show QR di /scan
+ * atau layar /checkpoint-qr), seperti QRIS dinamis. Checkpoint barang tetap
+ * dipindai panitia.
+ *
  * Setelan di sini satu-satunya: "Show in participant area" menyalakan kartu di
  * Dashboard saya dan catatan di layar scan; urutannya di Beranda diatur di
  * Participant area > Participant home seperti kartu lain. Tujuan poin (E-08)
@@ -34,13 +39,19 @@ type Checkpoint = {
   session_id: number | null;
   item_id: number | null;
   points: number | null;
+  /** Siapa yang memindai (staff, self, both). */
+  completion: Penyelesaian;
   done: number;
 };
+
+type Penyelesaian = "staff" | "self" | "both";
 
 type Muat = {
   settings: { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
   /** Kolom tujuan poin sudah ada (migrasi 202610170001). */
   goal_ready: boolean;
+  /** Kolom scan mandiri sudah ada (migrasi 202610180001). */
+  self_scan_ready?: boolean;
   /** Halaman peserta English menyala: isian English tujuan ikut tampil. */
   en_available: boolean;
   checkpoints: Checkpoint[];
@@ -50,9 +61,19 @@ type Muat = {
   participants: number | null;
 };
 
-type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string };
+type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string; completion: Penyelesaian };
 
-const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "" };
+const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "", completion: "staff" };
+
+const PILIHAN_SELESAI: { value: Penyelesaian; title: string; description: string }[] = [
+  { value: "staff", title: "Staff scan the participant's QR", description: "Same as before." },
+  {
+    value: "self",
+    title: "Participants scan the checkpoint QR",
+    description: "Staff show a QR from the scanner app or a screen at the spot. It changes every 30 seconds, so a forwarded photo stops working.",
+  },
+  { value: "both", title: "Both", description: "Participants scan it themselves. Staff can still scan anyone who has trouble with their phone." },
+];
 
 type FormTujuan = { points: string; reward: string; reward_en: string };
 
@@ -68,6 +89,7 @@ function keForm(cp: Checkpoint): Form {
     place_en: cp.place_en ?? "",
     bukti: cp.session_id ? `s:${cp.session_id}` : cp.item_id ? `i:${cp.item_id}` : "",
     points: cp.points == null ? "" : String(cp.points),
+    completion: cp.completion ?? "staff",
   };
 }
 
@@ -80,6 +102,8 @@ function keIsi(form: Form, poin: boolean) {
     place_en: form.place_en.trim() || null,
     session_id: jenis === "s" ? Number(nomor) : null,
     item_id: jenis === "i" ? Number(nomor) : null,
+    // Barang selalu dipindai panitia: barangnya harus diserahkan orang.
+    completion: jenis === "s" ? form.completion : ("staff" as const),
     // Poin yang mati tidak dihapus: menyalakannya lagi mengembalikan angkanya.
     ...(poin ? { points: form.points.trim() === "" ? null : Math.max(0, Math.min(10000, Math.round(Number(form.points)))) } : {}),
   };
@@ -220,7 +244,10 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const tujuanKetinggian = tujuan !== null && tujuan.points > ditawarkan;
   const namaBukti = (cp: Checkpoint) =>
     cp.session_id
-      ? { jenis: "Scanned at session", nama: data?.sessions.find((s) => s.id === cp.session_id)?.name ?? "Session" }
+      ? {
+          jenis: cp.completion === "self" ? "Participants scan" : cp.completion === "both" ? "Participants or staff scan" : "Scanned at session",
+          nama: data?.sessions.find((s) => s.id === cp.session_id)?.name ?? "Session",
+        }
       : { jenis: "Item handed out", nama: data?.items.find((i) => i.id === cp.item_id)?.name ?? "Kit item" };
   const terpilih = typeof pilih === "number" ? daftar.find((cp) => cp.id === pilih) ?? null : null;
   const posisi = terpilih ? daftar.indexOf(terpilih) : -1;
@@ -325,6 +352,60 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   );
 
   const tanpaPilihan = data && data.sessions.length === 0 && data.items.length === 0;
+  // Sesi tersimpan dengan scan mandiri: tempat QR-nya ditampilkan.
+  const sesiTersimpan = terpilih?.session_id && terpilih.completion !== "staff" && form.bukti === `s:${terpilih.session_id}` && form.completion !== "staff" ? terpilih.session_id : null;
+  const namaSesiTersimpan = sesiTersimpan ? data?.sessions.find((s) => s.id === sesiTersimpan)?.name ?? "this session" : "";
+  // Pola Choice di Lucky draw > Tiket tambahan: kartu radio dengan keterangan.
+  const caraSelesai = (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-2 text-label-large font-semibold text-on-surface">How it gets done</legend>
+      {data && data.self_scan_ready === false ? (
+        <p className="rounded-md bg-surface-container-high px-4 py-2.5 text-body-medium text-on-surface-variant">Staff scan the participant&apos;s QR. Letting participants scan needs a database update first (migration 202610180001).</p>
+      ) : (
+        PILIHAN_SELESAI.map((pilihan) => {
+          const aktif = form.completion === pilihan.value;
+          return (
+            <label
+              key={pilihan.value}
+              className={cx(
+                "flex cursor-pointer items-start gap-3 rounded-md border p-3 text-body-medium",
+                aktif ? "border-2 border-primary bg-primary-soft p-[11px]" : "border-outline-variant",
+              )}
+            >
+              <input
+                type="radio"
+                name="checkpoint-cara"
+                value={pilihan.value}
+                checked={aktif}
+                onChange={() => setForm({ ...form, completion: pilihan.value })}
+                className="mt-0.5 size-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0">
+                <span className="block font-semibold text-on-surface">{pilihan.title}</span>
+                <span className="block text-on-surface-variant">{pilihan.description}</span>
+              </span>
+            </label>
+          );
+        })
+      )}
+      {sesiTersimpan ? (
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface-container px-3 py-2.5">
+          <QrCode size={20} aria-hidden className="shrink-0 text-primary" />
+          <span className="min-w-48 flex-1 text-body-medium text-on-surface-variant">
+            On the scanner app, choose <span className="font-semibold text-on-surface">{namaSesiTersimpan}</span> and tap <span className="font-semibold text-on-surface">Show QR</span>.
+          </span>
+          <Link
+            href={`/checkpoint-qr?s=${sesiTersimpan}`}
+            target="_blank"
+            className="inline-flex min-h-9 items-center gap-1 rounded-sm text-body-medium font-semibold text-primary hover:underline"
+          >
+            Open on a screen
+            <ArrowSquareOut size={16} aria-hidden />
+          </Link>
+        </div>
+      ) : null}
+    </fieldset>
+  );
   const panelCheckpoint = typeof pilih === "number" || pilih === "baru" ? (
     <Pane as="aside" aria-label={pilih === "baru" ? "New checkpoint" : `Checkpoint ${terpilih?.title ?? ""}`}>
       <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
@@ -383,7 +464,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
                 </div>
               </div>
             ) : (
-              <div id="checkpoint-bukti"><SelectField label="Recorded by" error={galatBukti} value={form.bukti} onChange={(event) => setForm({ ...form, bukti: event.target.value })} hint="Staff scan the participant's QR at that session, or hand the item out on the scan screen.">
+              <div id="checkpoint-bukti"><SelectField label="Recorded by" error={galatBukti} value={form.bukti} onChange={(event) => setForm({ ...form, bukti: event.target.value })} hint="The scan session or kit item that marks this step done.">
                 <option value="" disabled>Choose a session or kit item</option>
                 {data && data.sessions.length > 0 ? (
                   <optgroup label="Scanned at session">
@@ -397,6 +478,9 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
                 ) : null}
               </SelectField></div>
             )}
+            {form.bukti.startsWith("s:") ? caraSelesai : form.bukti.startsWith("i:") ? (
+              <p className="text-body-medium text-on-surface-variant">Kit items are handed over by staff, so staff scan them on the scan screen.</p>
+            ) : null}
             {poin ? (
               <TextField
                 label="Points"

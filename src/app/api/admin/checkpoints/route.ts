@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { adaKolomTujuan, bacaTujuan, kolomTujuanBelumAda, rapiTujuan, rewardEnBaru, TUJUAN_POIN_MAX, TUJUAN_TEKS_MAX, type TujuanPoin } from "@/lib/checkpoint/tujuan";
+import { bacaPenyelesaian } from "@/lib/checkpoint/server";
 import { landingEnAvailable } from "@/lib/landing-i18n";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -54,6 +55,9 @@ const isiSchema = z.object({
   session_id: z.number().int().positive().nullish(),
   item_id: z.number().int().positive().nullish(),
   points: z.number().int().min(0).max(10000).nullish(),
+  // Siapa yang memindai (migrasi 202610180001). Tidak dikirim: tidak diubah
+  // (checkpoint baru: staff).
+  completion: z.enum(["staff", "self", "both"]).optional(),
 });
 
 const patchSchema = z.union([
@@ -62,7 +66,26 @@ const patchSchema = z.union([
   isiSchema.extend({ id: z.number().int().positive() }),
 ]);
 
-const PILIH = "id,title,title_en,place,place_en,session_id,item_id,points,sort_order";
+// select *: kolom `completion` baru ada setelah migrasi 202610180001.
+const PILIH = "*";
+
+/** Baris checkpoint untuk CMS: `completion` selalu ada (kolom belum ada = staff). */
+function rapiBaris(baris: Record<string, unknown>) {
+  return { ...baris, completion: bacaPenyelesaian(baris.completion) };
+}
+
+/** Peserta hanya bisa memindai checkpoint sesi: barang harus diserahkan orang. */
+function penyelesaianSah(isi: { session_id?: number | null; completion?: string }) {
+  return !isi.completion || isi.completion === "staff" || Boolean(isi.session_id);
+}
+
+const PESAN_BARANG = "Kit items are handed over by staff, so staff scan them. Choose a scan session to let participants scan.";
+
+/** Kolom `completion` belum ada di database ini (migrasi 202610180001 belum dijalankan). */
+function kolomPenyelesaianBelumAda(error: { code?: string; message?: string }) {
+  const kode = String(error.code ?? "");
+  return (kode === "42703" || kode === "PGRST204") && String(error.message ?? "").includes("completion");
+}
 
 /** Galat database menjadi kalimat yang bisa ditindaklanjuti admin. */
 function galat(error: { code?: string; message?: string }) {
@@ -95,6 +118,7 @@ export async function GET(request: Request) {
   ]);
   if (setelan.error || daftar.error) return galat(setelan.error ?? daftar.error!);
   if (sesi.error || barang.error) return apiError("INTERNAL_ERROR", 500);
+  const barisCp = (daftar.data ?? []) as Record<string, unknown>[];
 
   const s = setelan.data as Record<string, unknown> | null;
   const progres = (angka.error ? null : angka.data) as { done?: Record<string, number>; finished_all?: number; participants?: number } | null;
@@ -106,7 +130,10 @@ export async function GET(request: Request) {
     goal_ready: s ? adaKolomTujuan(s) : true,
     // Halaman peserta English menyala: teks English tujuan dipakai di sana.
     en_available: landingEnAvailable(landing),
-    checkpoints: ((daftar.data ?? []) as { id: number }[]).map((cp) => ({ ...cp, done: progres?.done?.[String(cp.id)] ?? 0 })),
+    checkpoints: barisCp.map((cp) => ({ ...rapiBaris(cp), done: progres?.done?.[String(cp.id)] ?? 0 })),
+    // Kolom scan mandiri sudah ada (migrasi 202610180001). Tanpa checkpoint
+    // belum bisa diketahui: dianggap siap, dan simpan yang gagal dijawab 409.
+    self_scan_ready: barisCp.length === 0 || Object.hasOwn(barisCp[0], "completion"),
     sessions: sesi.data ?? [],
     items: barang.data ?? [],
     finished_all: progres?.finished_all ?? null,
@@ -120,17 +147,25 @@ export async function POST(request: Request) {
   const parsed = isiSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   if (!satuBukti(parsed.data)) return apiError("VALIDATION_ERROR", 422, { message: "Pick exactly one: a scan session or a kit item." });
+  if (!penyelesaianSah(parsed.data)) return apiError("VALIDATION_ERROR", 422, { message: PESAN_BARANG });
   const eventId = auth.scope.event.id;
   const db = getSupabaseServiceClient();
 
   const { data: akhir } = await db.from("checkpoints").select("sort_order").eq("event_id", eventId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+  const { completion, ...isi } = parsed.data;
+  const baris = { ...isi, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, event_id: eventId, sort_order: ((akhir as { sort_order: number } | null)?.sort_order ?? -1) + 1 };
+  // Staff adalah bawaan database, jadi kolomnya hanya ditulis untuk pilihan
+  // lain: menambah checkpoint tetap jalan sebelum migrasi 202610180001.
   const { data, error } = await db
     .from("checkpoints")
-    .insert({ ...parsed.data, session_id: parsed.data.session_id ?? null, item_id: parsed.data.item_id ?? null, event_id: eventId, sort_order: ((akhir as { sort_order: number } | null)?.sort_order ?? -1) + 1 } as never)
+    .insert((completion && completion !== "staff" ? { ...baris, completion } : baris) as never)
     .select(PILIH)
     .single();
-  if (error) return galat(error);
-  return Response.json(data);
+  if (error) {
+    if (kolomPenyelesaianBelumAda(error)) return apiError("CHECKPOINT_SELF_SCAN_NOT_READY", 409);
+    return galat(error);
+  }
+  return Response.json(rapiBaris(data as Record<string, unknown>));
 }
 
 export async function PATCH(request: Request) {
@@ -209,19 +244,31 @@ export async function PATCH(request: Request) {
     return Response.json({ ok: true });
   }
 
-  const { id, ...isi } = parsed.data;
+  const { id, completion, ...isi } = parsed.data;
   if (!satuBukti(isi)) return apiError("VALIDATION_ERROR", 422, { message: "Pick exactly one: a scan session or a kit item." });
-  const { data, error } = await db
-    .from("checkpoints")
-    .update({ ...isi, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, updated_at: sekarang } as never)
-    // event_id ikut disaring: id checkpoint acara lain tidak bisa diubah dari sini.
-    .eq("id", id)
-    .eq("event_id", eventId)
-    .select(PILIH)
-    .maybeSingle();
-  if (error) return galat(error);
+  // Pindah ke barang: checkpoint itu kembali dipindai panitia.
+  const penyelesaian = isi.item_id ? "staff" : completion;
+  if (!penyelesaianSah({ ...isi, completion: penyelesaian })) return apiError("VALIDATION_ERROR", 422, { message: PESAN_BARANG });
+  const ubah = { ...isi, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, updated_at: sekarang };
+  const simpan = (dengan: boolean) =>
+    db
+      .from("checkpoints")
+      .update((dengan ? { ...ubah, completion: penyelesaian } : ubah) as never)
+      // event_id ikut disaring: id checkpoint acara lain tidak bisa diubah dari sini.
+      .eq("id", id)
+      .eq("event_id", eventId)
+      .select(PILIH)
+      .maybeSingle();
+  let { data, error } = await simpan(penyelesaian !== undefined);
+  // Sebelum migrasi 202610180001: Staff (atau pindah ke barang) tetap tersimpan
+  // tanpa kolomnya; pilihan lain dijawab 409.
+  if (error && kolomPenyelesaianBelumAda(error) && penyelesaian === "staff") ({ data, error } = await simpan(false));
+  if (error) {
+    if (kolomPenyelesaianBelumAda(error)) return apiError("CHECKPOINT_SELF_SCAN_NOT_READY", 409);
+    return galat(error);
+  }
   if (!data) return apiError("VALIDATION_ERROR", 404, { message: "This checkpoint no longer exists. Reload the page." });
-  return Response.json(data);
+  return Response.json(rapiBaris(data as Record<string, unknown>));
 }
 
 export async function DELETE(request: Request) {

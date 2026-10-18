@@ -11,7 +11,15 @@ import type { LabelData } from "@/lib/label/layout";
  */
 
 /** `jumlah_barang`: barang yang diperiksa di sesi ini (kaos, goodie bag). Nol = tanpa daftar centang. */
-export type Sesi = { id: number; name: string; slug: string; hadir?: number | null; jumlah_barang?: number };
+export type Sesi = {
+  id: number;
+  name: string;
+  slug: string;
+  hadir?: number | null;
+  jumlah_barang?: number;
+  /** Peserta boleh memindai QR checkpoint sesi ini sendiri (Show QR). Tidak ada: panitia saja. */
+  self_scan?: "self" | "both";
+};
 
 /** Satu baris daftar centang barang, dari `pickup_checklist`. */
 export type BarisBarang = {
