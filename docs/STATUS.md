@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Checkpoint self-scan follow-ups (#208 QA), PR `fix/checkpoint-scan-mandiri-lanjutan`: checkpoints on one scan session must share "How it gets done" (a Staff checkpoint keeps the whole session staff-scanned); ended events refuse participant scans and hide the QR; kit-item rules match between add and edit; switching back to Scan participant turns the camera on. No SQL. Coordinator QA GO; waits on Mas's merge time.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - PR "Kontak darurat" (E-03): emergency contacts filled in Participant area > Emergency and help (name or role, phone, note, map link per contact) with Call, WhatsApp and Map buttons on the portal Menu card; the Participant area preview opens Menu while that form is in use; an existing Columns block keeps working until "Copy into contacts". No SQL. Waiting on QA, then Mas's merge time.
@@ -165,7 +166,6 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
-- #208 QA Lows: a few follow-ups on self-scan validation, tracked privately.
 - Self-scan: the classic and modern checkpoint cards show "Tampilkan QR" next to the scan button only where the dashboard already passes a QR link (modern does not), so Both on modern has no fallback link on the card; the QR stays in the portal's own QR place.
 - #169 L2/L5: the post-check SQL misses grants and constraints, and POST returns 500 before the migration.
 - #172/#173 F4: Sessions tab strings are still Indonesian; F2, a ~120 ms Assignments-to-Kit flash, is accepted.

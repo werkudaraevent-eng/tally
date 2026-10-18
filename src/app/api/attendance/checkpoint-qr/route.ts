@@ -23,6 +23,10 @@ export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["scanner", "admin"]);
   if (auth.response) return auth.response;
   const event = auth.scope.event;
+  // Acara selesai tidak menerima scan peserta lagi: QR-nya tidak ditampilkan.
+  if (event.status === "completed" || event.status === "archived") {
+    return apiError("VALIDATION_ERROR", 404, { message: "This event has ended, so participants can no longer scan checkpoints." });
+  }
   const sesiId = Number(new URL(request.url).searchParams.get("session_id"));
   if (!Number.isSafeInteger(sesiId) || sesiId <= 0) return apiError("VALIDATION_ERROR", 422);
 
