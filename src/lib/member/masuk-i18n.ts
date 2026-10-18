@@ -50,9 +50,9 @@ export type MasukUiText = {
 
 export const MASUK_UI: Record<LandingLang, MasukUiText> = {
   id: {
-    judul: { masuk: "Masuk ke Dashboard saya", tautan: "Kirim tautan ke email", sandi: "Buat kata sandi", kode: "Masuk ke Dashboard saya", verifikasi: "Cek email Anda", kolom: "Masuk ke Dashboard saya" },
+    judul: { masuk: "Masuk ke Dashboard saya", tautan: "Kirim tautan ke email", sandi: "Buat kata sandi", kode: "Masuk ke Dashboard saya", verifikasi: "Cek email", kolom: "Masuk ke Dashboard saya" },
     tutup: "Tutup",
-    untukPertamaKali: "Untuk membuat kata sandi pertama kali, atau bila Anda lupa kata sandi.",
+    untukPertamaKali: "Untuk membuat kata sandi pertama kali, atau bila lupa kata sandi.",
     untuk: (email) => `Untuk ${email}.`,
     emailLabel: "Email pendaftaran",
     emailPlaceholder: "nama@perusahaan.com",
@@ -70,7 +70,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     // Netral untuk ketiga kemungkinan: tautan kata sandi, kabar "akses belum
     // dibuka" (peserta impor yang belum boleh masuk), atau tidak ada apa-apa.
     tautanTerkirim: (email) => `Bila ${email} terdaftar di acara ini, kami sudah mengirim email berisi langkah berikutnya. Periksa juga folder spam.`,
-    koneksi: "Koneksi terputus. Periksa jaringan Anda, lalu coba lagi.",
+    koneksi: "Koneksi terputus. Periksa jaringan, lalu coba lagi.",
     gagalUmum: "Belum berhasil. Coba lagi.",
     alis: "Peserta",
     bantuan: "Butuh bantuan?",
@@ -81,7 +81,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     kirimUlang: "Kirim ulang kode",
     gantiEmail: "Ganti email",
     kodeBaru: "Bila email ini terdaftar, kode baru sedang dikirim. Pakai kode dari email terbaru.",
-    kolomCatatan: "Isi sesuai data yang Anda berikan ke panitia.",
+    kolomCatatan: "Isi sesuai data yang diberikan ke panitia.",
   },
   en: {
     judul: { masuk: "Sign in to My dashboard", tautan: "Email me a link", sandi: "Create a password", kode: "Sign in to My dashboard", verifikasi: "Check your email", kolom: "Sign in to My dashboard" },

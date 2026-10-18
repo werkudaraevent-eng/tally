@@ -181,7 +181,7 @@ export type LangkahPeserta = {
 };
 
 export type CheckpointPeserta = {
-  /** Nama barang yang sudah menjadi checkpoint: kartu "Barang untuk Anda" tidak mengulangnya. */
+  /** Nama barang yang sudah menjadi checkpoint: kartu "Barang yang disiapkan" tidak mengulangnya. */
   item_names: string[];
   points: boolean;
   steps: LangkahPeserta[];

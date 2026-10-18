@@ -245,7 +245,7 @@ export default async function AreaPesertaPage({
 
                 {tampilKursi ? (
                   <div className={tampilKode ? "mt-8 border-t border-[var(--reg-outline-variant)] pt-6" : ""}>
-                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Kursi Anda</h2>
+                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Kursi</h2>
                     {kursi.length > 0 ? (
                       <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                         {kursi.map((seat, index) => (

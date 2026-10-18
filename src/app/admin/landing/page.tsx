@@ -1182,7 +1182,7 @@ export default function LandingCmsPage() {
           <div className="flex items-start gap-3 p-3">
             <div className="min-w-0 flex-1">
               <dt className="text-body-medium font-semibold text-on-surface">Card title</dt>
-              <dd className="mt-0.5 text-body-medium text-on-surface-variant">Fixed text: &ldquo;Perjalanan Anda&rdquo;, or &ldquo;Your trip&rdquo; on the English page.</dd>
+              <dd className="mt-0.5 text-body-medium text-on-surface-variant">Fixed text: &ldquo;Info perjalanan&rdquo;, or &ldquo;Your trip&rdquo; on the English page.</dd>
             </div>
           </div>
         </dl>

@@ -151,7 +151,7 @@ export async function DashboardModern({
   // ILO dan acara lain tampil persis seperti sebelumnya.
   // Checkpoint (Check-in > Checkpoints), hanya bila dinyalakan dan tidak
   // disembunyikan di Participant home. Barang yang sudah menjadi checkpoint
-  // tidak diulang di kartu "Barang untuk Anda".
+  // tidak diulang di kartu "Barang yang disiapkan".
   const [logistik, checkpoint] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),

@@ -73,7 +73,7 @@ export const BAWAAN_EN = {
 
 /** Teks bawaan Indonesia yang punya padanan English (lihat newBlock/defaultTemplat). */
 const BAWAAN_ID = {
-  subjek: "Tiket Anda: {acara}",
+  subjek: "Tiket masuk: {acara}",
   subjek_menunggu: "Pendaftaran diterima: {acara}",
   subjek_ditolak: SALINAN_DITOLAK.subjek,
   tombol_dashboard: "Buka Dashboard saya",
@@ -240,6 +240,19 @@ function blockEn(block: Block): Block {
   }
 }
 
+/**
+ * Bawaan Indonesia lama (sebelum teks peserta ditulis tanpa kata ganti, U-23).
+ * Templat yang disimpan dengan teks ini tetap terhitung bawaan, jadi tidak
+ * tiba-tiba muncul sebagai "belum diterjemahkan" di editor.
+ */
+const BAWAAN_LAMA_ID = new Set([
+  "Tiket Anda: {acara}",
+  "Halo {nama}, pendaftaran Anda sudah dikonfirmasi. Simpan email ini; **QR di bawah adalah tiket masuk Anda**.",
+  "Halo {nama}, pendaftaran Anda di {acara} sudah kami terima. Kami kabari lewat email ini begitu panitia menyetujuinya.",
+  "Terima kasih atas minat Anda",
+  "Halo {nama}, terima kasih sudah mendaftar di {acara}. Mohon maaf, kali ini panitia belum dapat menyetujui pendaftaran Anda.",
+]);
+
 /** Bawaan Indonesia per kolom; teks Indonesia yang sama dengan bawaan tidak perlu diterjemahkan. */
 const BAWAAN_PEMBUKA_ID: Record<string, string> = {
   judul: DEFAULT_PEMBUKA.judul,
@@ -262,7 +275,7 @@ export function belumDiterjemahkan(templat: Templat): KolomBelum[] {
   const en = templat.en ?? {};
   const cek = (label: string, blockId: string | null, kunci: string, idNilai: string, enNilai: string | undefined, bawaanId: string | null) => {
     if (kosong(idNilai) || !kosong(enNilai)) return;
-    if (bawaanId !== null && idNilai.trim() === bawaanId) return;
+    if (bawaanId !== null && (idNilai.trim() === bawaanId || BAWAAN_LAMA_ID.has(idNilai.trim()))) return;
     out.push({ label, blockId, kunci });
   };
   cek("Subject (Approved)", null, "subjek", templat.subjek, en.subjek, BAWAAN_ID.subjek);

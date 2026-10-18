@@ -19,6 +19,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
+- Participant texts without pronouns (U-23, U-21 and E-09 finished; this PR): Mas chose 19 Oct that shared participant texts and emails drop "Anda"/"kamu" (sign-in dialog, status and confirm-email ribbons, Lengkapi data, registration form and its account messages, sign-in/code/walk-in emails, confirmation email defaults, announcement email footer, logistics cards, voting and registration errors); "area peserta" becomes "Dashboard saya" there. Horizon's own texts keep "kamu"; the Modern public page and staff-written message starters keep "Anda". Saved confirmation emails with the old default text still count as default (no "not translated" flag). No SQL. Waits on coordinator QA and Mas's merge time (visible on KSO).
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
@@ -62,8 +63,8 @@ Every item (finding, recommendation, what is left, decisions and code pointers) 
 
 - KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, a bus trip per Agenda row in Logistics > Buses > Trips, linked to that row with #202, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (add the contacts in Participant area > Emergency and help, with "Add contact" or "Copy into contacts"; check the copied numbers in the preview before saving), E-08 (set the points goal, or turn Points off; if the goal is a Lucky draw entry, use the draw condition "Checkpoint points goal" once the checkpoint conditions PR merges).
 - Needs a decision or a mockup from Mas first: U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
-- Code, partly done: U-09 (the event page day heading and the 01-NN counter count sections), U-21 and E-09 (emails and registration account messages still say "area peserta" and "Tiket", waiting on U-23), U-24 (one metadata separator, the countdown date range), U-26 (old Gathering cards in Announcements and Schedule), E-12 (map links for Agenda locations).
-- Code, not started: U-23 ("kamu" or "Anda"), U-27 (Horizon blue from the Theme brand colour), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
+- Code, partly done: U-09 (the event page day heading and the 01-NN counter count sections), U-24 (one metadata separator, the countdown date range), U-26 (old Gathering cards in Announcements and Schedule), E-12 (map links for Agenda locations).
+- Code, not started: U-27 (Horizon blue from the Theme brand colour), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
 
 ## Parked Lows and open findings
 

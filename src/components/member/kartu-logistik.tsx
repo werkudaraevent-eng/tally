@@ -137,7 +137,7 @@ export function KartuKamar({ logistik, zona }: { logistik: LogistikPeserta; zona
           ) : null}
         </>
       ) : (
-        <Disiapkan>Panitia sedang mengatur kamar. Nomor kamar dan teman sekamar Anda muncul di sini begitu siap.</Disiapkan>
+        <Disiapkan>Panitia sedang mengatur kamar. Nomor kamar dan teman sekamar muncul di sini begitu siap.</Disiapkan>
       )}
     </section>
   );
@@ -156,7 +156,7 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
       </h2>
       {bus ? (
         <>
-          {bus.default_bus ? <p className={`mt-1 text-body-medium ${MUTED}`}>Bus Anda selama acara, kecuali tertulis lain di bawah.</p> : null}
+          {bus.default_bus ? <p className={`mt-1 text-body-medium ${MUTED}`}>Bus selama acara, kecuali tertulis lain di bawah.</p> : null}
           {bus.trips.length > 0 ? (
             <ul className="mt-4 border-t border-[var(--reg-outline-variant)]">
               {bus.trips.map((trip) => (
@@ -181,7 +181,7 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
           {logistik.buses.length > 0 ? <DetailBus buses={logistik.buses} /> : null}
         </>
       ) : (
-        <Disiapkan>Nomor bus dan titik kumpul Anda muncul di sini begitu panitia selesai mengaturnya.</Disiapkan>
+        <Disiapkan>Nomor bus dan titik kumpul muncul di sini begitu panitia selesai mengaturnya.</Disiapkan>
       )}
     </section>
   );
@@ -249,10 +249,10 @@ export function KartuBarang({ logistik }: { logistik: LogistikPeserta }) {
     <section aria-labelledby="barang-judul" className={KARTU}>
       <p className={`${LABEL_BAGIAN} ${MUTED} inline-flex items-center gap-1.5`}>
         <Package size={16} aria-hidden />
-        Barang untuk Anda
+        Barang yang disiapkan
       </p>
       <h2 id="barang-judul" className="sr-only">
-        Barang untuk Anda
+        Barang yang disiapkan
       </h2>
       <ul className="mt-3 border-t border-[var(--reg-outline-variant)]">
         {logistik.items.map((item) => (
