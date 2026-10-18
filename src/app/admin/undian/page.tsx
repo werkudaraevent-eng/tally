@@ -60,6 +60,7 @@ export default function UndianAdminPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [sessionNames, setSessionNames] = useState<Record<number, string> | null>({});
   const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewRetry, setPreviewRetry] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -173,7 +174,7 @@ export default function UndianAdminPage() {
       })();
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [editingId, draft.conditions, draft.source, draft.weight_mode, draft.weight_var, draft.weight_divisor, draft.weight_base, draft.weight_max, draft.bonus_rules]);
+  }, [editingId, draft.conditions, draft.source, draft.weight_mode, draft.weight_var, draft.weight_divisor, draft.weight_base, draft.weight_max, draft.bonus_rules, previewRetry]);
 
   const branding = useMemo(
     () => (settings ? normalizeBranding(settings as unknown as Record<string, unknown>) : null),
@@ -483,6 +484,7 @@ export default function UndianAdminPage() {
       groups={groups}
       preview={preview}
       previewFailed={previewFailed}
+      onRetrySessions={() => setPreviewRetry((current) => current + 1)}
       saving={savingPrize}
       uploading={uploadingPrizeImage}
       error={errorInPane ? error : ""}

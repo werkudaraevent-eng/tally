@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { MASUK_UI } from "@/lib/member/masuk-i18n";
+import { lingkupSalinanQr } from "@/lib/member/halaman-qr-luring";
+import { hapusSalinanQr } from "@/components/member/form-keluar";
 import type { CaraMasukPublik } from "@/lib/member/kolom-masuk";
 
 /**
@@ -147,6 +149,9 @@ export function MasukClient({
       setTerkirim(pesanTautanTerkirim(email, lang));
       return;
     }
+    // Akun yang baru masuk tidak boleh mewarisi salinan QR luring akun
+    // sebelumnya di ponsel ini; portalnya menyimpan salinan baru sendiri.
+    await hapusSalinanQr(lingkupSalinanQr(slug));
     window.location.assign(`${halamanUrl}/peserta`);
   }
 

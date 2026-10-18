@@ -7,6 +7,8 @@ import { kirimMasuk, modeAwalUntuk, modeDasar, pesanTautanTerkirim, type MasukMo
 import type { CaraMasukPublik } from "@/lib/member/kolom-masuk";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { MASUK_UI } from "@/lib/member/masuk-i18n";
+import { lingkupSalinanQr } from "@/lib/member/halaman-qr-luring";
+import { hapusSalinanQr } from "@/components/member/form-keluar";
 
 /**
  * Masuk area peserta sebagai dialog di atas halaman acara (tata letak Modern).
@@ -351,6 +353,9 @@ export function MasukDialog({
       return;
     }
     if (hasil.ok) {
+      // Akun yang baru masuk tidak boleh mewarisi salinan QR luring akun
+      // sebelumnya di ponsel ini; portalnya menyimpan salinan baru sendiri.
+      await hapusSalinanQr(lingkupSalinanQr(slug));
       window.location.assign(`${halamanUrl}/peserta`);
       return;
     }

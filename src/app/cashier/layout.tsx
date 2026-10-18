@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/login";
 import { isAdminLevel } from "@/lib/auth/roles";
+import { OfflineBanner } from "../offline-banner";
 
 export default async function CashierLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "cashier" && !isAdminLevel(user)) redirect(user.role === "booth" ? "/booth" : user.role === "viewer" ? "/events" : "/login");
-  return <>{children}</>;
+  return <>{children}<OfflineBanner /></>;
 }

@@ -22,10 +22,11 @@ import type { Preview } from "./types";
  * lewat "Simpan hadiah", sama seperti isian hadiah lain.
  */
 export function BonusRules({
-  rules, weightMax, winnerQuota, preview, previewFailed, onChange, onWeightMax,
+  rules, weightMax, winnerQuota, preview, previewFailed, onRetrySessions, onChange, onWeightMax,
 }: {
   rules: BonusRule[]; weightMax: number; winnerQuota: number;
   preview: Preview | null; previewFailed: boolean;
+  onRetrySessions?: () => void;
   onChange: (rules: BonusRule[]) => void; onWeightMax: (value: number) => void;
 }) {
   const [editing, setEditing] = useState<{ index: number | null; startAt: Step } | null>(null);
@@ -33,7 +34,7 @@ export function BonusRules({
   // Kartu aturan menulis "+N tiket" apa adanya; tanpa catatan ini, batas
   // maksimum memotong tiket diam-diam (+20 dengan maksimum 10 menjadi 10).
   const fullTickets = 1 + rules.reduce((sum, rule) => sum + rule.tickets, 0);
-  const sessionNames = preview?.attendance_sessions ? Object.fromEntries(preview.attendance_sessions.map((item) => [item.id, item.name])) : previewFailed ? null : {};
+  const sessionNames = preview?.attendance_sessions ? Object.fromEntries(preview.attendance_sessions.map((item) => [item.id, item.name])) : null;
 
   function save(rule: BonusRule) {
     if (!editing) return;
@@ -111,6 +112,7 @@ export function BonusRules({
           startAt={editing.startAt}
           preview={preview}
           previewFailed={previewFailed}
+          onRetrySessions={onRetrySessions}
           onClose={() => setEditing(null)}
           onSave={save}
         />,
@@ -215,9 +217,10 @@ type CheckResult = {
 
 /** Dialog tambah atau ubah aturan: Aturan, lalu (untuk daftar) Upload dan Cek hasil. */
 function RuleDialog({
-  initial, startAt, preview, previewFailed, onClose, onSave,
+  initial, startAt, preview, previewFailed, onRetrySessions, onClose, onSave,
 }: {
   initial: BonusRule | null; startAt: Step; preview: Preview | null; previewFailed: boolean;
+  onRetrySessions?: () => void;
   onClose: () => void; onSave: (rule: BonusRule) => void;
 }) {
   const [step, setStep] = useState<Step>(startAt);
@@ -336,6 +339,7 @@ function RuleDialog({
               rsvpStatuses={preview?.rsvp_statuses ?? []}
               companies={preview?.companies ?? []}
               sessions={previewFailed ? null : preview?.attendance_sessions}
+              onRetrySessions={onRetrySessions}
               onChange={setConditions}
             />
           </div>

@@ -103,6 +103,7 @@ import { HtmlLang } from "@/components/html-lang";
 import { gabungMeta } from "@/lib/typography";
 import { QrHorizon } from "@/components/member/qr-horizon";
 import { PenyediaQr, PesanLuringQr, StatusQrHalaman, type DataLapisanQr } from "@/components/member/lapisan-qr";
+import { HapusSalinanQr } from "@/components/member/form-keluar";
 import { SimpanQrGaleri } from "@/components/member/simpan-qr-galeri";
 import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/muat-portal";
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
@@ -206,7 +207,7 @@ export async function DashboardGathering({
   // QR klien tanpa ke server sama sekali.
   if (tabDiminta === "qr" && horizon && tampilKode && peserta) {
     const [logistikQr, setelanCheckpoint] = await Promise.all([
-      loadMemberLogistics(event.id, peserta.id, member.show_logistics === true),
+      loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, undefined, true),
       loadSetelanCheckpoint(event.id),
     ]);
     const tutupQr = dari ? keTab(dari, (dari === "jadwal" || dari === "outfit") && hari ? { hari: String(hari) } : {}) : keTab("beranda");
@@ -1599,12 +1600,11 @@ export async function DashboardGathering({
       </>
     );
     return (
-      // `data-luring-sendiri`: portal punya pesan luring sendiri untuk tamu, jadi
-      // spanduk kasir global tidak tampil di sini (U-02). Bilah bawah dipakai sampai
-      // 1024 px (U-18), jadi ruang bawahnya juga.
-      <main data-luring-sendiri lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
+      // Bilah bawah dipakai sampai 1024 px (U-18), jadi ruang bawahnya juga.
+      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
         <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         {dataQr ? <PenyediaQr data={dataQr}>{isiPortal}</PenyediaQr> : isiPortal}
+        {!dataQr && !pratinjau ? <HapusSalinanQr lingkup={[`${landingPath(event.slug, "id", utama)}/peserta`, `${landingPath(event.slug, "en", utama)}/peserta`]} /> : null}
       </main>
     );
   }

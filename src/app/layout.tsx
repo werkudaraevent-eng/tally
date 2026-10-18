@@ -3,7 +3,6 @@ import "./globals.css";
 import { fontVariables } from "./fonts";
 import { MotionProvider } from "@/components/motion-provider";
 import { ToastProvider } from "@/components/toast";
-import { OfflineBanner } from "./offline-banner";
 import { THEME_INIT_SCRIPT } from "@/lib/m3/theme";
 
 // Huruf: Inter untuk antarmuka (--font-sans) dan Geist Mono (--font-mono) lewat
@@ -75,7 +74,7 @@ export default function RootLayout({
             peramban dari HTML awal, jauh sebelum React menyentuhnya. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body><MotionProvider><ToastProvider>{children}<OfflineBanner /></ToastProvider></MotionProvider></body>
+      <body><MotionProvider><ToastProvider>{children}</ToastProvider></MotionProvider></body>
     </html>
   );
 }

@@ -93,7 +93,7 @@ export function ExclusionRuleManager({
   const [rsvpStatuses, setRsvpStatuses] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   // null = gagal dimuat, berbeda dari acara yang memang tanpa sesi.
-  const [sessions, setSessions] = useState<{ id: number; name: string }[] | null>([]);
+  const [sessions, setSessions] = useState<{ id: number; name: string }[] | null | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
@@ -110,7 +110,7 @@ export function ExclusionRuleManager({
   async function load() {
     const response = await fetch("/api/admin/undian/rules?counts=1", { cache: "no-store" }).catch(() => null);
     setLoaded(true);
-    if (!response?.ok) { setLoadFailed(true); setError("Aturan pengecualian gagal dimuat."); return; }
+    if (!response?.ok) { setSessions(null); setLoadFailed(true); setError("Aturan pengecualian gagal dimuat."); return; }
     setLoadFailed(false);
     const data = await response.json();
     setRules((data.rules as Record<string, unknown>[]).map(normalizeExclusionRule));
@@ -274,7 +274,7 @@ export function ExclusionRuleManager({
                       {!rule.is_active ? <StatusChip>Nonaktif</StatusChip> : null}
                       {rule.prize_id !== null ? <StatusChip tone="primary">{prizes.find((prize) => prize.id === rule.prize_id)?.name ?? "Hadiah tertentu"}</StatusChip> : null}
                     </span>
-                    <span className="mt-0.5 block text-on-surface-variant">Kecualikan bila: {describeConditions(rule.conditions, sessions && Object.fromEntries(sessions.map((item) => [item.id, item.name])))}</span>
+                    <span className="mt-0.5 block text-on-surface-variant">Kecualikan bila: {describeConditions(rule.conditions, Array.isArray(sessions) ? Object.fromEntries(sessions.map((item) => [item.id, item.name])) : null)}</span>
                     {rule.note ? <span className="mt-0.5 block text-on-surface-variant">{rule.note}</span> : null}
                     {/* Angka nol ditandai, bukan disembunyikan. Aturan yang tidak
                         mengenai siapa pun hampir selalu salah tulis, dan itu
@@ -361,6 +361,7 @@ export function ExclusionRuleManager({
               rsvpStatuses={rsvpStatuses}
               companies={companies}
               sessions={sessions}
+              onRetrySessions={() => { void load(); }}
               tone="exclude"
               onChange={(next) => setDraft({ ...draft, conditions: next })}
             />
