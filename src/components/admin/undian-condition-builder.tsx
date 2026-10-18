@@ -4,11 +4,13 @@ import {
   Armchair, Buildings, CaretDown, CheckCircle, EnvelopeSimple, Flag, Hash, IdentificationBadge, ListChecks,
   Plus, QrCode, Receipt, Scan, Star, Storefront, Trash, User, UsersThree, Warning, X, type Icon,
 } from "@phosphor-icons/react";
-import { useId, useState, type ReactNode } from "react";
+import { useCallback, useId, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { Button, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
 import type { CheckpointSummary, UndianConditionGroup, UndianConditionNode, UndianCmp, UndianTextCmp, UndianTextVar } from "@/lib/undian";
 import { TEXT_CMP_LABEL, TEXT_CMP_WITHOUT_VALUE, TEXT_VAR_LABEL, isConditionGroup, isTextLeaf } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
+import { withEventPrefix } from "@/lib/event-path";
 
 // Rule builder syarat undian.
 //
@@ -276,7 +278,7 @@ function LeafEditor({
         aria-label={VAR_LABEL[leaf.var]}
         className={cx(CONTROL, "w-32 tabular-nums")}
       />
-      <span className="text-on-surface-variant">{UNIT[leaf.var]}</span>
+      <span className="text-on-surface-variant">{leaf.var === "checkpoint_points" && leaf.value === 1 ? "point" : UNIT[leaf.var]}</span>
     </>}
 
     {isTextLeaf(leaf) && <>
@@ -384,7 +386,12 @@ function LeafEditor({
  */
 function AddConditionMenu({ onPick }: { onPick: (variable: string) => void }) {
   const [trigger, setTrigger] = useState<HTMLElement | null>(null);
-  const menu = usePopoverAnchor(trigger);
+  const anchor = usePopoverAnchor(trigger);
+  // Pembungkus `span` tidak bisa menerima fokus. Esc di dalam Popover dan
+  // memilih item mengembalikan fokus lewat `fokus()`, jadi arahkan ke tombolnya;
+  // tanpa ini fokus jatuh ke <body> dan pengguna papan ketik kembali ke atas.
+  const fokus = useCallback(() => trigger?.querySelector("button")?.focus(), [trigger]);
+  const menu = { ...anchor, fokus };
   const id = useId();
 
   // Dibuka dari papan ketik: fokus pindah ke pilihan pertama. Panelnya dirender
@@ -399,13 +406,19 @@ function AddConditionMenu({ onPick }: { onPick: (variable: string) => void }) {
     menu.fokus();
   }
 
-  // Panah atas/bawah berpindah antar pilihan; Tab tetap bekerja seperti biasa.
+  // Panah, Home dan End berpindah antar pilihan. Tab menutup menu dan kembali
+  // ke tombol, seperti menu lain: panelnya dirender di ujung body, jadi Tab
+  // biasa akan meninggalkannya terbuka di belakang.
   function onKeyDown(event: React.KeyboardEvent) {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    if (event.key === "Tab") { event.preventDefault(); menu.tutup(); menu.fokus(); return; }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     const items = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="menuitem"]')];
     const index = items.indexOf(document.activeElement as HTMLElement);
-    const next = event.key === "ArrowDown" ? (index + 1) % items.length : (index - 1 + items.length) % items.length;
+    const next = event.key === "Home" ? 0
+      : event.key === "End" ? items.length - 1
+      : event.key === "ArrowDown" ? (index + 1) % items.length
+      : (index - 1 + items.length) % items.length;
     items[next]?.focus();
   }
 
@@ -440,23 +453,29 @@ function AddConditionMenu({ onPick }: { onPick: (variable: string) => void }) {
  * diubah di Check-in > Checkpoints, bukan di sini (satu setelan, satu tempat).
  */
 function CheckpointHint({ variable, checkpoint }: { variable: "checkpoint_goal" | "checkpoint_points" | "checkpoints_all"; checkpoint: CheckpointSummary | null | undefined }) {
+  const pathname = usePathname();
   if (checkpoint === undefined) return null;
-  const link = <a href="/admin/attendance?tab=checkpoint" target="_blank" rel="noopener" className="font-medium text-primary underline">Edit in Check-in &gt; Checkpoints ↗</a>;
+  const link = <a href={withEventPrefix("/admin/attendance?tab=checkpoint", pathname)} target="_blank" rel="noopener" className="font-medium text-primary underline">Edit in Check-in &gt; Checkpoints ↗</a>;
   let warning = "";
   let info = "";
   if (checkpoint === null) info = "Checkpoint data could not be loaded.";
   else if (!checkpoint.enabled || checkpoint.count === 0) warning = "Checkpoints are not on for this event, so every participant counts as not done.";
   else if (variable !== "checkpoints_all" && !checkpoint.points_enabled) warning = "Checkpoint points are off, so every participant counts as 0 points.";
   else if (variable === "checkpoint_goal" && checkpoint.goal === null) warning = "No points goal is set yet, so nobody has reached it.";
-  else if (variable === "checkpoint_goal" && checkpoint.goal !== null && checkpoint.goal > checkpoint.total_points) warning = `The goal of ${checkpoint.goal} points is more than the ${checkpoint.total_points} points available, so nobody can reach it.`;
-  else if (variable === "checkpoint_goal") info = `The goal is ${checkpoint.goal} of ${checkpoint.total_points} points available, the same as the participant checkpoint card.`;
-  else if (variable === "checkpoint_points") info = `${checkpoint.total_points} points available across ${checkpoint.count} checkpoints.`;
-  else info = `This event has ${checkpoint.count} checkpoints.`;
-  return <span role={warning ? "alert" : undefined} className={cx("order-last flex basis-full flex-wrap items-center gap-x-2 gap-y-1", warning ? "font-medium text-error" : "text-on-surface-variant")}>
-    {warning && <Warning size={16} aria-hidden className="shrink-0" />}
-    <span>{warning || info}</span>
-    {checkpoint !== null && link}
+  else if (variable === "checkpoint_goal" && checkpoint.goal !== null && checkpoint.goal > checkpoint.total_points) warning = `The goal of ${plural(checkpoint.goal, "point")} is more than the ${plural(checkpoint.total_points, "point")} available, so nobody can reach it.`;
+  else if (variable === "checkpoint_goal") info = `The goal is ${checkpoint.goal} of ${plural(checkpoint.total_points, "point")} available, the same as the participant checkpoint card.`;
+  else if (variable === "checkpoint_points") info = `${plural(checkpoint.total_points, "point")} available across ${plural(checkpoint.count, "checkpoint")}.`;
+  else info = `This event has ${plural(checkpoint.count, "checkpoint")}.`;
+  // Bukan role="alert": hint ini dirender ulang setiap kali syarat diubah, dan
+  // tiga syarat checkpoint berarti tiga pengumuman sekaligus.
+  return <span className={cx("order-last flex basis-full items-start gap-2", warning ? "font-medium text-error" : "text-on-surface-variant")}>
+    {warning && <Warning size={16} aria-hidden className="mt-0.5 shrink-0" />}
+    <span className="min-w-0">{warning || info}{checkpoint !== null && <> {link}</>}</span>
   </span>;
 }
 
 export { TEXT_VAR_LABEL };
+
+function plural(count: number, word: string): string {
+  return `${count.toLocaleString("en-GB")} ${word}${count === 1 ? "" : "s"}`;
+}
