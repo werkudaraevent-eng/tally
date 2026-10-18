@@ -431,7 +431,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
           <p className="mt-4 flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
             <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
             <span>
-              <span className="font-medium">{closeTarget.winner_pending} {closeTarget.winner_pending === 1 ? "winner has" : "winners have"}</span> not been marked present. Their status will remain unconfirmed in reports.
+              <span className="font-medium">{closeTarget.winner_pending} {closeTarget.winner_pending === 1 ? "winner has" : "winners have"}</span> not been marked present. Their status will remain pending in reports.
               Cancel this dialog to mark them present in the operator panel first.
             </span>
           </p>
@@ -525,7 +525,7 @@ function WinnerTable({ winners, showSession }: { winners: Winner[]; showSession:
 }
 
 function TimelineList({ events }: { events: TimelineEvent[] }) {
-  if (events.length === 0) return <p className="px-5 py-4 text-body-medium text-on-surface-variant">No events yet.</p>;
+  if (events.length === 0) return <p className="px-5 py-4 text-body-medium text-on-surface-variant">No activity yet.</p>;
   return <ol>
     {events.map((event, index) => <li key={index} className="flex gap-3 border-b border-outline-variant px-5 py-2.5 text-body-medium">
       <span className="w-32 shrink-0 tabular-nums text-on-surface-variant">{clock(event.at)}</span>

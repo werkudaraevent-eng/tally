@@ -808,7 +808,7 @@ const CMP_TEXT: Record<UndianCmp, string> = {
   gte: "at least", gt: "more than", lte: "at most", lt: "less than", eq: "exactly",
 };
 
-const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
+const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("en-GB").format(value)}`;
 
 /** Satu baris ringkas, supaya admin tidak perlu membuka form hanya untuk tahu syaratnya. */
 /**
@@ -833,7 +833,7 @@ export function describeConditions(node: UndianConditionGroup, sessionNames: Rec
       case "total_spend": return `spend ${CMP_TEXT[child.cmp]} ${rupiah(child.value)}`;
       case "booth_count": return `${CMP_TEXT[child.cmp]} ${child.value} booth visits`;
       case "scan_count": return `${CMP_TEXT[child.cmp]} ${child.value} scans`;
-      case "participant_type": return `type ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
+      case "participant_type": return `participant type ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
       case "rsvp_status": return `RSVP ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
       case "checked_in": {
         const status = child.is ? "checked in" : "not checked in";

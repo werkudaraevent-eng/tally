@@ -86,7 +86,7 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
   const steps: ReadinessStep[] = [
     {
       id: "sumber",
-      label: "Participant sources available",
+      label: "Entry lists ready",
       detail: sumberDone
         ? ""
         : `These prizes use entry lists: ${nameList(brokenGroup.map((prize) => prize.name))}. Their lists are empty or have not been selected. Import the lists in the Entry lists tab.`,
@@ -118,7 +118,7 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
     },
     {
       id: "sesi",
-      label: "Draw session open",
+      label: "Active draw session",
       detail: input.activeSession
         ? ""
         : "No active session. Draws can still run, but results will be ungrouped. You can group them into a session later.",

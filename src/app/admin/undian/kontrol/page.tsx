@@ -224,8 +224,8 @@ export default function UndianControlPage() {
             plain
             icon={<Gift size={40} />}
             title="No active prizes yet"
-            description="Inactive prizes do not appear here. Add or activate prizes on the Lucky draw page."
-            action={<ButtonLink href="/admin/undian" variant="outlined" size="sm">Open Lucky draw</ButtonLink>}
+            description="Inactive prizes do not appear here. Add or activate prizes on the Prizes & rules page."
+            action={<ButtonLink href="/admin/undian" variant="outlined" size="sm">Open Prizes & rules</ButtonLink>}
           />
         ) : prizes.map((prize) => {
           const used = winnerCounts[prize.id] ?? 0;
@@ -367,7 +367,7 @@ export default function UndianControlPage() {
             {pendingHere > 0 ? (
               <>
                 <p className="mt-1 text-on-surface-variant">
-                  {pendingHere} {pendingHere === 1 ? "winner has" : "winners have"} not been marked present. Redrawing cancels those {pendingHere} {pendingHere === 1 ? "name" : "names"} to free up the quota. Their records and reasons are kept, not deleted.
+                  {pendingHere} {pendingHere === 1 ? "winner has" : "winners have"} not been marked present. Redrawing cancels {pendingHere === 1 ? "that name" : `those ${pendingHere} names`} to free up the quota. Their records and reasons are kept, not deleted.
                 </p>
                 <Button variant="outlined" className="mt-3" icon={<ArrowsClockwise size={16} />} disabled={busy !== null} onClick={() => setConfirmRedraw(true)}>
                   Redraw this prize
@@ -376,7 +376,7 @@ export default function UndianControlPage() {
             ) : (
               <p className="mt-1 text-on-surface-variant">
                 All winners are marked present and cannot be cancelled here because their prizes have been handed over.
-                To draw this prize again, close the session on the <Link href="/admin/undian" className="rounded-sm font-medium text-primary hover:underline">Lucky draw</Link> page, then start a new session. Previous winners stay on record.
+                To draw this prize again, close the session on the <Link href="/admin/undian" className="rounded-sm font-medium text-primary hover:underline">Prizes & rules</Link> page, then start a new session. Previous winners stay on record.
               </p>
             )}
           </div>
@@ -509,14 +509,14 @@ export default function UndianControlPage() {
       <WorkspaceHeader
         back={
           <Link href="/admin/undian" className="inline-flex items-center gap-1 rounded-sm text-body-medium font-medium text-primary hover:underline">
-            <CaretLeft size={14} aria-hidden />Lucky draw
+            <CaretLeft size={14} aria-hidden />Prizes & rules
           </Link>
         }
         meta={state ? (
           <>
             <span className="inline-flex items-center gap-1.5"><StatusDot tone={live ? "success" : "neutral"} />Stage screen {live ? "on" : "off"}</span>
             <MetaSeparator />
-            <span className="inline-flex items-center gap-1.5"><StatusDot tone={rehearsal ? "warning" : "neutral"} />Rehearsal mode {rehearsal ? "active" : "inactive"}</span>
+            <span className="inline-flex items-center gap-1.5"><StatusDot tone={rehearsal ? "warning" : "neutral"} />Rehearsal {rehearsal ? "on" : "off"}</span>
             <MetaSeparator />
             <span>{activeSession ? `Session: ${activeSession.name}` : "No session"}</span>
             <MetaSeparator />
@@ -573,7 +573,7 @@ export default function UndianControlPage() {
         tone="danger"
         icon={<ArrowsClockwise size={22} />}
         title={`Redraw ${state?.prize?.name ?? "this prize"}?`}
-        description={`${pendingHere} ${pendingHere === 1 ? "winner" : "winners"} not marked present will be cancelled with the reason "Redrawn", freeing up the quota. Records are kept, not deleted. The stage screen is also cleared.`}
+        description={`${pendingHere} ${pendingHere === 1 ? "winner" : "winners"} not marked present will be cancelled as redrawn, freeing up the quota. Records are kept, not deleted. The stage screen is also cleared.`}
         actions={
           <>
             <Button variant="outlined" disabled={busy === "redraw"} onClick={() => setConfirmRedraw(false)}>Cancel</Button>

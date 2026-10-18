@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { Button, ButtonLink, Dialog } from "@/components/m3";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import { cx } from "@/lib/m3/cx";
+import { BONUS_TEMPLATE_HEADERS } from "@/lib/undian-bonus-list";
 import {
   BONUS_RULES_MAX, BONUS_TICKETS_MAX, EMPTY_CONDITIONS, describeConditions,
   type BonusRule, type UndianConditionGroup,
@@ -348,7 +349,7 @@ function RuleDialog({
       </div>
     );
   } else if (step === "upload") {
-    title = `Upload list ${name.trim()}`;
+    title = `Upload the ${name.trim()} list`;
     actions = <Button type="button" variant="text" disabled={checking} onClick={() => { setError(""); setStep("rule"); }}>Back</Button>;
     content = (
       <div className="flex flex-col gap-4 text-body-medium">
@@ -360,7 +361,7 @@ function RuleDialog({
             <div className="overflow-x-auto rounded-sm border border-outline-variant">
               <table className="w-full border-collapse text-body-small">
                 <thead className="bg-surface-container-high">
-                  <tr>{["Participant QR", "Email", "Name (for checking)"].map((head) => <th key={head} className="whitespace-nowrap border border-outline-variant px-2 py-1 text-left font-semibold">{head}</th>)}</tr>
+                  <tr>{BONUS_TEMPLATE_HEADERS.map((head) => <th key={head} className="whitespace-nowrap border border-outline-variant px-2 py-1 text-left font-semibold">{head}</th>)}</tr>
                 </thead>
                 <tbody>
                   <tr><td className="whitespace-nowrap border border-outline-variant px-2 py-1">KSO-0142</td><td className="border border-outline-variant px-2 py-1" /><td className="whitespace-nowrap border border-outline-variant px-2 py-1">Andi Wijaya</td></tr>
@@ -368,7 +369,7 @@ function RuleDialog({
                 </tbody>
               </table>
             </div>
-            <p className="text-on-surface-variant">Enter either a QR code or an email address. Names are not used for matching.</p>
+            <p className="text-on-surface-variant">Enter either the QR peserta or the Email column. The Nama column is not used for matching.</p>
             <div>
               {/* `native`: unduhan berkas dari /api, bukan navigasi halaman. */}
               <ButtonLink native variant="outlined" size="sm" href="/api/admin/undian/bonus-list/template" icon={<DownloadSimple size={16} />}>Download template</ButtonLink>

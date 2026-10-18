@@ -434,7 +434,7 @@ export default function UndianAdminPage() {
                 <span className="block">{won} / {prize.winner_quota}</span>
                 <span
                   className="block text-on-surface-variant"
-                  title={pool && pool.eligible !== pool.candidates ? `${pool.eligible - pool.candidates} already won in an open session` : undefined}
+                  title={pool && pool.eligible !== pool.candidates ? `${pool.eligible - pool.candidates} already won in an active session` : undefined}
                 >
                   {pool ? `${pool.candidates} ${pool.candidates === 1 ? "name" : "names"} ready` : "Pool not calculated"}
                 </span>
@@ -608,7 +608,7 @@ export default function UndianAdminPage() {
         dismissible={!deletingPrize}
         tone="danger"
         title={`Delete prize ${confirmPrize?.name || ""}?`}
-        description="Prizes with confirmed or unconfirmed winners cannot be deleted. Cancelled winner records for this prize will also be deleted. The deletion is recorded in the audit trail."
+        description="Prizes with confirmed or pending winners cannot be deleted. Cancelled winner records for this prize will also be deleted. The deletion is recorded in the audit trail."
         actions={
           <>
             <Button variant="outlined" disabled={deletingPrize} onClick={() => setConfirmPrize(null)}>Cancel</Button>

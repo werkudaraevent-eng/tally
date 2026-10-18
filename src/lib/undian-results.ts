@@ -128,7 +128,7 @@ export type TimelineEvent = {
  * menuliskannya sepuluh kali dengan detik yang identik membuat kronologinya
  * tampak seperti sepuluh undian terpisah.
  */
-export function buildTimeline(winners: WinnerDetail[]): TimelineEvent[] {
+export function buildTimeline(winners: WinnerDetail[], lang: "id" | "en" = "id"): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   // Dikelompokkan per (hadiah, sesi, WAKTU UNDI), bukan per nomor ronde.
@@ -157,8 +157,11 @@ export function buildTimeline(winners: WinnerDetail[]): TimelineEvent[] {
       at: first.drawn_at,
       kind: "draw",
       prize_name: first.prize_name,
-      detail: `Undian ke-${first.draw_round}: ${main.map((row) => row.display_name).join(", ") || "—"}`
-        + (backup.length > 0 ? ` (cadangan: ${backup.map((row) => row.display_name).join(", ")})` : ""),
+      detail: lang === "en"
+        ? `Draw ${first.draw_round}: ${main.map((row) => row.display_name).join(", ") || "—"}`
+          + (backup.length > 0 ? ` (backups: ${backup.map((row) => row.display_name).join(", ")})` : "")
+        : `Undian ke-${first.draw_round}: ${main.map((row) => row.display_name).join(", ") || "—"}`
+          + (backup.length > 0 ? ` (cadangan: ${backup.map((row) => row.display_name).join(", ")})` : ""),
       actor: first.drawn_by_username,
     });
   }
@@ -169,9 +172,13 @@ export function buildTimeline(winners: WinnerDetail[]): TimelineEvent[] {
       at: winner.decided_at,
       kind: winner.status === "confirmed" ? "confirm" : "reject",
       prize_name: winner.prize_name,
-      detail: winner.status === "confirmed"
-        ? `${winner.display_name} hadir, hadiah diserahkan`
-        : `${winner.display_name} dibatalkan${winner.reject_reason ? ` — ${winner.reject_reason}` : ""}`,
+      detail: lang === "en"
+        ? winner.status === "confirmed"
+          ? `${winner.display_name} present, prize handed over`
+          : `${winner.display_name} cancelled${winner.reject_reason ? ` — ${winner.reject_reason}` : ""}`
+        : winner.status === "confirmed"
+          ? `${winner.display_name} hadir, hadiah diserahkan`
+          : `${winner.display_name} dibatalkan${winner.reject_reason ? ` — ${winner.reject_reason}` : ""}`,
       actor: winner.decided_by_username,
     });
   }
