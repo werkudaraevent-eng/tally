@@ -66,7 +66,6 @@ import { teksPolos } from "@/lib/landing-teks-kaya";
 import { kontras } from "@/lib/landing-hitung-mundur";
 import { HORIZON_GOLD_DEFAULT, sorotHorizon } from "@/lib/landing-tokens";
 import { gayaHorizon } from "@/components/landing/modern/horizon";
-import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import {
   BarisTautanHorizon,
   ChipHariHorizon,
@@ -216,7 +215,7 @@ export async function DashboardGathering({
     const dataQr = dataLapisanQr();
     const busQr = logistikQr ? namaBusPeserta(logistikQr, sekarang) : null;
     return (
-      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${CINCIN_NAVY}`} style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
+      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="min-h-dvh" style={{ ...gaya, "--cincin-fokus": "var(--hz-cincin-navy)", backgroundColor: "var(--hz-navy)", color: "#ffffff" } as CSSProperties}>
         <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         <TutupQrEscape href={tutupQr} />
         <QrHorizon

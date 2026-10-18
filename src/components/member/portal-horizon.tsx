@@ -125,7 +125,7 @@ export function KepalaHorizon({
             href={profil.href}
             aria-label={profilLabel}
             aria-current={aktif === "profil" ? "page" : undefined}
-            className="m3-state -mr-3 inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-[var(--hz-emas)] aria-[current]:bg-white/10 aria-[current]:shadow-[inset_0_0_0_2px_var(--hz-emas)]"
+            className="m3-state -mr-3 inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-[var(--hz-emas)] aria-[current]:bg-white/10 aria-[current]:ring-2 aria-[current]:ring-inset aria-[current]:ring-[var(--hz-emas)]"
           >
             {inisial}
             {aktif !== "profil" ? <PenandaTab tab="profil" /> : null}
@@ -449,7 +449,7 @@ export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul
             <Link
               href={item.href}
               aria-current={item.aktif ? "page" : undefined}
-              className={`m3-state flex min-h-12 flex-col gap-1.5 rounded-[16px] px-5 py-4 ${item.aktif ? "bg-white shadow-[inset_0_0_0_1px_#6F7C94,0_1px_2px_rgb(16_24_40/0.06)]" : ""}`}
+              className={`m3-state flex min-h-12 flex-col gap-1.5 rounded-[16px] px-5 py-4 ${item.aktif ? "bg-white shadow-[0_1px_2px_rgb(16_24_40/0.06)] ring-1 ring-inset ring-[#6F7C94]" : ""}`}
             >
               <span className="text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: item.aktif ? BIRU : LABEL }}>
                 {item.label}

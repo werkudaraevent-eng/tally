@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CINCIN_PUTIH } from "@/components/landing/modern/cincin-horizon";
 
 /**
  * Layar QR kehadiran Horizon (frame eY05h): navy, kartu putih 340 px,
@@ -65,7 +66,7 @@ export function QrHorizon({
         {tutup}
       </div>
       {luring}
-      <div className="mx-auto mt-6 flex w-full max-w-[340px] flex-col items-center gap-4 rounded-[24px] bg-white p-[30px]" style={{ color: TINTA }}>
+      <div className={`mx-auto mt-6 flex w-full max-w-[340px] flex-col items-center gap-4 rounded-[24px] bg-white p-[30px] ${CINCIN_PUTIH}`} style={{ color: TINTA }}>
         <div className="flex w-full flex-col items-center gap-2">
           <p className="text-center text-[20px] font-extrabold [overflow-wrap:anywhere]">{nama}</p>
           {sub ? (
