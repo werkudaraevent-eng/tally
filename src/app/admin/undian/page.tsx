@@ -439,7 +439,7 @@ export default function UndianAdminPage() {
                   className="block text-on-surface-variant"
                   title={pool && pool.eligible !== pool.candidates ? `${pool.eligible - pool.candidates} already won in an active session` : undefined}
                 >
-                  {pool ? `${pool.candidates} ${pool.candidates === 1 ? "name" : "names"} ready` : "Pool not calculated"}
+                  {pool?.broken_rules?.length ? "Fix exclusion rules" : pool ? `${pool.candidates} ${pool.candidates === 1 ? "name" : "names"} ready` : "Pool not calculated"}
                 </span>
               </span>
               <span className="flex shrink-0 justify-end sm:w-36">
@@ -448,6 +448,7 @@ export default function UndianAdminPage() {
                   // sesi, label ini terbaca sebagai hadiah yang habis selamanya,
                   // lalu panitia membuat hadiah duplikat padahal cukup menutup sesi.
                   : full ? <StatusChip dot>{activeSession ? "Full in this session" : "Quota full"}</StatusChip>
+                    : pool?.broken_rules?.length ? <StatusChip dot tone="error">Blocked</StatusChip>
                     : pool && pool.candidates === 0 ? <StatusChip dot tone="error">Empty pool</StatusChip>
                       : pool ? <StatusChip dot tone="success">Ready</StatusChip> : null}
               </span>

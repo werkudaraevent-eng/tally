@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { normalizeExclusionRule, type UndianConditionNode } from "@/lib/undian";
+import { normalizeConditions, normalizeExclusionRule, type UndianConditionNode } from "@/lib/undian";
 import { unknownAnswerError } from "@/lib/undian-pool";
 import { RULE_COLUMNS, groupSchema } from "../route";
 
@@ -31,13 +31,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("UNDIAN_RULE_NOT_FOUND", 404);
 
-  // Hanya pohon yang DIKIRIM yang diperiksa: menyalakan atau mematikan saja
-  // tidak boleh terhalang oleh pertanyaan yang dihapus setelah disimpan. Aturan
-  // yang akan nonaktif juga tidak diperiksa: ia tidak ikut undian, dan editor
+  // Aturan yang akan nonaktif tidak diperiksa: ia tidak ikut undian, dan editor
   // selalu mengirim pohonnya, jadi tanpa ini sakelar Active di editor tidak
-  // dapat mematikan aturan yang rusak.
-  const activeAfter = parsed.data.is_active ?? (current as { is_active: boolean }).is_active;
-  const trees = activeAfter && parsed.data.conditions ? [parsed.data.conditions] : [];
+  // dapat mematikan aturan yang rusak. Aturan yang tetap aktif diperiksa hanya
+  // pada pohon yang DIKIRIM (mengganti nama tidak terhalang), sedangkan aturan
+  // yang baru dinyalakan diperiksa pada pohon yang akan berlaku.
+  const stored = current as { is_active: boolean; conditions: unknown };
+  const activeAfter = parsed.data.is_active ?? stored.is_active;
+  const switchingOn = activeAfter && !stored.is_active;
+  const tree = parsed.data.conditions ?? (switchingOn ? stored.conditions : null);
+  const trees = activeAfter && tree ? [normalizeConditions(tree)] : [];
   const answerError = await unknownAnswerError(eventId, trees as UndianConditionNode[]);
   if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
   if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
