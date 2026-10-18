@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- #213 Lucky draw admin in English (screens, condition summaries, readiness, timeline; the Excel export stays Indonesian; written with opencode): waiting on QA, then Mas's merge time. Next English batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
+- Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Portal polish (U-06, U-14, U-17, U-24 zone note, U-31, U-33; this PR): desktop Schedule day list fades at the bottom while more days are below, Seat/Live voting/Feedback hidden in Participant area for Gathering layouts, Home train row opens Travel at the train card, "Semua jam WIB" in the Travel subtitle, navy browser bar on Horizon guest pages (root values now the surface colours), map link labels by link type, "Tutup pengumuman" on the phone bell. No SQL. Waits on coordinator QA and Mas's merge time (visible on KSO).
 - Lucky draw checkpoint conditions (this PR): Prizes & rules > Add condition has a Checkpoint group: points goal reached (reads Check-in > Checkpoints > Points goal), checkpoint points at least N, all checkpoints done. Works for prize conditions, exclusion rules and bonus-ticket rules; "Add condition" is now a grouped menu. No SQL. Rebased on #213 (merge after it); waits on coordinator QA and Mas's merge time. Next: a "Form answers" group with the event's custom registration fields (separate PR).
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -25,6 +25,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #213 Lucky draw admin in English (merged 18 Oct): screens, condition summaries, readiness, timeline; the Excel export stays Indonesian; written with opencode.
 - #217 Emergency contacts follow-up (E-03, merged 18 Oct): stricter phone reading (time and number ranges stay text), English fields for the card and each contact when the event has an English page (copied from the old block too), tidier copied notes, map links only for exact map hosts. No SQL.
 - #209 Emergency contacts (E-03, merged 18 Oct): Participant area > Emergency and help has a form per contact (name or role, phone, note, map link) with Call, WhatsApp and Map buttons on the portal Menu card and a live Menu preview; an existing Columns block keeps working until "Copy into contacts". No SQL.
 - #208 Checkpoint self-scan (E-14, merged 18 Oct): Check-in > Checkpoints > "How it gets done" per checkpoint (Staff default, Participants, Both; kit items always Staff). Staff show a QR from the scanner app (Show QR) or `/checkpoint-qr` on a big screen; the code changes every 30 seconds; participants scan it from the checkpoint card. Migration 202610180001 was run by Mas on 18 Oct.
