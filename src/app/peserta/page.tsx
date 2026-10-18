@@ -221,19 +221,19 @@ export default async function AreaPesertaPage({
                 <p className={`mt-2 text-body-large leading-7 ${MUTED}`}>
                   {sesi.status === "rejected"
                     ? "Panitia tidak menyetujui pendaftaran Anda untuk acara ini. Hubungi panitia bila Anda merasa ini keliru."
-                    : "Kode QR untuk meja registrasi muncul di sini setelah panitia menyetujui pendaftaran Anda. Kami juga mengabari Anda lewat email."}
+                    : "QR kehadiran muncul di sini setelah panitia menyetujui pendaftaran Anda. Kami juga mengabari Anda lewat email."}
                 </p>
               </div>
             </section>
           ) : null}
 
           {peserta && (tampilKode || tampilKursi) ? (
-            <section aria-label="Tiket masuk" className="lg:sticky lg:top-8 lg:col-span-5 lg:self-start">
+            <section aria-label="QR kehadiran" className="lg:sticky lg:top-8 lg:col-span-5 lg:self-start">
               <div className="rounded-md border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 sm:p-8">
                 {tampilKode ? (
                   <>
-                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Tiket masuk</h2>
-                    <p className={`mt-2 text-body-large ${MUTED}`}>Tunjukkan kode ini di meja registrasi.</p>
+                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>QR kehadiran</h2>
+                    <p className={`mt-2 text-body-large ${MUTED}`}>Tunjukkan QR ini ke panitia.</p>
                     <RegistrationCodeCard
                       code={peserta.qr_code}
                       eventName={event.name}

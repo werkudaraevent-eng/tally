@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   if (resolved.response) return resolved.response;
   const { event, member } = resolved;
   const sesi = await getMemberSession(event);
-  if (!sesi) return memberError("UNAUTHORIZED", 401, "Masuk dulu ke area peserta.");
+  if (!sesi) return memberError("UNAUTHORIZED", 401, "Masuk dulu ke Dashboard saya.");
   if (!sesi.participant || member.show_logistics !== true) return memberError("NOT_FOUND", 404, "Tiket kereta tidak ditemukan.");
   const arah = new URL(request.url).searchParams.get("arah");
   if (arah !== "outbound" && arah !== "return") return memberError("VALIDATION_ERROR", 400, "Arah tiket tidak dikenal.");

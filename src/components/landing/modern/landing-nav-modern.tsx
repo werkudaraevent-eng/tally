@@ -164,7 +164,8 @@ export function LandingNavModern({
   registrationOpen: boolean;
   /** `area`: tautan ke area peserta tamu yang sudah masuk; gaya gathering lalu memakai labelnya, bukan "Masuk Portal". */
   memberLink?: { href: string; label: string; area?: boolean } | null;
-  sections: { id: string; label: string }[];
+  /** `href` menggantikan tautan jangkar `#id` (mis. Perjalanan ke portal). */
+  sections: { id: string; label: string; href?: string }[];
   width?: LandingNavWidth;
   logoUrl?: string | null;
   logoOnDark?: boolean;
@@ -383,7 +384,7 @@ export function LandingNavModern({
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`${sectionBase}#${section.id}`}
+                href={section.href ?? `${sectionBase}#${section.id}`}
                 aria-current={aktif === section.id ? "true" : undefined}
                 // Tebal sama untuk semua tautan, bagian aktif ditandai garis
                 // bawah: tautan yang menebal menggeser tetangganya saat digulir.
@@ -639,7 +640,7 @@ export function LandingNavModern({
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`${sectionBase}#${section.id}`}
+                href={section.href ?? `${sectionBase}#${section.id}`}
                 onClick={() => setMenuBuka(false)}
                 aria-current={aktif === section.id ? "true" : undefined}
                 className={`m3-state flex min-h-12 items-center rounded-md px-4 text-[17px] ${aktif === section.id ? "font-semibold" : "font-medium"}`}

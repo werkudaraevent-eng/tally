@@ -288,7 +288,7 @@ export default function RundownPage() {
               style={{ color: headerInk, opacity: 0.75 }}
             >
               <CalendarBlank size={14} className="shrink-0" />
-              {section ? formatEventDate(section.event_date, zone) : "Rundown acara"}
+              {section ? formatEventDate(section.event_date, zone) : "Susunan acara"}
               {hasSchedule ? <span>&middot; {items.length} acara</span> : null}
               <span>&middot; {timeZoneAbbr(zone)}</span>
             </p>
@@ -344,7 +344,7 @@ export default function RundownPage() {
         </p> : failed ? <p role="alert" className="rounded-lg border border-error bg-panel px-4 py-10 text-center text-body-medium text-error">
           Rundown gagal dimuat. Periksa koneksi lalu muat ulang halaman ini.
         </p> : !payload?.published ? <p role="status" className="rounded-lg border border-outline-variant bg-panel px-4 py-10 text-center text-body-medium text-on-surface-variant">
-          Rundown acara belum dipublikasikan. Silakan cek kembali sebentar lagi.
+          Susunan acara belum dipublikasikan. Silakan cek kembali sebentar lagi.
         </p> : items.length === 0 ? <p role="status" className="rounded-lg border border-outline-variant bg-panel px-4 py-10 text-center text-body-medium text-on-surface-variant">
           Belum ada susunan acara untuk bagian ini.
         </p> : <>
