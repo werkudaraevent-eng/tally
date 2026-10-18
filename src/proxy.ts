@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { HOST_SLUG_HEADER } from "@/lib/auth/event-slug";
+import { HOST_SLUG_HEADER, pesertaKePath } from "@/lib/auth/event-slug";
 import { decideClientHost, redirectToClient } from "@/lib/domain-klien/rute";
 import { domainMap, eventIdForHost, PENANDA_PATH } from "@/lib/domain-klien/simpan";
 import { productionSiteOrigin } from "@/lib/domain-klien/situs";
@@ -149,6 +149,10 @@ export async function proxy(request: NextRequest) {
     }
     destination = eventRewrite(request);
   }
+
+  // Area peserta: slug dan bahasa di path, supaya tab yang diketuk sebelum
+  // prefetch-nya selesai tetap dimuat (lihat pesertaKePath).
+  if (destination) pesertaKePath(destination);
 
   // Header slug domain klien hanya boleh berasal dari sini: salinan yang
   // dikirim browser selalu dibuang (src/lib/auth/event-slug.ts mempercayainya).

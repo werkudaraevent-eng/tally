@@ -35,7 +35,7 @@ import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
 import { formatEventDate, formatEventDateRingkas, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
-import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
@@ -215,7 +215,7 @@ export async function DashboardGathering({
     const dataQr = dataLapisanQr();
     const busQr = logistikQr ? namaBusPeserta(logistikQr, sekarang) : null;
     return (
-      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="min-h-dvh" style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
+      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="min-h-dvh" style={{ ...gaya, "--cincin-fokus": "var(--hz-cincin-navy)", backgroundColor: "var(--hz-navy)", color: "#ffffff" } as CSSProperties}>
         <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         <TutupQrEscape href={tutupQr} />
         <QrHorizon
@@ -405,9 +405,10 @@ export async function DashboardGathering({
     ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, label: t.quick.panitia, Ikon: Phone, warna: "text-[var(--aksen-teks)]", luar: true }] : []),
   ];
 
-  const menuTab: { id: Exclude<PortalTab, "qr">; label: string; Ikon: typeof House }[] = [
+  // `pendek`: label bilah bawah ponsel, satu baris di 360 px (sama dengan Horizon).
+  const menuTab: { id: Exclude<PortalTab, "qr">; label: string; pendek?: string; Ikon: typeof House }[] = [
     { id: "beranda", label: t.tabs.beranda, Ikon: House },
-    { id: "jadwal", label: t.tabs.jadwal, Ikon: CalendarBlank },
+    { id: "jadwal", label: t.tabs.jadwal, pendek: t.horizon.tabsShort.jadwal, Ikon: CalendarBlank },
     { id: "info", label: t.tabs.info, Ikon: Bell },
     { id: "profil", label: t.tabs.profil, Ikon: User },
   ];
@@ -940,7 +941,7 @@ export async function DashboardGathering({
   } else if (tabAktif === "perjalanan") {
     // Hanya Horizon (preset lain sudah dialihkan ke Beranda di atas).
     const tv = tH.travel;
-    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note };
+    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note(singkatanZona) };
     const hotel = kamar?.hotel ?? null;
     const peta = hotel
       ? hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`
@@ -951,7 +952,7 @@ export async function DashboardGathering({
         Ikon={Bed}
         nama={hotel?.name?.trim() || null}
         alamat={hotel?.address?.trim() || null}
-        tautan={peta ? { href: peta, label: tv.openMap } : null}
+        tautan={peta ? { href: peta, label: labelTautanPeta(peta, lang) } : null}
         kolom={4}
         fakta={[
           { label: tH.room, nilai: kamar.room_number, besar: true },
@@ -1436,7 +1437,10 @@ export async function DashboardGathering({
                 <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
               </div>
             ) : null}
-            <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,790px)_minmax(320px,1fr)] lg:items-start lg:gap-x-8 lg:gap-y-6">
+            {/* Di bawah lg kartu diurutkan dengan `order` (lewat pembungkus `contents`);
+                reading-flow membuat urutan baca dan Tab mengikuti urutan tampil (U-19).
+                Peramban tanpa dukungan tetap memakai urutan DOM, seperti sebelumnya. */}
+            <div className="flex flex-col gap-6 max-lg:[reading-flow:flex-visual] lg:grid lg:grid-cols-[minmax(0,790px)_minmax(320px,1fr)] lg:items-start lg:gap-x-8 lg:gap-y-6">
               <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
                 <BagianBeranda id="logistics" pratinjau={pratinjau}>
                   <div className="order-[40] lg:order-none">
@@ -1472,7 +1476,7 @@ export async function DashboardGathering({
                   {tampilLogistik && tiketBeranda ? (
                     <div className="order-[44] lg:order-none">
                       <BarisTautanHorizon
-                        href={keTab("perjalanan")}
+                        href={`${keTab("perjalanan")}#kereta`}
                         Ikon={Train}
                         alis={[tH.travel.trainRow, tanggalLeg(tiketBeranda.depart_date, lang)].filter(Boolean).join(" • ")}
                         judul={ruteLeg(tiketBeranda) ?? tiketBeranda.train_name}
@@ -1576,7 +1580,7 @@ export async function DashboardGathering({
     const kepalaTab: Record<string, KepalaTab> = {
       beranda: { judul: tH.heading(namaDepanSesi), judulPonsel: tH.headingMobile(namaDepanSesi), catatan: "", jenis: "kartu" },
       jadwal: { judul: t.schedule, judulPonsel: t.schedule, catatan: catatanJadwal, jenis: "jadwal" },
-      perjalanan: { judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note, jenis: "kartu" },
+      perjalanan: { judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona), jenis: "kartu" },
       outfit: { judul: labelMenuOutfit, judulPonsel: labelMenuOutfit, catatan: tH.outfit.note, jenis: "kartu" },
       info: { judul: tH.tabs.info, judulPonsel: tH.tabs.info, catatan: t.infoNote, jenis: "kartu" },
       profil: { judul: tH.tabs.profil, judulPonsel: tH.tabsShort.profil, catatan: tH.profile.note, jenis: "kartu" },
@@ -1600,7 +1604,8 @@ export async function DashboardGathering({
           infoBelumLabel={tH.unread(infoBelum)}
           tabsAria={t.tabsAria}
         />
-        {badan}
+        {/* Bilah atas dan bawah di luar <main> (U-13): landmark utama hanya isi tab. */}
+        <main>{badan}</main>
         <NavBawahHorizon tabs={tabsBawahHorizon} aktif={tabAktif === "perjalanan" || tabAktif === "outfit" ? "profil" : tabAktif} tabsAria={t.tabsAria} infoBelum={infoBelum} infoBelumLabel={tH.unread(infoBelum)} qr={
             tampilKode && peserta
               ? {
@@ -1616,11 +1621,11 @@ export async function DashboardGathering({
     );
     return (
       // Bilah bawah dipakai sampai 1024 px (U-18), jadi ruang bawahnya juga.
-      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
+      <div lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
         <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         {dataQr ? <PenyediaQr data={dataQr}>{isiPortal}</PenyediaQr> : isiPortal}
         {!dataQr && !pratinjau ? <HapusSalinanQr lingkup={[`${landingPath(event.slug, "id", utama)}/peserta`, `${landingPath(event.slug, "en", utama)}/peserta`]} /> : null}
-      </main>
+      </div>
     );
   }
 
@@ -1687,7 +1692,7 @@ export async function DashboardGathering({
       {/* ---- Bilah tab bawah (ponsel) -------------------------------------- */}
       <nav aria-label={t.tabsAria} className="fixed inset-x-0 bottom-0 z-20 border-t border-[#E6E9EE] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
         <ul className="mx-auto grid max-w-[560px] grid-cols-4">
-          {menuTab.map(({ id, label, Ikon }) => (
+          {menuTab.map(({ id, label, pendek, Ikon }) => (
             <li key={id}>
               <Link
                 href={keTab(id)}
@@ -1695,7 +1700,7 @@ export async function DashboardGathering({
                 className={`m3-state flex min-h-16 flex-col items-center justify-center gap-1 text-label-large font-bold ${id === tabAktif ? "text-[var(--alis)]" : MUTED}`}
               >
                 <Ikon size={24} weight={id === tabAktif ? "fill" : "regular"} aria-hidden />
-                {label}
+                {pendek ?? label}
               </Link>
             </li>
           ))}

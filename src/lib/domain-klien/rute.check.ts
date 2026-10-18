@@ -17,6 +17,11 @@ for (const p of ["/admin", "/admin/settings", "/login", "/booth", "/cashier", "/
   assert.equal(putuskan(p).kind, "tolak", p);
 }
 assert.equal(putuskan("/daftar", "eventSlug=lain").kind, "tolak");
+// Rute dalam area peserta: acara lain ditolak, acara sendiri dilayani.
+for (const p of ["/peserta/e/acara-lain", "/peserta/e/acara-lain/en", "/e/ilo/peserta/e/acara-lain", "/peserta/e/ilo%2F"]) {
+  assert.equal(putuskan(p).kind, "tolak", p);
+}
+assert.equal(putuskan("/peserta/e/ilo/en").kind, "layani");
 assert.equal(putuskan("/.well-known/tally-domain").kind, "penanda");
 // Menunggu juga dilayani (Tally harus bisa membuka domainnya sebelum Aktif).
 assert.equal(putuskan("/", "", { status: "menunggu" }).kind, "layani");

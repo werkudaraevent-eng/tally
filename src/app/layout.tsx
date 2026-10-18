@@ -32,14 +32,15 @@ export const metadata: Metadata = {
 // themeColor mengikuti skema, bukan satu warna brand. Bilah alamat Chrome
 // mobile memakai nilai ini; satu warna tetap berarti bilah biru terang menempel
 // di atas halaman gelap. Nilainya adalah peran `surface` dari m3-theme.css —
-// perbarui bila warna sumber diganti.
+// perbarui bila warna sumber diganti. Halaman tamu Gathering Horizon menimpanya
+// dengan navy Tema lewat generateViewport (U-31).
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f9f5ff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a082f" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0e0e" },
   ],
 };
 

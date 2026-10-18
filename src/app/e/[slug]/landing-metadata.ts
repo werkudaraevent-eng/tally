@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import { publicEventName, type EventLandingConfig } from "@/lib/domain";
 import { formatEventSchedule } from "@/lib/event-datetime";
 import { tanpaBintang } from "@/lib/landing-tagline";
+import { warnaBilahPeramban } from "@/lib/landing-tokens";
 import { landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 
 /** Asal situs dari permintaan ini, untuk alamat hreflang dan canonical yang harus absolut. */
@@ -61,4 +62,11 @@ export async function landingMetadata(slug: string, langDiminta?: LandingLang): 
         }
       : undefined,
   };
+}
+
+/** Viewport halaman acara: bilah alamat ponsel navy pada Gathering Horizon (U-31). */
+export async function landingViewport(slug: string): Promise<Viewport> {
+  const event = await getEventBySlugPublic(slug);
+  const warna = warnaBilahPeramban(event?.landing_config as EventLandingConfig | null | undefined);
+  return warna ? { themeColor: warna } : {};
 }

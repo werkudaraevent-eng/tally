@@ -36,15 +36,20 @@ export function bacaPenyelesaian(nilai: unknown): Penyelesaian {
 
 /**
  * Sesi yang boleh dipindai sendiri oleh peserta, dari daftar checkpoint.
- * Beberapa checkpoint di satu sesi: `both` menang, karena panitia tetap boleh
- * memindai di sana.
+ * Beberapa checkpoint di satu sesi: kemajuan dihitung per sesi, jadi satu
+ * checkpoint Staff membuat seluruh sesi dipindai panitia; kalau tidak, scan
+ * mandiri ikut menyelesaikan checkpoint Staff itu. Di antara self dan both, `both`
+ * menang, karena panitia tetap boleh memindai di sana.
  */
 export function scanMandiriPerSesi(daftar: Pick<BarisCheckpoint, "session_id" | "completion">[]): Map<number, "self" | "both"> {
   const hasil = new Map<number, "self" | "both">();
+  const staff = new Set<number>();
   for (const cp of daftar) {
-    if (cp.session_id === null || cp.completion === "staff") continue;
-    if (hasil.get(cp.session_id) !== "both") hasil.set(cp.session_id, cp.completion);
+    if (cp.session_id === null) continue;
+    if (cp.completion === "staff") staff.add(cp.session_id);
+    else if (hasil.get(cp.session_id) !== "both") hasil.set(cp.session_id, cp.completion);
   }
+  for (const sesi of staff) hasil.delete(sesi);
   return hasil;
 }
 
@@ -194,6 +199,7 @@ export async function loadCheckpointPeserta(eventId: string, participantId: stri
     ]);
     if (!selesai) return null;
     const en = lang === "en";
+    const mandiri = scanMandiriPerSesi(daftar);
     const steps = daftar.map((cp) => ({
       id: cp.id,
       title: (en && cp.title_en?.trim()) || cp.title,
@@ -201,7 +207,7 @@ export async function loadCheckpointPeserta(eventId: string, participantId: stri
       points: setelan.points_enabled ? cp.points ?? 0 : null,
       done_at: selesai.get(cp.id)?.at ?? null,
       size: selesai.get(cp.id)?.size ?? null,
-      self_scan: cp.session_id !== null && cp.completion !== "staff" ? cp.completion : null,
+      self_scan: cp.session_id !== null ? mandiri.get(cp.session_id) ?? null : null,
       session_id: cp.session_id,
     }));
     const earned = steps.reduce((jumlah, step) => jumlah + (step.done_at ? step.points ?? 0 : 0), 0);

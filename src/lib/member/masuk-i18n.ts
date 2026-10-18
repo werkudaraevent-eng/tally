@@ -50,7 +50,7 @@ export type MasukUiText = {
 
 export const MASUK_UI: Record<LandingLang, MasukUiText> = {
   id: {
-    judul: { masuk: "Masuk area peserta", tautan: "Kirim tautan ke email", sandi: "Buat kata sandi", kode: "Masuk area peserta", verifikasi: "Cek email Anda", kolom: "Masuk area peserta" },
+    judul: { masuk: "Masuk ke Dashboard saya", tautan: "Kirim tautan ke email", sandi: "Buat kata sandi", kode: "Masuk ke Dashboard saya", verifikasi: "Cek email Anda", kolom: "Masuk ke Dashboard saya" },
     tutup: "Tutup",
     untukPertamaKali: "Untuk membuat kata sandi pertama kali, atau bila Anda lupa kata sandi.",
     untuk: (email) => `Untuk ${email}.`,
@@ -72,7 +72,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     tautanTerkirim: (email) => `Bila ${email} terdaftar di acara ini, kami sudah mengirim email berisi langkah berikutnya. Periksa juga folder spam.`,
     koneksi: "Koneksi terputus. Periksa jaringan Anda, lalu coba lagi.",
     gagalUmum: "Belum berhasil. Coba lagi.",
-    alis: "Area peserta",
+    alis: "Peserta",
     bantuan: "Butuh bantuan?",
     hubungiPanitia: "Hubungi panitia",
     kodeCatatan: "Kami kirim kode 6 digit ke email ini. Tidak perlu kata sandi.",
@@ -84,7 +84,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     kolomCatatan: "Isi sesuai data yang Anda berikan ke panitia.",
   },
   en: {
-    judul: { masuk: "Participant sign-in", tautan: "Email me a link", sandi: "Create a password", kode: "Participant sign-in", verifikasi: "Check your email", kolom: "Participant sign-in" },
+    judul: { masuk: "Sign in to My dashboard", tautan: "Email me a link", sandi: "Create a password", kode: "Sign in to My dashboard", verifikasi: "Check your email", kolom: "Sign in to My dashboard" },
     tutup: "Close",
     untukPertamaKali: "To create your password for the first time, or if you have forgotten it.",
     untuk: (email) => `For ${email}.`,
@@ -104,7 +104,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     tautanTerkirim: (email) => `If ${email} is registered for this event, we have sent an email with the next step. Check your spam folder too.`,
     koneksi: "Connection lost. Check your network, then try again.",
     gagalUmum: "That did not work. Please try again.",
-    alis: "Participant area",
+    alis: "Participants",
     bantuan: "Need help?",
     hubungiPanitia: "Contact the organisers",
     kodeCatatan: "We'll email you a 6-digit code. No password needed.",

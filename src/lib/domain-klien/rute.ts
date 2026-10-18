@@ -44,6 +44,10 @@ export function decideClientHost(input: {
   if (DILARANG.some((pola) => pola.test(pathname) || pola.test(sisa))) return { kind: "tolak" };
   const lain = /^\/e\/([^/]+)/.exec(pathname);
   if (lain && decodeURIComponent(lain[1]) !== slug) return { kind: "tolak" };
+  // Rute dalam area peserta (/peserta/e/<slug>, src/proxy.ts pesertaKePath)
+  // juga membawa slug: acara lain ditolak, langsung maupun di bawah /e/<slug>.
+  const dalam = /\/peserta\/e\/([^/]+)/.exec(pathname);
+  if (dalam && decodeURIComponent(dalam[1]) !== slug) return { kind: "tolak" };
   const diminta = search.get("eventSlug");
   if (diminta && diminta !== slug) return { kind: "tolak" };
 

@@ -221,3 +221,13 @@ export function landingFontUrls(tokens: Pick<LandingTokens, "headingFont" | "bod
 
 /** Kekuatan KV hero gathering dalam persen (Figma Hanung: 20). Makin kuat, makin banyak bayangan gelap di atas gambar (kvGathering) supaya teks tetap terbaca. */
 export const HERO_KV_KUAT = { min: 5, max: 50, step: 5, bawaan: 20 } as const;
+
+/**
+ * Warna bilah alamat peramban ponsel (theme-color) untuk halaman tamu (U-31):
+ * navy Tema pada Gathering Horizon, yang bilah atasnya selalu navy (halaman
+ * acara, area peserta, layar QR). Gaya lain memakai nilai tata letak akar.
+ */
+export function warnaBilahPeramban(config: EventLandingConfig | null | undefined): string | null {
+  if (config?.layout !== "modern" || config.gathering !== true || config.gathering_variant !== "horizon") return null;
+  return landingTokens(config, "modern").brand;
+}

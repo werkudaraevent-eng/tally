@@ -21,7 +21,7 @@ import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
 import { jumlahHariAgenda, loadAgendaPreview, type AgendaPreview } from "@/lib/landing-agenda";
 import { jumlahSesi, pembicaraSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
-import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { MasukDialog } from "@/components/member/masuk-dialog";
@@ -185,10 +185,6 @@ function Section({ id, children }: { id?: string; children: ReactNode }) {
       {children}
     </section>
   );
-}
-
-function tautanPeta(url: string, lang: LandingLang): string {
-  return /google\.|goo\.gl/i.test(url) ? LANDING_UI[lang].openGoogleMaps : LANDING_UI[lang].openMap;
 }
 
 export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null, pratinjau = false }: Props) {
@@ -425,7 +421,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const menuAtas = (() => {
     if (!portalTampil || navSections.some((section) => section.id === "portal")) return navSections;
     const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
-    const tautan = { id: "portal", label: t.navPortal };
+    // Peserta Horizon yang sudah disetujui: "Perjalanan" membuka tab Perjalanan
+    // portalnya, bukan pita ajakan masuk yang tidak lagi berlaku (U-21). Tanpa
+    // info perjalanan (logistik dimatikan) tab itu tidak ada, jadi tetap ke pita.
+    const keTabPerjalanan = horizon && peserta && sesi?.status === "approved" && member?.show_logistics === true;
+    const tautan = { id: "portal", label: t.navPortal, ...(keTabPerjalanan ? { href: withQuery(peserta.dashboardHref, { tab: "perjalanan" }) } : {}) };
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
 
@@ -801,7 +801,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                       className={PIL_PENUH}
                       style={STATE_ON_PRIMARY}
                     >
-                      {tautanPeta(petaUrl, lang)}
+                      {labelTautanPeta(petaUrl, lang)}
                       <ArrowUpRight size={16} weight="bold" aria-hidden />
                     </a>
                   ) : null}
@@ -1412,7 +1412,7 @@ function InfoHotel({ hotel, zona, lang }: { hotel: LandingHotel; zona: EventTime
         </dl>
       ) : null}
       <a href={petaUrl} target="_blank" rel="noreferrer noopener" className={`${PIL_GARIS} mt-auto`}>
-        {t.openMap}
+        {labelTautanPeta(petaUrl, lang)}
         <ArrowUpRight size={16} weight="bold" aria-hidden />
       </a>
     </>

@@ -321,8 +321,13 @@ di atasnya: hover 8%, fokus 10%, ditekan 10%, diseret 16%.
 Pasang kelas `.m3-state` pada elemen interaktif. Satu aturan itu berlaku untuk
 semua warna tombol, termasuk yang belum ada.
 
-Cincin fokus global: garis luar 3px `primary` dengan celah 2px, hanya pada
-`:focus-visible` — muncul saat berpindah dengan papan ketik, tidak saat disentuh.
+Cincin fokus global: garis luar 2px dengan celah 2px dan halo 4px (18%), hanya
+pada `:focus-visible` — muncul saat berpindah dengan papan ketik, tidak saat
+disentuh. Warnanya `--cincin-fokus`, bawaannya `primary`. Wadah yang latarnya
+membuat `primary` di bawah 3:1 menimpa variabel itu, bukan aturan cincinnya:
+Horizon memakai tinta navy di bidang terang, emas Tema (atau putih bila emas di
+bawah 3:1) di bidang navy (`CINCIN_NAVY`), dan kembali ke tinta di bidang putih
+di dalam bidang navy (`CINCIN_PUTIH`).
 
 ## Top app bar
 
