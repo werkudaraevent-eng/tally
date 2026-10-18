@@ -24,6 +24,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #221 Lucky draw follow-ups to #216 (merged 19 Oct): the operator panel names the broken exclusion rule, the prize editor preview says "Draw blocked" instead of a name count while such a rule is active, the prize list shows a "Blocked" chip, and the rule editor can save a broken rule as inactive (only active rules are checked for deleted form questions; switching a rule on checks its stored conditions). No SQL.
 - #216 Lucky draw form-answer conditions (merged 18 Oct): Add condition has a "Form answers" group listing the event's own Registration > Edit form questions (staff-only ones included, file uploads left out). Choice questions match ticked values (checkboxes as Yes/No, like the Participant list); others compare text. A deleted question makes its condition fail; an active exclusion rule with one blocks the draw (Readiness, rule list and operator panel say which rule), and saves reject unknown questions. No SQL.
 - #214 Lucky draw checkpoint conditions (merged 18 Oct): Prizes & rules > Add condition has a Checkpoint group: points goal reached (reads Check-in > Checkpoints > Points goal), checkpoint points at least N, all checkpoints done. Works for prize conditions, exclusion rules and bonus-ticket rules; "Add condition" is now a grouped menu. No SQL.
 - #213 Lucky draw admin in English (merged 18 Oct): screens, condition summaries, readiness, timeline; the Excel export stays Indonesian; written with opencode.

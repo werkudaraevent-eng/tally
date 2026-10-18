@@ -262,6 +262,17 @@ export function hasMissingAnswer(node: UndianConditionNode, known: Set<string>):
   return node.var === "answer" && !known.has(node.key);
 }
 
+/**
+ * Kalimat untuk undian yang ditolak karena aturan pengecualian memakai
+ * pertanyaan form yang sudah dihapus. Dipakai panel operator dan pratinjau
+ * hadiah, supaya keduanya menyebut aturan yang sama dengan kata yang sama.
+ */
+export function ruleBrokenMessage(names: string[]): string {
+  const list = names.map((name) => `"${name}"`).join(", ");
+  const subject = names.length === 1 ? `Exclusion rule ${list} uses` : `Exclusion rules ${list} use`;
+  return `${subject} a form question that no longer exists. Fix or turn off ${names.length === 1 ? "the rule" : "these rules"} in Exclusion rules before drawing.`;
+}
+
 /** Apakah pohon memuat syarat yang tidak terbaca. Dipakai layar untuk memperingatkan. */
 export function hasInvalidLeaf(node: UndianConditionNode): boolean {
   if (isConditionGroup(node)) return node.children.some(hasInvalidLeaf);

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import {
+  hasMissingAnswer,
   invalidateBonusSessions,
   invalidateUnknownSessions,
   matchesConditions,
@@ -114,6 +115,10 @@ export async function POST(request: Request) {
   const known = new Set(attendanceSessions.map((session) => session.id));
   const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), known);
   const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
+  // Sama dengan buildPool(): aturan aktif pada pertanyaan yang dihapus menolak
+  // undian, jadi pratinjau tidak boleh tetap menjanjikan nama yang siap diundi.
+  const answerKeys = answerFields ? new Set(answerFields.map((field) => field.key)) : null;
+  const brokenRules = answerKeys ? rawRules.filter((rule) => hasMissingAnswer(rule.conditions, answerKeys)).map((rule) => rule.name) : [];
   // Lewat normalizeBonusRules supaya pohon syarat aturan tiket tambahan dibaca
   // dengan cara yang sama seperti yang tersimpan di hadiah.
   const bonusRules = invalidateBonusSessions(normalizeBonusRules(parsed.data.bonus_rules), known);
@@ -172,6 +177,7 @@ export async function POST(request: Request) {
 
   return Response.json({
     total_participants: rows.length,
+    broken_rules: brokenRules,
     eligible: eligible.length,
     available: available.length,
     total_tickets: totalTickets,

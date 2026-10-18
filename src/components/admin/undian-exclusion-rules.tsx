@@ -215,7 +215,11 @@ export function ExclusionRuleManager({
       body: JSON.stringify({ is_active: !rule.is_active }),
     });
     setToggling(null);
-    if (!response.ok) { toast.error("Could not change rule status"); return; }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      toast.error("Could not change rule status", data?.error?.details?.fieldErrors?.conditions?.[0]);
+      return;
+    }
     await load();
     onChanged();
   }

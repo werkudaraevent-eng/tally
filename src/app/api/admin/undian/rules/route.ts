@@ -153,7 +153,8 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
-  const answerError = await unknownAnswerError(eventId, [parsed.data.conditions as UndianConditionNode]);
+  // Aturan baru yang nonaktif tidak ikut undian, sama seperti PATCH.
+  const answerError = await unknownAnswerError(eventId, parsed.data.is_active ? [parsed.data.conditions as UndianConditionNode] : []);
   if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
   if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
