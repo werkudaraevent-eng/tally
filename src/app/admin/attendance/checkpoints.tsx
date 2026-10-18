@@ -1,12 +1,14 @@
 "use client";
 
-import { Flag, Plus, WarningCircle, X, XCircle } from "@phosphor-icons/react";
+import { Flag, Plus, Target, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
+import { angkaTujuan, kalimatTujuan, rapiTujuan, TUJUAN_POIN_MAX, TUJUAN_TEKS_MAX, type TujuanPoin } from "@/lib/checkpoint/tujuan";
 import { eventApiPath } from "@/lib/event-url";
+import { cx } from "@/lib/m3/cx";
 
 /**
  * Check-in > Checkpoints: langkah berurutan yang dilihat peserta di Dashboard
@@ -18,7 +20,9 @@ import { eventApiPath } from "@/lib/event-url";
  *
  * Setelan di sini satu-satunya: "Show in participant area" menyalakan kartu di
  * Dashboard saya dan catatan di layar scan; urutannya di Beranda diatur di
- * Participant area > Participant home seperti kartu lain.
+ * Participant area > Participant home seperti kartu lain. Tujuan poin (E-08)
+ * berlaku untuk seluruh daftar, jadi tombolnya di bilah atas, di samping
+ * sakelar Points, dan editornya memakai panel detail yang sama.
  */
 
 type Checkpoint = {
@@ -34,7 +38,11 @@ type Checkpoint = {
 };
 
 type Muat = {
-  settings: { enabled: boolean; points_enabled: boolean };
+  settings: { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
+  /** Kolom tujuan poin sudah ada (migrasi 202610170001). */
+  goal_ready: boolean;
+  /** Halaman peserta English menyala: isian English tujuan ikut tampil. */
+  en_available: boolean;
   checkpoints: Checkpoint[];
   sessions: { id: number; name: string; is_active: boolean }[];
   items: { id: number; name: string }[];
@@ -46,7 +54,10 @@ type Form = { title: string; title_en: string; place: string; place_en: string; 
 
 const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "" };
 
+type FormTujuan = { points: string; reward: string; reward_en: string };
+
 const angka = (nilai: number) => nilai.toLocaleString("en-GB");
+const poinEn = (nilai: number) => `${angka(nilai)} ${nilai === 1 ? "point" : "points"}`;
 
 /** "s:12" = sesi 12, "i:4" = barang 4. Satu pilihan untuk satu bukti. */
 function keForm(cp: Checkpoint): Form {
@@ -74,13 +85,23 @@ function keIsi(form: Form, poin: boolean) {
   };
 }
 
+/** Tujuan baru langsung terisi total poin yang ditawarkan, seperti di mockup yang disetujui. */
+function keFormTujuan(goal: TujuanPoin | null, ditawarkan: number): FormTujuan {
+  return {
+    points: goal ? String(goal.points) : ditawarkan > 0 ? String(ditawarkan) : "",
+    reward: goal?.reward ?? "",
+    reward_en: goal?.reward_en ?? "",
+  };
+}
+
 export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const [data, setData] = useState<Muat | null>(null);
   const [galat, setGalat] = useState("");
-  const [pilih, setPilih] = useState<number | "baru" | null>(null);
+  const [pilih, setPilih] = useState<number | "baru" | "tujuan" | null>(null);
   // Galat isian baru tampil sesudah admin menekan Add/Save, bukan saat mengetik.
   const [dicoba, setDicoba] = useState(false);
   const [form, setForm] = useState<Form>(FORM_KOSONG);
+  const [formTujuan, setFormTujuan] = useState<FormTujuan>({ points: "", reward: "", reward_en: "" });
   const [busy, setBusy] = useState(false);
   const [hapus, setHapus] = useState<Checkpoint | null>(null);
   const toast = useToast();
@@ -118,9 +139,11 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
     return body as Record<string, unknown>;
   }
 
-  async function ubahSetelan(patch: Partial<Muat["settings"]>) {
+  async function ubahSetelan(patch: Partial<Pick<Muat["settings"], "enabled" | "points_enabled">>) {
     if (!data) return;
     const lama = data.settings;
+    // Tujuan hanya berlaku saat poin menyala: panelnya ditutup bersama sakelarnya.
+    if (patch.points_enabled === false && pilih === "tujuan") setPilih(null);
     // Optimistis, sama dengan sakelar Walk-in: dikembalikan bila server menolak.
     setData({ ...data, settings: { ...lama, ...patch } });
     const hasil = await kirim("PATCH", { settings: patch });
@@ -134,6 +157,13 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
     setForm(cp ? keForm(cp) : FORM_KOSONG);
   }
 
+  function bukaTujuan() {
+    if (!data) return;
+    setPilih("tujuan");
+    setDicoba(false);
+    setFormTujuan(keFormTujuan(data.settings.goal, data.checkpoints.reduce((jumlah, cp) => jumlah + (cp.points ?? 0), 0)));
+  }
+
   async function simpan() {
     if (!data) return;
     const isi = keIsi(form, data.settings.points_enabled);
@@ -144,6 +174,25 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
       const hasil = await kirim("PATCH", { id: pilih, ...isi });
       if (hasil) toast.success("Checkpoint saved", isi.title);
     }
+  }
+
+  async function simpanTujuan(points: number, reward: string) {
+    if (!data) return;
+    const goal: Record<string, unknown> = { points, reward };
+    // Isian English hanya ada saat halaman English menyala. Tanpa isian itu, teks
+    // English tersimpan dipertahankan selama teks Indonesianya sama (rewardEnBaru).
+    if (data.en_available) goal.reward_en = rapiTujuan(formTujuan.reward_en) || null;
+    const hasil = await kirim("PATCH", { settings: { goal } });
+    if (!hasil) return;
+    const tersimpan = (hasil.settings as { goal?: TujuanPoin | null } | undefined)?.goal ?? null;
+    if (tersimpan) setFormTujuan({ points: String(tersimpan.points), reward: tersimpan.reward, reward_en: tersimpan.reward_en ?? "" });
+    setDicoba(false);
+    toast.success("Points goal saved", `Goal: ${angka(points)} pts`);
+  }
+
+  async function hapusTujuan() {
+    const hasil = await kirim("PATCH", { settings: { goal: null } });
+    if (hasil) { setPilih(null); toast.success("Points goal removed", "Participants no longer see the goal line."); }
   }
 
   async function hapusCheckpoint(cp: Checkpoint) {
@@ -164,6 +213,11 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
 
   const poin = data?.settings.points_enabled === true;
   const daftar = data?.checkpoints ?? [];
+  // Sama dengan total_points di kartu peserta: tujuan di atasnya tidak ditampilkan ke peserta.
+  const ditawarkan = daftar.reduce((jumlah, cp) => jumlah + (cp.points ?? 0), 0);
+  const tujuan = data?.settings.goal ?? null;
+  const tujuanTerbuka = pilih === "tujuan";
+  const tujuanKetinggian = tujuan !== null && tujuan.points > ditawarkan;
   const namaBukti = (cp: Checkpoint) =>
     cp.session_id
       ? { jenis: "Scanned at session", nama: data?.sessions.find((s) => s.id === cp.session_id)?.name ?? "Session" }
@@ -173,22 +227,46 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const galatJudul = dicoba && form.title.trim().length === 0 ? "Add a title participants will see." : undefined;
   const galatBukti = dicoba && form.bukti === "" ? "Choose what records this checkpoint." : undefined;
 
+  // Pola tombol bilah tabel Airtable/Notion: labelnya menyebut setelan yang berlaku
+  // dan membuka editornya di samping daftar.
+  const tombolTujuan = data && poin ? (
+    <Button
+      variant="text"
+      aria-expanded={tujuanTerbuka}
+      aria-controls={tujuanTerbuka ? "panel-tujuan-poin" : undefined}
+      icon={!tujuan ? <Plus size={16} weight="bold" /> : tujuanKetinggian ? <WarningCircle size={16} weight="fill" /> : <Target size={16} />}
+      className={cx(tujuanTerbuka && "bg-secondary-container", tujuanKetinggian && "text-warning")}
+      onClick={() => (tujuanTerbuka ? setPilih(null) : bukaTujuan())}
+    >
+      {!tujuan ? "Add points goal" : tujuanKetinggian ? `Goal: ${angka(tujuan.points)} pts · above ${angka(ditawarkan)} on offer` : `Goal: ${angka(tujuan.points)} pts`}
+    </Button>
+  ) : null;
+
   const list = (
     <Pane aria-label="Checkpoints">
-      <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-b border-outline-variant px-4 py-2.5">
-        <Switch simpan
-          checked={data?.settings.enabled === true}
-          disabled={!data || busy}
-          onChange={(value) => void ubahSetelan({ enabled: value })}
-          label="Show in participant area"
-        />
-        <Switch simpan
-          checked={poin}
-          disabled={!data || busy}
-          onChange={(value) => void ubahSetelan({ points_enabled: value })}
-          label="Points"
-        />
-        <span className="ml-auto text-body-medium tabular-nums text-on-surface-variant">
+      {/* Bilah menyusun diri menurut lebarnya sendiri (container query): satu baris
+          bila muat; dua baris saat panel terbuka di 1280 (Show dan hitungan di atas,
+          Points dan tombol tujuan di bawah); tiga baris di ponsel. Setiap baris 36 px,
+          jadi tombol tujuan 36 px tidak butuh margin negatif. */}
+      <div className="@container flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1 border-b border-outline-variant px-4 py-1">
+        <div className="flex min-h-9 items-center @max-md:basis-full">
+          <Switch simpan
+            checked={data?.settings.enabled === true}
+            disabled={!data || busy}
+            onChange={(value) => void ubahSetelan({ enabled: value })}
+            label="Show in participant area"
+          />
+        </div>
+        <div className="flex min-h-9 items-center gap-3 @max-md:contents @md:@max-lg:order-2 @md:@max-lg:basis-full">
+          <Switch simpan
+            checked={poin}
+            disabled={!data || busy}
+            onChange={(value) => void ubahSetelan({ points_enabled: value })}
+            label="Points"
+          />
+          {tombolTujuan ? <div className="flex @max-md:order-3 @max-md:basis-full">{tombolTujuan}</div> : null}
+        </div>
+        <span className="ml-auto inline-flex min-h-9 items-center text-body-medium tabular-nums text-on-surface-variant @md:@max-lg:order-1">
           {data && daftar.length > 0 && data.finished_all != null && data.participants != null
             ? `${angka(data.finished_all)} of ${angka(data.participants)} finished all`
             : null}
@@ -241,13 +319,13 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
         )}
       </PaneBody>
       <PaneFooter note="Participants see this order. The scan desk never turns anyone away for skipping a step; it only shows what is still open.">
-        {daftar.length > 0 ? <Button size="sm" icon={<Plus size={16} weight="bold" />} disabled={!data} onClick={() => buka("baru")}>New checkpoint</Button> : null}
+        {daftar.length > 0 ? <Button icon={<Plus size={16} weight="bold" />} disabled={!data} onClick={() => buka("baru")}>New checkpoint</Button> : null}
       </PaneFooter>
     </Pane>
   );
 
   const tanpaPilihan = data && data.sessions.length === 0 && data.items.length === 0;
-  const detail = pilih !== null && data ? (
+  const panelCheckpoint = typeof pilih === "number" || pilih === "baru" ? (
     <Pane as="aside" aria-label={pilih === "baru" ? "New checkpoint" : `Checkpoint ${terpilih?.title ?? ""}`}>
       <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
         <h2 className="min-w-0 flex-1 break-words text-title-medium font-semibold leading-6">{pilih === "baru" ? "New checkpoint" : terpilih?.title}</h2>
@@ -307,12 +385,12 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
             ) : (
               <div id="checkpoint-bukti"><SelectField label="Recorded by" error={galatBukti} value={form.bukti} onChange={(event) => setForm({ ...form, bukti: event.target.value })} hint="Staff scan the participant's QR at that session, or hand the item out on the scan screen.">
                 <option value="" disabled>Choose a session or kit item</option>
-                {data.sessions.length > 0 ? (
+                {data && data.sessions.length > 0 ? (
                   <optgroup label="Scanned at session">
                     {data.sessions.map((s) => <option key={`s${s.id}`} value={`s:${s.id}`}>{s.name}{s.is_active ? "" : " (closed)"}</option>)}
                   </optgroup>
                 ) : null}
-                {data.items.length > 0 ? (
+                {data && data.items.length > 0 ? (
                   <optgroup label="Item handed out">
                     {data.items.map((i) => <option key={`i${i.id}`} value={`i:${i.id}`}>{i.name}</option>)}
                   </optgroup>
@@ -347,16 +425,160 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
           ) : null}
         </form>
       </PaneBody>
+      {/* 36 px (md), sama dengan kaki panel tujuan: kaki tidak berubah tinggi saat berpindah panel. */}
       <PaneFooter>
         {terpilih ? (
           <>
-            <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus(terpilih)}>Delete</Button>
-            <Button simpan variant="outlined" size="sm" disabled={busy || posisi <= 0} onClick={() => void kirim("PATCH", { id: terpilih.id, move: "up" })}>Move up</Button>
-            <Button simpan variant="outlined" size="sm" disabled={busy || posisi < 0 || posisi >= daftar.length - 1} onClick={() => void kirim("PATCH", { id: terpilih.id, move: "down" })}>Move down</Button>
+            <Button simpan variant="outlined" className="text-error" disabled={busy} onClick={() => setHapus(terpilih)}>Delete</Button>
+            <Button simpan variant="outlined" disabled={busy || posisi <= 0} onClick={() => void kirim("PATCH", { id: terpilih.id, move: "up" })}>Move up</Button>
+            <Button simpan variant="outlined" disabled={busy || posisi < 0 || posisi >= daftar.length - 1} onClick={() => void kirim("PATCH", { id: terpilih.id, move: "down" })}>Move down</Button>
           </>
         ) : null}
-        <Button simpan size="sm" type="submit" form="form-checkpoint" loading={busy}>{pilih === "baru" ? "Add checkpoint" : "Save"}</Button>
+        <Button simpan type="submit" form="form-checkpoint" loading={busy}>{pilih === "baru" ? "Add checkpoint" : "Save"}</Button>
       </PaneFooter>
+    </Pane>
+  ) : null;
+
+  // ---- Panel tujuan poin (E-08) ------------------------------------------------
+  // Pola bilah "gratis ongkir" toko Shopify: ambang dan hadiahnya diisi, lalu
+  // kalimat yang dilihat pembeli dipratinjau dengan angka nyata sebelum disimpan.
+  const nTujuan = angkaTujuan(formTujuan.points);
+  const rewardRapi = rapiTujuan(formTujuan.reward);
+  const rewardEnRapi = rapiTujuan(formTujuan.reward_en);
+  const galatAngka = dicoba && nTujuan === null ? `Enter a whole number from 1 to ${angka(TUJUAN_POIN_MAX)}.` : undefined;
+  const galatReward = dicoba && rewardRapi === "" ? "Add what the points are for." : undefined;
+  const isianKetinggian = nTujuan !== null && nTujuan > ditawarkan;
+  const hintAngka = isianKetinggian ? (
+    // Peringatan, bukan galat: checkpoint berpoin bisa ditambah belakangan.
+    <span className="flex items-start gap-1.5 font-medium text-warning">
+      <WarningCircle size={16} weight="fill" className="mt-px shrink-0" aria-hidden />
+      {ditawarkan > 0 ? `Above the ${poinEn(ditawarkan)} on offer, so nobody can reach it.` : "No checkpoint gives points yet, so nobody can reach it."}
+    </span>
+  ) : (
+    `Out of ${poinEn(ditawarkan)} on offer`
+  );
+  const angkaContoh = nTujuan === null ? "…" : String(nTujuan);
+
+  function pratinjauTujuan() {
+    if (nTujuan === null || rewardRapi === "") {
+      return <p className="text-body-medium text-on-surface-variant">The sentence shows here once Goal and What it&apos;s for are filled in.</p>;
+    }
+    // Peserta di tengah jalan, lalu yang sudah mencapai tujuan. Kalimatnya dari
+    // kalimatTujuan, fungsi yang sama dengan kartu checkpoint peserta.
+    const contoh = Math.floor(nTujuan / 2);
+    const baris = [
+      { label: `With ${angka(contoh)} of ${poinEn(nTujuan)}`, sisa: nTujuan - contoh },
+      { label: `With ${poinEn(nTujuan)} or more`, sisa: 0 },
+    ];
+    const pakaiEn = data?.en_available === true && rewardEnRapi !== "";
+    return (
+      <>
+        {isianKetinggian ? (
+          <p className="text-body-small font-medium text-warning">Participants don&apos;t see this line while the goal is above the points on offer.</p>
+        ) : null}
+        <ul className="overflow-hidden rounded-lg border border-outline-variant">
+          {baris.map((b, index) => {
+            const id = kalimatTujuan({ sisa: b.sisa, reward: rewardRapi, lang: "id" });
+            const en = pakaiEn ? kalimatTujuan({ sisa: b.sisa, reward: rewardEnRapi, lang: "en" }) : null;
+            return (
+              <li key={b.label} className={cx("flex flex-col gap-1 px-4 py-3", index > 0 && "border-t border-outline-variant")}>
+                <span className="text-body-small text-on-surface-variant">{b.label}</span>
+                <span lang="id" className="text-body-medium text-on-surface [overflow-wrap:anywhere]"><span className="font-semibold">{id.tebal}</span> {id.sisa}</span>
+                {en ? <span lang="en" className="text-body-medium text-on-surface-variant [overflow-wrap:anywhere]"><span className="font-semibold">{en.tebal}</span> {en.sisa}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+        {data?.en_available && !pakaiEn ? (
+          <p className="text-body-small text-on-surface-variant">The English participant page shows the Indonesian sentence until the English text is filled in.</p>
+        ) : null}
+      </>
+    );
+  }
+
+  const panelTujuan = tujuanTerbuka && data ? (
+    <Pane as="aside" aria-label="Points goal" id="panel-tujuan-poin">
+      <div className="flex shrink-0 items-start gap-3 border-b border-outline-variant px-5 py-4">
+        <h2 className="min-w-0 flex-1 break-words text-title-medium font-semibold leading-6">Points goal</h2>
+        <IconButton size="sm" label="Close" onClick={() => setPilih(null)}><X size={16} /></IconButton>
+      </div>
+      <PaneBody>
+        {!data.goal_ready ? (
+          // Tanpa tombol: tidak ada yang bisa ditekan lalu gagal.
+          <DetailSection>
+            <p className="rounded-md bg-surface-container-high px-4 py-2.5 text-body-medium text-on-surface-variant">The points goal needs a database update first (migration 202610170001).</p>
+          </DetailSection>
+        ) : (
+          <form
+            id="form-tujuan"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (busy) return;
+              if (nTujuan === null || rewardRapi === "") {
+                setDicoba(true);
+                const sasaran = nTujuan === null ? "tujuan-angka" : "tujuan-untuk";
+                requestAnimationFrame(() => document.querySelector<HTMLElement>(`#${sasaran} input`)?.focus());
+                return;
+              }
+              void simpanTujuan(nTujuan, rewardRapi);
+            }}
+          >
+            <DetailSection>
+              <div id="tujuan-angka">
+                <TextField
+                  label="Goal"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={TUJUAN_POIN_MAX}
+                  step={1}
+                  value={formTujuan.points}
+                  autoFocus={!tujuan}
+                  className="max-w-56"
+                  trailing={<span aria-hidden className="text-body-large text-on-surface-variant">pts</span>}
+                  error={galatAngka}
+                  hint={hintAngka}
+                  onChange={(event) => setFormTujuan({ ...formTujuan, points: event.target.value })}
+                />
+              </div>
+              <div id="tujuan-untuk">
+                <TextField
+                  label="What it's for"
+                  value={formTujuan.reward}
+                  maxLength={TUJUAN_TEKS_MAX}
+                  counter
+                  placeholder="masuk undian malam puncak"
+                  error={galatReward}
+                  hint={`Completes “${angkaContoh} poin lagi untuk …”`}
+                  onChange={(event) => setFormTujuan({ ...formTujuan, reward: event.target.value })}
+                />
+              </div>
+            </DetailSection>
+            {data.en_available ? (
+              <DetailSection title="English participant page">
+                <TextField
+                  label="What it's for in English"
+                  optional
+                  value={formTujuan.reward_en}
+                  maxLength={TUJUAN_TEKS_MAX}
+                  counter
+                  placeholder="enter the gala-night draw"
+                  hint={`Completes “${angkaContoh} more points to …”`}
+                  onChange={(event) => setFormTujuan({ ...formTujuan, reward_en: event.target.value })}
+                />
+              </DetailSection>
+            ) : null}
+            <DetailSection title="What participants see">{pratinjauTujuan()}</DetailSection>
+          </form>
+        )}
+      </PaneBody>
+      {data.goal_ready ? (
+        <PaneFooter>
+          {tujuan ? <Button simpan variant="outlined" className="text-error" disabled={busy} onClick={() => void hapusTujuan()}>Remove goal</Button> : null}
+          <Button simpan type="submit" form="form-tujuan" loading={busy}>Save goal</Button>
+        </PaneFooter>
+      ) : null}
     </Pane>
   ) : null;
 
@@ -368,7 +590,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
           <Link href="/admin/area-peserta" className="rounded-sm font-medium text-primary hover:underline">Participant area</Link>.
         </p>
       ) : null}
-      <ListDetail list={list} detail={detail} />
+      <ListDetail list={list} detail={!data ? null : panelTujuan ?? panelCheckpoint} />
       <Dialog
         open={hapus !== null}
         onClose={() => setHapus(null)}

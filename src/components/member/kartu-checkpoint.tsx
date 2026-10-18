@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { CheckpointPeserta, LangkahPeserta } from "@/lib/checkpoint/server";
 import type { LandingLang } from "@/lib/landing-i18n";
 import type { EventTimeZone } from "@/lib/timezone";
+import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
 import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
 
 /**
@@ -200,6 +201,8 @@ export function KartuCheckpoint({
         ))}
       </div>
       <p className={`mt-2 text-[13.5px] ${g.redup}`}>{t.kemajuan(data.done, total)}</p>
+      {/* Tujuan poin (E-08). Bagian tebal memakai warna teks utama kartu. */}
+      {data.goal ? <BarisTujuanPoin tujuan={data.goal} className="mt-1 text-[13.5px] leading-[1.5]" tebalKelas="font-bold" sisaKelas={g.redup} /> : null}
 
       {/* Satu langkah tidak perlu dilipat. Semua selesai: layar lebar tetap
           menampilkan riwayatnya, ponsel cukup judul "Semua checkpoint selesai". */}

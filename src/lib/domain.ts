@@ -1864,6 +1864,7 @@ export type ApiErrorCode =
   // Trip bus ditautkan ke baris Agenda sebelum migrasi 202610170002 dijalankan.
   // Trip tanpa tautan tetap tersimpan seperti biasa.
   | "TRIP_AGENDA_NOT_READY"
+  | "CHECKPOINT_GOAL_NOT_READY"
   | "UNDIAN_PRIZE_NOT_FOUND"
   | "UNDIAN_PRIZE_IN_USE"
   | "UNDIAN_NO_ACTIVE_PRIZE"
