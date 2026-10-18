@@ -21,7 +21,7 @@ import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
 import { jumlahHariAgenda, loadAgendaPreview, type AgendaPreview } from "@/lib/landing-agenda";
 import { jumlahSesi, pembicaraSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
-import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { MasukDialog } from "@/components/member/masuk-dialog";
@@ -421,7 +421,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const menuAtas = (() => {
     if (!portalTampil || navSections.some((section) => section.id === "portal")) return navSections;
     const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
-    const tautan = { id: "portal", label: t.navPortal };
+    // Peserta Horizon yang sudah disetujui: "Perjalanan" membuka tab Perjalanan
+    // portalnya, bukan pita ajakan masuk yang tidak lagi berlaku (U-21).
+    const tautan = { id: "portal", label: t.navPortal, ...(horizon && peserta && sesi?.status === "approved" ? { href: withQuery(peserta.dashboardHref, { tab: "perjalanan" }) } : {}) };
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
 

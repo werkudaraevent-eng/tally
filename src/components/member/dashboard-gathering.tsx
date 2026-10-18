@@ -345,7 +345,8 @@ export async function DashboardGathering({
     const posisiPortal = urutan.findIndex(isPortalEntry);
     const posisiNav = (id: string) => urutan.findIndex((section) => section.id === (id === "program" ? (tampil("about") ? "about" : "agenda") : id));
     const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
-    const tautan = { id: "portal", label: LANDING_UI[lang].navPortal };
+    // Horizon: "Perjalanan" di bilah atas membuka tab Perjalanan (U-21).
+    const tautan = { id: "portal", label: LANDING_UI[lang].navPortal, ...(horizon ? { href: keTab("perjalanan") } : {}) };
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
   const navPeserta = await muatNavPeserta(event, sesi, lang, { data: pengumuman });
