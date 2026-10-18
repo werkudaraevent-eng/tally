@@ -15,6 +15,16 @@ export function kunciQrLuring(asal: string, lingkup: string): string {
   return `${asal}${lingkup}?tally-qr-luring`;
 }
 
+/**
+ * Semua lingkup portal satu acara yang mungkin menyimpan salinan QR: portal
+ * bahasa utama (`/e/<slug>/peserta`) dan portal bahasa kedua (`/e/<slug>/en`
+ * atau `/e/<slug>/id`). Dipakai saat salinan harus hilang tanpa tahu bahasa
+ * utamanya, mis. tepat setelah orang lain masuk di ponsel yang sama.
+ */
+export function lingkupSalinanQr(slug: string): string[] {
+  return [`/e/${slug}/peserta`, `/e/${slug}/en/peserta`, `/e/${slug}/id/peserta`];
+}
+
 export type IsiQrLuring = {
   lang: "id" | "en";
   judul: string;
