@@ -81,6 +81,7 @@ export type UndianConditionLeaf =
   | { var: "total_spend"; cmp: UndianCmp; value: number }
   | { var: "booth_count"; cmp: UndianCmp; value: number }
   | { var: "scan_count"; cmp: UndianCmp; value: number }
+  | UndianCheckpointLeaf
   | { var: "participant_type"; cmp: "in" | "not_in"; values: string[] }
   | { var: "rsvp_status"; cmp: "in" | "not_in"; values: string[] }
   | UndianCheckInLeaf
@@ -95,6 +96,34 @@ export type UndianConditionLeaf =
  * Salinan scanner API tidak punya sesi, jadi tidak ikut pada pilihan sesi.
  */
 export type UndianCheckInLeaf = { var: "checked_in"; is: boolean; session_id?: number };
+
+/**
+ * Checkpoint peserta (Check-in > Checkpoints). Dihitung server dari bukti yang
+ * sama dengan kartu checkpoint peserta: pemindaian di sesi checkpoint atau
+ * barang yang sudah diserahkan.
+ *
+ *   * `checkpoint_points`: poin yang sudah dikumpulkan. 0 bila Points mati.
+ *   * `checkpoint_goal`: tujuan poin (Check-in > Checkpoints > Points goal)
+ *     tercapai. Angkanya tidak disalin ke sini, supaya kartu peserta ("20 poin
+ *     lagi untuk masuk undian") dan syarat undian selalu memakai angka yang sama.
+ *     Tanpa tujuan, tidak ada yang mencapainya.
+ *   * `checkpoints_all`: semua checkpoint selesai. Tanpa checkpoint, tidak ada
+ *     yang menyelesaikannya.
+ */
+export type UndianCheckpointLeaf =
+  | { var: "checkpoint_points"; cmp: UndianCmp; value: number }
+  | { var: "checkpoint_goal"; is: boolean }
+  | { var: "checkpoints_all"; is: boolean };
+
+/** Ringkasan checkpoint acara untuk teks bantuan di rule builder. */
+export type CheckpointSummary = {
+  enabled: boolean;
+  points_enabled: boolean;
+  /** Tujuan poin; null bila belum diatur. */
+  goal: number | null;
+  count: number;
+  total_points: number;
+};
 
 export type UndianTextLeaf = { var: UndianTextVar; cmp: UndianTextCmp; text: string };
 
@@ -149,10 +178,17 @@ export function isTextLeaf(node: UndianConditionLeaf): node is UndianTextLeaf {
   return isTextVar(node.var);
 }
 
-/** Apakah pohon memuat syarat check-in atau jumlah scan, yang butuh data pemindaian sesi. */
+/**
+ * Apakah pohon memuat syarat check-in, jumlah scan, atau checkpoint, yang butuh
+ * data pemindaian sesi (checkpoint juga membaca barang yang diserahkan).
+ */
 export function usesAttendance(node: UndianConditionNode): boolean {
   if (isConditionGroup(node)) return node.children.some(usesAttendance);
-  return node.var === "checked_in" || node.var === "scan_count";
+  return node.var === "checked_in" || node.var === "scan_count" || isCheckpointVar(node.var);
+}
+
+export function isCheckpointVar(value: unknown): value is UndianCheckpointLeaf["var"] {
+  return value === "checkpoint_points" || value === "checkpoint_goal" || value === "checkpoints_all";
 }
 
 /**
@@ -220,7 +256,8 @@ function normalizeNode(value: unknown): UndianConditionNode {
   switch (raw.var) {
     case "total_spend":
     case "booth_count":
-    case "scan_count": {
+    case "scan_count":
+    case "checkpoint_points": {
       if (!isCmp(cmp)) return INVALID_LEAF;
       const numeric = Number(raw.value);
       if (!Number.isFinite(numeric)) return INVALID_LEAF;
@@ -244,6 +281,8 @@ function normalizeNode(value: unknown): UndianConditionNode {
         : { var: "checked_in", is: raw.is !== false };
     }
     case "has_seat":
+    case "checkpoint_goal":
+    case "checkpoints_all":
       return { var: raw.var, is: raw.is !== false };
     default:
       return INVALID_LEAF;
@@ -318,6 +357,13 @@ export type ParticipantPoolRow = {
    * karena seseorang dipindai dua kali di pintu yang sama.
    */
   scan_count: number;
+  /**
+   * Checkpoint, diisi server bersama `attended_sessions` (lihat
+   * loadParticipantPool). Kosong dibaca sebagai 0 poin dan belum selesai.
+   */
+  checkpoint_points?: number;
+  checkpoint_goal_met?: boolean;
+  checkpoints_all_done?: boolean;
   seat_label: string | null;
   allow_name_display: boolean;
   total_spend: number;
@@ -363,6 +409,9 @@ export function matchesConditions(row: ParticipantPoolRow, node: UndianCondition
     case "total_spend": return compare(row.total_spend, node.cmp, node.value);
     case "booth_count": return compare(row.booth_count, node.cmp, node.value);
     case "scan_count": return compare(row.scan_count, node.cmp, node.value);
+    case "checkpoint_points": return compare(row.checkpoint_points ?? 0, node.cmp, node.value);
+    case "checkpoint_goal": return (row.checkpoint_goal_met ?? false) === node.is;
+    case "checkpoints_all": return (row.checkpoints_all_done ?? false) === node.is;
     case "participant_type": {
       const inList = node.values.includes(row.participant_type ?? "");
       return node.cmp === "in" ? inList : !inList;
@@ -833,6 +882,9 @@ export function describeConditions(node: UndianConditionGroup, sessionNames: Rec
       case "total_spend": return `spend ${CMP_TEXT[child.cmp]} ${rupiah(child.value)}`;
       case "booth_count": return `${CMP_TEXT[child.cmp]} ${child.value} booth visits`;
       case "scan_count": return `${CMP_TEXT[child.cmp]} ${child.value} scans`;
+      case "checkpoint_points": return `checkpoint points ${CMP_TEXT[child.cmp]} ${child.value}`;
+      case "checkpoint_goal": return child.is ? "checkpoint points goal reached" : "checkpoint points goal not reached";
+      case "checkpoints_all": return child.is ? "all checkpoints done" : "not all checkpoints done";
       case "participant_type": return `participant type ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
       case "rsvp_status": return `RSVP ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
       case "checked_in": {

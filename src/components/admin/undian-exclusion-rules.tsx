@@ -12,7 +12,7 @@ import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 import {
   EMPTY_CONDITIONS, describeConditions, isTrulyEmpty, normalizeExclusionRule,
-  type UndianConditionGroup, type UndianExclusionRule,
+  type CheckpointSummary, type UndianConditionGroup, type UndianExclusionRule,
 } from "@/lib/undian";
 import { INPUT } from "@/components/admin/compact-form";
 
@@ -94,6 +94,7 @@ export function ExclusionRuleManager({
   const [companies, setCompanies] = useState<string[]>([]);
   // null = gagal dimuat, berbeda dari acara yang memang tanpa sesi.
   const [sessions, setSessions] = useState<{ id: number; name: string }[] | null | undefined>(undefined);
+  const [checkpoint, setCheckpoint] = useState<CheckpointSummary | null | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
@@ -120,6 +121,7 @@ export function ExclusionRuleManager({
     setRsvpStatuses(data.rsvp_statuses ?? []);
     setCompanies(data.companies ?? []);
     setSessions(data.attendance_sessions === null ? null : data.attendance_sessions ?? []);
+    setCheckpoint(data.checkpoint ?? null);
   }
 
   // setState langsung di badan effect ditolak React Compiler, jadi pemuatan awal
@@ -361,6 +363,7 @@ export function ExclusionRuleManager({
               rsvpStatuses={rsvpStatuses}
               companies={companies}
               sessions={sessions}
+              checkpoint={checkpoint}
               onRetrySessions={() => { void load(); }}
               tone="exclude"
               onChange={(next) => setDraft({ ...draft, conditions: next })}

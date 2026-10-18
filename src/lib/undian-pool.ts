@@ -1,4 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { checkpointState } from "@/lib/undian-checkpoint";
+import { loadDaftarCheckpoint, loadSetelanCheckpoint, type BarisCheckpoint, type SetelanCheckpoint } from "@/lib/checkpoint/server";
 import {
   invalidateBonusSessions,
   invalidateUnknownSessions,
@@ -8,6 +10,7 @@ import {
   participantToCandidate,
   usesAttendance,
   type Candidate,
+  type CheckpointSummary,
   type ParticipantPoolRow,
   type PoolBreakdown,
   type UndianConditionNode,
@@ -69,15 +72,18 @@ export type AttendanceSessionOption = { id: number; name: string };
  * yang sama dengan Client view (src/lib/live/data.ts).
  *
  * Pemindaian hanya dibaca bila `withAttendance` benar, yaitu bila ada syarat
- * check-in atau jumlah scan, atau bobotnya memakai jumlah scan. Tombol undi di panggung tidak perlu membayar bacaan yang tidak
- * dipakai.
+ * check-in, jumlah scan, atau checkpoint, atau bobotnya memakai jumlah scan.
+ * Tombol undi di panggung tidak perlu membayar bacaan yang tidak dipakai.
+ * Checkpoint ikut dihitung di sini karena buktinya sebagian besar pemindaian
+ * yang sama.
  */
 export async function loadParticipantPool(eventId: string, withAttendance: boolean): Promise<ParticipantPoolRow[] | null> {
-  const [pool, scans] = await Promise.all([
+  const [pool, scans, checkpoint] = await Promise.all([
     poolRows(eventId),
     withAttendance ? attendedSessions(eventId) : Promise.resolve(new Map<string, number[]>()),
+    withAttendance ? loadCheckpointData(eventId) : Promise.resolve(undefined),
   ]);
-  if (!pool || !scans) return null;
+  if (!pool || !scans || checkpoint === null) return null;
   return pool.map((row) => {
     const attended = scans.get(row.participant_id) ?? [];
     return {
@@ -85,8 +91,71 @@ export async function loadParticipantPool(eventId: string, withAttendance: boole
       checked_in: row.checked_in || attended.length > 0,
       scan_count: row.scan_count + attended.length,
       attended_sessions: attended,
+      ...(checkpoint ? checkpointState(checkpoint.setelan, checkpoint.daftar, attended, checkpoint.pickups.get(row.participant_id)) : {}),
     };
   });
+}
+
+type CheckpointData = {
+  setelan: SetelanCheckpoint;
+  daftar: BarisCheckpoint[];
+  /** Barang checkpoint yang sudah diserahkan, per peserta. */
+  pickups: Map<string, Set<number>>;
+};
+
+/**
+ * Setelan, daftar, dan penyerahan barang checkpoint. Null bila salah satunya
+ * gagal dibaca: kolam ikut gagal, bukan diam-diam menganggap semua orang 0 poin.
+ * Fitur yang mati atau tanpa checkpoint menghasilkan daftar kosong.
+ */
+async function loadCheckpointData(eventId: string): Promise<CheckpointData | null> {
+  const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
+  if (!setelan || !daftar) return null;
+  if (!setelan.enabled) return { setelan, daftar: [], pickups: new Map() };
+  const itemIds = [...new Set(daftar.map((cp) => cp.item_id).filter((id): id is number => id !== null))];
+  const pickups = itemIds.length > 0 ? await checkpointPickups(eventId, itemIds) : new Map<string, Set<number>>();
+  if (!pickups) return null;
+  return { setelan, daftar, pickups };
+}
+
+/** Penyerahan barang checkpoint, keyset per id (bacaan berhenti di 1.000 baris). */
+async function checkpointPickups(eventId: string, itemIds: number[]): Promise<Map<string, Set<number>> | null> {
+  const client = getSupabaseServiceClient();
+  const result = new Map<string, Set<number>>();
+  const PAGE = 1000;
+  let after = 0;
+  for (;;) {
+    const { data, error } = await client
+      .from("item_pickups")
+      .select("id,participant_id,item_id")
+      .eq("event_id", eventId)
+      .in("item_id", itemIds)
+      .gt("id", after)
+      .order("id")
+      .limit(PAGE);
+    if (error) return null;
+    const rows = (data ?? []) as { id: number; participant_id: string; item_id: number }[];
+    for (const row of rows) {
+      const set = result.get(row.participant_id) ?? new Set<number>();
+      set.add(Number(row.item_id));
+      result.set(row.participant_id, set);
+    }
+    if (rows.length < PAGE) return result;
+    after = Number(rows[rows.length - 1].id);
+  }
+}
+
+/** Ringkasan untuk teks bantuan rule builder. Null bila gagal dibaca. */
+export async function loadCheckpointSummary(eventId: string): Promise<CheckpointSummary | null> {
+  const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
+  if (!setelan || !daftar) return null;
+  return {
+    enabled: setelan.enabled,
+    points_enabled: setelan.points_enabled,
+    goal: setelan.goal?.points ?? null,
+    count: setelan.enabled ? daftar.length : 0,
+    total_points: setelan.points_enabled ? daftar.reduce((sum, cp) => sum + (cp.points ?? 0), 0) : 0,
+  };
 }
 
 /**
