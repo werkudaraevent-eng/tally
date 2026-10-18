@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { hasInvalidLeaf, invalidateUnknownSessions, isTrulyEmpty, matchesConditions, normalizeConditions } from "@/lib/undian";
-import { listAttendanceSessions, loadParticipantPool, needsAttendance } from "@/lib/undian-pool";
+import { hasInvalidLeaf, hasMissingAnswer, invalidateUnknownSessions, isTrulyEmpty, matchesConditions, normalizeConditions, usesAnswer } from "@/lib/undian";
+import { listAnswerFields, listAttendanceSessions, loadParticipantPool, needsAttendance } from "@/lib/undian-pool";
 import { groupSchema } from "../route";
 
 // Pratinjau aturan pengecualian: siapa saja yang akan tersaring.
@@ -41,8 +41,14 @@ export async function POST(request: Request) {
   const sessions = await listAttendanceSessions(auth.scope.event.id);
   if (!sessions) return apiError("INTERNAL_ERROR", 500);
   const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), new Set(sessions.map((session) => session.id)));
-  const rows = await loadParticipantPool(auth.scope.event.id, needsAttendance(conditions));
-  if (!rows) return apiError("INTERNAL_ERROR", 500);
+  const [rows, answerFields] = await Promise.all([
+    loadParticipantPool(auth.scope.event.id, needsAttendance(conditions)),
+    usesAnswer(conditions) ? listAnswerFields(auth.scope.event.id) : Promise.resolve([]),
+  ]);
+  if (!rows || !answerFields) return apiError("INTERNAL_ERROR", 500);
+  // Pertanyaan form yang sudah hilang dilaporkan sebagai syarat rusak, bukan
+  // sebagai ejaan yang keliru: aturan seperti itu tidak mengecualikan siapa pun.
+  const missingAnswer = hasMissingAnswer(conditions, new Set(answerFields.map((field) => field.key)));
 
   // Pohon yang benar-benar kosong dilaporkan sebagai nol, BUKAN sebagai semua
   // orang: pohon kosong bernilai benar, dan pada aturan pengecualian benar berarti
@@ -63,7 +69,7 @@ export async function POST(request: Request) {
     total_participants: rows.length,
     matched: matched.length,
     incomplete: false,
-    has_invalid: hasInvalidLeaf(conditions),
+    has_invalid: hasInvalidLeaf(conditions) || missingAnswer,
     sample: matched.slice(0, parsed.data.limit).map((row) => ({
       participant_id: row.participant_id,
       name: row.name,

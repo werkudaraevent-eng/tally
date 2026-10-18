@@ -1,9 +1,10 @@
 import type { Branding } from "@/lib/branding";
-import type { CheckpointSummary, PoolBreakdown } from "@/lib/undian";
+import type { CheckpointSummary, PoolBreakdown, UndianAnswerField } from "@/lib/undian";
 
 // Bentuk data CMS Undian yang dipakai bersama oleh halaman dan panel-panelnya.
 
-export type PoolStat = { eligible: number; candidates: number; tickets: number };
+/** `broken_rules`: aturan pengecualian aktif yang pertanyaan formnya sudah hilang; undian hadiah ini ditolak sampai dibereskan. */
+export type PoolStat = { eligible: number; candidates: number; tickets: number; broken_rules?: string[] };
 export type EntryGroup = { id: number; name: string; note: string | null; entry_count: number };
 export type Exclusion = { participant_id: string; name: string; company: string | null; reason: string | null };
 export type Preview = {
@@ -15,6 +16,8 @@ export type Preview = {
   attendance_sessions?: AttendanceSessionOption[];
   /** Checkpoint acara, untuk teks bantuan syarat checkpoint. Null bila gagal dibaca. */
   checkpoint?: CheckpointSummary | null;
+  /** Pertanyaan tambahan form registrasi, untuk syarat jawaban. Null bila gagal dibaca. */
+  answer_fields?: UndianAnswerField[] | null;
   /** Mode tiket tambahan: kelompok menurut kombinasi aturan yang cocok, dan jumlah per aturan. */
   bonus_groups?: { rules: number[]; count: number; tickets: number }[];
   bonus_rule_counts?: number[];

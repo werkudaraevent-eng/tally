@@ -59,6 +59,7 @@ const messages: Record<ApiErrorCode, string> = {
   UNDIAN_PRIZE_IN_USE: "Hadiah sudah punya pemenang. Matikan saja, jangan dihapus.",
   UNDIAN_NO_ACTIVE_PRIZE: "Belum ada hadiah yang dipilih untuk diundi.",
   UNDIAN_POOL_EMPTY: "Tidak ada peserta yang memenuhi syarat hadiah ini.",
+  UNDIAN_RULE_BROKEN: "An exclusion rule uses a form question that no longer exists. Fix or turn off the rule in Lucky draw > Exclusion rules before drawing.",
   UNDIAN_QUOTA_REACHED: "Kuota pemenang hadiah ini sudah penuh.",
   UNDIAN_ALREADY_SPINNING: "Undian sedang berjalan. Tunggu sampai pemenang tampil.",
   UNDIAN_ENTRY_GROUP_NOT_FOUND: "Daftar entri undian tidak ditemukan.",

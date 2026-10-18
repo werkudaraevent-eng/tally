@@ -82,6 +82,7 @@ export type UndianConditionLeaf =
   | { var: "booth_count"; cmp: UndianCmp; value: number }
   | { var: "scan_count"; cmp: UndianCmp; value: number }
   | UndianCheckpointLeaf
+  | UndianAnswerLeaf
   | { var: "participant_type"; cmp: "in" | "not_in"; values: string[] }
   | { var: "rsvp_status"; cmp: "in" | "not_in"; values: string[] }
   | UndianCheckInLeaf
@@ -114,6 +115,41 @@ export type UndianCheckpointLeaf =
   | { var: "checkpoint_points"; cmp: UndianCmp; value: number }
   | { var: "checkpoint_goal"; is: boolean }
   | { var: "checkpoints_all"; is: boolean };
+
+/**
+ * Jawaban pertanyaan tambahan form registrasi (participants.extra, kunci =
+ * `key` pertanyaannya). Pertanyaan pilihan (dropdown, pilihan ganda, kotak
+ * centang) dicocokkan dengan daftar nilai; sisanya seperti kolom teks. Kotak
+ * centang dibaca "Yes"/"No", sama dengan kolom di Participant list.
+ *
+ * Pertanyaan yang sudah dihapus dari form tidak punya nilai di baris kolam,
+ * sehingga syaratnya selalu salah, seperti syarat rusak.
+ */
+export type UndianAnswerLeaf =
+  | { var: "answer"; key: string; cmp: UndianTextCmp; text: string }
+  | { var: "answer"; key: string; cmp: "in" | "not_in"; values: string[] };
+
+/** Pertanyaan form yang bisa dipakai sebagai syarat. */
+export type UndianAnswerField = { key: string; label: string; type: string; options: string[] };
+
+const ANSWER_KEY = /^[a-z][a-z0-9_]{0,39}$/;
+
+/** Dropdown, pilihan ganda, dan kotak centang: dicocokkan dengan daftar nilai. */
+export function isChoiceAnswer(type: string): boolean {
+  return type === "select" || type === "radio" || type === "checkbox";
+}
+
+/** Nilai yang bisa dipilih untuk pertanyaan pilihan. */
+export function answerChoices(field: Pick<UndianAnswerField, "type" | "options">): string[] {
+  return field.type === "checkbox" ? ["Yes", "No"] : field.options;
+}
+
+/** Jawaban sebagai teks, sama dengan sel Participant list. "" = kosong. */
+export function answerText(type: string, raw: unknown): string {
+  if (type === "checkbox") return raw === "true" || raw === true ? "Yes" : "No";
+  if (type === "file") return raw ? "File attached" : "";
+  return raw === null || raw === undefined ? "" : String(raw).trim();
+}
 
 /** Ringkasan checkpoint acara untuk teks bantuan di rule builder. */
 export type CheckpointSummary = {
@@ -184,7 +220,7 @@ export function isTextLeaf(node: UndianConditionLeaf): node is UndianTextLeaf {
  */
 export function usesAttendance(node: UndianConditionNode): boolean {
   if (isConditionGroup(node)) return node.children.some(usesAttendance);
-  return node.var === "checked_in" || node.var === "scan_count" || isCheckpointVar(node.var);
+  return node.var === "checked_in" || node.var === "scan_count" || isCheckpointVar(node.var) || node.var === "answer";
 }
 
 export function isCheckpointVar(value: unknown): value is UndianCheckpointLeaf["var"] {
@@ -206,6 +242,24 @@ export function invalidateUnknownSessions(node: UndianConditionGroup, known: Set
       return child;
     }),
   };
+}
+
+/** Apakah pohon memuat syarat jawaban form. */
+export function usesAnswer(node: UndianConditionNode): boolean {
+  if (isConditionGroup(node)) return node.children.some(usesAnswer);
+  return node.var === "answer";
+}
+
+/**
+ * Apakah pohon memuat syarat jawaban form yang pertanyaannya sudah tidak ada di
+ * form acara (dihapus, atau Data key-nya diganti). Pada syarat hadiah dan tiket
+ * bonus syarat seperti itu gagal tertutup dengan sendirinya. Pada aturan
+ * PENGECUALIAN gagal berarti tidak mengecualikan siapa pun, jadi kolam diam-diam
+ * melebar; karena itu buildPool menolak mengundi selama aturannya belum dibereskan.
+ */
+export function hasMissingAnswer(node: UndianConditionNode, known: Set<string>): boolean {
+  if (isConditionGroup(node)) return node.children.some((child) => hasMissingAnswer(child, known));
+  return node.var === "answer" && !known.has(node.key);
 }
 
 /** Apakah pohon memuat syarat yang tidak terbaca. Dipakai layar untuk memperingatkan. */
@@ -251,6 +305,22 @@ function normalizeNode(value: unknown): UndianConditionNode {
     // belum diisi.
     if (!TEXT_CMP_WITHOUT_VALUE.includes(cmp) && text.trim() === "") return INVALID_LEAF;
     return { var: raw.var, cmp, text: text.trim() };
+  }
+
+  if (raw.var === "answer") {
+    const key = typeof raw.key === "string" ? raw.key : "";
+    if (!ANSWER_KEY.test(key)) return INVALID_LEAF;
+    if (cmp === "in" || cmp === "not_in") {
+      if (!Array.isArray(raw.values)) return INVALID_LEAF;
+      const values = raw.values.filter((item): item is string => typeof item === "string" && item.trim() !== "").map((item) => item.trim());
+      // Sama dengan tipe peserta: daftar kosong belum dipilih, bukan "siapa pun".
+      if (values.length === 0) return INVALID_LEAF;
+      return { var: "answer", key, cmp, values };
+    }
+    if (!isTextCmp(cmp)) return INVALID_LEAF;
+    const text = typeof raw.text === "string" ? raw.text : "";
+    if (!TEXT_CMP_WITHOUT_VALUE.includes(cmp) && text.trim() === "") return INVALID_LEAF;
+    return { var: "answer", key, cmp, text: text.trim() };
   }
 
   switch (raw.var) {
@@ -364,6 +434,11 @@ export type ParticipantPoolRow = {
   checkpoint_points?: number;
   checkpoint_goal_met?: boolean;
   checkpoints_all_done?: boolean;
+  /**
+   * Jawaban pertanyaan form per kunci, sebagai teks (answerText). Diisi server
+   * bersama `attended_sessions`; hanya kunci pertanyaan yang masih ada.
+   */
+  answers?: Record<string, string>;
   seat_label: string | null;
   allow_name_display: boolean;
   total_spend: number;
@@ -412,6 +487,15 @@ export function matchesConditions(row: ParticipantPoolRow, node: UndianCondition
     case "checkpoint_points": return compare(row.checkpoint_points ?? 0, node.cmp, node.value);
     case "checkpoint_goal": return (row.checkpoint_goal_met ?? false) === node.is;
     case "checkpoints_all": return (row.checkpoints_all_done ?? false) === node.is;
+    case "answer": {
+      if (!row.answers || !Object.hasOwn(row.answers, node.key)) return false;
+      const value = row.answers[node.key];
+      if ("values" in node) {
+        const inList = node.values.includes(value.trim());
+        return node.cmp === "in" ? inList : !inList;
+      }
+      return compareText(value, node.cmp, node.text);
+    }
     case "participant_type": {
       const inList = node.values.includes(row.participant_type ?? "");
       return node.cmp === "in" ? inList : !inList;
@@ -864,11 +948,15 @@ const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("en-GB").format(va
  * `sessionNames` null = daftar sesi gagal dimuat; sesi yang dipilih lalu disebut
  * "sesi tertentu", bukan "sudah dihapus".
  */
-export function describeConditions(node: UndianConditionGroup, sessionNames: Record<number, string> | null = {}): string {
+/**
+ * `answerLabels`: judul pertanyaan per kunci. Tanpa daftar, kuncinya yang
+ * disebut; dengan daftar, kunci yang tidak ada di sana berarti sudah dihapus.
+ */
+export function describeConditions(node: UndianConditionGroup, sessionNames: Record<number, string> | null = {}, answerLabels?: Record<string, string>): string {
   if (node.children.length === 0) return "all active participants";
 
   const parts = node.children.map((child) => {
-    if (isConditionGroup(child)) return `(${describeConditions(child, sessionNames)})`;
+    if (isConditionGroup(child)) return `(${describeConditions(child, sessionNames, answerLabels)})`;
     if (isTextLeaf(child)) {
       const label = TEXT_VAR_LABEL[child.var].toLowerCase();
       if (TEXT_CMP_WITHOUT_VALUE.includes(child.cmp)) return `${label} ${TEXT_CMP_LABEL[child.cmp]}`;
@@ -885,6 +973,13 @@ export function describeConditions(node: UndianConditionGroup, sessionNames: Rec
       case "checkpoint_points": return `checkpoint points ${CMP_TEXT[child.cmp]} ${child.value}`;
       case "checkpoint_goal": return child.is ? "checkpoint points goal reached" : "checkpoint points goal not reached";
       case "checkpoints_all": return child.is ? "all checkpoints done" : "not all checkpoints done";
+      case "answer": {
+        if (answerLabels && answerLabels[child.key] === undefined) return "FORM QUESTION DELETED, choose again";
+        const label = answerLabels?.[child.key] ?? child.key;
+        if ("values" in child) return `${label} ${child.cmp === "in" ? "is" : "is not"} ${child.values.join("/")}`;
+        if (TEXT_CMP_WITHOUT_VALUE.includes(child.cmp)) return `${label} ${TEXT_CMP_LABEL[child.cmp]}`;
+        return `${label} ${TEXT_CMP_LABEL[child.cmp]} "${child.text}"`;
+      }
       case "participant_type": return `participant type ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
       case "rsvp_status": return `RSVP ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
       case "checked_in": {

@@ -9,9 +9,11 @@ import {
   normalizeExclusionRule,
   type CheckpointSummary,
   type ParticipantPoolRow,
+  type UndianAnswerField,
+  type UndianConditionNode,
   type UndianExclusionRule,
 } from "@/lib/undian";
-import { listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, type AttendanceSessionOption } from "@/lib/undian-pool";
+import { listAnswerFields, listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, unknownAnswerError, type AttendanceSessionOption } from "@/lib/undian-pool";
 
 // Aturan pengecualian undian.
 //
@@ -39,6 +41,19 @@ const leafSchema = z.union([
   }),
   z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
   z.object({ var: z.enum(["has_seat", "checkpoint_goal", "checkpoints_all"]), is: z.boolean() }),
+  // Jawaban form: daftar nilai untuk pertanyaan pilihan, teks untuk sisanya.
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["in", "not_in"]),
+    values: z.array(z.string().trim().min(1).max(200)).min(1).max(100),
+  }),
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["eq", "neq", "contains", "not_contains", "starts_with", "ends_with", "is_empty", "is_not_empty"]),
+    text: z.string().trim().max(200),
+  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Isi nilai pembandingnya." }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
@@ -104,14 +119,17 @@ export async function GET(request: Request) {
   // null = gagal dibaca; layar lalu tidak menandai sesi mana pun sebagai terhapus.
   let attendanceSessions: AttendanceSessionOption[] | null = [];
   let checkpoint: CheckpointSummary | null = null;
+  let answerFields: UndianAnswerField[] | null = [];
 
   if (withCounts) {
-    const [pool, sessions, summary] = await Promise.all([
+    const [pool, sessions, summary, fields] = await Promise.all([
       loadParticipantPool(eventId, needsAttendance(...rules.map((rule) => rule.conditions))),
       listAttendanceSessions(eventId),
       loadCheckpointSummary(eventId),
+      listAnswerFields(eventId),
     ]);
     checkpoint = summary;
+    answerFields = fields;
     const rows: ParticipantPoolRow[] = pool ?? [];
     attendanceSessions = sessions;
     totalParticipants = rows.length;
@@ -124,7 +142,7 @@ export async function GET(request: Request) {
     companies = distinct(rows.map((row) => row.company));
   }
 
-  return Response.json({ rules, counts, total_participants: totalParticipants, participant_types: participantTypes, rsvp_statuses: rsvpStatuses, companies, attendance_sessions: attendanceSessions, checkpoint });
+  return Response.json({ rules, counts, total_participants: totalParticipants, participant_types: participantTypes, rsvp_statuses: rsvpStatuses, companies, attendance_sessions: attendanceSessions, checkpoint, answer_fields: answerFields });
 }
 
 export async function POST(request: Request) {
@@ -134,6 +152,10 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  const answerError = await unknownAnswerError(eventId, [parsed.data.conditions as UndianConditionNode]);
+  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
+  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
   const client = getSupabaseServiceClient();
   // Hadiah sasaran harus milik event ini. FK komposit juga menolaknya, tetapi

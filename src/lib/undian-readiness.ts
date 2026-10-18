@@ -12,7 +12,7 @@
 // aplikasi ini boleh diabaikan, dan pelajaran itu terbawa ke peringatan yang
 // benar-benar penting.
 
-export type ReadinessTab = "data" | "prizes" | "display" | "history";
+export type ReadinessTab = "data" | "prizes" | "rules" | "display" | "history";
 
 export type ReadinessStep = {
   id: "sumber" | "hadiah" | "kandidat" | "sesi" | "panggung";
@@ -44,7 +44,7 @@ export type ReadinessPrize = {
 export type ReadinessInput = {
   prizes: ReadinessPrize[];
   /** Dari `/api/admin/undian/prizes?pool=1`. Kunci = id hadiah. */
-  pools: Record<number, { candidates: number }>;
+  pools: Record<number, { candidates: number; broken_rules?: string[] }>;
   groups: Array<{ id: number; entry_count: number }>;
   activeSession: { id: number; name: string } | null;
   /** Judul layar panggung. Kosong berarti tampilan belum pernah disentuh. */
@@ -71,7 +71,11 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
     return !group || group.entry_count === 0;
   });
 
-  const noCandidates = active.filter((prize) => (input.pools[prize.id]?.candidates ?? 0) === 0);
+  // Aturan pengecualian yang pertanyaan formnya sudah hilang: undiannya ditolak
+  // server, jadi dikunci di sini juga, dengan sebab yang benar. Tanpa ini hadiahnya
+  // masuk daftar "tidak ada peserta yang cocok", yang menyuruh melonggarkan syarat.
+  const brokenRules = [...new Set(active.flatMap((prize) => input.pools[prize.id]?.broken_rules ?? []))];
+  const noCandidates = active.filter((prize) => (input.pools[prize.id]?.candidates ?? 0) === 0 && !input.pools[prize.id]?.broken_rules?.length);
 
   const sumberDone = brokenGroup.length === 0;
   const hadiahDone = active.length > 0;
@@ -79,7 +83,7 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
   // kandidat" untuk daftar kosong secara teknis benar dan sama sekali tidak
   // membantu — panel akan menampilkan dua centang hijau pada undian yang belum
   // bisa dijalankan.
-  const kandidatDone = hadiahDone && noCandidates.length === 0;
+  const kandidatDone = hadiahDone && noCandidates.length === 0 && brokenRules.length === 0;
 
   // Dianotasi eksplisit: tanpa itu `.map()` di bawah melebarkan `id` dan `tab`
   // menjadi `string`, dan tipe kembaliannya berhenti cocok dengan ReadinessStep.
@@ -111,10 +115,12 @@ export function undianReadiness(input: ReadinessInput): ReadinessStep[] {
         ? "Waiting for an active prize."
         : kandidatDone
           ? ""
-          : `No participants match the conditions for these prizes: ${nameList(noCandidates.map((prize) => prize.name))}. Draw requests will fail. Relax the conditions or check the exclusion list.`,
+          : brokenRules.length > 0
+            ? `These exclusion rules use a form question that no longer exists: ${nameList(brokenRules)}. Draws are refused until you fix or turn off these rules.`
+            : `No participants match the conditions for these prizes: ${nameList(noCandidates.map((prize) => prize.name))}. Draw requests will fail. Relax the conditions or check the exclusion list.`,
       done: kandidatDone,
       blocking: true,
-      tab: "prizes",
+      tab: brokenRules.length > 0 ? "rules" : "prizes",
     },
     {
       id: "sesi",

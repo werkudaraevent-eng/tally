@@ -2,13 +2,13 @@
 
 import {
   Armchair, Buildings, CaretDown, CheckCircle, EnvelopeSimple, Flag, Hash, IdentificationBadge, ListChecks,
-  Plus, QrCode, Receipt, Scan, Star, Storefront, Trash, User, UsersThree, Warning, X, type Icon,
+  ListBullets, Plus, QrCode, Receipt, Scan, Star, Storefront, TextAa, Trash, User, UsersThree, Warning, X, type Icon,
 } from "@phosphor-icons/react";
 import { useCallback, useId, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { Button, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
-import type { CheckpointSummary, UndianConditionGroup, UndianConditionNode, UndianCmp, UndianTextCmp, UndianTextVar } from "@/lib/undian";
-import { TEXT_CMP_LABEL, TEXT_CMP_WITHOUT_VALUE, TEXT_VAR_LABEL, isConditionGroup, isTextLeaf } from "@/lib/undian";
+import { Button, FilterChip, Popover, POPOVER_ITEM, SelectMenu, usePopoverAnchor } from "@/components/m3";
+import type { CheckpointSummary, UndianAnswerField, UndianAnswerLeaf, UndianConditionGroup, UndianConditionNode, UndianCmp, UndianTextCmp, UndianTextVar } from "@/lib/undian";
+import { TEXT_CMP_LABEL, TEXT_CMP_WITHOUT_VALUE, TEXT_VAR_LABEL, answerChoices, isChoiceAnswer, isConditionGroup, isTextLeaf } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import { withEventPrefix } from "@/lib/event-path";
 
@@ -53,6 +53,12 @@ type Props = {
    * checkpoint. `undefined` = belum dimuat, `null` = gagal dimuat.
    */
   checkpoint?: CheckpointSummary | null;
+  /**
+   * Pertanyaan tambahan form registrasi, untuk grup "Form answers".
+   * `undefined` = belum dimuat, `null` = gagal dimuat; keduanya tidak menandai
+   * pertanyaan yang dipilih sebagai "sudah dihapus".
+   */
+  answerFields?: UndianAnswerField[] | null;
   tone?: "include" | "exclude";
   depth?: number;
 };
@@ -157,7 +163,7 @@ function TombolHapus({ label, onClick, icon }: { label: string; onClick: () => v
   return <button type="button" onClick={onClick} aria-label={label} title={label} className="ml-auto grid size-8 shrink-0 place-items-center rounded-md text-error hover:bg-error-soft">{icon}</button>;
 }
 
-export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], sessions, onRetrySessions, checkpoint, tone = "include", depth = 0 }: Props) {
+export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], sessions, onRetrySessions, checkpoint, answerFields, tone = "include", depth = 0 }: Props) {
   function updateChild(index: number, next: UndianConditionNode) {
     onChange({ ...value, children: value.children.map((child, i) => (i === index ? next : child)) });
   }
@@ -181,7 +187,7 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
             <span className="text-body-medium font-medium text-on-surface-variant">Condition group</span>
             <TombolHapus label="Delete group" onClick={() => removeChild(index)} icon={<X size={16} />} />
           </div>
-          <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} sessions={sessions} onRetrySessions={onRetrySessions} checkpoint={checkpoint} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
+          <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} sessions={sessions} onRetrySessions={onRetrySessions} checkpoint={checkpoint} answerFields={answerFields} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
         </div> : <LeafEditor
           leaf={child}
           participantTypes={participantTypes}
@@ -190,6 +196,7 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
           sessions={sessions}
           onRetrySessions={onRetrySessions}
           checkpoint={checkpoint}
+          answerFields={answerFields}
           tone={tone}
           onChange={(next) => updateChild(index, next)}
           onRemove={() => removeChild(index)}
@@ -198,7 +205,11 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
     </div>
 
     <div className="mt-2 flex flex-wrap gap-2">
-      <AddConditionMenu onPick={(variable) => onChange({ ...value, children: [...value.children, defaultLeaf(variable)] })} />
+      <AddConditionMenu
+        answerFields={answerFields ?? []}
+        onPick={(variable) => onChange({ ...value, children: [...value.children, defaultLeaf(variable)] })}
+        onPickAnswer={(field) => onChange({ ...value, children: [...value.children, defaultAnswerLeaf(field)] })}
+      />
       {/* Kedalaman dibatasi 2 agar aturan tetap terbaca. Lebih dalam dari itu
           hampir selalu tanda aturannya perlu dipecah jadi hadiah terpisah. */}
       {depth < 2 && <Button type="button" variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => onChange({ ...value, children: [...value.children, { op: "or", children: [] }] })}>
@@ -224,6 +235,7 @@ function LeafEditor({
   sessions,
   onRetrySessions,
   checkpoint,
+  answerFields,
   tone,
   onChange,
   onRemove,
@@ -235,6 +247,7 @@ function LeafEditor({
   sessions: { id: number; name: string }[] | null | undefined;
   onRetrySessions?: () => void;
   checkpoint: CheckpointSummary | null | undefined;
+  answerFields: UndianAnswerField[] | null | undefined;
   tone: "include" | "exclude";
   onChange: (next: UndianConditionNode) => void;
   onRemove: () => void;
@@ -263,6 +276,8 @@ function LeafEditor({
       <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
     </div>;
   }
+
+  if (leaf.var === "answer") return <AnswerEditor leaf={leaf} fields={answerFields} tone={tone} onChange={onChange} onRemove={onRemove} />;
 
   return <div className="flex flex-wrap items-center gap-2 text-body-medium">
     <span className="font-medium">{VAR_LABEL[leaf.var]}</span>
@@ -384,7 +399,7 @@ function LeafEditor({
  * bawaan tampil dengan huruf dan jarak sistem operasi, judul grup tebal dan
  * isinya menjorok, dan tidak mengikuti menu lain di admin (Badge > Tambah isi).
  */
-function AddConditionMenu({ onPick }: { onPick: (variable: string) => void }) {
+function AddConditionMenu({ answerFields, onPick, onPickAnswer }: { answerFields: UndianAnswerField[]; onPick: (variable: string) => void; onPickAnswer: (field: UndianAnswerField) => void }) {
   const [trigger, setTrigger] = useState<HTMLElement | null>(null);
   const anchor = usePopoverAnchor(trigger);
   // Pembungkus `span` tidak bisa menerima fokus. Esc di dalam Popover dan
@@ -402,6 +417,12 @@ function AddConditionMenu({ onPick }: { onPick: (variable: string) => void }) {
 
   function pick(variable: string) {
     onPick(variable);
+    menu.tutup();
+    menu.fokus();
+  }
+
+  function pickAnswer(field: UndianAnswerField) {
+    onPickAnswer(field);
     menu.tutup();
     menu.fokus();
   }
@@ -442,9 +463,88 @@ function AddConditionMenu({ onPick }: { onPick: (variable: string) => void }) {
             </button>;
           })}
         </div>)}
+        {/* Pertanyaan tambahan Registration > Edit form, termasuk kolom khusus
+            panitia: daftarnya mengikuti acara, bukan daftar tetap di kode. */}
+        {answerFields.length > 0 && <div role="group" aria-label="Form answers" className="mt-1 border-t border-outline-variant pt-1">
+          <p className="px-2 pb-1 pt-2 text-label-medium text-on-surface-variant">Form answers</p>
+          {answerFields.map((field) => <button key={field.key} type="button" role="menuitem" className={POPOVER_ITEM} onClick={() => pickAnswer(field)}>
+            {isChoiceAnswer(field.type) ? <ListBullets size={16} aria-hidden className="shrink-0 text-on-surface-variant" /> : <TextAa size={16} aria-hidden className="shrink-0 text-on-surface-variant" />}
+            <span className="min-w-0 flex-1 truncate">{field.label}</span>
+          </button>)}
+        </div>}
       </div>
     </Popover>}
   </>;
+}
+
+/** Syarat baru dari satu pertanyaan: pilihan mulai tanpa nilai, teks mulai "mengandung". */
+function defaultAnswerLeaf(field: UndianAnswerField): UndianAnswerLeaf {
+  return isChoiceAnswer(field.type)
+    ? { var: "answer", key: field.key, cmp: "in", values: [] }
+    : { var: "answer", key: field.key, cmp: "contains", text: "" };
+}
+
+const CHOICE_CMP_OPTIONS = [{ value: "in" as const, label: "is one of" }, { value: "not_in" as const, label: "is not one of" }];
+const TEXT_CMP_OPTIONS = (Object.keys(TEXT_CMP_LABEL) as UndianTextCmp[]).map((key) => ({ value: key, label: TEXT_CMP_LABEL[key] }));
+
+/**
+ * Syarat dari jawaban form. Pertanyaan pilihan memakai chip nilai dari
+ * pilihan pertanyaannya (kotak centang: Yes/No, seperti kolom Participant
+ * list); pertanyaan lain memakai pembanding teks.
+ */
+function AnswerEditor({ leaf, fields, tone, onChange, onRemove }: {
+  leaf: UndianAnswerLeaf;
+  fields: UndianAnswerField[] | null | undefined;
+  tone: "include" | "exclude";
+  onChange: (next: UndianConditionNode) => void;
+  onRemove: () => void;
+}) {
+  const field = fields?.find((item) => item.key === leaf.key);
+  // Pertanyaan sudah dihapus dari form: server menganggap syarat ini tidak
+  // pernah terpenuhi. Hanya bila daftar pertanyaan benar-benar termuat.
+  const gone = Array.isArray(fields) && !field;
+  const label = field?.label ?? (gone ? `Deleted question (${leaf.key})` : leaf.key);
+  const choices = field ? answerChoices(field) : [];
+  // Nilai tersimpan yang tidak ada lagi di pilihan tetap tampil, supaya syarat
+  // tidak diam-diam berubah arti saat form dibuka lagi.
+  const shownChoices = "values" in leaf ? [...choices, ...leaf.values.filter((item) => !choices.includes(item))] : [];
+
+  // Tombol hapus di luar baris yang membungkus: tetap di kanan atas, tidak turun
+  // sendirian ke baris baru di antara pembanding dan chip.
+  return <div className="flex items-start gap-2 text-body-medium">
+   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+    <span className="font-medium">{label}</span>
+    {"values" in leaf ? <>
+      <SelectMenu label="Comparison" width="11.5rem" options={CHOICE_CMP_OPTIONS} value={leaf.cmp} onChange={(cmp) => onChange({ ...leaf, cmp })} />
+      {/* order-last: chip pindah ke baris sendiri di bawah, tombol hapus tetap
+          di baris judul (di 390 px chip memenuhi beberapa baris). */}
+      <div className="order-last flex basis-full flex-wrap gap-1.5">
+        {shownChoices.length === 0
+          ? <span className="text-on-surface-variant">This question has no options yet.</span>
+          : shownChoices.map((option) => {
+            const chosen = leaf.values.includes(option);
+            return <FilterChip key={option} selected={chosen} onClick={() => onChange({ ...leaf, values: chosen ? leaf.values.filter((item) => item !== option) : [...leaf.values, option] })}>{option}</FilterChip>;
+          })}
+      </div>
+    </> : <>
+      <SelectMenu label="Comparison" width="11.5rem" options={TEXT_CMP_OPTIONS} value={leaf.cmp} onChange={(cmp) => onChange({ ...leaf, cmp })} />
+      {!TEXT_CMP_WITHOUT_VALUE.includes(leaf.cmp) && <input
+        value={leaf.text}
+        onChange={(event) => onChange({ ...leaf, text: event.target.value })}
+        aria-label={`Value for ${label}`}
+        placeholder="enter a value"
+        className={cx(CONTROL, "w-52 min-w-0 max-w-full flex-1 basis-40")}
+      />}
+    </>}
+    {gone && <span className="order-last flex basis-full items-start gap-1.5 font-medium text-error">
+      <Warning size={16} aria-hidden className="mt-0.5 shrink-0" /> <span>{tone === "exclude"
+        ? "This question was deleted from the form, so draws are refused until you delete this condition."
+        : "This question was deleted from the form, so no participant qualifies. Delete this condition."}</span>
+    </span>}
+    {fields === null && <span role="status" className="order-last basis-full text-on-surface-variant">Form questions could not be loaded. This condition is kept as it is.</span>}
+   </div>
+    <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
+  </div>;
 }
 
 /**
