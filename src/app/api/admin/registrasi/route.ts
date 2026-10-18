@@ -8,6 +8,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { landingFormOnly } from "@/lib/landing-i18n";
 import { LANDING_HEADING_FONTS, type EventLandingConfig, type RegistrationField, type RegistrationFormConfig } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
+import { kunciPensiun, rapikanPertanyaan } from "@/lib/kolom-staf";
 import { rapikanPersetujuan } from "@/lib/live/kolom-klien";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
@@ -55,6 +56,8 @@ const fieldSchema = z.object({
   min: z.number().optional(),
   max: z.number().optional(),
   participant_update: z.boolean().optional(),
+  // "Ask on the registration form". Kosong = ditanyakan (lib/kolom-staf.ts).
+  on_form: z.boolean().optional(),
 });
 
 /**
@@ -239,9 +242,13 @@ export async function PATCH(request: Request) {
       return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [issue.key || "fields", issue.message])));
     }
   }
+  // Pertanyaan yang tidak ditanyakan disimpan tidak wajib, dan `on_form`
+  // dibuang dari yang ditanyakan: acara yang tidak memakainya tersimpan persis
+  // seperti dulu (rapikanPertanyaan).
+  const fieldsBaru = formBaru ? (formBaru.fields as RegistrationField[]).map(rapikanPertanyaan) : [];
   const susunForm = (tersimpan: RegistrationFormConfig | null): RegistrationFormConfig | undefined => formBaru ? {
     ...formBaru,
-    fields: formBaru.fields as RegistrationField[],
+    fields: fieldsBaru,
     // Tema DIPERTAHANKAN dari yang sudah tersimpan, bukan dikirim ulang dari
     // layar ini. Tanpa baris ini, menyimpan susunan field akan menghapus warna
     // formulir yang dipilih di CMS halaman acara — dan tidak ada apa pun di
@@ -250,6 +257,11 @@ export async function PATCH(request: Request) {
     // Sama seperti tema: jawaban untuk klien diatur di layar Client view.
     // Yang dibuang hanya persetujuan milik pertanyaan yang dihapus (QA #102 H1).
     client_fields: rapikanPersetujuan(tersimpan?.client_fields, formBaru.fields as RegistrationField[]),
+    // Kunci yang hilang dari susunan diingat: jawabannya masih tersimpan, dan
+    // kunci otomatis pertanyaan baru tidak boleh menghidupkannya diam-diam
+    // (kolom staf yang dihapus lalu muncul lagi di formulir Lengkapi data).
+    // Dihitung dari susunan yang tersimpan saat ini, juga pada percobaan ulang.
+    retired_keys: kunciPensiun(tersimpan, fieldsBaru),
   } : undefined;
 
   /**

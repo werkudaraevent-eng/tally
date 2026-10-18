@@ -17,6 +17,7 @@ import { readInvite } from "@/lib/undangan/publik";
 import { eventSender } from "@/lib/email/client";
 import { formulirGathering } from "@/lib/gathering-formulir";
 import { kontakPanitia } from "@/lib/kontak-panitia";
+import { pertanyaanFormulir } from "@/lib/kolom-staf";
 
 /**
  * Formulir pendaftaran satu acara dalam satu bahasa. Dipakai halaman publik
@@ -206,7 +207,9 @@ export async function isiDaftar(
     eventName={bingkai.eventName}
     eventSlug={event.slug}
     schedule={jadwal(event, lang)}
-    fields={config.fields ?? []}
+    // Pertanyaan yang tidak ditanyakan ("Ask on the registration form" mati)
+    // tidak dirender, juga di pratinjau Edit form yang memakai fungsi ini.
+    fields={pertanyaanFormulir(config.fields ?? [])}
     welcomeText={bingkai.welcomeText}
     successText={config.success_text ?? null}
     // Area peserta menyala: email adalah nama pengguna, jadi selalu wajib.

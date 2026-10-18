@@ -3,7 +3,7 @@ import { apiError } from "@/lib/api";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { setelanMeja } from "@/lib/badge/stasiun-server";
 import { loadLabelSettings } from "@/lib/label/load";
-import { editableFields } from "@/lib/participant-input";
+import { walkinFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { hitungKehadiran } from "@/lib/attendance-progress";
 import { aturanWalkIn } from "@/lib/walkin-form";
@@ -66,7 +66,8 @@ export async function GET(request: Request) {
   // Setelan walk-in ikut di jawaban yang sama, bukan endpoint kedua, dengan
   // alasan yang sama dengan jalur di atas. Formnya = form registrasi utama:
   // seluruh pertanyaan dan tanda wajibnya (lib/walkin-form.ts). Pertanyaan
-  // berkas tidak ikut karena tidak bisa diunggah dari meja.
+  // berkas tidak ikut karena tidak bisa diunggah dari meja, dan pertanyaan
+  // yang tidak ditanyakan di formulir pun tidak (lib/kolom-staf.ts).
   const config = auth.scope.event.registration_form_config as RegistrationFormConfig | null;
 
   // Setelan label ikut di sini juga, dan bukan di endpoint ketiga. Layar
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
     event: { name: auth.scope.event.name, slug: auth.scope.event.slug },
     user: { username: auth.user.username },
     allow_walk_in: auth.scope.event.attendance_allow_walk_in,
-    walkin_fields: editableFields(config),
+    walkin_fields: walkinFields(config),
     walkin_wajib: aturanWalkIn(config),
     terdaftar: angka?.terdaftar ?? null,
     label,

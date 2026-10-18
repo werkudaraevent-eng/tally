@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-17.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-18.
 
 ## How to update this file
 
@@ -16,6 +16,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 ## In flight
 
 - #198 Horizon Profil redesign (ticket card with QR, personal details, help card; two columns on desktop): coordinator QA running; then a merge-timing card for Mas (KSO in client review).
+- Staff-only columns (branch feat/kolom-staf, no SQL), as approved in the 17-18 Oct mockups: an "Ask on the registration form" switch per question in Registration > Edit form (missing = asked, so every event changes by 0 px). Off = a Participant list column only: not on the public or walk-in desk form, never required, values in a public or desk submission dropped; Edit participant and the details panel show it under "Staff only" (or "Filled in by participants" when participants can update it); "Add a column in Registration" in the Columns menu adds one and comes back with it ticked (not offered on a closed event, with 20 questions, or while Edit participant is open); a new question's data key follows its text until the first save or until the Data key is typed, and never reuses the key of a question deleted in an earlier save (kept in `retired_keys`, so old answers stay hidden); the Edit form footer sticks on short screens. Two copy lines outside the mockups to confirm with Mas: the Import template note ("the extra questions (including staff-only ones)") and the Add a column discard dialog ("If you discard them, the new column isn't added."). Rendered on a local fake database on 18 Oct; then Mas's merge time (KSO in client review).
 - Bus trips "Pick from Agenda" in Logistics > Add trip: mockup on the real dialog in progress; needs a small SQL link column (Mas runs it) before code.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -34,6 +35,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
+- Portal audit follow-ups: the staff-only Batch column (feat/kolom-staf) now gives each participant's batch; an "Applies to" setting per Agenda section (so Schedule and Home can say "your batch") still needs its own mockup and a small SQL file he runs.
 
 ## Parked Lows and open findings
 
@@ -141,6 +143,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #162 L4/L6/L7: with the phone keyboard open, Masuk must be scrolled into view, a few mock gaps and a stale comment remain, and /masuk shows the landing page until hydration.
 - #163 remaining: on the standalone /masuk page "Lupa kata sandi?" is still 44 px, and the form-only "Area peserta" eyebrow is 2.58:1 over the KV.
 - #67 nit: top app bar aria labels sit outside `lang="en"`.
+- Staff-only columns branch: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
 - #169 L2/L5: the post-check SQL misses grants and constraints, and POST returns 500 before the migration.
@@ -159,6 +162,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #92 R4: a form submitted with an imported participant's email creates a second participant (pre-existing).
 - #144 L4-L9: field errors and the email are Indonesian on EN events, the Modern dashboard puts the card on its own row at 1280, Classic hardcodes `lang="id"`, the post-check could miss a stray constraint, and an admin full save can overwrite a concurrent self-update.
 - #119 R2-L1-L3: deleting a participant does not clear the invitation's `rejected_at` or write a new-link audit row, and the invitation update seq-scans.
+- Staff-only columns branch: keys of questions deleted before this branch are not in `retired_keys`, so a new question named like one of those still gets its key and the answers stored under it; turning "Ask on the registration form" back on after saving it off leaves Required off; `/admin/registrasi?kolom=baru` opened as a new page (not from the Columns menu) shows the moderation screen until hydration; Client view > "Form answers the client sees" lists staff-only questions with no mark (needs a mockup).
 
 ### Landing/CMS
 - #108 L7: editor `data-sunting` attributes ship in public HTML (not re-confirmed).

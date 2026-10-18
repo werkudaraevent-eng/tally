@@ -1997,6 +1997,22 @@ html:hover {
 	background: var(--md-sys-color-outline-variant);
 }
 
+/* ---- Kaki panel yang menempel di layar pendek ---------------------------
+ *
+ * Di layar pendek halaman ruang kerja bergulir biasa, dan kaki panel bertanda
+ * `kaki-menempel` (Registration > Edit form) menempel di tepi bawah layar
+ * supaya catatan dan tombol simpannya selalu terlihat. Tanpa ruang gulir bawah,
+ * kontrol yang difokus dengan Tab bisa berhenti tepat di bawah kaki itu dan
+ * tertutup seluruhnya (WCAG 2.4.11): peramban menganggapnya sudah terlihat.
+ * 6rem = kaki dengan catatan tiga baris di layar 390 (sekitar 85 px) plus
+ * cincin fokusnya. Ambangnya sama dengan varian `short` di atas, dan hanya
+ * berlaku selama kaki itu ada di halaman. */
+@media (max-height: 720px) {
+	html:has(.kaki-menempel) {
+		scroll-padding-bottom: 6rem;
+	}
+}
+
 /* ---- Palet perintah -----------------------------------------------------
  *
  * Latarnya MEMUDARKAN, bukan menggelapkan. Lapisan hitam transparan adalah

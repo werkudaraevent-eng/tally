@@ -148,6 +148,14 @@ export type RegistrationFormConfig = {
    * membuang milik pertanyaan yang dihapus. Lihat src/lib/live/kolom-klien.ts.
    */
   client_fields?: ClientFieldApproval[];
+  /**
+   * Kunci pertanyaan yang sudah hilang dari susunan (dihapus, atau Data key-nya
+   * diganti). Jawabannya tetap tersimpan di participants.extra, jadi kunci
+   * otomatis pertanyaan baru tidak boleh memakainya: kolom staf yang dihapus
+   * tidak boleh hidup lagi di bawah pertanyaan baru, apalagi yang diisi peserta.
+   * Ditulis server saat Save form; kosong = tidak ada. Lihat src/lib/kolom-staf.ts.
+   */
+  retired_keys?: string[];
 };
 
 /** Satu pertanyaan yang disetujui admin untuk klien: kunci, judul, dan jenis saat disetujui. */
@@ -1624,6 +1632,20 @@ export type RegistrationField = {
    * (halaman /e/<slug>/lengkapi). Tidak berlaku untuk `file`.
    */
   participant_update?: boolean;
+  /**
+   * Ditanyakan di formulir pendaftaran publik dan formulir meja walk-in
+   * ("Ask on the registration form"). Kosong = ditanyakan, jadi acara yang
+   * sudah ada tidak berubah; false = hanya kolom di Participant list, diisi
+   * panitia (atau peserta sendiri bila participant_update menyala) dan tidak
+   * pernah wajib. `file` selalu ditanyakan. Lihat src/lib/kolom-staf.ts.
+   */
+  on_form?: boolean;
+  /**
+   * Hanya di draf Edit form, tidak pernah disimpan: kunci pertanyaan baru ini
+   * masih mengikuti teksnya (kunciIkutLabel di src/lib/kolom-staf.ts). Hilang
+   * begitu Data key diketik sendiri, dan dibuang sebelum disimpan.
+   */
+  kunci_otomatis?: boolean;
 };
 
 /** Pertanyaan yang boleh diisi atau diubah peserta sendiri (participant_update). */
