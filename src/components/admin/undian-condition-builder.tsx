@@ -378,7 +378,7 @@ function LeafEditor({
 }
 
 /**
- * "+ Tambah syarat": menu bergrup dengan ikon, bukan `<select>` bawaan. Daftar
+ * "+ Add condition": menu bergrup dengan ikon, bukan `<select>` bawaan. Daftar
  * bawaan tampil dengan huruf dan jarak sistem operasi, judul grup tebal dan
  * isinya menjorok, dan tidak mengikuti menu lain di admin (Badge > Tambah isi).
  */
@@ -451,7 +451,7 @@ function CheckpointHint({ variable, checkpoint }: { variable: "checkpoint_goal" 
   else if (variable === "checkpoint_goal" && checkpoint.goal !== null && checkpoint.goal > checkpoint.total_points) warning = `The goal of ${checkpoint.goal} points is more than the ${checkpoint.total_points} points available, so nobody can reach it.`;
   else if (variable === "checkpoint_goal") info = `The goal is ${checkpoint.goal} of ${checkpoint.total_points} points available, the same as the participant checkpoint card.`;
   else if (variable === "checkpoint_points") info = `${checkpoint.total_points} points available across ${checkpoint.count} checkpoints.`;
-  else info = `Acara ini punya ${checkpoint.count} checkpoint.`;
+  else info = `This event has ${checkpoint.count} checkpoints.`;
   return <span role={warning ? "alert" : undefined} className={cx("order-last flex basis-full flex-wrap items-center gap-x-2 gap-y-1", warning ? "font-medium text-error" : "text-on-surface-variant")}>
     {warning && <Warning size={16} aria-hidden className="shrink-0" />}
     <span>{warning || info}</span>

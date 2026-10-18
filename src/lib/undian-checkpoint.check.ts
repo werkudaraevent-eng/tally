@@ -62,8 +62,8 @@ assert.equal(matchesConditions(blank, notGoal), true);
 assert.equal(matchesConditions(done, all), true);
 assert.equal(matchesConditions(half, all), false);
 
-assert.equal(describeConditions(points), "poin checkpoint minimal 20");
-assert.equal(describeConditions(goal), "tujuan poin checkpoint tercapai");
-assert.equal(describeConditions(all), "semua checkpoint selesai");
+assert.equal(describeConditions(points), "checkpoint points at least 20");
+assert.equal(describeConditions(goal), "checkpoint points goal reached");
+assert.equal(describeConditions(all), "all checkpoints done");
 
 console.log("undian-checkpoint.check: ok");
