@@ -5,6 +5,7 @@ import type { EventTimeZone } from "@/lib/timezone";
 import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
 import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
 import { PemicuQr } from "@/components/member/qr-fokus";
+import { PindaiCheckpoint } from "@/components/member/pindai-checkpoint";
 
 /**
  * Panduan checkpoint di Beranda Horizon: langkah wajib peserta, bukan rundown,
@@ -21,6 +22,8 @@ const TEKS = {
     berikut: "Langkah berikutnya",
     // Satu sebutan untuk yang memindai QR di seluruh portal: panitia (U-20).
     qr: "Tunjukkan QR ke panitia",
+    kendala: "Ada kendala?",
+    qrSendiri: "Tunjukkan QR-mu ke panitia",
     selesaiJam: (jam: string) => `Selesai ${jam}`,
     ukuran: (ukuran: string) => `ukuran ${ukuran}`,
     kemajuan: (selesai: number, total: number) => `${selesai} dari ${total} selesai`,
@@ -36,6 +39,8 @@ const TEKS = {
     judul: "Checkpoint guide",
     berikut: "Next step",
     qr: "Show QR to the organisers",
+    kendala: "Having trouble?",
+    qrSendiri: "Show your QR to the organisers",
     selesaiJam: (jam: string) => `Done ${jam}`,
     ukuran: (ukuran: string) => `size ${ukuran}`,
     kemajuan: (selesai: number, total: number) => `${selesai} of ${total} done`,
@@ -56,7 +61,20 @@ function jam(iso: string, zona: EventTimeZone, lang: LandingLang) {
   return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "id-ID", { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
 }
 
-export function KartuCheckpointHorizon({ data, lang, zona, qrHref }: { data: CheckpointPeserta; lang: LandingLang; zona: EventTimeZone; qrHref: string | null }) {
+export function KartuCheckpointHorizon({
+  data,
+  lang,
+  zona,
+  qrHref,
+  slug,
+}: {
+  data: CheckpointPeserta;
+  lang: LandingLang;
+  zona: EventTimeZone;
+  qrHref: string | null;
+  /** Acara ini: tombol Pindai QR checkpoint (scan mandiri) mengirim ke sini. */
+  slug: string;
+}) {
   const t = TEKS[lang];
   const total = data.steps.length;
   const berikut = data.steps.find((step) => !step.done_at) ?? null;
@@ -142,7 +160,25 @@ export function KartuCheckpointHorizon({ data, lang, zona, qrHref }: { data: Che
               {berikut.place}
             </p>
           ) : null}
-          {qrHref ? (
+          {berikut.self_scan ? (
+            // Scan mandiri: peserta memindai QR panitia, seperti membayar dengan QRIS.
+            <>
+              <PindaiCheckpoint
+                slug={slug}
+                lang={lang}
+                qrHref={berikut.self_scan === "both" ? qrHref : null}
+                className="m3-state mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--hz-emas)] px-5 text-[15px] font-semibold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]"
+              />
+              {berikut.self_scan === "both" && qrHref ? (
+                <p className="mt-1 text-center text-[14px] text-white/80">
+                  {`${t.kendala} `}
+                  <PemicuQr id="pemicu-qr-checkpoint" href={qrHref} className="inline-flex min-h-12 items-center rounded-md font-semibold text-[var(--hz-sorot,var(--hz-emas))] underline-offset-2 hover:underline">
+                    {t.qrSendiri}
+                  </PemicuQr>
+                </p>
+              ) : null}
+            </>
+          ) : qrHref ? (
             <PemicuQr
               id="pemicu-qr-checkpoint"
               href={qrHref}

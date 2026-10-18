@@ -7,13 +7,13 @@ const putuskan = (pathname: string, query = "", lain: Partial<typeof dasar> = {}
 assert.deepEqual(putuskan("/"), { kind: "layani", pathname: "/e/ilo", addSlugQuery: false });
 assert.deepEqual(putuskan("/en"), { kind: "layani", pathname: "/e/ilo/en", addSlugQuery: false });
 // Temuan QA H4: semua halaman peserta dilayani, bukan daftar tetap.
-for (const p of ["/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/vote", "/e/ilo/kode/abc", "/e/ilo/masuk", "/e/ilo/peserta", "/api/peserta/sesi", "/api/pesan/berhenti", "/_next/static/x.js"]) {
+for (const p of ["/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/vote", "/e/ilo/kode/abc", "/e/ilo/masuk", "/e/ilo/peserta", "/e/ilo/pindai", "/api/peserta/sesi", "/api/pesan/berhenti", "/_next/static/x.js"]) {
   assert.equal(putuskan(p).kind, "layani", p);
 }
 assert.deepEqual(putuskan("/daftar"), { kind: "layani", pathname: "/daftar", addSlugQuery: true });
 assert.deepEqual(putuskan("/daftar", "eventSlug=ilo"), { kind: "layani", pathname: "/daftar", addSlugQuery: false });
 // Ruang kerja panitia, API admin, dan acara lain tidak pernah dilayani.
-for (const p of ["/admin", "/admin/settings", "/login", "/booth", "/cashier", "/scan", "/api/admin/domain", "/api/cron/pesan", "/api/settings", "/e/acara-lain", "/e/acara-lain/rundown", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/api/admin/domain", "/stasiun", "/cetak-badge", "/e/ilo/stasiun", "/e/ilo/cetak-badge", "/users", "/e/ilo/users"]) {
+for (const p of ["/admin", "/admin/settings", "/login", "/booth", "/cashier", "/scan", "/api/admin/domain", "/api/cron/pesan", "/api/settings", "/e/acara-lain", "/e/acara-lain/rundown", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/api/admin/domain", "/stasiun", "/checkpoint-qr", "/e/ilo/checkpoint-qr", "/cetak-badge", "/e/ilo/stasiun", "/e/ilo/cetak-badge", "/users", "/e/ilo/users"]) {
   assert.equal(putuskan(p).kind, "tolak", p);
 }
 assert.equal(putuskan("/daftar", "eventSlug=lain").kind, "tolak");
@@ -42,10 +42,10 @@ assert.equal(alih("/e/ilo", { fetchDest: "iframe" }), null);
 assert.equal(alih("/e/tunggu"), null);
 assert.equal(alih("/admin"), null);
 // Temuan QA H1: hanya halaman peserta yang dialihkan.
-for (const p of ["/e/ilo/en", "/e/ilo/id/", "/e/ilo/daftar", "/e/ilo/en/daftar", "/e/ilo/peserta", "/e/ilo/peserta/tiket", "/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/kode/ABC123", "/e/ilo/en/peserta", "/e/ilo/en/masuk", "/e/ilo/en/kode/ABC123"]) {
+for (const p of ["/e/ilo/en", "/e/ilo/id/", "/e/ilo/daftar", "/e/ilo/en/daftar", "/e/ilo/peserta", "/e/ilo/peserta/tiket", "/e/ilo/rundown", "/e/ilo/denah", "/e/ilo/kode/ABC123", "/e/ilo/en/peserta", "/e/ilo/en/masuk", "/e/ilo/en/kode/ABC123", "/e/ilo/pindai"]) {
   assert.equal(alih(p), `https://event.ilo-forum.org${p}`, p);
 }
-for (const p of ["/e/ilo/admin", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/cashier", "/e/ilo/scan", "/e/ilo/display", "/e/ilo/undian", "/e/ilo/workspace", "/e/ilo/pratinjau", "/e/ilo/api/pesan/berhenti", "/e/ilo/vote", "/e/ilo/stasiun", "/e/ilo/cetak-badge"]) {
+for (const p of ["/e/ilo/admin", "/e/ilo/admin/settings", "/e/ilo/booth", "/e/ilo/cashier", "/e/ilo/scan", "/e/ilo/display", "/e/ilo/undian", "/e/ilo/workspace", "/e/ilo/pratinjau", "/e/ilo/api/pesan/berhenti", "/e/ilo/vote", "/e/ilo/stasiun", "/e/ilo/cetak-badge", "/e/ilo/checkpoint-qr"]) {
   assert.equal(alih(p), null, p);
 }
 

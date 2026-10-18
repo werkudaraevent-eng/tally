@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Checkpoint self-scan (E-14), draft PR `feat/checkpoint-scan-mandiri`: Check-in > Checkpoints > "How it gets done" per checkpoint (Staff default, Participants, Both). Staff show a QR from the scanner app (Show QR) or `/checkpoint-qr` on a big screen; the code changes every 30 seconds; participants scan it from the checkpoint card. Waiting on Mas to run migration 202610180001, then his merge time (KSO is in client review). Safe to merge before the SQL: everything stays staff-scanned and saving Participants or Both answers "needs a database update".
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
@@ -37,6 +38,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 ## Waiting on Mas (owner)
 
 - SQL cleanup from #119 (pending registration rows) to run.
+- Migration 202610180001 (checkpoint self-scan) to run, then its post-check.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
 - Portal audit follow-up "your batch": an "Applies to" setting per Agenda section so Schedule and Home open the participant's own batch first. It needs its own mockup and a small SQL file he runs; #201 (merged) gives it the staff-only Batch column to read. For KSO, add Batch from Participant list > Columns > Add a column in Registration before the import; the import template includes staff-only columns.
 
@@ -45,7 +47,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 Every item (finding, recommendation, what is left, decisions and code pointers) is in `docs/kso-portal-audit.md` (U-xx findings, E-xx Eventnook lessons); change an item's status there and here in the same PR. Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08. #201 adds the staff-only Batch column (nothing in the portal reads it yet), and #202 links bus trips to Agenda rows.
 
 - KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, a bus trip per Agenda row in Logistics > Buses > Trips, linked to that row with #202, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (fill the participant-only Columns block and choose it in Participant area > Emergency and help), E-08 (set the points goal, or turn Points off; if the goal is a Lucky draw entry, draw conditions can count scans but not points yet).
-- Needs a decision or a mockup from Mas first: "your batch" (U-01 step 2, E-01, E-06, E-10: an "Applies to" setting per Agenda section reading the #201 Batch column, then Home, Schedule and the QR show the participant's batch; small SQL), U-22 (one word for the schedule: Jadwal or Susunan acara), U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-14 (self-scan at quiet checkpoints), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
+- Needs a decision or a mockup from Mas first: "your batch" (U-01 step 2, E-01, E-06, E-10: an "Applies to" setting per Agenda section reading the #201 Batch column, then Home, Schedule and the QR show the participant's batch; small SQL), U-22 (one word for the schedule: Jadwal or Susunan acara), U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
 - Code, partly done: U-02 (the cashier offline banner still shows on the reloaded QR page and other public pages), U-06 (no fade cue on the desktop Schedule day list), U-07 (no Readiness item for the organiser contact), U-09 (the event page day heading and the 01-NN counter count sections; no warning for sections outside the event dates), U-10 (the reloaded QR page still loads the full logistics), U-20/E-09 ("tiket" and "meja registrasi" still name the QR in places), U-24 (one metadata separator, the countdown date range, a zone note on Travel), U-26 (old Gathering cards in Announcements and Schedule), U-33 (tautanPeta for hotel map links, the bell close label), E-12 (map links for Agenda locations).
 - Code, not started: U-12 (focus ring on guest pages), U-13 (per-tab document titles; top bar and bottom nav outside main), U-14 (hide Seat, Live voting and Feedback link for Gathering layouts), U-17 (anchor to the train card), U-19 (reading order below lg), U-21 (one name for the participant area), U-23 ("kamu" or "Anda"), U-27 (Horizon blue from the Theme brand colour), U-29 (Profil active state), U-31 (theme-color from the event navy), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
 
@@ -161,6 +163,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
+- Self-scan: the classic and modern checkpoint cards show "Tampilkan QR" next to the scan button only where the dashboard already passes a QR link (modern does not), so Both on modern has no fallback link on the card; the QR stays in the portal's own QR place.
 - #169 L2/L5: the post-check SQL misses grants and constraints, and POST returns 500 before the migration.
 - #172/#173 F4: Sessions tab strings are still Indonesian; F2, a ~120 ms Assignments-to-Kit flash, is accepted.
 

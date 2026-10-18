@@ -1887,6 +1887,7 @@ export type ApiErrorCode =
   // Trip tanpa tautan tetap tersimpan seperti biasa.
   | "TRIP_AGENDA_NOT_READY"
   | "CHECKPOINT_GOAL_NOT_READY"
+  | "CHECKPOINT_SELF_SCAN_NOT_READY"
   | "UNDIAN_PRIZE_NOT_FOUND"
   | "UNDIAN_PRIZE_IN_USE"
   | "UNDIAN_NO_ACTIVE_PRIZE"
