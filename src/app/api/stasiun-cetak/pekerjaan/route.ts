@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { antrekan, muatPekerjaan, pesanGalatStasiun, setelanMeja } from "@/lib/badge/stasiun-server";
+import { antrekan, muatPekerjaan, pesanGalatStasiun, setelanMeja, tolakTanpaMeja } from "@/lib/badge/stasiun-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -22,6 +22,8 @@ const getSchema = z.object({
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["scanner", "admin"], { readOnly: true });
   if (auth.response) return auth.response;
+  const tutup = await tolakTanpaMeja(auth.scope);
+  if (tutup) return tutup;
   const parsed = getSchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const ids = parsed.data.id.split(",").map(Number);
@@ -37,6 +39,8 @@ const postSchema = z.object({
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["scanner", "admin"]);
   if (auth.response) return auth.response;
+  const tutup = await tolakTanpaMeja(auth.scope);
+  if (tutup) return tutup;
   const parsed = postSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const setelan = await setelanMeja(auth.scope.event.id);
@@ -62,6 +66,8 @@ const patchSchema = z.object({
 export async function PATCH(request: Request) {
   const auth = await requireRequestEvent(request, ["scanner", "admin"]);
   if (auth.response) return auth.response;
+  const tutup = await tolakTanpaMeja(auth.scope);
+  if (tutup) return tutup;
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 

@@ -61,7 +61,7 @@ export type StatusHasil = "recorded" | "duplicate" | "not_found" | "created" | "
 
 export type Hasil = {
   status: StatusHasil;
-  participant?: { id: string; name: string; company: string | null; title: string | null; qr_code: string };
+  participant?: { id: string; name: string; company: string | null; title: string | null; qr_code?: string };
   first_scan_at?: string | null;
   scan_count?: number;
   session_unique_total?: number;

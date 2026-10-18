@@ -649,8 +649,11 @@ export default function ScanClient() {
     tautan.click();
   }
 
-  const cetakLabel = useCallback(async (data: LabelData) => {
+  // Kode peserta ikut di jawaban scan hanya bila label stiker aktif; tanpa
+  // kode, labelnya dicetak dengan kolom kode kosong.
+  const cetakLabel = useCallback(async (peserta: Omit<LabelData, "qr_code"> & { qr_code?: string }) => {
     if (!label?.enabled) return;
+    const data: LabelData = { ...peserta, qr_code: peserta.qr_code ?? "" };
     setCetak({ fase: "jalan", teks: "Sending to printer…" });
     try {
       const dataUrl = await renderLabelDataUrl(label, data);
@@ -737,7 +740,7 @@ export default function ScanClient() {
     if (beres && data.participant) {
       setTerakhirHadir({ nama: data.participant.name, waktu });
       const catatan = { waktu: Date.now(), hasil: data };
-      barusanRef.current.set(`${sesi}:${data.participant.qr_code}`, catatan);
+      if (data.participant.qr_code) barusanRef.current.set(`${sesi}:${data.participant.qr_code}`, catatan);
       if (data.qr) barusanRef.current.set(`${sesi}:${data.qr}`, catatan);
     }
 
