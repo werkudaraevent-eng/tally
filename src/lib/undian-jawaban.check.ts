@@ -50,8 +50,8 @@ assert.equal(matchesConditions(row({ nik: "" }), bukanIt), false);
 assert.equal(matchesConditions(row(undefined), nikKosong), false);
 
 assert.equal(describeConditions(divisi, {}, { divisi: "Divisi" }), "Divisi IT/Keuangan");
-assert.equal(describeConditions(bukanIt, {}, { divisi: "Divisi" }), "Divisi bukan IT");
-assert.equal(describeConditions(nik), 'nik dimulai dengan "34"');
-assert.equal(describeConditions(nik, {}, {}), "PERTANYAAN FORM SUDAH DIHAPUS, pilih ulang");
+assert.equal(describeConditions(bukanIt, {}, { divisi: "Divisi" }), "Divisi not IT");
+assert.equal(describeConditions(nik), 'nik starts with "34"');
+assert.equal(describeConditions(nik, {}, {}), "FORM QUESTION DELETED, choose again");
 
 console.log("undian-jawaban.check: ok");

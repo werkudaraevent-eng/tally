@@ -54,7 +54,7 @@ type Props = {
    */
   checkpoint?: CheckpointSummary | null;
   /**
-   * Pertanyaan tambahan form registrasi, untuk grup "Jawaban formulir".
+   * Pertanyaan tambahan form registrasi, untuk grup "Form answers".
    * `undefined` = belum dimuat, `null` = gagal dimuat; keduanya tidak menandai
    * pertanyaan yang dipilih sebagai "sudah dihapus".
    */
@@ -465,8 +465,8 @@ function AddConditionMenu({ answerFields, onPick, onPickAnswer }: { answerFields
         </div>)}
         {/* Pertanyaan tambahan Registration > Edit form, termasuk kolom khusus
             panitia: daftarnya mengikuti acara, bukan daftar tetap di kode. */}
-        {answerFields.length > 0 && <div role="group" aria-label="Jawaban formulir" className="mt-1 border-t border-outline-variant pt-1">
-          <p className="px-2 pb-1 pt-2 text-label-medium text-on-surface-variant">Jawaban formulir</p>
+        {answerFields.length > 0 && <div role="group" aria-label="Form answers" className="mt-1 border-t border-outline-variant pt-1">
+          <p className="px-2 pb-1 pt-2 text-label-medium text-on-surface-variant">Form answers</p>
           {answerFields.map((field) => <button key={field.key} type="button" role="menuitem" className={POPOVER_ITEM} onClick={() => pickAnswer(field)}>
             {isChoiceAnswer(field.type) ? <ListBullets size={16} aria-hidden className="shrink-0 text-on-surface-variant" /> : <TextAa size={16} aria-hidden className="shrink-0 text-on-surface-variant" />}
             <span className="min-w-0 flex-1 truncate">{field.label}</span>
@@ -484,7 +484,7 @@ function defaultAnswerLeaf(field: UndianAnswerField): UndianAnswerLeaf {
     : { var: "answer", key: field.key, cmp: "contains", text: "" };
 }
 
-const CHOICE_CMP_OPTIONS = [{ value: "in" as const, label: "adalah salah satu" }, { value: "not_in" as const, label: "bukan salah satu" }];
+const CHOICE_CMP_OPTIONS = [{ value: "in" as const, label: "is one of" }, { value: "not_in" as const, label: "is not one of" }];
 const TEXT_CMP_OPTIONS = (Object.keys(TEXT_CMP_LABEL) as UndianTextCmp[]).map((key) => ({ value: key, label: TEXT_CMP_LABEL[key] }));
 
 /**
@@ -503,7 +503,7 @@ function AnswerEditor({ leaf, fields, tone, onChange, onRemove }: {
   // Pertanyaan sudah dihapus dari form: server menganggap syarat ini tidak
   // pernah terpenuhi. Hanya bila daftar pertanyaan benar-benar termuat.
   const gone = Array.isArray(fields) && !field;
-  const label = field?.label ?? (gone ? "Pertanyaan yang sudah dihapus" : leaf.key);
+  const label = field?.label ?? (gone ? "Deleted question" : leaf.key);
   const choices = field ? answerChoices(field) : [];
   // Nilai tersimpan yang tidak ada lagi di pilihan tetap tampil, supaya syarat
   // tidak diam-diam berubah arti saat form dibuka lagi.
@@ -512,34 +512,34 @@ function AnswerEditor({ leaf, fields, tone, onChange, onRemove }: {
   return <div className="flex flex-wrap items-center gap-2 text-body-medium">
     <span className="font-medium">{label}</span>
     {"values" in leaf ? <>
-      <SelectMenu label="Pembanding" width="11.5rem" options={CHOICE_CMP_OPTIONS} value={leaf.cmp} onChange={(cmp) => onChange({ ...leaf, cmp })} />
+      <SelectMenu label="Comparison" width="11.5rem" options={CHOICE_CMP_OPTIONS} value={leaf.cmp} onChange={(cmp) => onChange({ ...leaf, cmp })} />
       {/* order-last: chip pindah ke baris sendiri di bawah, tombol hapus tetap
           di baris judul (di 390 px chip memenuhi beberapa baris). */}
       <div className="order-last flex basis-full flex-wrap gap-1.5">
         {shownChoices.length === 0
-          ? <span className="text-on-surface-variant">Pertanyaan ini belum punya pilihan.</span>
+          ? <span className="text-on-surface-variant">This question has no options yet.</span>
           : shownChoices.map((option) => {
             const chosen = leaf.values.includes(option);
             return <FilterChip key={option} selected={chosen} onClick={() => onChange({ ...leaf, values: chosen ? leaf.values.filter((item) => item !== option) : [...leaf.values, option] })}>{option}</FilterChip>;
           })}
       </div>
     </> : <>
-      <SelectMenu label="Pembanding" width="11.5rem" options={TEXT_CMP_OPTIONS} value={leaf.cmp} onChange={(cmp) => onChange({ ...leaf, cmp })} />
+      <SelectMenu label="Comparison" width="11.5rem" options={TEXT_CMP_OPTIONS} value={leaf.cmp} onChange={(cmp) => onChange({ ...leaf, cmp })} />
       {!TEXT_CMP_WITHOUT_VALUE.includes(leaf.cmp) && <input
         value={leaf.text}
         onChange={(event) => onChange({ ...leaf, text: event.target.value })}
-        aria-label={`Nilai ${label}`}
-        placeholder="ketik nilainya"
+        aria-label={`Value for ${label}`}
+        placeholder="enter a value"
         className={cx(CONTROL, "w-52 max-w-full")}
       />}
     </>}
-    <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />
+    <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
     {gone && <span role="alert" className="order-last flex basis-full items-center gap-1.5 font-medium text-error">
       <Warning size={16} aria-hidden className="shrink-0" /> {tone === "exclude"
-        ? "Pertanyaan ini sudah dihapus dari form, jadi aturan ini tidak mengecualikan siapa pun. Hapus syarat ini."
-        : "Pertanyaan ini sudah dihapus dari form, jadi tidak ada peserta yang lolos. Hapus syarat ini."}
+        ? "This question was deleted from the form, so this rule excludes nobody. Delete this condition."
+        : "This question was deleted from the form, so no participant qualifies. Delete this condition."}
     </span>}
-    {fields === null && <span role="status" className="order-last basis-full text-on-surface-variant">Pertanyaan form gagal dimuat. Syarat ini disimpan apa adanya.</span>}
+    {fields === null && <span role="status" className="order-last basis-full text-on-surface-variant">Form questions could not be loaded. This condition is kept as it is.</span>}
   </div>;
 }
 
