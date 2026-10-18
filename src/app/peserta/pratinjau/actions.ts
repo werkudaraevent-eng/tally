@@ -16,7 +16,7 @@ export type HasilPratinjauPeserta = { ok: true; isi: ReactNode } | { ok: false; 
  * ditulis ke mana pun, dan diperiksa dengan skema yang sama dengan Simpan.
  * Isi lain (blok, tema) dari salinan tersimpan: disunting di Event page.
  */
-export async function renderPratinjauPeserta(slug: string, pesertaId: string, draf: unknown): Promise<HasilPratinjauPeserta> {
+export async function renderPratinjauPeserta(slug: string, pesertaId: string, draf: unknown, tab: unknown = "beranda"): Promise<HasilPratinjauPeserta> {
   const auth = await requireEventScope(slug, ["admin"]);
   if (auth.response) return { ok: false, pesan: "Your session has expired. Reload this page." };
   // Tautan umpan balik yang masih diketik tidak menghentikan pratinjau.
@@ -34,6 +34,6 @@ export async function renderPratinjauPeserta(slug: string, pesertaId: string, dr
   const nyala = tersembunyi ? (landing.blocks ?? []).map((block) => block.id as string).filter((id) => !tersembunyi.includes(id)) : [];
   const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyala);
   const acara = sections === landing.sections ? event : { ...event, landing_config: { ...landing, sections } };
-  const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi);
+  const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi, tab === "profil" ? "profil" : "beranda");
   return isi ? { ok: true, isi } : { ok: false, pesan: "Participant home is only on the Modern and Gathering layouts." };
 }

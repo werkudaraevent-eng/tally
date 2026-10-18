@@ -2,6 +2,7 @@ import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
 import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
+import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
@@ -265,6 +266,26 @@ export const memberSchema = z.object({
     .transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
   /** Blok peserta yang tampil di Menu sebagai kartu darurat dan bantuan (portal Horizon). Kosong = tidak ada. */
   help_block: blockId.nullable().optional(),
+  /**
+   * Kontak darurat dan bantuan (E-03), diisi di Participant area > Emergency
+   * and help. Ada isinya = dipakai menggantikan `help_block`.
+   */
+  help: z
+    .object({
+      note: z.string().trim().max(KONTAK_DARURAT_BATAS.catatan).nullish(),
+      contacts: z
+        .array(
+          z.object({
+            name: z.string().trim().min(1, "Each contact needs a name or role").max(KONTAK_DARURAT_BATAS.name),
+            phone: z.string().trim().max(KONTAK_DARURAT_BATAS.phone).nullish(),
+            note: z.string().trim().max(KONTAK_DARURAT_BATAS.note).nullish(),
+            map_url: z.string().trim().max(KONTAK_DARURAT_BATAS.map_url).regex(/^(https?:\/\/[^\s"'<>\\]+)?$/i, "Map links must start with http:// or https://").nullish(),
+          }),
+        )
+        .max(KONTAK_DARURAT_MAX),
+    })
+    .nullable()
+    .optional(),
 });
 
 /** Satu pembicara (`landing_config.speakers[]`), disimpan di halaman Speakers. */

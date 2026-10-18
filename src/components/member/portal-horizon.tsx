@@ -773,7 +773,14 @@ export function SegmenBagianHorizon({ bagian, aria }: { bagian: { label: string;
   );
 }
 
-export type BarisDaruratHorizon = { judul: string; isi: string | null; href: string | null; luar: boolean };
+export type BarisDaruratHorizon = {
+  judul: string;
+  isi: string | null;
+  href: string | null;
+  luar: boolean;
+  /** Kontak dari Participant area (E-03): nomor tampil sebagai teks, tombolnya di bawah. */
+  kontak?: { nomor: string | null; tel: string | null; wa: string | null; peta: string | null };
+};
 
 /**
  * Kartu "Darurat dan bantuan" di Menu (E-03, pola halaman kontak darurat
@@ -781,7 +788,19 @@ export type BarisDaruratHorizon = { judul: string; isi: string | null; href: str
  * baris bisa diketuk: tautannya sendiri bila ada, atau nomor ponsel di dalam
  * teksnya (tel:). Tetap di tempat yang sama, tepat di bawah Perjalanan.
  */
-export function KartuDaruratHorizon({ judul, isi, baris }: { judul: string; isi: string | null; baris: BarisDaruratHorizon[] }) {
+export function KartuDaruratHorizon({
+  judul,
+  isi,
+  baris,
+  label = null,
+}: {
+  judul: string;
+  isi: string | null;
+  baris: BarisDaruratHorizon[];
+  label?: { call: string; whatsapp: string; map: string } | null;
+}) {
+  const kelasTombol = "m3-state inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold";
+  const gayaTombol = { color: BIRU, borderColor: "#C9D1DE" };
   return (
     <section id="darurat" aria-label={judul} className="flex scroll-mt-24 flex-col gap-3 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32" style={{ color: TINTA }}>
       <div className="flex items-center gap-2">
@@ -809,6 +828,48 @@ export function KartuDaruratHorizon({ judul, isi, baris }: { judul: string; isi:
                 {item.href ? <CaretRight size={18} aria-hidden className="shrink-0" style={{ color: LABEL }} /> : null}
               </>
             );
+            const kontak = item.kontak;
+            if (kontak) {
+              return (
+                <li key={`${index}-${item.judul}`} className="flex flex-col gap-3 border-[#E6E8EC] px-2 py-4 [&+&]:border-t">
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
+                    {item.isi ? (
+                      <span className="whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+                        {item.isi}
+                      </span>
+                    ) : null}
+                    {kontak.nomor ? (
+                      <span className="text-[14px] font-medium leading-5 tabular-nums [overflow-wrap:anywhere]" style={{ color: TINTA }}>
+                        {kontak.nomor}
+                      </span>
+                    ) : null}
+                  </span>
+                  {label && (kontak.tel || kontak.wa || kontak.peta) ? (
+                    <span className="flex flex-wrap gap-2">
+                      {kontak.tel ? (
+                        <a href={`tel:${kontak.tel}`} className={kelasTombol} style={gayaTombol}>
+                          <Phone size={18} weight="bold" aria-hidden />
+                          {label.call}
+                        </a>
+                      ) : null}
+                      {kontak.wa ? (
+                        <a href={kontak.wa} target="_blank" rel="noreferrer noopener" className={kelasTombol} style={gayaTombol}>
+                          <WhatsappLogo size={18} weight="bold" aria-hidden />
+                          {label.whatsapp}
+                        </a>
+                      ) : null}
+                      {kontak.peta ? (
+                        <a href={kontak.peta} target="_blank" rel="noreferrer noopener" className={kelasTombol} style={gayaTombol}>
+                          <MapPin size={18} weight="bold" aria-hidden />
+                          {label.map}
+                        </a>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            }
             return (
               <li key={`${index}-${item.judul}`} className="border-[#E6E8EC] [&+&]:border-t">
                 {item.href ? (

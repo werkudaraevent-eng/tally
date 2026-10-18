@@ -32,10 +32,14 @@ export function PratinjauBeranda({ slug, pesertaId, children }: { slug: string; 
     let timer: number | undefined;
     let urutan = 0;
     let sorotan: HTMLElement | null = null;
+    let timerGulir: number | undefined;
     const lapor = (pesan: object) => window.parent.postMessage(pesan, window.location.origin);
 
-    function gulir(id: string) {
+    // `coba`: isi hasil render server bisa baru tampil beberapa saat setelah
+    // setIsi (mis. pindah ke tab Profil), jadi penanda dicari ulang sebentar.
+    function gulir(id: string, coba = 0) {
       const kotak = kotakTampil(id);
+      if (!kotak && coba > 0) { timerGulir = window.setTimeout(() => gulir(id, coba - 1), 100); return; }
       if (!kotak) { lapor({ jenis: "tally-beranda-gulir", ada: false, id }); return; }
       sorotan?.style.removeProperty("outline");
       sorotan?.style.removeProperty("outline-offset");
@@ -48,18 +52,19 @@ export function PratinjauBeranda({ slug, pesertaId, children }: { slug: string; 
 
     function terima(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== window.parent) return;
-      if (event.data?.jenis === "tally-beranda-sorot" && typeof event.data.id === "string") { gulir(event.data.id); return; }
+      if (event.data?.jenis === "tally-beranda-sorot" && typeof event.data.id === "string") { window.clearTimeout(timerGulir); gulir(event.data.id); return; }
       if (event.data?.jenis !== "tally-beranda-draf") return;
       const draf = event.data.member;
       const sorot = typeof event.data.sorot === "string" ? event.data.sorot : null;
+      const tab = event.data.tab === "profil" ? "profil" : "beranda";
       window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
         const nomor = ++urutan;
-        const hasil = await renderPratinjauPeserta(slug, pesertaId, draf).catch(() => null);
+        const hasil = await renderPratinjauPeserta(slug, pesertaId, draf, tab).catch(() => null);
         if (nomor !== urutan) return;
         if (hasil?.ok) {
           setIsi(hasil.isi);
-          if (sorot) window.requestAnimationFrame(() => window.requestAnimationFrame(() => gulir(sorot)));
+          if (sorot) { window.clearTimeout(timerGulir); window.requestAnimationFrame(() => window.requestAnimationFrame(() => gulir(sorot, 10))); }
         }
         lapor({ jenis: "tally-beranda-hasil", ok: Boolean(hasil?.ok), pesan: !hasil ? "The preview couldn't load. Try again." : hasil.ok ? null : hasil.pesan });
       }, JEDA_MS);
@@ -81,6 +86,7 @@ export function PratinjauBeranda({ slug, pesertaId, children }: { slug: string; 
       window.removeEventListener("click", klik, true);
       window.removeEventListener("submit", klik, true);
       window.clearTimeout(timer);
+      window.clearTimeout(timerGulir);
     };
   }, [slug, pesertaId]);
 

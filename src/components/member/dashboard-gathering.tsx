@@ -41,6 +41,7 @@ import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
 import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
+import { barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { agendaBerikutnya, loadMemberLogistics, type LogistikPeserta } from "@/lib/logistik/peserta";
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
@@ -315,7 +316,12 @@ export async function DashboardGathering({
   const blokDarurat = horizon && member.help_block
     ? (blokPeserta.find((block) => block.id === member.help_block && landingBlockMemberOnly(block) && jenisBlokDarurat(block.type)) ?? null)
     : null;
-  const judulDarurat = blokDarurat?.heading?.trim() || tH.emergency;
+  // Kontak yang diisi langsung di Participant area > Emergency and help
+  // menggantikan blok lama; blok tetap dipakai selama kontaknya kosong.
+  const kontakDarurat = horizon ? barisKontakDarurat(member.help?.contacts) : [];
+  const pakaiKontak = kontakDarurat.length > 0;
+  const adaDarurat = pakaiKontak || Boolean(blokDarurat);
+  const judulDarurat = (!pakaiKontak && blokDarurat?.heading?.trim()) || tH.emergency;
   const tokensTema = landingTokens(config, "modern");
   const warnaTema = { brand: tokensTema.brand, accent: tokensTema.accent ?? null };
   const kartuBlok = new Map(
@@ -1036,7 +1042,7 @@ export async function DashboardGathering({
         catatan={tH.helpCard.noteTravel}
         kontak={kontakHorizon}
         label={labelKontak}
-        tautan={blokDarurat ? { href: `${keTab("profil")}#darurat`, label: judulDarurat, tab: "profil" } : null}
+        tautan={adaDarurat ? { href: `${keTab("profil")}#darurat`, label: judulDarurat, tab: "profil" } : null}
       />
     ) : null;
     isi = !adaPerjalanan ? (
@@ -1155,9 +1161,17 @@ export async function DashboardGathering({
         <TombolKontakHorizon kontak={kontakHorizon} label={labelKontak} />
       </div>
     ) : null;
-    // Kartu darurat (E-03): tiap butir blok menjadi baris yang bisa diketuk, lewat
-    // tautannya sendiri atau nomor ponsel di teksnya (pola kontak kru bus).
-    const kartuDarurat = blokDarurat ? (
+    // Kartu darurat (E-03): kontak dari Participant area dengan tombol Telepon,
+    // WhatsApp (ponsel), dan Peta. Cadangannya blok lama: tiap butir menjadi baris
+    // yang bisa diketuk lewat tautannya atau nomor ponsel di teksnya (pola kontak kru bus).
+    const kartuDarurat = pakaiKontak ? (
+      <KartuDaruratHorizon
+        judul={judulDarurat}
+        isi={member.help?.note?.trim() || null}
+        label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
+        baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta } }))}
+      />
+    ) : blokDarurat ? (
       <KartuDaruratHorizon
         judul={judulDarurat}
         isi={blokDarurat.body?.trim() || null}
@@ -1192,7 +1206,7 @@ export async function DashboardGathering({
             ...(adaOutfit ? [{ href: keTab("outfit"), judul: labelMenuOutfit, isi: tH.outfit.menuRow, Ikon: CoatHanger, tab: "outfit" }] : []),
           ],
         }}
-        darurat={kartuDarurat}
+        darurat={kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
         data={{
           judul: tp.details,
           fakta: [
