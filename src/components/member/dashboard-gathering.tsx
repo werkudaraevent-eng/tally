@@ -587,7 +587,7 @@ export async function DashboardGathering({
           {indeksHariIni >= 0 ? t.todayRundown : bagianBeranda.sectionTitle?.trim() || t.dayRundown(indeksBeranda + 1)}
         </h2>
         {agenda.length > 1 ? (
-          <Link href={keTab("jadwal", { hari: String(indeksBeranda + 1) })} className="inline-flex min-h-12 items-center text-title-small font-bold text-[var(--alis)]">
+          <Link href={keTab("jadwal", { hari: String(indeksBeranda + 1) })} className="inline-flex min-h-12 shrink-0 items-center text-title-small font-bold text-[var(--alis)]">
             {t.seeSchedule}
           </Link>
         ) : null}

@@ -398,7 +398,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const tautanTamu = [
     ...(peserta ? [{ label: t.myDashboard, href: peserta.dashboardHref }] : []),
     ...(!peserta && event.registration_enabled ? [{ label: t.register, href: daftarUrl }] : []),
-    ...(memberLink ? [{ label: t.signInMemberArea, href: memberLink.href }] : []),
+    ...(memberLink ? [{ label: t.navPortalSignIn, href: memberLink.href }] : []),
     ...(tampil("faq") ? [{ label: "FAQ", href: "#faq" }] : []),
   ];
   // Aksi utama peserta yang sudah masuk: tiketnya, atau status pendaftarannya

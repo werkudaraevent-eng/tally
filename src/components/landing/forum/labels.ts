@@ -48,7 +48,7 @@ export const FORUM_LABELS: Record<"id" | "en", ForumLabels> = {
     tentangSingkat: "About us",
     selengkapnya: "Learn more",
     lihatSelengkapnya: "See More",
-    susunan: "Event Rundown",
+    susunan: "Schedule",
     waktu: "Time",
     sesi: "Program",
     pembicara: "Speakers",

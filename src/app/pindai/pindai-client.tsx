@@ -8,16 +8,16 @@ import { kirimQrCheckpoint, type KabarCheckpoint } from "@/components/member/pin
 const TEKS = {
   id: {
     mencatat: "Mencatat checkpoint…",
-    masuk: "Masuk dulu ke halaman pesertamu, lalu pindai lagi QR di layar panitia.",
+    masuk: "Masuk dulu ke Dashboard saya, lalu pindai lagi QR di layar panitia.",
     rusak: "QR ini tidak lengkap. Pindai lagi dari layar panitia.",
-    keHalaman: "Buka halaman peserta",
+    keHalaman: "Buka Dashboard saya",
     keMasuk: "Masuk",
   },
   en: {
     mencatat: "Recording the checkpoint…",
-    masuk: "Sign in to your participant page first, then scan the QR on the organisers' screen again.",
+    masuk: "Sign in to My dashboard first, then scan the QR on the organisers' screen again.",
     rusak: "This QR is incomplete. Scan it again from the organisers' screen.",
-    keHalaman: "Open participant page",
+    keHalaman: "Open My dashboard",
     keMasuk: "Sign in",
   },
 } as const;
