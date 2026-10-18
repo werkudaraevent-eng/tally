@@ -1,7 +1,11 @@
 "use client";
 
-import { Plus, Trash, Warning, X } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import {
+  Armchair, Buildings, CaretDown, CheckCircle, EnvelopeSimple, Flag, Hash, IdentificationBadge, ListChecks,
+  Plus, QrCode, Receipt, Scan, Star, Storefront, Trash, User, UsersThree, Warning, X, type Icon,
+} from "@phosphor-icons/react";
+import { useId, useState, type ReactNode } from "react";
+import { Button, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
 import type { CheckpointSummary, UndianConditionGroup, UndianConditionNode, UndianCmp, UndianTextCmp, UndianTextVar } from "@/lib/undian";
 import { TEXT_CMP_LABEL, TEXT_CMP_WITHOUT_VALUE, TEXT_VAR_LABEL, isConditionGroup, isTextLeaf } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
@@ -80,6 +84,24 @@ const VAR_GROUPS: { label: string; vars: string[] }[] = [
   // also drives the participant card ("20 more points to enter the draw").
   { label: "Checkpoint", vars: ["checkpoint_goal", "checkpoint_points", "checkpoints_all"] },
 ];
+
+const VAR_ICON: Record<string, Icon> = {
+  company: Buildings,
+  name: User,
+  job_title: IdentificationBadge,
+  qr_code: QrCode,
+  participant_type: UsersThree,
+  rsvp_status: EnvelopeSimple,
+  checked_in: CheckCircle,
+  has_seat: Armchair,
+  seat_label: Hash,
+  total_spend: Receipt,
+  booth_count: Storefront,
+  scan_count: Scan,
+  checkpoint_goal: Flag,
+  checkpoint_points: Star,
+  checkpoints_all: ListChecks,
+};
 
 const CMP_LABEL: Record<UndianCmp, string> = {
   gte: "at least",
@@ -174,22 +196,12 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
     </div>
 
     <div className="mt-2 flex flex-wrap gap-2">
-      <select
-        value=""
-        aria-label="Add condition"
-        onChange={(event) => { if (event.target.value) onChange({ ...value, children: [...value.children, defaultLeaf(event.target.value)] }); }}
-        className={cx(CONTROL, "font-medium")}
-      >
-        <option value="">+ Add condition</option>
-        {VAR_GROUPS.map((group) => <optgroup key={group.label} label={group.label}>
-          {group.vars.map((key) => <option key={key} value={key}>{VAR_LABEL[key]}</option>)}
-        </optgroup>)}
-      </select>
+      <AddConditionMenu onPick={(variable) => onChange({ ...value, children: [...value.children, defaultLeaf(variable)] })} />
       {/* Kedalaman dibatasi 2 agar aturan tetap terbaca. Lebih dalam dari itu
           hampir selalu tanda aturannya perlu dipecah jadi hadiah terpisah. */}
-      {depth < 2 && <button type="button" onClick={() => onChange({ ...value, children: [...value.children, { op: "or", children: [] }] })} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium font-medium hover:bg-primary-soft">
-        <Plus size={14} aria-hidden /> Add group
-      </button>}
+      {depth < 2 && <Button type="button" variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => onChange({ ...value, children: [...value.children, { op: "or", children: [] }] })}>
+        Add group
+      </Button>}
     </div>
 
     {value.children.length === 0 && depth === 0 && (tone === "exclude"
@@ -363,6 +375,63 @@ function LeafEditor({
 
     <TombolHapus label="Delete condition" onClick={onRemove} icon={<Trash size={16} />} />
   </div>;
+}
+
+/**
+ * "+ Tambah syarat": menu bergrup dengan ikon, bukan `<select>` bawaan. Daftar
+ * bawaan tampil dengan huruf dan jarak sistem operasi, judul grup tebal dan
+ * isinya menjorok, dan tidak mengikuti menu lain di admin (Badge > Tambah isi).
+ */
+function AddConditionMenu({ onPick }: { onPick: (variable: string) => void }) {
+  const [trigger, setTrigger] = useState<HTMLElement | null>(null);
+  const menu = usePopoverAnchor(trigger);
+  const id = useId();
+
+  // Dibuka dari papan ketik: fokus pindah ke pilihan pertama. Panelnya dirender
+  // di ujung body, jadi tanpa ini Tab dari tombol melompat ke "Add group".
+  function focusFirst() {
+    requestAnimationFrame(() => document.getElementById(id)?.querySelector<HTMLElement>('[role="menuitem"]')?.focus());
+  }
+
+  function pick(variable: string) {
+    onPick(variable);
+    menu.tutup();
+    menu.fokus();
+  }
+
+  // Panah atas/bawah berpindah antar pilihan; Tab tetap bekerja seperti biasa.
+  function onKeyDown(event: React.KeyboardEvent) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const items = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="menuitem"]')];
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const next = event.key === "ArrowDown" ? (index + 1) % items.length : (index - 1 + items.length) % items.length;
+    items[next]?.focus();
+  }
+
+  return <>
+    <span ref={setTrigger} className="inline-flex">
+      <Button type="button" variant="outlined" size="sm" icon={<Plus size={16} />} trailingIcon={<CaretDown size={14} />} aria-haspopup="menu" aria-expanded={menu.open}
+        onClick={(event) => { const opening = !menu.open; menu.toggle(); if (opening && event.detail === 0) focusFirst(); }}
+        onKeyDown={(event) => { if (event.key === "ArrowDown" && !menu.open) { event.preventDefault(); menu.buka(); focusFirst(); } }}>
+        Add condition
+      </Button>
+    </span>
+    {menu.open && <Popover anchor={menu} id={id} label="Add condition" align="start" width={264} onKeyDown={onKeyDown}>
+      <div className="p-1">
+        {VAR_GROUPS.map((group, index) => <div key={group.label} role="group" aria-label={group.label} className={index > 0 ? "mt-1 border-t border-outline-variant pt-1" : undefined}>
+          <p className="px-2 pb-1 pt-2 text-label-medium text-on-surface-variant">{group.label}</p>
+          {group.vars.map((key) => {
+            const ItemIcon = VAR_ICON[key];
+            return <button key={key} type="button" role="menuitem" className={POPOVER_ITEM} onClick={() => pick(key)}>
+              {ItemIcon && <ItemIcon size={16} aria-hidden className="shrink-0 text-on-surface-variant" />}
+              <span className="min-w-0 flex-1 truncate">{VAR_LABEL[key]}</span>
+            </button>;
+          })}
+        </div>)}
+      </div>
+    </Popover>}
+  </>;
 }
 
 /**
