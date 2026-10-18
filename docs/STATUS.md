@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Horizon phone bottom bar: Travel (Perjalanan) becomes a main tab in place of Menu; Menu opens from the initials in the top bar; events without travel info keep the Menu tab (draft PR, waiting QA, then Mas's timing OK for KSO).
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
