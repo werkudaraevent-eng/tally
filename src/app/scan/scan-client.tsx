@@ -1509,6 +1509,7 @@ export default function ScanClient() {
                 onChange={(nilai) => {
                   // Kembali ke Scan participant menyalakan kamera lagi: ketukan ini
                   // cukup sebagai izin, dan petugas memang akan memindai.
+                  if (nilai === "pindai") bukaSuara();
                   setScanning(nilai === "pindai");
                   setPilihTampilQr((lama) => ({ ...lama, [sessionId]: nilai === "tampil" }));
                 }}

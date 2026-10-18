@@ -272,7 +272,13 @@ export async function PATCH(request: Request) {
   // barang tanpa menyebut pilihannya: checkpoint itu kembali dipindai panitia.
   if (!penyelesaianSah({ ...isi, completion })) return apiError("VALIDATION_ERROR", 422, { message: PESAN_BARANG });
   const penyelesaian = isi.item_id ? "staff" : completion;
-  const bentrok = await bentrokSesi(db, eventId, isi.session_id ?? null, penyelesaian, id);
+  // Pindah sesi tanpa menyebut pilihannya: yang dibandingkan pilihan tersimpan.
+  let caraSekarang = penyelesaian;
+  if (caraSekarang === undefined && isi.session_id) {
+    const { data: lama } = await db.from("checkpoints").select(PILIH).eq("id", id).eq("event_id", eventId).maybeSingle();
+    if (lama) caraSekarang = bacaPenyelesaian((lama as { completion?: unknown }).completion);
+  }
+  const bentrok = await bentrokSesi(db, eventId, isi.session_id ?? null, caraSekarang, id);
   if (bentrok) return bentrok;
   const ubah = { ...isi, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, updated_at: sekarang };
   const simpan = (dengan: boolean) =>

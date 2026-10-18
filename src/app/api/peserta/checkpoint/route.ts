@@ -87,8 +87,10 @@ export async function POST(request: Request) {
 
   // Satu checkpoint Staff di sesi ini membuat sesinya dipindai panitia saja
   // (lihat scanMandiriPerSesi); RPC hanya memeriksa ada checkpoint mandiri.
+  // Daftar gagal dibaca: jangan mencatat tanpa pemeriksaan itu.
   const daftar = await loadDaftarCheckpoint(event.id);
-  if (daftar && !scanMandiriPerSesi(daftar).has(parsed.data.s)) return memberError("SELF_SCAN_OFF", 403, t.mati);
+  if (!daftar) return memberError("INTERNAL_ERROR", 503, t.gagal);
+  if (!scanMandiriPerSesi(daftar).has(parsed.data.s)) return memberError("SELF_SCAN_OFF", 403, t.mati);
 
   const { data, error } = await getSupabaseServiceClient().rpc("record_checkpoint_self_scan" as never, {
     p_event_id: event.id,
