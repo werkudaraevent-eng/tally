@@ -127,7 +127,7 @@ export default async function MasukPage({
               Dashboard saya
             </h1>
             <p className="mt-5 max-w-[42ch] text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
-              Lihat kode masuk, kursi, dan susunan acara Anda di satu tempat.
+              Lihat QR kehadiran, kursi, dan susunan acara Anda di satu tempat.
             </p>
           </div>
           <Link

@@ -25,7 +25,7 @@ const bodySchema = z.object({
 
 const PESAN = {
   id: {
-    masuk: "Masuk dulu ke halaman pesertamu, lalu pindai lagi QR-nya.",
+    masuk: "Masuk dulu ke Dashboard saya, lalu pindai lagi QR-nya.",
     bukanPeserta: "Akunmu belum terhubung ke data peserta. Tunjukkan QR-mu ke panitia.",
     kedaluwarsa: "QR ini sudah berganti. Pindai langsung dari layar panitia, bukan dari foto.",
     mati: "Checkpoint ini dipindai oleh panitia. Tunjukkan QR-mu ke panitia.",
@@ -35,7 +35,7 @@ const PESAN = {
     gagal: "Belum tercatat. Coba pindai lagi.",
   },
   en: {
-    masuk: "Sign in to your participant page first, then scan the QR again.",
+    masuk: "Sign in to My dashboard first, then scan the QR again.",
     bukanPeserta: "Your account is not linked to a participant yet. Show your QR to the organisers.",
     kedaluwarsa: "This QR has already changed. Scan it straight from the organisers' screen, not from a photo.",
     mati: "The organisers scan this checkpoint. Show your QR to them.",

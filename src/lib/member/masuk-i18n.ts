@@ -122,7 +122,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
         case "METHOD_OFF":
           return "The sign-in method for this event has changed. Reload the page.";
         case "NOT_ELIGIBLE":
-          return "This account cannot sign in yet. The participant area is only for people registered for this event. Contact the organisers.";
+          return "This account cannot sign in yet. My dashboard is only for people registered for this event. Contact the organisers.";
         case "EMAIL_IN_USE":
           return 'This email already has an account for this event. Sign in with its password, or choose "Forgot password?".';
         case "EMAIL_NOT_CONFIGURED":
@@ -130,7 +130,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
         case "EMAIL_FAILED":
           return "The email was not sent. Please try again shortly.";
         case "MEMBER_DISABLED":
-          return "The participant area is not open for this event.";
+          return "My dashboard is not open for this event.";
         case "NOT_FOUND":
           return "Event not found.";
         case "VALIDATION_ERROR":
