@@ -637,6 +637,10 @@ export function KartuPengumumanHorizon({
 }
 
 /** Nomor telepon panitia untuk tombol Telepon dan WhatsApp. */
+/** Tombol pil bergaris 48 px untuk kontak (panitia, kru bus, darurat). */
+const PIL_KONTAK = "m3-state inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold";
+const GAYA_PIL_KONTAK = { color: BIRU, borderColor: "#C9D1DE" };
+
 export type KontakPanitiaHorizon = { tel: string | null; wa: string | null; email: string | null };
 
 /**
@@ -645,8 +649,8 @@ export type KontakPanitiaHorizon = { tel: string | null; wa: string | null; emai
  * email panitia sebagai cadangan.
  */
 export function TombolKontakHorizon({ kontak, label }: { kontak: KontakPanitiaHorizon; label: { call: string; whatsapp: string; email: string } }) {
-  const kelas = "m3-state inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold";
-  const gaya = { color: BIRU, borderColor: "#C9D1DE" };
+  const kelas = PIL_KONTAK;
+  const gaya = GAYA_PIL_KONTAK;
   return (
     <div className="flex flex-wrap gap-2">
       {kontak.tel ? (
@@ -799,8 +803,8 @@ export function KartuDaruratHorizon({
   baris: BarisDaruratHorizon[];
   label?: { call: string; whatsapp: string; map: string } | null;
 }) {
-  const kelasTombol = "m3-state inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold";
-  const gayaTombol = { color: BIRU, borderColor: "#C9D1DE" };
+  const kelasTombol = PIL_KONTAK;
+  const gayaTombol = GAYA_PIL_KONTAK;
   return (
     <section id="darurat" aria-label={judul} className="flex scroll-mt-24 flex-col gap-3 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32" style={{ color: TINTA }}>
       <div className="flex items-center gap-2">

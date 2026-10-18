@@ -321,7 +321,7 @@ export async function DashboardGathering({
   const kontakDarurat = horizon ? barisKontakDarurat(member.help?.contacts) : [];
   const pakaiKontak = kontakDarurat.length > 0;
   const adaDarurat = pakaiKontak || Boolean(blokDarurat);
-  const judulDarurat = (!pakaiKontak && blokDarurat?.heading?.trim()) || tH.emergency;
+  const judulDarurat = (pakaiKontak ? member.help?.title?.trim() : blokDarurat?.heading?.trim()) || tH.emergency;
   const tokensTema = landingTokens(config, "modern");
   const warnaTema = { brand: tokensTema.brand, accent: tokensTema.accent ?? null };
   const kartuBlok = new Map(

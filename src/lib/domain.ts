@@ -1225,7 +1225,7 @@ export type LandingMemberConfig = {
    * Kontak darurat dan bantuan (E-03) yang diisi langsung di Participant
    * area > Emergency and help. Ada kontaknya = menggantikan `help_block`.
    */
-  help?: { note?: string | null; contacts?: Array<{ name: string; phone?: string | null; note?: string | null; map_url?: string | null }> } | null;
+  help?: { title?: string | null; note?: string | null; contacts?: Array<{ name: string; phone?: string | null; note?: string | null; map_url?: string | null }> } | null;
 };
 
 export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";

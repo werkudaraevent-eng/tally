@@ -161,6 +161,9 @@ export default function AreaPesertaPage() {
     // Label Outfit disunting di Agenda > Section > Outfit. Tidak dikirim dari
     // sini, jadi salinan lama di layar ini tidak menimpa label yang baru disimpan.
     const setelan: Partial<LandingMemberConfig> = { ...anggota, feedback_url: umpanBalik, help: bantuan.help };
+    // Kontak darurat hanya dikirim bila diubah di layar ini, supaya tab lain
+    // yang basi tidak menghapus kontak yang baru disimpan di tab ini.
+    if (JSON.stringify(anggota.help ?? null) === JSON.stringify(data?.member.help ?? null)) delete setelan.help;
     delete setelan.outfit_label;
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
@@ -222,7 +225,9 @@ export default function AreaPesertaPage() {
       ) : (
         <div className={berpratinjau ? "flex min-h-0 flex-1 flex-col gap-4 lg:flex-row" : "contents"}>
         {berpratinjau && slug ? (
-          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0">
+          // Layar pendek (1280x588): halaman bergulir utuh, jadi pratinjau menempel
+          // di bawah bilah atas agar tetap terlihat saat menyunting bagian bawah.
+          <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0 lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:h-[calc(100dvh-var(--workspace-top,58px)-32px)] lg:short:self-start">
             <PratinjauPeserta slug={slug} peserta={pesertaPratinjau} onPeserta={setPesertaPratinjau} member={anggota} sorot={sorot} reloadKey={0} />
           </div>
         ) : null}
@@ -278,7 +283,7 @@ export default function AreaPesertaPage() {
                       onChange={(help) => set({ help })}
                       blocks={data.blocks}
                       helpBlock={anggota.help_block ?? null}
-                      onSalin={(help) => set({ help, help_block: null })}
+                      onSalin={(help) => set({ help })}
                       onFokus={() => setSorot((current) => (current?.id === "darurat" ? current : { id: "darurat", n: (current?.n ?? 0) + 1 }))}
                       tanpaNama={tanpaNama}
                     />

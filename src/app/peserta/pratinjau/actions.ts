@@ -5,6 +5,7 @@ import { getEventBySlugPublic, requireEventScope } from "@/lib/auth/event-scope"
 import { sectionsDenganBlokPeserta, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { memberSchema } from "@/lib/landing-body-schema";
 import { previewMemberSession } from "@/lib/member/account";
+import { bantuanPratinjau, type BantuanDarurat } from "@/lib/member/kontak-darurat";
 import { renderBerandaPratinjau } from "./render";
 
 export type HasilPratinjauPeserta = { ok: true; isi: ReactNode } | { ok: false; pesan: string };
@@ -20,7 +21,9 @@ export async function renderPratinjauPeserta(slug: string, pesertaId: string, dr
   const auth = await requireEventScope(slug, ["admin"]);
   if (auth.response) return { ok: false, pesan: "Your session has expired. Reload this page." };
   // Tautan umpan balik yang masih diketik tidak menghentikan pratinjau.
-  const parsed = [draf, draf && typeof draf === "object" ? { ...draf, feedback_url: null } : draf].map((isi) => memberSchema.safeParse(isi)).find((hasil) => hasil.success) ?? memberSchema.safeParse(draf);
+  // Kontak darurat yang masih diketik (tanpa nama, peta setengah jadi) dilewati, bukan menghentikan pratinjau.
+  const drafRapi = draf && typeof draf === "object" && "help" in draf ? { ...draf, help: bantuanPratinjau((draf as { help?: BantuanDarurat | null }).help) } : draf;
+  const parsed = [drafRapi, drafRapi && typeof drafRapi === "object" ? { ...drafRapi, feedback_url: null } : drafRapi].map((isi) => memberSchema.safeParse(isi)).find((hasil) => hasil.success) ?? memberSchema.safeParse(drafRapi);
   if (!parsed.success) return { ok: false, pesan: "Some settings aren't valid yet. The preview resumes once they're fixed." };
   const event = (await getEventBySlugPublic(slug)) as EventRow | null;
   if (!event) return { ok: false, pesan: "Event not found." };

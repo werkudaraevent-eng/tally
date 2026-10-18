@@ -272,6 +272,7 @@ export const memberSchema = z.object({
    */
   help: z
     .object({
+      title: z.string().trim().max(KONTAK_DARURAT_BATAS.title).nullish(),
       note: z.string().trim().max(KONTAK_DARURAT_BATAS.catatan).nullish(),
       contacts: z
         .array(
