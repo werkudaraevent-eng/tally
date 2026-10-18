@@ -62,6 +62,11 @@ export type Agenda = {
   meeting_point: string | null;
   follows_default: boolean;
   sort_order: number;
+  /**
+   * Baris Agenda (`rundown_items.id`) tempat trip ini ditautkan, atau null.
+   * Selalu null sebelum migrasi 202610170002: kolomnya belum ada.
+   */
+  rundown_item_id: number | null;
 };
 
 export type Barang = {
@@ -111,6 +116,12 @@ export type LogistikData = {
   trains: TiketKereta[];
   /** false = tabel `train_tickets` belum ada di database (migrasi 202610140001 belum dijalankan). */
   trains_ready: boolean;
+  /**
+   * false = kolom `transport_trips.rundown_item_id` belum ada (migrasi
+   * 202610170002 belum dijalankan): trip belum bisa ditautkan ke baris Agenda,
+   * jadi pemilih barisnya diganti catatan.
+   */
+  trip_agenda_ready: boolean;
   /** Plat nomor dan kontak kru di kartu Bus peserta (`landing_config.member`). Bawaan mati. */
   /** logistics = "Room and bus" di Participant area; tanpa itu peserta tidak melihat kartu Bus sama sekali. */
   bus_shown: { plate: boolean; crew: boolean; logistics: boolean };

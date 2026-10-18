@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, UploadSimple } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, MetaSeparator, Pane, SegmentedButton, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { Galat, Kerangka, type Kirim } from "@/components/admin/logistik/bersama";
 import { DialogImpor } from "@/components/admin/logistik/dialog-impor";
@@ -33,6 +33,22 @@ import { plural } from "@/lib/plural";
  * dan setiap perubahan memuat ulang datanya.
  */
 
+/**
+ * Penanda muat terakhir. Fungsinya dipanggil di awal setiap muat dan memberi
+ * pemeriksa yang tetap true selama belum ada muat lain yang dimulai sesudahnya.
+ *
+ * Hook sendiri, bukan ref langsung di `muat`: `kirim` memanggil `muat` dan ikut
+ * di `tabProps` yang dibaca saat render, dan React Compiler menolak ref yang
+ * terbawa sampai ke sana.
+ */
+function useMuatTerakhir() {
+  const terakhir = useRef(0);
+  return useCallback(() => {
+    const nomor = ++terakhir.current;
+    return () => nomor === terakhir.current;
+  }, []);
+}
+
 type Bagian = "penempatan" | "kamar" | "bus" | "kereta" | "barang";
 type BagianBus = "bus" | "agenda";
 /** Dialog "baru" yang dibuka dari kepala halaman. */
@@ -47,34 +63,69 @@ export default function LogistikPage() {
   const [baru, setBaru] = useState<Baru | null>(null);
   const [hotelBaru, setHotelBaru] = useState(false);
   const [impor, setImpor] = useState(false);
+  // Trip yang langsung terpilih di Buses > Trips (?tab=bus&trip=). Dilepas begitu
+  // panitia pindah tab, supaya kembali ke Trips tidak memilihnya lagi.
+  const [tripAwal, setTripAwal] = useState<number | null>(null);
   const toast = useToast();
 
-  // ?tab=barang dari Check-in > Checkpoints membuka Kit items langsung. Dibaca
-  // sesudah mount supaya render server dan klien sama.
+  // ?tab=barang dari Check-in > Checkpoints membuka Kit items langsung, dan
+  // ?tab=bus&trip=<id> dari Agenda ("Edit in Logistics") membuka Buses > Trips
+  // dengan trip itu terpilih. Dibaca sesudah mount supaya render server dan
+  // klien sama.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (new URLSearchParams(window.location.search).get("tab") !== "barang") return;
-      setBagian("barang");
+      const query = new URLSearchParams(window.location.search);
+      const tab = query.get("tab");
+      if (tab !== "barang" && tab !== "bus") return;
+      setBagian(tab);
+      const trip = Number(query.get("trip"));
+      if (tab === "bus" && Number.isInteger(trip) && trip > 0) {
+        setBagianBus("agenda");
+        setTripAwal(trip);
+      }
       // Di ponsel tab Kit items ada di ujung kanan strip dan terpotong.
-      requestAnimationFrame(() => document.getElementById("logistik-tab-barang")?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+      requestAnimationFrame(() => document.getElementById(`logistik-tab-${tab}`)?.scrollIntoView({ block: "nearest", inline: "nearest" }));
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
+  // Hanya jawaban muat yang terakhir dimulai yang dipakai. Muat ulang karena
+  // fokus jendela bisa masih berjalan saat simpanan memuat ulang sesudah
+  // menulis, dan jawaban lamanya tidak boleh menimpa yang baru.
+  const mulaiMuat = useMuatTerakhir();
   const muat = useCallback(async () => {
+    const masihTerakhir = mulaiMuat();
     const response = await fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) {
+    const isi = response?.ok ? ((await response.json().catch(() => null)) as LogistikData | null) : null;
+    if (!masihTerakhir()) return;
+    if (!isi) {
       setError("Logistics data could not be loaded. Check your connection, then reload the page.");
       return;
     }
-    setData(await response.json());
+    setData(isi);
     setError("");
-  }, []);
+  }, [mulaiMuat]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void muat(), 0);
     return () => window.clearTimeout(timer);
   }, [muat]);
+
+  // Jam trip yang ditautkan ke Agenda ikut bergeser bila barisnya digeser di
+  // Agenda (pemicu database, migrasi 202610170002), dan "Edit in Agenda"
+  // membuka tab lain. Kembali ke tab ini memuat ulang data supaya jamnya tidak
+  // basi. Acara tanpa trip tertaut tidak memuat apa pun tambahan.
+  const adaTautanAgenda = data?.trips.some((trip) => trip.rundown_item_id !== null) ?? false;
+  useEffect(() => {
+    if (!adaTautanAgenda || busy) return;
+    let timer: number | undefined;
+    const onFocus = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void muat(), 300);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => { window.removeEventListener("focus", onFocus); window.clearTimeout(timer); };
+  }, [adaTautanAgenda, busy, muat]);
 
   const kirim: Kirim = useCallback(async (path, method, body) => {
     setBusy(true);
@@ -120,7 +171,7 @@ export default function LogistikPage() {
     <SegmentedButton<BagianBus>
       label="Bus section"
       value={bagianBus}
-      onChange={(nilai) => { setBagianBus(nilai); setBaru(null); }}
+      onChange={(nilai) => { setBagianBus(nilai); setBaru(null); setTripAwal(null); }}
       options={[
         { value: "bus", label: "Buses", badge: data?.vehicles.length || undefined },
         { value: "agenda", label: "Trips", badge: data?.trips.length || undefined },
@@ -172,7 +223,7 @@ export default function LogistikPage() {
         label="Logistics sections"
         idPrefix="logistik"
         value={bagian}
-        onChange={(nilai) => { setBagian(nilai); setBaru(null); }}
+        onChange={(nilai) => { setBagian(nilai); setBaru(null); setTripAwal(null); }}
         options={[
           { value: "penempatan", label: "Assignments" },
           { value: "kamar", label: "Rooms", badge: data?.rooms.length || undefined },
@@ -192,7 +243,7 @@ export default function LogistikPage() {
         ) : bagian === "kamar" ? (
           <TabKamar {...tabProps} hotelBaru={hotelBaru} tutupHotelBaru={() => setHotelBaru(false)} />
         ) : bagian === "bus" ? (
-          bagianBus === "bus" ? <TabBus {...tabProps} atas={pilihBus} /> : <TabAgenda {...tabProps} atas={pilihBus} />
+          bagianBus === "bus" ? <TabBus {...tabProps} atas={pilihBus} /> : <TabAgenda {...tabProps} atas={pilihBus} pilihAwal={tripAwal} />
         ) : bagian === "kereta" ? (
           <TabKereta {...tabProps} />
         ) : (

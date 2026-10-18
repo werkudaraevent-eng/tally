@@ -22,6 +22,9 @@ export type LogistikKamar = {
 };
 
 export type LogistikAgenda = {
+  /** Id trip dan baris Agenda tautannya (null = tidak ditautkan). Keduanya baru ada sesudah migrasi 202610170002. */
+  id?: number;
+  rundown_item_id?: number | null;
   name: string;
   depart_at: string | null;
   origin: string | null;

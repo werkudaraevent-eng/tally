@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { tripPerBarisAgenda } from "@/lib/logistik/server";
 import { ITEM_COLUMNS, SECTION_COLUMNS } from "@/lib/rundown";
 
 // Pengelolaan bagian rundown (tab di halaman publik). Admin saja.
@@ -81,20 +82,33 @@ async function uniqueSlug(eventId: string, desired: string) {
   return `${desired.slice(0, 30)}-${Date.now().toString(36)}`;
 }
 
-/** Seluruh bagian beserta isinya, untuk CMS. Termasuk yang belum publish. */
+/**
+ * Seluruh bagian beserta isinya, untuk CMS. Termasuk yang belum publish.
+ *
+ * Baris yang ditautkan trip bus (Logistics > Trips) membawa `bus_trips`, untuk
+ * chip Bus dan catatan di Edit item. Tautannya disunting di Logistics saja;
+ * Agenda hanya memberi tahu. Tanpa tautan, kuncinya tidak ada.
+ */
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const eventId = auth.scope.event.id;
 
   const client = getSupabaseServiceClient();
-  const [sections, items] = await Promise.all([
+  const [sections, items, trips] = await Promise.all([
     client.from("rundown_sections").select(SECTION_COLUMNS).eq("event_id", eventId).order("sort_order", { ascending: true }).order("id", { ascending: true }),
     client.from("rundown_items").select(ITEM_COLUMNS).eq("event_id", eventId).order("sort_order", { ascending: true }).order("start_time", { ascending: true }).order("id", { ascending: true }),
+    tripPerBarisAgenda(eventId),
   ]);
   if (sections.error || items.error) return apiError("INTERNAL_ERROR", 500);
 
-  return Response.json({ sections: sections.data ?? [], items: items.data ?? [] });
+  return Response.json({
+    sections: sections.data ?? [],
+    items: ((items.data ?? []) as unknown as Array<{ id: number }>).map((item) => {
+      const tertaut = trips.get(item.id);
+      return tertaut ? { ...item, bus_trips: tertaut } : item;
+    }),
+  });
 }
 
 export async function POST(request: Request) {
