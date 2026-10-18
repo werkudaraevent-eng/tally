@@ -306,7 +306,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
       roomNo: (nomor) => `Kamar ${nomor}`,
       profileAria: "Profil",
-      profileAriaWith: (inisial) => `${inisial}, Profil`,
+      profileAriaWith: (inisial) => `${inisial}, Profil dan menu`,
       unread: (jumlah) => `${jumlah} belum dibaca`,
       loading: "Memuat halaman",
       agenda: {
@@ -481,7 +481,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
       roomNo: (nomor) => `Room ${nomor}`,
       profileAria: "Profile",
-      profileAriaWith: (inisial) => `${inisial}, Profile`,
+      profileAriaWith: (inisial) => `${inisial}, Profile and menu`,
       unread: (jumlah) => `${jumlah} unread`,
       loading: "Loading page",
       agenda: {
