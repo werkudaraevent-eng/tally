@@ -5,7 +5,8 @@ import AreaPesertaPage, { generateMetadata as metadataPeserta, generateViewport 
  * Area peserta per acara dan bahasa: src/proxy.ts menulis ulang
  * `/e/<slug>/peserta` ke sini (`/e/<slug>/en/peserta` ke `.../<slug>/en`), lihat
  * pesertaKePath. Isinya halaman `/peserta` yang sama; slug dan bahasa dari path
- * diberikan sebagai `eventSlug` dan `bahasa`, persis seperti query lamanya.
+ * diberikan sebagai `eventSlug` dan `bahasa`, persis seperti query lamanya. Di
+ * domain klien, acara lain juga ditolak decideClientHost.
  */
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ type Props = {
 async function kueriHalaman({ params, searchParams }: Props): Promise<Record<string, string | string[] | undefined>> {
   const [{ slug, bahasa }, kueri] = await Promise.all([params, searchParams]);
   if (bahasa && (bahasa.length !== 1 || (bahasa[0] !== "en" && bahasa[0] !== "id"))) notFound();
+  // Rewrite tidak pernah menyisakan eventSlug (pesertaKePath). Yang berbeda dari
+  // path datang dari URL lain (`/e/A/peserta/e/B`, domain klien A): tolak.
+  const diminta = Array.isArray(kueri.eventSlug) ? kueri.eventSlug[0] : kueri.eventSlug;
+  if (diminta !== undefined && diminta !== slug) notFound();
   return { ...kueri, eventSlug: slug, ...(bahasa ? { bahasa: bahasa[0] } : {}) };
 }
 
