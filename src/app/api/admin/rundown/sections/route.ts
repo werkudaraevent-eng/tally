@@ -102,7 +102,10 @@ export async function GET(request: Request) {
   ]);
   if (sections.error || items.error) return apiError("INTERNAL_ERROR", 500);
 
+  const event = auth.scope.event;
   return Response.json({
+    // Tanggal acara, untuk peringatan bagian yang bertanggal di luar acara (U-09).
+    event_dates: { start: event.event_date ?? null, end: event.end_date ?? event.event_date ?? null },
     sections: sections.data ?? [],
     items: ((items.data ?? []) as unknown as Array<{ id: number }>).map((item) => {
       const tertaut = trips.get(item.id);

@@ -16,7 +16,7 @@ import { kartuLengkapi } from "@/lib/member/lengkapi";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
 import { waktuPengumuman } from "@/lib/member/nav";
-import type { EventLandingConfig } from "@/lib/domain";
+import { gatheringHorizon, type EventLandingConfig } from "@/lib/domain";
 import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 
 /**
@@ -91,8 +91,12 @@ export default async function AreaPesertaPage({
   const tampilVote = Boolean(peserta) && member.show_vote !== false;
   const kursi = (peserta?.seats ?? []).filter((seat) => seat.label?.trim());
   const konfirmasi = kueri.konfirmasi === "ok" ? "ok" : kueri.konfirmasi === "gagal" ? "gagal" : null;
-  const pengumuman = await loadMemberAnnouncements(event.id, sesi);
   const gathering = landing.layout === "modern" && landing.gathering === true;
+  // QR Horizon yang dimuat ulang atau dibuka dari tautan hanya menampilkan
+  // kode, nama, dan bus: pengumuman tidak dibaca di sana, jadi tidak ditunggu
+  // (U-10). Sama dengan syarat jalur QR di DashboardGathering.
+  const hanyaQr = gathering && gatheringHorizon(landing) && kueri.tab === "qr" && tampilKode;
+  const pengumuman = hanyaQr ? { ready: false, items: [], unread: 0, seenAt: null } : await loadMemberAnnouncements(event.id, sesi);
   if (!gathering && pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
 
   // Preset Gathering: portal bergaya aplikasi dengan tab (rancangan 2026-10-07).

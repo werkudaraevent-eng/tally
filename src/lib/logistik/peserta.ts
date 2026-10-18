@@ -74,18 +74,23 @@ export async function loadMemberLogistics(
   participantId: string,
   tampil: boolean,
   bus: { plate: boolean; crew: boolean } = { plate: false, crew: false },
+  /**
+   * Hanya penginapan dan bus dari member_logistics, tanpa tiket kereta dan
+   * detail bus: layar QR yang dimuat ulang cukup tahu nama busnya (U-10).
+   */
+  ringan = false,
 ): Promise<LogistikPeserta | null> {
   if (!tampil) return null;
   try {
     const db = getSupabaseServiceClient();
     const [{ data, error }, trains] = await Promise.all([
       db.rpc("member_logistics" as never, { p_event_id: eventId, p_participant_id: participantId } as never),
-      loadTrainTickets(eventId, participantId),
+      ringan ? Promise.resolve([]) : loadTrainTickets(eventId, participantId),
     ]);
     if (error || !data || typeof data !== "object") return null;
     const hasil = data as Partial<LogistikPeserta>;
     const transport = hasil.transport ?? null;
-    const buses = await loadBusDetails(eventId, transport, bus);
+    const buses = ringan ? [] : await loadBusDetails(eventId, transport, bus);
     return { lodging: hasil.lodging ?? null, transport, items: hasil.items ?? [], trains, buses };
   } catch {
     return null;

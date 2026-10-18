@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { CACHE_QR_LURING, kunciQrLuring } from "@/lib/member/halaman-qr-luring";
 
 /** Hapus salinan QR luring dan service worker portal acara ini (dipanggil sebelum Keluar). */
@@ -23,6 +23,21 @@ export async function hapusSalinanQr(lingkup: string[]) {
   })();
   // Keluar tidak boleh tertahan oleh penyimpanan yang lambat.
   await Promise.race([kerja, new Promise((ok) => setTimeout(ok, 800))]);
+}
+
+/**
+ * Hapus salinan QR saat halaman dibuka dengan sinyal oleh akun yang tidak
+ * punya QR (masih menunggu persetujuan, atau kode disembunyikan). Tanpa ini,
+ * ponsel yang dipakai bergantian masih menyajikan QR orang sebelumnya saat
+ * tanpa sinyal. Akun yang punya QR tidak perlu ini: lapisan QR menimpa
+ * salinannya dengan QR akun itu setiap kali portal dibuka.
+ */
+export function HapusSalinanQr({ lingkup }: { lingkup: string[] }) {
+  const kunci = lingkup.join("|");
+  useEffect(() => {
+    if (navigator.onLine) void hapusSalinanQr(kunci.split("|"));
+  }, [kunci]);
+  return null;
 }
 
 /** Formulir Keluar yang menghapus salinan QR di ponsel ini lebih dulu. */

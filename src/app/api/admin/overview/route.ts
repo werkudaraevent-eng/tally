@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     hitung("special_offers"),
     hitung("undian_prizes"),
     hitung("vote_polls"),
-    client.from("rundown_sections").select("id", { count: "exact" }).eq("event_id", event.id),
+    client.from("rundown_sections").select("id,event_date,is_published", { count: "exact" }).eq("event_id", event.id),
     // `seat_map_sessions`, BUKAN `seat_maps`: kolom event_id ada di sesinya
     // (lihat 202608070002_event_scoped_data.sql), dan denah sendiri tergantung
     // pada sesi. Menghitung tabel yang salah membalas nol untuk setiap acara —
@@ -76,7 +76,14 @@ export async function GET(request: Request) {
   // Sesi rundown dihitung dari seksinya, isinya dari itemnya. Seksi tanpa item
   // adalah rundown yang terlihat "sudah diisi" di angka tetapi kosong di layar
   // publik — persis jenis kesiapan palsu yang membuat panitia tenang di hari-H.
-  const idSeksi = ((seksiRundown.data ?? []) as Array<{ id: number }>).map((baris) => baris.id);
+  const barisSeksi = (seksiRundown.data ?? []) as Array<{ id: number; event_date: string | null; is_published: boolean }>;
+  const idSeksi = barisSeksi.map((baris) => baris.id);
+  // Bagian terbit yang bertanggal di luar acara (U-09): hitungan hari dan
+  // penanda "sekarang" di halaman acara dan portal ikut salah.
+  const akhirAcara = event.end_date && event.event_date && event.end_date >= event.event_date ? event.end_date : event.event_date;
+  const seksiLuarTanggal = event.event_date
+    ? barisSeksi.filter((baris) => baris.is_published && baris.event_date && (baris.event_date < event.event_date! || baris.event_date > akhirAcara!)).length
+    : 0;
   const { count: jumlahAgenda } = idSeksi.length
     ? await client.from("rundown_items").select("id", { head: true, count: "exact" }).in("section_id", idSeksi)
     : { count: 0 };
@@ -133,6 +140,11 @@ export async function GET(request: Request) {
       hadiah_undian: hadiah.count ?? 0,
       pertanyaan_vote: pertanyaan.count ?? 0,
       email_aktif: isEmailConfigured(),
+      seksi_luar_tanggal: seksiLuarTanggal,
+      // Kontak panitia di area peserta (U-07): hanya ditanyakan bila area peserta
+      // dipakai. Telepon, karena tombol Telepon dan WhatsApp butuh nomor.
+      area_peserta: landing.member?.enabled === true,
+      kontak_panitia: Boolean(landing.contact_phone?.trim()),
     },
   });
 }

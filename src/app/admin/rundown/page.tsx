@@ -43,7 +43,7 @@ import { RichDetailsField } from "@/components/admin/rich-details-field";
  */
 type ItemAgenda = RundownItem & { bus_trips?: TripTertaut[] };
 
-type Payload = { sections: RundownSection[]; items: ItemAgenda[] };
+type Payload = { sections: RundownSection[]; items: ItemAgenda[]; event_dates?: { start: string | null; end: string | null } };
 
 /** Baris baru yang sedang diisi, per bagian. */
 type Draft = { start_time: string; end_time: string; title: string; subtitle: string; is_break: boolean };
@@ -82,6 +82,21 @@ const BRANDING_FALLBACK = {
 } as const;
 
 /** "Monday, 24 August 2026" untuk keterangan staf. formatEventDate di lib/rundown dipakai halaman publik, jadi tetap id-ID. */
+/** Tanggal bagian di luar rentang tanggal acara. Tanpa tanggal acara: tidak diperiksa. */
+function diLuarAcara(tanggal: string | null | undefined, acara: { start: string | null; end: string | null } | null): boolean {
+  if (!tanggal || !acara?.start) return false;
+  const akhir = acara.end && acara.end >= acara.start ? acara.end : acara.start;
+  return tanggal < acara.start || tanggal > akhir;
+}
+
+/** "5 Nov 2026" atau "5 Nov 2026 to 8 Nov 2026". */
+function rentangAcara(acara: { start: string | null; end: string | null }): string {
+  const pendek = (tanggal: string) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(tanggal) ? new Date(`${tanggal}T12:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" }) : tanggal;
+  const awal = pendek(acara.start ?? "");
+  return acara.end && acara.end > (acara.start ?? "") ? `${awal} to ${pendek(acara.end)}` : awal;
+}
+
 function formatStaffDate(eventDate: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return eventDate;
   const date = new Date(`${eventDate}T12:00:00Z`);
@@ -139,6 +154,8 @@ export default function RundownAdminPage() {
   const [dropTarget, setDropTarget] = useState<{ id: number; after: boolean } | null>(null);
   const [reorderNote, setReorderNote] = useState("");
   const [error, setError] = useState("");
+  // Tanggal mulai dan selesai acara (Event page), untuk peringatan tanggal bagian.
+  const [eventDates, setEventDates] = useState<{ start: string | null; end: string | null } | null>(null);
   // Outfit per bagian: dimuat sekali saat halaman dibuka, terpisah dari load()
   // yang dipanggil ulang tiap simpan, supaya suntingan outfit yang belum
   // disimpan tidak tertimpa saat admin menyimpan baris atau bagian.
@@ -168,6 +185,7 @@ export default function RundownAdminPage() {
     const data = (await sectionResponse.json()) as Payload;
     setSections(data.sections);
     setItems(data.items);
+    setEventDates(data.event_dates ?? null);
     setSavedStart(new Map(data.items.map((item) => [item.id, item.start_time])));
     setSavedDate(new Map(data.sections.map((section) => [section.id, section.event_date])));
     setActiveId((current) => (current && data.sections.some((row) => row.id === current) ? current : data.sections[0]?.id ?? null));
@@ -1003,6 +1021,13 @@ export default function RundownAdminPage() {
           value={active.event_date}
           onChange={(event) => updateSection(active.id, { event_date: event.target.value })}
         />
+        {diLuarAcara(active.event_date, eventDates) ? (
+          // U-09: bagian bertanggal di luar acara membuat hitungan hari dan
+          // penanda "sekarang" salah, dan biasanya tanda tanggal yang tertinggal.
+          <Banner tone="warning" icon={<Warning size={18} />}>
+            This date is outside the event ({rentangAcara(eventDates!)}). Check it, or change the event dates in Event page.
+          </Banner>
+        ) : null}
         {sectionsUrut.length > 1 ? (
           <div className="flex flex-col gap-2">
             <div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { plural } from "@/lib/plural";
 import {
   ArrowRight, ArrowSquareOut, CalendarBlank, CaretDown, CaretRight, CheckCircle, Circle, CreditCard, Gift, Info,
   ListChecks, MapPin, MonitorPlay, QrCode, Storefront, UsersThree, Warning, XCircle,
@@ -46,6 +47,9 @@ type Overview = {
     hadiah_undian: number;
     pertanyaan_vote: number;
     email_aktif: boolean;
+    seksi_luar_tanggal?: number;
+    area_peserta?: boolean;
+    kontak_panitia?: boolean;
   };
 };
 
@@ -153,6 +157,10 @@ export default function AdminPage() {
     { siap: data.kesiapan.venue, label: "Lokasi acara", href: "/admin/landing", wajib: true },
     { siap: data.kesiapan.deskripsi, label: "Deskripsi di halaman acara", href: "/admin/landing", wajib: true },
     { siap: data.kesiapan.agenda > 0, label: "Rundown acara", href: "/admin/rundown", wajib: true },
+    ...((data.kesiapan.seksi_luar_tanggal ?? 0) > 0
+      ? [{ siap: false, label: `${plural(data.kesiapan.seksi_luar_tanggal ?? 0, "Agenda section")} dated outside the event`, href: "/admin/rundown", wajib: false }]
+      : []),
+    ...(data.kesiapan.area_peserta ? [{ siap: data.kesiapan.kontak_panitia === true, label: "Organiser phone for the Participant area", href: "/admin/settings", wajib: false }] : []),
     { siap: data.kesiapan.email_aktif, label: "Pengiriman email kode peserta", href: null, wajib: true, catatan: CATATAN_EMAIL },
     { siap: data.kesiapan.banner, label: data.kesiapan.banner_gathering ? "Gambar pratinjau tautan (Theme › Page)" : "Banner halaman acara", href: "/admin/landing", wajib: false },
     { siap: data.kesiapan.denah > 0, label: "Denah kursi", href: "/admin/seat-map", wajib: false },

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { halamanQrLuring, kunciQrLuring } from "./halaman-qr-luring.ts";
+import { halamanQrLuring, kunciQrLuring, lingkupSalinanQr } from "./halaman-qr-luring.ts";
 
 const dasar = {
   lang: "id" as const,
@@ -38,5 +38,7 @@ const polos = halamanQrLuring({ ...dasar, sub: null, pil: null, baris: null });
 assert.ok(!polos.includes('class="sub"') && !polos.includes('class="pil"') && !polos.includes('class="baris"'));
 
 assert.equal(kunciQrLuring("https://event.test", "/e/kso/peserta"), "https://event.test/e/kso/peserta?tally-qr-luring");
+
+assert.deepEqual(lingkupSalinanQr("kso"), ["/e/kso/peserta", "/e/kso/en/peserta", "/e/kso/id/peserta"]);
 
 console.log("halaman-qr-luring: ok");
