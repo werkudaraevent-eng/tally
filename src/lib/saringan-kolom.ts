@@ -1,4 +1,5 @@
 import type { RegistrationField, RegistrationFieldType } from "./domain";
+import { asalJawaban, type AsalJawaban } from "./kolom-staf.ts";
 
 /**
  * Saringan per kolom ("+ Filter") untuk daftar peserta admin dan layar klien.
@@ -18,7 +19,17 @@ import type { RegistrationField, RegistrationFieldType } from "./domain";
 /** pilihan: centang nilai yang ada; teks: memuat; tanggal: rentang hari. */
 export type JenisSaringan = "pilihan" | "teks" | "tanggal";
 
-export type KolomSaringan = { key: string; label: string; jenis: JenisSaringan; grup: "kolom" | "jawaban" };
+/**
+ * Kelompok di menu "+ Filter": kolom tabel, jawaban formulir, dan dua kelompok
+ * pertanyaan yang tidak ditanyakan di formulir (lib/kolom-staf.ts), dengan judul
+ * yang sama dengan panel Edit participant. Dua yang terakhir hanya muncul bila
+ * acaranya punya pertanyaan semacam itu.
+ */
+export type GrupSaringan = "kolom" | "jawaban" | "peserta" | "staf";
+
+export type KolomSaringan = { key: string; label: string; jenis: JenisSaringan; grup: GrupSaringan };
+
+const GRUP_JAWABAN: Record<AsalJawaban, GrupSaringan> = { formulir: "jawaban", peserta: "peserta", staf: "staf" };
 
 export type Saringan =
   | { k: string; in: string[] }
@@ -71,7 +82,7 @@ export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaring
     { key: "bus", label: "Bus", jenis: "pilihan", grup: "kolom" },
     { key: "source", label: "Source", jenis: "pilihan", grup: "kolom" },
     { key: "undian", label: "Lucky draw", jenis: "pilihan", grup: "kolom" },
-    ...fields.map<KolomSaringan>((field) => ({ key: `field:${field.key}`, label: field.label, jenis: jenisPertanyaan(field.type), grup: "jawaban" })),
+    ...fields.map<KolomSaringan>((field) => ({ key: `field:${field.key}`, label: field.label, jenis: jenisPertanyaan(field.type), grup: GRUP_JAWABAN[asalJawaban(field)] })),
   ];
 }
 

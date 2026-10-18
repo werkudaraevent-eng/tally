@@ -2,7 +2,7 @@
 
 import {
   ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
-  Funnel, MagnifyingGlass, Package, Paperclip, PencilSimple, Trash, UsersThree, X, XCircle,
+  Funnel, MagnifyingGlass, Package, Paperclip, PencilSimple, Plus, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
@@ -11,11 +11,14 @@ import {
   ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, StatusChip, useColumnPrefs, usePopoverAnchor, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { useTerkunci } from "@/components/admin/page-context";
+import Link from "@/components/event-link";
 import { withEventPrefix } from "@/lib/event-path";
+import { kelompokJawaban, kolomDariTautan, wajibDiisi, type AsalJawaban } from "@/lib/kolom-staf";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
-import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
+import { FILE_FIELD_TYPES, MAX_CUSTOM_FIELDS } from "@/lib/registration-fields";
 import { BATAS_SARINGAN, LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
@@ -290,6 +293,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
 }) {
   const toast = useToast();
   const router = useRouter();
+  // Acara yang sudah ditutup: perubahan tidak tersimpan (sama dengan tombol `simpan`).
+  const terkunci = useTerkunci(true);
+  // Awalan id judul dan keterangan bagian jawaban di panel Edit (bagianJawaban).
+  const idBagian = useId();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -471,6 +478,19 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     if (!awal.length) return;
     const pewaktu = window.setTimeout(() => setSaringan(awal), 0);
     return () => window.clearTimeout(pewaktu);
+  }, []);
+
+  // `?kolom=<kunci>`: kembali dari Save form di mode Add a column (Registration >
+  // Edit form). Kolom pertanyaan barunya dicentang di menu Columns, sekali;
+  // kuncinya dibuang dari alamat supaya memuat ulang tidak mencentangnya lagi.
+  const kolomDariAlamat = useRef<string | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const kunci = url.searchParams.get("kolom");
+    if (!kunci) return;
+    kolomDariAlamat.current = kunci;
+    url.searchParams.delete("kolom");
+    window.history.replaceState(window.history.state, "", url);
   }, []);
 
   const ubahSaringan = useCallback((next: Saringan[]) => {
@@ -808,6 +828,15 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   // Seat tetap ada di menu Columns.
   const bawaan = useMemo(() => ["company", ...(sessions[0] ? [`sesi:${sessions[0].id}`] : []), "registered", "rsvp"], [sessions]);
   const { visible, setVisible, isDefault } = useColumnPrefs("peserta", bawaan);
+  // `?kolom=<kunci>` dicentang setelah muat pertama: pilihan bawaan bergantung
+  // pada sesi acara, dan yang disimpan harus bawaan yang lengkap plus kolom baru.
+  useEffect(() => {
+    const diminta = kolomDariAlamat.current;
+    if (diminta === null || loading) return;
+    kolomDariAlamat.current = null;
+    const baru = kolomDariTautan(diminta, fields).filter((kunci) => !visible.includes(kunci));
+    if (baru.length) setVisible([...visible, ...baru]);
+  }, [loading, fields, visible, setVisible]);
   const kolomTampil = kolom.filter((item) => visible.includes(item.key));
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
   const jabatanDiBawahNama = !visible.includes("title");
@@ -864,6 +893,13 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   };
 
   const ariaSort = (key?: SortKey) => (key && sort === key ? (dir === "asc" ? "ascending" : "descending") : undefined);
+
+  // "Add a column in Registration" hanya ditawarkan bila bisa selesai. Tidak di
+  // acara yang sudah ditutup (Save form di sana mati), tidak bila form sudah
+  // penuh (Add question di Edit form mati dengan "20 of 20"), dan tidak selama
+  // panel Edit/Add participant terbuka: pindah halaman membuang isiannya tanpa
+  // bertanya, sama seperti baris lain yang tidak bisa dipilih selama menyunting.
+  const bolehTambahKolom = !terkunci && fields.length < MAX_CUSTOM_FIELDS && mode?.kind !== "edit" && mode?.kind !== "new";
 
   // ---- Panel daftar --------------------------------------------------------
   const list = (
@@ -924,7 +960,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           onChange={(next) => { setFilterRsvp(next[0] ?? ""); setPage(0); }}
         />
         <SaringanKolom kolom={kolomSaringan} nilai={saringan} onChange={ubahSaringan} muatNilai={muatNilai} buka={mintaSaring} kelasChip="order-last flex w-full flex-wrap gap-2" />
-        <ColumnMenu columns={opsiKolom} visible={visible} onChange={setVisible} onReset={() => setVisible(null)} isDefault={isDefault} />
+        <ColumnMenu
+          columns={opsiKolom}
+          visible={visible}
+          onChange={setVisible}
+          onReset={() => setVisible(null)}
+          isDefault={isDefault}
+          // Kolom tambahan = pertanyaan di Registration > Edit form, satu tempat
+          // menyuntingnya. Labelnya menyebut tujuannya, seperti "Manage in Logistics".
+          action={bolehTambahKolom ? (
+            <Link href="/admin/registrasi?kolom=baru" className="inline-flex min-h-9 items-center gap-2.5 whitespace-nowrap rounded-sm text-body-medium font-medium text-primary hover:underline">
+              <Plus size={16} aria-hidden className="shrink-0" />
+              Add a column in Registration
+            </Link>
+          ) : undefined}
+        />
         </div>
         {/* Bilah pilihan MENUTUPI baris saringan, bukan disisipkan di bawahnya:
             tabel tidak bergeser saat kotak pertama dicentang. */}
@@ -1118,7 +1168,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   function jawabanField(item: RegistrationField) {
     const value = draft.extra[item.key] ?? "";
     const set = (next: string) => setDraft({ ...draft, extra: { ...draft.extra, [item.key]: next } });
-    const label = item.required ? item.label : `${item.label} (optional)`;
+    // Kolom yang tidak ditanyakan di formulir tidak pernah wajib, jadi selalu "(optional)".
+    const label = wajibDiisi(item) ? item.label : `${item.label} (optional)`;
     if (FILE_FIELD_TYPES.includes(item.type)) {
       return field(label, value
         ? <p className={lockedClass}><Paperclip size={14} className="mr-2 shrink-0" />File attached.<button type="button" onClick={() => void bukaBerkas(value)} className="ml-1 font-medium text-primary underline">Open</button></p>
@@ -1157,6 +1208,35 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         className={inputClass}
       />
     ), item.help_text);
+  }
+
+  // Jawaban per asalnya: formulir pendaftaran, diisi peserta belakangan, atau
+  // kolom staf. Acara yang semua pertanyaannya ditanyakan tetap satu bagian.
+  const jawaban = kelompokJawaban(fields);
+
+  /**
+   * Satu bagian jawaban di panel Edit. Bagian kolom yang tidak ditanyakan menyebut
+   * sebabnya. Kelompok bernama, bukan hanya judul yang terlihat: pembaca layar
+   * yang masuk ke "Batch (optional)" lewat Tab ikut mendengar "Staff only" dan
+   * keterangannya, tanpa mengubah tampilan.
+   */
+  function bagianJawaban(asal: AsalJawaban, judul: string, keterangan: string | null, daftar: RegistrationField[]) {
+    if (daftar.length === 0) return null;
+    const idJudul = `${idBagian}-${asal}`;
+    const idKeterangan = `${idBagian}-${asal}-keterangan`;
+    return (
+      <div role="group" aria-labelledby={idJudul} aria-describedby={keterangan ? idKeterangan : undefined} className="flex flex-col gap-4 border-t border-outline-variant pt-4">
+        {keterangan ? (
+          <div>
+            <p id={idJudul} className="text-body-medium font-semibold">{judul}</p>
+            <p id={idKeterangan} className="text-body-medium text-on-surface-variant">{keterangan}</p>
+          </div>
+        ) : (
+          <p id={idJudul} className="text-body-medium font-semibold">{judul}</p>
+        )}
+        {daftar.map((item) => <div key={item.key}>{jawabanField(item)}</div>)}
+      </div>
+    );
   }
 
   function kursiField(sesi: OpsiKursi["sessions"][number]) {
@@ -1228,12 +1308,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             ))}
           {textField("Email", "email", { placeholder: "email@example.com", type: "email" })}
           {textField("Phone", "phone", { placeholder: "08xx or +62xx" })}
-          {fields.length > 0 ? (
-            <div className="flex flex-col gap-4 border-t border-outline-variant pt-4">
-              <p className="text-body-medium font-semibold">Registration form answers</p>
-              {fields.map((item) => <div key={item.key}>{jawabanField(item)}</div>)}
-            </div>
-          ) : null}
+          {bagianJawaban("formulir", "Registration form answers", null, jawaban.formulir)}
+          {bagianJawaban("peserta", "Filled in by participants", "Not on the registration form. Participants fill it in later.", jawaban.peserta)}
+          {bagianJawaban("staf", "Staff only", "Not on the registration form.", jawaban.staf)}
         </form>
       </PaneBody>
       <PaneFooter>
@@ -1324,9 +1401,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               <KeyValue label="Email">{p.email ?? <EmptyCell />}</KeyValue>
               <KeyValue label="Phone">{p.phone ?? <EmptyCell />}</KeyValue>
             </DetailSection>
-            {fields.length > 0 ? (
-              <DetailSection title="Form answers">
-                {fields.map((item) => {
+            {/* Judul bagian sama dengan panel Edit, untuk kolom yang tidak ditanyakan di formulir. */}
+            {([["Form answers", jawaban.formulir], ["Filled in by participants", jawaban.peserta], ["Staff only", jawaban.staf]] as const).map(([judul, daftar]) => daftar.length > 0 ? (
+              <DetailSection key={judul} title={judul}>
+                {daftar.map((item) => {
                   const value = p.extra?.[item.key];
                   return (
                     <KeyValue key={item.key} label={item.label}>
@@ -1337,7 +1415,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                   );
                 })}
               </DetailSection>
-            ) : null}
+            ) : null)}
             {fromSource ? (
               <DetailSection title="Scanner API">
                 <KeyValue label="Status">

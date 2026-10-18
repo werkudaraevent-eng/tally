@@ -5,7 +5,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { prepareWalkinLink } from "@/lib/member/walkin-link";
-import { cleanExtra, editableFields } from "@/lib/participant-input";
+import { cleanExtra, walkinFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { aturanWalkIn, periksaWalkIn } from "@/lib/walkin-form";
 
@@ -58,12 +58,15 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const config = auth.scope.event.registration_form_config as RegistrationFormConfig | null;
-  const galatKolom = periksaWalkIn(parsed.data, aturanWalkIn(config), editableFields(config));
+  const fields = walkinFields(config);
+  const galatKolom = periksaWalkIn(parsed.data, aturanWalkIn(config), fields);
   if (Object.keys(galatKolom).length > 0) {
     return apiError("VALIDATION_ERROR", 422, { ...galatKolom, message: "Complete the marked fields." });
   }
 
-  const { issues, clean } = cleanExtra(config, parsed.data.extra);
+  // Hanya pertanyaan formulir: isian untuk pertanyaan yang tidak ditanyakan
+  // dibuang, sama dengan formulir publik. Panitia mengisinya di Participant list.
+  const { issues, clean } = cleanExtra({ ...config, fields }, parsed.data.extra);
   if (issues.length > 0) {
     return apiError("VALIDATION_ERROR", 422, Object.fromEntries(issues.map((issue) => [`extra.${issue.key}`, issue.message])));
   }

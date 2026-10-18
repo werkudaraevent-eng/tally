@@ -6,6 +6,7 @@ import { CheckCircle, Paperclip, WarningCircle } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { RegistrationField } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
+import { wajibDiisi } from "@/lib/kolom-staf";
 
 /**
  * Satu kolom isian di form pendaftaran publik.
@@ -44,6 +45,8 @@ type UploadState = { id: string; name: string } | null;
  */
 export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: RegistrationField; lang?: LandingLang; nilai?: string }) {
   const t = DAFTAR_UI[lang].field;
+  // Kolom yang tidak ditanyakan di formulir (diisi peserta lewat Lengkapi data) tidak pernah wajib.
+  const wajib = wajibDiisi(field);
   const [upload, setUpload] = useState<UploadState>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -83,7 +86,7 @@ export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: R
       <label className="mt-6 flex cursor-pointer items-start gap-3">
         <input
           type="checkbox"
-          required={field.required}
+          required={wajib}
           name={`extra.${field.key}`}
           value="true"
           defaultChecked={nilai === "true"}
@@ -99,7 +102,7 @@ export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: R
     );
   }
 
-  const optional = !field.required ? (
+  const optional = !wajib ? (
     <span className="font-normal text-[var(--reg-on-surface-variant)]">{DAFTAR_UI[lang].optional}</span>
   ) : null;
 
@@ -119,7 +122,7 @@ export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: R
               <label key={option} className={`flex cursor-pointer gap-3 rounded-md border border-[var(--reg-outline)] px-4 py-3 ${keterangan ? "items-start" : "items-center"}`}>
                 <input
                   type="radio"
-                  required={field.required}
+                  required={wajib}
                   name={`extra.${field.key}`}
                   value={option}
                   defaultChecked={nilai === option}
@@ -196,7 +199,7 @@ export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: R
       {field.label} {optional}
       {field.type === "textarea" ? (
         <textarea
-          required={field.required}
+          required={wajib}
           maxLength={2000}
           rows={3}
           name={`extra.${field.key}`}
@@ -205,7 +208,7 @@ export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: R
           className={`${REG_CONTROL} resize-y font-normal leading-6`}
         />
       ) : field.type === "select" ? (
-        <select required={field.required} name={`extra.${field.key}`} defaultValue={nilai && (field.options ?? []).includes(nilai) ? nilai : ""} className={`${REG_CONTROL} font-normal`}>
+        <select required={wajib} name={`extra.${field.key}`} defaultValue={nilai && (field.options ?? []).includes(nilai) ? nilai : ""} className={`${REG_CONTROL} font-normal`}>
           <option value="" disabled>{t.choose}</option>
           {(field.options ?? []).filter((option) => option.trim()).map((option) => (
             <option key={option} value={option}>{option}</option>
@@ -213,7 +216,7 @@ export function RegistrationFieldInput({ field, lang = "id", nilai }: { field: R
         </select>
       ) : (
         <input
-          required={field.required}
+          required={wajib}
           type={field.type}
           maxLength={field.type === "number" || field.type === "date" ? undefined : 2000}
           min={field.type === "number" ? field.min : undefined}

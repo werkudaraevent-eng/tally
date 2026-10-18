@@ -1,4 +1,5 @@
 import { CHOICE_FIELD_TYPES, type RegistrationField, type RegistrationFieldType } from "./domain";
+import { wajibDiisi } from "./kolom-staf";
 
 /**
  * Validasi jawaban field tambahan terhadap konfigurasi form.
@@ -110,8 +111,9 @@ export function validateAnswers(
 
 		if (!raw) {
 			// Kotak centang wajib berarti persetujuan: kosong sama dengan menolak,
-			// dan itu memang harus menghentikan pengiriman.
-			if (field.required && enforceRequired) {
+			// dan itu memang harus menghentikan pengiriman. Kolom yang tidak
+			// ditanyakan di formulir tidak pernah wajib (lib/kolom-staf.ts).
+			if (wajibDiisi(field) && enforceRequired) {
 				issues.push({
 					key: field.key,
 					message: field.type === "checkbox" ? `${field.label} harus dicentang.` : `${field.label} wajib diisi.`,

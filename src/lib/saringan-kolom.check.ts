@@ -70,3 +70,18 @@ const teks = ["10", "", "9", "b", "A", "9"];
 assert.deepEqual(urutMenurut(teks.map((t, i) => ({ t, i })), (b) => b.t, "asc").map((b) => b.i), [2, 5, 0, 4, 3, 1]);
 assert.deepEqual(urutMenurut(teks.map((t, i) => ({ t, i })), (b) => b.t, "desc").map((b) => b.i), [3, 4, 0, 2, 5, 1]);
 console.log("saringan-kolom semua kolom ok");
+
+// Kelompok "+ Filter": pertanyaan yang tidak ditanyakan di formulir punya kelompok sendiri
+// (judul panel Edit participant); acara tanpa pertanyaan semacam itu tetap dua kelompok.
+assert.deepEqual([...new Set(admin.map((c) => c.grup))], ["kolom", "jawaban"]);
+const denganStaf = kolomSaringanAdmin([
+  ...fields,
+  { key: "batch", label: "Batch", type: "select" as const, required: false, options: ["Batch 1"], on_form: false },
+  { key: "kota", label: "Kota asal", type: "text" as const, required: false, on_form: false, participant_update: true },
+]);
+assert.equal(denganStaf.find((c) => c.key === "field:batch")?.grup, "staf");
+assert.equal(denganStaf.find((c) => c.key === "field:kota")?.grup, "peserta");
+assert.equal(denganStaf.find((c) => c.key === "field:sesi")?.grup, "jawaban");
+// Unggahan berkas selalu ditanyakan, jadi tetap jawaban formulir.
+assert.equal(kolomSaringanAdmin([{ ...fields[3], on_form: false }]).find((c) => c.key === "field:ktp")?.grup, "jawaban");
+console.log("saringan-kolom kelompok ok");

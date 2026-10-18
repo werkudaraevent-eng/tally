@@ -6,6 +6,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { EventLandingConfig, RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { bahasaPendaftaranBaru } from "@/lib/email/konfirmasi/bahasa";
 import { landingDefaultLang, landingEnAvailable, landingPath } from "@/lib/landing-i18n";
+import { pertanyaanFormulir } from "@/lib/kolom-staf";
 import { validateAnswers } from "@/lib/registration-fields";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
 import { createAccountForRegistration, memberConfig, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/member/account";
@@ -87,8 +88,13 @@ export async function POST(request: Request) {
   // yang dikosongkan, dropdown berisi nilai di luar daftarnya, dan kunci yang
   // tidak pernah didefinisikan admin — semuanya tersimpan permanen dan ikut
   // tersalin ke participants.extra saat disetujui.
+  //
+  // Hanya pertanyaan yang DITANYAKAN di formulir. Isian untuk pertanyaan lain
+  // ("Ask on the registration form" mati) dibuang di sini, sebelum RPC:
+  // pendaftar tidak bisa mengisi kolom panitia, mis. Batch, dengan menyusun
+  // permintaannya sendiri.
   const config = (event.registration_form_config ?? {}) as RegistrationFormConfig;
-  const fields = (config.fields ?? []) as RegistrationField[];
+  const fields = pertanyaanFormulir((config.fields ?? []) as RegistrationField[]);
 
   // Bawaan WAJIB pada keduanya: konfigurasi lama tidak punya kunci ini, dan
   // menganggapnya opsional akan diam-diam melonggarkan setiap event yang sudah
