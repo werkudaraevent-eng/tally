@@ -16,7 +16,7 @@ export type KeputusanHost =
  * admin. Semua yang lain (halaman peserta, /e/<slug>/*, /api publik dan
  * peserta, aset) dilayani untuk acara pemilik domain itu saja.
  */
-const DILARANG = [/^\/admin(\/|$)/, /^\/login(\/|$)/, /^\/booth(\/|$)/, /^\/cashier(\/|$)/, /^\/scan(\/|$)/, /^\/stasiun(\/|$)/, /^\/cetak-badge(\/|$)/, /^\/users(\/|$)/, /^\/api\/(admin|cron|auth|settings|webhooks)(\/|$)/];
+const DILARANG = [/^\/admin(\/|$)/, /^\/login(\/|$)/, /^\/booth(\/|$)/, /^\/cashier(\/|$)/, /^\/scan(\/|$)/, /^\/stasiun(\/|$)/, /^\/checkpoint-qr(\/|$)/, /^\/cetak-badge(\/|$)/, /^\/users(\/|$)/, /^\/api\/(admin|cron|auth|settings|webhooks)(\/|$)/];
 
 /** API publik dan peserta, langsung atau lewat /e/<slug>/api. */
 const API = /^\/(e\/[^/]+\/)?api(\/|$)/;
@@ -74,7 +74,7 @@ export function decideClientHost(input: {
  * /undian, /workspace, /pratinjau) juga tinggal di bawah /e/<slug>, dan host
  * klien menolaknya, jadi mengalihkannya berarti 404 untuk panitia.
  */
-const HALAMAN_PESERTA = [/^(\/(en|id))?(\/daftar)?\/?$/, /^\/(masuk|peserta|lengkapi|rundown|denah)(\/.*)?$/, /^(\/(en|id))?\/(masuk|peserta|lengkapi|kode\/[^/]+)\/?$/];
+const HALAMAN_PESERTA = [/^(\/(en|id))?(\/daftar)?\/?$/, /^\/(masuk|peserta|lengkapi|rundown|denah|pindai)(\/.*)?$/, /^(\/(en|id))?\/(masuk|peserta|lengkapi|kode\/[^/]+)\/?$/];
 
 /**
  * Di host Tally: alihkan halaman peserta ke domain klien yang AKTIF. Hanya

@@ -6,6 +6,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
 import type { EventTimeZone } from "@/lib/timezone";
 import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
 import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
+import { PindaiCheckpoint } from "@/components/member/pindai-checkpoint";
 
 /**
  * Kartu Checkpoint di Beranda Dashboard saya (Check-in > Checkpoints).
@@ -33,6 +34,7 @@ const TEKS = {
     lihatSemua: (n: number) => `Lihat semua ${n} checkpoint`,
     sembunyikan: "Sembunyikan",
     catatan: "Tunjukkan QR kehadiran ke petugas di tiap checkpoint. Centangnya muncul di sini otomatis.",
+    catatanMandiri: "Di checkpoint ini kamu memindai QR yang ditampilkan panitia. Centangnya muncul di sini otomatis.",
     tampilkanQr: "Tampilkan QR",
     sudah: "Sudah selesai",
     belum: "Belum",
@@ -50,6 +52,7 @@ const TEKS = {
     lihatSemua: (n: number) => `See all ${n} checkpoints`,
     sembunyikan: "Hide",
     catatan: "Show your attendance QR to the staff at each checkpoint. It ticks off here by itself.",
+    catatanMandiri: "At this checkpoint you scan the QR the organisers show. It ticks off here by itself.",
     tampilkanQr: "Show QR",
     sudah: "Done",
     belum: "Not yet",
@@ -118,6 +121,7 @@ export function KartuCheckpoint({
   zona,
   gaya: jenis,
   qrHref,
+  slug,
 }: {
   data: CheckpointPeserta;
   lang: LandingLang;
@@ -125,6 +129,8 @@ export function KartuCheckpoint({
   gaya: "gathering" | "modern";
   /** Tombol "Tampilkan QR" di kartu. */
   qrHref?: string | null;
+  /** Acara ini: tombol Pindai QR checkpoint (scan mandiri) mengirim ke sini. */
+  slug: string;
 }) {
   const t = TEKS[lang];
   const g = GAYA[jenis];
@@ -219,7 +225,26 @@ export function KartuCheckpoint({
         />
       )}
 
-      {berikut ? (
+      {berikut?.self_scan ? (
+        // Scan mandiri: tombol utamanya kamera; "Tampilkan QR" tetap ada bila panitia juga memindai.
+        <div className="mt-3 flex flex-col gap-3">
+          <p className={`text-[13px] leading-[1.5] ${g.redup}`}>{t.catatanMandiri}</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <PindaiCheckpoint
+              slug={slug}
+              lang={lang}
+              qrHref={berikut.self_scan === "both" ? qrHref ?? null : null}
+              className={`m3-state inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-[12px] px-4 text-[14px] font-semibold ${g.isi} ${g.diAtasIsi}`}
+            />
+            {berikut.self_scan === "both" && qrHref ? (
+              <Link href={qrHref} className="m3-state inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-[12px] border border-[#C3C9D4] px-4 text-[14px] font-semibold">
+                <QrCode size={20} aria-hidden />
+                {t.tampilkanQr}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : berikut ? (
         <div className={`mt-3 flex flex-col gap-3 ${qrHref ? "sm:flex-row sm:items-center sm:justify-between" : ""}`}>
           <p className={`text-[13px] leading-[1.5] ${g.redup}`}>{t.catatan}</p>
           {qrHref ? (

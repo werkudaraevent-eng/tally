@@ -22,11 +22,33 @@ export type BarisCheckpoint = {
   item_id: number | null;
   points: number | null;
   sort_order: number;
+  /** Siapa yang memindai (migrasi 202610180001). Sebelum migrasinya: selalu staff. */
+  completion: Penyelesaian;
 };
 
-export type SetelanCheckpoint = { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
+/** staff: panitia memindai QR peserta. self: peserta memindai QR checkpoint. both: keduanya. */
+export type Penyelesaian = "staff" | "self" | "both";
 
-const KOLOM = "id,title,title_en,place,place_en,session_id,item_id,points,sort_order";
+/** Nilai kolom `completion`; kolom yang belum ada atau nilai asing berarti staff. */
+export function bacaPenyelesaian(nilai: unknown): Penyelesaian {
+  return nilai === "self" || nilai === "both" ? nilai : "staff";
+}
+
+/**
+ * Sesi yang boleh dipindai sendiri oleh peserta, dari daftar checkpoint.
+ * Beberapa checkpoint di satu sesi: `both` menang, karena panitia tetap boleh
+ * memindai di sana.
+ */
+export function scanMandiriPerSesi(daftar: Pick<BarisCheckpoint, "session_id" | "completion">[]): Map<number, "self" | "both"> {
+  const hasil = new Map<number, "self" | "both">();
+  for (const cp of daftar) {
+    if (cp.session_id === null || cp.completion === "staff") continue;
+    if (hasil.get(cp.session_id) !== "both") hasil.set(cp.session_id, cp.completion);
+  }
+  return hasil;
+}
+
+export type SetelanCheckpoint = { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
 
 export async function loadSetelanCheckpoint(eventId: string): Promise<SetelanCheckpoint | null> {
   try {
@@ -48,14 +70,27 @@ export async function loadSetelanCheckpoint(eventId: string): Promise<SetelanChe
 
 export async function loadDaftarCheckpoint(eventId: string): Promise<BarisCheckpoint[] | null> {
   try {
+    // select *: kolom `completion` baru ada setelah migrasi 202610180001, dan
+    // menyebutnya sebelum itu membuat kartu checkpoint hilang.
     const { data, error } = await getSupabaseServiceClient()
       .from("checkpoints")
-      .select(KOLOM)
+      .select("*")
       .eq("event_id", eventId)
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true });
     if (error || !Array.isArray(data)) return null;
-    return data as BarisCheckpoint[];
+    return (data as Record<string, unknown>[]).map((baris) => ({
+      id: baris.id as number,
+      title: baris.title as string,
+      title_en: (baris.title_en as string | null) ?? null,
+      place: (baris.place as string | null) ?? null,
+      place_en: (baris.place_en as string | null) ?? null,
+      session_id: (baris.session_id as number | null) ?? null,
+      item_id: (baris.item_id as number | null) ?? null,
+      points: (baris.points as number | null) ?? null,
+      sort_order: baris.sort_order as number,
+      completion: bacaPenyelesaian(baris.completion),
+    }));
   } catch {
     return null;
   }
@@ -120,6 +155,13 @@ export type LangkahPeserta = {
   points: number | null;
   done_at: string | null;
   size: string | null;
+  /**
+   * Peserta boleh memindai QR checkpoint ini sendiri. `self`: tombol utamanya
+   * memindai saja; `both`: juga "Tunjukkan QR-mu ke panitia". Null: panitia.
+   */
+  self_scan: "self" | "both" | null;
+  /** Sesi buktinya (null: barang). Hanya untuk mencocokkan hasil scan mandiri. */
+  session_id: number | null;
 };
 
 export type CheckpointPeserta = {
@@ -159,6 +201,8 @@ export async function loadCheckpointPeserta(eventId: string, participantId: stri
       points: setelan.points_enabled ? cp.points ?? 0 : null,
       done_at: selesai.get(cp.id)?.at ?? null,
       size: selesai.get(cp.id)?.size ?? null,
+      self_scan: cp.session_id !== null && cp.completion !== "staff" ? cp.completion : null,
+      session_id: cp.session_id,
     }));
     const earned = steps.reduce((jumlah, step) => jumlah + (step.done_at ? step.points ?? 0 : 0), 0);
     const total_points = steps.reduce((jumlah, step) => jumlah + (step.points ?? 0), 0);

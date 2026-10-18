@@ -569,7 +569,7 @@ export async function DashboardGathering({
     };
   });
 
-  const kartuCheckpoint = () => (checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={zona} gaya="gathering" qrHref={tampilKode ? keTab("qr") : null} /> : null);
+  const kartuCheckpoint = () => (checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={zona} gaya="gathering" qrHref={tampilKode ? keTab("qr") : null} slug={event.slug} /> : null);
 
   const bagianBeranda = agenda[indeksBeranda];
   const kartuRundown = bagianBeranda ? (
@@ -1372,7 +1372,7 @@ export async function DashboardGathering({
       const tampilCheckpoint = diBeranda("checkpoints") && checkpoint !== null;
       const checkpointAktif = tampilCheckpoint && checkpoint.done < checkpoint.steps.length;
       const checkpointSelesai = tampilCheckpoint && !checkpointAktif;
-      const kartuCheckpointHorizon = checkpoint ? <KartuCheckpointHorizon data={checkpoint} lang={lang} zona={zona} qrHref={tampilKode ? keTab("qr") : null} /> : null;
+      const kartuCheckpointHorizon = checkpoint ? <KartuCheckpointHorizon data={checkpoint} lang={lang} zona={zona} qrHref={tampilKode ? keTab("qr") : null} slug={event.slug} /> : null;
 
       // Simpan QR ke galeri (U-02): dari tiga hari sebelum acara sampai hari terakhirnya.
       const tampilSimpanQr =

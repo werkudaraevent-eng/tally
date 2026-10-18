@@ -7,6 +7,7 @@ import { walkinFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { hitungKehadiran } from "@/lib/attendance-progress";
 import { aturanWalkIn } from "@/lib/walkin-form";
+import { loadDaftarCheckpoint, loadSetelanCheckpoint, scanMandiriPerSesi } from "@/lib/checkpoint/server";
 
 /**
  * Daftar sesi kehadiran untuk layar pemindai.
@@ -74,7 +75,16 @@ export async function GET(request: Request) {
   // pemindai membutuhkannya pada saat yang persis sama dengan daftar sesi —
   // saat halaman dibuka — dan setiap permintaan tambahan di jaringan venue yang
   // padat adalah satu kesempatan lagi untuk gagal sebelum tamu pertama datang.
-  const [label, meja] = await Promise.all([loadLabelSettings(auth.scope.event.id), setelanMeja(auth.scope.event.id)]);
+  const [label, meja, setelanCp, daftarCp] = await Promise.all([
+    loadLabelSettings(auth.scope.event.id),
+    setelanMeja(auth.scope.event.id),
+    loadSetelanCheckpoint(auth.scope.event.id),
+    loadDaftarCheckpoint(auth.scope.event.id),
+  ]);
+  // Sesi yang checkpoint-nya boleh dipindai sendiri oleh peserta (scan
+  // mandiri): layar pemindai menawarkan Show QR di sana. Acara lain tidak
+  // mendapat kunci ini sama sekali.
+  const mandiri = setelanCp?.enabled && daftarCp ? scanMandiriPerSesi(daftarCp) : new Map<number, "self" | "both">();
 
   const jumlahBarang = new Map<number, number>();
   for (const baris of (barang.data ?? []) as Array<{ session_id: number }>) {
@@ -86,6 +96,7 @@ export async function GET(request: Request) {
       ...row,
       hadir: angka?.hadir[row.id] ?? null,
       jumlah_barang: jumlahBarang.get(row.id) ?? 0,
+      ...(mandiri.has(row.id) ? { self_scan: mandiri.get(row.id) } : {}),
     })),
     lanes: jalur.data ?? [],
     event: { name: auth.scope.event.name, slug: auth.scope.event.slug },

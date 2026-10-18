@@ -408,7 +408,7 @@ export async function DashboardModern({
             {urutanUtama.map((id) => (
               <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
                 {id === "checkpoints" ? (
-                  checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={event.time_zone} gaya="modern" /> : null
+                  checkpoint ? <KartuCheckpoint data={checkpoint} lang={lang} zona={event.time_zone} gaya="modern" slug={event.slug} /> : null
                 ) : id === "next" ? (
                   berikutnya ? <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className={nextDuluan ? "hidden lg:block" : undefined} /> : null
                 ) : id === "announcements" ? (

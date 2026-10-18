@@ -54,6 +54,7 @@ const messages: Record<ApiErrorCode, string> = {
   OUTFIT_NOT_READY: "Outfit needs a database update first.",
   TRIP_AGENDA_NOT_READY: "Linking a trip to an Agenda row needs database migration 202610170002 first.",
   CHECKPOINT_GOAL_NOT_READY: "The points goal can't be saved yet: database migration 202610170001 has not been run.",
+  CHECKPOINT_SELF_SCAN_NOT_READY: "Participant scanning can't be saved yet: database migration 202610180001 has not been run.",
   UNDIAN_PRIZE_NOT_FOUND: "Hadiah undian tidak ditemukan.",
   UNDIAN_PRIZE_IN_USE: "Hadiah sudah punya pemenang. Matikan saja, jangan dihapus.",
   UNDIAN_NO_ACTIVE_PRIZE: "Belum ada hadiah yang dipilih untuk diundi.",
