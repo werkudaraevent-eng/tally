@@ -65,13 +65,13 @@ export function landingDefaultLang(config: EventLandingConfig | null | undefined
  * Alamat halaman acara dalam satu bahasa. Bahasa utama tanpa akhiran, supaya QR
  * dan undangan lama tetap berlaku; bahasa lainnya di `/id` atau `/en`.
  */
+export function landingPath(slug: string, lang: LandingLang, utama: LandingLang = "id"): string {
+  return lang === utama ? `/e/${slug}` : `/e/${slug}/${lang}`;
+}
+
 /** Label tautan peta menurut jenis tautannya (U-33): Google Maps disebut namanya, tautan lain "Buka peta". */
 export function labelTautanPeta(url: string, lang: LandingLang): string {
   return /google\.|goo\.gl/i.test(url) ? LANDING_UI[lang].openGoogleMaps : LANDING_UI[lang].openMap;
-}
-
-export function landingPath(slug: string, lang: LandingLang, utama: LandingLang = "id"): string {
-  return lang === utama ? `/e/${slug}` : `/e/${slug}/${lang}`;
 }
 
 type Kueri = Record<string, string | string[] | undefined>;
