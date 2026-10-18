@@ -105,7 +105,7 @@ export default function UndianAdminPage() {
         // Pesan server dibawa apa adanya: 403 "tidak punya akses" bukan masalah
         // koneksi, dan menyuruh memeriksa koneksi membuat orang mencari di tempat salah.
         const body = await prizeResponse.json().catch(() => null);
-        setLoadFailed(true); setError(body?.error?.message ?? "Data undian gagal dimuat.");
+        setLoadFailed(true); setError(body?.error?.message ?? "Could not load lucky draw data.");
         return;
       }
       setLoadFailed(false);
@@ -128,7 +128,7 @@ export default function UndianAdminPage() {
         setOrphanWinners(sessionData.orphan_winners ?? 0);
       }
     } catch {
-      setLoadFailed(true); setError("Koneksi terputus. Data undian gagal dimuat.");
+      setLoadFailed(true); setError("Connection lost. Could not load lucky draw data.");
     } finally {
       setLoaded(true);
     }
@@ -204,7 +204,7 @@ export default function UndianAdminPage() {
   }
 
   async function savePrize() {
-    if (!draft.name.trim()) { setError("Nama hadiah wajib diisi."); return; }
+    if (!draft.name.trim()) { setError("Enter a prize name."); return; }
     setSavingPrize(true); setError("");
     const isNew = editingId === "new";
     const response = await fetch(isNew ? "/api/admin/undian/prizes" : `/api/admin/undian/prizes/${editingId}`, {
@@ -215,12 +215,12 @@ export default function UndianAdminPage() {
     const data = await response.json().catch(() => ({}));
     setSavingPrize(false);
     if (!response.ok) {
-      const failure = failureMessage(data, "Hadiah gagal disimpan.");
-      setError(failure); toast.error("Hadiah gagal disimpan", failure); return;
+      const failure = failureMessage(data, "Could not save prize.");
+      setError(failure); toast.error("Could not save prize", failure); return;
     }
     setEditingId(null);
     await load();
-    toast.success("Hadiah tersimpan", isNew ? "Hadiah baru siap diundi." : "Perubahan berlaku pada undian berikutnya.");
+    toast.success("Prize saved", isNew ? "The new prize is ready to draw." : "Changes apply to the next draw.");
   }
 
   async function deletePrize(id: number) {
@@ -230,12 +230,12 @@ export default function UndianAdminPage() {
     setDeletingPrize(false);
     setConfirmPrize(null);
     if (!response.ok) {
-      const failure = failureMessage(data, "Hadiah gagal dihapus.");
-      setError(failure); toast.error("Hadiah gagal dihapus", failure); return;
+      const failure = failureMessage(data, "Could not delete prize.");
+      setError(failure); toast.error("Could not delete prize", failure); return;
     }
     if (editingId === id) setEditingId(null);
     await load();
-    toast.success("Hadiah dihapus");
+    toast.success("Prize deleted");
   }
 
   async function saveSettings() {
@@ -263,12 +263,12 @@ export default function UndianAdminPage() {
     const data = await response.json().catch(() => ({}));
     setSavingSettings(false);
     if (!response.ok) {
-      const failure = failureMessage(data, "Setelan gagal disimpan.");
-      setError(failure); toast.error("Setelan gagal disimpan", failure); return;
+      const failure = failureMessage(data, "Could not save settings.");
+      setError(failure); toast.error("Could not save settings", failure); return;
     }
     const raw = data as Record<string, unknown>;
     setSettings({ ...(raw as unknown as Settings), ...normalizeBranding(raw), reveal_delay_seconds: Number(raw.reveal_delay_seconds ?? 0) });
-    toast.success("Setelan tersimpan", "Layar undian menyesuaikan dalam beberapa detik.");
+    toast.success("Settings saved", "The draw screen will update in a few seconds.");
   }
 
   async function uploadImage(file: File, target: "background" | "prize") {
@@ -281,12 +281,12 @@ export default function UndianAdminPage() {
     const data = await response.json().catch(() => null);
     setter(false);
     if (!response.ok) {
-      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Upload gambar gagal.";
-      setError(failure); toast.error("Upload gambar gagal", failure); return;
+      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Could not upload image.";
+      setError(failure); toast.error("Could not upload image", failure); return;
     }
     if (target === "background") updateSettings({ background_image_url: data.url });
     else updateDraft({ image_url: data.url });
-    toast.info("Gambar terunggah", "Klik Simpan untuk menerapkannya.");
+    toast.info("Image uploaded", "Click Save to apply it.");
   }
 
   /**
@@ -301,8 +301,8 @@ export default function UndianAdminPage() {
    * peramban yang dipakai operator.
    */
   async function importEntries() {
-    if (!importName.trim()) { setError("Nama daftar wajib diisi."); return; }
-    if (!importFile && !importText.trim()) { setError("Pilih berkas atau tempel daftarnya."); return; }
+    if (!importName.trim()) { setError("Enter an entry list name."); return; }
+    if (!importFile && !importText.trim()) { setError("Choose a file or paste the list."); return; }
 
     setImporting(true); setError("");
 
@@ -323,19 +323,19 @@ export default function UndianAdminPage() {
     const data = await response.json().catch(() => ({}));
     setImporting(false);
     if (!response.ok) {
-      const failure = failureMessage(data, "Import gagal.");
-      setError(failure); toast.error("Import gagal", failure); return;
+      const failure = failureMessage(data, "Import failed.");
+      setError(failure); toast.error("Import failed", failure); return;
     }
     setImportName(""); setImportText(""); setImportFile(null); setImportOpen(false);
     await load();
-    toast.success("Daftar terimpor", `${data.entry_count} baris terbaca.`);
+    toast.success("Entry list imported", `${data.entry_count} ${data.entry_count === 1 ? "row" : "rows"} read.`);
   }
 
   async function deleteGroup(id: number) {
     const response = await fetch(`/api/admin/undian/entries/${id}`, { method: "DELETE" });
-    if (!response.ok) { toast.error("Daftar gagal dihapus"); return; }
+    if (!response.ok) { toast.error("Could not delete entry list"); return; }
     await load();
-    toast.success("Daftar dihapus");
+    toast.success("Entry list deleted");
   }
 
   // Dihitung dari data yang SUDAH dimuat halaman ini, tanpa permintaan tambahan.
@@ -351,9 +351,9 @@ export default function UndianAdminPage() {
 
   async function removeExclusion(participantId: string) {
     const response = await fetch(`/api/admin/undian/exclusions?participant_id=${participantId}`, { method: "DELETE" });
-    if (!response.ok) { toast.error("Gagal mengembalikan peserta"); return; }
+    if (!response.ok) { toast.error("Could not restore participant"); return; }
     await load();
-    toast.success("Peserta kembali ikut undian");
+    toast.success("Participant restored to the draw");
   }
 
   function goTo(next: Tab) {
@@ -369,27 +369,27 @@ export default function UndianAdminPage() {
 
   // ---- Tab hadiah -----------------------------------------------------------
   const prizeList = (
-    <Pane aria-label="Daftar hadiah">
+    <Pane aria-label="Prize list">
       <PaneHeader>
-        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Hadiah</h2>
-        <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={editingId === "new"} onClick={() => openEditor(null)}>Hadiah baru</Button>
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Prizes</h2>
+        <Button variant="outlined" size="sm" icon={<Plus size={16} />} disabled={editingId === "new"} onClick={() => openEditor(null)}>New prize</Button>
       </PaneHeader>
       <PaneBody>
         {!loaded ? <PageLoading /> : loadFailed ? (
           <EmptyState
             plain
             icon={<Warning size={40} />}
-            title="Data undian gagal dimuat"
-            description={error || "Periksa koneksi, lalu coba lagi."}
-            action={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}
+            title="Could not load lucky draw data"
+            description={error || "Check your connection, then try again."}
+            action={<Button variant="outlined" size="sm" onClick={() => void load()}>Try again</Button>}
           />
         ) : prizes.length === 0 ? (
           <EmptyState
             plain
             icon={<Gift size={40} />}
-            title="Belum ada hadiah"
-            description="Tambahkan hadiah pertama, lalu atur siapa yang berhak diundi untuknya."
-            action={editingId === "new" ? undefined : <Button size="sm" icon={<Plus size={16} />} onClick={() => openEditor(null)}>Hadiah baru</Button>}
+            title="No prizes yet"
+            description="Add your first prize, then choose who is eligible for its draw."
+            action={editingId === "new" ? undefined : <Button size="sm" icon={<Plus size={16} />} onClick={() => openEditor(null)}>New prize</Button>}
           />
         ) : prizes.map((prize) => {
           const pool = pools[prize.id];
@@ -397,7 +397,7 @@ export default function UndianAdminPage() {
           const full = won >= prize.winner_quota;
           const selected = editingId === prize.id;
           const syarat = prize.source === "entries"
-            ? `daftar "${groups.find((group) => group.id === prize.entry_group_id)?.name ?? "belum dipilih"}"`
+            ? `entry list "${groups.find((group) => group.id === prize.entry_group_id)?.name ?? "not selected"}"`
             : describeConditions(prize.conditions, sessionNames);
           return (
             <ListRow
@@ -410,15 +410,15 @@ export default function UndianAdminPage() {
                 ? <ImagePreview url={prize.image_url} alt="" className="h-10 w-10 shrink-0" />
                 : <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-md bg-surface-container-high text-on-surface-variant"><Gift size={18} /></span>}
               <span className="min-w-0 flex-1">
-                <span className={cx("block truncate font-medium", !prize.is_active && "text-on-surface-variant")}>{prize.name || "Tanpa nama"}</span>
+                <span className={cx("block truncate font-medium", !prize.is_active && "text-on-surface-variant")}>{prize.name || "Unnamed"}</span>
                 <span className="block truncate text-on-surface-variant">
                   {[
                     prize.sponsor_name,
                     ANIMATIONS.find((item) => item.value === prize.animation)?.label,
-                    `${prize.winners_per_draw} per undi${prize.backup_per_draw > 0 ? ` + ${prize.backup_per_draw} cadangan` : ""}`,
+                    `${prize.winners_per_draw} per draw${prize.backup_per_draw > 0 ? ` + ${prize.backup_per_draw} ${prize.backup_per_draw === 1 ? "backup" : "backups"}` : ""}`,
                   ].filter(Boolean).join(" · ")}
                 </span>
-                <span className="block truncate text-on-surface-variant" title={`Syarat: ${syarat}`}>Syarat: {syarat}</span>
+                <span className="block truncate text-on-surface-variant" title={`Conditions: ${syarat}`}>Conditions: {syarat}</span>
                 {/* Kesalahan konfigurasi yang paling mudah terlewat: pemenang per
                     undi lebih besar dari kuotanya. Sistem menjepitnya saat mengundi,
                     tapi tanpa peringatan panitia mengira akan keluar sepuluh nama
@@ -426,7 +426,7 @@ export default function UndianAdminPage() {
                 {prize.winners_per_draw > prize.winner_quota ? (
                   <span className="mt-0.5 flex items-start gap-1 font-medium text-warning">
                     <Warning size={14} className="mt-1 shrink-0" aria-hidden />
-                    {prize.winners_per_draw} per undi melebihi kuota {prize.winner_quota}. Hanya {prize.winner_quota} nama yang akan keluar.
+                    {prize.winners_per_draw} per draw exceeds the quota of {prize.winner_quota}. Only {prize.winner_quota} {prize.winner_quota === 1 ? "name" : "names"} will be drawn.
                   </span>
                 ) : null}
               </span>
@@ -434,19 +434,19 @@ export default function UndianAdminPage() {
                 <span className="block">{won} / {prize.winner_quota}</span>
                 <span
                   className="block text-on-surface-variant"
-                  title={pool && pool.eligible !== pool.candidates ? `${pool.eligible - pool.candidates} sudah menang di sesi yang masih terbuka` : undefined}
+                  title={pool && pool.eligible !== pool.candidates ? `${pool.eligible - pool.candidates} already won in an open session` : undefined}
                 >
-                  {pool ? `${pool.candidates} nama siap` : "Kolam belum dihitung"}
+                  {pool ? `${pool.candidates} ${pool.candidates === 1 ? "name" : "names"} ready` : "Pool not calculated"}
                 </span>
               </span>
               <span className="flex shrink-0 justify-end sm:w-36">
-                {!prize.is_active ? <StatusChip>Nonaktif</StatusChip>
+                {!prize.is_active ? <StatusChip>Inactive</StatusChip>
                   // "Penuh di sesi ini", bukan "Kuota penuh". Tanpa keterangan
                   // sesi, label ini terbaca sebagai hadiah yang habis selamanya,
                   // lalu panitia membuat hadiah duplikat padahal cukup menutup sesi.
-                  : full ? <StatusChip dot>{activeSession ? "Penuh di sesi ini" : "Kuota penuh"}</StatusChip>
-                    : pool && pool.candidates === 0 ? <StatusChip dot tone="error">Kolam kosong</StatusChip>
-                      : pool ? <StatusChip dot tone="success">Siap</StatusChip> : null}
+                  : full ? <StatusChip dot>{activeSession ? "Full in this session" : "Quota full"}</StatusChip>
+                    : pool && pool.candidates === 0 ? <StatusChip dot tone="error">Empty pool</StatusChip>
+                      : pool ? <StatusChip dot tone="success">Ready</StatusChip> : null}
               </span>
             </ListRow>
           );
@@ -464,9 +464,9 @@ export default function UndianAdminPage() {
           <span className="flex items-baseline gap-2">
             <span className="flex h-[1lh] items-center"><StatusDot tone={activeSession ? "success" : "neutral"} /></span>
             <span className="min-w-0">
-              {activeSession ? <>Kuota dihitung untuk sesi {activeSession.name}</> : "Belum ada sesi berjalan; hasil tidak terkelompok"}{" "}
+              {activeSession ? <>Quota applies to session {activeSession.name}</> : "No active session; results are ungrouped"}{" "}
               <button type="button" onClick={() => goTo("history")} className="rounded-sm font-medium text-primary hover:underline">
-                {activeSession ? "Kelola sesi" : "Mulai sesi"}
+                {activeSession ? "Manage session" : "Start session"}
               </button>
             </span>
           </span>
@@ -497,36 +497,36 @@ export default function UndianAdminPage() {
   ) : null;
 
   const tabs: { value: Tab; label: string; badge?: number }[] = [
-    { value: "prizes", label: "Hadiah", badge: loaded && !loadFailed ? prizes.length : undefined },
-    { value: "rules", label: "Aturan pengecualian" },
-    { value: "data", label: "Daftar import", badge: loaded && !loadFailed ? groups.length : undefined },
-    { value: "display", label: "Tampilan panggung" },
-    { value: "history", label: "Sesi & hasil" },
+    { value: "prizes", label: "Prizes", badge: loaded && !loadFailed ? prizes.length : undefined },
+    { value: "rules", label: "Exclusion rules" },
+    { value: "data", label: "Entry lists", badge: loaded && !loadFailed ? groups.length : undefined },
+    { value: "display", label: "Stage display" },
+    { value: "history", label: "Sessions & results" },
   ];
 
   return (
     <WorkspacePage fill>
       <WorkspaceHeader
-        meta={loadFailed ? <span>Status undian tidak diketahui</span> : loaded ? (
+        meta={loadFailed ? <span>Draw status unknown</span> : loaded ? (
           <>
             <span className="inline-flex items-center gap-1.5">
               <StatusDot tone={canRun ? "success" : "error"} />
-              {canRun ? "Siap dijalankan" : "Belum bisa dijalankan"}
+              {canRun ? "Ready to run" : "Not ready to run"}
             </span>
             <MetaSeparator />
-            <span>{activeSession ? `Sesi berjalan: ${activeSession.name}` : "Belum ada sesi berjalan"}</span>
+            <span>{activeSession ? `Active session: ${activeSession.name}` : "No active session"}</span>
           </>
-        ) : <span>Memuat undian</span>}
+        ) : <span>Loading lucky draw</span>}
         actions={
           <>
-            <ButtonLink href="/undian" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Layar panggung</ButtonLink>
+            <ButtonLink href="/undian" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Stage screen</ButtonLink>
             {/* Tombol mati, bukan tautan yang dinonaktifkan lewat CSS: <a> tetap
                 bisa diklik dan dibuka lewat papan ketik, dan panel operator yang
                 terbuka pada undian tanpa kandidat justru gagal di layar yang paling
                 tidak boleh gagal. Alasannya tertulis di baris kesiapan. */}
             {canRun
-              ? <ButtonLink href="/admin/undian/kontrol" icon={<SlidersHorizontal size={16} />}>Buka panel operator</ButtonLink>
-              : <Button disabled icon={<LockSimple size={16} />}>Buka panel operator</Button>}
+              ? <ButtonLink href="/admin/undian/kontrol" icon={<SlidersHorizontal size={16} />}>Open operator panel</ButtonLink>
+              : <Button disabled icon={<LockSimple size={16} />}>Open operator panel</Button>}
           </>
         }
       />
@@ -534,10 +534,10 @@ export default function UndianAdminPage() {
       {loaded && !loadFailed ? <ReadinessBar steps={readiness} canRun={canRun} onGo={goTo} /> : null}
 
       {error && !errorInPane && !loadFailed ? (
-        <Banner tone="error" icon={<Warning size={18} />} className="shrink-0" actions={<IconButton size="sm" label="Tutup pesan" onClick={() => setError("")}><X size={16} /></IconButton>}>{error}</Banner>
+        <Banner tone="error" icon={<Warning size={18} />} className="shrink-0" actions={<IconButton size="sm" label="Dismiss message" onClick={() => setError("")}><X size={16} /></IconButton>}>{error}</Banner>
       ) : null}
 
-      <Tabs<Tab> label="Bagian undian" idPrefix="undian" value={tab} onChange={goTo} options={tabs} />
+      <Tabs<Tab> label="Lucky draw sections" idPrefix="undian" value={tab} onChange={goTo} options={tabs} />
 
       <div role="tabpanel" id={`undian-panel-${tab}`} aria-labelledby={`undian-tab-${tab}`} className="flex min-h-0 flex-1 flex-col gap-4">
         {tab === "prizes" ? (
@@ -545,8 +545,8 @@ export default function UndianAdminPage() {
             {/* Hasil yang belum bersesi tidak akan pernah lepas dari kolam: tidak
                 ada sesi yang bisa ditutup untuk membebaskannya. */}
             {orphanWinners > 0 ? (
-              <Banner tone="warning" icon={<Warning size={18} />} className="shrink-0" actions={<Button variant="outlined" size="sm" onClick={() => goTo("history")}>Buka Sesi & hasil</Button>}>
-                Ada <span className="font-medium">{orphanWinners} pemenang lama</span> yang belum masuk sesi mana pun, jadi mereka tidak bisa dibebaskan lewat tutup sesi. Arsipkan di tab Sesi & hasil.
+              <Banner tone="warning" icon={<Warning size={18} />} className="shrink-0" actions={<Button variant="outlined" size="sm" onClick={() => goTo("history")}>Open Sessions & results</Button>}>
+                <span className="font-medium">{orphanWinners} previous {orphanWinners === 1 ? "winner has" : "winners have"}</span> no session, so closing a session cannot restore their eligibility. Archive them in the Sessions & results tab.
               </Banner>
             ) : null}
             {/* Petunjuk hanya muncul ketika keadaannya benar-benar terjadi.
@@ -554,7 +554,7 @@ export default function UndianAdminPage() {
                 dibaca siapa pun. */}
             {anyQuotaFull ? (
               <Banner tone="info" className="shrink-0">
-                Untuk mengundi hadiah yang kuotanya penuh pada sesi berikutnya, <span className="font-medium">tutup sesi sekarang lalu mulai sesi baru</span>. Hadiah yang sama dipakai lagi, tidak perlu dibuat ulang; kuota dan daftar pemenang dihitung ulang per sesi.
+                To draw a prize with a full quota in the next session, <span className="font-medium">close the current session, then start a new one</span>. Reuse the same prize; quotas and winner lists are calculated separately for each session.
               </Banner>
             ) : null}
             <ListDetail list={prizeList} detail={prizeDetail} detailWidth={560} />
@@ -589,9 +589,9 @@ export default function UndianAdminPage() {
           ) : !loaded ? <PageLoading /> : (
             <EmptyState
               icon={<Warning size={40} />}
-              title="Setelan layar gagal dimuat"
-              description="Periksa koneksi, lalu coba lagi."
-              action={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}
+              title="Could not load screen settings"
+              description="Check your connection, then try again."
+              action={<Button variant="outlined" size="sm" onClick={() => void load()}>Try again</Button>}
             />
           )
         ) : null}
@@ -607,12 +607,12 @@ export default function UndianAdminPage() {
         onClose={() => setConfirmPrize(null)}
         dismissible={!deletingPrize}
         tone="danger"
-        title={`Hapus hadiah ${confirmPrize?.name || ""}?`}
-        description="Hadiah yang masih punya pemenang (sah atau belum dikonfirmasi) tidak bisa dihapus. Catatan pemenang yang sudah dibatalkan untuk hadiah ini ikut terhapus. Penghapusan tercatat di jejak audit."
+        title={`Delete prize ${confirmPrize?.name || ""}?`}
+        description="Prizes with confirmed or unconfirmed winners cannot be deleted. Cancelled winner records for this prize will also be deleted. The deletion is recorded in the audit trail."
         actions={
           <>
-            <Button variant="outlined" disabled={deletingPrize} onClick={() => setConfirmPrize(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={deletingPrize} onClick={() => { if (confirmPrize) void deletePrize(confirmPrize.id); }}>Hapus hadiah</Button>
+            <Button variant="outlined" disabled={deletingPrize} onClick={() => setConfirmPrize(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={deletingPrize} onClick={() => { if (confirmPrize) void deletePrize(confirmPrize.id); }}>Delete prize</Button>
           </>
         }
       />
@@ -646,14 +646,14 @@ function ReadinessBar({ steps, canRun, onGo }: {
   const pertama = pending.find((step) => step.blocking) ?? pending[0];
 
   return (
-    <section aria-label="Kesiapan undian" className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-lowest">
+    <section aria-label="Draw readiness" className="shrink-0 rounded-lg border border-outline-variant bg-surface-container-lowest">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-body-medium">
         {canRun
           ? <CheckCircle size={18} className="shrink-0 text-success" aria-hidden />
           : <LockSimple size={18} className="shrink-0 text-error" aria-hidden />}
-        <span className="font-medium tabular-nums">Kesiapan {steps.length - pending.length} dari {steps.length}</span>
+        <span className="font-medium tabular-nums">Readiness {steps.length - pending.length} of {steps.length}</span>
         <span className="min-w-0 flex-1 truncate text-on-surface-variant">
-          {pertama ? `${pertama.blocking ? "Wajib" : "Opsional"}: ${pertama.label.charAt(0).toLowerCase()}${pertama.label.slice(1)}` : "Semua butir beres"}
+          {pertama ? `${pertama.blocking ? "Required" : "Optional"}: ${pertama.label.charAt(0).toLowerCase()}${pertama.label.slice(1)}` : "All checks complete"}
         </span>
         <button
           type="button"
@@ -662,7 +662,7 @@ function ReadinessBar({ steps, canRun, onGo }: {
           onClick={() => setOpen((value) => !value)}
           className="inline-flex items-center gap-1 rounded-sm font-medium text-primary hover:underline"
         >
-          {open ? "Sembunyikan" : "Lihat daftar"}
+          {open ? "Hide" : "View checklist"}
           <CaretDown size={14} aria-hidden className={cx(open && "rotate-180")} />
         </button>
       </div>
@@ -675,7 +675,7 @@ function ReadinessBar({ steps, canRun, onGo }: {
                 "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-label-medium font-medium tabular-nums",
                 step.done ? "bg-success-soft text-on-success-container" : step.blocking ? "bg-error-soft text-error" : "bg-warning-soft text-warning",
               )}>
-                {step.done ? <CheckCircle size={14} aria-label="Beres" /> : index + 1}
+                {step.done ? <CheckCircle size={14} aria-label="Complete" /> : index + 1}
               </span>
               <div className="min-w-52 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium">
@@ -683,11 +683,11 @@ function ReadinessBar({ steps, canRun, onGo }: {
                   {/* Label wajib/opsional ditulis pada butirnya sendiri, bukan hanya
                       tersirat dari warna: pembaca yang tidak membedakan merah dan
                       kuning tetap harus bisa tahu mana yang mengunci. */}
-                  {!step.done ? <StatusChip tone={step.blocking ? "error" : "warning"}>{step.blocking ? "Wajib" : "Opsional"}</StatusChip> : null}
+                  {!step.done ? <StatusChip tone={step.blocking ? "error" : "warning"}>{step.blocking ? "Required" : "Optional"}</StatusChip> : null}
                 </p>
                 {step.detail ? <p className="text-on-surface-variant">{step.detail}</p> : null}
               </div>
-              {!step.done ? <Button variant="outlined" size="sm" onClick={() => { onGo(step.tab); setOpen(false); }}>Bereskan</Button> : null}
+              {!step.done ? <Button variant="outlined" size="sm" onClick={() => { onGo(step.tab); setOpen(false); }}>Resolve</Button> : null}
             </li>
           ))}
         </ol>

@@ -37,7 +37,7 @@ export function UploadButton({ label, accept, busy, onFile, icon }: { label: str
       busy && "pointer-events-none opacity-60",
     )}>
       {icon}
-      {busy ? "Mengunggah..." : label}
+      {busy ? "Uploading..." : label}
       <input
         type="file"
         accept={accept}

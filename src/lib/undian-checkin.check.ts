@@ -46,11 +46,11 @@ assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "
 // Jumlah scan juga butuh pemindaian /scan (nilai gabungannya disusun di server).
 assert.equal(usesAttendance(normalizeConditions({ op: "and", children: [{ var: "scan_count", cmp: "gte", value: 2 }] })), true);
 
-assert.equal(describeConditions(anySession), "sudah check-in");
-assert.equal(describeConditions(gala, { 7: "Gala Dinner" }), "sudah check-in di Gala Dinner");
-assert.equal(describeConditions(notGala, {}), "SESI CHECK-IN SUDAH DIHAPUS, pilih ulang");
+assert.equal(describeConditions(anySession), "checked in");
+assert.equal(describeConditions(gala, { 7: "Gala Dinner" }), "checked in at Gala Dinner");
+assert.equal(describeConditions(notGala, {}), "CHECK-IN SESSION DELETED, choose again");
 // Daftar sesi gagal dimuat: jangan sebut terhapus.
-assert.equal(describeConditions(gala, null), "sudah check-in di sesi tertentu");
+assert.equal(describeConditions(gala, null), "checked in at a particular session");
 
 // Sesi yang sudah dihapus: syaratnya rusak, tidak ada yang lolos, termasuk
 // "Belum check-in" yang tanpa ini meloloskan semua orang.

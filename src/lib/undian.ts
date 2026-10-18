@@ -42,22 +42,22 @@ export type UndianTextCmp = "eq" | "neq" | "contains" | "not_contains" | "starts
 export type UndianTextVar = "name" | "company" | "job_title" | "qr_code" | "seat_label";
 
 export const TEXT_VAR_LABEL: Record<UndianTextVar, string> = {
-  name: "Nama peserta",
-  company: "Perusahaan",
-  job_title: "Jabatan",
-  qr_code: "Kode QR / badge",
-  seat_label: "Nomor kursi",
+  name: "Participant name",
+  company: "Company",
+  job_title: "Job title",
+  qr_code: "QR / badge code",
+  seat_label: "Seat number",
 };
 
 export const TEXT_CMP_LABEL: Record<UndianTextCmp, string> = {
-  eq: "sama dengan",
-  neq: "tidak sama dengan",
-  contains: "mengandung",
-  not_contains: "tidak mengandung",
-  starts_with: "dimulai dengan",
-  ends_with: "diakhiri dengan",
-  is_empty: "kosong",
-  is_not_empty: "tidak kosong",
+  eq: "equals",
+  neq: "does not equal",
+  contains: "contains",
+  not_contains: "does not contain",
+  starts_with: "starts with",
+  ends_with: "ends with",
+  is_empty: "is empty",
+  is_not_empty: "is not empty",
 };
 
 /** Pembanding yang tidak butuh nilai pembanding. */
@@ -422,9 +422,9 @@ export type WeightConfig = {
 };
 
 export const WEIGHT_VAR_LABEL: Record<WeightVar, string> = {
-  total_spend: "Total transaksi",
-  booth_count: "Jumlah booth dikunjungi",
-  scan_count: "Jumlah scan",
+  total_spend: "Total spend",
+  booth_count: "Booths visited",
+  scan_count: "Scan count",
 };
 
 /**
@@ -620,26 +620,26 @@ export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "
 export type SpinMode = "timed" | "manual";
 
 export const SPIN_MODES: { value: SpinMode; label: string; hint: string }[] = [
-  { value: "timed", label: "Durasi tetap", hint: "Animasi berhenti sendiri setelah waktu yang disetel. Cocok saat rundown padat." },
-  { value: "manual", label: "Berhenti manual", hint: "Animasi berputar terus sampai operator menekan Berhenti. Cocok untuk hadiah utama yang momennya ingin ditahan MC." },
+  { value: "timed", label: "Fixed duration", hint: "The animation stops automatically after the set time. Useful for a tight schedule." },
+  { value: "manual", label: "Manual stop", hint: "The animation keeps spinning until the operator presses Stop. Useful for a main prize when the MC wants to hold the moment." },
 ];
 
 export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }[] = [
-  { value: "wheel", label: "Roda putar", hint: "Paling dikenali penonton. Nyaman sampai sekitar 200 nama." },
-  { value: "slot", label: "Slot machine", hint: "Nama bergulir cepat lalu berhenti. Kuat untuk ratusan sampai ribuan nama." },
-  { value: "cards", label: "Kartu terbalik", hint: "Kartu dibuka satu per satu. Terbaik untuk beberapa pemenang sekaligus." },
-  { value: "digits", label: "Angka per digit", hint: "Nomor kursi atau kode muncul digit demi digit. Paling menegangkan." },
-  { value: "dart", label: "Panah tancap", hint: "Kertas undian melayang, lalu anak panah menancap pada pemenangnya. Paling ramai di layar besar." },
-  { value: "instant", label: "Langsung tampil", hint: "Tanpa animasi. Cadangan bila waktu acara mepet." },
+  { value: "wheel", label: "Spinning wheel", hint: "Familiar to audiences. Works well with up to around 200 names." },
+  { value: "slot", label: "Slot machine", hint: "Names scroll quickly, then stop. Works well with hundreds or thousands of names." },
+  { value: "cards", label: "Card reveal", hint: "Cards are revealed one at a time. Best for several winners in one draw." },
+  { value: "digits", label: "Digit reveal", hint: "Seat numbers or codes appear digit by digit to build suspense." },
+  { value: "dart", label: "Dart throw", hint: "Draw slips float, then a dart lands on the winner. Most lively on a large screen." },
+  { value: "instant", label: "Instant reveal", hint: "No animation. A fallback when time is short." },
 ];
 
 export type PrizeSource = "participants" | "entries";
 export type ExcludeScope = "none" | "this_prize" | "all_prizes";
 
 export const EXCLUDE_SCOPE_LABEL: Record<ExcludeScope, string> = {
-  none: "Boleh menang berkali-kali",
-  this_prize: "Tidak boleh menang dua kali di hadiah ini",
-  all_prizes: "Sekali menang, gugur dari semua hadiah",
+  none: "Can win multiple times",
+  this_prize: "Cannot win this prize twice",
+  all_prizes: "Excluded from all prizes after winning once",
 };
 
 export type UndianPrize = {
@@ -805,7 +805,7 @@ export type UndianDisplaySettings = {
 // ---------------------------------------------------------------------------
 
 const CMP_TEXT: Record<UndianCmp, string> = {
-  gte: "minimal", gt: "lebih dari", lte: "maksimal", lt: "kurang dari", eq: "tepat",
+  gte: "at least", gt: "more than", lte: "at most", lt: "less than", eq: "exactly",
 };
 
 const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
@@ -816,7 +816,7 @@ const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(va
  * "sesi tertentu", bukan "sudah dihapus".
  */
 export function describeConditions(node: UndianConditionGroup, sessionNames: Record<number, string> | null = {}): string {
-  if (node.children.length === 0) return "semua peserta aktif";
+  if (node.children.length === 0) return "all active participants";
 
   const parts = node.children.map((child) => {
     if (isConditionGroup(child)) return `(${describeConditions(child, sessionNames)})`;
@@ -829,28 +829,28 @@ export function describeConditions(node: UndianConditionGroup, sessionNames: Rec
       // Disebut apa adanya, tidak disembunyikan. Syarat yang tidak terbaca membuat
       // seluruh aturan tidak pernah terpenuhi, dan panitia harus melihatnya di
       // daftar tanpa perlu membuka form.
-      case "__invalid": return "SYARAT TIDAK TERBACA";
-      case "total_spend": return `belanja ${CMP_TEXT[child.cmp]} ${rupiah(child.value)}`;
-      case "booth_count": return `${CMP_TEXT[child.cmp]} ${child.value} booth`;
-      case "scan_count": return `${CMP_TEXT[child.cmp]} ${child.value} scan`;
-      case "participant_type": return `tipe ${child.cmp === "in" ? "" : "bukan "}${child.values.join("/")}`;
-      case "rsvp_status": return `RSVP ${child.cmp === "in" ? "" : "bukan "}${child.values.join("/")}`;
+      case "__invalid": return "UNREADABLE CONDITION";
+      case "total_spend": return `spend ${CMP_TEXT[child.cmp]} ${rupiah(child.value)}`;
+      case "booth_count": return `${CMP_TEXT[child.cmp]} ${child.value} booth visits`;
+      case "scan_count": return `${CMP_TEXT[child.cmp]} ${child.value} scans`;
+      case "participant_type": return `type ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
+      case "rsvp_status": return `RSVP ${child.cmp === "in" ? "" : "not "}${child.values.join("/")}`;
       case "checked_in": {
-        const status = child.is ? "sudah check-in" : "belum check-in";
+        const status = child.is ? "checked in" : "not checked in";
         if (child.session_id === undefined) return status;
-        if (sessionNames === null) return `${status} di sesi tertentu`;
+        if (sessionNames === null) return `${status} at a particular session`;
         // Sesi terhapus disebut keras, seperti syarat rusak: syaratnya tidak
         // pernah terpenuhi sampai sesinya dipilih ulang.
         return sessionNames[child.session_id] === undefined
-          ? "SESI CHECK-IN SUDAH DIHAPUS, pilih ulang"
-          : `${status} di ${sessionNames[child.session_id]}`;
+          ? "CHECK-IN SESSION DELETED, choose again"
+          : `${status} at ${sessionNames[child.session_id]}`;
       }
-      case "has_seat": return child.is ? "punya kursi" : "tanpa kursi";
-      default: return "syarat tidak dikenal";
+      case "has_seat": return child.is ? "has a seat" : "no seat";
+      default: return "unknown condition";
     }
   });
 
-  return parts.join(node.op === "and" ? " dan " : " atau ");
+  return parts.join(node.op === "and" ? " and " : " or ");
 }
 
 // ---------------------------------------------------------------------------
@@ -972,7 +972,7 @@ export function normalizeSessionSummary(raw: Record<string, unknown>): UndianSes
 }
 
 export const WINNER_STATUS_LABEL: Record<"pending" | "confirmed" | "rejected", string> = {
-  pending: "Belum dikonfirmasi",
-  confirmed: "Sah",
-  rejected: "Dibatalkan",
+  pending: "Pending",
+  confirmed: "Confirmed",
+  rejected: "Cancelled",
 };

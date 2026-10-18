@@ -42,7 +42,7 @@ const step = (steps: ReturnType<typeof undianReadiness>, id: string) => steps.fi
 {
   const steps = undianReadiness(input({ prizes: [], pools: {} }));
   assert.equal(step(steps, "kandidat").done, false);
-  assert.equal(step(steps, "kandidat").detail, "Menunggu hadiah aktif.");
+  assert.equal(step(steps, "kandidat").detail, "Waiting for an active prize.");
 }
 
 // Syarat hadiah tidak cocok dengan siapa pun: mengunci, dan nama hadiahnya
@@ -88,7 +88,7 @@ const step = (steps: ReturnType<typeof undianReadiness>, id: string) => steps.fi
     pools: { 1: { candidates: 120 } },
   }));
   assert.equal(step(steps, "sumber").done, true);
-  assert.ok(step(steps, "sumber").detail.includes("120 entri"));
+  assert.ok(step(steps, "sumber").detail.includes("120 entries"));
   assert.equal(undianCanRun(steps), true);
 }
 
@@ -96,7 +96,7 @@ const step = (steps: ReturnType<typeof undianReadiness>, id: string) => steps.fi
 {
   const many = [1, 2, 3, 4, 5].map((id) => prize({ id, name: `Hadiah ${id}` }));
   const steps = undianReadiness(input({ prizes: many, pools: {} }));
-  assert.ok(step(steps, "kandidat").detail.includes("dan 2 lainnya"));
+  assert.ok(step(steps, "kandidat").detail.includes("and 2 more"));
 }
 
 // Judul panggung kosong: peringatan, bukan gembok.
