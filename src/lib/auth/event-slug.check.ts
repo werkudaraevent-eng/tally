@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 
 // Ekstensi .ts ditulis eksplisit karena berkas ini dijalankan langsung oleh
 // Node (ESM), bukan lewat bundler Next.
-import { eventSlugFromRequest, HOST_SLUG_HEADER, slugKeHeader } from "./event-slug.ts";
+import { eventSlugFromRequest, HOST_SLUG_HEADER, pesertaKePath } from "./event-slug.ts";
 
 function req(url: string, referer?: string) {
   return new Request(url, referer ? { headers: { referer } } : undefined);
@@ -60,15 +60,19 @@ assert.equal(
 );
 console.log("event-slug.check.ts: header domain klien OK");
 
-// Area peserta: slug dan bahasa pindah ke header, query tab tetap. Halaman lain tidak disentuh.
+// Area peserta: slug dan bahasa pindah ke path, query tab tetap. Halaman lain tidak disentuh.
 {
-  const tujuan = new URL(`${BASE}/peserta?tab=perjalanan&eventSlug=kso&bahasa=en`);
-  assert.deepEqual(slugKeHeader(tujuan), { slug: "kso", lang: "en" });
-  assert.equal(tujuan.search, "?tab=perjalanan");
-  const daftar = new URL(`${BASE}/daftar?eventSlug=kso&bahasa=en`);
-  assert.deepEqual(slugKeHeader(daftar), { slug: null, lang: null });
-  assert.equal(daftar.search, "?eventSlug=kso&bahasa=en");
-  const pratinjau = new URL(`${BASE}/peserta/pratinjau?eventSlug=kso`);
-  assert.deepEqual(slugKeHeader(pratinjau), { slug: null, lang: null });
+  const ke = (alamat: string) => {
+    const u = new URL(`${BASE}${alamat}`);
+    pesertaKePath(u);
+    return u.pathname + u.search;
+  };
+  assert.equal(ke("/peserta?tab=perjalanan&eventSlug=kso&bahasa=en"), "/peserta/e/kso/en?tab=perjalanan");
+  assert.equal(ke("/peserta?eventSlug=kso"), "/peserta/e/kso");
+  assert.equal(ke("/peserta?eventSlug=kso&bahasa=xx"), "/peserta/e/kso?bahasa=xx");
+  assert.equal(ke("/peserta?eventSlug=a%2Fb"), "/peserta/e/a%2Fb");
+  assert.equal(ke("/peserta?tab=qr"), "/peserta?tab=qr");
+  assert.equal(ke("/daftar?eventSlug=kso&bahasa=en"), "/daftar?eventSlug=kso&bahasa=en");
+  assert.equal(ke("/peserta/pratinjau?eventSlug=kso"), "/peserta/pratinjau?eventSlug=kso");
 }
-console.log("event-slug.check.ts: slugKeHeader OK");
+console.log("event-slug.check.ts: pesertaKePath OK");

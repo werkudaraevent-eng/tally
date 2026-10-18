@@ -19,8 +19,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - PR "Kontak darurat" (E-03): emergency contacts filled in Participant area > Emergency and help (name or role, phone, note, map link per contact) with Call, WhatsApp and Map buttons on the portal Menu card; the Participant area preview opens Menu while that form is in use; an existing Columns block keeps working until "Copy into contacts". No SQL. Waiting on QA, then Mas's merge time.
-- Participant words (audit U-20, U-21, U-22, E-09): "Susunan acara" for the schedule, "Dashboard saya" for the participant area, "QR kehadiran" and "panitia" for the QR, on every layout. No SQL. Visible on KSO: waits on coordinator QA and Mas's merge time. The emails that still say "area peserta" follow with U-23 (kamu/Anda), waiting on Mas.
-- Participant area tabs on a slow connection: a tab tapped before its prefetch finished kept Home on screen. The proxy now passes the event slug and language to `/peserta` in request headers instead of the query. No SQL, no URL changes. Waits on coordinator QA and Mas's merge time.
+- Participant area tabs on a slow connection: a tab tapped before its prefetch finished kept Home on screen. The proxy now rewrites to `/peserta/e/<slug>[/<lang>]` instead of `/peserta?eventSlug=…&bahasa=…`, so each event and language has its own route and the tab stays the only query. No SQL, no public URL changes. Waits on coordinator QA and Mas's merge time.
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)

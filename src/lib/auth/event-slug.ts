@@ -34,29 +34,25 @@
 /** Header slug yang dipasang src/proxy.ts untuk permintaan di domain klien. */
 export const HOST_SLUG_HEADER = "x-tally-host-slug";
 
-/** Slug dan bahasa halaman bertab query, dipasang src/proxy.ts lewat slugKeHeader(). */
-export const PAGE_SLUG_HEADER = "x-tally-page-slug";
-export const PAGE_LANG_HEADER = "x-tally-page-lang";
-
 /**
- * Halaman yang tabnya hanya berbeda query (`/peserta?tab=perjalanan`). Tab yang
- * diketuk sebelum prefetch-nya selesai dirutekan Next 16 dengan menebak dari
- * entri halaman yang sudah ada (segment-cache/cache.js: optimisticRenderedSearch
- * memakai query entri itu bila tidak kosong). Rewrite yang menambahkan
- * `?eventSlug=` membuat query Beranda tidak pernah kosong, jadi tebakannya
- * memakai query Beranda dan tabnya tidak pernah dimuat: Beranda tetap tampil.
- * Karena itu slug dan bahasa halaman ini dibawa header, bukan query.
+ * Area peserta dirender di `/peserta/e/<slug>[/<bahasa>]`, bukan
+ * `/peserta?eventSlug=<slug>&bahasa=<bahasa>`. Tabnya hanya berbeda query
+ * (`?tab=perjalanan`), dan tab yang diketuk sebelum prefetch-nya selesai
+ * dirutekan Next 16 dengan menebak dari entri halaman yang sudah ada
+ * (segment-cache/cache.js: optimisticRenderedSearch memakai query entri itu
+ * bila tidak kosong). Dengan `?eventSlug=` query Beranda tidak pernah kosong,
+ * jadi tebakannya memakai query Beranda dan Beranda tetap tampil. Slug dan
+ * bahasa di path juga membuat setiap acara dan bahasa punya kunci cache
+ * sendiri. Mengubah `tujuan`; tujuan lain tidak disentuh.
  */
-const HALAMAN_TAB_QUERY = new Set(["/peserta"]);
-
-/** Pindahkan `eventSlug` dan `bahasa` dari tujuan rewrite ke header (mengubah `tujuan`). */
-export function slugKeHeader(tujuan: URL): { slug: string | null; lang: string | null } {
-  if (!HALAMAN_TAB_QUERY.has(tujuan.pathname)) return { slug: null, lang: null };
+export function pesertaKePath(tujuan: URL) {
   const slug = tujuan.searchParams.get("eventSlug");
-  const lang = tujuan.searchParams.get("bahasa");
+  if (tujuan.pathname !== "/peserta" || !slug) return;
+  const bahasa = tujuan.searchParams.get("bahasa");
+  const lang = bahasa === "en" || bahasa === "id" ? bahasa : null;
+  tujuan.pathname = `/peserta/e/${encodeURIComponent(slug)}${lang ? `/${lang}` : ""}`;
   tujuan.searchParams.delete("eventSlug");
-  tujuan.searchParams.delete("bahasa");
-  return { slug, lang };
+  if (lang) tujuan.searchParams.delete("bahasa");
 }
 
 export function eventSlugFromRequest(request: Request) {

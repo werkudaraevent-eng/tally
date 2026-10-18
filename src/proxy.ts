@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { HOST_SLUG_HEADER, PAGE_LANG_HEADER, PAGE_SLUG_HEADER, slugKeHeader } from "@/lib/auth/event-slug";
+import { HOST_SLUG_HEADER, pesertaKePath } from "@/lib/auth/event-slug";
 import { decideClientHost, redirectToClient } from "@/lib/domain-klien/rute";
 import { domainMap, eventIdForHost, PENANDA_PATH } from "@/lib/domain-klien/simpan";
 import { productionSiteOrigin } from "@/lib/domain-klien/situs";
@@ -150,22 +150,17 @@ export async function proxy(request: NextRequest) {
     destination = eventRewrite(request);
   }
 
-  // Area peserta: slug dan bahasa lewat header, supaya tab yang diketuk sebelum
-  // prefetch-nya selesai tetap dimuat (lihat slugKeHeader).
-  const halaman = destination ? slugKeHeader(destination) : { slug: null, lang: null };
+  // Area peserta: slug dan bahasa di path, supaya tab yang diketuk sebelum
+  // prefetch-nya selesai tetap dimuat (lihat pesertaKePath).
+  if (destination) pesertaKePath(destination);
 
   // Header slug domain klien hanya boleh berasal dari sini: salinan yang
   // dikirim browser selalu dibuang (src/lib/auth/event-slug.ts mempercayainya).
-  // Begitu juga header slug dan bahasa halaman.
   // Dibangun ulang setiap kali karena setAll di bawah mengubah cookie permintaan.
   const teruskan = () => {
     const headers = new Headers(request.headers);
     headers.delete(HOST_SLUG_HEADER);
     if (slugHost) headers.set(HOST_SLUG_HEADER, slugHost);
-    headers.delete(PAGE_SLUG_HEADER);
-    headers.delete(PAGE_LANG_HEADER);
-    if (halaman.slug) headers.set(PAGE_SLUG_HEADER, halaman.slug);
-    if (halaman.lang) headers.set(PAGE_LANG_HEADER, halaman.lang);
     return destination
       ? NextResponse.rewrite(destination, { request: { headers } })
       : NextResponse.next({ request: { headers } });
