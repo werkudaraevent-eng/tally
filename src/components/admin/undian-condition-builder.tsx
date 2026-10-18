@@ -41,6 +41,7 @@ type Props = {
    * menandai sesi yang dipilih sebagai "sudah dihapus".
    */
   sessions?: { id: number; name: string }[] | null;
+  onRetrySessions?: () => void;
   tone?: "include" | "exclude";
   depth?: number;
 };
@@ -118,7 +119,7 @@ function TombolHapus({ label, onClick, icon }: { label: string; onClick: () => v
   return <button type="button" onClick={onClick} aria-label={label} title={label} className="ml-auto grid size-8 shrink-0 place-items-center rounded-md text-error hover:bg-error-soft">{icon}</button>;
 }
 
-export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], sessions, tone = "include", depth = 0 }: Props) {
+export function UndianConditionBuilder({ value, onChange, participantTypes, rsvpStatuses, companies = [], sessions, onRetrySessions, tone = "include", depth = 0 }: Props) {
   function updateChild(index: number, next: UndianConditionNode) {
     onChange({ ...value, children: value.children.map((child, i) => (i === index ? next : child)) });
   }
@@ -142,13 +143,14 @@ export function UndianConditionBuilder({ value, onChange, participantTypes, rsvp
             <span className="text-body-medium font-medium text-on-surface-variant">Grup syarat</span>
             <TombolHapus label="Hapus grup" onClick={() => removeChild(index)} icon={<X size={16} />} />
           </div>
-          <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} sessions={sessions} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
+          <UndianConditionBuilder value={child} participantTypes={participantTypes} rsvpStatuses={rsvpStatuses} companies={companies} sessions={sessions} onRetrySessions={onRetrySessions} tone={tone} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
         </div> : <LeafEditor
           leaf={child}
           participantTypes={participantTypes}
           rsvpStatuses={rsvpStatuses}
           companies={companies}
           sessions={sessions}
+          onRetrySessions={onRetrySessions}
           tone={tone}
           onChange={(next) => updateChild(index, next)}
           onRemove={() => removeChild(index)}
@@ -191,6 +193,7 @@ function LeafEditor({
   rsvpStatuses,
   companies,
   sessions,
+  onRetrySessions,
   tone,
   onChange,
   onRemove,
@@ -200,6 +203,7 @@ function LeafEditor({
   rsvpStatuses: string[];
   companies: string[];
   sessions: { id: number; name: string }[] | null | undefined;
+  onRetrySessions?: () => void;
   tone: "include" | "exclude";
   onChange: (next: UndianConditionNode) => void;
   onRemove: () => void;
@@ -323,6 +327,11 @@ function LeafEditor({
       <Warning size={16} aria-hidden className="shrink-0" /> {tone === "exclude"
         ? "Sesi ini sudah dihapus, jadi aturan ini tidak mengecualikan siapa pun. Pilih sesi lain."
         : "Sesi ini sudah dihapus, jadi tidak ada peserta yang lolos. Pilih sesi lain."}
+    </span>}
+
+    {leaf.var === "checked_in" && leaf.session_id !== undefined && sessions === null && <span role="status" className="order-last flex basis-full items-center gap-1.5 text-on-surface-variant">
+      <span>Check-in sessions could not be loaded. This condition is kept as it is.</span>
+      {onRetrySessions && <button type="button" onClick={onRetrySessions} className="min-h-9 shrink-0 font-medium text-primary underline">Retry</button>}
     </span>}
 
     <TombolHapus label="Hapus syarat" onClick={onRemove} icon={<Trash size={16} />} />

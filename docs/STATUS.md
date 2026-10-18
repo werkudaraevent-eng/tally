@@ -17,6 +17,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
+- #207 Lucky draw: a session list that failed to load no longer shows conditions as deleted; Retry instead (opencode pilot, draft): waiting on QA, then Mas's merge time.
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
