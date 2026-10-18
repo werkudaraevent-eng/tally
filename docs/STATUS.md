@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Checkpoint self-scan (E-14), draft PR `feat/checkpoint-scan-mandiri`: Check-in > Checkpoints > "How it gets done" per checkpoint (Staff default, Participants, Both). Staff show a QR from the scanner app (Show QR) or `/checkpoint-qr` on a big screen; the code changes every 30 seconds; participants scan it from the checkpoint card. Waiting on Mas to run migration 202610180001, then his merge time (KSO is in client review). Safe to merge before the SQL: everything stays staff-scanned and saving Participants or Both answers "needs a database update".
+- Checkpoint self-scan (E-14), draft PR `feat/checkpoint-scan-mandiri`: Check-in > Checkpoints > "How it gets done" per checkpoint (Staff default, Participants, Both). Staff show a QR from the scanner app (Show QR) or `/checkpoint-qr` on a big screen; the code changes every 30 seconds; participants scan it from the checkpoint card. Migration 202610180001 was run by Mas on 18 Oct (post-check all true); coordinator QA GO. Waiting on Mas's merge time (KSO is in client review). QA Lows for a follow-up PR: self-scan still records on a completed event (staff scan returns 409); no Origin check on the self-scan POST; a Staff checkpoint sharing a session with a Participants checkpoint is completed by a self-scan; item checkpoint PATCH silently saves Staff while POST answers 422.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
@@ -38,7 +38,6 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 ## Waiting on Mas (owner)
 
 - SQL cleanup from #119 (pending registration rows) to run.
-- Migration 202610180001 (checkpoint self-scan) to run, then its post-check.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
 - Portal audit follow-up "your batch": an "Applies to" setting per Agenda section so Schedule and Home open the participant's own batch first. It needs its own mockup and a small SQL file he runs; #201 (merged) gives it the staff-only Batch column to read. For KSO, add Batch from Participant list > Columns > Add a column in Registration before the import; the import template includes staff-only columns.
 

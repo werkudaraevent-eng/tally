@@ -15,7 +15,7 @@ Status per item as of 18 Oct 2026, after #199 to #202. This is the working copy 
 |---|---|---|
 | KSO content in the CMS (Mas) | 5 | U-04, U-08, U-15, U-34, U-35 |
 | Needs a decision or a mockup from Mas | 4 | U-22, U-25, U-30, E-13 |
-| Built, waiting on SQL and merge | 1 | E-14 |
+| Built, waiting on merge | 1 | E-14 |
 | Partly done | 15 | U-01, U-02, U-06, U-07, U-09, U-10, U-20, U-24, U-26, U-33, E-01, E-06, E-09, E-10, E-12 |
 | Not started | 17 | U-12, U-13, U-14, U-17, U-19, U-21, U-23, U-27, U-29, U-31, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
 | Done | 9 | U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08 |
@@ -582,12 +582,12 @@ Measured at audit time:
 
 ### E-14 Self-scan at busy checkpoints
 
-- Status: Built, waiting on SQL and merge
+- Status: Built, waiting on merge
 - Priority: low. Area: Home ("Panduan checkpoint" card). Scope: platform.
 - Finding: Every checkpoint was scanned by staff, so a busy checkpoint needs enough staff to keep the queue short.
 - Eventnook: NookPass lets participants scan a rotating code on the checkpoint screen with their own phone; a photo of the code stops working after about a minute, and each scan records how it was made.
 - Recommendation: Consider it only for checkpoints with no item handover. The risks are real: camera permission, printed codes can be photographed, and a phone with problems still needs staff.
-- Left: Mas runs migration 202610180001, then the PR merges at a time he picks. Nothing changes until an admin picks Participants or Both for a checkpoint.
+- Left: the PR merges at a time Mas picks (migration 202610180001 was run on 18 Oct). Nothing changes until an admin picks Participants or Both for a checkpoint.
 - Decision on record or question for Mas: Mas approved the mockup on 18 Oct: per checkpoint, Check-in > Checkpoints > "How it gets done" is Staff (default), Participants or Both; staff show a QR from the scanner app (Show QR) or a big screen; the code changes every 30 seconds; kit-item checkpoints stay staff-scanned.
 - Code: `src/app/admin/attendance/checkpoints.tsx` (Check-in > Checkpoints, where checkpoints are set up); `src/lib/checkpoint/server.ts` (checkpoint data for the portal); `src/lib/checkpoint/kode-qr.ts` (rotating code); `src/components/member/pindai-checkpoint.tsx` (participant camera); `src/app/scan/tampil-qr.tsx` and `src/app/checkpoint-qr/` (Show QR and the big screen)
 
