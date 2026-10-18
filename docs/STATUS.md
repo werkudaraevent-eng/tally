@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- PR "QR antre" (U-02, U-07, U-09 warnings, U-10): cashier offline banner only on Cashier and Booth; the reloaded QR page skips announcements and loads only the bus; the offline QR copy follows the signed-in account; Readiness items for the organiser phone and Agenda sections outside the event dates, plus a warning under the section Date. No SQL. Waits on coordinator QA and Mas's merge time.
+- #206 (U-02, U-07, U-09 warnings, U-10): cashier offline banner only on Cashier and Booth; the reloaded QR page skips announcements and loads only the bus; the offline QR copy follows the signed-in account; Readiness items for the organiser phone and Agenda sections outside the event dates, plus a warning under the section Date. No SQL. Waits on coordinator QA and Mas's merge time.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
@@ -43,7 +43,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## KSO participant-area audit (17 Oct): open items
 
-Every item (finding, recommendation, what is left, decisions and code pointers) is in `docs/kso-portal-audit.md` (U-xx findings, E-xx Eventnook lessons); change an item's status there and here in the same PR. Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08; U-02, U-07 and U-10 in PR "QR antre". #201 adds the staff-only Batch column (nothing in the portal reads it yet), and #202 links bus trips to Agenda rows.
+Every item (finding, recommendation, what is left, decisions and code pointers) is in `docs/kso-portal-audit.md` (U-xx findings, E-xx Eventnook lessons); change an item's status there and here in the same PR. Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08; U-02, U-07 and U-10 in #206. #201 adds the staff-only Batch column (nothing in the portal reads it yet), and #202 links bus trips to Agenda rows.
 
 - KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, a bus trip per Agenda row in Logistics > Buses > Trips, linked to that row with #202, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (fill the participant-only Columns block and choose it in Participant area > Emergency and help), E-08 (set the points goal, or turn Points off; if the goal is a Lucky draw entry, draw conditions can count scans but not points yet).
 - Needs a decision or a mockup from Mas first: "your batch" (U-01 step 2, E-01, E-06, E-10: an "Applies to" setting per Agenda section reading the #201 Batch column, then Home, Schedule and the QR show the participant's batch; small SQL), U-22 (one word for the schedule: Jadwal or Susunan acara), U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-14 (self-scan at quiet checkpoints), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).

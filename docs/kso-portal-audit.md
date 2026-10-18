@@ -23,7 +23,7 @@ Suggested order:
 
 1. Mas: the KSO content items in the CMS. They need no code.
 2. "Your batch" (U-01 step 2, E-01, E-06, E-10): an "Applies to" setting per Agenda section that reads the staff-only Batch column from #201. Mockup first, then a small SQL file Mas runs.
-3. Code: U-13, U-12 (U-02 done in PR "QR antre").
+3. Code: U-13, U-12 (U-02 done in #206).
 
 ## What already works (keep it)
 
@@ -53,12 +53,12 @@ Measured at audit time:
 
 ### U-02 Attendance QR without signal: needs the network to open, lets the screen sleep, and shows guests the cashier offline banner
 
-- Status: Done (#199, PR "QR antre")
+- Status: Done (#199, #206)
 - Priority: high. Area: QR. Scope: platform.
 - Finding: Check-in and checkpoints happen in crowded stations and on the train, where signal is worst. At audit time a participant opening the QR without signal got a browser error page, the screen could switch off in the queue so they had to unlock it in front of staff, and the offline banner guests saw was the staff cashier text ("OFFLINE", "jangan buat order"), covering the bottom bar.
 - Compared with: Eventbrite lets attendees save the ticket as an image to get in without internet, and the QR in a Luma Wallet pass shows offline.
 - Recommendation: (1) Keep the ?tab=qr address, but show the QR at once from the code already on the page; the server render for that tab only needs the code. (2) Request a Screen Wake Lock while the QR is open, as the staff scanner does, and stay silent when the browser does not support it. (3) Keep the cashier banner to staff screens and give guests their own message above the bottom bar, for example "Kamu sedang offline. QR yang tersimpan tetap bisa ditunjukkan." (4) Before departure, one row, "Simpan QR ke galeri sebelum berangkat", that calls the same save as "Unduh kode". If the QR is kept on the device, keep it per account and delete it on "Keluar". Enlarging the QR from 192 px to the card width is optional.
-- Left: Shipped in #199: the QR opens at once as a layer from the code on the page, a service worker shows a saved offline copy without signal (deleted on "Keluar"), the screen stays on while the QR is open, guests get their own offline note, and Home shows a "Simpan QR ke galeri" row from three days before the event to its last day. PR "QR antre" finished it: the cashier banner now lives only in the Cashier and Booth layouts, so no guest page shows it; the reloaded QR page skips the announcements query and loads only the bus (see U-10); the saved offline copy follows the signed-in account (cleared on sign-in and when the signed-in account has no QR).
+- Left: Shipped in #199: the QR opens at once as a layer from the code on the page, a service worker shows a saved offline copy without signal (deleted on "Keluar"), the screen stays on while the QR is open, guests get their own offline note, and Home shows a "Simpan QR ke galeri" row from three days before the event to its last day. #206 finished it: the cashier banner now lives only in the Cashier and Booth layouts, so no guest page shows it; the reloaded QR page skips the announcements query and loads only the bus (see U-10); the saved offline copy follows the signed-in account (cleared on sign-in and when the signed-in account has no QR).
 - Code: `src/components/member/qr-fokus.tsx` (PemicuQr); `src/components/member/lapisan-qr.tsx` (PenyediaQr, PesanLuringQr, wake lock); `src/components/member/simpan-qr-galeri.tsx` (SimpanQrGaleri); `src/app/offline-banner.tsx` (OfflineBanner); `src/app/peserta-sw.js/route.ts` (participant service worker); `src/lib/member/halaman-qr-luring.ts` (halamanQrLuring); `src/components/member/form-keluar.tsx` (hapusSalinanQr); `src/components/member/dashboard-gathering.tsx` (?tab=qr branch)
 - Related: U-10, U-18, U-28
 
@@ -109,12 +109,12 @@ Measured at audit time:
 
 ### U-07 Organiser help: a phone link only, no WhatsApp or email, and missing when the number is empty
 
-- Status: Done (#199, PR "QR antre")
+- Status: Done (#199, #206)
 - Priority: medium. Area: Home, Travel and Profile. Scope: platform.
 - Finding: A participant who is lost or has missed the bus needs one button that is always in the same place, and in Indonesia that is usually WhatsApp. At audit time help depended on a single phone field, which was empty for KSO, so the participant area had no organiser contact at all, while bus crews already had Call and WhatsApp buttons.
 - Compared with: Luma has a Contact the Host button, Traveloka puts "Need Check-in Help?" on the hotel voucher, and Eventnook has an emergency contact page in its corporate meeting app.
 - Recommendation: Show "Hubungi panitia" with two buttons like the bus crew card (call and WhatsApp), from the existing organiser contact setting, with email as a fallback when there is no number. Put it in fixed places: one row on Home and one under "Bantuan dan pengaturan" in Profile. Add an English Readiness item, for example "Organiser contact for the Participant area". See also E-03 for the emergency card.
-- Left: #199 shipped call and WhatsApp buttons from Event settings > Kontak panitia (WhatsApp only for an Indonesian mobile number, email when there is no phone): a "Hubungi panitia" card on Home and Travel, and a "Hubungi panitia" block under "Bantuan dan pengaturan" in Profile. PR "QR antre" added the Readiness item "Organiser phone for the Participant area" (shown while the participant area is on; links to Event settings).
+- Left: #199 shipped call and WhatsApp buttons from Event settings > Kontak panitia (WhatsApp only for an Indonesian mobile number, email when there is no phone): a "Hubungi panitia" card on Home and Travel, and a "Hubungi panitia" block under "Bantuan dan pengaturan" in Profile. #206 added the Readiness item "Organiser phone for the Participant area" (shown while the participant area is on; links to Event settings).
 - Code: `src/components/member/portal-horizon.tsx` (TombolKontakHorizon, KartuBantuanHorizon); `src/components/member/dashboard-gathering.tsx`; `src/lib/kontak-panitia.ts` (kontakPanitia); `src/components/admin/settings-panel.tsx` (Kontak panitia setting); `src/app/admin/page.tsx` (kesiapan, the Readiness list)
 - Related: E-03, U-08
 
@@ -136,19 +136,19 @@ Measured at audit time:
 - Finding: The KSO event page says "Tiga hari", "Empat hari", a counter "01–06" and 6 to 8 November at the same time, and Home said "empat hari yang menunggumu" right above the "6–8 Nov" pass. The trip length is the first fact participants and the client read, and because the counting rule is in the platform, any event with a travel day or two batches gets the same result.
 - Compared with: Airbnb's trip card takes its date range from the booking, and Luma writes multi-day events as a date range.
 - Recommendation: Count "N hari" from the event start and end dates, the same source as the pass. Make the "01–NN" counter follow the same count or remove it (a V5 element, Mas decides). Add an English warning in Agenda and a Readiness item when a section is published outside the event dates. The subtitle names only what has data.
-- Left: #199 moved the Home and Schedule subtitles to the event date range. Still open: jumlahHariAgenda still counts unique section dates and feeds the event page day heading (classic and Horizon), so it can disagree with the CMS hint, which counts event dates; the "01–NN" counter still counts sections, batches included; PR "QR antre" added the warnings: Agenda > Section shows one under Date when the date is outside the event, and Readiness lists "N Agenda sections dated outside the event" (published sections only). Minor: the Home subtitle ("Tiket dan jadwalmu untuk" plus the dates) names the ticket and schedule even when those are switched off. #201 and #202 change none of this.
+- Left: #199 moved the Home and Schedule subtitles to the event date range. Still open: jumlahHariAgenda still counts unique section dates and feeds the event page day heading (classic and Horizon), so it can disagree with the CMS hint, which counts event dates; the "01–NN" counter still counts sections, batches included; #206 added the warnings: Agenda > Section shows one under Date when the date is outside the event, and Readiness lists "N Agenda sections dated outside the event" (published sections only). Minor: the Home subtitle ("Tiket dan jadwalmu untuk" plus the dates) names the ticket and schedule even when those are switched off. #201 and #202 change none of this.
 - Decision on record or question for Mas: Open for Mas: (1) the "01–NN" counter on the event page is a V5 element; should it follow the date count or go? (2) Home has two headings from V5, "siap bikin cerita baru?" on desktop and "ini perjalananmu." on phones; keep two, or use one?
 - Code: `src/lib/landing-agenda.ts` (jumlahHariAgenda); `src/components/landing/event-landing-modern.tsx` (day heading and 01–NN counter); `src/components/member/dashboard-gathering.tsx` (Home subtitle); `src/lib/member/portal-i18n.ts` (subtitleDates); `src/app/admin/landing/page.tsx` (day count hint); `src/app/admin/rundown/page.tsx` (Agenda, where the out-of-range warning would go); `src/app/admin/page.tsx` (kesiapan, the Readiness list)
 - Related: U-04
 
 ### U-10 Tab switches and opening the QR wait on the server with no sign of progress, and there is no participant error page
 
-- Status: Done for Horizon (#199, PR "QR antre")
+- Status: Done for Horizon (#199, #206)
 - Priority: medium. Area: All portal tabs and QR. Scope: platform.
 - Finding: Two seconds with no sign makes people tap again or think the link is broken, and on station networks the wait is longer (switching days in Schedule measured 1.8 to 2.4 seconds on desktop). Server errors ended on the default Next.js error page with no way back to the QR.
 - Compared with: Eventbrite tells attendees when the device is offline, and saved tickets still open.
 - Recommendation: (1) A loading skeleton for the participant page that keeps the top and bottom bars, or a pending marker (useLinkStatus) on the tabs and the QR button. (2) An error.tsx with "Coba lagi" and links to Home and the QR. (3) A participant-only offline text (U-02). (4) The QR tab does not load the agenda, logistics or lodging. Empty states stay honest and do not promise times the platform does not know.
-- Left: (1) to (3) shipped in #199 for the Horizon portal: tabs show a pending marker and a skeleton with a gold progress line under the top bar, QR buttons open a client layer with no server request, the participant error page offers "Coba lagi", "Tampilkan QR" and "Beranda", and guests get their own offline note (the reloaded QR page still shows the cashier banner, see U-02). (4) done in PR "QR antre": the QR page opened by reload or a shared link skips the agenda and the announcements query, and reads member_logistics without train tickets or bus details. Layouts other than Horizon get only the error page.
+- Left: (1) to (3) shipped in #199 for the Horizon portal: tabs show a pending marker and a skeleton with a gold progress line under the top bar, QR buttons open a client layer with no server request, the participant error page offers "Coba lagi", "Tampilkan QR" and "Beranda", and guests get their own offline note (the reloaded QR page still shows the cashier banner, see U-02). (4) done in #206: the QR page opened by reload or a shared link skips the agenda and the announcements query, and reads member_logistics without train tickets or bus details. Layouts other than Horizon get only the error page.
 - Code: `src/components/member/muat-portal.tsx` (PenandaTab, KerangkaPortal); `src/app/peserta/error.tsx`; `src/components/member/qr-fokus.tsx` (PemicuQr); `src/components/member/lapisan-qr.tsx` (PesanLuringQr); `src/components/member/dashboard-gathering.tsx` (?tab=qr branch); `src/lib/logistik/peserta.ts` (loadMemberLogistics); `src/app/peserta/page.tsx` (loadMemberAnnouncements runs before the QR branch)
 - Related: U-02
 
