@@ -164,7 +164,7 @@ export default function ParticipantsAdminPage() {
       >
         <div className="flex flex-col gap-4 text-body-medium">
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-container-high p-3">
-            <span className="min-w-0 flex-1 text-on-surface-variant">No file yet? The template has the built-in columns, the extra registration form questions and two sample rows.</span>
+            <span className="min-w-0 flex-1 text-on-surface-variant">No file yet? The template has the built-in columns, the extra questions (including staff-only ones) and two sample rows.</span>
             <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=xlsx" icon={<DownloadSimple size={16} />}>XLSX template</ButtonLink>
             <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=csv" icon={<DownloadSimple size={16} />}>CSV template</ButtonLink>
           </div>

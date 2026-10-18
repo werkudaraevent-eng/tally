@@ -1,5 +1,6 @@
 import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
+import { pertanyaanFormulir } from "@/lib/kolom-staf";
 
 /**
  * Konfigurasi form untuk halaman /daftar. Publik.
@@ -7,7 +8,8 @@ import { getPublicRequestEvent } from "@/lib/auth/request-event";
  * Yang dikirim SENGAJA sedikit: nama acara, tanggal, dan bentuk formnya. Status
  * event, slug Scanner API, dan `registration_auto_approve` TIDAK ikut —
  * pendaftar tidak perlu tahu apakah pendaftarannya akan disetujui otomatis, dan
- * mengumumkannya berarti memberitahu bahwa tidak ada yang memeriksa.
+ * mengumumkannya berarti memberitahu bahwa tidak ada yang memeriksa. Pertanyaan
+ * yang tidak ditanyakan di formulir (lib/kolom-staf.ts) juga tidak ikut.
  */
 export async function GET(request: Request) {
   const event = await getPublicRequestEvent(request);
@@ -18,7 +20,7 @@ export async function GET(request: Request) {
   return Response.json({
     event: { name: event.name, slug: event.slug, event_date: event.event_date, time_zone: event.time_zone },
     form: {
-      fields: config.fields ?? [],
+      fields: pertanyaanFormulir(config.fields ?? []),
       welcome_text: config.welcome_text ?? null,
       success_text: config.success_text ?? null,
       require_company: config.require_company ?? false,

@@ -11,7 +11,7 @@ import {
   type RegistrationFormConfig,
 } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
-import { persetujuanKlien } from "@/lib/live/kolom-klien";
+import { asalJawaban, ditanyakan, kunciIkutLabel, tambahPertanyaan } from "@/lib/kolom-staf";
 
 /**
  * Penyunting susunan form registrasi publik.
@@ -29,20 +29,40 @@ import { persetujuanKlien } from "@/lib/live/kolom-klien";
 
 const TYPE_OPTIONS = Object.entries(REGISTRATION_FIELD_TYPE_LABELS) as [RegistrationFieldType, string][];
 
-/** Kunci JSON dari label. Admin tidak perlu memikirkannya, tapi tetap bisa mengubahnya. */
-function keyFromLabel(label: string, taken: Set<string>): string {
-  const base = label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .replace(/^[^a-z]+/, "")
-    .slice(0, 32) || "field";
-  if (!taken.has(base)) return base;
-  for (let n = 2; n < 100; n += 1) {
-    const candidate = `${base}_${n}`;
-    if (!taken.has(candidate)) return candidate;
+/** Keterangan sakelar "Ask on the registration form": akibatnya, menurut kedua sakelar pertanyaan ini. */
+function keteranganTanya(field: RegistrationField): string {
+  if (field.type === "file") return "Always on the form: only registrants can upload files.";
+  if (ditanyakan(field)) return "Asked on the public form and the walk-in desk form.";
+  return field.participant_update
+    ? "Not on the form. Participants fill it in later from their dashboard or an Update details link."
+    : "Staff only. Fill it in the Participant list or by import.";
+}
+
+/**
+ * Bagian kedua meta baris: wajib atau tidak, atau siapa yang mengisinya bila
+ * tidak ditanyakan. Huruf kecil, seperti tetangganya di baris yang sama.
+ * "not on form" dilengkapi "participants can update" yang menyusul.
+ */
+function metaWajib(field: RegistrationField): string {
+  const asal = asalJawaban(field);
+  if (asal === "staf") return "staff only";
+  if (asal === "peserta") return "not on form";
+  return field.required ? "required" : "optional";
+}
+
+/**
+ * Gulir supaya `el` duduk tepat di bawah bilah atas. Di layar tinggi panel
+ * penyunting bergulir sendiri; di layar pendek dan ponsel yang bergulir
+ * halamannya, dan bilah atas yang menempel menutupi bagian teratasnya.
+ */
+function gulirKe(el: HTMLElement) {
+  const wadah = el.closest<HTMLElement>(".overflow-y-auto");
+  if (wadah && wadah.scrollHeight - wadah.clientHeight > 1) {
+    wadah.scrollTop += el.getBoundingClientRect().top - wadah.getBoundingClientRect().top - 8;
+    return;
   }
-  return `${base}_${Date.now()}`;
+  const bilah = parseFloat(getComputedStyle(el).getPropertyValue("--workspace-top")) || 58;
+  window.scrollBy({ top: el.getBoundingClientRect().top - bilah - 8 });
 }
 
 type Props = {
@@ -51,10 +71,24 @@ type Props = {
   disabled?: boolean;
   /** Area peserta acara ini menyala: "Email wajib" dikunci menyala. */
   areaPeserta?: boolean;
+  /**
+   * Kunci pertanyaan di susunan yang TERSIMPAN. Kunci otomatis pertanyaan baru
+   * (kunciIkutLabel) tidak memakainya, juga milik pertanyaan yang baru dihapus
+   * di draf ini: jawabannya masih tersimpan di bawah kunci itu.
+   */
+  kunciTersimpan: string[];
+  /**
+   * Posisi pertanyaan yang dibuka saat penyunting dipasang: panelnya terbuka,
+   * barisnya tergulir ke pandangan, dan kolom Question terfokus dengan teksnya
+   * terpilih, jadi admin langsung mengetik namanya. Dipakai "Add a column in
+   * Registration" dari Participant list.
+   */
+  fokusAwal?: number | null;
 };
 
-export function RegistrationFormBuilder({ config, onChange, disabled, areaPeserta = false }: Props) {
+export function RegistrationFormBuilder({ config, onChange, disabled, areaPeserta = false, kunciTersimpan, fokusAwal = null }: Props) {
   const fields = config.fields ?? [];
+  const tersimpan = new Set(kunciTersimpan);
   /**
    * Baris yang sedang terbuka dilacak lewat POSISINYA, bukan lewat kuncinya.
    *
@@ -66,8 +100,23 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
    * Posisi tidak ikut berubah saat isinya diketik. Ia berubah saat baris
    * dipindah atau dihapus, dan ketiga fungsi di bawah membetulkannya sendiri.
    */
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openIndex, setOpenIndex] = useState<number | null>(fokusAwal);
   const groupId = useId();
+
+  // `fokusAwal` dikerjakan sekali, setelah panelnya ada di DOM.
+  const tujuanFokus = useRef<number | null>(fokusAwal);
+  useEffect(() => {
+    const index = tujuanFokus.current;
+    if (index === null) return;
+    const isian = document.getElementById(`${groupId}-${index}`)?.querySelector<HTMLInputElement>('[data-isian="pertanyaan"]');
+    const baris = isian?.closest("li");
+    if (!isian || !baris) return;
+    tujuanFokus.current = null;
+    // Baris sebelumnya ikut terlihat di atasnya, supaya jelas pertanyaan baru ini duduk di ujung daftar.
+    gulirKe((baris.previousElementSibling as HTMLElement | null) ?? baris);
+    isian.focus({ preventScroll: true });
+    isian.select();
+  });
 
   const issues = validateFieldDefinitions(fields);
   const issueByKey = new Map(issues.map((issue) => [issue.key, issue.message]));
@@ -96,15 +145,10 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
   }
 
   function add() {
-    // Kunci yang masih disetujui untuk klien ikut dianggap terpakai, walaupun
-    // pertanyaannya sudah dihapus dari susunan ini: pertanyaan baru tidak boleh
-    // mewarisi persetujuan pertanyaan lama (QA #102, H1).
-    const taken = new Set([...fields.map((field) => field.key), ...persetujuanKlien(config).map((item) => item.key)]);
-    const key = keyFromLabel("Pertanyaan baru", taken);
-    onChange({
-      ...config,
-      fields: [...fields, { key, label: "Pertanyaan baru", type: "text", required: false }],
-    });
+    // Kuncinya tidak memakai kunci yang masih disetujui untuk klien (QA #102
+    // H1), kunci tersimpan milik pertanyaan yang baru dihapus di draf ini, maupun
+    // kunci pertanyaan yang dihapus di Save form sebelumnya (`retired_keys`).
+    onChange(tambahPertanyaan(config, { tersimpan }));
     setOpenIndex(fields.length);
   }
 
@@ -251,7 +295,7 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                   >
                     <span className="block truncate text-body-large font-semibold">{field.label || "(no label)"}</span>
                     <span className="mt-0.5 block truncate text-body-small text-on-surface-variant">
-                      {REGISTRATION_FIELD_TYPE_LABELS[field.type]} · {field.required ? "required" : "optional"}{field.participant_update && field.type !== "file" ? " · participants can update" : ""} · {field.key}
+                      {REGISTRATION_FIELD_TYPE_LABELS[field.type]} · {metaWajib(field)}{field.participant_update && field.type !== "file" ? " · participants can update" : ""} · {field.key}
                     </span>
                   </button>
                   {problem ? <StatusChip tone="error" className="shrink-0">Needs fixing</StatusChip> : null}
@@ -268,15 +312,34 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
 
                 {open ? (
                   <div id={`${groupId}-${index}`} className="space-y-4 border-t border-outline-variant p-4">
+                    {/* Paling atas: menentukan apakah pertanyaan ini bagian formulir atau
+                        hanya kolom di Participant list. Required di bawah mengikutinya. */}
+                    <div className="border-b border-outline-variant pb-4">
+                      <Switch
+                        checked={ditanyakan(field)}
+                        onChange={(value) => patchField(index, { on_form: value ? undefined : false })}
+                        disabled={disabled}
+                        // Unggahan berkas dikunci menyala: panitia tidak bisa mengunggah atas nama orang lain.
+                        kunci={field.type === "file"}
+                        label="Ask on the registration form"
+                        description={keteranganTanya(field)}
+                      />
+                    </div>
+
                     {problem ? (
                       <p role="alert" className="rounded-md bg-error-soft p-3 text-body-small text-on-error-soft">{problem}</p>
                     ) : null}
 
                     <TextField
                       label="Question"
+                      data-isian="pertanyaan"
                       value={field.label}
                       disabled={disabled}
-                      onChange={(event) => patchField(index, { label: event.target.value })}
+                      onChange={(event) => {
+                        const label = event.target.value;
+                        // Pertanyaan baru yang Data key-nya belum diketik sendiri: kuncinya ikut teksnya.
+                        patchField(index, { label, key: kunciIkutLabel(config, index, label, tersimpan) });
+                      }}
                     />
 
                     <SelectField
@@ -362,18 +425,23 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                       disabled={disabled}
                       error={FIELD_KEY_PATTERN.test(field.key) ? undefined : "Invalid key format."}
                       value={field.key}
-                      onChange={(event) => patchField(index, { key: event.target.value })}
+                      // Diketik sendiri: sejak itu kuncinya milik admin dan tidak lagi ikut teks pertanyaan.
+                      onChange={(event) => patchField(index, { key: event.target.value, kunci_otomatis: undefined })}
                     />
 
-                    <Switch
-                      checked={field.required}
-                      onChange={(value) => patchField(index, { required: value })}
-                      disabled={disabled}
-                      label="Required"
-                      description={field.type === "checkbox"
-                        ? "Registrants must tick it before they can submit."
-                        : "Registrants can't submit until this field is filled in."}
-                    />
+                    {/* Disembunyikan selama tidak ditanyakan: kolom yang tidak ada di
+                        formulir tidak bisa wajib, dan disimpan tidak wajib. */}
+                    {ditanyakan(field) ? (
+                      <Switch
+                        checked={field.required}
+                        onChange={(value) => patchField(index, { required: value })}
+                        disabled={disabled}
+                        label="Required"
+                        description={field.type === "checkbox"
+                          ? "Registrants must tick it before they can submit."
+                          : "Registrants can't submit until this field is filled in."}
+                      />
+                    ) : null}
 
                     {field.type !== "file" ? (
                       <Switch

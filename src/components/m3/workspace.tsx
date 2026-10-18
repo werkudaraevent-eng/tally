@@ -331,12 +331,21 @@ export function useColumnPrefs(table: string, defaults: string[]) {
 	return { visible: nilai ?? defaults, setVisible, isDefault: nilai == null };
 }
 
-export function ColumnMenu({ columns, visible, onChange, onReset, isDefault }: {
+export function ColumnMenu({ columns, visible, onChange, onReset, isDefault, action }: {
 	columns: ColumnOption[];
 	visible: string[];
 	onChange: (next: string[]) => void;
 	onReset: () => void;
 	isDefault?: boolean;
+	/**
+	 * Aksi di kaki menu, sebelum "Reset to default", mis. tautan ke layar yang
+	 * menambah kolom. Kakinya lalu menempel (kelas kaki ChipMenu) supaya aksinya
+	 * tetap terlihat saat menu bergulir di layar pendek, dan melipat: lebar menu
+	 * tetap 264 px, jadi "Reset to default" turun ke baris sendiri. Menunya diberi
+	 * ruang gulir bawah setinggi kaki itu (±69 px) plus separuh baris: kotak
+	 * centang yang difokus dengan Tab berhenti di atas kaki, tidak di bawahnya.
+	 */
+	action?: ReactNode;
 }) {
 	const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
 	const anchor = usePopoverAnchor(pemicu);
@@ -359,7 +368,7 @@ export function ColumnMenu({ columns, visible, onChange, onReset, isDefault }: {
 				<Columns size={16} aria-hidden />
 				Columns
 			</button>
-			<Popover anchor={anchor} label="Show columns" role="dialog" id={id} align="end" width={264}>
+			<Popover anchor={anchor} label="Show columns" role="dialog" id={id} align="end" width={264} className={action ? "scroll-pb-20" : undefined}>
 				<p className="px-3 pb-1 pt-1.5 text-body-medium font-medium text-on-surface-variant">Show columns</p>
 				<div className="py-0.5">
 					{columns.map((column) => {
@@ -379,7 +388,10 @@ export function ColumnMenu({ columns, visible, onChange, onReset, isDefault }: {
 						);
 					})}
 				</div>
-				<div className="border-t border-outline-variant px-3 pb-1 pt-2">
+				<div className={action
+					? "sticky -bottom-1 z-10 -mb-1 flex flex-wrap items-center justify-between gap-x-3 border-t border-outline-variant bg-surface-container-lowest px-3 pb-2 pt-1"
+					: "border-t border-outline-variant px-3 pb-1 pt-2"}>
+					{action}
 					<button type="button" disabled={isDefault} onClick={onReset} className="rounded-sm text-body-medium font-medium text-primary hover:underline disabled:text-on-surface-variant disabled:no-underline">
 						Reset to default
 					</button>

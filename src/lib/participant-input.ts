@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { ditanyakan } from "@/lib/kolom-staf";
 import { FILE_FIELD_TYPES, MAX_ANSWER_LENGTH, MAX_CUSTOM_FIELDS, validateAnswers, type FieldIssue } from "@/lib/registration-fields";
 
 // Bentuk badan permintaan untuk tambah dan sunting peserta.
@@ -53,6 +54,16 @@ export type ParticipantBody = z.infer<typeof participantBodySchema>;
  */
 export function editableFields(config: RegistrationFormConfig | null | undefined): RegistrationField[] {
   return ((config?.fields ?? []) as RegistrationField[]).filter((field) => !FILE_FIELD_TYPES.includes(field.type));
+}
+
+/**
+ * Formulir meja walk-in = formulir pendaftaran: hanya pertanyaan yang
+ * ditanyakan di sana. Yang lain ("Ask on the registration form" mati) tidak
+ * tampil di meja dan isiannya dibuang; panitia mengisinya belakangan di
+ * Participant list.
+ */
+export function walkinFields(config: RegistrationFormConfig | null | undefined): RegistrationField[] {
+  return editableFields(config).filter(ditanyakan);
 }
 
 /**

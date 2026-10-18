@@ -2,7 +2,7 @@
 
 import { pesanGalatApi } from "@/lib/api-message";
 import { ArrowLeft, Check, EnvelopeSimple, Hourglass, PaperPlaneTilt, PencilSimple, Plus, Tray, WarningCircle, X, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { withEventPrefix } from "@/lib/event-path";
 import { useToast } from "@/components/toast";
@@ -17,7 +17,8 @@ import { TambahTamu, TamuUndangan } from "./tamu-undangan";
 import { FormPreview } from "@/components/admin/form-preview";
 import Link from "@/components/event-link";
 import { CHOICE_FIELD_TYPES, type RegistrationFormConfig } from "@/lib/domain";
-import { validateFieldDefinitions } from "@/lib/registration-fields";
+import { MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
+import { hanyaDiLuarFormulir, kolomBaruDiLuarFormulir, kunciBaru, rapikanPertanyaan, tambahPertanyaan, tautanDaftarPeserta } from "@/lib/kolom-staf";
 import { plural } from "@/lib/plural";
 import { eventApiPath } from "@/lib/event-url";
 import type { EventTimeZone } from "@/lib/timezone";
@@ -81,6 +82,9 @@ type Tab = Status | "tamu";
 /** Moderasi pendaftar, atau penyunting susunan formulir. */
 type Tampilan = "moderasi" | "formulir";
 
+/** Tujuan tautan kembali dan Save form dalam mode Add a column. */
+const DAFTAR_PESERTA = tautanDaftarPeserta([]);
+
 export default function RegistrasiAdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
@@ -110,6 +114,14 @@ export default function RegistrasiAdminPage() {
   // Tujuan tautan "Ubah di Tema" / "Atur di Peserta" yang menunggu keputusan
   // atas susunan formulir yang belum disimpan.
   const [tujuanTertunda, setTujuanTertunda] = useState<string | null>(null);
+  /**
+   * Mode Add a column: datang dari "Add a column in Registration" di menu
+   * Columns Participant list (`?kolom=baru`). "menunggu" sampai susunan form
+   * termuat, lalu posisi pertanyaan baru yang tidak ditanyakan di formulir
+   * (null bila form sudah penuh). Save form di mode ini kembali ke Participant
+   * list dengan kolomnya tercentang.
+   */
+  const [tambahKolom, setTambahKolom] = useState<"menunggu" | { fokus: number | null } | null>(null);
   const router = useRouter();
   const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
@@ -129,6 +141,44 @@ export default function RegistrasiAdminPage() {
   }, [tab]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+
+  // `?kolom=baru` dibaca SEBELUM layar pertama digambar. Dibaca sesudahnya
+  // (setTimeout), datang dari Participant list menggambar layar moderasi dulu
+  // (judul Registration, tab, kerangka daftar) lalu berganti ke Edit form. Efek
+  // layout, bukan render: Next menulis alamat tujuan ke riwayat di efek insertion
+  // pada commit yang sama, jadi baru di sini alamatnya terbaca. Kuncinya dibuang
+  // dari alamat: memuat ulang tidak boleh menambah pertanyaan kedua.
+  useLayoutEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("kolom") !== "baru") return;
+    url.searchParams.delete("kolom");
+    window.history.replaceState(window.history.state, "", url);
+    // Sengaja sinkron di efek layout, supaya gambar pertama sudah Edit form (lihat atas).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTampilan("formulir");
+    setTambahKolom("menunggu");
+  }, []);
+
+  // Pertanyaan baru di ujung susunan, sudah tidak ditanyakan di formulir:
+  // barisnya langsung "staff only", dan pratinjau di sebelahnya tidak berubah.
+  useEffect(() => {
+    if (tambahKolom !== "menunggu" || !config) return;
+    const timer = window.setTimeout(() => {
+      const awal = config.registration_form_config ?? {};
+      const jumlah = awal.fields?.length ?? 0;
+      if (jumlah >= MAX_CUSTOM_FIELDS) {
+        // Form sudah penuh (tautannya disembunyikan Participant list, tetapi
+        // pertanyaan ke-20 bisa ditambah panitia lain di antaranya). Tautan
+        // kembali tetap ke Participant list, tempat admin datang.
+        setTambahKolom({ fokus: null });
+        toast.error("Can't add a column", `The form already has ${MAX_CUSTOM_FIELDS} questions. Delete one first.`);
+        return;
+      }
+      setDraftForm(tambahPertanyaan(awal, { ditanyakan: false }));
+      setTambahKolom({ fokus: jumlah });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [tambahKolom, config, toast]);
 
   // Susunan yang belum disimpan hanya hidup di state: menutup tab atau memuat
   // ulang tanpa peringatan membuangnya.
@@ -216,15 +266,18 @@ export default function RegistrasiAdminPage() {
    * Warnanya TIDAK ikut dikirim: warna acara diatur di CMS halaman acara, satu
    * tempat untuk keduanya. Server mempertahankan tema yang sudah tersimpan
    * ketika permintaan ini tidak menyebutnya.
+   *
+   * Berhasil: kunci pertanyaan yang baru tersimpan (bisa kosong), untuk
+   * mencentang kolomnya di Participant list. Gagal: null.
    */
-  async function kirimForm(next: RegistrationFormConfig): Promise<boolean> {
-    if (!config) return false;
+  async function kirimForm(next: RegistrationFormConfig): Promise<string[] | null> {
+    if (!config) return null;
     // Masalah yang sama dengan penanda "Perlu diperbaiki" di penyunting,
     // ditolak di sini supaya tidak ada yang terbuang diam-diam di jalan.
     const masalah = validateFieldDefinitions(next.fields ?? []);
     if (masalah.length) {
       toast.error("Can't save the form yet", masalah[0].message);
-      return false;
+      return null;
     }
     setSimpanForm(true);
     const response = await fetch(eventApiPath("/api/admin/registrasi"), {
@@ -240,8 +293,9 @@ export default function RegistrasiAdminPage() {
           // jenis yang tidak memakainya. Baris pilihan yang judul dan
           // keterangannya kosong dibuang bersama (indeksnya sejajar), supaya
           // baris yang baru ditambah lalu dibiarkan kosong tidak menggagalkan
-          // Simpan.
-          fields: (next.fields ?? []).map((field) => {
+          // Simpan. Pertanyaan yang tidak ditanyakan disimpan tidak wajib
+          // (rapikanPertanyaan).
+          fields: (next.fields ?? []).map(rapikanPertanyaan).map((field) => {
             if (!CHOICE_FIELD_TYPES.includes(field.type)) return { ...field, options: undefined, option_descriptions: undefined };
             if (!field.options) return field;
             const baris = field.options
@@ -263,16 +317,38 @@ export default function RegistrasiAdminPage() {
       }),
     }).catch(() => null);
     setSimpanForm(false);
-    if (!response) { toast.error("Connection failed", "Reload to see the current status."); return false; }
+    if (!response) { toast.error("Connection failed", "Reload to see the current status."); return null; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       toast.error("Couldn't save the form", pesanGalatApi(body) ?? "Try again.");
-      return false;
+      return null;
     }
+    const sebelum = config.registration_form_config ?? {};
+    const sesudah = (body.registration_form_config as RegistrationFormConfig | undefined) ?? {};
+    const baru = kunciBaru(sebelum.fields ?? [], sesudah.fields ?? []);
     setConfig({ ...config, ...body });
     setDraftForm(null);
-    toast.success("Form saved", "The public registration page now uses the new form.");
-    return true;
+    // Yang berubah hanya pertanyaan yang tidak ditanyakan (mis. kolom staf dari
+    // Add a column): halaman pendaftaran publik tetap sama, jadi tidak dikabarkan
+    // berubah. Diputuskan dari susunan sebelum dan sesudah, bukan dari mode: kolom
+    // baru yang dinyalakan, atau pertanyaan lain yang ikut diubah, mengubah halamannya.
+    if (hanyaDiLuarFormulir(sebelum, sesudah)) toast.success("Form saved");
+    else toast.success("Form saved", "The public registration page now uses the new form.");
+    return baru;
+  }
+
+  /** Save form. Di mode Add a column, kembali ke Participant list dengan kolom barunya tercentang. */
+  async function simpanSusunan(next: RegistrationFormConfig) {
+    const baru = await kirimForm(next);
+    if (baru && tambahKolom) buka(tautanDaftarPeserta(baru));
+  }
+
+  /** Tautan kembali di Edit form: Registration, atau Participant list di mode Add a column. */
+  function kembali() {
+    if (!tambahKolom) { setTampilan("moderasi"); return; }
+    // Pindah halaman membuang draf: tanya dulu, sama dengan tautan Tema.
+    if (draftForm) setTujuanTertunda(DAFTAR_PESERTA);
+    else buka(DAFTAR_PESERTA);
   }
 
   /**
@@ -370,19 +446,28 @@ export default function RegistrasiAdminPage() {
 
   // ---- Tampilan penyunting formulir ----------------------------------------
   if (tampilan === "formulir") {
+    // Kalimat mode Add a column diturunkan dari draf, bukan dari mode saja:
+    // pertanyaan barunya bisa dihapus, atau dinyalakan sehingga ditanyakan.
+    // Selama susunan form dimuat, pertanyaan barunya memang akan dibuat tidak
+    // ditanyakan, jadi kepala halaman tidak berganti kalimat begitu draf ada.
+    const fieldsTersimpan = config?.registration_form_config?.fields ?? [];
+    const adaKolomBaru = Boolean(tambahKolom) && kunciBaru(fieldsTersimpan, formDraft.fields ?? []).length > 0;
+    const kolomBaruStaf = tambahKolom === "menunggu" || (Boolean(tambahKolom) && kolomBaruDiLuarFormulir(fieldsTersimpan, formDraft.fields ?? []));
     return (
       <div lang="en" className="contents">
       <WorkspacePage fill>
         <WorkspaceHeader
           title="Edit form"
           back={
-            <button type="button" onClick={() => setTampilan("moderasi")} className="inline-flex items-center gap-1.5 rounded-sm text-body-medium font-medium text-primary hover:underline">
-              <ArrowLeft size={14} aria-hidden />Registration
+            <button type="button" onClick={kembali} className="inline-flex items-center gap-1.5 rounded-sm text-body-medium font-medium text-primary hover:underline">
+              <ArrowLeft size={14} aria-hidden />{tambahKolom ? "Participant list" : "Registration"}
             </button>
           }
-          meta={<span>What registrants are asked. The look follows the event page Theme.</span>}
+          meta={<span>{kolomBaruStaf
+            ? "Each question is also a column in the Participant list. The new one isn't asked on the registration form."
+            : "What registrants are asked. The look follows the event page Theme."}</span>}
         />
-        {!config ? (
+        {!config || tambahKolom === "menunggu" ? (
           error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : <PageLoading />
         ) : (
           // Penyunting dan pratinjau bersebelahan: yang membuat pratinjau berguna
@@ -390,7 +475,13 @@ export default function RegistrasiAdminPage() {
           <SupportingPane
             paneWidth={440}
             main={
-              <Pane aria-label="Form editor">
+              // Layar pendek (1280 x 588): halaman yang bergulir, dan kaki panel
+              // menempel di tepi bawah supaya catatan dan Save form selalu terlihat,
+              // seperti penyunting Badge. `overflow-clip` memotong sudut yang sama
+              // dengan `overflow-hidden` tanpa menjadi wadah gulir yang mematahkan sticky.
+              // `kaki-menempel` memberi halaman ruang gulir bawah setinggi kaki itu
+              // (globals.css): kontrol yang difokus dengan Tab tidak berhenti di bawahnya.
+              <Pane aria-label="Form editor" className="short:overflow-clip">
                 <PaneBody className="px-5 py-5">
                   <KartuTampilan
                     tampilan={config.tampilan}
@@ -398,10 +489,20 @@ export default function RegistrasiAdminPage() {
                     // Ada draf: tanya dulu, jangan buang diam-diam.
                     onBuka={(href, event) => { if (draftForm) { event.preventDefault(); setTujuanTertunda(href); } }}
                   />
-                  <RegistrationFormBuilder config={formDraft} onChange={setDraftForm} disabled={simpanForm} areaPeserta={config.tampilan?.area_peserta ?? false} />
+                  <RegistrationFormBuilder
+                    config={formDraft}
+                    onChange={setDraftForm}
+                    disabled={simpanForm}
+                    areaPeserta={config.tampilan?.area_peserta ?? false}
+                    kunciTersimpan={(config.registration_form_config?.fields ?? []).map((field) => field.key)}
+                    fokusAwal={tambahKolom?.fokus ?? null}
+                  />
                 </PaneBody>
-                <PaneFooter note={draftForm ? "Unsaved changes" : "Matches the live registration page"}>
-                  <Button simpan size="sm" onClick={() => void kirimForm(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
+                <PaneFooter
+                  className="kaki-menempel short:sticky short:bottom-0 short:z-10"
+                  note={adaKolomBaru ? "Save form to go back to the Participant list with this column shown." : draftForm ? "Unsaved changes" : "Matches the live registration page"}
+                >
+                  <Button simpan size="sm" onClick={() => void simpanSusunan(formDraft)} loading={simpanForm} disabled={busy} icon={<Check size={16} weight="bold" />}>
                     Save form
                   </Button>
                 </PaneFooter>
@@ -419,7 +520,10 @@ export default function RegistrasiAdminPage() {
           onClose={() => setTujuanTertunda(null)}
           dismissible={!simpanForm}
           title="Save form changes first?"
-          description="The form has unsaved changes. If you discard them, the public form keeps the saved version."
+          // Mode Add a column: yang hilang bila dibuang adalah kolom barunya, bukan perubahan formulir publik.
+          description={adaKolomBaru
+            ? "The form has unsaved changes. If you discard them, the new column isn't added."
+            : "The form has unsaved changes. If you discard them, the public form keeps the saved version."}
           actions={
             <>
               <Button variant="outlined" disabled={simpanForm} onClick={() => setTujuanTertunda(null)}>Cancel</Button>
@@ -435,7 +539,11 @@ export default function RegistrasiAdminPage() {
                 loading={simpanForm}
                 onClick={async () => {
                   const tujuan = tujuanTertunda;
-                  if (await kirimForm(formDraft)) { setTujuanTertunda(null); if (tujuan) buka(tujuan); }
+                  const baru = await kirimForm(formDraft);
+                  if (!baru) return;
+                  setTujuanTertunda(null);
+                  // Kembali ke Participant list dari mode Add a column: kolom barunya ikut tercentang.
+                  if (tujuan) buka(tujuan === DAFTAR_PESERTA ? tautanDaftarPeserta(baru) : tujuan);
                 }}
               >
                 Save and open

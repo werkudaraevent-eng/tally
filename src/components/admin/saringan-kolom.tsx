@@ -113,9 +113,14 @@ function PilihKolom({ kolom, penuh, onPilih }: { kolom: KolomSaringan[]; penuh: 
   const [cari, setCari] = useState("");
   const id = useId();
   const cocok = cari ? kolom.filter((item) => item.label.toLowerCase().includes(cari.toLowerCase())) : kolom;
+  // Pertanyaan yang tidak ditanyakan di formulir di bawah judul yang sama dengan
+  // panel Edit participant, bukan di "Form answers". Kelompok kosong tidak tampil,
+  // jadi acara tanpa pertanyaan semacam itu tidak berubah.
   const grup = [
     { judul: "Columns", isi: cocok.filter((item) => item.grup === "kolom") },
     { judul: "Form answers", isi: cocok.filter((item) => item.grup === "jawaban") },
+    { judul: "Filled in by participants", isi: cocok.filter((item) => item.grup === "peserta") },
+    { judul: "Staff only", isi: cocok.filter((item) => item.grup === "staf") },
   ].filter((g) => g.isi.length);
   if (!kolom.length) return null;
   return (
