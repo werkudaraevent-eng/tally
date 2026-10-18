@@ -99,7 +99,10 @@ export async function POST(request: Request) {
   // Badge diantrekan SETELAH kehadiran tersimpan, di permintaan yang sama:
   // HP tidak perlu permintaan kedua yang bisa hilang di jaringan venue.
   // Gagal mengantrekan tidak menggagalkan kehadiran; HP menampilkan galatnya.
-  const hasil = data as { status?: string; participant?: { id?: string; qr_code?: string } } | null;
+  const hasil = data as { status?: string; qr?: string; participant?: { id?: string; qr_code?: string } } | null;
+  // Peserta yang dibatalkan di antara pencarian dan RPC menjawab `not_found`
+  // dengan kodenya di `qr`; HP tidak mengirim kode, jadi tidak ada yang dikembalikan.
+  if (parsed.data.participant_id && hasil) delete hasil.qr;
   // Dipilih dari Cari nama: petugas belum memegang kodenya, dan kode itu kunci
   // masuk peserta. Kodenya hanya ikut bila HP ini memang mencetak label stiker
   // (labelnya memuat kode). Kamera sudah membaca kodenya sendiri, jadi jalur QR

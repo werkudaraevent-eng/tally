@@ -23,10 +23,11 @@ const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(h
 // data:, atau ftp:. "//host" ditolak karena itu alamat situs lain. Alamat lama
 // yang tidak lolos membuat Simpan acara itu menunjuk kolomnya; unggahan CMS
 // selalu http(s), jadi itu hanya alamat yang diketik tangan.
-const GAMBAR_KETAT = /^(https?:\/\/\S+|\/(?!\/)\S*)$/i;
+const GAMBAR_KETAT = /^(https?:\/\/\S+|\/(?![/\\])\S*)$/i;
 const PESAN_GAMBAR = "Images must be an http(s) address or a path on this site";
 /** Alamat penuh http(s) saja: `z.string().url()` sendiri juga menerima javascript: dan data:. */
 const GAMBAR_HTTP = /^https?:\/\/\S+$/i;
+const gambarPenuh = z.string().url().max(600).refine((value) => GAMBAR_HTTP.test(value), PESAN_GAMBAR);
 const gambarUrl = z.string().max(600).refine((value) => GAMBAR_KETAT.test(value), PESAN_GAMBAR).nullable().optional();
 // Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
 // landingBlockLimits, sumber yang sama dengan penghitung di CMS.
@@ -88,7 +89,7 @@ const blockSchema = z.object({
   image_url: z.string().max(600).refine((value) => GAMBAR_KETAT.test(value), PESAN_GAMBAR).nullable().optional(),
   image_side: z.enum(["left", "right"]).optional(),
   items: z.array(z.object({
-    image_url: z.string().url().max(600).refine((value) => GAMBAR_HTTP.test(value), PESAN_GAMBAR).nullable().optional(),
+    image_url: gambarPenuh.nullable().optional(),
     label: teks(160),
     title: teks(160),
     body: teks(400),
@@ -148,8 +149,7 @@ const blockSchema = z.object({
 });
 
 // ---- Tata letak Forum (lihat LandingForumConfig di domain.ts) ----------------
-const gambarForum = z.string().url().max(600).refine((value) => GAMBAR_HTTP.test(value), PESAN_GAMBAR);
-const gambar = gambarForum.nullable().optional();
+const gambar = gambarPenuh.nullable().optional();
 const warna = z.string().regex(/^#[0-9a-fA-F]{6}$/).optional();
 // Tautan penuh saja: tautan Forum keluar dari halaman (sosmed, situs tempat).
 const tautanLuar = z.string().trim().max(600).refine((value) => value === "" || /^https?:\/\/\S+\.\S+/.test(value), "Links must start with http:// or https://");
@@ -174,7 +174,7 @@ const forumSchema = z.object({
   })).max(4).optional(),
   venue_note: teks(1200),
   venue_image_url: gambar,
-  gallery: z.array(gambarForum).max(6).optional(),
+  gallery: z.array(gambarPenuh).max(6).optional(),
   dresscode_intro: teks(400),
   dresscode: z.array(z.object({
     title: z.string().trim().max(40),
@@ -325,11 +325,11 @@ export const landingBodySchema = z.object({
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   venue_name: z.string().trim().max(EVENT_VENUE_MAX).nullable(),
   venue_address: z.string().trim().max(600).nullable(),
-  venue_map_url: z.string().url().max(600).nullable(),
+  venue_map_url: z.string().url().max(600).refine((value) => GAMBAR_HTTP.test(value), "Map links must start with http:// or https://").nullable(),
 
   // ---- Konten halaman -----------------------------------------------------
   landing: z.object({
-    banner_url: z.string().url().max(600).nullable().optional(),
+    banner_url: gambarPenuh.nullable().optional(),
     banner_style: z.enum(["theme", "photo"]).optional(),
     hero_height: z.enum(["compact", "standard", "tall"]).optional(),
     hero_min_height: z.number().int().min(LANDING_HERO_HEIGHT_PX.min).max(LANDING_HERO_HEIGHT_PX.max).optional(),
@@ -348,14 +348,14 @@ export const landingBodySchema = z.object({
       opacity: z.number().int().min(0).max(100).optional(),
       width: z.enum(["full", "content"]).optional(),
       height: z.number().int().min(LANDING_NAV_HEIGHT_MIN).max(LANDING_NAV_HEIGHT_MAX).optional(),
-      logo_url: z.string().url().max(600).nullable().optional(),
+      logo_url: gambarPenuh.nullable().optional(),
       logo_on_image: z.enum(["white", "original"]).optional(),
     }).optional(),
     about_heading: z.string().trim().max(160).optional(),
     about_media: z.enum(LANDING_ABOUT_MEDIA).optional(),
     speaker_frame: z.enum(LANDING_SPEAKER_FRAMES).optional(),
     agenda_speakers: z.enum(LANDING_AGENDA_SPEAKERS).optional(),
-    about_image_url: z.string().url().max(600).nullable().optional(),
+    about_image_url: gambarPenuh.nullable().optional(),
     about_image_alt: teks(LANDING_IMAGE_ALT_MAX),
     about_cards: z.array(z.object({
       title: z.string().trim().max(LANDING_ABOUT_CARDS.title),
@@ -399,19 +399,19 @@ export const landingBodySchema = z.object({
     pass_from: teks(40),
     pass_to: teks(40),
     ...TEKS_HORIZON,
-    hero_logo_url: z.string().url().max(600).nullable().optional(),
+    hero_logo_url: gambarPenuh.nullable().optional(),
     accent: warna,
     button_color: warna,
     hero_note: teks(240),
     hero_eyebrow: teks(60),
     portal_preview: z.boolean().optional(),
     portal_section: z.boolean().optional(),
-    hero_bg_url: z.string().url().max(600).nullable().optional(),
+    hero_bg_url: gambarPenuh.nullable().optional(),
     hero_bg_on: z.boolean().optional(),
     hero_bg_opacity: z.number().int().min(5).max(50).optional(),
     hero_bg_color: warna,
     hero_bg_terang: z.string().regex(/^#[0-9a-fA-F]{8}$/).optional(),
-    hero_bg_terang_src: z.string().url().max(600).optional(),
+    hero_bg_terang_src: gambarPenuh.optional(),
     default_lang: z.enum(["id", "en"]).optional(),
     en: z.object({
       public_name: teks(120),
@@ -461,7 +461,7 @@ export const landingBodySchema = z.object({
     contact_email: z.string().trim().max(160).optional(),
     sponsors: z.array(z.object({
       name: z.string().trim().max(120).optional(),
-      logo_url: z.string().url().max(600),
+      logo_url: gambarPenuh,
       en: z.object({ name: teks(120) }).optional(),
     })).max(40).optional(),
     theme: z.object({ seed: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).optional(),

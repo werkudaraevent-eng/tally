@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { stasiunBelumAda } from "@/lib/badge/stasiun-server";
+import { stasiunBelumAda, tolakTanpaMeja } from "@/lib/badge/stasiun-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -21,6 +21,8 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["scanner", "admin"]);
   if (auth.response) return auth.response;
+  const tutup = await tolakTanpaMeja(auth.scope);
+  if (tutup) return tutup;
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 

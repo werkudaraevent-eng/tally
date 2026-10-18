@@ -184,3 +184,16 @@ export async function cetakSetelahHadir(input: {
 	}
 	return { pekerjaan: await pekerjaanTerakhir(input.eventId, participantId) };
 }
+
+/**
+ * Penjaga rute stasiun untuk akun selain admin: stasiun cetak hanya dipakai
+ * bila acara ini mencetak badge kertas di meja. Tanpa itu, antrean dan data
+ * peserta di jawabannya tidak punya alasan untuk terbuka bagi akun pemindai.
+ * Mengembalikan jawaban 403, atau null bila boleh lanjut.
+ */
+export async function tolakTanpaMeja(scope: { event: { id: string }; role: string }): Promise<Response | null> {
+	if (scope.role === "admin" || scope.role === "super_admin") return null;
+	const meja = await setelanMeja(scope.event.id).catch(() => null);
+	if (meja?.badge) return null;
+	return Response.json({ error: { code: "FORBIDDEN", message: "Badge printing at the desk is off for this event." } }, { status: 403 });
+}
