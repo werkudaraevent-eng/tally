@@ -505,10 +505,13 @@ input:-webkit-autofill:focus {
  * membutuhkannya. Rasa "lembut" yang dicari tetap didapat lewat lingkaran kedua
  * di bawah: bayangan tipis 18% di luar cincin, hiasan yang tidak menanggung
  * keterbacaan apa pun. */
+/* `--cincin-fokus`: warna cincin per wadah. Halaman Horizon memasangnya
+ * (tinta navy di bidang terang, emas Tema di bidang navy; U-12, lihat
+ * components/landing/modern/cincin-horizon.ts); di luar itu warna primer. */
 :focus-visible {
-	outline: 2px solid var(--md-sys-color-primary);
+	outline: 2px solid var(--cincin-fokus, var(--md-sys-color-primary));
 	outline-offset: 2px;
-	box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--cincin-fokus, var(--md-sys-color-primary)) 18%, transparent);
 }
 
 /* Satu pengecualian, dan hanya satu: kolom cari yang MEMILIKI fokus sejak
@@ -2292,4 +2295,36 @@ html[data-theme="dark"] .warna-pemindai {
 	--md-sys-color-surface-container-lowest: #151515;
 	--md-sys-color-primary-soft: #1d3a6b;
 	--md-sys-color-on-primary-soft: #d8e2ff;
+}
+
+/* ==========================================================================
+   Daftar bergulir: tepi bawah memudar selama masih ada isi di bawahnya
+   ========================================================================== */
+
+/* Petunjuk "masih ada di bawah" tanpa bayangan (DESIGN.md: bayangan hanya untuk
+ * yang melayang) dan tanpa skrip. Garis waktu gulir milik daftar itu sendiri
+ * menggerakkan --pudar dari 32px (di atas) ke 0 (di ujung). Daftar yang muat
+ * tidak punya garis waktu gulir, jadi animasinya tidak berlaku dan --pudar
+ * tetap 0: tidak ada pudar. Peramban tanpa animation-timeline juga tanpa pudar.
+ * Dipakai daftar hari Jadwal desktop di portal Horizon (U-06). */
+@property --pudar {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
+@keyframes pudar-bawah-gulir {
+	from { --pudar: 32px; }
+	to { --pudar: 0px; }
+}
+
+.pudar-bawah-gulir {
+	mask-image: linear-gradient(to bottom, #000 calc(100% - var(--pudar)), transparent);
+}
+
+@supports (animation-timeline: scroll()) {
+	.pudar-bawah-gulir {
+		animation: pudar-bawah-gulir linear both;
+		animation-timeline: scroll(self);
+	}
 }

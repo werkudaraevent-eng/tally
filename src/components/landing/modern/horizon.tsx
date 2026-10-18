@@ -4,6 +4,8 @@ import { ArrowDown } from "@phosphor-icons/react/dist/ssr";
 import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
+import { kontras } from "@/lib/landing-hitung-mundur";
+import { CINCIN_NAVY, CINCIN_TERANG } from "./cincin-horizon";
 import { pecahJudul, tanpaBintang } from "@/lib/landing-tagline";
 import { jamPenting } from "./hari-gathering";
 import { Muncul } from "./horizon-gerak";
@@ -120,7 +122,17 @@ function Tautan({ aksi, className, children, style }: { aksi: HorizonAksi; class
 
 /** Variabel warna Horizon untuk <main>. `emas` = warna tombol Tema; `onEmas` dan `sorot` (kata disorot di judul) diukur pemanggil. */
 export function gayaHorizon(navy: string, emas: string, onEmas: string, sorot: string = emas): CSSProperties {
-  return { "--hz-navy": navy, "--hz-emas": emas, "--hz-on-emas": onEmas, "--hz-sorot": sorot } as CSSProperties;
+  return {
+    "--hz-navy": navy,
+    "--hz-emas": emas,
+    "--hz-on-emas": onEmas,
+    "--hz-sorot": sorot,
+    "--cincin-fokus": CINCIN_TERANG,
+    "--hz-cincin-terang": CINCIN_TERANG,
+    "--hz-cincin-navy": kontras(emas, navy) >= 3 ? emas : "#ffffff",
+    // Mode gelap perangkat tidak mengubah warna halaman Horizon, jadi kontrol bawaan peramban juga tetap terang.
+    colorScheme: "light",
+  } as CSSProperties;
 }
 
 /**
@@ -160,7 +172,7 @@ export function HeroHorizon({
   const kataTerpanjang = Math.max(1, ...tanpaBintang(judul).split(/\s+/).map((kata) => kata.length));
   const ukuranPonsel = `min(56px, max(32px, calc(100cqw / ${(kataTerpanjang * 0.64).toFixed(2)})))`;
   return (
-    <header data-bagian="pembuka" data-landing-hero className="relative isolate -mt-[var(--nav-h)] overflow-hidden bg-[var(--hz-navy)] text-white">
+    <header data-bagian="pembuka" data-landing-hero className={`relative isolate -mt-[var(--nav-h)] overflow-hidden bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
       {kv ? (
         // Gambar hiasan, bukan isi: judul dan huruf dimuat lebih dulu.
         // eslint-disable-next-line @next/next/no-img-element
@@ -342,7 +354,7 @@ export function PerjalananHorizon({
 }) {
   const t = LANDING_UI[lang];
   return (
-    <section id="agenda" className="scroll-mt-16 md:scroll-mt-[72px] bg-[var(--hz-navy)] text-white">
+    <section id="agenda" className={`scroll-mt-16 md:scroll-mt-[72px] bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
       <div className={`${BINGKAI} flex flex-col gap-7 py-10 md:gap-10 md:py-20`}>
         <Muncul className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-10">
           <h2 className="whitespace-pre-line text-balance text-[30px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:max-w-[720px] md:text-[56px] md:leading-[1.1]" style={{ color: KREM }}>
@@ -503,7 +515,7 @@ export function PenutupHorizon({
  */
 export function KakiHorizon({ tandaTangan, catatan, ponsel }: { tandaTangan: string; catatan: string | null; ponsel: boolean }) {
   return (
-    <footer data-bagian="kaki" className={`bg-[var(--hz-navy)] ${ponsel ? "" : "hidden md:block"}`}>
+    <footer data-bagian="kaki" className={`bg-[var(--hz-navy)] ${CINCIN_NAVY} ${ponsel ? "" : "hidden md:block"}`}>
       <div className={`${BINGKAI} flex flex-col gap-2 py-[30px] md:flex-row md:items-center md:justify-between md:gap-10`}>
         <p className="text-[13px] font-bold leading-[1.26]" style={{ color: KREM }}>
           {tandaTangan}

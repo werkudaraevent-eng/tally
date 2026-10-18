@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowSquareOut, Bell, PushPin, X } from "@phosphor-icons/react";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
+import { CINCIN_PUTIH } from "@/components/landing/modern/cincin-horizon";
 
 /**
  * Lonceng pengumuman di bilah atas halaman acara, untuk peserta yang sudah masuk.
@@ -157,7 +158,7 @@ export function LoncengPengumuman({
           role="dialog"
           aria-labelledby={judulId}
           tabIndex={-1}
-          className="fixed inset-x-0 top-[var(--nav-h)] z-40 flex max-h-[calc(100dvh-var(--nav-h)-16px)] flex-col overflow-hidden rounded-b-lg bg-white text-[#181d27] shadow-[0_12px_32px_rgb(0_0_0/0.18),0_2px_6px_rgb(0_0_0/0.08)] outline-none sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[400px] sm:max-h-[min(560px,calc(100dvh-var(--nav-h)-24px))] sm:rounded-lg"
+          className={`fixed inset-x-0 top-[var(--nav-h)] z-40 flex max-h-[calc(100dvh-var(--nav-h)-16px)] flex-col overflow-hidden rounded-b-lg bg-white text-[#181d27] ${CINCIN_PUTIH} shadow-[0_12px_32px_rgb(0_0_0/0.18),0_2px_6px_rgb(0_0_0/0.08)] outline-none sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[400px] sm:max-h-[min(560px,calc(100dvh-var(--nav-h)-24px))] sm:rounded-lg`}
           style={{ "--m3-state-color": "#181d27" } as React.CSSProperties}
         >
           <div className="flex items-center justify-between gap-3 py-2 pl-5 pr-2 sm:pr-5 sm:pt-4 sm:pb-3">
@@ -170,7 +171,7 @@ export function LoncengPengumuman({
                 setBuka(false);
                 tombolRef.current?.focus();
               }}
-              aria-label={t.closeMenu}
+              aria-label={t.closeAnnouncements}
               className="m3-state inline-flex size-11 items-center justify-center rounded-md sm:hidden"
             >
               <X size={20} aria-hidden />

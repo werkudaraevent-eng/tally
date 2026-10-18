@@ -15,15 +15,15 @@ Status per item as of 18 Oct 2026, after #199 to #202. This is the working copy 
 |---|---|---|
 | KSO content in the CMS (Mas) | 5 | U-04, U-08, U-15, U-34, U-35 |
 | Needs a decision or a mockup from Mas | 4 | U-22, U-25, U-30, E-13 |
-| Partly done | 12 | U-01, U-06, U-09, U-20, U-24, U-26, U-33, E-01, E-06, E-09, E-10, E-12 |
-| Not started | 17 | U-12, U-13, U-14, U-17, U-19, U-21, U-23, U-27, U-29, U-31, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
-| Done | 13 | U-02, U-03, U-05, U-07, U-10, U-11, U-16, U-18, U-28, E-03, E-07, E-08, E-14 |
+| Partly done | 10 | U-01, U-09, U-20, U-24, U-26, E-01, E-06, E-09, E-10, E-12 |
+| Not started | 10 | U-21, U-23, U-27, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
+| Done | 22 | U-02, U-03, U-05, U-06, U-07, U-10, U-11, U-12, U-13, U-14, U-16, U-17, U-18, U-19, U-28, U-29, U-31, U-33, E-03, E-07, E-08, E-14 |
 
 Suggested order:
 
 1. Mas: the KSO content items in the CMS. They need no code.
 2. "Your batch" (U-01 step 2, E-01, E-06, E-10): an "Applies to" setting per Agenda section that reads the staff-only Batch column from #201. Mockup first, then a small SQL file Mas runs.
-3. Code: U-13, U-12 (U-02 done in #206).
+3. Code: the "After KSO" list (accessibility, polish, language), in small PRs; U-12, U-13, U-19 and U-29 are done.
 
 ## What already works (keep it)
 
@@ -98,12 +98,12 @@ Measured at audit time:
 
 ### U-06 Schedule day picker: the selected day is not scrolled into view on phones and tablets, and at 1280x588 the last day is hidden with no cue
 
-- Status: Partly done (#199)
+- Status: Done (this PR)
 - Priority: medium. Area: Schedule. Scope: platform.
 - Finding: Friday and Sunday are the two-batch days. At 390 px only the first pill was fully readable and "(Batch n)" was cut off, and at 768 px the selected Batch 2 pill was cut at the right edge. On a 1280x588 laptop the Batch 2 return day could only be reached by scrolling inside the day list, with no sign that it scrolls.
 - Compared with: Whova puts a short date strip above Full Agenda | My Agenda, and Cvent's session list scrolls itself to what is coming up.
 - Recommendation: (1) On load, scroll the selected pill to the centre of the strip, using the GulirHariAktif pattern horizontally. (2) Add a fade at the bottom edge of the desktop list, only when its content is taller than its container. (3) No code, with Mas's OK: shorten the KSO Agenda section titles in the CMS, for example "Jumat · Batch 1"; the date already comes from the data, so the doubled date goes too. Building labels from data for every event changes the V5 design and needs a mockup.
-- Left: (1) shipped in #199: phones and tablets get two-line date chips, the selected chip scrolls to the centre when the strip overflows, and the batches of a day are a labelled switch; labels now come from dates, which covers most of (3). (2) is open: the desktop day list (HariJadwalHorizon) has no fade or other cue when it overflows. Grouping by date leaves KSO with four rows, which probably fit at 1280x588, and docs/STATUS.md still parks #171. Optional KSO content: under each date the desktop list still shows the first section's CMS title without "(Batch n)", so with KSO's dated titles the date shows twice; shorter section titles in Agenda would fix that.
+- Left: Done: (1) in #199; (2) in this PR, the desktop day list (HariJadwalHorizon) fades out over its bottom 32 px only while more days are below (class pudar-bawah-gulir in globals.css: a scroll-driven animation on the list's own scroll timeline, so a list that fits or is scrolled to its end has no fade; browsers without animation-timeline, Firefox today, show no cue). A fade rather than a shadow, because DESIGN.md keeps shadows for floating surfaces. Optional KSO content: under each date the desktop list still shows the first section's CMS title without "(Batch n)"; shorter section titles in Agenda would fix that.
 - Code: `src/components/member/portal-horizon.tsx` (ChipTanggalHorizon, SegmenBagianHorizon, HariJadwalHorizon); `src/components/member/gulir-hari-aktif.tsx` (GulirChipAktif, GulirHariAktif); `src/lib/member/hari-agenda.ts` (kelompokkanHari, labelPembeda); `src/components/member/dashboard-gathering.tsx` (Horizon Schedule tab)
 - Related: U-01, U-29
 
@@ -164,33 +164,33 @@ Measured at audit time:
 
 ### U-12 Focus ring under 3:1 on navy areas, and on cream cards when the device is in dark mode
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: medium. Area: All guest pages (event page and portal). Scope: platform.
 - Finding: Keyboard users, for example on a hotel laptop or an iPad with a keyboard, cannot see where they are on the navy bar that every page has: the global ring colour (#2b4dd4) measures 2.46 to 2.62:1 on navy. In dark mode the ring also fails on cream and white cards (2.09:1 and 2.22:1), and with prefers-contrast it all but vanishes on navy, so in any setting a large part of the portal has no visible focus. Touch on phones does not show this ring.
 - Compared with: Tally's own Forum layout already flips the ring colour on dark areas (CINCIN_TERANG).
 - Recommendation: One shared helper for guest pages (the Horizon event page and the portal) that picks the ring colour per container with kontras(): event gold on navy (#e8c968, about 10:1) and navy ink on cream and white (#101E38, 15.6:1). Lock the values, including a light color-scheme, so dark mode and prefers-contrast do not swap them. This also closes #164 L12, #158 L11 and #112 L4. Then test Tab at 390, 768 and 1280x588, in light and dark.
-- Left: All of it. The global :focus-visible rule in src/app/globals.css still uses --md-sys-color-primary, and neither the Horizon event page nor the portal sets a ring colour or locks color-scheme; #201 and #202 add only admin CSS (scroll padding for a sticky footer, a ring for warning fields). Add the guest-page ring rule, then run the Tab test, which has not yet been done with real focus.
+- Left: Done in this PR: guest pages that use Horizon (the event page and the participant area) draw the focus ring from `--cincin-fokus` (globals.css). gayaHorizon sets navy ink #101E38 for cream and white areas and locks color-scheme to light; navy areas (portal top bar, pass, Profile ticket card, the navy checkpoint card, the QR screen and layer, the event page hero, Agenda band and footer) take the Theme gold through CINCIN_NAVY, or white when the gold is under 3:1 against the navy; the event page bar uses its own text colour, and the bell panel goes back to navy ink. Other layouts keep the primary colour. Not yet done: a Tab test with a real keyboard at 390, 768 and 1280x588 in light and dark (coordinator QA).
 - Code: `src/app/globals.css` (global :focus-visible rule); `src/components/landing/modern/horizon.tsx` (gayaHorizon, shared by the event page and the portal); `src/components/landing/forum/styles.ts` (CINCIN_TERANG); `src/lib/landing-hitung-mundur.ts` (kontras)
 
 ### U-13 Every tab of every event has the document title "Area peserta", so screen readers do not announce tab changes
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: medium. Area: All portal tabs. Scope: platform.
 - Finding: VoiceOver and TalkBack users who tap a tab such as "Jadwal" get no confirmation, because the Next.js route announcer only speaks when document.title changes. The browser tab and history also show "Area peserta" for every tab of every event.
 - Compared with: Tally's own public event pages already include the event name in the document title.
 - Recommendation: Give each tab its own title through generateMetadata in the form "`<Tab>` · `<event name>`" ("Beranda", "Jadwal", "Perjalanan", "Pengumuman", "Profil", "QR kehadiran"), using the same portal-i18n labels as the menu. Move the top bar and bottom nav out of `<main>`, and give the Home cards clear section names.
-- Left: 1) Per-tab titles "`<Tab>` · `<event name>`" from generateMetadata in src/app/peserta/page.tsx, which still returns "Area peserta" (or "Participant area") for every tab and event. Reuse the portal menu labels in src/lib/member/portal-i18n.ts. The Outfit tab is missing from the audit's list and takes its per-event label (labelOutfit in src/lib/outfit.ts, from the event's outfit_label setting). U-21 wants "Dashboard saya" instead of "Area peserta" in the same title, so settle both together. 2) Move KepalaHorizon and NavBawahHorizon out of the `<main>` element that DashboardGathering wraps around them. The third step, naming the Home cards, is largely in place: the pass and checkpoint cards were named before #199, and the "Berlangsung", "Berikutnya", announcements and help cards added in #199 carry aria-label or aria-labelledby. Check the remaining Home sections (the phone-only roommates list, CMS blocks) while doing steps 1 and 2.
+- Left: Done in this PR: generateMetadata in src/app/peserta/page.tsx gives each Gathering tab the title "`<Tab>` · `<event name>`" from the portal menu labels ("QR kehadiran" for the QR, the event's Outfit label for Outfit), and the portals without tabs get "Dashboard saya · `<event name>`" (U-21 step 2). KepalaHorizon and NavBawahHorizon now sit outside `<main>`, which holds only the tab content. The Home section names were already in place.
 - Code: `src/app/peserta/page.tsx` (generateMetadata); `src/components/member/dashboard-gathering.tsx` (DashboardGathering); `src/components/member/portal-horizon.tsx` (KepalaHorizon, NavBawahHorizon); `src/lib/member/portal-i18n.ts`; `src/lib/outfit.ts` (labelOutfit)
 - Related: U-21, U-10
 
 ### U-14 Seat, Live voting and Feedback form link show in Participant area for every layout, though the Gathering portal never renders them
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: medium. Area: Participant area (admin) > Shown in the Participant area. Scope: platform.
 - Finding: Organisers who set up seats for the gala dinner or add a feedback link will assume participants see them, but the Gathering portal (Horizon included) shows none of it and the editor gives no sign. Seat and Live voting are even on by default. This goes against Mas's rule that the editor shows only the fields the chosen layout renders.
 - Compared with: Swapcard hides features that are not available instead of showing them disabled.
 - Recommendation: No change for participants. Hide the controls the chosen layout does not render, or add an English note such as "Not shown in the Gathering layout", the same way the Participant home editor adapts for Horizon. If seats or feedback should appear in Gathering, build that as a new feature behind a per-event switch that is off by default.
-- Left: Hide Seat, Live voting and Feedback form link under Participant area > Shown in the Participant area when the event uses the Gathering layout (Horizon included), or add a note such as "Not shown in the Gathering layout". The page already knows the layout (data.layout) and shows Emergency and help only for Horizon (data.horizon), so the check can follow that pattern. DashboardGathering and the Horizon components read none of show_seat, show_vote or feedback_url. Only DashboardModern and the Editorial and Forum pages in src/app/peserta/page.tsx use them.
+- Left: Done in this PR: Participant area > Shown in the Participant area hides Seat, Live voting and Feedback form link when the event uses the Gathering layout (Horizon included). Saved values are kept, so switching back to another layout shows them again.
 - Decision on record or question for Mas: On record: one content model shared by all portal presets is a long-term direction to discuss, not part of this finding.
 - Code: `src/app/admin/area-peserta/page.tsx`; `src/app/admin/area-peserta/susunan-beranda.tsx` (SusunanBeranda); `src/components/member/dashboard-gathering.tsx` (DashboardGathering); `src/components/member/dashboard-modern.tsx` (DashboardModern)
 
@@ -217,12 +217,12 @@ Measured at audit time:
 
 ### U-17 The Home train row opens Travel at the top instead of at the train card
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: low. Area: Home, Travel. Scope: platform.
 - Finding: A participant who taps their train ticket on Home lands on the "Hotel & kamar" card and has to scroll. The train card starts below the fold, about 657 px down at 1280×588 and 958 px down at 390 px wide.
 - Compared with: Cvent Attendee Hub has a Train tab, and Apple Wallet uses one pass per journey.
 - Recommendation: Give the train card an anchor with a scroll-margin as tall as the top bar, then point the Home train row at it. Optional: on departure and return days, show the train card first. A navy pass style for the train card is a separate design proposal that needs a mockup.
-- Left: Give TiketKeretaHorizon (src/components/member/portal-horizon.tsx) an id and a scroll margin as tall as the top bar. Then point the Home train row (BarisTautanHorizon with keTab("perjalanan") in DashboardGathering) at that fragment. The emergency card already follows this pattern: id "darurat" with scroll-mt-24 and lg:scroll-mt-32, linked from the Travel help card. Optional: show the train card first on departure and return days.
+- Left: Done in this PR: TiketKeretaHorizon has id "kereta" with the same scroll margin as the emergency card (scroll-mt-24, lg:scroll-mt-32), and the Home train row opens Travel at #kereta. Optional and not done: show the train card first on departure and return days.
 - Decision on record or question for Mas: On record: the Travel card order and the white cards come from #185 ("Data yang ada").
 - Code: `src/components/member/portal-horizon.tsx` (TiketKeretaHorizon, KartuDaruratHorizon, BarisTautanHorizon); `src/components/member/dashboard-gathering.tsx` (DashboardGathering: Home train row, Travel tab)
 - Related: U-16
@@ -238,11 +238,11 @@ Measured at audit time:
 
 ### U-19 Below 1024 px the Home reading and Tab order differ from the visual order
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: low. Area: Home (phone and tablet, below 1024 px). Scope: platform.
 - Finding: Below lg, Home reorders its cards with CSS order inside display: contents wrappers, so the DOM order is not the order phones show. In the current code, screen readers and the Tab key go through the pass, Save QR, train, outfit and help cards before Now, Next, Announcements and an unfinished checkpoint, while phones show Now, Next and an unfinished checkpoint above the pass, with Announcements first by default. All content stays reachable, but the reading order is wrong on phones and at tablet 768.
 - Recommendation: Do not move the mismatch to desktop. Cheapest step: reading-flow: flex-visual on the flex container below lg as progressive enhancement (Chromium 137 and later; check Safari and Firefox). Changing the DOM order is only worth it if U-05 also changes the desktop column order.
-- Left: Add reading-flow: flex-visual to the Home flex container in DashboardGathering below lg, as progressive enhancement (Chromium 137 and later; check Safari and Firefox), so screen-reader and Tab order follow the phone order. Keep desktop as it is: lg:order-none already removes the mismatch there. Change the DOM order only if U-05 also changes the desktop column order.
+- Left: Done in this PR: the Home flex container has reading-flow: flex-visual below lg, so in Chromium 137 and later the reading and Tab order follow the phone order. Safari and Firefox do not support it yet and keep the DOM order, as before. Desktop is unchanged.
 - Code: `src/components/member/dashboard-gathering.tsx` (DashboardGathering: Home flex container and its display: contents wrappers)
 - Related: U-05
 
@@ -294,12 +294,12 @@ Measured at audit time:
 
 ### U-24 Date ranges written two ways, two metadata separators, and the time zone named on one card only
 
-- Status: Partly done (#199)
+- Status: Partly done (#199, this PR)
 - Priority: low. Area: Schedule, Travel, QR screen, Menu, public event page countdown. Scope: platform.
 - Finding: Participants check dates and times against their tickets and the organisers' WhatsApp messages more than anything else. At the audit, the long form "6 November 2026 – 8 November 2026" wrapped the Schedule header onto two lines at 390 px. Metadata also used both "•" and "·", and only the Next card named the time zone ("WIB").
 - Compared with: Luma shows times in the venue's time zone, with the local time in brackets when it differs.
 - Recommendation: Use formatEventDateRingkas for the Schedule header and the countdown. Use one metadata separator across the portal; Mas chooses between "•" from V5 and the SEPARATOR constant "·". Add one zone note on each page that shows times, for example "Semua jam WIB". Keep two day patterns: "Jum, 6 Nov" for rows and "Jumat, 6 November" for headings.
-- Left: 1) Mas picks one metadata separator. Today the QR screen's job title and company line (dataLapisanQr in DashboardGathering) and the Horizon train, outfit and roommate rows join with "•", while Profile and gabungMeta (SEPARATOR in src/lib/typography.ts) use "·". 2) The countdown block on the public event page still shows the long range from formatEventDate (siapkanHitungMundur in src/components/landing/modern/landing-blocks.tsx). 3) Travel shows check-in, bus and train times with no zone note, and its subtitle (travel.note, "Hotel, kamar, bus, dan kereta kamu.") has none either. In place now: #199 gave the Schedule subtitle the short range from formatEventDateRingkas plus one zone note ("semua jam WIB") and added the short date chips; day headings use the long pattern, Travel rows the short one, and the Next card time carries the zone, as before #199.
+- Left: 1) Mas picks one metadata separator ("•" or "·"); see the decision below. 2) The countdown block on the public event page still shows the long range from formatEventDate (siapkanHitungMundur in src/components/landing/modern/landing-blocks.tsx); it is a block every layout uses, so it waits for the same decision rather than changing other events now. Done in this PR: 3) the Travel subtitle carries the zone ("Hotel, kamar, bus, dan kereta kamu. Semua jam WIB."), so check-in, bus and train times have a zone note like Schedule.
 - Decision on record or question for Mas: Open for Mas: pick one metadata separator, "•" or "·".
 - Code: `src/lib/event-datetime.ts` (formatEventDate, formatEventDateRingkas); `src/components/landing/modern/landing-blocks.tsx` (siapkanHitungMundur); `src/components/member/dashboard-gathering.tsx` (DashboardGathering: dataLapisanQr, Travel tab); `src/lib/typography.ts` (SEPARATOR, gabungMeta); `src/lib/member/portal-i18n.ts` (schedule.timeNote, travel.note)
 
@@ -349,12 +349,12 @@ Measured at audit time:
 
 ### U-29 Profile is the only tab whose active state is not a gold underline, and the active day in the desktop Schedule list is faint
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: low. Area: Top bar Profile initials (desktop and tablet) and the desktop Schedule day list. Scope: platform.
 - Finding: In the top bar, the active Profile tab is marked only by a faint circle behind the initials (1.32:1 against navy), unlike the gold underline on the other four tabs; the page stays clear thanks to the "Profil" H1. The active day in the desktop Schedule day list is a white plane at 1.06:1 against the cream background. Phones are not affected.
 - Compared with: Reference from DESIGN.md rather than another product: a selection is shown by colour, a check mark and shape.
 - Recommendation: Give the active initials a 2 px gold ring in the same colour as the tab underline. Optional for the active day in the desktop Schedule list: a 1-2 px border with at least 3:1 contrast against cream. Do not use a coloured left border, and do not make the text bolder again (the weight was lowered on purpose in commit 5b18dff).
-- Left: Give the active Profile initials a 2 px gold ring like the tab underline; optionally give the active desktop Schedule day a 1-2 px border at 3:1 or more against cream.
+- Left: Done in this PR: the active Profile initials get a 2 px gold ring (inset, the tab underline colour), and the active day in the desktop Schedule list gets a 1 px #6F7C94 outline (3.9:1 against the cream page) with the same weight as before.
 - Code: `src/components/member/portal-horizon.tsx` (KepalaHorizon: Profile initials link and tab underline; HariJadwalHorizon: active day)
 - Related: U-16, U-27
 
@@ -372,12 +372,12 @@ Measured at audit time:
 
 ### U-31 The phone browser bar is still the old lavender, not the event's navy
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: low. Area: Browser address bar on phones: every page, most visible on the event page, participant area and QR screen. Scope: platform.
 - Finding: Chrome on Android colours the address bar with theme-color, so above the navy portal bar participants see a pale bar in a colour that has been dropped from the design system. The root layout sets #f9f5ff (light) and #0a082f (dark) for every page, while the current surface colours are #f6f6f6 and #0e0e0e.
 - Compared with: Airbnb and Eventbrite set theme-color to match their page header; Luma, Whova, Swapcard and Eventnook do not set it.
 - Recommendation: On guest pages (event page, participant area, QR screen), set theme-color from the event's Theme navy through a per-page viewport. Staff pages use the current surface colour. No new setting is needed, but KSO's browser bar changes too, so the change follows Mas's merge schedule.
-- Left: Set theme-color from the event's Theme navy on guest pages and the current surface colour on staff pages, timed with a merge because the KSO browser bar changes. No page in src sets its own viewport yet: generateViewport (supported in this Next.js version) on the event page routes, including the en and id variants, and on the participant area route, which also serves the QR screen, is one way to do it. For staff pages, the root layout values only need to follow the surface role again, as the comment above them asks.
+- Left: Done in this PR: generateViewport on the event page routes (/e/<slug>, /en, /id) and the participant area (which also serves the QR screen) sets theme-color to the Theme navy for Gathering Horizon events (warnaBilahPeramban in src/lib/landing-tokens.ts). Other events and staff pages use the root layout values, now the current surface colours #f6f6f6 and #0e0e0e. Other guest layouts keep their own bars and were left on the root values.
 - Code: `src/app/layout.tsx` (viewport.themeColor); `src/app/m3-theme.css` (--md-sys-color-surface); `src/app/e/[slug]/page.tsx`; `src/app/e/[slug]/en/page.tsx`; `src/app/e/[slug]/id/page.tsx`; `src/app/peserta/page.tsx`
 
 ### U-32 Participant email subjects use an em dash, and announcement emails are always in Indonesian
@@ -392,11 +392,11 @@ Measured at audit time:
 
 ### U-33 Small label fixes: "Bus utama", "Plat nomor", map link labels, the bell close button and a split "check-in"
 
-- Status: Partly done (#199)
+- Status: Done (#199, this PR)
 - Priority: low. Area: Travel (bus and hotel cards), Profile ticket card, event page hotel card and the announcement bell in the event page top bar (phone, tablet, desktop). Scope: platform.
 - Finding: Each is small, but "Bus utama" makes people ask whether there is a second bus, and a screen-reader label that names a panel that is not there misleads. The set covers the bus label, "Plat nomor" (KBBI spells it "Pelat"), the hotel map link labels, the phone bell close button label, and "check-in" breaking at its hyphen on the phone Profile ticket card.
 - Recommendation: (1) Write "Bus" when no trip uses another bus, and "Bus utama" only when one does. (2) Use "Pelat nomor", as in KBBI, the official Indonesian dictionary. (3) Use tautanPeta() for both hotel links so the label follows the map type. (4) Label the phone bell panel close button "Tutup pengumuman". (5) On the phone Profile ticket card, "check-in" breaks into "check-" and "in."; use a non-breaking hyphen (U+2011) or nowrap.
-- Left: Done in #199: (1), (2) and (5). Left: (3) neither hotel link uses tautanPeta(): the portal Travel hotel card always says "Buka di Google Maps", even for a non-Google map link, and the event page hotel card always says "Buka peta"; tautanPeta() is a private helper in event-landing-modern.tsx. (4) The phone bell close button is still labelled "Tutup menu". Also noted: the Modern preset bus tile still writes "Plat", outside the Horizon portal.
+- Left: Done in this PR: (3) both hotel links use labelTautanPeta() (moved to src/lib/landing-i18n.ts): "Buka di Google Maps" for Google links, "Buka peta" for others, on the event page hotel card and the portal Travel hotel card; (4) the phone bell close button is labelled "Tutup pengumuman" ("Close announcements"). Still noted: the Modern preset bus tile writes "Plat", outside the Horizon portal.
 - Code: `src/lib/member/portal-i18n.ts` (mainBus, onlyBus, plate, openMap, ticketHint); `src/components/member/dashboard-gathering.tsx` (bus label choice; hotel card map link); `src/components/landing/event-landing-modern.tsx` (tautanPeta, InfoHotel); `src/components/member/lonceng-pengumuman.tsx` (LoncengPengumuman close button); `src/lib/landing-i18n.ts` (closeMenu, openMap, openGoogleMaps); `src/components/member/kartu-logistik.tsx` (DetailBus)
 
 ### U-34 The KSO event page has two headings in a row that both start "Bukan sekadar"
