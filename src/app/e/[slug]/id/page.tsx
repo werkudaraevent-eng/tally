@@ -3,7 +3,7 @@ import { getEventBySlugPublic } from "@/lib/auth/event-scope";
 import type { EventLandingConfig } from "@/lib/domain";
 import { withQuery, landingDefaultLang, landingFormOnly } from "@/lib/landing-i18n";
 import { renderLanding } from "@/components/landing/render-landing";
-import { landingMetadata } from "../landing-metadata";
+import { landingMetadata, landingViewport } from "../landing-metadata";
 
 /**
  * Halaman acara versi Indonesia saat English dipilih sebagai bahasa utama:
@@ -14,6 +14,10 @@ import { landingMetadata } from "../landing-metadata";
  * di src/proxy.ts, sama seperti `/en`.
  */
 export const dynamic = "force-dynamic";
+
+export async function generateViewport({ params }: { params: Promise<{ slug: string }> }) {
+  return landingViewport((await params).slug);
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

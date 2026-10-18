@@ -59,12 +59,12 @@ export type PortalUiText = {
     tabsShort: { beranda: string; jadwal: string; perjalanan: string; info: string; profil: string };
     /** Halaman Perjalanan: hotel dan kamar, bus, tiket kereta. */
     travel: {
-      note: string;
+      /** Dengan zona waktu jam check-in, bus, dan kereta (U-24). */
+      note: (zona: string) => string;
       empty: string;
       backToMenu: string;
       menuRow: string;
       hotelTitle: string;
-      openMap: string;
       floor: string;
       roomType: string;
       checkIn: string;
@@ -246,12 +246,11 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tabs: { beranda: "Beranda", jadwal: "Jadwal", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Profil" },
       tabsShort: { beranda: "Beranda", jadwal: "Jadwal", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Menu" },
       travel: {
-        note: "Hotel, kamar, bus, dan kereta kamu.",
+        note: (zona) => `Hotel, kamar, bus, dan kereta kamu. Semua jam ${zona}.`,
         empty: "Info perjalanan belum dibagikan panitia.",
         backToMenu: "Menu",
         menuRow: "Hotel, kamar, bus, kereta",
         hotelTitle: "Hotel & kamar",
-        openMap: "Buka di Google Maps",
         floor: "Lantai",
         roomType: "Tipe kamar",
         checkIn: "Check-in",
@@ -423,12 +422,11 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tabs: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Profile" },
       tabsShort: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Menu" },
       travel: {
-        note: "Your hotel, room, bus, and train.",
+        note: (zona) => `Your hotel, room, bus, and train. All times ${zona}.`,
         empty: "The organisers haven't shared travel details yet.",
         backToMenu: "Menu",
         menuRow: "Hotel, room, bus, train",
         hotelTitle: "Hotel & room",
-        openMap: "Open in Google Maps",
         floor: "Floor",
         roomType: "Room type",
         checkIn: "Check-in",

@@ -440,7 +440,8 @@ export function BabHorizon({ bab }: { bab: { label: string; judul: string; href:
  */
 export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul: string; href: string; aktif: boolean }[]; aria: string }) {
   return (
-    <nav aria-label={aria} className="sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
+    // pudar-bawah-gulir: tepi bawah memudar selama masih ada hari di bawah (U-06).
+    <nav aria-label={aria} className="pudar-bawah-gulir sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
       <GulirHariAktif />
       <ol className="flex flex-col gap-1">
         {hari.map((item) => (
@@ -915,7 +916,8 @@ export type LegKereta = {
  */
 export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string }; leg: LegKereta[] }) {
   return (
-    <section aria-label={judul} className="flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7" style={{ color: TINTA }}>
+    // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
+    <section id="kereta" aria-label={judul} className="flex scroll-mt-24 flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32" style={{ color: TINTA }}>
       <div className="flex items-center gap-2">
         <Train size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
         <h2 className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: LABEL }}>

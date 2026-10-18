@@ -35,7 +35,7 @@ import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
 import { formatEventDate, formatEventDateRingkas, formatEventSchedule } from "@/lib/event-datetime";
 import { loadAgendaPreview, type AgendaItem, type AgendaPreview } from "@/lib/landing-agenda";
-import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
@@ -939,7 +939,7 @@ export async function DashboardGathering({
   } else if (tabAktif === "perjalanan") {
     // Hanya Horizon (preset lain sudah dialihkan ke Beranda di atas).
     const tv = tH.travel;
-    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note };
+    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note(singkatanZona) };
     const hotel = kamar?.hotel ?? null;
     const peta = hotel
       ? hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`
@@ -950,7 +950,7 @@ export async function DashboardGathering({
         Ikon={Bed}
         nama={hotel?.name?.trim() || null}
         alamat={hotel?.address?.trim() || null}
-        tautan={peta ? { href: peta, label: tv.openMap } : null}
+        tautan={peta ? { href: peta, label: labelTautanPeta(peta, lang) } : null}
         kolom={4}
         fakta={[
           { label: tH.room, nilai: kamar.room_number, besar: true },
@@ -1474,7 +1474,7 @@ export async function DashboardGathering({
                   {tampilLogistik && tiketBeranda ? (
                     <div className="order-[44] lg:order-none">
                       <BarisTautanHorizon
-                        href={keTab("perjalanan")}
+                        href={`${keTab("perjalanan")}#kereta`}
                         Ikon={Train}
                         alis={[tH.travel.trainRow, tanggalLeg(tiketBeranda.depart_date, lang)].filter(Boolean).join(" • ")}
                         judul={ruteLeg(tiketBeranda) ?? tiketBeranda.train_name}
@@ -1578,7 +1578,7 @@ export async function DashboardGathering({
     const kepalaTab: Record<string, KepalaTab> = {
       beranda: { judul: tH.heading(namaDepanSesi), judulPonsel: tH.headingMobile(namaDepanSesi), catatan: "", jenis: "kartu" },
       jadwal: { judul: t.schedule, judulPonsel: t.schedule, catatan: catatanJadwal, jenis: "jadwal" },
-      perjalanan: { judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note, jenis: "kartu" },
+      perjalanan: { judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona), jenis: "kartu" },
       outfit: { judul: labelMenuOutfit, judulPonsel: labelMenuOutfit, catatan: tH.outfit.note, jenis: "kartu" },
       info: { judul: tH.tabs.info, judulPonsel: tH.tabs.info, catatan: t.infoNote, jenis: "kartu" },
       profil: { judul: tH.tabs.profil, judulPonsel: tH.tabsShort.profil, catatan: tH.profile.note, jenis: "kartu" },
