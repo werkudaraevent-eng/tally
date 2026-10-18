@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { adaKolomTujuan, bacaTujuan, kolomTujuanBelumAda, rapiTujuan, rewardEnBaru, TUJUAN_POIN_MAX, TUJUAN_TEKS_MAX, type TujuanPoin } from "@/lib/checkpoint/tujuan";
-import { bacaPenyelesaian } from "@/lib/checkpoint/server";
+import { bacaPenyelesaian, type Penyelesaian } from "@/lib/checkpoint/server";
 import { landingEnAvailable } from "@/lib/landing-i18n";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -98,6 +98,26 @@ function galat(error: { code?: string; message?: string }) {
 }
 
 /** Tepat satu bukti: sesi scan ATAU barang. */
+const LABEL_SELESAI: Record<Penyelesaian, string> = { staff: "Staff scan the participant's QR", self: "Participants scan the checkpoint QR", both: "Both" };
+
+/**
+ * Kemajuan dihitung per sesi, jadi semua checkpoint di satu sesi selesai dengan
+ * cara yang sama: kalau tidak, scan mandiri ikut menyelesaikan checkpoint Staff.
+ * Jawaban 422 bila checkpoint lain di sesi itu memakai pilihan lain.
+ */
+async function bentrokSesi(db: ReturnType<typeof getSupabaseServiceClient>, eventId: string, sessionId: number | null, completion: Penyelesaian | undefined, kecuali: number | null) {
+  if (!sessionId || !completion) return null;
+  const { data, error } = await db.from("checkpoints").select(PILIH).eq("event_id", eventId).eq("session_id", sessionId);
+  if (error) return galat(error);
+  const lain = ((data ?? []) as { id: number; title: string; completion?: unknown }[])
+    .map((cp) => ({ ...cp, completion: bacaPenyelesaian(cp.completion) }))
+    .find((cp) => cp.id !== kecuali && cp.completion !== completion);
+  if (!lain) return null;
+  return apiError("VALIDATION_ERROR", 422, {
+    message: `"${lain.title}" uses this scan session with "${LABEL_SELESAI[lain.completion]}". Checkpoints on one session get done the same way: pick that, or another session.`,
+  });
+}
+
 function satuBukti(isi: { session_id?: number | null; item_id?: number | null }) {
   return Boolean(isi.session_id) !== Boolean(isi.item_id);
 }
@@ -151,6 +171,8 @@ export async function POST(request: Request) {
   const eventId = auth.scope.event.id;
   const db = getSupabaseServiceClient();
 
+  const bentrok = await bentrokSesi(db, eventId, parsed.data.session_id ?? null, parsed.data.completion ?? "staff", null);
+  if (bentrok) return bentrok;
   const { data: akhir } = await db.from("checkpoints").select("sort_order").eq("event_id", eventId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
   const { completion, ...isi } = parsed.data;
   const baris = { ...isi, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, event_id: eventId, sort_order: ((akhir as { sort_order: number } | null)?.sort_order ?? -1) + 1 };
@@ -246,9 +268,12 @@ export async function PATCH(request: Request) {
 
   const { id, completion, ...isi } = parsed.data;
   if (!satuBukti(isi)) return apiError("VALIDATION_ERROR", 422, { message: "Pick exactly one: a scan session or a kit item." });
-  // Pindah ke barang: checkpoint itu kembali dipindai panitia.
+  // Sama dengan POST: barang dengan pilihan selain Staff ditolak. Pindah ke
+  // barang tanpa menyebut pilihannya: checkpoint itu kembali dipindai panitia.
+  if (!penyelesaianSah({ ...isi, completion })) return apiError("VALIDATION_ERROR", 422, { message: PESAN_BARANG });
   const penyelesaian = isi.item_id ? "staff" : completion;
-  if (!penyelesaianSah({ ...isi, completion: penyelesaian })) return apiError("VALIDATION_ERROR", 422, { message: PESAN_BARANG });
+  const bentrok = await bentrokSesi(db, eventId, isi.session_id ?? null, penyelesaian, id);
+  if (bentrok) return bentrok;
   const ubah = { ...isi, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, updated_at: sekarang };
   const simpan = (dengan: boolean) =>
     db

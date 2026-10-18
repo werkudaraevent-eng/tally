@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Checkpoint self-scan follow-ups (#208 QA), PR `fix/checkpoint-scan-mandiri-lanjutan`: checkpoints on one scan session must share "How it gets done" (a Staff checkpoint keeps the whole session staff-scanned); ended events refuse participant scans and hide the QR; kit-item rules match between add and edit; switching back to Scan participant turns the camera on. No SQL. Waits on coordinator QA and Mas's merge time.
 - #206 (U-02, U-07, U-09 warnings, U-10): cashier offline banner only on Cashier and Booth; the reloaded QR page skips announcements and loads only the bus; the offline QR copy follows the signed-in account; Readiness items for the organiser phone and Agenda sections outside the event dates, plus a warning under the section Date. No SQL. Waits on coordinator QA and Mas's merge time.
 - Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -164,7 +165,6 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
-- #208 QA Lows: a few follow-ups on self-scan validation, tracked privately.
 - Self-scan: the classic and modern checkpoint cards show "Tampilkan QR" next to the scan button only where the dashboard already passes a QR link (modern does not), so Both on modern has no fallback link on the card; the QR stays in the portal's own QR place.
 - #169 L2/L5: the post-check SQL misses grants and constraints, and POST returns 500 before the migration.
 - #172/#173 F4: Sessions tab strings are still Indonesian; F2, a ~120 ms Assignments-to-Kit flash, is accepted.
