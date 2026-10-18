@@ -16,8 +16,11 @@ import { kartuLengkapi } from "@/lib/member/lengkapi";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
 import { waktuPengumuman } from "@/lib/member/nav";
-import { gatheringHorizon, type EventLandingConfig } from "@/lib/domain";
-import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { gatheringHorizon, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
+import { PORTAL_UI } from "@/lib/member/portal-i18n";
+import { labelOutfit } from "@/lib/outfit";
+import { loadOutfitBagian } from "@/lib/outfit-server";
+import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -53,8 +56,42 @@ import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type La
 export const dynamic = "force-dynamic";
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // `bahasa` dari proxy (/en/peserta). Alamat yang tidak berlaku dialihkan halamannya.
-  const { bahasa } = await searchParams;
-  return { title: bahasa === "en" ? "Participant area" : "Area peserta", robots: { index: false, follow: false } };
+  const kueri = await searchParams;
+  const robots = { index: false, follow: false };
+  const event = await getPublicPageEvent(searchParams);
+  const landing = (event?.landing_config ?? {}) as EventLandingConfig;
+  const lang: LandingLang = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : landingDefaultLang(landing);
+  if (!event) return { title: LANDING_UI[lang].myDashboard, robots };
+  return { title: `${await judulTabPortal(event, lang, kueri.tab)} · ${publicEventName(event)}`, robots };
+}
+
+/**
+ * Judul dokumen per tab (U-13, U-21): "Jadwal · <acara>". Pembaca layar hanya
+ * mengumumkan pindah halaman bila document.title berubah, jadi setiap tab
+ * portal bertab perlu judulnya sendiri. Portal tanpa tab memakai nama yang
+ * sama dengan tombol di bilah halaman acara, "Dashboard saya". Tab yang jatuh
+ * kembali ke Beranda di DashboardGathering (Perjalanan di luar Horizon, Outfit
+ * tanpa outfit, QR yang disembunyikan) berjudul Beranda juga. Sesi tidak dibaca
+ * di sini supaya QR di gerbang tidak menunggu kueri tambahan.
+ */
+async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | string[] | undefined): Promise<string> {
+  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  const teks = PORTAL_UI[lang];
+  if (landing.layout !== "modern" || landing.gathering !== true) return LANDING_UI[lang].myDashboard;
+  const horizon = gatheringHorizon(landing);
+  const label = horizon ? teks.horizon.tabs : { ...teks.horizon.tabs, ...teks.tabs };
+  const member = memberConfig(event);
+  if (tab === "qr" && horizon && member?.show_code !== false) return teks.qrTitle;
+  if (tab === "outfit" && horizon && (await adaOutfit(event.id, lang))) return labelOutfit(member?.outfit_label);
+  if (tab === "perjalanan" && horizon) return label.perjalanan;
+  if (tab === "jadwal" || tab === "info" || tab === "profil") return label[tab];
+  return label.beranda;
+}
+
+/** Sama dengan adaOutfit di DashboardGathering: ada outfit di hari Agenda yang terbit. */
+async function adaOutfit(eventId: string, lang: LandingLang): Promise<boolean> {
+  const [agenda, peta] = await Promise.all([loadAgendaPreview(eventId, lang), loadOutfitBagian(eventId)]);
+  return agenda.some((bagian) => bagian.id !== undefined && (peta.get(bagian.id)?.length ?? 0) > 0);
 }
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";

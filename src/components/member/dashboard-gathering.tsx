@@ -215,7 +215,7 @@ export async function DashboardGathering({
     const dataQr = dataLapisanQr();
     const busQr = logistikQr ? namaBusPeserta(logistikQr, sekarang) : null;
     return (
-      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="min-h-dvh" style={{ ...gaya, backgroundColor: "var(--hz-navy)", color: "#ffffff" }}>
+      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="min-h-dvh" style={{ ...gaya, "--cincin-fokus": "var(--hz-cincin-navy)", backgroundColor: "var(--hz-navy)", color: "#ffffff" } as CSSProperties}>
         <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         <TutupQrEscape href={tutupQr} />
         <QrHorizon
@@ -1435,7 +1435,10 @@ export async function DashboardGathering({
                 <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
               </div>
             ) : null}
-            <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,790px)_minmax(320px,1fr)] lg:items-start lg:gap-x-8 lg:gap-y-6">
+            {/* Di bawah lg kartu diurutkan dengan `order` (lewat pembungkus `contents`);
+                reading-flow membuat urutan baca dan Tab mengikuti urutan tampil (U-19).
+                Peramban tanpa dukungan tetap memakai urutan DOM, seperti sebelumnya. */}
+            <div className="flex flex-col gap-6 max-lg:[reading-flow:flex-visual] lg:grid lg:grid-cols-[minmax(0,790px)_minmax(320px,1fr)] lg:items-start lg:gap-x-8 lg:gap-y-6">
               <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
                 <BagianBeranda id="logistics" pratinjau={pratinjau}>
                   <div className="order-[40] lg:order-none">
@@ -1599,7 +1602,8 @@ export async function DashboardGathering({
           infoBelumLabel={tH.unread(infoBelum)}
           tabsAria={t.tabsAria}
         />
-        {badan}
+        {/* Bilah atas dan bawah di luar <main> (U-13): landmark utama hanya isi tab. */}
+        <main>{badan}</main>
         <NavBawahHorizon tabs={tabsBawahHorizon} aktif={tabAktif === "perjalanan" || tabAktif === "outfit" ? "profil" : tabAktif} tabsAria={t.tabsAria} infoBelum={infoBelum} infoBelumLabel={tH.unread(infoBelum)} qr={
             tampilKode && peserta
               ? {
@@ -1615,11 +1619,11 @@ export async function DashboardGathering({
     );
     return (
       // Bilah bawah dipakai sampai 1024 px (U-18), jadi ruang bawahnya juga.
-      <main lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
+      <div lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
         <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         {dataQr ? <PenyediaQr data={dataQr}>{isiPortal}</PenyediaQr> : isiPortal}
         {!dataQr && !pratinjau ? <HapusSalinanQr lingkup={[`${landingPath(event.slug, "id", utama)}/peserta`, `${landingPath(event.slug, "en", utama)}/peserta`]} /> : null}
-      </main>
+      </div>
     );
   }
 

@@ -4,6 +4,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
 import type { EventTimeZone } from "@/lib/timezone";
 import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
 import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
+import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import { PemicuQr } from "@/components/member/qr-fokus";
 import { PindaiCheckpoint } from "@/components/member/pindai-checkpoint";
 
@@ -81,7 +82,7 @@ export function KartuCheckpointHorizon({
   // Navy hanya selama ada langkah tersisa; sesudahnya kartu putih biasa.
   const aktif = Boolean(berikut);
   const w = aktif
-    ? { kartu: "bg-[var(--hz-navy)] text-white shadow-[0_8px_24px_rgba(16,30,56,0.18)]", label: "text-[var(--hz-sorot,var(--hz-emas))]", redup: "text-white/70", samar: "text-white/60", garis: "border-white/15", rel: "bg-white/20", isi: "bg-[var(--hz-emas)]", diAtasIsi: "text-[var(--hz-on-emas)]", kosong: "border-white/35 text-white/70", latar: "bg-[var(--hz-navy)]", tautan: "text-[var(--hz-sorot,var(--hz-emas))]" }
+    ? { kartu: `bg-[var(--hz-navy)] text-white shadow-[0_8px_24px_rgba(16,30,56,0.18)] ${CINCIN_NAVY}`, label: "text-[var(--hz-sorot,var(--hz-emas))]", redup: "text-white/70", samar: "text-white/60", garis: "border-white/15", rel: "bg-white/20", isi: "bg-[var(--hz-emas)]", diAtasIsi: "text-[var(--hz-on-emas)]", kosong: "border-white/35 text-white/70", latar: "bg-[var(--hz-navy)]", tautan: "text-[var(--hz-sorot,var(--hz-emas))]" }
     : { kartu: "bg-white text-[#101E38]", label: "text-[#4D5D77]", redup: "text-[#526078]", samar: "text-[#526078]", garis: "border-[#E6E9EE]", rel: "bg-[#E1E6F1]", isi: "bg-[var(--hz-navy)]", diAtasIsi: "text-white", kosong: "border-[#AEBBD3] text-[#526078]", latar: "bg-white", tautan: "text-[#274FC0]" };
 
   const baris = (step: LangkahPeserta, akhir: boolean) => {

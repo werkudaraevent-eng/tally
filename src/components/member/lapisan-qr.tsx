@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { CheckCircle, WifiSlash, X } from "@phosphor-icons/react";
 import { RegistrationCodeCard, buatGambarQr } from "@/components/registration-code-card";
 import { QrHorizon } from "@/components/member/qr-horizon";
+import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import { KonteksLapisanQr } from "@/components/member/qr-fokus";
 import { CACHE_QR_LURING, halamanQrLuring, kunciQrLuring } from "@/lib/member/halaman-qr-luring";
 import type { LandingLang } from "@/lib/landing-i18n";
@@ -206,7 +207,7 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
           // Ditutup peramban tanpa lewat riwayat (Escape beruntun): alamatnya ikut kembali.
           if (new URLSearchParams(window.location.search).get("tab") === "qr") tutup();
         }}
-        className="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-[var(--hz-navy)] p-0 text-white backdrop:bg-[var(--hz-navy)]"
+        className={`m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-[var(--hz-navy)] p-0 text-white backdrop:bg-[var(--hz-navy)] ${CINCIN_NAVY}`}
       >
         {terbuka ? (
           <QrHorizon

@@ -311,7 +311,8 @@ export function LandingNavModern({
       data-landing-nav
       data-sunting="pembuka:nav"
       ref={navRef}
-      className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah} ${horizon ? "transition-[margin] duration-200 [--nav-ringkas:64px] md:[--nav-ringkas:72px]" : ""}`}
+      // Horizon: cincin fokus warna teks bilah, yang selalu kontras dengan isian bilahnya (U-12).
+      className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah} ${horizon ? "transition-[margin] duration-200 [--nav-ringkas:64px] md:[--nav-ringkas:72px] [--cincin-fokus:var(--nav-text)]" : ""}`}
       style={{
         ...isi,
         ...(selebarIsi ? {} : { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" }),

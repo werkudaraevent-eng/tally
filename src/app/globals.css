@@ -505,10 +505,13 @@ input:-webkit-autofill:focus {
  * membutuhkannya. Rasa "lembut" yang dicari tetap didapat lewat lingkaran kedua
  * di bawah: bayangan tipis 18% di luar cincin, hiasan yang tidak menanggung
  * keterbacaan apa pun. */
+/* `--cincin-fokus`: warna cincin per wadah. Halaman Horizon memasangnya
+ * (tinta navy di bidang terang, emas Tema di bidang navy; U-12, lihat
+ * components/landing/modern/cincin-horizon.ts); di luar itu warna primer. */
 :focus-visible {
-	outline: 2px solid var(--md-sys-color-primary);
+	outline: 2px solid var(--cincin-fokus, var(--md-sys-color-primary));
 	outline-offset: 2px;
-	box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--cincin-fokus, var(--md-sys-color-primary)) 18%, transparent);
 }
 
 /* Satu pengecualian, dan hanya satu: kolom cari yang MEMILIKI fokus sejak
