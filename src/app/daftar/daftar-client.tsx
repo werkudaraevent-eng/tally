@@ -18,6 +18,8 @@ import { easing, expressive } from "@/lib/m3/motion";
 import type { FormGathering } from "@/lib/gathering-formulir";
 import { KakiGathering, LatarKv } from "@/components/landing/modern/gathering-app";
 import { SHELL } from "@/components/landing/modern/styles";
+import { lingkupSalinanQr } from "@/lib/member/halaman-qr-luring";
+import { hapusSalinanQr } from "@/components/member/form-keluar";
 
 /**
  * Pergantian formulir → layar sukses di dalam kartu yang sama.
@@ -313,6 +315,9 @@ export default function DaftarClient(props: Props) {
     setNama(String(form.get("name") ?? "").trim());
     setEmailDaftar(pakaiEmailUndangan ? tamu?.emailMasked ?? "" : String(form.get("email") ?? "").trim());
     judulDifokus.current = false;
+    // Pendaftaran dengan kata sandi langsung memasukkan akunnya: salinan QR
+    // luring akun sebelumnya di ponsel ini dihapus, seperti saat masuk.
+    if (body.akun === "ok") await hapusSalinanQr(lingkupSalinanQr(props.eventSlug));
     setHasil(body);
     if (typeof body.code_url === "string") {
       // Gagal menulis TIDAK dijadikan galat: mode penyamaran dan pengaturan

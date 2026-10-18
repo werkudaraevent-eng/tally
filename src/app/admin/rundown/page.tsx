@@ -81,7 +81,6 @@ const BRANDING_FALLBACK = {
   accent_color: "#2649d0",
 } as const;
 
-/** "Monday, 24 August 2026" untuk keterangan staf. formatEventDate di lib/rundown dipakai halaman publik, jadi tetap id-ID. */
 /** Tanggal bagian di luar rentang tanggal acara. Tanpa tanggal acara: tidak diperiksa. */
 function diLuarAcara(tanggal: string | null | undefined, acara: { start: string | null; end: string | null } | null): boolean {
   if (!tanggal || !acara?.start) return false;
@@ -97,6 +96,7 @@ function rentangAcara(acara: { start: string | null; end: string | null }): stri
   return acara.end && acara.end > (acara.start ?? "") ? `${awal} to ${pendek(acara.end)}` : awal;
 }
 
+/** "Monday, 24 August 2026" untuk keterangan staf. formatEventDate di lib/rundown dipakai halaman publik, jadi tetap id-ID. */
 function formatStaffDate(eventDate: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return eventDate;
   const date = new Date(`${eventDate}T12:00:00Z`);
@@ -1025,7 +1025,7 @@ export default function RundownAdminPage() {
           // U-09: bagian bertanggal di luar acara membuat hitungan hari dan
           // penanda "sekarang" salah, dan biasanya tanda tanggal yang tertinggal.
           <Banner tone="warning" icon={<Warning size={18} />}>
-            This date is outside the event ({rentangAcara(eventDates!)}). Check it, or change the event dates in Event page.
+            This date is outside the event ({rentangAcara(eventDates!)}). Check it, or change the event dates on the Event page.
           </Banner>
         ) : null}
         {sectionsUrut.length > 1 ? (
