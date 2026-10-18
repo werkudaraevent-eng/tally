@@ -1221,6 +1221,11 @@ export type LandingMemberConfig = {
    * ditaut dari kartu bantuan Perjalanan, bukan di Beranda. Kosong = tidak ada.
    */
   help_block?: string | null;
+  /**
+   * Kontak darurat dan bantuan (E-03) yang diisi langsung di Participant
+   * area > Emergency and help. Ada kontaknya = menggantikan `help_block`.
+   */
+  help?: { title?: string | null; note?: string | null; contacts?: Array<{ name: string; phone?: string | null; note?: string | null; map_url?: string | null }> } | null;
 };
 
 export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";

@@ -33,6 +33,9 @@ export type BlokPeserta = {
   hidden_on_page: boolean;
   /** Belum ada isinya: tidak tampil sampai diisi. */
   empty: boolean;
+  /** Blok Columns khusus peserta saja: isinya untuk "Copy into contacts" di Emergency and help. */
+  body?: string | null;
+  items?: Array<{ title?: string | null; body?: string | null; href?: string | null }>;
 };
 
 type Baris = {

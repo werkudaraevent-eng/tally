@@ -5,6 +5,7 @@ import { getEventBySlugPublic, requireEventScope } from "@/lib/auth/event-scope"
 import { sectionsDenganBlokPeserta, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { memberSchema } from "@/lib/landing-body-schema";
 import { previewMemberSession } from "@/lib/member/account";
+import { bantuanPratinjau, type BantuanDarurat } from "@/lib/member/kontak-darurat";
 import { renderBerandaPratinjau } from "./render";
 
 export type HasilPratinjauPeserta = { ok: true; isi: ReactNode } | { ok: false; pesan: string };
@@ -16,11 +17,13 @@ export type HasilPratinjauPeserta = { ok: true; isi: ReactNode } | { ok: false; 
  * ditulis ke mana pun, dan diperiksa dengan skema yang sama dengan Simpan.
  * Isi lain (blok, tema) dari salinan tersimpan: disunting di Event page.
  */
-export async function renderPratinjauPeserta(slug: string, pesertaId: string, draf: unknown): Promise<HasilPratinjauPeserta> {
+export async function renderPratinjauPeserta(slug: string, pesertaId: string, draf: unknown, tab: unknown = "beranda"): Promise<HasilPratinjauPeserta> {
   const auth = await requireEventScope(slug, ["admin"]);
   if (auth.response) return { ok: false, pesan: "Your session has expired. Reload this page." };
   // Tautan umpan balik yang masih diketik tidak menghentikan pratinjau.
-  const parsed = [draf, draf && typeof draf === "object" ? { ...draf, feedback_url: null } : draf].map((isi) => memberSchema.safeParse(isi)).find((hasil) => hasil.success) ?? memberSchema.safeParse(draf);
+  // Kontak darurat yang masih diketik (tanpa nama, peta setengah jadi) dilewati, bukan menghentikan pratinjau.
+  const drafRapi = draf && typeof draf === "object" && "help" in draf ? { ...draf, help: bantuanPratinjau((draf as { help?: BantuanDarurat | null }).help) } : draf;
+  const parsed = [drafRapi, drafRapi && typeof drafRapi === "object" ? { ...drafRapi, feedback_url: null } : drafRapi].map((isi) => memberSchema.safeParse(isi)).find((hasil) => hasil.success) ?? memberSchema.safeParse(drafRapi);
   if (!parsed.success) return { ok: false, pesan: "Some settings aren't valid yet. The preview resumes once they're fixed." };
   const event = (await getEventBySlugPublic(slug)) as EventRow | null;
   if (!event) return { ok: false, pesan: "Event not found." };
@@ -34,6 +37,6 @@ export async function renderPratinjauPeserta(slug: string, pesertaId: string, dr
   const nyala = tersembunyi ? (landing.blocks ?? []).map((block) => block.id as string).filter((id) => !tersembunyi.includes(id)) : [];
   const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyala);
   const acara = sections === landing.sections ? event : { ...event, landing_config: { ...landing, sections } };
-  const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi);
+  const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi, tab === "profil" ? "profil" : "beranda");
   return isi ? { ok: true, isi } : { ok: false, pesan: "Participant home is only on the Modern and Gathering layouts." };
 }

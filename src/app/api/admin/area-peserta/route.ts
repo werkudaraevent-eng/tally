@@ -6,6 +6,7 @@ import { memberSchema } from "@/lib/landing-body-schema";
 import { loadSetelanCheckpoint } from "@/lib/checkpoint/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { isEmailConfigured } from "@/lib/email/client";
+import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
 import { KOLOM_MASUK_POLA, pilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain";
 
@@ -131,6 +132,10 @@ export async function GET(request: Request) {
         // Blok khusus peserta tidak diatur di Page sections: lihat matiLama.
         hidden_on_page: !landingBlockMemberOnly(block) && diSusunan.get(block.id) === false,
         empty: !landingBlockHasContent(block),
+        // Isi blok Columns khusus peserta, untuk "Copy into contacts" di Emergency and help.
+        ...(landingBlockMemberOnly(block) && jenisBlokDarurat(block.type)
+          ? { body: block.body?.trim() || null, items: (block.items ?? []).map((item) => ({ title: item.title ?? null, body: item.body ?? null, href: item.href ?? null })) }
+          : {}),
       })),
     preview: layout ? await pesertaBawaan(eventId) : null,
     // Baris Checkpoints di Participant home menyebut bila fiturnya mati di Check-in.

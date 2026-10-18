@@ -11,8 +11,9 @@ import { loadMemberAnnouncements } from "@/lib/member/pengumuman";
  * yang punya Participant home; tata letak lain mengembalikan null.
  *
  * Pengumuman dibaca saja: pratinjau tidak menandai apa pun terbaca.
+ * `tab` "profil" (Gathering saja): Menu, tempat kartu darurat (E-03).
  */
-export async function renderBerandaPratinjau(event: EventRow, member: LandingMemberConfig, sesi: MemberSession) {
+export async function renderBerandaPratinjau(event: EventRow, member: LandingMemberConfig, sesi: MemberSession, tab: "beranda" | "profil" = "beranda") {
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   if (landing.layout !== "modern") return null;
   const lang = landingDefaultLang(landing);
@@ -20,7 +21,7 @@ export async function renderBerandaPratinjau(event: EventRow, member: LandingMem
   const setelan = { ...member, enabled: true };
   const pengumuman = await loadMemberAnnouncements(event.id, sesi);
   return landing.gathering === true ? (
-    <DashboardGathering event={event} lang={lang} member={setelan} sesi={sesi} pengumuman={pengumuman} konfirmasi={null} tab="beranda" hari={null} pratinjau />
+    <DashboardGathering event={event} lang={lang} member={setelan} sesi={sesi} pengumuman={pengumuman} konfirmasi={null} tab={tab} hari={null} pratinjau />
   ) : (
     <DashboardModern event={event} lang={lang} member={setelan} sesi={sesi} pengumuman={pengumuman} konfirmasi={null} pratinjau />
   );

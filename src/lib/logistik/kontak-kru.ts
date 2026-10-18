@@ -12,7 +12,7 @@ export type NomorKru = { tel: string; wa: string };
 // Awalan, lalu 8 dan sisa nomor dalam kelompok minimal 3 digit yang dipisah
 // satu spasi, titik, atau tanda hubung (tidak menyeberang baris). Kelompok
 // 2 digit sesudahnya (tanggal, "24 jam") tidak ikut. Tidak boleh menempel ke angka lain.
-const PONSEL = /(?<![\d+])(?:(?:\+|00)?62[ \t.-]?(?:\(0\)[ \t]?|0)?|0)8\d{1,3}(?:[ \t.-]?\d{3,5}){1,3}(?!\d)/;
+export const PONSEL = /(?<![\d+])(?:(?:\+|00)?62[ \t.-]?(?:\(0\)[ \t]?|0)?|0)8\d{1,3}(?:[ \t.-]?\d{3,5}){1,3}(?!\d)/;
 
 export function nomorKru(teks: string | null | undefined): NomorKru | null {
   const cocok = (teks ?? "").match(PONSEL);
