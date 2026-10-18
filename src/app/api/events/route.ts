@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
+import type { UserRole } from "@/lib/auth/roles";
 import { EVENT_VENUE_MAX } from "@/lib/domain";
 import { createEvent, generateEventSlug, listEvents } from "@/lib/supabase/events";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -15,6 +16,11 @@ const createSchema = z.object({
   scanner_api_event_slug: z.string().trim().min(1).max(120).nullable().optional(),
 });
 
+const KOLOM_ADMIN = "id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,end_date,start_time,end_time,tagline,venue_name,venue_address,venue_map_url,landing_config,created_at,updated_at,archived_at";
+// Peran lain (petugas, klien) hanya memakai daftar acara di /events: nama,
+// tanggal, status, dan tempat. Isi CMS dan setelan formulir tetap di admin.
+const KOLOM_DAFTAR = "id,slug,name,event_date,status,registration_enabled,time_zone,end_date,start_time,end_time,venue_name,created_at,updated_at,archived_at";
+
 export async function GET() {
   const auth = await requireUser();
   if (auth.response) return auth.response;
@@ -27,19 +33,25 @@ export async function GET() {
     const client = getSupabaseServiceClient();
     const { data: access, error } = await client
       .from("user_event_access")
-      .select("event_id")
+      .select("event_id,role")
       .eq("user_id", auth.user.id);
     if (error) return apiError("INTERNAL_ERROR", 500);
 
-    const ids = ((access as Array<{ event_id: string }> | null) ?? []).map((row) => row.event_id);
-    if (ids.length === 0) return Response.json({ events: [] });
+    // Peran DI ACARA ITU (seperti requireEventScope): admin acara A yang menjadi
+    // petugas di acara B hanya mendapat baris daftar untuk acara B.
+    const baris = (access as Array<{ event_id: string; role: UserRole }> | null) ?? [];
+    const idAdmin = baris.filter((row) => row.role === "admin").map((row) => row.event_id);
+    const idLain = baris.filter((row) => row.role !== "admin").map((row) => row.event_id);
+    if (baris.length === 0) return Response.json({ events: [] });
 
-    const { data, error: eventError } = await client
-      .from("events")
-      .select("id,slug,name,description,event_date,status,participant_source,scanner_api_event_slug,registration_enabled,registration_form_config,time_zone,end_date,start_time,end_time,tagline,venue_name,venue_address,venue_map_url,landing_config,created_at,updated_at,archived_at")
-      .in("id", ids)
-      .order("event_date", { ascending: false, nullsFirst: false });
-    if (eventError) return apiError("INTERNAL_ERROR", 500);
+    const muat = (ids: string[], kolom: string) => ids.length === 0
+      ? Promise.resolve({ data: [] as unknown[], error: null })
+      : client.from("events").select(kolom).in("id", ids);
+    const [admin, lain] = await Promise.all([muat(idAdmin, KOLOM_ADMIN), muat(idLain, KOLOM_DAFTAR)]);
+    if (admin.error || lain.error) return apiError("INTERNAL_ERROR", 500);
+    // Urutan sama dengan sebelumnya: tanggal terbaru dulu, tanpa tanggal di akhir.
+    const data = ([...(admin.data ?? []), ...(lain.data ?? [])] as Array<{ event_date: string | null }>)
+      .sort((a, b) => (a.event_date === b.event_date ? 0 : a.event_date === null ? 1 : b.event_date === null ? -1 : a.event_date < b.event_date ? 1 : -1));
     return Response.json({ events: data ?? [] });
   } catch {
     return apiError("INTERNAL_ERROR", 500);

@@ -19,13 +19,14 @@ const blockId = z.string().regex(/^blk_[a-z0-9]{6,24}$/) as z.ZodType<`blk_${str
 // sama (#agenda). Bukan `z.string().url()` saja karena kolom yang dikosongkan
 // admin terkirim sebagai "".
 const tautan = z.string().trim().max(600).refine((value) => value === "" || /^(https?:\/\/\S+|#[A-Za-z][\w-]*)$/.test(value), "Links must start with http://, https://, or # for a section on this page");
-// Gambar baru di blok Hitung mundur: http(s) atau jalur di situs ini (/uploads/...),
-// bukan javascript:, data:, atau ftp:. "//host" ditolak karena itu alamat situs
-// lain. Sengaja hanya untuk kolom Hitung mundur: image_url blok lain tetap
-// seperti semula, karena satu alamat lama yang tidak lolos akan menggagalkan
-// setiap simpan acara itu.
-const GAMBAR_KETAT = /^(https?:\/\/\S+|\/(?!\/)\S*)$/;
+// Gambar blok: http(s) atau jalur di situs ini (/uploads/...), bukan javascript:,
+// data:, atau ftp:. "//host" ditolak karena itu alamat situs lain. Alamat lama
+// yang tidak lolos membuat Simpan acara itu menunjuk kolomnya; unggahan CMS
+// selalu http(s), jadi itu hanya alamat yang diketik tangan.
+const GAMBAR_KETAT = /^(https?:\/\/\S+|\/(?!\/)\S*)$/i;
 const PESAN_GAMBAR = "Images must be an http(s) address or a path on this site";
+/** Alamat penuh http(s) saja: `z.string().url()` sendiri juga menerima javascript: dan data:. */
+const GAMBAR_HTTP = /^https?:\/\/\S+$/i;
 const gambarUrl = z.string().max(600).refine((value) => GAMBAR_KETAT.test(value), PESAN_GAMBAR).nullable().optional();
 // Batas luar. Batas per jenis blok (lebih ketat) diperiksa di superRefine dengan
 // landingBlockLimits, sumber yang sama dengan penghitung di CMS.
@@ -83,12 +84,11 @@ const blockSchema = z.object({
   eyebrow: teks(60),
   heading: teks(160),
   body: teks(1200),
-  // Alamat lengkap seperti sebelumnya, atau jalur di situs ini (/uploads/...).
-  // Hanya menambah yang diterima; Hitung mundur diperketat lagi di superRefine.
-  image_url: z.union([z.string().url(), z.string().regex(/^\/(?!\/)\S*$/)]).pipe(z.string().max(600)).nullable().optional(),
+  // Alamat http(s) atau jalur di situs ini (/uploads/...); skema lain ditolak.
+  image_url: z.string().max(600).refine((value) => GAMBAR_KETAT.test(value), PESAN_GAMBAR).nullable().optional(),
   image_side: z.enum(["left", "right"]).optional(),
   items: z.array(z.object({
-    image_url: z.string().url().max(600).nullable().optional(),
+    image_url: z.string().url().max(600).refine((value) => GAMBAR_HTTP.test(value), PESAN_GAMBAR).nullable().optional(),
     label: teks(160),
     title: teks(160),
     body: teks(400),
@@ -122,9 +122,6 @@ const blockSchema = z.object({
   seconds: z.boolean().optional(),
   en: blockEnSchema.optional(),
 }).superRefine((block, ctx) => {
-  if (block.type === "countdown" && block.image_url && !GAMBAR_KETAT.test(block.image_url)) {
-    ctx.addIssue({ code: "custom", path: ["image_url"], message: PESAN_GAMBAR });
-  }
   const batas = landingBlockLimits(block);
   const periksa = (nilai: string | undefined, limit: LandingTextLimit | undefined, path: (string | number)[]) => {
     if (nilai && limit && nilai.length > limit.max) {
@@ -151,7 +148,8 @@ const blockSchema = z.object({
 });
 
 // ---- Tata letak Forum (lihat LandingForumConfig di domain.ts) ----------------
-const gambar = z.string().url().max(600).nullable().optional();
+const gambarForum = z.string().url().max(600).refine((value) => GAMBAR_HTTP.test(value), PESAN_GAMBAR);
+const gambar = gambarForum.nullable().optional();
 const warna = z.string().regex(/^#[0-9a-fA-F]{6}$/).optional();
 // Tautan penuh saja: tautan Forum keluar dari halaman (sosmed, situs tempat).
 const tautanLuar = z.string().trim().max(600).refine((value) => value === "" || /^https?:\/\/\S+\.\S+/.test(value), "Links must start with http:// or https://");
@@ -176,7 +174,7 @@ const forumSchema = z.object({
   })).max(4).optional(),
   venue_note: teks(1200),
   venue_image_url: gambar,
-  gallery: z.array(z.string().url().max(600)).max(6).optional(),
+  gallery: z.array(gambarForum).max(6).optional(),
   dresscode_intro: teks(400),
   dresscode: z.array(z.object({
     title: z.string().trim().max(40),
