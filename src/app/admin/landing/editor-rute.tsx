@@ -101,11 +101,13 @@ export function EditorRute({
 }) {
   // null = belum dimuat: jangan tandai hotel sebagai terhapus sebelum daftarnya ada.
   const [hotels, setHotels] = useState<Hotel[] | null>(null);
+  // Gagal memuat: pemilih Who sees it tetap jalan tanpa kolom Hotel, bukan "Loading" selamanya.
+  const [hotelGagal, setHotelGagal] = useState(false);
   useEffect(() => {
     void fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { hotels?: Hotel[] } | null) => { if (data?.hotels) setHotels(data.hotels); })
-      .catch(() => {});
+      .then((data: { hotels?: Hotel[] } | null) => { if (data?.hotels) setHotels(data.hotels); else setHotelGagal(true); })
+      .catch(() => setHotelGagal(true));
   }, []);
   const items = block.items ?? [];
   // Kunci tetap per cara (hanya di layar ini, tidak disimpan): fokus dan unggahan
@@ -143,7 +145,7 @@ export function EditorRute({
         <Titik label="From" stop={block.route_from} hotels={hotels} onChange={(route_from) => ubah({ route_from })} />
         <Titik label="To" stop={block.route_to} hotels={hotels} onChange={(route_to) => ubah({ route_to })} />
       </div>
-      <DiHalamanPeserta block={block} ubah={ubah} hotels={hotels} />
+      <DiHalamanPeserta block={block} ubah={ubah} hotels={hotels} hotelGagal={hotelGagal} />
       {alis}
       {judul}
       <div className="flex flex-col gap-2">
@@ -214,7 +216,7 @@ const TAUTAN = "inline-flex items-center gap-1 self-start rounded-sm text-body-m
  * pertanyaan pilihan peserta, ditambah Hotel bila Logistics punya hotel. Tempat
  * rute di portal diturunkan dari isian ini, ditulis di "Where it appears".
  */
-function DiHalamanPeserta({ block, ubah, hotels }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void; hotels: Hotel[] | null }) {
+function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void; hotels: Hotel[] | null; hotelGagal: boolean }) {
   // null = belum dimuat. Kolom dan sakelar Horizon dari endpoint Who it's for milik Agenda.
   const [info, setInfo] = useState<{ fields: KolomSasaran[]; horizon: boolean } | null>(null);
   useEffect(() => {
@@ -229,14 +231,17 @@ function DiHalamanPeserta({ block, ubah, hotels }: { block: LandingBlock; ubah: 
   // Kolom yang dipilih sebelum ada jawaban: hanya di layar ini. Tanpa jawaban,
   // blok tetap untuk semua dan tidak pernah tersimpan setengah jadi.
   const [draf, setDraf] = useState<{ kelompok: boolean; field: string }>({ kelompok: false, field: "" });
+  // Show on baru saja dipindah dari Both oleh pilihan One group: disebut sekali di Where it appears.
+  const [pindahShowOn, setPindahShowOn] = useState(false);
   const kelompok = Boolean(sasaran) || draf.kelompok;
   const field = sasaran?.field ?? draf.field;
   const daftarHotel = hotels ?? [];
-  const kolom: Array<{ key: string; label: string; options: Array<{ value: string; label: string }> }> = [
-    ...(daftarHotel.length ? [{ key: KOLOM_HOTEL, label: "Hotel (from Logistics)", options: daftarHotel.map((h) => ({ value: String(h.id), label: h.name })) }] : []),
-    ...(info?.fields ?? []).map((isi) => ({ key: isi.key, label: isi.staff ? `${isi.label} (staff only)` : isi.label, options: isi.options.map((o) => ({ value: o, label: o })) })),
+  // `menu` untuk daftar pilihan, `label` untuk kalimat Where it appears (tanpa penanda staf).
+  const kolom: Array<{ key: string; label: string; menu: string; options: Array<{ value: string; label: string }> }> = [
+    ...(daftarHotel.length ? [{ key: KOLOM_HOTEL, label: "hotel", menu: "Hotel (from Logistics)", options: daftarHotel.map((h) => ({ value: String(h.id), label: h.name })) }] : []),
+    ...(info?.fields ?? []).map((isi) => ({ key: isi.key, label: isi.label, menu: isi.staff ? `${isi.label} (staff only)` : isi.label, options: isi.options.map((o) => ({ value: o, label: o })) })),
   ];
-  const dimuat = info !== null && hotels !== null;
+  const dimuat = info !== null && (hotels !== null || hotelGagal);
   const kolomAktif = kolom.find((isi) => isi.key === field) ?? null;
   // Kolom tersimpan yang sudah dihapus dari formulir atau hotelnya dari Logistics: blok tersembunyi.
   const hilang = Boolean(sasaran && dimuat && (!kolomAktif || !sasaran.values.some((v) => kolomAktif.options.some((o) => o.value === v))));
@@ -248,12 +253,15 @@ function DiHalamanPeserta({ block, ubah, hotels }: { block: LandingBlock; ubah: 
   };
   const baris = bacaTautanAgenda(block.agenda_item_ids);
   const lokasi = baris.map((id) => agendaTrip.agenda?.peta.baris.get(id)).filter((isi): isi is NonNullable<typeof isi> => Boolean(isi));
-  const labelNilai = sasaran && kolomAktif ? sasaran.values.map((v) => kolomAktif.options.find((o) => o.value === v)?.label ?? v) : [];
-  const siapa = sasaran && kolomAktif ? `participants whose ${kolomAktif.key === KOLOM_HOTEL ? "hotel" : kolomAktif.label} is ${labelNilai.join(" or ")}` : "every signed-in participant";
+  // Hanya jawaban yang masih ada di pilihan kolomnya, sama dengan portal (blokUntukPeserta).
+  const labelNilai = sasaran && kolomAktif ? kolomAktif.options.filter((o) => sasaran.values.includes(o.value)).map((o) => o.label) : [];
+  const siapa = sasaran && kolomAktif ? `participants whose ${kolomAktif.label} is ${labelNilai.join(" or ")}` : "every signed-in participant";
+  // Kelompok butuh peserta yang masuk: tidak pernah di halaman acara publik (landingBlockShownOn).
+  const keBoth = Boolean(sasaran) && block.show_on === "both";
   const pindah = horizon && (sasaran !== null || baris.length > 0);
-  const ringkas = hilang
+  const ringkas = (keBoth ? "Not on the Event page, because a group needs a signed-in participant. " : "") + (hilang
     ? "Nowhere for now: the chosen field or answer no longer exists. Choose again or pick Everyone."
-    : `${pindah ? "In Travel, after the hotel, bus and train cards" : "On Home"}, for ${siapa}.${horizon && lokasi.length ? ` ${lokasi.length === 1 ? "The linked agenda row shows" : "The linked agenda rows show"} \u201cCara ke sana\u201d in the schedule.` : ""}${pindah && sasaran?.field !== KOLOM_HOTEL ? " Participants without a hotel, bus or train see it on Home." : ""}`;
+    : `${pindah ? "In Travel, after the hotel, bus and train cards" : "On Home"}, for ${siapa}.${horizon && lokasi.length ? ` ${lokasi.length === 1 ? "The linked agenda row shows" : "The linked agenda rows show"} \u201cCara ke sana\u201d in the schedule.` : ""}${pindah && sasaran?.field !== KOLOM_HOTEL ? " Participants without a hotel, bus or train see it on Home." : ""}`);
   if ((block.show_on ?? "public") === "public") return null;
   return (
     <section aria-labelledby={`${block.id}-peserta`} className="flex flex-col gap-4 rounded-lg border border-outline-variant p-3">
@@ -266,7 +274,12 @@ function DiHalamanPeserta({ block, ubah, hotels }: { block: LandingBlock; ubah: 
         <SegmentedButton<"semua" | "kelompok">
           label="Who sees it"
           value={kelompok ? "kelompok" : "semua"}
-          onChange={(isi) => { setDraf({ kelompok: isi === "kelompok", field: isi === "kelompok" ? field : "" }); if (isi === "semua") ubah({ audience: undefined }); }}
+          onChange={(isi) => {
+            setDraf({ kelompok: isi === "kelompok", field: isi === "kelompok" ? field : "" });
+            if (isi === "semua") ubah({ audience: undefined });
+            // Satu kelompok hanya terlihat oleh peserta yang masuk, jadi Show on ikut menjadi Participant page.
+            else if (block.show_on === "both") { setPindahShowOn(true); ubah({ show_on: "member" }); }
+          }}
           options={[{ value: "semua", label: "Everyone" }, { value: "kelompok", label: "One group" }]}
         />
         {kelompok ? (
@@ -286,7 +299,7 @@ function DiHalamanPeserta({ block, ubah, hotels }: { block: LandingBlock; ubah: 
                   width="100%"
                   value={kolomAktif ? field : ""}
                   onChange={(isi) => { if (isi && isi !== field) { setDraf({ kelompok: true, field: isi }); ubah({ audience: undefined }); } }}
-                  options={[...(kolomAktif ? [] : [{ value: "", label: dimuat ? "Choose a field" : "Loading fields\u2026" }]), ...kolom.map((isi) => ({ value: isi.key, label: isi.label }))]}
+                  options={[...(kolomAktif ? [] : [{ value: "", label: dimuat ? "Choose a field" : "Loading fields\u2026" }]), ...kolom.map((isi) => ({ value: isi.key, label: isi.menu }))]}
                 />
                 <p className="text-body-small text-on-surface-variant">Hotels come from Logistics. Other fields are dropdown and single-choice participant fields.</p>
               </div>
@@ -335,7 +348,9 @@ function DiHalamanPeserta({ block, ubah, hotels }: { block: LandingBlock; ubah: 
         </div>
       ) : null}
       <p role="status" className={`rounded-md px-3 py-2 text-body-medium ${hilang ? "bg-error-container text-on-error-container" : "bg-surface-container text-on-surface"}`}>
-        <span className="font-semibold">Where it appears: </span>{ringkas}
+        <span className="font-semibold">Where it appears: </span>
+        {pindahShowOn && block.show_on === "member" ? "Show on is now Participant page, because a group needs a signed-in participant. " : ""}
+        {ringkas}
       </p>
     </section>
   );

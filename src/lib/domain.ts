@@ -231,8 +231,11 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
 export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown"];
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
-export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
+export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on" | "audience">, page: "public" | "member"): boolean {
   const on = LANDING_BLOCK_MEMBER_TYPES.includes(block.type) ? block.show_on ?? "public" : "public";
+  // Blok untuk satu kelompok (Who sees it) butuh peserta yang masuk: tidak
+  // pernah di halaman publik, juga bila tersimpan sebagai Both.
+  if (page === "public" && block.audience) return false;
   return on === "both" || on === page;
 }
 

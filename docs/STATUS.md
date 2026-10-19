@@ -143,7 +143,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #185 L3: `?tab=perjalanan` with no travel data shows no active tab.
 - #194 L8/L9: the short description has no tooltip, and block rows say only "Edit ›".
 - #132 Lows: at 390 the "Preview as" button shrinks to about 28 px and clips the name, and clicking a home row can scroll the preview toolbar out of view.
-- Directions "Who sees it": Participant area > Participant home still lists a route that moved to Perjalanan (its eye hides it there too), and the Berikutnya card on Beranda has no "Cara ke sana" link.
+- Directions "Who sees it": Participant area > Participant home still lists a route that moved to Perjalanan (its eye hides it there too), and the Berikutnya card on Beranda has no "Cara ke sana" link. Saving does not check the group against event data (unknown field, removed answer, unknown hotel, foreign agenda ids); each of those hides the route instead (#233 QA L-3).
 
 ### Logistics
 - #124 L3: the hotel map embed ignores `map_url`.

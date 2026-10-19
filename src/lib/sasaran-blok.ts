@@ -26,20 +26,25 @@ export const TAUTAN_AGENDA_MAX = 8;
 
 const sama = (a: string, b: string) => a.trim().toLocaleLowerCase("id") === b.trim().toLocaleLowerCase("id");
 
-/** Bentuk tersimpan menjadi sasaran yang sah, atau null (semua peserta). */
+/**
+ * Bentuk tersimpan menjadi sasaran, atau null (semua peserta) bila tidak ada
+ * sasaran sama sekali. Sasaran yang ada tapi rusak (kolom tidak sah, id hotel
+ * bukan angka, jawaban kosong) menjadi sasaran tanpa jawaban: tidak cocok
+ * dengan siapa pun, jadi gagal tertutup, bukan tampil ke semua.
+ */
 export function bacaSasaranBlok(nilai: unknown): SasaranBlok | null {
   if (!nilai || typeof nilai !== "object" || Array.isArray(nilai)) return null;
   const baris = nilai as Record<string, unknown>;
   const field = typeof baris.field === "string" ? baris.field.trim() : "";
   const hotel = field === KOLOM_HOTEL;
-  if ((!hotel && !/^[a-z0-9_]{1,64}$/.test(field)) || !Array.isArray(baris.values)) return null;
+  if (!hotel && !/^[a-z0-9_]{1,64}$/.test(field)) return { field: "", values: [] };
   const values: string[] = [];
-  for (const isi of baris.values) {
+  for (const isi of Array.isArray(baris.values) ? baris.values : []) {
     const teks = typeof isi === "number" ? String(isi) : typeof isi === "string" ? isi.trim().slice(0, SASARAN_NILAI_PANJANG) : "";
     if (!teks || (hotel && !/^[1-9]\d{0,17}$/.test(teks))) continue;
     if (!values.some((ada) => sama(ada, teks))) values.push(teks);
   }
-  return values.length > 0 ? { field, values: values.slice(0, SASARAN_NILAI_MAX) } : null;
+  return { field, values: values.slice(0, SASARAN_NILAI_MAX) };
 }
 
 /** Id baris Agenda yang sah, tanpa duplikat. */
@@ -53,20 +58,22 @@ export type DataSasaranPeserta = {
   jawaban: Record<string, unknown>;
   /** Hotel peserta dari Logistics; null bila belum ditempatkan atau kamar tidak ditampilkan ke peserta. */
   hotelId: number | null;
-  /** Kolom pertanyaan yang boleh dipakai acara ini (lihat kolomSasaran). */
-  kolom: ReadonlyArray<Pick<KolomSasaran, "key">>;
+  /** Kolom pertanyaan yang boleh dipakai acara ini, dengan pilihannya (lihat kolomSasaran). */
+  kolom: ReadonlyArray<Pick<KolomSasaran, "key" | "options">>;
 };
 
 /**
  * Peserta ini melihat bloknya? Tanpa sasaran: ya. Dengan sasaran: hanya bila
- * jawabannya cocok. Jawaban kosong, kolom yang sudah dihapus dari formulir,
- * atau hotel yang tidak diketahui berarti tidak.
+ * jawabannya cocok dengan jawaban terpilih yang masih ada di pilihan kolomnya.
+ * Jawaban kosong, kolom atau pilihan yang sudah dihapus dari formulir, atau
+ * hotel yang tidak diketahui berarti tidak (sama dengan "Nowhere for now" di CMS).
  */
 export function blokUntukPeserta(sasaran: SasaranBlok | null, data: DataSasaranPeserta | null): boolean {
   if (!sasaran) return true;
   if (!data) return false;
   if (sasaran.field === KOLOM_HOTEL) return data.hotelId !== null && sasaran.values.includes(String(data.hotelId));
-  if (!data.kolom.some((isi) => isi.key === sasaran.field)) return false;
+  const kolom = data.kolom.find((isi) => isi.key === sasaran.field);
+  if (!kolom) return false;
   const jawaban = jawabanPeserta(data.jawaban, sasaran.field);
-  return jawaban !== null && sasaran.values.some((nilai) => sama(nilai, jawaban));
+  return jawaban !== null && sasaran.values.some((nilai) => sama(nilai, jawaban) && kolom.options.some((opsi) => sama(opsi, nilai)));
 }
