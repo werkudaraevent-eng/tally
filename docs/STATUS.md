@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Old event links after a slug change (this PR): a new table keeps an event's old slug, and every address carrying it (`/e/<old>/...`, the participant area, `?eventSlug=`) is redirected to the current slug with the path and query kept, so links in emails, invitations and saved home-screen portals keep working; the old address's portal service worker is replaced by one that deletes its offline QR copy and unregisters, sign-out also clears copies under old slugs, and a client domain redirects only its own event's old slug; new events never get an old slug. There is still no admin screen to change a slug: the change is one reviewed SQL run by Mas. For KSO (approved 19 Oct, `kso-21-...` to `kso-24-...`) the SQL runs only after this PR is live. Waits on coordinator QA and Mas's merge time.
 - #226 Horizon QR screen gets a "Pindai QR checkpoint" button (sticky at the bottom on tall screens) when the event has Participants/Both checkpoints, so the centre QR button covers both show-QR and self-scan; events without self-scan are unchanged (draft PR, waiting QA, then Mas's timing OK for KSO). No SQL.
 - #228 Reset a participant's check-in (for rehearsals): Participant list > participant > Check-in has a reset icon per check-in point and "Reset all" (also clears kit hand-outs from deleted points) once one is checked in. Admin only, confirm dialog names the scans and kit hand-outs removed; the audit trail (Danger zone) keeps a copy of what was removed. Checkpoints, points, lucky draw conditions and Export follow automatically; lucky draw winners already drawn stay. No SQL. Waits on coordinator QA and Mas's merge time. An event-wide "also clear check-ins" option in Settings > Reset data is proposed, not built (needs Mas's OK).
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
@@ -55,6 +56,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Waiting on Mas (owner)
 
+- Run the KSO slug change SQL after the old-slug redirect PR is live, then send its post-check result.
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
 - "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Who it's for on each Batch section.

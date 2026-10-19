@@ -49,6 +49,7 @@ import { KartuCheckpointHorizon } from "@/components/member/kartu-checkpoint-hor
 import { loadCheckpointPeserta, loadCheckpointQr } from "@/lib/checkpoint/server";
 import { gatheringColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { loadLandingLodging } from "@/lib/landing-hotel";
+import { oldSlugsFor } from "@/lib/slug-lama-peta";
 import { landingTokens } from "@/lib/landing-tokens";
 import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
@@ -283,12 +284,16 @@ export async function DashboardGathering({
   const tampilSusunan = member.show_schedule !== false;
   // Outfit per bagian Agenda (kolom rundown_sections.outfit): hanya Horizon,
   // kueri sendiri yang kembali kosong sebelum migrasinya dijalankan.
-  const [agenda, petaOutfit, sasaranPeserta] = await Promise.all([
+  const [agenda, petaOutfit, sasaranPeserta, slugLama] = await Promise.all([
     tampilSusunan ? loadAgendaPreview(event.id, lang) : [],
     horizon ? loadOutfitBagian(event.id) : null,
     // Untuk siapa tiap bagian (Agenda > Who it's for): Horizon, peserta yang sudah disetujui.
     horizon && peserta && tampilSusunan ? loadSasaranPeserta(event.id, peserta.id) : null,
+    pratinjau ? [] : oldSlugsFor(event.id),
   ]);
+  // Lingkup salinan QR luring kedua bahasa portal, juga di bawah slug lama
+  // acara ini (src/lib/slug-lama.ts): dihapus saat Keluar atau tanpa QR.
+  const lingkupQr = [event.slug, ...slugLama].flatMap((slug) => [`${landingPath(slug, "id", utama)}/peserta`, `${landingPath(slug, "en", utama)}/peserta`]);
   // Bagian milik peserta dan yang bukan (U-01 langkah 2). Tanpa sasaran atau
   // tanpa jawaban: kosong, jadi Beranda dan Jadwal sama seperti sebelumnya.
   const pilihanKu = pilihanPeserta(
@@ -1273,7 +1278,7 @@ export async function DashboardGathering({
           action: `/e/${encodeURIComponent(event.slug)}/api/peserta/keluar`,
           label: t.signOut,
           // Salinan QR luring kedua bahasa portal dihapus sebelum keluar.
-          lingkup: [`${landingPath(event.slug, "id", utama)}/peserta`, `${landingPath(event.slug, "en", utama)}/peserta`],
+          lingkup: lingkupQr,
         }}
       />
     );
@@ -1669,7 +1674,7 @@ export async function DashboardGathering({
       <div lang={LANDING_LANG_LABELS[lang].htmlLang} className={`min-h-dvh ${tampilKode && peserta ? "pb-[calc(124px+env(safe-area-inset-bottom))]" : "pb-[calc(100px+env(safe-area-inset-bottom))]"} text-[#101E38] lg:pb-16`} style={gaya}>
         <HtmlLang lang={LANDING_LANG_LABELS[lang].htmlLang} />
         {dataQr ? <PenyediaQr data={dataQr}>{isiPortal}</PenyediaQr> : isiPortal}
-        {!dataQr && !pratinjau ? <HapusSalinanQr lingkup={[`${landingPath(event.slug, "id", utama)}/peserta`, `${landingPath(event.slug, "en", utama)}/peserta`]} /> : null}
+        {!dataQr && !pratinjau ? <HapusSalinanQr lingkup={lingkupQr} /> : null}
       </div>
     );
   }

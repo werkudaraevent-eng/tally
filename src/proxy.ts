@@ -5,6 +5,8 @@ import { decideClientHost, redirectToClient } from "@/lib/domain-klien/rute";
 import { domainMap, eventIdForHost, PENANDA_PATH } from "@/lib/domain-klien/simpan";
 import { productionSiteOrigin } from "@/lib/domain-klien/situs";
 import { messagingAllowlist } from "@/lib/pesan/alamat";
+import { alamatSlugBaru, SKRIP_SW_PENSIUN, swSlugLama } from "@/lib/slug-lama";
+import { slugLamaMap } from "@/lib/slug-lama-peta";
 
 /**
  * Menentukan tujuan rewrite untuk permintaan ber-scope event, atau null bila
@@ -106,8 +108,31 @@ export async function proxy(request: NextRequest) {
   // Domain klien (Pengaturan > Acara > Alamat halaman acara). Peta host diambil
   // dari event_domains dan disimpan sebentar (src/lib/domain-klien/simpan.ts);
   // tanpa domain klien semuanya berjalan seperti sebelum fitur ini ada.
-  const peta = await domainMap().catch(() => null);
+  // Peta slug lama (src/lib/slug-lama.ts) dibaca bersamaan, hanya untuk alamat
+  // yang membawa slug.
+  const { pathname: pathAsli, search: queryAsli } = request.nextUrl;
+  const bawaSlug = /^\/(?:peserta\/)?e\//.test(pathAsli) || request.nextUrl.searchParams.has("eventSlug");
+  const [peta, semuaLama] = await Promise.all([
+    domainMap().catch(() => null),
+    bawaSlug ? slugLamaMap().catch(() => null) : null,
+  ]);
   const klien = peta?.byHost.get(hostOf(request));
+
+  // Slug lama acara yang sudah ganti slug: alihkan ke slug sekarang di host
+  // yang sama, sebelum aturan domain klien (yang menolak slug acara lain). Di
+  // domain klien hanya slug lama acara domain itu sendiri: slug lama acara lain
+  // tetap 404 di sana, supaya domain A tidak membocorkan alamat baru acara B.
+  const lama = semuaLama && klien ? new Map([...semuaLama].filter(([, baru]) => baru === klien.slug)) : semuaLama;
+  if (lama?.size) {
+    if (swSlugLama(pathAsli, lama)) {
+      return new NextResponse(SKRIP_SW_PENSIUN, {
+        headers: { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache, max-age=0" },
+      });
+    }
+    const ke = alamatSlugBaru(pathAsli, queryAsli, lama);
+    if (ke) return alihkan(new URL(ke, request.url).toString());
+  }
+
   let slugHost: string | null = null;
   let destination: URL | null = null;
 
