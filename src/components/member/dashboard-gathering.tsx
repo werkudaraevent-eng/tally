@@ -18,7 +18,6 @@ import {
   Phone,
   PushPin,
   SignOut,
-  Suitcase,
   Ticket,
   Train,
   User,
@@ -1204,7 +1203,7 @@ export async function DashboardGathering({
         menu={{
           judul: tp.menu,
           baris: [
-            ...(adaPerjalanan ? [{ href: keTab("perjalanan"), judul: tH.tabs.perjalanan, isi: tH.travel.menuRow, Ikon: Suitcase, tab: "perjalanan" }] : []),
+            // Perjalanan punya tab sendiri di bilah bawah, jadi tidak diulang di Menu.
             ...(adaOutfit ? [{ href: keTab("outfit"), judul: labelMenuOutfit, isi: tH.outfit.menuRow, Ikon: CoatHanger, tab: "outfit" }] : []),
           ],
         }}
@@ -1297,11 +1296,14 @@ export async function DashboardGathering({
     const tabHorizon = (id: TabHorizon["id"]): TabHorizon =>
       id === "outfit" ? { id, label: labelMenuOutfit, labelPendek: labelMenuOutfit, href: keTab(id) } : { id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) };
     // Desktop: semua halaman di bilah atas (Profil lewat inisial). Ponsel: lima
-    // tujuan (Beranda, Jadwal, QR, Pengumuman, Menu); Perjalanan dan Outfit dibuka dari Menu.
+    // tujuan (Beranda, Jadwal, QR, Perjalanan, Pengumuman); Menu lewat inisial di
+    // bilah atas, Outfit dibuka dari Menu. Tanpa info perjalanan, tab Menu kembali.
     const tabsHorizon = (
       ["beranda", "jadwal", ...(adaPerjalanan ? (["perjalanan"] as const) : []), ...(adaOutfit ? (["outfit"] as const) : []), "info", "profil"] as const
     ).map(tabHorizon);
-    const tabsBawahHorizon = (["beranda", "jadwal", "info", "profil"] as const).map(tabHorizon);
+    const tabsBawahHorizon = (adaPerjalanan ? (["beranda", "jadwal", "perjalanan", "info"] as const) : (["beranda", "jadwal", "info", "profil"] as const)).map(tabHorizon);
+    // Tab yang disorot bilah bawah: Outfit (dan Perjalanan bila tidak di bilah) termasuk Menu.
+    const aktifBawah = tabsBawahHorizon.some((tab) => tab.id === tabAktif) ? tabAktif : "profil";
     let badan: ReactNode;
     if (tabAktif === "beranda") {
       const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
@@ -1564,7 +1566,7 @@ export async function DashboardGathering({
               judulPonsel={judulHorizon.judulPonsel ?? judulHorizon.judul}
               catatan={judulHorizon.catatan}
               catatanPonsel
-              kembali={tabAktif === "perjalanan" || tabAktif === "outfit" ? { href: keTab("profil"), label: tH.travel.backToMenu } : null}
+              kembali={(tabAktif === "perjalanan" && !adaPerjalanan) || tabAktif === "outfit" ? { href: keTab("profil"), label: tH.travel.backToMenu } : null}
             />
           ) : (
             <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
@@ -1606,7 +1608,7 @@ export async function DashboardGathering({
         />
         {/* Bilah atas dan bawah di luar <main> (U-13): landmark utama hanya isi tab. */}
         <main>{badan}</main>
-        <NavBawahHorizon tabs={tabsBawahHorizon} aktif={tabAktif === "perjalanan" || tabAktif === "outfit" ? "profil" : tabAktif} tabsAria={t.tabsAria} infoBelum={infoBelum} infoBelumLabel={tH.unread(infoBelum)} qr={
+        <NavBawahHorizon tabs={tabsBawahHorizon} aktif={aktifBawah} tabsAria={t.tabsAria} infoBelum={infoBelum} infoBelumLabel={tH.unread(infoBelum)} qr={
             tampilKode && peserta
               ? {
                   href: tabAktif === "beranda" ? keTab("qr") : keTab("qr", { dari: tabAktif, ...((tabAktif === "jadwal" || tabAktif === "outfit") && hari ? { hari: String(hari) } : {}) }),

@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Horizon sign-in entry (this PR, draft): the hero's middle button opens the sign-in dialog for guests while registration is closed and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. Waiting on coordinator QA, then Mas's timing OK (visible on KSO). No SQL.
+- #225 Horizon sign-in entry: the hero's middle button opens the sign-in dialog for guests while registration is closed and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. QA GO, waiting on Mas's merge time (visible on KSO). No SQL.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -195,6 +195,8 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: keys of questions deleted before this branch are not in `retired_keys`, so a new question named like one of those still gets its key and the answers stored under it; turning "Ask on the registration form" back on after saving it off leaves Required off; `/admin/registrasi?kolom=baru` opened as a new page (not from the Columns menu) shows the moderation screen until hydration; Client view > "Form answers the client sees" lists staff-only questions with no mark (needs a mockup).
 
 ### Landing/CMS
+
+- Horizon phone bar (#225): a very wide logo (about 4:1) shrinks for a signed-in participant at 360 px once the compact pill shows; on bilingual events the logo at the top is ~4 px narrower at 360 px than before because the bell grew to 48 px.
 - #108 L7: editor `data-sunting` attributes ship in public HTML (not re-confirmed).
 - #109 N2-N4/R3-4: stored backslashes or edge-spaced marks render differently, overlap leaves an empty `<mark>`, CJK runs expand whole, and some execCommand edge cases remain; an over-200 tagline save shows a raw 422 toast.
 - #110 L5/N3/K1: a custom Gathering agenda eyebrow is not counted when hidden, the Highlights subtitle is truncated at 1280, and the KV hint omits the confirmation email header.

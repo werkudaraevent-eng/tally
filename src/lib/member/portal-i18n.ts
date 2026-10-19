@@ -64,7 +64,6 @@ export type PortalUiText = {
       note: (zona: string) => string;
       empty: string;
       backToMenu: string;
-      menuRow: string;
       hotelTitle: string;
       floor: string;
       roomType: string;
@@ -250,7 +249,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: (zona) => `Hotel, kamar, bus, dan kereta kamu. Semua jam ${zona}.`,
         empty: "Info perjalanan belum dibagikan panitia.",
         backToMenu: "Menu",
-        menuRow: "Hotel, kamar, bus, kereta",
         hotelTitle: "Hotel & kamar",
         floor: "Lantai",
         roomType: "Tipe kamar",
@@ -308,7 +306,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
       roomNo: (nomor) => `Kamar ${nomor}`,
       profileAria: "Profil",
-      profileAriaWith: (inisial) => `${inisial}, Profil`,
+      profileAriaWith: (inisial) => `${inisial}, Profil dan menu`,
       unread: (jumlah) => `${jumlah} belum dibaca`,
       loading: "Memuat halaman",
       agenda: {
@@ -426,7 +424,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: (zona) => `Your hotel, room, bus, and train. All times ${zona}.`,
         empty: "The organisers haven't shared travel details yet.",
         backToMenu: "Menu",
-        menuRow: "Hotel, room, bus, train",
         hotelTitle: "Hotel & room",
         floor: "Floor",
         roomType: "Room type",
@@ -484,7 +481,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
       roomNo: (nomor) => `Room ${nomor}`,
       profileAria: "Profile",
-      profileAriaWith: (inisial) => `${inisial}, Profile`,
+      profileAriaWith: (inisial) => `${inisial}, Profile and menu`,
       unread: (jumlah) => `${jumlah} unread`,
       loading: "Loading page",
       agenda: {
