@@ -29,6 +29,7 @@ export function QrHorizon({
   petunjukCatatan,
   status,
   kecerahan,
+  aksi,
 }: {
   judul: string;
   judulId?: string;
@@ -49,6 +50,12 @@ export function QrHorizon({
   /** Baris status di bawah petunjuk: tersimpan di ponsel, layar menyala. */
   status?: ReactNode;
   kecerahan: string;
+  /**
+   * Tombol "Pindai QR checkpoint" bila acara punya checkpoint scan mandiri:
+   * menempel di bawah layar, di jangkauan jempol (pola layar QRIS e-wallet:
+   * tunjukkan kode, atau pindai).
+   */
+  aksi?: ReactNode;
 }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-6 pb-10">
@@ -86,6 +93,7 @@ export function QrHorizon({
           {kecerahan}
         </p>
       </div>
+      {aksi ? <div className="sticky bottom-0 -mx-6 -mb-10 mt-auto bg-[linear-gradient(to_bottom,transparent,var(--hz-navy)_24px)] px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-8">{aksi}</div> : null}
     </div>
   );
 }

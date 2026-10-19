@@ -152,6 +152,16 @@ async function muatAktif(eventId: string): Promise<{ setelan: SetelanCheckpoint;
   return { setelan, daftar };
 }
 
+/**
+ * Untuk layar QR kehadiran Horizon: setelan checkpoint, dan apakah ada
+ * checkpoint yang boleh dipindai peserta sendiri. Bila ada, layar QR memberi
+ * tombol "Pindai QR checkpoint" (pola QRIS: tunjukkan kode atau pindai).
+ */
+export async function loadCheckpointQr(eventId: string): Promise<{ setelan: SetelanCheckpoint | null; pindai: boolean }> {
+  const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
+  return { setelan, pindai: Boolean(setelan?.enabled && daftar && scanMandiriPerSesi(daftar).size > 0) };
+}
+
 /** Satu checkpoint seperti yang dilihat peserta, dalam bahasa halamannya. */
 export type LangkahPeserta = {
   id: number;

@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-18.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-19.
 
 ## How to update this file
 
@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- #225 Horizon sign-in entry: the hero's middle button opens the sign-in dialog for guests while registration is closed and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. QA GO, waiting on Mas's merge time (visible on KSO). No SQL.
+- Horizon QR screen gets a "Pindai QR checkpoint" button (fixed at the bottom) when the event has Participants/Both checkpoints, so the centre QR button covers both show-QR and self-scan; events without self-scan are unchanged (draft PR, waiting QA, then Mas's timing OK for KSO). No SQL.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -23,6 +23,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #225 Horizon sign-in entry (merged 19 Oct): the hero's middle button opens the sign-in dialog for guests while registration is closed and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. No SQL.
+- #224 Horizon phone bottom bar (merged 19 Oct): Travel (Perjalanan) is a main tab in place of Menu when the participant has travel info; Menu opens from the initials in the top bar; others keep the Menu tab. No SQL.
 - #220 Participant words follow-ups from #215 QA (merged 19 Oct): the Modern footer guest link says "Masuk", footer links wrap between words, the classic Home "Lihat semua" link stays on one line, and the last old terms on sign-in errors, the checkpoint scan page, Forum EN, after registering and on /masuk are replaced. No SQL.
 - #221 Lucky draw follow-ups to #216 (merged 19 Oct): the operator panel names the broken exclusion rule, the prize editor preview says "Draw blocked" instead of a name count while such a rule is active, the prize list shows a "Blocked" chip, and the rule editor can save a broken rule as inactive (only active rules are checked for deleted form questions; switching a rule on checks its stored conditions). No SQL.
 - #216 Lucky draw form-answer conditions (merged 18 Oct): Add condition has a "Form answers" group listing the event's own Registration > Edit form questions (staff-only ones included, file uploads left out). Choice questions match ticked values (checkboxes as Yes/No, like the Participant list); others compare text. A deleted question makes its condition fail; an active exclusion rule with one blocks the draw (Readiness, rule list and operator panel say which rule), and saves reject unknown questions. No SQL.
