@@ -53,7 +53,8 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "undian_session_adopt",
   ],
   users: ["user_create", "user_update"],
-  danger: ["admin_reset_records"],
+  // Reset check-in satu peserta (uji coba): isi scan dan barang kitnya tersalin di payload.
+  danger: ["admin_reset_records", "participant_check_in_reset"],
   orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan", "admin_order_void"],
   sync: ["participant_sync", "participant_qr_archived"],
 };

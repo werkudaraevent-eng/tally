@@ -37,6 +37,7 @@ const CATEGORIES: Array<{ value: string; label: string }> = [
 
 const ACTION_LABEL: Record<string, string> = {
   settings_update: "Mengubah settings acara",
+  participant_check_in_reset: "Mereset check-in peserta",
   display_settings_update: "Mengubah Papan peringkat",
   display_background_upload: "Mengganti latar Papan peringkat",
   leaderboard_reveal_config: "Mengatur reveal bertahap",
@@ -197,6 +198,11 @@ function summarise(entry: Entry): string {
   const subject = (payload.user ?? payload.booth ?? payload.new ?? payload.old) as Record<string, unknown> | undefined;
   if (entry.action === "admin_reset_records") {
     return `${payload.deleted_orders ?? 0} order, ${payload.deleted_claims ?? 0} klaim item, ${payload.deleted_participants ?? 0} peserta terhapus`;
+  }
+  if (entry.action === "participant_check_in_reset") {
+    const scans = Array.isArray(payload.scans) ? payload.scans.length : 0;
+    const pickups = Array.isArray(payload.pickups) ? payload.pickups.length : 0;
+    return `${payload.participant_name ?? "?"} · ${payload.session_id ? "satu sesi" : "semua sesi"} · ${scans} scan, ${pickups} barang kit dihapus`;
   }
   if (entry.action === "participant_sync") {
     const synced = payload.synced as Record<string, unknown> | undefined;
