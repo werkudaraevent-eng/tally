@@ -164,7 +164,7 @@ export default function UndianAdminPage() {
           body: JSON.stringify({
             conditions: draft.conditions, weight_mode: draft.weight_mode, weight_var: draft.weight_var,
             weight_divisor: draft.weight_divisor, weight_base: draft.weight_base, weight_max: draft.weight_max,
-            bonus_rules: draft.bonus_rules,
+            bonus_rules: draft.bonus_rules, exclude_scope: draft.exclude_scope,
             // Aturan pengecualian bisa berlaku khusus untuk satu hadiah, jadi
             // pratinjaunya harus tahu hadiah mana yang sedang diedit. Tanpa ini,
             // angka di layar mengabaikan aturan khusus dan menjanjikan kolam yang
@@ -177,7 +177,7 @@ export default function UndianAdminPage() {
       })();
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [editingId, draft.conditions, draft.source, draft.weight_mode, draft.weight_var, draft.weight_divisor, draft.weight_base, draft.weight_max, draft.bonus_rules, previewRetry]);
+  }, [editingId, draft.conditions, draft.source, draft.weight_mode, draft.weight_var, draft.weight_divisor, draft.weight_base, draft.weight_max, draft.bonus_rules, draft.exclude_scope, previewRetry]);
 
   const branding = useMemo(
     () => (settings ? normalizeBranding(settings as unknown as Record<string, unknown>) : null),

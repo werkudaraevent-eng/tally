@@ -395,6 +395,7 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
 
     const rows = (data ?? []) as EntryRow[];
     const wonEntryIds = await previousWinnerRefs(eventId, prize, "entry");
+    if (!wonEntryIds) return { error: "POOL_ERROR" };
     const eligible = rows.map((row): Candidate => ({
       kind: "entry",
       ref: String(row.id),
@@ -447,6 +448,7 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
   const rows = await loadParticipantPool(eventId, weightNeedsAttendance(weight) || needsAttendance(conditions, ...rules.map((rule) => rule.conditions)));
   if (!rows) return { error: "POOL_ERROR" };
   const wonIds = await previousWinnerRefs(eventId, prize, "participant");
+  if (!wonIds) return { error: "POOL_ERROR" };
 
   const breakdown: PoolBreakdown = {
     total: rows.length,
@@ -526,14 +528,16 @@ function emptyBreakdown(): PoolBreakdown {
  * supaya aturan yang sama berlaku pada setiap pemanggil tanpa perlu diingat
  * ulang — termasuk kelak bila ada jalur lain yang membangun kolam.
  */
-async function previousWinnerRefs(eventId: string, prize: UndianPrize, kind: "participant" | "entry"): Promise<Set<string>> {
+export async function previousWinnerRefs(eventId: string, prize: Pick<UndianPrize, "id" | "exclude_scope">, kind: "participant" | "entry"): Promise<Set<string> | null> {
   if (prize.exclude_scope === "none") return new Set();
 
   const { data, error } = await getSupabaseServiceClient().rpc(
     "undian_blocking_winner_ids" as never,
     { p_prize_id: prize.id, p_scope: prize.exclude_scope, p_event_id: eventId } as never,
   );
-  if (error || !data) return new Set();
+  // Gagal tertutup: daftar kosong di sini berarti pemenang hadiah lain ikut
+  // diundi lagi tanpa ada yang tahu. Pemanggil menolak undian.
+  if (error || !data) return null;
 
   const column = kind === "participant" ? "participant_id" : "entry_id";
   const rows = data as Record<string, string | number | null>[];
