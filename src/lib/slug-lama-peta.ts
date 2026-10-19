@@ -66,3 +66,14 @@ export async function oldSlugsLike(prefix: string): Promise<string[]> {
   }
   return ((data ?? []) as { old_slug: string }[]).map((b) => b.old_slug);
 }
+
+/**
+ * Slug lama satu acara, untuk lingkup salinan QR yang dihapus saat Keluar:
+ * ponsel yang membuka portal sebelum slug diganti menyimpan salinannya di
+ * bawah alamat lama. Galat apa pun berarti tidak ada slug lama.
+ */
+export async function oldSlugsFor(eventId: string): Promise<string[]> {
+  const { data, error } = await getSupabaseServiceClient().from("event_slug_redirects").select("old_slug").eq("event_id", eventId).limit(50);
+  if (error) return [];
+  return ((data ?? []) as { old_slug: string }[]).map((b) => b.old_slug);
+}
