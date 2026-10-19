@@ -502,7 +502,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
           {terpilih ? (
             <DetailSection title="Progress">
               <p className="text-body-medium text-on-surface-variant">
-                <span className="font-semibold tabular-nums text-on-surface">{angka(terpilih.done)}</span> participants have done this.
+                <span className="font-semibold tabular-nums text-on-surface">{angka(terpilih.done)}</span> {terpilih.done === 1 ? "participant has" : "participants have"} done this.
                 {" "}Deleting the checkpoint keeps their scans and handed-out items.
               </p>
             </DetailSection>
