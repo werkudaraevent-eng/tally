@@ -1179,8 +1179,9 @@ export async function DashboardGathering({
                     {baru ? <Chip nada="aksi">{t.isNew}</Chip> : null}
                   </div>
                 ) : null}
-                <h2 className="max-w-[70ch] text-title-large font-bold">{item.title}</h2>
-                {item.body ? <p className={`mt-1.5 max-w-[70ch] whitespace-pre-line text-body-large ${MUTED}`}>{item.body}</p> : null}
+                {/* Horizon: Title Medium 600 + Body Medium, sama dengan kartu Pengumuman di Beranda; 22 px tebal terlalu berat untuk daftar. */}
+                <h2 className={`max-w-[70ch] [overflow-wrap:anywhere] ${horizon ? "text-title-medium font-semibold" : "text-title-large font-bold"}`}>{item.title}</h2>
+                {item.body ? <p className={`max-w-[70ch] whitespace-pre-line [overflow-wrap:anywhere] ${horizon ? "mt-1 text-body-medium" : "mt-1.5 text-body-large"} ${MUTED}`}>{item.body}</p> : null}
                 {item.link_url ? (
                   <a href={item.link_url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex min-h-12 items-center gap-1.5 text-title-small font-bold text-[var(--alis)]">
                     {item.link_label?.trim() || item.link_url}
