@@ -727,7 +727,7 @@ export default function RundownAdminPage() {
   function sasaranLengkap(sectionId: number) {
     const draf = sasaranDrafts[sectionId];
     if (!draf || draf.values.length > 0) return true;
-    const failure = "Choose at least one answer under Who it's for, or select Everyone.";
+    const failure = "Choose a participant field and at least one answer under Who it's for, or select Everyone.";
     setError(failure); toast.error("Section not saved", failure);
     return false;
   }
@@ -1630,7 +1630,7 @@ function KelompokSasaran({ info, value, onChange }: { info: SasaranInfo; value: 
             label="Who it's for"
             options={[{ value: "semua", label: "Everyone" }, { value: "kelompok", label: "One group" }]}
             value={value ? "kelompok" : "semua"}
-            onChange={(next) => onChange(next === "semua" ? null : { field: value?.field ?? info.fields[0].key, values: value?.values ?? [] })}
+            onChange={(next) => onChange(next === "semua" ? null : { field: value?.field ?? "", values: value?.values ?? [] })}
           />
           {value ? (
             <>
@@ -1646,6 +1646,10 @@ function KelompokSasaran({ info, value, onChange }: { info: SasaranInfo; value: 
                     ...info.fields.map((isi) => ({ value: isi.key, label: isi.staff ? `${isi.label} (staff only)` : isi.label })),
                   ]}
                 />
+                <p className="text-body-small text-on-surface-variant">Only dropdown and single-choice columns are listed: a group needs a fixed list of answers.</p>
+                <Link href="/admin/registrasi" target="_blank" rel="noreferrer" className={TAUTAN}>
+                  Add or edit columns in Registration <ArrowSquareOut size={14} aria-hidden /><span className="sr-only">(new tab)</span>
+                </Link>
               </div>
               {kolom ? (
                 <div className="flex flex-col gap-2">

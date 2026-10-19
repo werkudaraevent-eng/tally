@@ -140,9 +140,11 @@ export function SelectMenu<T extends string>({
 			{/* Daftar dirender lewat PORTAL, bukan `absolute` di dalam pembungkus ini.
 			    Penyaring sering berdiri di dalam kartu ber-`overflow: hidden`, dan di
 			    sana daftar yang lebih panjang daripada sisa kartu akan terpotong di
-			    tepinya. Lihat catatan di `m3/popover.tsx`. */}
+			    tepinya. Lihat catatan di `m3/popover.tsx`. Lebar persen (`100%`) diukur
+			    terhadap jendela di portal, jadi panelnya selebar pemicu yang terukur:
+			    angka dijepit ke dalam jendela, dan label panjang terpotong elipsis. */}
 			{open ? (
-				<Popover anchor={menu} id={id} label={label} role="listbox" align="start" width={width} className="p-1">
+				<Popover anchor={menu} id={id} label={label} role="listbox" align="start" width={width.endsWith("%") ? pemicu?.getBoundingClientRect().width : width} className="p-1">
 					<ul>
 						{options.map((option, indeks) => {
 							const aktif = option.value === value;
