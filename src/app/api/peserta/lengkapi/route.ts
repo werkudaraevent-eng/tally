@@ -52,6 +52,6 @@ export async function POST(request: Request) {
     case "no_fields":
       return memberError("NO_FIELDS", 409, en ? "There is nothing to fill in right now." : "Saat ini tidak ada data yang perlu diisi.");
     default:
-      return memberError("NOT_FOUND", 404, en ? "Your participant data wasn't found. Contact the organisers." : "Data peserta Anda tidak ditemukan. Hubungi panitia.");
+      return memberError("NOT_FOUND", 404, en ? "Your participant data wasn't found. Contact the organisers." : "Data peserta tidak ditemukan. Hubungi panitia.");
   }
 }

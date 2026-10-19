@@ -34,7 +34,7 @@ const TEKS = {
     lihatSemua: (n: number) => `Lihat semua ${n} checkpoint`,
     sembunyikan: "Sembunyikan",
     catatan: "Tunjukkan QR kehadiran ke panitia di tiap checkpoint. Centangnya muncul di sini otomatis.",
-    catatanMandiri: "Di checkpoint ini kamu memindai QR yang ditampilkan panitia. Centangnya muncul di sini otomatis.",
+    catatanMandiri: "Di checkpoint ini, pindai QR yang ditampilkan panitia. Centangnya muncul di sini otomatis.",
     tampilkanQr: "Tampilkan QR",
     sudah: "Sudah selesai",
     belum: "Belum",

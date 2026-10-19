@@ -32,8 +32,8 @@ const judul = z.string().trim().max(120);
 /** Salinan email Tidak disetujui. Bawaan diisi saat dibaca, jadi templat yang disimpan sebelum fitur ini tetap sah. */
 export const SALINAN_DITOLAK = {
   subjek: "Kabar pendaftaran {acara}",
-  judul: "Terima kasih atas minat Anda",
-  isi: "Halo {nama}, terima kasih sudah mendaftar di {acara}. Mohon maaf, kali ini panitia belum dapat menyetujui pendaftaran Anda.",
+  judul: "Terima kasih sudah mendaftar",
+  isi: "Halo {nama}, terima kasih sudah mendaftar di {acara}. Mohon maaf, kali ini panitia belum dapat menyetujui pendaftaran ini.",
 };
 /**
  * Versi English sebuah kolom (lihat bahasa.ts). Kosong = bawaan English, atau
@@ -224,9 +224,9 @@ export const DEFAULT_PEMBUKA: Extract<Block, { type: "pembuka" }> = {
   type: "pembuka",
   on: true,
   judul: "Sampai jumpa di {acara}",
-  isi: "Halo {nama}, pendaftaran Anda sudah dikonfirmasi. Simpan email ini; **QR di bawah adalah tiket masuk Anda**.",
+  isi: "Halo {nama}, pendaftaran sudah dikonfirmasi. Simpan email ini dan **tunjukkan QR di bawah ke panitia saat datang**.",
   judul_menunggu: "Terima kasih sudah mendaftar",
-  isi_menunggu: "Halo {nama}, pendaftaran Anda di {acara} sudah kami terima. Kami kabari lewat email ini begitu panitia menyetujuinya.",
+  isi_menunggu: "Halo {nama}, pendaftaran di {acara} sudah kami terima. Kami kabari lewat email ini begitu panitia menyetujuinya.",
   judul_ditolak: SALINAN_DITOLAK.judul,
   isi_ditolak: SALINAN_DITOLAK.isi,
 };
@@ -240,7 +240,7 @@ export function defaultTemplat(opsi: { punyaKv: boolean; memberOn: boolean }): T
     v: 1,
     preset: opsi.punyaKv ? "banner" : "pita",
     font: "sans",
-    subjek: "Tiket Anda: {acara}",
+    subjek: "QR kehadiran: {acara}",
     subjek_menunggu: "Pendaftaran diterima: {acara}",
     subjek_ditolak: SALINAN_DITOLAK.subjek,
     kirim_ditolak: false,

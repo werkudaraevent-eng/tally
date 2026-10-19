@@ -191,14 +191,14 @@ export default async function AreaPesertaPage({
         {konfirmasi === "ok" ? (
           <p role="status" className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md bg-[var(--reg-primary-container)] px-4 py-3 text-body-large text-[var(--reg-on-primary-container)]">
             <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
-            Email Anda terkonfirmasi.
+            Email sudah terkonfirmasi.
           </p>
         ) : !sesi.emailVerified && sesi.status !== "rejected" ? (
           <p className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md border border-[var(--reg-outline-variant)] px-4 py-3 text-body-large">
             <EnvelopeSimple size={22} className="mt-0.5 shrink-0 text-[var(--reg-primary)]" aria-hidden />
             <span>
               {konfirmasi === "gagal" ? "Tautan konfirmasi itu sudah dipakai atau kedaluwarsa. " : null}
-              Konfirmasi email {sesi.email} lewat tautan yang kami kirim, supaya akun ini bisa dipulihkan bila Anda lupa kata sandi.
+              Konfirmasi email {sesi.email} lewat tautan yang kami kirim, supaya akun ini bisa dipulihkan bila lupa kata sandi.
               <KirimUlangKonfirmasi slug={event.slug} />
             </span>
           </p>
@@ -220,8 +220,8 @@ export default async function AreaPesertaPage({
                 </h2>
                 <p className={`mt-2 text-body-large leading-7 ${MUTED}`}>
                   {sesi.status === "rejected"
-                    ? "Panitia tidak menyetujui pendaftaran Anda untuk acara ini. Hubungi panitia bila Anda merasa ini keliru."
-                    : "QR kehadiran muncul di sini setelah panitia menyetujui pendaftaran Anda. Kami juga mengabari Anda lewat email."}
+                    ? "Pendaftaran untuk acara ini tidak disetujui panitia. Hubungi panitia bila ini keliru."
+                    : "QR kehadiran muncul di sini setelah panitia menyetujui pendaftaran. Kabarnya juga dikirim lewat email."}
                 </p>
               </div>
             </section>
@@ -245,7 +245,7 @@ export default async function AreaPesertaPage({
 
                 {tampilKursi ? (
                   <div className={tampilKode ? "mt-8 border-t border-[var(--reg-outline-variant)] pt-6" : ""}>
-                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Kursi Anda</h2>
+                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Kursi</h2>
                     {kursi.length > 0 ? (
                       <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                         {kursi.map((seat, index) => (
@@ -312,7 +312,7 @@ export default async function AreaPesertaPage({
                       <ArrowRight size={18} weight="bold" className="shrink-0 text-[var(--reg-primary)]" />
                     </span>
                     <span className={`text-body-medium leading-6 ${MUTED}`}>
-                      Terbuka saat sesi berlangsung. Kode peserta Anda sudah terisi.
+                      Terbuka saat sesi berlangsung. Kode sudah terisi.
                     </span>
                   </Link>
                 ) : null}

@@ -6,7 +6,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
 import { LENGKAPI_UI } from "@/lib/member/lengkapi-i18n";
 
 /**
- * Kartu "Lengkapi data Anda" di dashboard peserta: tampil hanya bila ada
+ * Kartu "Lengkapi data" di dashboard peserta: tampil hanya bila ada
  * pertanyaan "Participants can update this" yang masih kosong, dan menyebut
  * pertanyaan itu dengan label dari formulir, bukan kalimat karangan.
  *

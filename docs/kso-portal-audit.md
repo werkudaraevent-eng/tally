@@ -15,9 +15,9 @@ Status per item as of 18 Oct 2026, after #199 to #202. This is the working copy 
 |---|---|---|
 | KSO content in the CMS (Mas) | 5 | U-04, U-08, U-15, U-34, U-35 |
 | Needs a decision or a mockup from Mas | 3 | U-25, U-30, E-13 |
-| Partly done | 10 | U-01, U-09, U-21, U-24, U-26, E-01, E-06, E-09, E-10, E-12 |
-| Not started | 9 | U-23, U-27, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
-| Done | 24 | U-02, U-03, U-05, U-06, U-07, U-10, U-11, U-12, U-13, U-14, U-16, U-17, U-18, U-19, U-20, U-22, U-28, U-29, U-31, U-33, E-03, E-07, E-08, E-14 |
+| Partly done | 8 | U-01, U-09, U-24, U-26, E-01, E-06, E-10, E-12 |
+| Not started | 8 | U-27, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
+| Done | 27 | U-02, U-03, U-05, U-06, U-07, U-10, U-11, U-12, U-13, U-14, U-16, U-17, U-18, U-19, U-20, U-21, U-22, U-23, U-28, U-29, U-31, U-33, E-03, E-07, E-08, E-09, E-14 |
 
 Suggested order:
 
@@ -259,7 +259,7 @@ Measured at audit time:
 
 ### U-21 One destination has several names: "Dashboard saya", "Area peserta" and "portal peserta"
 
-- Status: Partly done (this PR)
+- Status: Done (#215, this PR)
 - Priority: low. Area: Public event page, sign-in dialog, browser tab title, emails. Scope: platform.
 - Finding: The bar pill and the email button say "Dashboard saya", the sign-in dialog and the browser tab title say "Area peserta", and the closing band says "portal peserta". On the public event page "Perjalanan" in the bar scrolls to the invitation band, while in the portal the same word means hotel, bus and train.
 - Compared with: Eventbrite uses the same Tickets tab everywhere.
@@ -283,12 +283,12 @@ Measured at audit time:
 
 ### U-23 Participant texts switch between "kamu" and "Anda" within one flow
 
-- Status: Not started
+- Status: Done (this PR)
 - Priority: low. Area: Sign-in dialog, Home cards, emails. Scope: platform.
 - Finding: Horizon's own texts use "kamu" ("perjalananmu", "Hotel, kamar, bus, dan kereta kamu"). The shared texts use "Anda": the sign-in dialog, the email confirmation ribbon, the registration status card, the "Lengkapi data" card and every email. Which "Anda" texts appear depends on the participant's state, so a participant can meet two voices within five minutes.
 - Recommendation: Write the shared texts without pronouns and without a new setting, for example "Cek email", "Lengkapi data", "Panitia meminta data ini: {daftar}." Horizon keeps "kamu" once Mas confirms the voice of the V5 mockups, and formal layouts keep "Anda".
 - Left: Rewrite without pronouns the shared participant texts that Horizon participants see: the sign-in dialog (MASUK_UI in src/lib/member/masuk-i18n.ts, for example "Cek email Anda"), the email ribbon and registration status card (PESERTA_UI in src/lib/member/peserta-i18n.ts), the "Lengkapi data Anda" card with "Panitia meminta Anda mengisi: {daftar}." (LENGKAPI_UI in src/lib/member/lengkapi-i18n.ts), and the emails (src/lib/email/member-links.ts, src/lib/email/pengumuman.ts). The non-Horizon Gathering public page also mixes "Perjalanan Anda" with "kamarmu" (src/lib/landing-i18n.ts). Mas still has to confirm that "kamu" is the Horizon voice.
-- Decision on record or question for Mas: Open for Mas: confirm that "kamu" is the Horizon voice.
+- Decision on record or question for Mas: Mas chose 19 Oct: shared participant texts and emails without pronouns; Horizon's own texts keep "kamu"; formal layouts (the Modern public page, staff-written message starters) keep "Anda".
 - Code: `src/lib/member/masuk-i18n.ts` (MASUK_UI); `src/lib/member/peserta-i18n.ts` (PESERTA_UI); `src/lib/member/lengkapi-i18n.ts` (LENGKAPI_UI); `src/lib/email/member-links.ts`; `src/lib/email/pengumuman.ts`; `src/lib/landing-i18n.ts`
 - Related: U-21, U-32
 
@@ -523,7 +523,7 @@ Measured at audit time:
 
 ### E-09 One name for the participant QR
 
-- Status: Partly done (#199)
+- Status: Done (#199, this PR; WhatsApp is E-02)
 - Priority: low. Area: All tabs, confirmation email, public event page. Scope: platform.
 - Finding: The same QR was called "QR kehadiran", "Tiket masuk" and "kode". On a trip where "tiket" also means the train ticket, an organiser asking for the ticket at the station can send a participant to the wrong screen (see U-20).
 - Eventnook: An example to avoid: Eventnook's docs call the same ticket "View eTicket Pass", "e-Ticket" and "View e-Ticket" in three places.

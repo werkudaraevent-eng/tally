@@ -32,7 +32,7 @@ export function emailPengumuman(input: {
     ${paragraf}
     ${tautan}
     <p style="margin:28px 0 0;"><a href="${escapeHtml(input.dashboardUrl)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">Buka Dashboard saya</a></p>
-    <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">Anda menerima email ini karena terdaftar sebagai peserta acara ini. Pengumuman yang sama ada di Dashboard saya.</p>
+    <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">Email ini dikirim ke peserta terdaftar acara ini. Pengumuman yang sama ada di Dashboard saya.</p>
   </div>
 </body></html>`;
 

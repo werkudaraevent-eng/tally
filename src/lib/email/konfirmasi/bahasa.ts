@@ -73,7 +73,7 @@ export const BAWAAN_EN = {
 
 /** Teks bawaan Indonesia yang punya padanan English (lihat newBlock/defaultTemplat). */
 const BAWAAN_ID = {
-  subjek: "Tiket Anda: {acara}",
+  subjek: "QR kehadiran: {acara}",
   subjek_menunggu: "Pendaftaran diterima: {acara}",
   subjek_ditolak: SALINAN_DITOLAK.subjek,
   tombol_dashboard: "Buka Dashboard saya",
@@ -116,13 +116,13 @@ export const TEKS_TETAP: Record<EmailLang, TeksTetap> = {
     htmlLang: "id",
     eyebrow: { approved: "Pendaftaran berhasil", pending: "Pendaftaran diterima", rejected: "Kabar pendaftaran" },
     menungguJudul: "Menunggu persetujuan",
-    menungguIsi: "Panitia sedang meninjau pendaftaran Anda. QR masuk dikirim ke email ini setelah disetujui.",
+    menungguIsi: "Panitia sedang meninjau pendaftaran ini. QR kehadiran dikirim ke email ini setelah disetujui.",
     kodePeserta: "Kode peserta",
     qrAlt: (kode) => `QR kode peserta ${kode}`,
-    tunjukkan: "Tunjukkan QR ini di meja registrasi. Kode ini khusus untuk Anda.",
+    tunjukkan: "Tunjukkan QR ini ke panitia saat datang. Kode ini khusus untuk pemilik email ini.",
     bukaKode: "Buka kode &amp; QR",
-    akunJudul: "Akun Area peserta",
-    akunIsi: "Konfirmasi email Anda untuk mengaktifkan akun. Tautan berlaku 14 hari.",
+    akunJudul: "Akun Dashboard saya",
+    akunIsi: "Konfirmasi email ini untuk mengaktifkan akun. Tautan berlaku 14 hari.",
     akunTombol: "Konfirmasi email",
     tanggal: "Tanggal",
     waktu: "Waktu",
@@ -131,12 +131,12 @@ export const TEKS_TETAP: Record<EmailLang, TeksTetap> = {
     peta: "Lihat peta",
     logoMitra: "Logo mitra",
     kaki: (acara, bisaDibalas) =>
-      `Anda menerima email ini karena mendaftar di ${acara}. ${bisaDibalas ? "Ada pertanyaan? Balas email ini untuk menghubungi panitia." : "Ada pertanyaan? Hubungi panitia acara."}`,
+      `Email ini dikirim karena ada pendaftaran di ${acara}. ${bisaDibalas ? "Ada pertanyaan? Balas email ini untuk menghubungi panitia." : "Ada pertanyaan? Hubungi panitia acara."}`,
     teks: {
-      menunggu: "MENUNGGU PERSETUJUAN\nPanitia sedang meninjau pendaftaran Anda. QR masuk dikirim ke email ini setelah disetujui.",
+      menunggu: "MENUNGGU PERSETUJUAN\nPanitia sedang meninjau pendaftaran ini. QR kehadiran dikirim ke email ini setelah disetujui.",
       kode: (kode) => `KODE PESERTA: ${kode}`,
       kodeQr: (url) => `Kode dan QR: ${url}`,
-      akun: (url) => `\n\nAKUN AREA PESERTA\nKonfirmasi email Anda untuk mengaktifkan akun (berlaku 14 hari): ${url}`,
+      akun: (url) => `\n\nAKUN DASHBOARD SAYA\nKonfirmasi email ini untuk mengaktifkan akun (berlaku 14 hari): ${url}`,
       peta: "Peta",
     },
   },
@@ -240,6 +240,19 @@ function blockEn(block: Block): Block {
   }
 }
 
+/**
+ * Bawaan Indonesia lama (sebelum teks peserta ditulis tanpa kata ganti, U-23).
+ * Templat yang disimpan dengan teks ini tetap terhitung bawaan, jadi tidak
+ * tiba-tiba muncul sebagai "belum diterjemahkan" di editor.
+ */
+const BAWAAN_LAMA_ID: Record<string, string> = {
+  subjek: "Tiket Anda: {acara}",
+  isi: "Halo {nama}, pendaftaran Anda sudah dikonfirmasi. Simpan email ini; **QR di bawah adalah tiket masuk Anda**.",
+  isi_menunggu: "Halo {nama}, pendaftaran Anda di {acara} sudah kami terima. Kami kabari lewat email ini begitu panitia menyetujuinya.",
+  judul_ditolak: "Terima kasih atas minat Anda",
+  isi_ditolak: "Halo {nama}, terima kasih sudah mendaftar di {acara}. Mohon maaf, kali ini panitia belum dapat menyetujui pendaftaran Anda.",
+};
+
 /** Bawaan Indonesia per kolom; teks Indonesia yang sama dengan bawaan tidak perlu diterjemahkan. */
 const BAWAAN_PEMBUKA_ID: Record<string, string> = {
   judul: DEFAULT_PEMBUKA.judul,
@@ -263,6 +276,8 @@ export function belumDiterjemahkan(templat: Templat): KolomBelum[] {
   const cek = (label: string, blockId: string | null, kunci: string, idNilai: string, enNilai: string | undefined, bawaanId: string | null) => {
     if (kosong(idNilai) || !kosong(enNilai)) return;
     if (bawaanId !== null && idNilai.trim() === bawaanId) return;
+    // Bawaan lama hanya di kolomnya sendiri: subjek, atau kolom pembuka.
+    if ((label === "Subject (Approved)" || label === "Opening") && idNilai.trim() === BAWAAN_LAMA_ID[kunci]) return;
     out.push({ label, blockId, kunci });
   };
   cek("Subject (Approved)", null, "subjek", templat.subjek, en.subjek, BAWAAN_ID.subjek);

@@ -18,37 +18,37 @@ type Isi = Record<MemberLinkKind, { subjek: (acara: string) => string; pembuka: 
 
 const ISI: Isi = {
   konfirmasi: {
-    subjek: (acara) => `Konfirmasi email Anda — ${acara}`,
-    pembuka: "akun area peserta Anda sudah dibuat. Konfirmasi bahwa email ini milik Anda, supaya akun bisa dipulihkan bila Anda lupa kata sandi.",
+    subjek: (acara) => `Konfirmasi email — ${acara}`,
+    pembuka: "akun peserta sudah dibuat. Konfirmasi alamat email ini, supaya akun bisa dipulihkan bila lupa kata sandi.",
     tombol: "Konfirmasi email",
-    catatan: "Tautan ini berlaku 14 hari. Bila Anda tidak mendaftar, abaikan email ini.",
+    catatan: "Tautan ini berlaku 14 hari. Bila tidak merasa mendaftar, abaikan email ini.",
   },
   sandi: {
-    subjek: (acara) => `Buat kata sandi area peserta — ${acara}`,
-    pembuka: "gunakan tautan di bawah untuk membuat kata sandi area peserta. Tautan yang sama dipakai bila Anda lupa kata sandi.",
+    subjek: (acara) => `Buat kata sandi Dashboard saya — ${acara}`,
+    pembuka: "gunakan tautan di bawah untuk membuat kata sandi Dashboard saya. Tautan yang sama dipakai bila lupa kata sandi.",
     tombol: "Buat kata sandi",
-    catatan: "Tautan ini berlaku 60 menit dan hanya bisa dipakai sekali. Bila Anda tidak memintanya, abaikan email ini; kata sandi Anda tidak berubah.",
+    catatan: "Tautan ini berlaku 60 menit dan hanya bisa dipakai sekali. Bila tidak merasa memintanya, abaikan email ini; kata sandi tidak berubah.",
   },
   // Peserta terdaftar yang aksesnya belum dibuka panitia. Tanpa tombol.
   tertutup: {
-    subjek: (acara) => `Area peserta — ${acara}`,
-    pembuka: "ada permintaan tautan kata sandi area peserta untuk email ini. Email ini terdaftar sebagai peserta, tetapi area peserta belum dibuka untuk Anda. Hubungi panitia acara bila Anda memerlukan akses.",
+    subjek: (acara) => `Dashboard saya — ${acara}`,
+    pembuka: "ada permintaan tautan kata sandi Dashboard saya untuk email ini. Email ini terdaftar sebagai peserta, tetapi Dashboard saya belum dibuka untuk peserta ini. Hubungi panitia acara bila perlu akses.",
     tombol: null,
-    catatan: "Bila Anda tidak memintanya, abaikan email ini.",
+    catatan: "Bila tidak merasa memintanya, abaikan email ini.",
   },
   // Kode masuk 6 digit (Participant area > Email code). Kodenya di `kode`.
   kode: {
-    subjek: (acara) => `Kode masuk area peserta — ${acara}`,
-    pembuka: "ini kode untuk masuk ke area peserta. Ketik kode ini di halaman masuk.",
+    subjek: (acara) => `Kode masuk Dashboard saya — ${acara}`,
+    pembuka: "ini kode untuk masuk ke Dashboard saya. Ketik kode ini di halaman masuk.",
     tombol: null,
-    catatan: "Kode ini berlaku 10 menit dan hanya bisa dipakai sekali. Jangan berikan kode ini kepada siapa pun, termasuk panitia. Bila Anda tidak memintanya, abaikan email ini.",
+    catatan: "Kode ini berlaku 10 menit dan hanya bisa dipakai sekali. Jangan berikan kode ini kepada siapa pun, termasuk panitia. Bila tidak merasa memintanya, abaikan email ini.",
   },
   // Walk-in yang baru didaftarkan petugas di meja registrasi (sendWalkinLink).
   walkin: {
-    subjek: (acara) => `Akses area peserta — ${acara}`,
-    pembuka: "Anda sudah terdaftar di meja registrasi. Buat kata sandi lewat tombol di bawah untuk membuka tiket dan info acara Anda di area peserta.",
+    subjek: (acara) => `Akses Dashboard saya — ${acara}`,
+    pembuka: "pendaftaran di meja registrasi sudah tercatat. Buat kata sandi lewat tombol di bawah untuk membuka QR kehadiran dan info acara di Dashboard saya.",
     tombol: "Buat kata sandi",
-    catatan: "Tautan ini hanya untuk Anda, berlaku 7 hari, dan hanya bisa dipakai sekali. Jangan teruskan email ini ke orang lain.",
+    catatan: "Tautan ini khusus untuk pemilik email ini, berlaku 7 hari, dan hanya bisa dipakai sekali. Jangan teruskan email ini ke orang lain.",
   },
 };
 
@@ -105,7 +105,7 @@ export async function sendMemberLink(input: {
   const html = `<!doctype html>
 <html lang="${en ? "en" : "id"}"><body style="margin:0;padding:24px;background:#F5F4F0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#17211D;">
   <div style="max-width:520px;margin:0 auto;background:#FFFFFF;border:1px solid #D9DDD7;padding:32px;">
-    <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#2649D0;font-weight:600;">${en ? "Participant area" : "Area peserta"}</p>
+    <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#2649D0;font-weight:600;">${en ? "My dashboard" : "Dashboard saya"}</p>
     <h1 style="margin:12px 0 0;font-size:24px;line-height:1.25;font-weight:600;">${escapeHtml(input.eventName)}</h1>
     <p style="margin:28px 0 0;font-size:15px;line-height:1.6;">${escapeHtml(sapaan + isi.pembuka)}</p>
     ${input.kode ? `<p style="margin:24px 0 0;text-align:center;font-size:32px;line-height:1.2;font-weight:700;letter-spacing:0.25em;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">${escapeHtml(input.kode)}</p>` : ""}
