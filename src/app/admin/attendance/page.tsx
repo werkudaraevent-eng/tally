@@ -68,7 +68,7 @@ const slugify = (teks: string) =>
   teks.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 
 const PENJELASAN_JALUR =
-  "One desk lane per desk. Only create these when several queues are open at the entrance, so each welcome screen greets guests at its own desk and reports show which desks are busiest.";
+  "Each desk lane is one registration desk. Only create these when several queues are open at the entrance, so each welcome screen greets guests at its own desk and reports show which desks are busiest.";
 
 export default function AttendanceAdminPage() {
   const [sessions, setSessions] = useState<Sesi[]>([]);
@@ -143,10 +143,10 @@ export default function AttendanceAdminPage() {
       return;
     }
     toast.success(
-      izinkan ? "Walk-ins enabled" : "Walk-ins disabled",
+      izinkan ? "Walk-ins on" : "Walk-ins off",
       izinkan
         ? "Scanner staff can now register guests who are not on the participant list."
-        : "The button is hidden from the scanner. Participants already registered are kept.",
+        : "The button is hidden from the scanner. Walk-ins already registered are kept.",
     );
   }
 
@@ -209,7 +209,7 @@ export default function AttendanceAdminPage() {
     setBusy(false);
     if (!response?.ok) {
       setPasangan(lama);
-      toast.error("Could not save", pesanGalatApi(await response?.json().catch(() => ({}))) ?? "The selected items have not changed. Try again.");
+      toast.error("Could not save", pesanGalatApi(await response?.json().catch(() => ({}))) ?? "Items to check were not changed. Try again.");
     }
   }
 
@@ -457,9 +457,9 @@ export default function AttendanceAdminPage() {
               Only when a name search finds no matches. Duplicate names need staff confirmation. Turn this off if the event does not accept guests without invitations.
             </p>
           </DetailSection>
-          <DetailSection title="Recorded">
+          <DetailSection title="Walk-ins so far">
             <dl className="flex flex-col gap-2">
-              <KeyValue label="Registered at the desk"><span className="tabular-nums">{dimuat ? walkInCount : "Loading"}</span></KeyValue>
+              <KeyValue label="Walk-ins registered"><span className="tabular-nums">{dimuat ? walkInCount : "Loading"}</span></KeyValue>
             </dl>
           </DetailSection>
         </>
@@ -476,12 +476,12 @@ export default function AttendanceAdminPage() {
             <MetaSeparator />
             <span className="inline-flex items-center gap-1.5">
               <StatusDot tone={allowWalkIn ? "success" : "neutral"} />
-              {allowWalkIn ? "Walk-ins allowed" : "Walk-ins disabled"}
+              {allowWalkIn ? "Walk-ins on" : "Walk-ins off"}
             </span>
             {walkInCount > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{walkInCount} registered at the desk</span>
+                <span className="tabular-nums">{walkInCount} {walkInCount === 1 ? "walk-in" : "walk-ins"} registered</span>
               </>
             ) : null}
           </>
