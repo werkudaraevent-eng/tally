@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaSasaranBlok, bacaTautanAgenda, blokUntukPeserta, KOLOM_HOTEL } from "./sasaran-blok.ts";
+import { bacaSasaranBlok, bacaTautanAgenda, blokUntukPeserta, KOLOM_HOTEL, samaJawaban } from "./sasaran-blok.ts";
 
 // Bentuk tersimpan: kosong atau rusak berarti semua peserta.
 assert.equal(bacaSasaranBlok(undefined), null);
@@ -38,3 +38,7 @@ assert.equal(blokUntukPeserta(gramm, data({}, 2)), false);
 assert.equal(blokUntukPeserta(gramm, data({}, null)), false);
 
 console.log("sasaran-blok ok");
+
+// Editor dan portal memakai aturan jawaban yang sama (data dari impor bisa berhuruf besar).
+assert.equal(samaJawaban("BATCH 1", " batch 1"), true);
+assert.equal(samaJawaban("Batch 1", "Batch 2"), false);

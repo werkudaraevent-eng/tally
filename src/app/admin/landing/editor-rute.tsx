@@ -4,7 +4,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, Plus, Trash } from "@phosphor-icons
 import { useEffect, useRef, useState } from "react";
 import Link from "@/components/event-link";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
-import { FilterChip, IconButton, SegmentedButton, SelectField, SelectMenu, TextArea, TextField } from "@/components/m3";
+import { Button, FilterChip, IconButton, SegmentedButton, SelectField, SelectMenu, TextArea, TextField } from "@/components/m3";
 import { PilihBarisAgenda, useAgendaTrip } from "@/components/admin/logistik/pilih-baris-agenda";
 import {
   LANDING_BLOCK_SHOW_ON,
@@ -19,7 +19,7 @@ import {
 } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
 import type { KolomSasaran } from "@/lib/sasaran-bagian";
-import { bacaSasaranBlok, bacaTautanAgenda, KOLOM_HOTEL, TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
+import { bacaSasaranBlok, bacaTautanAgenda, KOLOM_HOTEL, samaJawaban, TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
 import { PilihIkonKartu, type WarnaUbin } from "./pilih-ikon";
 
 /** Cadangan bila editor tidak diberi warna tema (mis. sebelum tema dimuat). */
@@ -30,18 +30,34 @@ type Hotel = { id: number; name: string; address: string | null };
 /** Halaman tempat blok tampil, untuk semua jenis di LANDING_BLOCK_MEMBER_TYPES. */
 export function TampilDi({ block, ubah }: { block: LandingBlock; ubah: (patch: Partial<LandingBlock>) => void }) {
   const nilai = block.show_on ?? "public";
+  // Halaman acara tidak punya peserta yang masuk: kelompok dan tautan Agenda
+  // dilepas saat pindah ke sana, supaya blok tidak hilang dari semua halaman.
+  const [dilepas, setDilepas] = useState(false);
+  const lepas = { audience: undefined, agenda_item_ids: undefined };
+  // Blok lama yang tersimpan publik dengan kelompok: tidak tampil di mana pun.
+  const sisaKelompok = nilai === "public" && block.audience !== undefined;
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-body-medium font-medium text-on-surface">Show on</p>
       <SegmentedButton<LandingBlockShowOn>
         label="Show on"
         value={nilai}
-        onChange={(show_on) => ubah({ show_on: show_on === "public" ? undefined : show_on })}
+        onChange={(show_on) => {
+          const keLepas = show_on === "public" && (block.audience !== undefined || block.agenda_item_ids !== undefined);
+          setDilepas(keLepas);
+          ubah(show_on === "public" ? { show_on: undefined, ...(keLepas ? lepas : {}) } : { show_on });
+        }}
         options={LANDING_BLOCK_SHOW_ON.map((value) => ({ value, label: LANDING_BLOCK_SHOW_ON_LABELS[value] }))}
       />
+      {sisaKelompok ? (
+        <div role="status" className="flex flex-col items-start gap-2 rounded-md bg-error-container px-3 py-2 text-body-medium text-on-error-container">
+          <p>Shown nowhere: it still has a participant group, and the Event page has no signed-in participants. Remove the group so everyone sees it, or choose Participant page.</p>
+          <Button variant="outlined" size="sm" onClick={() => { setDilepas(true); ubah(lepas); }}>Remove group</Button>
+        </div>
+      ) : null}
       <p className="text-body-small text-on-surface-variant">
         {nilai === "public" ? (
-          "Everyone who opens the Event page sees it."
+          sisaKelompok ? null : dilepas ? "Everyone who opens the Event page sees it. Its group and linked agenda rows were removed, because the Event page has no signed-in participants." : "Everyone who opens the Event page sees it."
         ) : (
           <>
             {nilai === "member" ? "Only signed-in participants see it, on their own page. Move or hide it in " : "On the Event page and on the participant\u2019s own page. Its place there is set in "}
@@ -243,8 +259,10 @@ function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingB
   ];
   const dimuat = info !== null && (hotels !== null || hotelGagal);
   const kolomAktif = kolom.find((isi) => isi.key === field) ?? null;
+  // Hotel tidak bisa dimuat: kelompok hotel yang tersimpan belum tentu salah, jadi tidak disebut hilang.
+  const hotelHilangKarenaGagal = hotelGagal && field === KOLOM_HOTEL;
   // Kolom tersimpan yang sudah dihapus dari formulir atau hotelnya dari Logistics: blok tersembunyi.
-  const hilang = Boolean(sasaran && dimuat && (!kolomAktif || !sasaran.values.some((v) => kolomAktif.options.some((o) => o.value === v))));
+  const hilang = Boolean(sasaran && dimuat && !hotelHilangKarenaGagal && (!kolomAktif || !sasaran.values.some((v) => kolomAktif.options.some((o) => samaJawaban(o.value, v)))));
   const nilai = sasaran?.values ?? [];
   const setNilai = (values: string[]) => {
     if (values.length) { ubah({ audience: { field, values } }); return; }
@@ -254,12 +272,14 @@ function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingB
   const baris = bacaTautanAgenda(block.agenda_item_ids);
   const lokasi = baris.map((id) => agendaTrip.agenda?.peta.baris.get(id)).filter((isi): isi is NonNullable<typeof isi> => Boolean(isi));
   // Hanya jawaban yang masih ada di pilihan kolomnya, sama dengan portal (blokUntukPeserta).
-  const labelNilai = sasaran && kolomAktif ? kolomAktif.options.filter((o) => sasaran.values.includes(o.value)).map((o) => o.label) : [];
+  const labelNilai = sasaran && kolomAktif ? kolomAktif.options.filter((o) => sasaran.values.some((v) => samaJawaban(o.value, v))).map((o) => o.label) : [];
   const siapa = sasaran && kolomAktif ? `participants whose ${kolomAktif.label} is ${labelNilai.join(" or ")}` : "every signed-in participant";
   // Kelompok butuh peserta yang masuk: tidak pernah di halaman acara publik (landingBlockShownOn).
   const keBoth = Boolean(sasaran) && block.show_on === "both";
   const pindah = horizon && (sasaran !== null || baris.length > 0);
-  const ringkas = (keBoth ? "Not on the Event page, because a group needs a signed-in participant. " : "") + (hilang
+  const ringkas = (keBoth ? "Not on the Event page, because a group needs a signed-in participant. " : "") + (hotelHilangKarenaGagal && sasaran
+    ? "Couldn\u2019t load hotels from Logistics, so this hotel group can\u2019t be shown here. It still applies on the participant page. Reload to try again."
+    : hilang
     ? "Nowhere for now: the chosen field or answer no longer exists. Choose again or pick Everyone."
     : `${pindah ? "In Travel, after the hotel, bus and train cards" : "On Home"}, for ${siapa}.${horizon && lokasi.length ? ` ${lokasi.length === 1 ? "The linked agenda row shows" : "The linked agenda rows show"} \u201cCara ke sana\u201d in the schedule.` : ""}${pindah && sasaran?.field !== KOLOM_HOTEL ? " Participants without a hotel, bus or train see it on Home." : ""}`);
   if ((block.show_on ?? "public") === "public") return null;
@@ -283,7 +303,7 @@ function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingB
           options={[{ value: "semua", label: "Everyone" }, { value: "kelompok", label: "One group" }]}
         />
         {kelompok ? (
-          dimuat && kolom.length === 0 ? (
+          dimuat && kolom.length === 0 && !hotelHilangKarenaGagal ? (
             <div className="flex flex-col gap-2">
               <p className="text-body-medium text-on-surface-variant">Add a hotel in Logistics, or a dropdown or single-choice participant field such as Batch. It can be staff only.</p>
               <Link href="/admin/registrasi" target="_blank" rel="noreferrer" className={TAUTAN}>
@@ -308,9 +328,9 @@ function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingB
                   <p id={`${block.id}-jawaban`} className="text-body-medium font-medium text-on-surface">{kolomAktif.key === KOLOM_HOTEL ? "Guests of" : "Answers in this group"}</p>
                   <div role="group" aria-labelledby={`${block.id}-jawaban`} className="flex flex-wrap gap-2">
                     {kolomAktif.options.map((opsi) => {
-                      const aktif = nilai.includes(opsi.value);
+                      const aktif = nilai.some((v) => samaJawaban(v, opsi.value));
                       return (
-                        <FilterChip key={opsi.value} selected={aktif} onClick={() => setNilai(aktif ? nilai.filter((v) => v !== opsi.value) : [...nilai, opsi.value])}>
+                        <FilterChip key={opsi.value} selected={aktif} onClick={() => setNilai(aktif ? nilai.filter((v) => !samaJawaban(v, opsi.value)) : [...nilai, opsi.value])}>
                           {opsi.label}
                         </FilterChip>
                       );

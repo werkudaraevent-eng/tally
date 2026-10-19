@@ -24,7 +24,9 @@ export const KOLOM_HOTEL = "@hotel";
 /** Baris Agenda yang menautkan satu blok, paling banyak sekian. */
 export const TAUTAN_AGENDA_MAX = 8;
 
-const sama = (a: string, b: string) => a.trim().toLocaleLowerCase("id") === b.trim().toLocaleLowerCase("id");
+/** Jawaban sama tanpa beda huruf besar dan spasi tepi; editor memakai aturan yang sama dengan portal. */
+export const samaJawaban = (a: string, b: string) => a.trim().toLocaleLowerCase("id") === b.trim().toLocaleLowerCase("id");
+const sama = samaJawaban;
 
 /**
  * Bentuk tersimpan menjadi sasaran, atau null (semua peserta) bila tidak ada
