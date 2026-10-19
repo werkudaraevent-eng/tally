@@ -447,7 +447,7 @@ Pilihan yang DITOLAK, supaya tidak dicoba lagi:
 
 ## Grid halaman
 
-**Satu grid untuk semua layar admin: `mx-auto max-w-[1440px]`**, sama persis
+**Satu grid untuk semua layar admin: `mx-auto max-w-[1400px]`** (`page-shell.tsx`, `workspace.tsx`), sama persis
 dengan grid isi top app bar. Judul di bilah dan konten di bawahnya selalu
 berbagi satu tepi kiri, di lebar layar mana pun.
 
@@ -461,7 +461,7 @@ jenis konten:
 
 | Konten | Perlakuan |
 | --- | --- |
-| Tabel, daftar, grid kartu | Isi penuh grid 1440 |
+| Tabel, daftar, grid kartu | Isi penuh grid 1400 |
 | Prosa dan formulir | Kolom baca sempit di DALAM grid, rata kiri |
 
 Kolom baca dipasang lewat `[&>*]:max-w-3xl` pada containernya — menyempitkan
@@ -469,7 +469,7 @@ anak-anak langsungnya tanpa memindahkan containernya, jadi tepi kirinya tetap
 di grid yang sama. Settings memakai `3xl`, panel kontrol Papan peringkat `900px`.
 
 Angkanya bukan selera: paragraf `body-medium` di 768px sudah ~100 karakter per
-baris. Dipaksa ke 1440px ia menjadi ~190 karakter, dan mata kehilangan awal
+baris. Dipaksa ke 1400px ia menjadi ~190 karakter, dan mata kehilangan awal
 baris berikutnya. Ruang kosong di kanan lebih murah daripada teks yang tidak
 terbaca.
 
@@ -682,7 +682,7 @@ berlaku selalu yang ada di file itu; dokumen ini tidak menyalin hex-nya.
 | `--md-sys-shape-corner-*` | Dipadatkan: 4px sampai 16px (`full` tetap bulat) |
 | `--md-sys-elevation-level1`, `level2` | `none`; level 3 ke atas (dialog, menu, sheet) tetap berbayang |
 | Permukaan, `on-surface*`, `outline*` | Kanvas abu sangat muda, panel putih, tinta netral |
-| `primary` | Biru `#1a56c4`, satu-satunya aksen |
+| `primary` | Biru `#1a56c4` di mode terang, `#6699ff` di mode gelap; satu-satunya aksen |
 | `error`, `success`, `warning` | Tidak disentuh: status bukan hiasan |
 
 Setiap kali nilai `--press-*` diganti, ukur ulang kontras tinta dan garis
@@ -811,6 +811,22 @@ aturannya tidak berlapis sedangkan utilitas Tailwind ada di `@layer utilities`.
 menular. Di seluruh ruang kerja hanya ada satu varian responsif tipe
 (`sm:text-headline-large`), dan ia dibungkus media query yang sama dengan aslinya.
 
+### Utilitas label
+
+Didefinisikan di `src/app/globals.css`, tidak berlapis sehingga mengalahkan
+utilitas Tailwind.
+
+| Utilitas | Isi |
+| --- | --- |
+| `ed-label` | 12/16, bobot 600, jarak normal: nama kolom, judul kelompok, keterangan. Ukurannya terkunci |
+| `ed-num` | Lebar-tetap, angka rata: jam, nominal, kode |
+| `ed-plain` | Huruf antarmuka untuk label yang datang dari DATA (nama sesi, kolom buatan admin, nama hadiah) |
+| `ed-tracked` | Jalan keluar jarak huruf (`.press .ed-tracked`), saat ini hanya PIN |
+
+`ed-label` berhenti di kontrolnya: `.ed-label :where(input, select, textarea)`
+mengembalikan huruf antarmuka untuk teks yang diketik. Kolom yang memang harus
+lebar-tetap ditandai `ed-num` atau `ed-plain`, yang ditulis sesudahnya dan menang.
+
 ### Kepadatan kontrol
 
 | Kontrol | Bawaan | `.press` |
@@ -889,8 +905,8 @@ Aturan yang mengikat semuanya:
 - Warna: kanvas `surface`, panel `surface-container-lowest` (putih), kepala
   tabel dan kaki panel `surface-container-high`, baris hover `primary-soft`
   (abu), baris terpilih `secondary-container`, penanda aktif/terpilih
-  `accent-soft` + `primary`. `primary` biru `#1a56c4` adalah satu-satunya
-  warna aksen.
+  `accent-soft` + `primary`. `primary` biru (`#1a56c4` terang, `#6699ff` gelap) adalah
+  satu-satunya warna aksen.
 - Status: `StatusChip` setinggi 20px, radius 4px, bertitik.
 - Tanpa em dash di teks antarmuka. Sel kosong memakai en dash (`EMPTY_VALUE`).
 - Acara berstatus selesai atau arsip memasang penanda di bawah `WorkspaceHeader`
