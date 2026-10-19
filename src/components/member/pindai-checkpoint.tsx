@@ -30,7 +30,7 @@ const TEKS = {
     acaraLain: "QR ini untuk acara lain.",
     koneksi: "Koneksi terputus. Coba pindai lagi.",
     lagi: "Pindai lagi",
-    cadangan: "Tidak bisa? Tunjukkan QR-mu ke panitia",
+    cadangan: "Tidak bisa? Tunjukkan QR kehadiran ke panitia",
     selesai: (judul: string) => `${judul} selesai`,
     sudah: (judul: string) => `${judul} sudah selesai sebelumnya`,
     rinci: (poin: number | null, done: number | null, total: number | null) =>
@@ -44,12 +44,12 @@ const TEKS = {
     arahkan: "Point at the QR on the organisers' screen",
     catatan: "The QR changes every 30 seconds. Scan it straight from the screen, not from a photo.",
     mencatat: "Recording…",
-    kameraGagal: "The camera could not open. Allow the camera for this site, or scan the QR with your phone's own camera.",
+    kameraGagal: "The camera could not open. Allow the camera for this site, or scan the QR with the phone's own camera.",
     bukanQr: "This is not a checkpoint QR. Point at the QR on the organisers' screen.",
     acaraLain: "This QR is for another event.",
     koneksi: "Connection lost. Try scanning again.",
     lagi: "Scan again",
-    cadangan: "Can't scan? Show your QR to the organisers",
+    cadangan: "Can't scan? Show the attendance QR to the organisers",
     selesai: (judul: string) => `${judul} done`,
     sudah: (judul: string) => `${judul} was already done`,
     rinci: (poin: number | null, done: number | null, total: number | null) =>

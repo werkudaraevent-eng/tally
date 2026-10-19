@@ -172,6 +172,15 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
     }
   }, [terbuka]);
 
+  // Portal dilepas saat dialog masih terbuka (mis. Kembali ke halaman QR server):
+  // gulir halaman dikembalikan, kalau tidak halaman berikutnya tidak bisa digulir.
+  useEffect(
+    () => () => {
+      document.documentElement.style.overflow = "";
+    },
+    [],
+  );
+
   const tutup = useCallback(() => {
     // Lapisan dibuka dengan pushState, jadi entri sebelumnya adalah tab asal.
     window.history.back();
@@ -388,7 +397,7 @@ export function TombolPindaiQr({
       qrHref={null}
       kembaliKeQr
       wadah={wadah}
-      sesudah={sesudah ?? (kePortal ? () => router.push(kePortal) : undefined)}
+      sesudah={sesudah ?? (kePortal ? () => router.replace(kePortal) : undefined)}
       className="m3-state inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--hz-emas)] px-5 text-[15px] font-semibold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]"
     />
   );
