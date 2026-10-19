@@ -174,7 +174,15 @@ export type PortalUiText = {
       retry: string;
     };
     /** Jadwal (U-06, U-01, U-24). */
-    schedule: { timeNote: (zona: string) => string; part: (n: number) => string; partsAria: string };
+    schedule: {
+      timeNote: (zona: string) => string;
+      part: (n: number) => string;
+      partsAria: string;
+      /** Bagian milik peserta (Agenda > Who it's for), mis. "Batch 2". */
+      yours: (kelompok: string) => string;
+      notYours: (kelompok: string) => string;
+      seeYours: (label: string) => string;
+    };
     /** Halaman Profil Horizon: kartu tiket, data diri, bantuan dan pengaturan. */
     profile: {
       note: string;
@@ -351,7 +359,14 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         showQr: "Tampilkan QR",
         retry: "Coba lagi",
       },
-      schedule: { timeNote: (zona) => `semua jam ${zona}`, part: (n) => `Bagian ${n}`, partsAria: "Pilih bagian" },
+      schedule: {
+        timeNote: (zona) => `semua jam ${zona}`,
+        part: (n) => `Bagian ${n}`,
+        partsAria: "Pilih bagian",
+        yours: (kelompok) => `Ini jadwalmu. Kamu terdaftar di ${kelompok}.`,
+        notYours: (kelompok) => `Ini bukan jadwalmu. Kamu terdaftar di ${kelompok}.`,
+        seeYours: (label) => `Lihat jadwal ${label}`,
+      },
       profile: {
         note: "QR kehadiran, data diri, dan bantuan acara.",
         // Tanda hubung tak terputus (U+2011): "check-in" tidak terpotong di akhir baris (U-33).
@@ -526,7 +541,14 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         showQr: "Show QR",
         retry: "Try again",
       },
-      schedule: { timeNote: (zona) => `all times ${zona}`, part: (n) => `Part ${n}`, partsAria: "Choose a part" },
+      schedule: {
+        timeNote: (zona) => `all times ${zona}`,
+        part: (n) => `Part ${n}`,
+        partsAria: "Choose a part",
+        yours: (kelompok) => `This is your schedule. You are in ${kelompok}.`,
+        notYours: (kelompok) => `This is not your schedule. You are in ${kelompok}.`,
+        seeYours: (label) => `See the ${label} schedule`,
+      },
       profile: {
         note: "Attendance QR, details and event help.",
         ticketHint: "Show this QR at check‑in.",

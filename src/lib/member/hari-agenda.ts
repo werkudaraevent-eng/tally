@@ -120,9 +120,13 @@ export type RingkasanBeranda = {
 /**
  * Isi kartu Berlangsung dan Berikutnya di Beranda. Hari dengan beberapa bagian
  * memberi satu butir per bagian, masing-masing dengan label bagiannya.
+ * `lewati`: indeks bagian yang bukan milik peserta (Agenda > Who it's for),
+ * jadi peserta Batch 2 hanya melihat butir Batch 2 dan bagian untuk semua.
  */
-export function ringkasanBeranda(agenda: readonly AgendaPreview[], hariIni: string, besok: string, menit: number): RingkasanBeranda {
-  const hari = kelompokkanHari(agenda);
+export function ringkasanBeranda(agenda: readonly AgendaPreview[], hariIni: string, besok: string, menit: number, lewati: ReadonlySet<number> = new Set()): RingkasanBeranda {
+  const hari = kelompokkanHari(agenda)
+    .map((item) => ({ ...item, bagian: item.bagian.filter(({ indeks }) => !lewati.has(indeks)) }))
+    .filter((item) => item.bagian.length > 0);
   const ini = hari.find((item) => item.tanggal === hariIni);
   const berlangsung: RingkasanBeranda["berlangsung"] = [];
   const berikutHariIni: NonNullable<RingkasanBeranda["berikutnya"]>["butir"] = [];
