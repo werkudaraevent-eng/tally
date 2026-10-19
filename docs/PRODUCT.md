@@ -26,9 +26,9 @@ Tally runs many events from one workspace. Every event has its own data, setting
 | Viewer | `/live` | Client account: read-only live registration list, counts and download. |
 | Participant | Participant area | Their own QR, agenda, travel, announcements, checkpoints. |
 
-Booth, Cashier and Scanner can't open an event that is Draft or Completed. Every role except Super admin needs an access row per event.
+Booth, Cashier and Scanner can open only an Active event. Every role except Super admin needs an access row per event.
 
-**Event lifecycle.** New events start as Draft (the event page and registration already work). Draft → Active → Completed → Archived; Active and Archived can go back to Draft. Only Draft or Archived events can be deleted (type the slug to confirm). Duplicate copies configuration only (settings, agenda, seating, booths, offers, lucky-draw setup, leaderboard exclusions), never participants, orders, winners or access, and the copy starts as Draft. A slug change keeps old links and printed QR codes working through a redirect.
+**Event lifecycle.** New events start as Draft (the event page and registration already work). Draft → Active → Completed → Archived. Active and Archived can go back to Draft, and Completed can be activated again. Only Draft or Archived events can be deleted (type the slug to confirm). Duplicate copies configuration only (settings, agenda, seating, booths, offers, lucky-draw setup, leaderboard exclusions), never participants, orders, winners or access, and the copy starts as Draft. A slug change keeps old links and printed QR codes working through a redirect.
 
 **Admin menu**, grouped by when the organiser does the work: Setup (Event page, Agenda, Speakers, Seating plan), Participants (Participant list, Registration, Logistics, Messages, Participant area), Event day (Check-in, Badges & labels, Welcome screen, Lucky draw, Live voting, Leaderboard), Sales (Orders, Booths & items, Reports). Leaderboard and Sales show only when the event has booths. Event settings sits at the foot of the sidebar; Users & roles is workspace-wide (`/users`).
 
