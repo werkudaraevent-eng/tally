@@ -14,7 +14,7 @@ import {
   type WeightConfig,
 } from "@/lib/undian";
 import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
-import { activeRulesFor, listAnswerFields, listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
+import { activeRulesFor, listAnswerFields, previousWinnerRefs, listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
 
 // Pratinjau kolam: berapa peserta yang lolos syarat, dan bagaimana tiket terbagi.
 //
@@ -86,6 +86,9 @@ const bodySchema = z.object({
   weight_base: z.number().int().min(0).max(100).default(1),
   weight_max: z.number().int().min(1).max(1000).default(10),
   bonus_rules: bonusRulesSchema(groupSchema, false).default([]),
+  // Setelan "Can participants win again?" hadiah yang sedang diedit; pemenang
+  // yang tidak ikut dihitung ulang dengan RPC yang sama seperti buildPool().
+  exclude_scope: z.enum(["none", "this_prize", "all_prizes"]).default("all_prizes"),
 });
 
 const bodySchemaWithPrize = bodySchema.extend({
@@ -127,6 +130,8 @@ export async function POST(request: Request) {
   if (!rows) return apiError("INTERNAL_ERROR", 500);
 
   const eligible = rows.filter((row) => matchesConditions(row, conditions));
+  const wonIds = await previousWinnerRefs(eventId, { id: parsed.data.prize_id ?? 0, exclude_scope: parsed.data.exclude_scope }, "participant");
+  if (!wonIds) return apiError("INTERNAL_ERROR", 500);
 
   // Urutan penyaringnya IDENTIK dengan buildPool(): aturan, lalu manual, lalu
   // sudah menang. Kalau berbeda, angka pratinjau dan kolam yang benar-benar diundi
@@ -142,7 +147,7 @@ export async function POST(request: Request) {
     const hit = rules.find((rule) => matchesConditions(row, rule.conditions));
     if (hit) { byRules.push(row); ruleHits.set(hit.id, (ruleHits.get(hit.id) ?? 0) + 1); continue; }
     if (row.manually_excluded) { byManual.push(row); continue; }
-    if (row.already_won > 0) { byWins.push(row); continue; }
+    if (wonIds.has(String(row.participant_id))) { byWins.push(row); continue; }
     available.push(row);
   }
 
