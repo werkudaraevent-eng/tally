@@ -144,6 +144,8 @@ export type PortalUiText = {
       seeSchedule: (label: string | null) => string;
       seeDay: (hari: string) => string;
       tripLink: string;
+      /** Tautan baris Agenda ke rute yang menautkannya, di Perjalanan. */
+      routeLink: string;
     };
     /** Pengumuman di Beranda: yang belum dibaca dulu (U-03). */
     pinnedMore: (jumlah: number) => string;
@@ -329,6 +331,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         seeSchedule: (label) => (label ? `Lihat susunan acara ${label}` : "Lihat susunan acara"),
         seeDay: (hari) => `Lihat susunan acara ${hari}`,
         tripLink: "Bus dan titik kumpul ada di Perjalanan",
+        routeLink: "Cara ke sana",
       },
       pinnedMore: (jumlah) => `+${jumlah} disematkan`,
       saveQrRow: { eyebrow: "Sebelum berangkat", title: "Simpan QR ke galeri", note: "Tetap bisa ditunjukkan tanpa sinyal.", failed: "Gambar QR gagal dibuat. Buka QR lalu coba lagi." },
@@ -511,6 +514,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         seeSchedule: (label) => (label ? `See the ${label} schedule` : "See the schedule"),
         seeDay: (hari) => `See ${hari}`,
         tripLink: "Your bus and meeting point are in Travel",
+        routeLink: "Getting there",
       },
       pinnedMore: (jumlah) => `+${jumlah} pinned`,
       saveQrRow: { eyebrow: "Before you leave", title: "Save QR to your photos", note: "You can show it without signal.", failed: "Couldn't create the QR image. Open the QR and try again." },
