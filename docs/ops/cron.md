@@ -65,7 +65,7 @@ Dijadwalkan lewat migrasi `202610030003_pesan_peserta.sql`:
 Dua rahasia disimpan di Supabase Vault, sekali saja (SQL Editor):
 
 ```sql
-select vault.create_secret('https://eventhub.werkudara.group', 'tally_site_url');
+select vault.create_secret('https://<alamat-produksi>', 'tally_site_url');
 select vault.create_secret('<nilai CRON_SECRET di Vercel>', 'tally_cron_secret');
 ```
 
@@ -98,8 +98,8 @@ semuanya, dan tidak pernah berjalan di Preview):
 
 | Env | Isi |
 | --- | --- |
-| `TALLY_SITE_URL` | `https://event.sofish.tech`. Harus sama dengan Vault `tally_site_url`. Membakukan asal kiriman supaya domain klien yang lebih pendek tidak menggesernya. |
-| `VERCEL_API_TOKEN` | Token akses Vercel (Account Settings > Tokens), scope tim `hanungsastriyas-projects`. Hanya dipakai server untuk menambah, memeriksa, dan menghapus domain proyek ini. |
+| `TALLY_SITE_URL` | `https://<alamat-produksi>`. Harus sama dengan Vault `tally_site_url`. Membakukan asal kiriman supaya domain klien yang lebih pendek tidak menggesernya. |
+| `VERCEL_API_TOKEN` | Token akses Vercel (Account Settings > Tokens), scope tim proyek ini. Hanya dipakai server untuk menambah, memeriksa, dan menghapus domain proyek ini. |
 | `VERCEL_TEAM_ID` | ID tim Vercel (`team_...`). |
 | `VERCEL_PROJECT_ID` | Diisi otomatis oleh Vercel (system env). Isi manual hanya bila tidak tersedia. |
 
@@ -109,7 +109,7 @@ Urutan memasang (jangan dibalik):
    berjalan tanpa migrasi (Pesan peserta tidak membaca kolom baru sampai ada
    domain klien aktif), tetapi kartu domain baru bisa dipakai setelahnya.
 2. Isi `TALLY_SITE_URL` dengan alamat yang SAMA dengan Vault `tally_site_url`
-   dan alamat produksi yang dipakai sekarang (`https://event.sofish.tech`).
+   dan alamat produksi yang dipakai sekarang (`https://<alamat-produksi>`).
    Kiriman yang terjadwal atau sedang mengirim sebelum env ini diisi mencatat
    asal lama (`https://$VERCEL_PROJECT_PRODUCTION_URL`); pengirim produksi ikut
    mengambil asal lama itu, jadi tidak ada kiriman yang tertinggal saat
@@ -127,8 +127,8 @@ Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
 
 ### Prasyarat
 
-- Aplikasi sudah live di domain produksi: `https://eventhub.werkudara.group`
-  (domain `tally-eventhub.vercel.app` tetap jalan, tapi pakai domain kustom agar
+- Aplikasi sudah live di domain produksi: `https://<alamat-produksi>`
+  (domain `<proyek>.vercel.app` tetap jalan, tapi pakai domain kustom agar
   cron tidak ikut mati kalau project di-rename di Vercel).
 - `CRON_SECRET` sudah diisi di Environment Variables Vercel (nilai sama dengan
   yang dipakai di sini). Ganti `<CRON_SECRET>` di bawah dengan nilai asli Anda.
@@ -136,7 +136,7 @@ Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
 ### Job — Sync peserta dari Event Scanner
 
 - **Title**: Tally sync participants
-- **URL**: `https://eventhub.werkudara.group/api/cron/sync-participants`
+- **URL**: `https://<alamat-produksi>/api/cron/sync-participants`
 - **Request method**: `POST` (endpoint juga menerima `GET`)
 - **Schedule**: setiap 15 menit (Every 15 minutes)
 - **Headers**:
@@ -155,8 +155,8 @@ Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
 
   ```powershell
   # auto-void (jalur manual/darurat)
-  Invoke-WebRequest -Uri 'https://eventhub.werkudara.group/api/cron/auto-void' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
+  Invoke-WebRequest -Uri 'https://<alamat-produksi>/api/cron/auto-void' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
 
   # sync peserta
-  Invoke-WebRequest -Uri 'https://eventhub.werkudara.group/api/cron/sync-participants' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
+  Invoke-WebRequest -Uri 'https://<alamat-produksi>/api/cron/sync-participants' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
   ```

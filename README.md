@@ -1,85 +1,41 @@
-# Tally — Pusat operasional acara
+# Tally
 
-Platform pengelolaan acara multi-event: halaman acara publik, pendaftaran, kehadiran dan layar sapa, rundown, denah kursi, undian, voting langsung, serta transaksi booth dengan papan peringkat.
+One multi-event platform (Next.js + Supabase) for running live events: public event pages, registration, the participant area, check-in and scanners, seating, agenda, logistics, messages, lucky draw, live voting, stage screens, and booth sales.
 
-Akar domain (`/`) hanya gerbang: sesi aktif diarahkan ke `/events`, tanpa sesi ke `/login`. Tamu masuk lewat `/e/<slug>`.
+## Where to read
 
-## Local environment
+| Document | What it is |
+| --- | --- |
+| [`docs/PRODUCT.md`](docs/PRODUCT.md) | What the platform does today: every module, who uses it, what the organiser sets in the CMS, and what was decided against. |
+| [`docs/STATUS.md`](docs/STATUS.md) | What is in flight, what waits on whom, parked Lows. Updated by every PR. |
+| [`DESIGN.md`](DESIGN.md) | UI source of truth: palette, type, motion, components. |
+| [`CLAUDE.md`](CLAUDE.md) | Rules for every coding agent (and a good summary for humans): production safety, data rules, roles, language. |
+| [`docs/ops/cron.md`](docs/ops/cron.md) | Scheduled jobs (pg_cron and the external cron) and how to check them. |
 
-1. Create Supabase project at [supabase.com/dashboard](https://supabase.com/dashboard).
-2. Open project: **Project Settings → API**.
-3. Copy `.env.example` to `.env.local`.
-4. Fill these variables in `.env.local`:
+History lives in `git log` and PR descriptions.
 
-```text
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-```
+## Local development
 
-Use Supabase's **Publishable key** for `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. If dashboard shows legacy keys, use the `anon` key in this variable. Use `service_role` only for `SUPABASE_SERVICE_ROLE_KEY`; never expose it in browser code or commit it.
-
-5. Apply SQL migration from `supabase/migrations/202607270001_initial_schema.sql`:
-	- Supabase Dashboard → **SQL Editor** → New query.
-	- Paste migration content.
-	- Run.
-6. Restart local server after changing `.env.local`:
-
-```powershell
+```bash
+npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Never point a local run at the production database. Use a local Postgres (apply `supabase/migrations/` in order) or a fake PostgREST, and stub every email and WhatsApp sender. See "Running locally" in `CLAUDE.md`.
 
-## Commands
+Environment variables are read through `src/lib/env.ts`. The Supabase ones are `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (server only, never in browser code).
 
-```powershell
-npm run dev
-npm run lint
+## Checks before a PR
+
+```bash
 npm run typecheck
+npm run check
+npm run lint
 npm run build
 ```
 
-## Routes
+## URL shape
 
-- `/login`, lalu `/events` (pemilih acara)
-- `/e/<slug>` — halaman acara publik; `/e/<slug>/daftar`, `/rundown`, `/denah`, `/vote`
-- `/e/<slug>/admin`, `/booth`, `/cashier`, `/scan` — layar kerja panitia
-- `/e/<slug>/display?fullscreen=1`, `/undian`, `/vote/layar`, `/sapa` — layar panggung
-
-Supabase database schema, seed participants, transactional order RPCs, authentication, and protected API routes are connected. UI routes still contain demo presentation data; operational screens will be wired to these APIs in the next implementation increment.
-
-See `EVENT-DAY-RUNBOOK.md` for local accounts and event preparation steps.
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/login`, then `/events` (event picker). `/users` is workspace-wide.
+- `/e/<slug>` is the public event page (`/e/<slug>/en`, `/e/<slug>/id` for other languages). Other event-scoped pages are `/e/<slug>/<page>`, which `src/proxy.ts` rewrites to `/<page>?eventSlug=<slug>`.
+- Admin is `/e/<slug>/admin/...`. Participant, staff and stage screens are listed per module in `docs/PRODUCT.md`.
