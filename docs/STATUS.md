@@ -162,6 +162,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #182 L2/L3/L5/L6/L8: a removed participant's reason reads "QR tidak ada", a header with no QR/Email column is read as headerless, rule cards and the odds table count differently, an over-max bonus is capped silently, and preview payloads carry all participant ids.
 - #182 L1b: very large bonus lists are not handled gracefully.
 - #191 I1/N2: another event's entry group returns 500 instead of 404, and the orphan-winner banner stays after a 422.
+- #231 L5: the animation preview plays even when the device asks for reduced motion (the stage screen does the same).
 - #230 L1-L3: when past winners cannot be read, the operator panel shows a generic error, the prize editor keeps the last count, and readiness suggests relaxing the conditions instead of naming the read failure.
 - #214/#216 L1/L10: any check-in or scan condition now also reads checkpoints and form answers, so one failed read refuses that draw too; the new leaf editors still mix native fields with SelectMenu (part of the restyle batch); rules that already rely on new conditions read as unreadable on a build without these PRs, so do not revert them once used.
 
