@@ -1,13 +1,26 @@
-# PRIMA Executive Gathering 2026 — UI Design System
+# Tally design system
 
-Sistem ini mengikuti **Material Design 3 (M3 Expressive)**. Acuan resmi:
-<https://m3.material.io>. Kalau ada nilai di dokumen ini yang terlihat sewenang-wenang,
-kemungkinan besar ia berasal dari spesifikasi — cari nama tokennya di situs itu
-sebelum menggantinya.
+## Dasar desain
+
+Satu aturan per jenis layar. Bila dua sumber bertentangan, kolom terakhir yang menang.
+
+| Layar | Dasar | Menang bila bertentangan |
+| --- | --- | --- |
+| Ruang kerja admin (`/admin/*`, `/events`, `/users`, `/login`) | Tata letak dan aturan pakai M3 (canonical layout, margin 24px, satu aksi utama, kapan tabs / segmented / chip / dialog) dengan tampilan dasbor Cloudflare (panel putih bergaris tipis di kanvas abu muda, teks 14px, sentence case, tanpa border + bayangan sekaligus). Inter, kontrol 36px. Rinciannya: "Tata letak M3, tampilan Cloudflare". | Cloudflare untuk tampilan, M3 untuk struktur |
+| Halaman acara publik dan area peserta | Peran warna dan skala tipe M3, memakai tema acara yang dipilih panitia di CMS. Target sentuh 48px. | Tema acara |
+| Booth, kasir, pemindai | M3 lapisan tenang, target 48px, dipakai sambil berdiri. | M3 |
+| Layar panggung (undian, voting, papan peringkat, sapa) | M3 lapisan ekspresif. | M3 |
+
+WCAG 2.2 AA mengalahkan semua yang di atas. Penyimpangan dari M3 ditulis di bab
+tempat ia berlaku (mis. bobot judul 600, kontrol admin 36px).
+
+Acuan resmi M3: <https://m3.material.io>. Kalau ada nilai di dokumen ini yang
+terlihat sewenang-wenang, kemungkinan besar ia berasal dari spesifikasi; cari
+nama tokennya di situs itu sebelum menggantinya.
 
 ## Karakter produk
 
-Alat operasional untuk acara eksekutif yang berjalan langsung. UI harus membantu
+Platform untuk menjalankan acara langsung, dari undangan sampai laporan. UI harus membantu
 staf booth dan kasir bertindak cepat sambil berdiri, sementara layar proyeksi
 harus tetap terbaca dari jauh.
 
@@ -198,8 +211,9 @@ Skala tipe M3: lima peran × tiga ukuran.
 | Body | `text-body-large/medium/small` | 16/14/12 px | Isi. Booth dan kasir minimal `body-large` |
 | Label | `text-label-large/medium/small` | 14/12/11 px | Label tombol, chip, tab |
 
-- Huruf: Geist, di-self-host lewat `next/font/google`, terpasang sebagai
-  `--md-ref-typeface-brand` dan `--md-ref-typeface-plain`.
+- Huruf antarmuka: Inter, di-self-host lewat `next/font/local` (`src/app/fonts.ts`),
+  terpasang sebagai `--md-ref-typeface-brand` dan `--md-ref-typeface-plain`.
+  Geist Mono hanya untuk `--font-mono`. Halaman acara memakai huruf pilihan panitia.
 - **Ukuran mentah Tailwind (`text-lg`, `text-3xl`, …) tidak dipakai.** Ia bukan
   bagian dari skala, dan tinggi barisnya berbeda dari M3 — jadi yang meleset
   bukan hanya ukurannya, tetapi juga irama vertikal halaman. Semua sudah
@@ -657,91 +671,22 @@ gelapnya bukan hiasan, dan mengunci ruang kerja ke kanvas terang berarti
 mencabut satu-satunya penyesuaian yang benar-benar dipakai orang di sini. Jadi
 di gelap kertas menjadi tinta dan sebaliknya — bukan kertas yang diredupkan.
 
-Yang **tidak** diambil: **huruf berkait untuk isi**. Larangan di layar
-operasional masih berlaku — yang dibaca di sini nama peserta, nominal, dan jam,
-bukan paragraf. Playfair hanya muncul di **judul halaman**, satu baris per layar,
-lewat `PageHeader`.
-
 ### Isi profilnya
 
-| Token | Jadi | Tidak disentuh |
-| --- | --- | --- |
-| `--md-sys-shape-corner-*` | `0px` | `full` |
-| `--md-sys-elevation-level1`, `level2` | `none` | `level3` ke atas |
-| Permukaan, `on-surface*`, `outline*`, `inverse-*` | Kertas dan tinta | — |
-| `*-container` (primary/secondary/tertiary), `*-soft` | Plat | — |
-| — | — | `primary`/`on-primary`, `error`, `success`, `warning`, `scrim` |
-| Tipografi isi, jarak, target sentuh | — | Semuanya |
+`.press` di `src/app/globals.css` menimpa variabel `--press-*` per mode (terang,
+gelap, kontras tinggi) dan memetakannya ke peran M3 sekali saja. Nilai yang
+berlaku selalu yang ada di file itu; dokumen ini tidak menyalin hex-nya.
 
-`primary` dibiarkan karena ia **aksennya**, satu-satunya warna yang tersisa, dan
-nilai M3-nya sudah ikut tema (gelap di terang, terang di gelap) — menimpanya
-justru mematikan hal yang benar. `error`/`success`/`warning` dibiarkan karena
-status bukan hiasan: "order gagal tersimpan" harus terbaca sebagai galat sebelum
-kalimatnya selesai dibaca, dan inilah layar tempat kalimat seperti itu muncul.
+| Token | Jadi |
+| --- | --- |
+| `--md-sys-shape-corner-*` | Dipadatkan: 4px sampai 16px (`full` tetap bulat) |
+| `--md-sys-elevation-level1`, `level2` | `none`; level 3 ke atas (dialog, menu, sheet) tetap berbayang |
+| Permukaan, `on-surface*`, `outline*` | Kanvas abu sangat muda, panel putih, tinta netral |
+| `primary` | Biru `#1a56c4`, satu-satunya aksen |
+| `error`, `success`, `warning` | Tidak disentuh: status bukan hiasan |
 
-### Nada, dan kenapa hex
-
-| Peran | Terang (kroma, nada) | Gelap (kroma, nada) |
-| --- | --- | --- |
-| `--press-paper` | `#fbf8fd` (4, 98) | `#121318` (6, 6) |
-| `--press-plate` | `#f2f0f7` (6, 95) | `#1e1f27` (8, 12) |
-| `--press-ink` | `#1b1b21` (6, 10) | `#f3f0f4` (4, 95) |
-| `--press-ink-muted` | `#5e5e63` (5, 40) | `#acaab0` (5, 70) |
-| `--press-rule` | `#303036` (6, 20) | `#919097` (6, 60) |
-| `--press-rule-faint` | `#77767c` (5, 50) | `#77767c` (5, 50) |
-
-Ditulis sebagai hex, BUKAN `var(--md-ref-palette-neutral-*)`. Terukur: pada
-varian VIBRANT yang dipakai aplikasi ini, palet "neutral" masih berkroma **8.4**
-— `neutral-6` menghasilkan `#0f0e34`, biru tua pekat, praktis sama dengan kanvas
-gelap yang sudah ada. Memakainya berarti profil ini tidak mengubah apa pun.
-Nilai di atas memakai hue yang sama dengan warna sumber aplikasi dengan kroma
-ditekan ke 4–8; itu yang membedakan "kertas" dari "abu-abu".
-
-Bangkitkan ulang bila warna sumber diganti:
-`TonalPalette.fromHueAndChroma(Hct.fromInt(argbFromHex(SUMBER)).hue, kroma).tone(nada)`.
-
-`rule-faint` bernada 50 di **kedua** mode, dan itu bukan kelalaian: garis pemisah
-paling samar adalah satu-satunya tinta yang sama persis di terang dan gelap.
-
-Kontras terukur, semuanya lulus:
-
-| Pasangan | Terang | Gelap | Ambang |
-| --- | --- | --- | --- |
-| `ink` / `paper` | 16.28:1 | 16.41:1 | 4.5 |
-| `ink` / `plate` | 15.17:1 | 14.51:1 | 4.5 |
-| `ink-muted` / `paper` | 6.12:1 | 8.07:1 | 4.5 |
-| `ink-muted` / `plate` | 5.71:1 | 7.13:1 | 4.5 |
-| `rule` / `paper` | 12.45:1 | 5.87:1 | 3 |
-| `rule` / `plate` | 11.60:1 | 5.19:1 | 3 |
-| `rule-faint` / `paper` | 4.27:1 | 4.12:1 | 3 |
-| `rule-faint` / `plate` | 3.98:1 | 3.64:1 | 3 |
-
-`data-contrast="high"` menaikkan dua peran yang paling tipis, `ink-muted` dan
-`rule-faint`. Tinta dan kertas sudah 16:1 dan tidak ada ruang tersisa.
-
-### Struktur pemetaan
-
-Enam variabel `--press-*` ditimpa per mode; pemetaannya ke peran M3 ditulis
-**sekali**. Menambah mode berarti menyalin enam baris, bukan tiga puluh.
-Selektornya persis sama dengan m3-theme.css: `prefers-color-scheme` lebih dulu
-supaya halaman sudah benar sebelum JavaScript jalan, lalu `[data-theme]` yang
-kekhususannya lebih tinggi supaya pilihan eksplisit pengguna menang.
-
-`full` dibiarkan karena yang memakainya adalah thumb saklar, batang progres, dan
-pemintal — bulat di sana bagian dari arti komponennya. Pil navigasi di bilah
-samping diubah di komponennya sendiri, bukan lewat token, supaya bentuk yang
-memang harus bulat tidak ikut terbawa.
-
-Elevasi 3 ke atas dipertahankan karena dialog, menu, dan sheet benar-benar
-melayang di atas konten; tanpa bayangan mereka menyatu dengan halaman di
-baliknya justru saat perlu paling jelas terpisah. Level 1–2 dipakai kartu yang
-duduk DI DALAM halaman, dan di sana M3 sendiri sudah menyarankan menaikkan tier
-permukaan lebih dulu.
-
-Shape morph pada tombol (`active:rounded-*`) ikut mati karena skalanya nol. Di
-layar ini ia hiasan — ditekan dengan tetikus, dengan kursor yang sudah
-menunjukkan sasarannya. Di booth dan kasir ia umpan balik sentuh yang nyata, dan
-justru karena itu profil ini TIDAK dipasang di sana.
+Setiap kali nilai `--press-*` diganti, ukur ulang kontras tinta dan garis
+terhadap kanvas dan panel (WCAG: teks 4.5:1, garis dan kontrol 3:1).
 
 ### Rel navigasi
 
@@ -894,9 +839,8 @@ lain yang memakainya untuk hal lain.
 
 ### Tata letak M3, tampilan Cloudflare (rombak September 2026)
 
-Bab ini **menggantikan** "Satu suara huruf", "Kepala halaman", dan "Bingkai
-halaman" di bawah untuk layar `/admin/*`. Bagian itu dibiarkan sebagai catatan
-sejarah; bila bertentangan, bab ini yang berlaku.
+Bab ini berlaku untuk layar `/admin/*`. Bila bab lain di dokumen ini
+bertentangan dengannya, bab ini yang menang.
 
 Dua sumber, masing-masing untuk hal yang berbeda:
 
@@ -964,62 +908,6 @@ Aturan yang mengikat semuanya:
 Desain per halaman ada di Figma berkas `OTb4jMVVF0rVEHRoSrhCEG`, halaman
 "Rombak · M3 × Cloudflare", lengkap dengan frame "Catatan" yang menjelaskan
 alasan tata letaknya.
-
-### Satu suara huruf
-
-Ruang kerja memakai **satu keluarga huruf**, Geist. Huruf lebar-tetap disisakan
-untuk angka, kode, dan jam.
-
-| Utilitas | Isi |
-| --- | --- |
-| `ed-label` | 12/16, bobot 600, jarak normal — nama kolom, judul kelompok, keterangan |
-| `ed-num` | Lebar-tetap, angka rata — jam, nominal, kode |
-| `ed-plain` | Huruf antarmuka — label yang datang dari DATA, bukan dari kode |
-| `ed-tracked` | Jalan keluar jarak huruf. Satu pemakaian |
-
-`ed-label` **mengunci ukurannya**, dan itu inti perbaikannya. Pendahulunya
-(`ed-meta`) hanya menyetel keluarga huruf, huruf kapital, dan jarak huruf,
-sehingga ukurannya datang dari kelas yang kebetulan menempel di sebelahnya —
-terukur **136 pemakaian di tujuh ukuran berbeda**, 10px sampai 14px. Satu suara
-yang dirender tujuh ukuran bukan suara, ia kebisingan.
-
-Huruf kapital dan jarak huruf lebar dilepas. Rujukan tabel data sepakat: kepala
-kolom dibedakan lewat **bobot dan warna**, bukan huruf kapital, yang justru
-memperlambat pembacaan — dan kepala kolom dibaca sekilas untuk menemukan kolom,
-bukan dibaca sebagai kalimat. Sebelumnya kepala kolom memakai lebar-tetap
-berkapital 0.16em dan menjadi teks TERLEBAR di layar, mendorong tabel melewati
-tepi jendela sebelum satu baris data pun terbaca.
-
-**Playfair tidak dipakai di ruang kerja.** Ia tetap dimuat karena masih menjadi
-pilihan huruf CMS untuk `/denah` dan `/display`.
-
-`ed-label` berhenti di kontrolnya: `.ed-label :where(input, select, textarea)`
-mengembalikan huruf antarmuka, karena pola `<label className="ed-label">Nama
-<input /></label>` dipakai di seluruh ruang kerja. `:where()` sengaja, bukan
-`:is()` — kekhususannya nol, jadi kolom yang memang harus lebar-tetap tinggal
-ditandai `ed-num` dan penanda itu tetap menang.
-
-### Kepala halaman
-
-Layar admin **tidak punya `<h1>` sendiri**. Judul halaman hidup di bilah atas
-shell sebagai remah roti (`<event> / <halaman>`), dan layarnya langsung mulai
-dari isinya — dua judul yang saling mengulang pernah menghabiskan sepertiga
-layar sebelum ada satu pun data yang terbaca. Konsekuensinya menyenangkan: satu
-aturan memberi 21 layar kepala yang sama.
-
-Garis bawah bilah **permanen** di `.press`. Aslinya ia disembunyikan saat halaman
-di posisi teratas supaya tidak memutus lengkungan sudut panel — dan di profil ini
-panelnya tidak lagi melengkung, jadi alasannya gugur.
-
-### Bingkai halaman
-
-`PageShell` (`components/m3/page-shell.tsx`) membawa
-`max-w-[1440px] px-5 sm:px-8 pt-6 pb-8 lg:pb-10`. Sebelumnya empat angka itu
-ditulis ulang dengan tangan di **25 tempat** tanpa sumber bersama, lengkap dengan
-beberapa yang sudah menyimpang (`pt-5`, `pb-6`). Lebarnya sama persis dengan grid
-isi top app bar, jadi judul di bilah dan konten di bawahnya berbagi satu tepi
-kiri. `reading` menyempitkan anak langsungnya ke kolom baca tanpa memindahkan
-containernya.
 
 ### Yang belum di Press
 
