@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle, WifiSlash, X } from "@phosphor-icons/react";
 import { RegistrationCodeCard, buatGambarQr } from "@/components/registration-code-card";
 import { QrHorizon } from "@/components/member/qr-horizon";
+import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import { KonteksLapisanQr } from "@/components/member/qr-fokus";
+import { PindaiCheckpoint } from "@/components/member/pindai-checkpoint";
 import { CACHE_QR_LURING, halamanQrLuring, kunciQrLuring } from "@/lib/member/halaman-qr-luring";
 import type { LandingLang } from "@/lib/landing-i18n";
 
@@ -57,6 +59,8 @@ export type DataLapisanQr = {
   teks: TeksLapisanQr;
   /** Alamat skrip service worker dan lingkupnya (alamat portal). */
   luring: { sw: string; lingkup: string };
+  /** Slug acara bila ada checkpoint scan mandiri: layar QR memberi tombol Pindai QR checkpoint. */
+  pindai: string | null;
 };
 
 const langgananDaring = (berubah: () => void) => {
@@ -136,7 +140,14 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
   const params = useSearchParams();
   const terbuka = params.get("tab") === "qr";
   const daring = useDaring();
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useRef<HTMLDialogElement | null>(null);
+  // Juga sebagai state: layar kamera Pindai dipasang di dalam dialog (lapisan atas).
+  const [wadah, setWadah] = useState<HTMLDialogElement | null>(null);
+  const pasangDialog = useCallback((el: HTMLDialogElement | null) => {
+    dialog.current = el;
+    setWadah(el);
+  }, []);
+  const router = useRouter();
   const pemicu = useRef<HTMLElement | null>(null);
   const qr = useQrSiap(data.kode);
   const tersimpan = useSalinanLuring(data, qr);
@@ -161,6 +172,15 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
     }
   }, [terbuka]);
 
+  // Portal dilepas saat dialog masih terbuka (mis. Kembali ke halaman QR server):
+  // gulir halaman dikembalikan, kalau tidak halaman berikutnya tidak bisa digulir.
+  useEffect(
+    () => () => {
+      document.documentElement.style.overflow = "";
+    },
+    [],
+  );
+
   const tutup = useCallback(() => {
     // Lapisan dibuka dengan pushState, jadi entri sebelumnya adalah tab asal.
     window.history.back();
@@ -171,6 +191,14 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
     window.history.pushState(null, "", href);
   }, []);
   const konteks = useMemo(() => ({ buka }), [buka]);
+
+  // Checkpoint tercatat dari layar QR: tutup lapisannya, lalu segarkan kartu
+  // checkpoint sesudah alamatnya kembali (bukan saat `?tab=qr` masih terpasang,
+  // karena itu merender halaman QR server).
+  const sesudahPindai = useCallback(() => {
+    window.addEventListener("popstate", () => window.setTimeout(() => router.refresh(), 0), { once: true });
+    tutup();
+  }, [router, tutup]);
 
 
   return (
@@ -195,7 +223,7 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
         </div>
       ) : null}
       <dialog
-        ref={dialog}
+        ref={pasangDialog}
         aria-labelledby="lapisan-qr-judul"
         onCancel={(event) => {
           // Escape: tutup lewat riwayat supaya alamat ikut kembali.
@@ -206,7 +234,7 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
           // Ditutup peramban tanpa lewat riwayat (Escape beruntun): alamatnya ikut kembali.
           if (new URLSearchParams(window.location.search).get("tab") === "qr") tutup();
         }}
-        className="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-[var(--hz-navy)] p-0 text-white backdrop:bg-[var(--hz-navy)]"
+        className={`m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-[var(--hz-navy)] p-0 text-white backdrop:bg-[var(--hz-navy)] ${CINCIN_NAVY}`}
       >
         {terbuka ? (
           <QrHorizon
@@ -230,6 +258,7 @@ export function PenyediaQr({ data, children }: { data: DataLapisanQr; children: 
             petunjukCatatan={t.petunjukCatatan}
             status={<BarisStatusQr tersimpan={tersimpan} menyala={menyala} daring={daring} data={data} />}
             kecerahan={t.kecerahan}
+            aksi={data.pindai ? <TombolPindaiQr slug={data.pindai} lang={data.lang} wadah={wadah} sesudah={sesudahPindai} /> : null}
           />
         ) : null}
       </dialog>
@@ -338,4 +367,38 @@ export function StatusQrHalaman({ data }: { data: DataLapisanQr }) {
   const menyala = useLayarMenyala(true);
   const daring = useDaring();
   return <BarisStatusQr tersimpan={tersimpan} menyala={menyala} daring={daring} data={data} />;
+}
+
+/**
+ * "Pindai QR checkpoint" di layar QR kehadiran: dua arah seperti layar QRIS
+ * e-wallet. Kamera terbuka di atas QR; "Tidak bisa?" menutupnya kembali ke QR.
+ * Sesudah tercatat, lapisan QR ditutup (halaman QR server: kembali ke portal)
+ * supaya kabar hijau dan kartu checkpoint yang sudah diperbarui terlihat.
+ */
+export function TombolPindaiQr({
+  slug,
+  lang,
+  wadah,
+  sesudah,
+  kePortal,
+}: {
+  slug: string;
+  lang: LandingLang;
+  wadah?: HTMLElement | null;
+  sesudah?: () => void;
+  /** Halaman QR server (muat ulang): sesudah tercatat kembali ke portal, tempat kartunya. */
+  kePortal?: string;
+}) {
+  const router = useRouter();
+  return (
+    <PindaiCheckpoint
+      slug={slug}
+      lang={lang}
+      qrHref={null}
+      kembaliKeQr
+      wadah={wadah}
+      sesudah={sesudah ?? (kePortal ? () => router.replace(kePortal) : undefined)}
+      className="m3-state inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--hz-emas)] px-5 text-[15px] font-semibold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]"
+    />
+  );
 }

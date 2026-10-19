@@ -182,7 +182,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
   const member = memberConfig(event);
   const memberLink = member
     ? (await getMemberSession(event))
-      ? { href: `/e/${event.slug}/peserta`, label: "Area peserta" }
+      ? { href: `/e/${event.slug}/peserta`, label: "Dashboard saya" }
       : { href: `/e/${event.slug}/masuk`, label: "Masuk" }
     : null;
 

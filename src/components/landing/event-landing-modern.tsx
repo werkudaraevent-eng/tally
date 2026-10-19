@@ -21,7 +21,7 @@ import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
 import { jumlahHariAgenda, loadAgendaPreview, type AgendaPreview } from "@/lib/landing-agenda";
 import { jumlahSesi, pembicaraSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
-import { LANDING_LANG_LABELS, LANDING_UI, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, type LandingLang } from "@/lib/landing-i18n";
+import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { MasukDialog } from "@/components/member/masuk-dialog";
@@ -36,7 +36,7 @@ import { gayaLatarBagian } from "./modern/latar-bagian";
 import { nadaKartu } from "@/lib/landing-card-icons";
 import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama } from "./modern/gathering-app";
 import { JalurHorizon } from "./modern/horizon-gerak";
-import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon } from "./modern/horizon";
+import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon, type HorizonAksi } from "./modern/horizon";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
@@ -185,10 +185,6 @@ function Section({ id, children }: { id?: string; children: ReactNode }) {
       {children}
     </section>
   );
-}
-
-function tautanPeta(url: string, lang: LandingLang): string {
-  return /google\.|goo\.gl/i.test(url) ? LANDING_UI[lang].openGoogleMaps : LANDING_UI[lang].openMap;
 }
 
 export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null, pratinjau = false }: Props) {
@@ -402,7 +398,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const tautanTamu = [
     ...(peserta ? [{ label: t.myDashboard, href: peserta.dashboardHref }] : []),
     ...(!peserta && event.registration_enabled ? [{ label: t.register, href: daftarUrl }] : []),
-    ...(memberLink ? [{ label: t.signInMemberArea, href: memberLink.href }] : []),
+    ...(memberLink ? [{ label: t.navPortalSignIn, href: memberLink.href }] : []),
     ...(tampil("faq") ? [{ label: "FAQ", href: "#faq" }] : []),
   ];
   // Aksi utama peserta yang sudah masuk: tiketnya, atau status pendaftarannya
@@ -425,7 +421,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const menuAtas = (() => {
     if (!portalTampil || navSections.some((section) => section.id === "portal")) return navSections;
     const sesudah = navSections.findIndex((section) => posisiNav(section.id) > posisiPortal);
-    const tautan = { id: "portal", label: t.navPortal };
+    // Peserta Horizon yang sudah disetujui: "Perjalanan" membuka tab Perjalanan
+    // portalnya, bukan pita ajakan masuk yang tidak lagi berlaku (U-21). Tanpa
+    // info perjalanan (logistik dimatikan) tab itu tidak ada, jadi tetap ke pita.
+    const keTabPerjalanan = horizon && peserta && sesi?.status === "approved" && member?.show_logistics === true;
+    const tautan = { id: "portal", label: t.navPortal, ...(keTabPerjalanan ? { href: withQuery(peserta.dashboardHref, { tab: "perjalanan" }) } : {}) };
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
 
@@ -433,6 +433,19 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Area peserta). Tempatnya di susunan halaman, bawaannya tepat di atas kaki.
   // Tombol masuk Horizon: sama di bagian Portal peserta dan pita penutup undangan.
   const tombolPortalHorizon = config.portal_button_label?.trim() || t.horizon.inviteCta;
+  // Tombol tengah hero Horizon: yang paling dulu diketuk di layar pertama, jadi
+  // ia membawa ke tempat info acara berada. Peserta yang sudah masuk ke
+  // Dashboard saya. Tamu ke dialog masuk selama pendaftaran tertutup, karena
+  // hanya itu yang bisa mereka lakukan; teksnya dari CMS, atau teks tombol
+  // Portal peserta bila kosong (bawaan "Mulai perjalanan kita" tidak berkata
+  // "masuk"). Tanpa area peserta atau dengan pendaftaran terbuka tetap
+  // menggulir ke cerita.
+  const labelHeroHorizon = config.hero_button_label?.trim();
+  const aksiHeroHorizon: HorizonAksi = aksiPeserta
+    ? { ...aksiPeserta, link: true }
+    : member && !event.registration_enabled && !sudahMasuk
+      ? { href: masukUrl, label: labelHeroHorizon || tombolPortalHorizon, link: true, sunting: "pembuka:hero_button_label" }
+      : { href: "#mulai", label: labelHeroHorizon || t.horizon.start, sunting: "pembuka:hero_button_label" };
   const portal = member && horizon ? (
     <div data-bagian="portal">
       <UndanganHorizon
@@ -801,7 +814,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                       className={PIL_PENUH}
                       style={STATE_ON_PRIMARY}
                     >
-                      {tautanPeta(petaUrl, lang)}
+                      {labelTautanPeta(petaUrl, lang)}
                       <ArrowUpRight size={16} weight="bold" aria-hidden />
                     </a>
                   ) : null}
@@ -918,7 +931,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           alisPonsel={config.hero_eyebrow?.trim() || [formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join("  /  ") || null}
           judul={judulAjakan ?? nama}
           catatan={config.hero_note?.trim() || null}
-          aksi={{ href: "#mulai", label: config.hero_button_label?.trim() || t.horizon.start }}
+          aksi={aksiHeroHorizon}
           kv={kvGathering(config)?.src ?? null}
           indeks={indeksHorizon}
           tandaTangan={tandaTanganHorizon}
@@ -1412,7 +1425,7 @@ function InfoHotel({ hotel, zona, lang }: { hotel: LandingHotel; zona: EventTime
         </dl>
       ) : null}
       <a href={petaUrl} target="_blank" rel="noreferrer noopener" className={`${PIL_GARIS} mt-auto`}>
-        {t.openMap}
+        {labelTautanPeta(petaUrl, lang)}
         <ArrowUpRight size={16} weight="bold" aria-hidden />
       </a>
     </>

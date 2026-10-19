@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-18.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-19.
 
 ## How to update this file
 
@@ -15,14 +15,27 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Lucky draw admin screens are still Indonesian (should be English): offered to Mas, waiting on his yes.
+- #226 Horizon QR screen gets a "Pindai QR checkpoint" button (sticky at the bottom on tall screens) when the event has Participants/Both checkpoints, so the centre QR button covers both show-QR and self-scan; events without self-scan are unchanged (draft PR, waiting QA, then Mas's timing OK for KSO). No SQL.
+- Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
+- Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
-- PR "Kontak darurat" (E-03): emergency contacts filled in Participant area > Emergency and help (name or role, phone, note, map link per contact) with Call, WhatsApp and Map buttons on the portal Menu card; the Participant area preview opens Menu while that form is in use; an existing Columns block keeps working until "Copy into contacts". No SQL. Waiting on QA, then Mas's merge time.
-- #219 Check-in admin in English (Sessions, Desk lanes, Walk-in, Checkpoints labels; participant-facing previews unchanged; written with opencode): waiting on QA, then Mas's merge time.
+- Participant texts without pronouns (U-23, U-21 and E-09 finished; this PR): Mas chose 19 Oct that shared participant texts and emails drop "Anda"/"kamu" (sign-in dialog, status and confirm-email ribbons, Lengkapi data, registration form and its account messages, sign-in/code/walk-in emails, confirmation email defaults and fixed text (subject "QR kehadiran: {acara}"), announcement and message email footers, logistics cards, checkpoint self-scan note, voting page and errors, the classic Gathering page); "area peserta" becomes "Dashboard saya" there. Horizon's own texts keep "kamu"; the Modern public page and staff-written message starters keep "Anda". Saved confirmation emails with the old default text still count as default (no "not translated" flag). No SQL. Waits on coordinator QA and Mas's merge time (visible on KSO).
+- #219 Check-in admin in English (Sessions, Desk lanes, Walk-in, Checkpoints labels; participant-facing previews unchanged; written with opencode): QA GO, waiting on Mas's merge time.
 - Admin language phase 4a (remaining Indonesian strings on other admin screens): next batches by area.
 
 ## Recently merged (for context; details in the PRs)
 
+- #223 Your batch (U-01 step 2, E-01, E-06, E-10, merged 19 Oct): Agenda > Section > Who it's for (Everyone, or answers of one dropdown or single-choice participant field such as the staff-only Batch). Horizon Home skips other batches' sections, Schedule opens the participant's own section and says "Ini jadwalmu", the QR layer shows "Batch 2 · Bus 3". Migration 202610180002 was run by Mas on 19 Oct.
+- #225 Horizon sign-in entry (merged 19 Oct): the hero's middle button opens the sign-in dialog for guests while registration is closed and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. No SQL.
+- #224 Horizon phone bottom bar (merged 19 Oct): Travel (Perjalanan) is a main tab in place of Menu when the participant has travel info; Menu opens from the initials in the top bar; otherwise the Menu tab stays. No SQL.
+- #220 Participant words follow-ups from #215 QA (merged 19 Oct): the Modern footer guest link says "Masuk", footer links wrap between words, the classic Home "Lihat semua" link stays on one line, and the last old terms on sign-in errors, the checkpoint scan page, Forum EN, after registering and on /masuk are replaced. No SQL.
+- #221 Lucky draw follow-ups to #216 (merged 19 Oct): the operator panel names the broken exclusion rule, the prize editor preview says "Draw blocked" instead of a name count while such a rule is active, the prize list shows a "Blocked" chip, and the rule editor can save a broken rule as inactive (only active rules are checked for deleted form questions; switching a rule on checks its stored conditions). No SQL.
+- #216 Lucky draw form-answer conditions (merged 18 Oct): Add condition has a "Form answers" group listing the event's own Registration > Edit form questions (staff-only ones included, file uploads left out). Choice questions match ticked values (checkboxes as Yes/No, like the Participant list); others compare text. A deleted question makes its condition fail; an active exclusion rule with one blocks the draw (Readiness, rule list and operator panel say which rule), and saves reject unknown questions. No SQL.
+- #214 Lucky draw checkpoint conditions (merged 18 Oct): Prizes & rules > Add condition has a Checkpoint group: points goal reached (reads Check-in > Checkpoints > Points goal), checkpoint points at least N, all checkpoints done. Works for prize conditions, exclusion rules and bonus-ticket rules; "Add condition" is now a grouped menu. No SQL.
+- #213 Lucky draw admin in English (merged 18 Oct): screens, condition summaries, readiness, timeline; the Excel export stays Indonesian; written with opencode.
+- Portal pass from audit section C (merged 18 Oct): #210 accessibility (focus ring, per-tab titles, reading order), #212 polish (train anchor, Travel zone note, day list fade, map labels, theme-color), #215 participant words ("Susunan acara", "Dashboard saya", "QR kehadiran", "panitia"), #218 tabs on a slow connection (the participant area renders from `/peserta/e/<slug>[/<lang>]`).
+- #217 Emergency contacts follow-up (E-03, merged 18 Oct): stricter phone reading (time and number ranges stay text), English fields for the card and each contact when the event has an English page (copied from the old block too), tidier copied notes, map links only for exact map hosts. No SQL.
+- #209 Emergency contacts (E-03, merged 18 Oct): Participant area > Emergency and help has a form per contact (name or role, phone, note, map link) with Call, WhatsApp and Map buttons on the portal Menu card and a live Menu preview; an existing Columns block keeps working until "Copy into contacts". No SQL.
 - #208 Checkpoint self-scan (E-14, merged 18 Oct): Check-in > Checkpoints > "How it gets done" per checkpoint (Staff default, Participants, Both; kit items always Staff). Staff show a QR from the scanner app (Show QR) or `/checkpoint-qr` on a big screen; the code changes every 30 seconds; participants scan it from the checkpoint card. Migration 202610180001 was run by Mas on 18 Oct.
 - #206 QR queue fixes (U-02, U-07, U-09 warnings, U-10, merged 18 Oct): cashier offline banner only on Cashier and Booth; the reloaded QR page skips announcements and loads only the bus; the offline QR copy follows the signed-in account; Readiness items for the organiser phone and Agenda sections outside the event dates, plus a warning under the section Date. No SQL.
 - #207 Lucky draw: a session list that failed to load no longer shows conditions as deleted; Retry instead (opencode pilot, merged 18 Oct).
@@ -43,16 +56,16 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
-- Portal audit follow-up "your batch": an "Applies to" setting per Agenda section so Schedule and Home open the participant's own batch first. It needs its own mockup and a small SQL file he runs; #201 (merged) gives it the staff-only Batch column to read. For KSO, add Batch from Participant list > Columns > Add a column in Registration before the import; the import template includes staff-only columns.
+- "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Who it's for on each Batch section.
 
 ## KSO participant-area audit (17 Oct): open items
 
-Every item (finding, recommendation, what is left, decisions and code pointers) is in `docs/kso-portal-audit.md` (U-xx findings, E-xx Eventnook lessons); change an item's status there and here in the same PR. Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08; U-02, U-07 and U-10 in #206. #201 adds the staff-only Batch column (nothing in the portal reads it yet), and #202 links bus trips to Agenda rows.
+Every item (finding, recommendation, what is left, decisions and code pointers) is in `docs/kso-portal-audit.md` (U-xx findings, E-xx Eventnook lessons); change an item's status there and here in the same PR. Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08; U-02, U-07 and U-10 in #206. #201 adds the staff-only Batch column (#223 reads it), and #202 links bus trips to Agenda rows.
 
-- KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, a bus trip per Agenda row in Logistics > Buses > Trips, linked to that row with #202, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (add the contacts in Participant area > Emergency and help, after "Kontak darurat" merges), E-08 (set the points goal, or turn Points off; if the goal is a Lucky draw entry, draw conditions can count scans but not points yet).
-- Needs a decision or a mockup from Mas first: "your batch" (U-01 step 2, E-01, E-06, E-10: an "Applies to" setting per Agenda section reading the #201 Batch column, then Home, Schedule and the QR show the participant's batch; small SQL), U-22 (one word for the schedule: Jadwal or Susunan acara), U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
-- Code, partly done: U-06 (no fade cue on the desktop Schedule day list), U-09 (the event page day heading and the 01-NN counter count sections), U-20/E-09 ("tiket" and "meja registrasi" still name the QR in places), U-24 (one metadata separator, the countdown date range, a zone note on Travel), U-26 (old Gathering cards in Announcements and Schedule), U-33 (tautanPeta for hotel map links, the bell close label), E-12 (map links for Agenda locations).
-- Code, not started: U-12 (focus ring on guest pages), U-13 (per-tab document titles; top bar and bottom nav outside main), U-14 (hide Seat, Live voting and Feedback link for Gathering layouts), U-17 (anchor to the train card), U-19 (reading order below lg), U-21 (one name for the participant area), U-23 ("kamu" or "Anda"), U-27 (Horizon blue from the Theme brand colour), U-29 (Profil active state), U-31 (theme-color from the event navy), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
+- KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, a bus trip per Agenda row in Logistics > Buses > Trips, linked to that row with #202, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (add the contacts in Participant area > Emergency and help, with "Add contact" or "Copy into contacts"; check the copied numbers in the preview before saving), E-08 (set the points goal, or turn Points off; if the goal is a Lucky draw entry, use the draw condition "Checkpoint points goal" once the checkpoint conditions PR merges).
+- Needs a decision or a mockup from Mas first: U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
+- Code, partly done: U-09 (the event page day heading and the 01-NN counter count sections), U-24 (one metadata separator, the countdown date range), U-26 (old Gathering cards in Announcements and Schedule), E-12 (map links for Agenda locations).
+- Code, not started: U-27 (Horizon blue from the Theme brand colour), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
 
 ## Parked Lows and open findings
 
@@ -144,6 +157,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #182 L2/L3/L5/L6/L8: a removed participant's reason reads "QR tidak ada", a header with no QR/Email column is read as headerless, rule cards and the odds table count differently, an over-max bonus is capped silently, and preview payloads carry all participant ids.
 - #182 L1b: very large bonus lists are not handled gracefully.
 - #191 I1/N2: another event's entry group returns 500 instead of 404, and the orphan-winner banner stays after a 422.
+- #214/#216 L1/L10: any check-in or scan condition now also reads checkpoints and form answers, so one failed read refuses that draw too; the new leaf editors still mix native fields with SelectMenu (part of the restyle batch); rules that already rely on new conditions read as unreadable on a build without these PRs, so do not revert them once used.
 
 ### Export/Import
 - #188 L2: duplicate session names give duplicate export headers.
@@ -166,7 +180,6 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: sign-in by "Participant fields" can still use a staff-only question (e.g. an imported staff ID); confirm with Mas whether that is intended.
 
 ### Checkpoints
-- #208 QA Lows: a few follow-ups on self-scan validation, tracked privately.
 - Self-scan: the classic and modern checkpoint cards show "Tampilkan QR" next to the scan button only where the dashboard already passes a QR link (modern does not), so Both on modern has no fallback link on the card; the QR stays in the portal's own QR place.
 - #169 L2/L5: the post-check SQL misses grants and constraints, and POST returns 500 before the migration.
 - #172/#173 F4: Sessions tab strings are still Indonesian; F2, a ~120 ms Assignments-to-Kit flash, is accepted.
@@ -187,6 +200,8 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: keys of questions deleted before this branch are not in `retired_keys`, so a new question named like one of those still gets its key and the answers stored under it; turning "Ask on the registration form" back on after saving it off leaves Required off; `/admin/registrasi?kolom=baru` opened as a new page (not from the Columns menu) shows the moderation screen until hydration; Client view > "Form answers the client sees" lists staff-only questions with no mark (needs a mockup).
 
 ### Landing/CMS
+
+- Horizon phone bar (#225): a very wide logo (about 4:1) shrinks for a signed-in participant at 360 px once the compact pill shows; on bilingual events the logo at the top is ~4 px narrower at 360 px than before because the bell grew to 48 px.
 - #108 L7: editor `data-sunting` attributes ship in public HTML (not re-confirmed).
 - #109 N2-N4/R3-4: stored backslashes or edge-spaced marks render differently, overlap leaves an empty `<mark>`, CJK runs expand whole, and some execCommand edge cases remain; an over-200 tagline save shows a raw 422 toast.
 - #110 L5/N3/K1: a custom Gathering agenda eyebrow is not counted when hidden, the Highlights subtitle is truncated at 1280, and the KV hint omits the confirmation email header.

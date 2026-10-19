@@ -94,7 +94,7 @@ export default async function MasukPage({
     const bingkai = await bingkaiFormulir(event, lang, { tautanBahasa: false, tautanMasuk: false });
     if (bingkai.modern) {
       return (
-        <BingkaiModern lang={lang} halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={null} eyebrow={lang === "en" ? "Participant area" : "Area peserta"}>
+        <BingkaiModern lang={lang} halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={null} eyebrow={lang === "en" ? "My dashboard" : "Dashboard saya"}>
           <div className="mx-auto w-full max-w-[440px]">
             <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} lang={lang} halamanUrl={halamanUrl} cara={caraMasukPublik(event, lang)} />
             <Link href={`${halamanUrl}/daftar`} className="mt-6 inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
@@ -124,10 +124,10 @@ export default async function MasukPage({
           <div>
             {schedule ? <p className="text-body-large font-medium text-[var(--reg-on-surface-variant)]">{schedule}</p> : null}
             <h1 className="mt-4 text-balance text-[36px] font-semibold leading-[1.05] [font-family:var(--landing-heading)] sm:text-[48px] lg:text-[56px]">
-              Area peserta
+              Dashboard saya
             </h1>
             <p className="mt-5 max-w-[42ch] text-body-large leading-7 text-[var(--reg-on-surface-variant)]">
-              Lihat kode masuk, kursi, dan susunan acara Anda di satu tempat.
+              Lihat QR kehadiran, kursi, dan susunan acara di satu tempat.
             </p>
           </div>
           <Link

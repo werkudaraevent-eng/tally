@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { Worksheet } from "exceljs";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { WINNER_STATUS_LABEL } from "@/lib/undian";
 import { buildPrizeRecap, buildTimeline, loadWinners } from "@/lib/undian-results";
 
 // Export hasil undian: satu berkas Excel berisi tiga sheet.
@@ -18,6 +17,8 @@ import { buildPrizeRecap, buildTimeline, loadWinners } from "@/lib/undian-result
 // XLSX saja, tanpa pilihan CSV. Berbeda dengan export order — yang memang sering
 // diolah ulang di sistem lain — hasil undian dibaca manusia sebagai laporan, dan
 // CSV tidak bisa memuat tiga sheet sekaligus.
+
+const WINNER_STATUS_LABEL = { pending: "Belum dikonfirmasi", confirmed: "Sah", rejected: "Dibatalkan" } as const;
 
 const querySchema = z.object({
   // Kosong berarti SELURUH riwayat, termasuk baris tanpa sesi.

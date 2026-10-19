@@ -2,9 +2,9 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { auditPrize, normalizePrize, type UndianPrize } from "@/lib/undian";
+import { auditPrize, normalizePrize, type UndianConditionNode, type UndianPrize } from "@/lib/undian";
 import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
-import { buildPool, listAttendanceSessions, type AttendanceSessionOption } from "@/lib/undian-pool";
+import { buildPool, listAnswerFields, listAttendanceSessions, unknownAnswerError, type AttendanceSessionOption } from "@/lib/undian-pool";
 
 // CRUD hadiah undian. Admin saja.
 
@@ -22,7 +22,7 @@ const CMP_WITHOUT_VALUE: string[] = ["is_empty", "is_not_empty"];
 
 const leafSchema = z.union([
   z.object({
-    var: z.enum(["total_spend", "booth_count", "scan_count"]),
+    var: z.enum(["total_spend", "booth_count", "scan_count", "checkpoint_points"]),
     cmp: z.enum(["gte", "gt", "lte", "lt", "eq"]),
     value: z.number().min(0).max(1_000_000_000),
   }),
@@ -32,7 +32,20 @@ const leafSchema = z.union([
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
   z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
-  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
+  z.object({ var: z.enum(["has_seat", "checkpoint_goal", "checkpoints_all"]), is: z.boolean() }),
+  // Jawaban form: daftar nilai untuk pertanyaan pilihan, teks untuk sisanya.
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["in", "not_in"]),
+    values: z.array(z.string().trim().min(1).max(200)).min(1).max(100),
+  }),
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["eq", "neq", "contains", "not_contains", "starts_with", "ends_with", "is_empty", "is_not_empty"]),
+    text: z.string().trim().max(200),
+  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Isi nilai pembandingnya." }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
@@ -181,13 +194,18 @@ export async function GET(request: Request) {
   // menyaring ratusan baris per hadiah; halaman kontrol operator yang menyegarkan
   // diri setiap 2 detik tidak boleh membayar biaya itu.
   const withPool = new URL(request.url).searchParams.get("pool") === "1";
-  const pools: Record<number, { eligible: number; candidates: number; tickets: number }> = {};
+  const pools: Record<number, { eligible: number; candidates: number; tickets: number; broken_rules?: string[] }> = {};
   // Nama sesi kehadiran, untuk ringkasan syarat "sudah check-in di Gala" di daftar.
   let attendanceSessions: AttendanceSessionOption[] | null = [];
+  // Judul pertanyaan form, untuk ringkasan syarat jawaban di daftar.
+  let answerFields: { key: string; label: string }[] | null = null;
   if (withPool) {
-    attendanceSessions = await listAttendanceSessions(eventId);
+    [attendanceSessions, answerFields] = await Promise.all([listAttendanceSessions(eventId), listAnswerFields(eventId)]);
     for (const prize of prizes) {
       const result = await buildPool(eventId, prize);
+      // Hadiah yang terhalang aturan rusak dilaporkan nol kandidat beserta nama
+      // aturannya, supaya kesiapan mengunci tombol dan menyebut apa yang dibereskan.
+      if ("error" in result && result.error === "RULE_BROKEN") { pools[prize.id] = { eligible: 0, candidates: 0, tickets: 0, broken_rules: result.rules }; continue; }
       if ("error" in result) continue;
       pools[prize.id] = {
         eligible: result.eligible_count,
@@ -204,6 +222,7 @@ export async function GET(request: Request) {
     active_session: (activeSession as { id: number; name: string } | null) ?? null,
     pools,
     attendance_sessions: attendanceSessions,
+    answer_fields: answerFields,
   });
 }
 
@@ -214,6 +233,10 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  const answerError = await unknownAnswerError(eventId, [parsed.data.conditions, ...parsed.data.bonus_rules.flatMap((rule) => "conditions" in rule && rule.conditions ? [rule.conditions] : [])] as UndianConditionNode[]);
+  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
+  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
   const client = getSupabaseServiceClient();
   // Daftar entri sasaran harus milik event ini.

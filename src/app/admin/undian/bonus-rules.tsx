@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { Button, ButtonLink, Dialog } from "@/components/m3";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import { cx } from "@/lib/m3/cx";
+import { BONUS_TEMPLATE_HEADERS } from "@/lib/undian-bonus-list";
 import {
   BONUS_RULES_MAX, BONUS_TICKETS_MAX, EMPTY_CONDITIONS, describeConditions,
   type BonusRule, type UndianConditionGroup,
@@ -34,6 +35,7 @@ export function BonusRules({
   // Kartu aturan menulis "+N tiket" apa adanya; tanpa catatan ini, batas
   // maksimum memotong tiket diam-diam (+20 dengan maksimum 10 menjadi 10).
   const fullTickets = 1 + rules.reduce((sum, rule) => sum + rule.tickets, 0);
+  const answerLabels = Array.isArray(preview?.answer_fields) ? Object.fromEntries(preview.answer_fields.map((item) => [item.key, item.label])) : undefined;
   const sessionNames = preview?.attendance_sessions ? Object.fromEntries(preview.attendance_sessions.map((item) => [item.id, item.name])) : null;
 
   function save(rule: BonusRule) {
@@ -46,57 +48,57 @@ export function BonusRules({
     <div className="flex flex-col gap-3">
       {rules.length === 0 ? (
         <div className="flex flex-col items-start gap-2.5 rounded-md border border-dashed border-outline p-4">
-          <p className="text-body-medium font-semibold">Belum ada aturan tiket</p>
+          <p className="text-body-medium font-semibold">No ticket rules yet</p>
           <p className="text-body-medium text-on-surface-variant">
-            Semua peserta mulai dengan 1 tiket. Tambahkan aturan untuk memberi tiket lebih kepada peserta tertentu, misalnya daftar VIP dari panitia atau yang hadir di sesi tertentu.
+            All participants start with 1 ticket. Add rules to give extra tickets to selected participants, such as the organisers’ VIP list or those attending a particular session.
           </p>
-          <Button type="button" size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Tambah aturan tiket</Button>
+          <Button type="button" size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Add ticket rule</Button>
         </div>
       ) : (
         <>
-          <p className="text-body-medium text-on-surface-variant">Semua peserta mulai dengan 1 tiket. Aturan di bawah menambah tiket, lalu dijumlahkan.</p>
+          <p className="text-body-medium text-on-surface-variant">All participants start with 1 ticket. Bonus tickets from the rules below are added together.</p>
           <ul className="flex flex-col gap-2">
             {rules.map((rule, index) => (
               <li key={index} className="flex flex-col gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-body-medium">
                 <div className="flex items-start gap-2">
                   <p className="min-w-0 flex-1 break-words font-semibold">{rule.name}</p>
-                  <p className="shrink-0 font-bold tabular-nums text-primary">+{rule.tickets} tiket</p>
+                  <p className="shrink-0 font-bold tabular-nums text-primary">+{rule.tickets} {rule.tickets === 1 ? "ticket" : "tickets"}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="rounded-sm bg-surface-container-high px-2 py-0.5 text-body-small font-medium text-on-surface-variant">
-                    {rule.source === "list" ? "Daftar panitia" : "Syarat"}
+                    {rule.source === "list" ? "Organisers’ list" : "Conditions"}
                   </span>
                   <span className="min-w-0 break-words text-on-surface-variant">
                     {rule.source === "list"
-                      ? [`${rule.participant_ids.length.toLocaleString("id-ID")} orang`, rule.file_name, uploadedLabel(rule.uploaded_at)].filter(Boolean).join(" · ")
-                      : `${describeConditions(rule.conditions, sessionNames)}${preview?.bonus_rule_counts ? ` · ${(preview.bonus_rule_counts[index] ?? 0).toLocaleString("id-ID")} orang` : ""}`}
+                      ? [`${rule.participant_ids.length.toLocaleString("en-GB")} ${rule.participant_ids.length === 1 ? "person" : "people"}`, rule.file_name, uploadedLabel(rule.uploaded_at)].filter(Boolean).join(" · ")
+                      : `${describeConditions(rule.conditions, sessionNames, answerLabels)}${preview?.bonus_rule_counts ? ` · ${(preview.bonus_rule_counts[index] ?? 0).toLocaleString("en-GB")} ${(preview.bonus_rule_counts[index] ?? 0) === 1 ? "person" : "people"}` : ""}`}
                   </span>
                 </div>
                 <div className="-ml-2 flex flex-wrap">
                   {rule.source === "list" ? (
                     <>
-                      <Button type="button" variant="text" size="sm" onClick={() => setNames(rule)}>Lihat nama</Button>
-                      <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "upload" })}>Ganti berkas</Button>
+                      <Button type="button" variant="text" size="sm" onClick={() => setNames(rule)}>View names</Button>
+                      <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "upload" })}>Replace file</Button>
                     </>
                   ) : null}
-                  <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "rule" })}>Ubah</Button>
-                  <Button type="button" variant="text" size="sm" className="text-error" onClick={() => onChange(rules.filter((_, i) => i !== index))}>Hapus</Button>
+                  <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "rule" })}>Edit</Button>
+                  <Button type="button" variant="text" size="sm" className="text-error" onClick={() => onChange(rules.filter((_, i) => i !== index))}>Delete</Button>
                 </div>
               </li>
             ))}
           </ul>
           {rules.length < BONUS_RULES_MAX ? (
-            <div><Button type="button" variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Tambah aturan tiket</Button></div>
+            <div><Button type="button" variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setEditing({ index: null, startAt: "rule" })}>Add ticket rule</Button></div>
           ) : null}
         </>
       )}
 
       <div className="max-w-56">
-        <NumberField id="bonus-max" label="Tiket maksimum per orang" value={weightMax} min={1} max={1000} onChange={onWeightMax} />
+        <NumberField id="bonus-max" label="Maximum tickets per person" value={weightMax} min={1} max={1000} onChange={onWeightMax} />
       </div>
       {fullTickets > weightMax ? (
         <p className="-mt-2 text-body-small text-on-surface-variant">
-          Orang yang cocok semua aturan mendapat {weightMax} tiket, bukan {fullTickets}: dibatasi tiket maksimum.
+          Anyone matching all rules gets {weightMax} {weightMax === 1 ? "ticket" : "tickets"}, not {fullTickets}: the maximum ticket limit applies.
         </p>
       ) : null}
 
@@ -127,7 +129,7 @@ function uploadedLabel(value: string | null): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 /**
@@ -138,14 +140,14 @@ function OddsTable({ rules, preview, failed, winnerQuota }: { rules: BonusRule[]
   if (!preview?.bonus_groups) {
     return (
       <p className="rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant" aria-live="polite">
-        {failed ? "Peluang gagal dihitung. Ubah aturan untuk mencoba lagi." : "Menghitung peluang..."}
+        {failed ? "Could not calculate chances. Change the rules to try again." : "Calculating chances..."}
       </p>
     );
   }
   const groups = preview.bonus_groups;
   const total = groups.reduce((sum, group) => sum + group.count * group.tickets, 0);
-  const percent = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
-  const decimal = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 });
+  const percent = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 });
+  const decimal = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 });
   // Satu kalimat per aturan: berapa orang yang terkena, berapa bagian tiket yang
   // mereka pegang, dan perkiraan pemenang dari mereka. Dijumlah per aturan, bukan
   // untuk "semua yang bertiket tambahan", karena aturan luas seperti "hadir di
@@ -159,25 +161,25 @@ function OddsTable({ rules, preview, failed, winnerQuota }: { rules: BonusRule[]
 
   return (
     <div className="flex flex-col gap-2 rounded-md bg-surface-container-high p-3 text-body-medium" aria-live="polite">
-      <p className="font-semibold">Peluang menang</p>
+      <p className="font-semibold">Winning chances</p>
       {groups.length === 0 ? (
-        <p className="text-on-surface-variant">Belum ada peserta yang bisa diundi.</p>
+        <p className="text-on-surface-variant">No eligible participants yet.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse tabular-nums">
             <thead>
               <tr className="text-left text-body-small text-on-surface-variant">
-                <th className="py-1 pr-2 font-medium">Kelompok</th>
-                <th className="py-1 pr-2 text-right font-medium">Orang</th>
-                <th className="py-1 pr-2 text-right font-medium">Tiket</th>
-                <th className="py-1 text-right font-medium">Peluang vs biasa</th>
+                <th className="py-1 pr-2 font-medium">Group</th>
+                <th className="py-1 pr-2 text-right font-medium">People</th>
+                <th className="py-1 pr-2 text-right font-medium">Tickets</th>
+                <th className="py-1 text-right font-medium">Chance vs standard</th>
               </tr>
             </thead>
             <tbody>
               {groups.map((group) => (
                 <tr key={group.rules.join(",") || "biasa"} className="border-t border-outline-variant align-top">
-                  <td className="py-1.5 pr-2 break-words">{group.rules.length === 0 ? "Peserta biasa" : group.rules.map((index) => rules[index]?.name ?? "").join(" + ")}</td>
-                  <td className="py-1.5 pr-2 text-right">{group.count.toLocaleString("id-ID")}</td>
+                  <td className="py-1.5 pr-2 break-words">{group.rules.length === 0 ? "Standard participants" : group.rules.map((index) => rules[index]?.name ?? "").join(" + ")}</td>
+                  <td className="py-1.5 pr-2 text-right">{group.count.toLocaleString("en-GB")}</td>
                   <td className="py-1.5 pr-2 text-right">{group.tickets}</td>
                   <td className={cx("py-1.5 text-right", group.tickets > 1 && "font-semibold")}>{group.tickets}×</td>
                 </tr>
@@ -191,10 +193,10 @@ function OddsTable({ rules, preview, failed, winnerQuota }: { rules: BonusRule[]
           {perRule.map((item, index) => (
             <li key={index}>
               {item.people === 0
-                ? <><span className="font-medium">{item.name}</span>: belum ada peserta yang cocok.</>
+                ? <><span className="font-medium">{item.name}</span>: no matching participants yet.</>
                 : <>
-                    <span className="font-medium">{item.name}</span> ({item.people.toLocaleString("id-ID")} orang) memegang <strong>{percent.format(item.share * 100)}% tiket</strong>.
-                    {" "}Dari {winnerQuota} pemenang, rata-rata <strong>{decimal.format(item.expected)}</strong> dari mereka.
+                    <span className="font-medium">{item.name}</span> ({item.people.toLocaleString("en-GB")} {item.people === 1 ? "person" : "people"}) holds <strong>{percent.format(item.share * 100)}% of tickets</strong>.
+                    {" "}Of {winnerQuota} {winnerQuota === 1 ? "winner" : "winners"}, an average of <strong>{decimal.format(item.expected)}</strong> will come from this group.
                   </>}
             </li>
           ))}
@@ -236,8 +238,8 @@ function RuleDialog({
   const listSteps = source === "list";
 
   function validRule(): boolean {
-    if (!name.trim()) { setError("Isi nama aturan."); return false; }
-    if (source === "conditions" && conditions.children.length === 0) { setError("Tambahkan minimal satu syarat."); return false; }
+    if (!name.trim()) { setError("Enter a rule name."); return false; }
+    if (source === "conditions" && conditions.children.length === 0) { setError("Add at least one condition."); return false; }
     setError("");
     return true;
   }
@@ -257,7 +259,7 @@ function RuleDialog({
     const data = await response?.json().catch(() => null);
     setChecking(false);
     if (!response?.ok) {
-      setError(data?.error?.details?.fieldErrors?.file?.[0] ?? data?.error?.message ?? "Berkas gagal dicek. Coba lagi.");
+      setError(data?.error?.details?.fieldErrors?.file?.[0] ?? data?.error?.message ?? "Could not check file. Try again.");
       return;
     }
     setCheck(data as CheckResult);
@@ -274,71 +276,73 @@ function RuleDialog({
   }
 
   const stepper = listSteps ? (
-    <ol className="flex flex-wrap gap-x-4 text-body-small text-on-surface-variant" aria-label="Langkah">
+    <ol className="flex flex-wrap gap-x-4 text-body-small text-on-surface-variant" aria-label="Steps">
       {(["rule", "upload", "review"] as const).map((item, index) => (
         <li key={item} aria-current={step === item ? "step" : undefined} className={cx(step === item && "font-semibold text-primary")}>
-          {index + 1} {item === "rule" ? "Aturan" : item === "upload" ? "Upload daftar" : "Cek hasil"}
+          {index + 1} {item === "rule" ? "Rule" : item === "upload" ? "Upload list" : "Review results"}
         </li>
       ))}
     </ol>
   ) : null;
 
-  let title = initial ? "Ubah aturan tiket" : "Tambah aturan tiket";
+  let title = initial ? "Edit ticket rule" : "Add ticket rule";
   let actions;
   let content;
 
   if (step === "rule") {
     actions = (
       <>
-        <Button type="button" variant="text" onClick={onClose}>Batal</Button>
-        {source === "list" && existingList ? <Button type="button" variant="outlined" onClick={() => validRule() && setStep("upload")}>Ganti berkas</Button> : null}
+        <Button type="button" variant="text" onClick={onClose}>Cancel</Button>
+        {source === "list" && existingList ? <Button type="button" variant="outlined" onClick={() => validRule() && setStep("upload")}>Replace file</Button> : null}
         {source === "list" && !existingList
-          ? <Button type="button" onClick={() => validRule() && setStep("upload")}>Lanjut: upload daftar</Button>
-          : <Button type="button" onClick={saveRule}>Simpan aturan</Button>}
+          ? <Button type="button" onClick={() => validRule() && setStep("upload")}>Next: upload list</Button>
+          : <Button type="button" onClick={saveRule}>Save rule</Button>}
       </>
     );
     content = (
       <div className="flex flex-col gap-4 text-body-medium">
         {stepper}
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 font-semibold">Siapa yang dapat tiket tambahan?</legend>
+          <legend className="mb-2 font-semibold">Who gets bonus tickets?</legend>
           <Choice
             checked={source === "list"}
             onSelect={() => setSource("list")}
-            title="Daftar dari panitia"
-            description="Upload Excel berisi QR atau email peserta. Cocok untuk daftar VIP, tamu khusus, atau pemenang kuis."
+            title="List from organisers"
+            description="Upload an Excel file with participant QR codes or email addresses. Use it for VIPs, special guests or quiz winners."
           />
           <Choice
             checked={source === "conditions"}
             onSelect={() => setSource("conditions")}
-            title="Peserta yang memenuhi syarat"
-            description="Dari data acara: check-in di sesi, tipe peserta, perusahaan, jumlah scan."
+            title="Participants meeting conditions"
+            description="From event data: session check-in, checkpoint points, form answers, participant type, company or scan count."
           />
         </fieldset>
         <label className="block font-medium" htmlFor="bonus-name">
-          Nama aturan
+          Rule name
           <input
             id="bonus-name"
             value={name}
             maxLength={80}
-            placeholder={source === "list" ? "mis. VIP pilihan panitia" : "mis. Hadir di Gala Dinner"}
+            placeholder={source === "list" ? "e.g. Organisers’ selected VIPs" : "e.g. Attended the gala dinner"}
             onChange={(event) => setName(event.target.value)}
             className="mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 font-normal text-on-surface outline-none focus:border-primary"
           />
         </label>
         <div>
-          <p className="font-medium" id="bonus-tickets-label">Tiket tambahan per orang</p>
+          <p className="font-medium" id="bonus-tickets-label">Bonus tickets per person</p>
           <Stepper value={tickets} onChange={setTickets} labelledBy="bonus-tickets-label" />
         </div>
         {source === "conditions" ? (
           <div>
-            <p className="mb-1.5 font-medium">Syarat</p>
+            <p className="mb-1.5 font-medium">Conditions</p>
             <UndianConditionBuilder
               value={conditions}
               participantTypes={preview?.participant_types ?? []}
               rsvpStatuses={preview?.rsvp_statuses ?? []}
               companies={preview?.companies ?? []}
               sessions={previewFailed ? null : preview?.attendance_sessions}
+              checkpoint={preview?.checkpoint}
+              answerFields={preview?.answer_fields}
               onRetrySessions={onRetrySessions}
               onChange={setConditions}
             />
@@ -348,19 +352,19 @@ function RuleDialog({
       </div>
     );
   } else if (step === "upload") {
-    title = `Upload daftar ${name.trim()}`;
-    actions = <Button type="button" variant="text" disabled={checking} onClick={() => { setError(""); setStep("rule"); }}>Kembali</Button>;
+    title = `Upload the ${name.trim()} list`;
+    actions = <Button type="button" variant="text" disabled={checking} onClick={() => { setError(""); setStep("rule"); }}>Back</Button>;
     content = (
       <div className="flex flex-col gap-4 text-body-medium">
         {stepper}
         <div className="flex gap-3">
           <Num>1</Num>
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <p><span className="font-semibold">Unduh templat</span> <span className="text-on-surface-variant">lalu isi satu orang per baris.</span></p>
+            <p><span className="font-semibold">Download the template</span> <span className="text-on-surface-variant">and enter one person per row.</span></p>
             <div className="overflow-x-auto rounded-sm border border-outline-variant">
               <table className="w-full border-collapse text-body-small">
                 <thead className="bg-surface-container-high">
-                  <tr>{["QR peserta", "Email", "Nama (untuk dicek)"].map((head) => <th key={head} className="whitespace-nowrap border border-outline-variant px-2 py-1 text-left font-semibold">{head}</th>)}</tr>
+                  <tr>{BONUS_TEMPLATE_HEADERS.map((head) => <th key={head} className="whitespace-nowrap border border-outline-variant px-2 py-1 text-left font-semibold">{head}</th>)}</tr>
                 </thead>
                 <tbody>
                   <tr><td className="whitespace-nowrap border border-outline-variant px-2 py-1">KSO-0142</td><td className="border border-outline-variant px-2 py-1" /><td className="whitespace-nowrap border border-outline-variant px-2 py-1">Andi Wijaya</td></tr>
@@ -368,20 +372,20 @@ function RuleDialog({
                 </tbody>
               </table>
             </div>
-            <p className="text-on-surface-variant">Isi QR atau email, cukup salah satu. Nama tidak dipakai untuk mencocokkan.</p>
+            <p className="text-on-surface-variant">Enter either the QR peserta or the Email column. The Nama column is not used for matching.</p>
             <div>
               {/* `native`: unduhan berkas dari /api, bukan navigasi halaman. */}
-              <ButtonLink native variant="outlined" size="sm" href="/api/admin/undian/bonus-list/template" icon={<DownloadSimple size={16} />}>Unduh templat</ButtonLink>
+              <ButtonLink native variant="outlined" size="sm" href="/api/admin/undian/bonus-list/template" icon={<DownloadSimple size={16} />}>Download template</ButtonLink>
             </div>
           </div>
         </div>
         <div className="flex gap-3">
           <Num>2</Num>
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <p className="font-semibold">Upload berkas yang sudah diisi</p>
+            <p className="font-semibold">Upload the completed file</p>
             <div className="flex flex-wrap items-center gap-3 rounded-md border border-dashed border-outline p-3">
-              <UploadButton label={checking ? "Mengecek..." : "Pilih berkas"} accept=".xlsx,.csv,.txt" busy={checking} icon={<UploadSimple size={16} />} onFile={(file) => void upload(file)} />
-              <span className="text-on-surface-variant">.xlsx atau .csv, maksimal 5.000 baris</span>
+              <UploadButton label={checking ? "Checking..." : "Choose file"} accept=".xlsx,.csv,.txt" busy={checking} icon={<UploadSimple size={16} />} onFile={(file) => void upload(file)} />
+              <span className="text-on-surface-variant">.xlsx or .csv, up to 5,000 rows</span>
             </div>
             {error ? <PaneError>{error}</PaneError> : null}
           </div>
@@ -389,25 +393,25 @@ function RuleDialog({
       </div>
     );
   } else if (check) {
-    title = `${check.file_name}: ${check.rows_read.toLocaleString("id-ID")} baris dibaca`;
+    title = `${check.file_name}: ${check.rows_read.toLocaleString("en-GB")} ${check.rows_read === 1 ? "row" : "rows"} read`;
     actions = (
       <>
-        <Button type="button" variant="text" onClick={() => { setCheck(null); setStep("upload"); }}>Upload ulang</Button>
-        {check.matched.length > 0 ? <Button type="button" onClick={saveList}>Simpan {check.matched.length.toLocaleString("id-ID")} orang</Button> : null}
+        <Button type="button" variant="text" onClick={() => { setCheck(null); setStep("upload"); }}>Upload again</Button>
+        {check.matched.length > 0 ? <Button type="button" onClick={saveList}>Save {check.matched.length.toLocaleString("en-GB")} {check.matched.length === 1 ? "person" : "people"}</Button> : null}
       </>
     );
     content = (
       <div className="flex flex-col gap-4 text-body-medium">
         {stepper}
         <dl className="flex flex-col gap-1.5">
-          <Summary value={check.matched.length} tone="good" label="cocok dengan peserta" note={`akan dapat +${tickets} tiket`} />
-          {check.duplicates > 0 ? <Summary value={check.duplicates} label="ganda" note="orang yang sama ditulis lebih dari sekali, dihitung sekali" /> : null}
-          {check.missing_total > 0 ? <Summary value={check.missing_total} tone="bad" label="tidak ditemukan" note="tidak ikut dapat tiket" /> : null}
+          <Summary value={check.matched.length} tone="good" label="matched to participants" note={`will receive +${tickets} ${tickets === 1 ? "ticket" : "tickets"}`} />
+          {check.duplicates > 0 ? <Summary value={check.duplicates} label="duplicates" note="the same person listed more than once, counted once" /> : null}
+          {check.missing_total > 0 ? <Summary value={check.missing_total} tone="bad" label="not found" note="will not receive tickets" /> : null}
         </dl>
         {check.missing.length > 0 ? (
           <div className="max-h-56 overflow-auto">
             <table className="w-full border-collapse tabular-nums">
-              <thead><tr className="text-left text-body-small text-on-surface-variant"><th className="py-1 pr-2 font-medium">Baris</th><th className="py-1 pr-2 font-medium">Isi</th><th className="py-1 font-medium">Kenapa</th></tr></thead>
+              <thead><tr className="text-left text-body-small text-on-surface-variant"><th className="py-1 pr-2 font-medium">Row</th><th className="py-1 pr-2 font-medium">Value</th><th className="py-1 font-medium">Reason</th></tr></thead>
               <tbody>
                 {check.missing.map((item) => (
                   <tr key={item.row} className="border-t border-outline-variant align-top">
@@ -418,15 +422,15 @@ function RuleDialog({
                 ))}
               </tbody>
             </table>
-            {check.missing_total > check.missing.length ? <p className="mt-1 text-on-surface-variant">Dan {check.missing_total - check.missing.length} baris lainnya.</p> : null}
+            {check.missing_total > check.missing.length ? <p className="mt-1 text-on-surface-variant">And {check.missing_total - check.missing.length} more {check.missing_total - check.missing.length === 1 ? "row" : "rows"}.</p> : null}
           </div>
         ) : null}
         <p className="text-on-surface-variant">
           {check.matched.length === 0
-            ? "Tidak ada baris yang cocok dengan peserta acara ini. Periksa kolom QR atau Email, lalu upload ulang."
+            ? "No rows match participants in this event. Check the QR or Email column, then upload again."
             : check.missing_total > 0
-              ? "Perbaiki di Excel lalu upload ulang, atau simpan sekarang dan perbaiki nanti lewat \"Ganti berkas\"."
-              : "Semua baris cocok."}
+              ? "Correct the file in Excel and upload again, or save now and fix it later using \"Replace file\"."
+              : "All rows matched."}
         </p>
       </div>
     );
@@ -458,9 +462,9 @@ function Stepper({ value, onChange, labelledBy }: { value: number; onChange: (va
   const set = (next: number) => onChange(Math.max(1, Math.min(BONUS_TICKETS_MAX, next)));
   return (
     <div role="group" aria-labelledby={labelledBy} className="mt-1.5 inline-flex h-9 items-stretch overflow-hidden rounded-md border border-outline bg-surface-container-lowest">
-      <button type="button" aria-label="Kurangi tiket" disabled={value <= 1} onClick={() => set(value - 1)} className="px-3 hover:bg-primary-soft disabled:opacity-40"><Minus size={14} /></button>
+      <button type="button" aria-label="Decrease tickets" disabled={value <= 1} onClick={() => set(value - 1)} className="px-3 hover:bg-primary-soft disabled:opacity-40"><Minus size={14} /></button>
       <span className="flex min-w-16 items-center justify-center border-x border-outline-variant font-semibold tabular-nums" aria-live="polite">+{value}</span>
-      <button type="button" aria-label="Tambah tiket" disabled={value >= BONUS_TICKETS_MAX} onClick={() => set(value + 1)} className="px-3 hover:bg-primary-soft disabled:opacity-40"><Plus size={14} /></button>
+      <button type="button" aria-label="Increase tickets" disabled={value >= BONUS_TICKETS_MAX} onClick={() => set(value + 1)} className="px-3 hover:bg-primary-soft disabled:opacity-40"><Plus size={14} /></button>
     </div>
   );
 }
@@ -472,7 +476,7 @@ function Num({ children }: { children: string }) {
 function Summary({ value, label, note, tone }: { value: number; label: string; note: string; tone?: "good" | "bad" }) {
   return (
     <div className="flex items-baseline gap-3">
-      <dt className={cx("min-w-12 text-right text-title-large font-bold tabular-nums", tone === "good" && "text-success", tone === "bad" && "text-error")}>{value.toLocaleString("id-ID")}</dt>
+      <dt className={cx("min-w-12 text-right text-title-large font-bold tabular-nums", tone === "good" && "text-success", tone === "bad" && "text-error")}>{value.toLocaleString("en-GB")}</dt>
       <dd><span className="font-semibold">{label}</span> <span className="text-on-surface-variant">{note}</span></dd>
     </div>
   );
@@ -495,14 +499,14 @@ function NamesDialog({ rule, onClose }: { rule: Extract<BonusRule, { source: "li
     return () => { alive = false; };
   }, [rule]);
   return (
-    <Dialog open onClose={onClose} title={rule.name} description={rule.file_name ?? undefined} size="md" scrollBody actions={<Button type="button" variant="text" onClick={onClose}>Tutup</Button>}>
-      {state === "loading" ? <p className="text-body-medium text-on-surface-variant">Memuat nama...</p>
-        : state === "failed" ? <PaneError>Nama gagal dimuat. Tutup lalu coba lagi.</PaneError>
+    <Dialog open onClose={onClose} title={rule.name} description={rule.file_name ?? undefined} size="md" scrollBody actions={<Button type="button" variant="text" onClick={onClose}>Close</Button>}>
+      {state === "loading" ? <p className="text-body-medium text-on-surface-variant">Loading names...</p>
+        : state === "failed" ? <PaneError>Could not load names. Close and try again.</PaneError>
         : (
           <div className="flex flex-col gap-2 text-body-medium">
             <p className="text-on-surface-variant">
-              {state.people.length.toLocaleString("id-ID")} orang
-              {state.gone > 0 ? `. ${state.gone} orang di daftar ini sudah tidak terdaftar di acara dan tidak ikut diundi.` : ""}
+              {state.people.length.toLocaleString("en-GB")} {state.people.length === 1 ? "person" : "people"}
+              {state.gone > 0 ? `. ${state.gone} ${state.gone === 1 ? "person on this list is" : "people on this list are"} no longer registered for the event and will not enter the draw.` : ""}
             </p>
             <ul className="divide-y divide-outline-variant">
               {state.people.map((person) => (

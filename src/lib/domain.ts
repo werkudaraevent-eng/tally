@@ -1225,7 +1225,13 @@ export type LandingMemberConfig = {
    * Kontak darurat dan bantuan (E-03) yang diisi langsung di Participant
    * area > Emergency and help. Ada kontaknya = menggantikan `help_block`.
    */
-  help?: { title?: string | null; note?: string | null; contacts?: Array<{ name: string; phone?: string | null; note?: string | null; map_url?: string | null }> } | null;
+  help?: {
+    title?: string | null;
+    note?: string | null;
+    contacts?: Array<{ name: string; phone?: string | null; note?: string | null; map_url?: string | null; en?: { name?: string | null; note?: string | null } | null }>;
+    /** Teks English untuk halaman /en; kosong = teks Indonesia. */
+    en?: { title?: string | null; note?: string | null } | null;
+  } | null;
 };
 
 export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";
@@ -1888,6 +1894,8 @@ export type ApiErrorCode =
   | "RUNDOWN_ITEM_NOT_FOUND"
   | "DUPLICATE_RUNDOWN_SLUG"
   | "OUTFIT_NOT_READY"
+  // Sasaran bagian Agenda disimpan sebelum migrasi 202610180002 dijalankan.
+  | "AUDIENCE_NOT_READY"
   // Trip bus ditautkan ke baris Agenda sebelum migrasi 202610170002 dijalankan.
   // Trip tanpa tautan tetap tersimpan seperti biasa.
   | "TRIP_AGENDA_NOT_READY"
@@ -1897,6 +1905,7 @@ export type ApiErrorCode =
   | "UNDIAN_PRIZE_IN_USE"
   | "UNDIAN_NO_ACTIVE_PRIZE"
   | "UNDIAN_POOL_EMPTY"
+  | "UNDIAN_RULE_BROKEN"
   | "UNDIAN_QUOTA_REACHED"
   | "UNDIAN_ALREADY_SPINNING"
   | "UNDIAN_ENTRY_GROUP_NOT_FOUND"

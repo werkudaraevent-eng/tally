@@ -7,7 +7,7 @@ import Link from "@/components/event-link";
 import { useCallback, useEffect, useState } from "react";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";
-import { ANIMATIONS, type UndianPrize, normalizePrize } from "@/lib/undian";
+import { ANIMATIONS, type UndianPrize, normalizePrize, ruleBrokenMessage } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneHeader,
@@ -147,8 +147,11 @@ export default function UndianControlPage() {
     const data = await response.json().catch(() => ({}));
     setBusy(null);
     if (!response.ok) {
-      const failure = data?.error?.message ?? "Aksi gagal.";
-      setError(failure); toast.error("Aksi gagal", failure);
+      const brokenRules: unknown = data?.error?.details?.rules;
+      const failure = data?.error?.code === "UNDIAN_RULE_BROKEN" && Array.isArray(brokenRules) && brokenRules.length > 0
+        ? ruleBrokenMessage(brokenRules.map(String))
+        : data?.error?.message ?? "Action failed.";
+      setError(failure); toast.error("Action failed", failure);
       return false;
     }
     await load();
@@ -173,25 +176,25 @@ export default function UndianControlPage() {
   // kertas melayang membuat operator menyimpulkan salah satunya rusak.
   const animasi = ANIMATIONS.find((item) => item.value === activePrize?.animation);
   const gerakManual: Record<string, string> = {
-    wheel: "Roda berputar",
-    slot: "Gulungan bergulir",
-    cards: "Nama berkedip di kartu",
-    digits: "Digit berputar",
-    dart: "Kertas undian melayang",
-    instant: "Layar menunggu",
+    wheel: "The wheel spins",
+    slot: "The reels roll",
+    cards: "Names flash on the cards",
+    digits: "The digits spin",
+    dart: "Draw slips float",
+    instant: "The screen waits",
   };
   // Tombol merah menyebut TINDAKANNYA di layar, bukan "berhenti" yang generik.
   // Pada panah, yang ditunggu ruangan adalah lemparan; pada kartu, pembukaan.
   const labelAkhiri: Record<string, string> = {
-    wheel: "Berhenti & tampilkan",
-    slot: "Hentikan gulungan",
-    cards: "Buka kartu",
-    digits: "Kunci angka",
-    dart: "Lempar panah",
-    instant: "Tampilkan pemenang",
+    wheel: "Stop & reveal",
+    slot: "Stop reels",
+    cards: "Reveal cards",
+    digits: "Lock digits",
+    dart: "Throw dart",
+    instant: "Reveal winners",
   };
-  const tombolAkhiri = labelAkhiri[animasi?.value ?? ""] ?? "Berhenti & tampilkan";
-  const kalimatManual = `${gerakManual[animasi?.value ?? ""] ?? "Animasi berjalan"} di layar panggung sampai Anda menekan ${tombolAkhiri}. Pemenang sudah ditentukan dan tersimpan sejak tombol Undi ditekan, jadi menutup halaman ini tidak menghilangkannya.`;
+  const tombolAkhiri = labelAkhiri[animasi?.value ?? ""] ?? "Stop & reveal";
+  const kalimatManual = `${gerakManual[animasi?.value ?? ""] ?? "The animation runs"} on the stage screen until you press ${tombolAkhiri}. Winners are selected and saved when Draw is pressed, so closing this page will not lose them.`;
   // Berapa nama yang akan dibatalkan bila "Undi ulang" ditekan.
   const pendingHere = activePrize ? pendingCounts[activePrize.id] ?? 0 : 0;
   // Pada mode latihan kuota tidak berlaku: tidak ada pemenang yang dicatat, jadi
@@ -205,27 +208,27 @@ export default function UndianControlPage() {
 
   // ---- Pilih hadiah ---------------------------------------------------------
   const daftarHadiah = (
-    <Pane aria-label="Pilih hadiah" className="lg:w-[360px] lg:shrink-0">
+    <Pane aria-label="Choose prize" className="lg:w-[360px] lg:shrink-0">
       <PaneHeader>
-        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Pilih hadiah</h2>
-        {spinning ? <span className="text-body-medium text-on-surface-variant">Terkunci selama mengundi</span> : null}
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Choose prize</h2>
+        {spinning ? <span className="text-body-medium text-on-surface-variant">Locked during draw</span> : null}
       </PaneHeader>
       <PaneBody>
         {!prizesLoaded ? <PageLoading /> : prizesFailed ? (
           <EmptyState
             plain
             icon={<Warning size={40} />}
-            title="Daftar hadiah gagal dimuat"
-            description="Periksa koneksi, lalu coba lagi."
-            action={<Button variant="outlined" size="sm" onClick={() => void loadPrizes()}>Coba lagi</Button>}
+            title="Could not load prizes"
+            description="Check your connection, then try again."
+            action={<Button variant="outlined" size="sm" onClick={() => void loadPrizes()}>Try again</Button>}
           />
         ) : prizes.length === 0 ? (
           <EmptyState
             plain
             icon={<Gift size={40} />}
-            title="Belum ada hadiah aktif"
-            description="Hadiah nonaktif tidak muncul di sini. Tambahkan atau aktifkan hadiah di halaman Hadiah & aturan."
-            action={<ButtonLink href="/admin/undian" variant="outlined" size="sm">Buka Hadiah & aturan</ButtonLink>}
+            title="No active prizes yet"
+            description="Inactive prizes do not appear here. Add or activate prizes on the Prizes & rules page."
+            action={<ButtonLink href="/admin/undian" variant="outlined" size="sm">Open Prizes & rules</ButtonLink>}
           />
         ) : prizes.map((prize) => {
           const used = winnerCounts[prize.id] ?? 0;
@@ -251,15 +254,15 @@ export default function UndianControlPage() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{prize.name}</span>
                 <span className="block truncate tabular-nums text-on-surface-variant">
-                  {used}/{prize.winner_quota} pemenang · {ANIMATIONS.find((item) => item.value === prize.animation)?.label}
+                  {used}/{prize.winner_quota} {prize.winner_quota === 1 ? "winner" : "winners"} · {ANIMATIONS.find((item) => item.value === prize.animation)?.label}
                 </span>
               </span>
               {/* "Penuh" saja terbaca sebagai "hadiah ini habis selamanya", dan
                   tafsir itulah yang membuat orang membuat hadiah duplikat atau
                   menghapus hasil undian. Kuota dihitung per SESI. */}
               {full ? (
-                <StatusChip dot title={activeSession ? `Kuota penuh di sesi "${activeSession.name}". Hadiah yang sama bisa diundi lagi di sesi berikutnya.` : "Kuota penuh"}>
-                  {activeSession ? "Penuh di sesi ini" : "Penuh"}
+                <StatusChip dot title={activeSession ? `Quota full in session "${activeSession.name}". The same prize can be drawn again in the next session.` : "Quota full"}>
+                  {activeSession ? "Full in this session" : "Full"}
                 </StatusChip>
               ) : null}
             </button>
@@ -273,15 +276,15 @@ export default function UndianControlPage() {
   let isiUndi: React.ReactNode;
   if (!state) {
     isiUndi = stateFailed ? (
-      <EmptyState plain icon={<Warning size={40} />} title="Keadaan undian gagal dimuat" description="Halaman mencoba lagi setiap 2 detik. Periksa koneksi bila pesan ini tidak hilang." />
+      <EmptyState plain icon={<Warning size={40} />} title="Could not load draw state" description="This page retries every 2 seconds. Check your connection if this message remains." />
     ) : <PageLoading />;
   } else if (!live) {
     isiUndi = (
       <div className="flex flex-col gap-4 p-6">
         <div>
-          <p className="text-body-medium text-on-surface-variant">Layar panggung</p>
-          <p className="mt-1 text-headline-small font-semibold">Mati</p>
-          <p className="mt-2 text-body-medium text-on-surface-variant">Layar /undian diam. Nyalakan sebelum sesi undian dimulai; setelah itu hadiah bisa dipilih dan diundi.</p>
+          <p className="text-body-medium text-on-surface-variant">Stage screen</p>
+          <p className="mt-1 text-headline-small font-semibold">Off</p>
+          <p className="mt-2 text-body-medium text-on-surface-variant">The /undian screen is idle. Turn it on before the draw session starts, then choose a prize and draw.</p>
         </div>
         <Button
           size="xl"
@@ -292,26 +295,26 @@ export default function UndianControlPage() {
           disabled={busy !== null}
           onClick={() => void send({ action: "mode", mode: "live" }, "mode")}
         >
-          Nyalakan layar panggung
+          Turn on stage screen
         </Button>
       </div>
     );
   } else if (!state.prize) {
-    isiUndi = <EmptyState plain icon={<Gift size={40} />} title="Pilih hadiah untuk mulai mengundi" />;
+    isiUndi = <EmptyState plain icon={<Gift size={40} />} title="Choose a prize to start drawing" />;
   } else {
     isiUndi = (
       <div className="flex flex-col gap-5 p-6">
         <div>
-          <p className="text-body-medium text-on-surface-variant">Sedang diundi</p>
+          <p className="text-body-medium text-on-surface-variant">Current prize</p>
           <p className="mt-1 text-headline-small font-semibold">{state.prize.name}</p>
           <p className="mt-2 text-body-medium tabular-nums text-on-surface-variant">
             {/* Animasi dan mode berhentinya ditulis di sini supaya operator tahu
                 apa yang akan terjadi di layar SEBELUM menekan Undi. */}
             {[
-              `${quotaUsed}/${state.prize.winner_quota} pemenang`,
-              state.pool_size > 0 ? `${state.pool_size} nama di kolam` : null,
+              `${quotaUsed}/${state.prize.winner_quota} ${state.prize.winner_quota === 1 ? "winner" : "winners"}`,
+              state.pool_size > 0 ? `${state.pool_size} ${state.pool_size === 1 ? "name" : "names"} in pool` : null,
               animasi?.label,
-              activePrize ? (activePrize.spin_mode === "manual" ? "berhenti manual" : `${activePrize.spin_seconds} detik`) : null,
+              activePrize ? (activePrize.spin_mode === "manual" ? "manual stop" : `${activePrize.spin_seconds} ${activePrize.spin_seconds === 1 ? "second" : "seconds"}`) : null,
             ].filter(Boolean).join(" · ")}
           </p>
         </div>
@@ -321,12 +324,12 @@ export default function UndianControlPage() {
             padahal justru itulah perilaku yang diminta. */}
         {spinning ? (
           <div className="rounded-md bg-accent-soft p-5 text-center" aria-live="polite">
-            <p className="text-body-medium font-medium text-primary">Sedang mengundi</p>
+            <p className="text-body-medium font-medium text-primary">Drawing</p>
             {manualSpin
-              ? <p className="mt-2 flex items-center justify-center gap-2 text-title-large font-semibold text-on-surface"><StatusDot tone="success" />Berjalan di layar, menunggu aba-aba</p>
+              ? <p className="mt-2 flex items-center justify-center gap-2 text-title-large font-semibold text-on-surface"><StatusDot tone="success" />Running on screen, waiting for your cue</p>
               : <p className="mt-2 text-display-medium font-semibold tabular-nums text-on-surface">{countdown.toFixed(1)}</p>}
             <p className="mt-2 text-body-medium text-on-surface-variant">
-              {manualSpin ? kalimatManual : "Pemenang sudah ditentukan dan dirahasiakan sampai animasi berhenti."}
+              {manualSpin ? kalimatManual : "Winners are already selected and kept hidden until the animation stops."}
             </p>
           </div>
         ) : null}
@@ -351,7 +354,7 @@ export default function UndianControlPage() {
             </Button>
           ) : (
             <Button variant="outlined" icon={<SkipForward size={16} />} loading={busy === "reveal"} disabled={busy !== null} onClick={() => void send({ action: "reveal" }, "reveal")} className="self-start">
-              Langsung tampilkan
+              Reveal now
             </Button>
           )
         ) : drawBlocked ? (
@@ -362,21 +365,21 @@ export default function UndianControlPage() {
           // serah terima hadiah.
           <div className="rounded-md bg-surface-container-high p-4 text-body-medium">
             <p className="font-medium tabular-nums">
-              Kuota penuh{activeSession ? ` di sesi ${activeSession.name}` : ""} ({quotaUsed}/{state.prize.winner_quota})
+              Quota full{activeSession ? ` in session ${activeSession.name}` : ""} ({quotaUsed}/{state.prize.winner_quota})
             </p>
             {pendingHere > 0 ? (
               <>
                 <p className="mt-1 text-on-surface-variant">
-                  {pendingHere} pemenang belum ditandai hadir. Undi ulang membatalkan {pendingHere} nama itu supaya kuota kembali kosong. Datanya tetap tersimpan dengan alasannya, tidak dihapus.
+                  {pendingHere} {pendingHere === 1 ? "winner has" : "winners have"} not been marked present. Redrawing cancels {pendingHere === 1 ? "that name" : `those ${pendingHere} names`} to free up the quota. Their records and reasons are kept, not deleted.
                 </p>
                 <Button variant="outlined" className="mt-3" icon={<ArrowsClockwise size={16} />} disabled={busy !== null} onClick={() => setConfirmRedraw(true)}>
-                  Undi ulang hadiah ini
+                  Redraw this prize
                 </Button>
               </>
             ) : (
               <p className="mt-1 text-on-surface-variant">
-                Semua pemenang sudah ditandai hadir, jadi tidak dapat dibatalkan dari sini karena hadiahnya sudah diserahkan.
-                Untuk mengundi hadiah ini lagi, tutup sesi di <Link href="/admin/undian" className="rounded-sm font-medium text-primary hover:underline">Hadiah & aturan</Link> lalu mulai sesi baru. Pemenang lama tetap tercatat.
+                All winners are marked present and cannot be cancelled here because their prizes have been handed over.
+                To draw this prize again, close the session on the <Link href="/admin/undian" className="rounded-sm font-medium text-primary hover:underline">Prizes & rules</Link> page, then start a new session. Previous winners stay on record.
               </p>
             )}
           </div>
@@ -391,13 +394,13 @@ export default function UndianControlPage() {
               disabled={busy !== null}
               onClick={() => void send({ action: "draw" }, "draw")}
             >
-              {rehearsal ? "Undi (latihan)" : "Undi sekarang"}
+              {rehearsal ? "Draw (rehearsal)" : "Draw now"}
             </Button>
             {activePrize && activePrize.animation !== "instant" ? (
               <p className="text-body-medium text-on-surface-variant">
                 {activePrize.spin_mode === "manual"
-                  ? `Setelah ditekan, tombol ini berganti menjadi ${tombolAkhiri} (merah) sampai Anda menghentikannya.`
-                  : `Animasi berhenti sendiri setelah ${activePrize.spin_seconds} detik.`}
+                  ? `After pressing, this button changes to ${tombolAkhiri} (red) until you stop the animation.`
+                  : `The animation stops automatically after ${activePrize.spin_seconds} ${activePrize.spin_seconds === 1 ? "second" : "seconds"}.`}
               </p>
             ) : null}
           </div>
@@ -406,7 +409,7 @@ export default function UndianControlPage() {
         {/* Pada mode latihan kuota tidak menghalangi, tapi angkanya tetap perlu
             terlihat supaya operator tahu keadaan sungguhannya. */}
         {quotaFull && rehearsal ? (
-          <p className="text-body-medium text-on-surface-variant">Kuota sebenarnya sudah penuh, tetapi mode latihan tidak memakai kuota.</p>
+          <p className="text-body-medium text-on-surface-variant">The actual quota is full, but rehearsal mode does not use the quota.</p>
         ) : null}
 
         <button
@@ -415,7 +418,7 @@ export default function UndianControlPage() {
           disabled={busy !== null}
           className="self-start rounded-sm text-body-medium font-medium text-on-surface-variant hover:underline disabled:opacity-50"
         >
-          Bersihkan tampilan layar (pemenang tetap tercatat)
+          Clear screen (winners stay on record)
         </button>
       </div>
     );
@@ -423,13 +426,13 @@ export default function UndianControlPage() {
 
   const panelUndi = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 lg:overflow-y-auto">
-      <Pane aria-label="Panel undi" className="shrink-0">{isiUndi}</Pane>
+      <Pane aria-label="Draw panel" className="shrink-0">{isiUndi}</Pane>
 
       {state && state.winners.length > 0 ? (
-        <Pane aria-label="Pemenang undian ini" className="shrink-0">
+        <Pane aria-label="Winners of this draw" className="shrink-0">
           <PaneHeader>
-            <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Pemenang undian ini</h2>
-            <span className="text-body-medium tabular-nums text-on-surface-variant">{sah} sah · {menunggu} menunggu</span>
+            <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Winners of this draw</h2>
+            <span className="text-body-medium tabular-nums text-on-surface-variant">{sah} confirmed · {menunggu} pending</span>
           </PaneHeader>
           <ul>
             {/* Key memakai `ref`, BUKAN `id`. `id` kosong pada MODE LATIHAN karena
@@ -448,14 +451,14 @@ export default function UndianControlPage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="text-title-medium font-semibold">{winner.name}</span>
-                    {winner.is_backup ? <StatusChip>Cadangan {winner.slot_order}</StatusChip> : null}
+                    {winner.is_backup ? <StatusChip>Backup {winner.slot_order}</StatusChip> : null}
                   </p>
                   <p className="text-body-medium text-on-surface-variant">
-                    {[winner.company, winner.seat && `Kursi ${winner.seat}`].filter(Boolean).join(" · ") || "Tanpa perusahaan dan kursi"}
+                    {[winner.company, winner.seat && `Seat ${winner.seat}`].filter(Boolean).join(" · ") || "No company or seat"}
                   </p>
                 </div>
-                {winner.status === "confirmed" ? <StatusChip dot tone="success">Sah</StatusChip> : null}
-                {winner.status === "rejected" ? <StatusChip dot tone="error">Dibatalkan</StatusChip> : null}
+                {winner.status === "confirmed" ? <StatusChip dot tone="success">Confirmed</StatusChip> : null}
+                {winner.status === "rejected" ? <StatusChip dot tone="error">Cancelled</StatusChip> : null}
                 {winner.status === "pending" && winner.id !== undefined ? (
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <Button
@@ -465,7 +468,7 @@ export default function UndianControlPage() {
                       disabled={busy !== null}
                       onClick={() => { setRejecting(winner); setRejectReason(""); }}
                     >
-                      Tidak hadir
+                      Absent
                     </Button>
                     <Button
                       variant="tonal"
@@ -474,7 +477,7 @@ export default function UndianControlPage() {
                       disabled={busy !== null}
                       onClick={() => void send({ action: "decide", winner_id: winner.id, status: "confirmed" }, `confirm-${winner.id}`)}
                     >
-                      Hadir
+                      Present
                     </Button>
                   </div>
                 ) : null}
@@ -485,10 +488,10 @@ export default function UndianControlPage() {
       ) : null}
 
       {state && state.confirmed.length > 0 ? (
-        <Pane aria-label="Sudah sah untuk hadiah ini" className="shrink-0">
+        <Pane aria-label="Confirmed winners for this prize" className="shrink-0">
           <PaneHeader>
             <Trophy size={16} aria-hidden className="text-on-surface-variant" />
-            <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Sudah sah untuk hadiah ini</h2>
+            <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Confirmed winners for this prize</h2>
             <span className="text-body-medium tabular-nums text-on-surface-variant">{state.confirmed.length}</span>
           </PaneHeader>
           <ul className="grid gap-x-6 gap-y-1 px-5 py-3 text-body-medium sm:grid-cols-2">
@@ -509,20 +512,20 @@ export default function UndianControlPage() {
       <WorkspaceHeader
         back={
           <Link href="/admin/undian" className="inline-flex items-center gap-1 rounded-sm text-body-medium font-medium text-primary hover:underline">
-            <CaretLeft size={14} aria-hidden />Hadiah & aturan
+            <CaretLeft size={14} aria-hidden />Prizes & rules
           </Link>
         }
         meta={state ? (
           <>
-            <span className="inline-flex items-center gap-1.5"><StatusDot tone={live ? "success" : "neutral"} />Layar panggung {live ? "menyala" : "mati"}</span>
+            <span className="inline-flex items-center gap-1.5"><StatusDot tone={live ? "success" : "neutral"} />Stage screen {live ? "on" : "off"}</span>
             <MetaSeparator />
-            <span className="inline-flex items-center gap-1.5"><StatusDot tone={rehearsal ? "warning" : "neutral"} />Mode latihan {rehearsal ? "aktif" : "mati"}</span>
+            <span className="inline-flex items-center gap-1.5"><StatusDot tone={rehearsal ? "warning" : "neutral"} />Rehearsal {rehearsal ? "on" : "off"}</span>
             <MetaSeparator />
-            <span>{activeSession ? `Sesi: ${activeSession.name}` : "Tanpa sesi"}</span>
+            <span>{activeSession ? `Session: ${activeSession.name}` : "No session"}</span>
             <MetaSeparator />
-            <span>Diperbarui tiap 2 detik</span>
+            <span>Updated every 2 seconds</span>
           </>
-        ) : <span>Memuat keadaan undian</span>}
+        ) : <span>Loading draw state</span>}
         actions={
           <>
             {/* Latihan terpisah dari saklar layar karena menjawab pertanyaan yang
@@ -534,17 +537,17 @@ export default function UndianControlPage() {
               icon={<Flask size={16} />}
               loading={busy === "rehearsal"}
               disabled={!state || busy !== null || spinning}
-              title={rehearsal ? undefined : "Untuk gladi bersih: undian berjalan seperti biasa tetapi hasilnya tidak disimpan."}
+              title={rehearsal ? undefined : "For rehearsals: the draw runs as usual but results are not saved."}
               onClick={() => void send({ action: "rehearsal", on: !rehearsal }, "rehearsal")}
             >
-              {rehearsal ? "Selesai latihan" : "Mulai latihan"}
+              {rehearsal ? "End rehearsal" : "Start rehearsal"}
             </Button>
             {live ? (
               <Button variant="outlined" icon={<Power size={16} />} loading={busy === "mode"} disabled={busy !== null} onClick={() => void send({ action: "mode", mode: "off" }, "mode")}>
-                Matikan layar
+                Turn off screen
               </Button>
             ) : null}
-            <ButtonLink href="/undian?fullscreen=1" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Buka layar panggung</ButtonLink>
+            <ButtonLink href="/undian?fullscreen=1" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open stage screen</ButtonLink>
           </>
         }
       />
@@ -553,12 +556,12 @@ export default function UndianControlPage() {
           keadaan ini harus terbaca sebagai "sedang tidak normal" sekilas. */}
       {rehearsal ? (
         <Banner tone="warning" icon={<Flask size={18} weight="fill" />} className="shrink-0">
-          <span className="font-medium">Mode latihan aktif.</span> Undian berjalan normal di layar, tetapi pemenang tidak dicatat dan kuota tidak terpakai. Matikan sebelum undian sungguhan.
+          <span className="font-medium">Rehearsal mode active.</span> The draw runs normally on screen, but winners are not recorded and the quota is not used. Turn it off before the real draw.
         </Banner>
       ) : null}
 
       {error ? (
-        <Banner tone="error" icon={<Warning size={18} />} className="shrink-0" actions={<IconButton size="sm" label="Tutup pesan" onClick={() => setError("")}><X size={16} /></IconButton>}>{error}</Banner>
+        <Banner tone="error" icon={<Warning size={18} />} className="shrink-0" actions={<IconButton size="sm" label="Dismiss message" onClick={() => setError("")}><X size={16} /></IconButton>}>{error}</Banner>
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
@@ -572,11 +575,11 @@ export default function UndianControlPage() {
         dismissible={busy !== "redraw"}
         tone="danger"
         icon={<ArrowsClockwise size={22} />}
-        title={`Undi ulang ${state?.prize?.name ?? "hadiah ini"}?`}
-        description={`${pendingHere} pemenang yang belum ditandai hadir dibatalkan dengan alasan "Diundi ulang", jadi kuota kembali kosong. Datanya tetap tersimpan, tidak dihapus. Tampilan layar panggung ikut dibersihkan.`}
+        title={`Redraw ${state?.prize?.name ?? "this prize"}?`}
+        description={`${pendingHere} ${pendingHere === 1 ? "winner" : "winners"} not marked present will be cancelled as redrawn, freeing up the quota. Records are kept, not deleted. The stage screen is also cleared.`}
         actions={
           <>
-            <Button variant="outlined" disabled={busy === "redraw"} onClick={() => setConfirmRedraw(false)}>Batal</Button>
+            <Button variant="outlined" disabled={busy === "redraw"} onClick={() => setConfirmRedraw(false)}>Cancel</Button>
             <Button
               variant="danger"
               loading={busy === "redraw"}
@@ -584,10 +587,10 @@ export default function UndianControlPage() {
               onClick={async () => {
                 const ok = await send({ action: "redraw", prize_id: state?.prize?.id }, "redraw");
                 setConfirmRedraw(false);
-                if (ok) toast.info("Kuota dikosongkan", `${pendingHere} pemenang dibatalkan. Hadiah ini bisa diundi lagi.`);
+                if (ok) toast.info("Quota freed up", `${pendingHere} ${pendingHere === 1 ? "winner" : "winners"} cancelled. This prize can be drawn again.`);
               }}
             >
-              Batalkan {pendingHere} pemenang
+              Cancel {pendingHere} {pendingHere === 1 ? "winner" : "winners"}
             </Button>
           </>
         }
@@ -598,12 +601,12 @@ export default function UndianControlPage() {
         onClose={() => setRejecting(null)}
         dismissible={busy === null}
         tone="danger"
-        title={`Tandai ${rejecting?.name ?? "pemenang"} tidak hadir?`}
-        description="Pemenang ini dibatalkan dan keputusannya tidak bisa diubah. Peserta kembali masuk kolam undian berikutnya."
+        title={`Mark ${rejecting?.name ?? "winner"} absent?`}
+        description="This winner will be cancelled and the decision cannot be changed. The participant returns to the pool for the next draw."
         actions={
           <>
-            <Button variant="outlined" disabled={busy !== null} onClick={() => setRejecting(null)}>Batal</Button>
-            <Button type="submit" form="form-tidak-hadir" variant="danger" loading={busy === `reject-${rejecting?.id}`} disabled={busy !== null}>Tandai tidak hadir</Button>
+            <Button variant="outlined" disabled={busy !== null} onClick={() => setRejecting(null)}>Cancel</Button>
+            <Button type="submit" form="form-tidak-hadir" variant="danger" loading={busy === `reject-${rejecting?.id}`} disabled={busy !== null}>Mark absent</Button>
           </>
         }
       >
@@ -614,16 +617,16 @@ export default function UndianControlPage() {
             event.preventDefault();
             if (!rejecting) return;
             const ok = await send({ action: "decide", winner_id: rejecting.id, status: "rejected", reason: rejectReason }, `reject-${rejecting.id}`);
-            if (ok) { setRejecting(null); toast.info("Pemenang dibatalkan", "Peserta kembali masuk kolam undian berikutnya."); }
+            if (ok) { setRejecting(null); toast.info("Winner cancelled", "The participant returns to the pool for the next draw."); }
           }}
         >
-          <label htmlFor="reject-reason" className="block text-body-medium font-medium">Alasan <span className="font-normal text-on-surface-variant">opsional</span></label>
+          <label htmlFor="reject-reason" className="block text-body-medium font-medium">Reason <span className="font-normal text-on-surface-variant">optional</span></label>
           <input
             id="reject-reason"
             autoFocus
             value={rejectReason}
             onChange={(event) => setRejectReason(event.target.value)}
-            placeholder="Tidak ada di tempat"
+            placeholder="Not present at the venue"
             className="mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary"
           />
         </form>

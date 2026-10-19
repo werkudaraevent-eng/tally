@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import {
+  hasMissingAnswer,
   invalidateBonusSessions,
   invalidateUnknownSessions,
   matchesConditions,
@@ -13,7 +14,7 @@ import {
   type WeightConfig,
 } from "@/lib/undian";
 import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
-import { activeRulesFor, listAttendanceSessions, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
+import { activeRulesFor, listAnswerFields, listAttendanceSessions, loadCheckpointSummary, loadParticipantPool, needsAttendance, weightNeedsAttendance } from "@/lib/undian-pool";
 
 // Pratinjau kolam: berapa peserta yang lolos syarat, dan bagaimana tiket terbagi.
 //
@@ -37,7 +38,7 @@ const TEXT_CMPS = ["eq", "neq", "contains", "not_contains", "starts_with", "ends
 
 const leafSchema = z.union([
   z.object({
-    var: z.enum(["total_spend", "booth_count", "scan_count"]),
+    var: z.enum(["total_spend", "booth_count", "scan_count", "checkpoint_points"]),
     cmp: z.enum(["gte", "gt", "lte", "lt", "eq"]),
     value: z.number().min(0).max(1_000_000_000),
   }),
@@ -47,7 +48,20 @@ const leafSchema = z.union([
     values: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
   }),
   z.object({ var: z.literal("checked_in"), is: z.boolean(), session_id: z.number().int().positive().optional() }),
-  z.object({ var: z.literal("has_seat"), is: z.boolean() }),
+  z.object({ var: z.enum(["has_seat", "checkpoint_goal", "checkpoints_all"]), is: z.boolean() }),
+  // Jawaban form: daftar nilai untuk pertanyaan pilihan, teks untuk sisanya.
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["in", "not_in"]),
+    values: z.array(z.string().trim().min(1).max(200)).min(1).max(100),
+  }),
+  z.object({
+    var: z.literal("answer"),
+    key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+    cmp: z.enum(["eq", "neq", "contains", "not_contains", "starts_with", "ends_with", "is_empty", "is_not_empty"]),
+    text: z.string().trim().max(200),
+  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Isi nilai pembandingnya." }),
   // Di sini teks kosong TIDAK ditolak, berbeda dengan endpoint penyimpanan.
   // Pratinjau dipanggil pada setiap ketikan, termasuk saat kolomnya masih kosong
   // karena baru saja ditambahkan; menolaknya membuat angka pratinjau berkedip
@@ -90,15 +104,21 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
   const eventId = auth.scope.event.id;
-  const [rawRules, attendanceSessions] = await Promise.all([
+  const [rawRules, attendanceSessions, checkpoint, answerFields] = await Promise.all([
     activeRulesFor(eventId, parsed.data.prize_id ?? null),
     listAttendanceSessions(eventId),
+    loadCheckpointSummary(eventId),
+    listAnswerFields(eventId),
   ]);
   if (!attendanceSessions) return apiError("INTERNAL_ERROR", 500);
   // Sesi yang sudah dihapus membuat syaratnya rusak, sama seperti di buildPool().
   const known = new Set(attendanceSessions.map((session) => session.id));
   const conditions = invalidateUnknownSessions(normalizeConditions(parsed.data.conditions), known);
   const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
+  // Sama dengan buildPool(): aturan aktif pada pertanyaan yang dihapus menolak
+  // undian, jadi pratinjau tidak boleh tetap menjanjikan nama yang siap diundi.
+  const answerKeys = answerFields ? new Set(answerFields.map((field) => field.key)) : null;
+  const brokenRules = answerKeys ? rawRules.filter((rule) => hasMissingAnswer(rule.conditions, answerKeys)).map((rule) => rule.name) : [];
   // Lewat normalizeBonusRules supaya pohon syarat aturan tiket tambahan dibaca
   // dengan cara yang sama seperti yang tersimpan di hadiah.
   const bonusRules = invalidateBonusSessions(normalizeBonusRules(parsed.data.bonus_rules), known);
@@ -157,6 +177,7 @@ export async function POST(request: Request) {
 
   return Response.json({
     total_participants: rows.length,
+    broken_rules: brokenRules,
     eligible: eligible.length,
     available: available.length,
     total_tickets: totalTickets,
@@ -190,6 +211,8 @@ export async function POST(request: Request) {
     companies: distinct(rows.map((row) => row.company)),
     // Sesi kehadiran acara, untuk pilihan "di sesi" pada syarat check-in.
     attendance_sessions: attendanceSessions,
+    checkpoint,
+    answer_fields: answerFields,
     // Hanya terisi pada mode tiket tambahan. Urut dari tiket terbanyak.
     bonus_groups: [...bonusGroups.values()].sort((a, b) => b.tickets - a.tickets || b.count - a.count),
     bonus_rule_counts: bonusRuleCounts,

@@ -16,8 +16,12 @@ import { kartuLengkapi } from "@/lib/member/lengkapi";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
 import { waktuPengumuman } from "@/lib/member/nav";
-import { gatheringHorizon, type EventLandingConfig } from "@/lib/domain";
-import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { gatheringHorizon, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
+import { PORTAL_UI } from "@/lib/member/portal-i18n";
+import { labelOutfit } from "@/lib/outfit";
+import { loadOutfitBagian } from "@/lib/outfit-server";
+import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
+import { warnaBilahPeramban } from "@/lib/landing-tokens";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -51,10 +55,51 @@ import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type La
  */
 
 export const dynamic = "force-dynamic";
+/** Bilah alamat ponsel navy pada portal Horizon, termasuk layar QR (U-31). */
+export async function generateViewport({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const event = await getPublicPageEvent(searchParams);
+  const warna = warnaBilahPeramban(event?.landing_config as EventLandingConfig | null | undefined);
+  return warna ? { themeColor: warna } : {};
+}
+
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // `bahasa` dari proxy (/en/peserta). Alamat yang tidak berlaku dialihkan halamannya.
-  const { bahasa } = await searchParams;
-  return { title: bahasa === "en" ? "Participant area" : "Area peserta", robots: { index: false, follow: false } };
+  const kueri = await searchParams;
+  const robots = { index: false, follow: false };
+  const event = await getPublicPageEvent(searchParams);
+  const landing = (event?.landing_config ?? {}) as EventLandingConfig;
+  const lang: LandingLang = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : landingDefaultLang(landing);
+  if (!event) return { title: LANDING_UI[lang].myDashboard, robots };
+  return { title: `${await judulTabPortal(event, lang, kueri.tab)} · ${publicEventName(event)}`, robots };
+}
+
+/**
+ * Judul dokumen per tab (U-13, U-21): "Jadwal · <acara>". Pembaca layar hanya
+ * mengumumkan pindah halaman bila document.title berubah, jadi setiap tab
+ * portal bertab perlu judulnya sendiri. Portal tanpa tab memakai nama yang
+ * sama dengan tombol di bilah halaman acara, "Dashboard saya". Tab yang jatuh
+ * kembali ke Beranda di DashboardGathering (Perjalanan di luar Horizon, Outfit
+ * tanpa outfit, QR yang disembunyikan) berjudul Beranda juga. Sesi tidak dibaca
+ * di sini supaya QR di gerbang tidak menunggu kueri tambahan.
+ */
+async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | string[] | undefined): Promise<string> {
+  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  const teks = PORTAL_UI[lang];
+  if (landing.layout !== "modern" || landing.gathering !== true) return LANDING_UI[lang].myDashboard;
+  const horizon = gatheringHorizon(landing);
+  const label = horizon ? teks.horizon.tabs : { ...teks.horizon.tabs, ...teks.tabs };
+  const member = memberConfig(event);
+  if (tab === "qr" && horizon && member?.show_code !== false) return teks.qrTitle;
+  if (tab === "outfit" && horizon && (await adaOutfit(event.id, lang))) return labelOutfit(member?.outfit_label);
+  if (tab === "perjalanan" && horizon) return label.perjalanan;
+  if (tab === "jadwal" || tab === "info" || tab === "profil") return label[tab];
+  return label.beranda;
+}
+
+/** Sama dengan adaOutfit di DashboardGathering: ada outfit di hari Agenda yang terbit. */
+async function adaOutfit(eventId: string, lang: LandingLang): Promise<boolean> {
+  const [agenda, peta] = await Promise.all([loadAgendaPreview(eventId, lang), loadOutfitBagian(eventId)]);
+  return agenda.some((bagian) => bagian.id !== undefined && (peta.get(bagian.id)?.length ?? 0) > 0);
 }
 
 const MUTED = "text-[var(--reg-on-surface-variant)]";
@@ -146,14 +191,14 @@ export default async function AreaPesertaPage({
         {konfirmasi === "ok" ? (
           <p role="status" className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md bg-[var(--reg-primary-container)] px-4 py-3 text-body-large text-[var(--reg-on-primary-container)]">
             <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden />
-            Email Anda terkonfirmasi.
+            Email sudah terkonfirmasi.
           </p>
         ) : !sesi.emailVerified && sesi.status !== "rejected" ? (
           <p className="mt-6 flex max-w-[720px] items-start gap-3 rounded-md border border-[var(--reg-outline-variant)] px-4 py-3 text-body-large">
             <EnvelopeSimple size={22} className="mt-0.5 shrink-0 text-[var(--reg-primary)]" aria-hidden />
             <span>
               {konfirmasi === "gagal" ? "Tautan konfirmasi itu sudah dipakai atau kedaluwarsa. " : null}
-              Konfirmasi email {sesi.email} lewat tautan yang kami kirim, supaya akun ini bisa dipulihkan bila Anda lupa kata sandi.
+              Konfirmasi email {sesi.email} lewat tautan yang kami kirim, supaya akun ini bisa dipulihkan bila lupa kata sandi.
               <KirimUlangKonfirmasi slug={event.slug} />
             </span>
           </p>
@@ -175,20 +220,20 @@ export default async function AreaPesertaPage({
                 </h2>
                 <p className={`mt-2 text-body-large leading-7 ${MUTED}`}>
                   {sesi.status === "rejected"
-                    ? "Panitia tidak menyetujui pendaftaran Anda untuk acara ini. Hubungi panitia bila Anda merasa ini keliru."
-                    : "Kode QR untuk meja registrasi muncul di sini setelah panitia menyetujui pendaftaran Anda. Kami juga mengabari Anda lewat email."}
+                    ? "Pendaftaran untuk acara ini tidak disetujui panitia. Hubungi panitia bila ini keliru."
+                    : "QR kehadiran muncul di sini setelah panitia menyetujui pendaftaran. Kabarnya juga dikirim lewat email."}
                 </p>
               </div>
             </section>
           ) : null}
 
           {peserta && (tampilKode || tampilKursi) ? (
-            <section aria-label="Tiket masuk" className="lg:sticky lg:top-8 lg:col-span-5 lg:self-start">
+            <section aria-label="QR kehadiran" className="lg:sticky lg:top-8 lg:col-span-5 lg:self-start">
               <div className="rounded-md border border-[var(--reg-outline-variant)] bg-[var(--reg-panel)] p-6 sm:p-8">
                 {tampilKode ? (
                   <>
-                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Tiket masuk</h2>
-                    <p className={`mt-2 text-body-large ${MUTED}`}>Tunjukkan kode ini di meja registrasi.</p>
+                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>QR kehadiran</h2>
+                    <p className={`mt-2 text-body-large ${MUTED}`}>Tunjukkan QR ini ke panitia.</p>
                     <RegistrationCodeCard
                       code={peserta.qr_code}
                       eventName={event.name}
@@ -200,7 +245,7 @@ export default async function AreaPesertaPage({
 
                 {tampilKursi ? (
                   <div className={tampilKode ? "mt-8 border-t border-[var(--reg-outline-variant)] pt-6" : ""}>
-                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Kursi Anda</h2>
+                    <h2 className={`text-[24px] font-semibold leading-tight ${HEAD}`}>Kursi</h2>
                     {kursi.length > 0 ? (
                       <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                         {kursi.map((seat, index) => (
@@ -267,7 +312,7 @@ export default async function AreaPesertaPage({
                       <ArrowRight size={18} weight="bold" className="shrink-0 text-[var(--reg-primary)]" />
                     </span>
                     <span className={`text-body-medium leading-6 ${MUTED}`}>
-                      Terbuka saat sesi berlangsung. Kode peserta Anda sudah terisi.
+                      Terbuka saat sesi berlangsung. Kode sudah terisi.
                     </span>
                   </Link>
                 ) : null}

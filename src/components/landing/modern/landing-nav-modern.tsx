@@ -164,7 +164,8 @@ export function LandingNavModern({
   registrationOpen: boolean;
   /** `area`: tautan ke area peserta tamu yang sudah masuk; gaya gathering lalu memakai labelnya, bukan "Masuk Portal". */
   memberLink?: { href: string; label: string; area?: boolean } | null;
-  sections: { id: string; label: string }[];
+  /** `href` menggantikan tautan jangkar `#id` (mis. Perjalanan ke portal). */
+  sections: { id: string; label: string; href?: string }[];
   width?: LandingNavWidth;
   logoUrl?: string | null;
   logoOnDark?: boolean;
@@ -188,7 +189,9 @@ export function LandingNavModern({
    * 80px (62px di ponsel), tautan putih 14/600, "Masuk" teks dan "Daftar
    * sekarang" pil emas. Setelah hero lewat bilah menyusut (72/64px) dan
    * menjadi navy, supaya tidak memakan seperlima layar laptop. Di ponsel hanya
-   * logo dan Menu; Masuk dan Daftar pindah ke dalam Menu.
+   * logo dan Menu; Masuk dan Daftar pindah ke dalam Menu. Setelah hero lewat
+   * (tombol tengahnya tidak terlihat lagi), pil kecil Masuk atau Dashboard
+   * muncul di samping Menu: tombol kecil M3, 40px dengan area ketuk 48px.
    */
   horizon?: boolean;
 }) {
@@ -304,6 +307,16 @@ export function LandingNavModern({
     "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full bg-[var(--hz-emas)] px-[25px] text-[14px] font-extrabold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]";
   const masukHorizon = horizon && !peserta && memberLink ? memberLink : null;
   const daftarHorizon = horizon && !peserta && registrationOpen;
+  // Horizon di ponsel, setelah hero lewat: satu pil ringkas ke dialog masuk atau
+  // Dashboard saya. Di layar pertama tidak tampil, karena tombol tengah hero
+  // sudah membawa ke tempat yang sama.
+  const pilPonselHorizon = ringkas && !dashboardAktif
+    ? peserta
+      ? { href: peserta.dashboardHref, label: t.dashboardShort, kelas: "sm:hidden" }
+      : masukHorizon
+        ? { href: masukHorizon.href, label: masukHorizon.label, kelas: "md:hidden" }
+        : null
+    : null;
 
   return (
     <nav
@@ -311,7 +324,8 @@ export function LandingNavModern({
       data-landing-nav
       data-sunting="pembuka:nav"
       ref={navRef}
-      className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah} ${horizon ? "transition-[margin] duration-200 [--nav-ringkas:64px] md:[--nav-ringkas:72px]" : ""}`}
+      // Horizon: cincin fokus warna teks bilah, yang selalu kontras dengan isian bilahnya (U-12).
+      className={`sticky top-0 z-30 ${selebarIsi ? "" : bilah} ${horizon ? "transition-[margin] duration-200 [--nav-ringkas:64px] md:[--nav-ringkas:72px] [--cincin-fokus:var(--nav-text)]" : ""}`}
       style={{
         ...isi,
         ...(selebarIsi ? {} : { backdropFilter: lewatHero ? "blur(12px)" : "var(--nav-blur)" }),
@@ -382,7 +396,7 @@ export function LandingNavModern({
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`${sectionBase}#${section.id}`}
+                href={section.href ?? `${sectionBase}#${section.id}`}
                 aria-current={aktif === section.id ? "true" : undefined}
                 // Tebal sama untuk semua tautan, bagian aktif ditandai garis
                 // bawah: tautan yang menebal menggeser tetangganya saat digulir.
@@ -423,7 +437,10 @@ export function LandingNavModern({
             // berarti "bagian yang sedang dibaca" di bilah yang sama.
             // Kode pendek, karena "ID" di samping "EN" jelas terbaca sebagai
             // bahasa; nama lengkapnya untuk pembaca layar.
-            <div role="group" aria-label={t.languageGroup} className="flex shrink-0 items-center">
+            // Horizon di ponsel: saat pil Masuk/Dashboard tampil di bilah ringkas,
+            // ID | EN disembunyikan supaya logo tidak terjepit; pilihannya tetap
+            // ada di bilah penuh di puncak halaman.
+            <div role="group" aria-label={t.languageGroup} className={`flex shrink-0 items-center ${pilPonselHorizon ? "max-sm:hidden" : ""}`}>
               {(["id", "en"] as const).map((kode, i) => {
                 const label = LANDING_LANG_LABELS[kode];
                 const aktifBahasa = kode === lang;
@@ -468,6 +485,7 @@ export function LandingNavModern({
             <>
               {peserta.lonceng ? (
                 <LoncengPengumuman
+                  besar={horizon}
                   slug={peserta.slug}
                   lang={lang}
                   items={peserta.lonceng.items}
@@ -501,6 +519,14 @@ export function LandingNavModern({
                 {t.myDashboard}
               </Link>
             </>
+          ) : null}
+          {pilPonselHorizon ? (
+            <Link
+              href={pilPonselHorizon.href}
+              className={`m3-state target-48 inline-flex h-10 items-center whitespace-nowrap rounded-full bg-[var(--hz-emas)] px-4 text-[14px] font-extrabold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)] ${pilPonselHorizon.kelas}`}
+            >
+              {pilPonselHorizon.label}
+            </Link>
           ) : null}
           {masukHorizon ? (
             // Pendaftaran terbuka: "Masuk" teks putih di samping pil Daftar, seperti
@@ -638,7 +664,7 @@ export function LandingNavModern({
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`${sectionBase}#${section.id}`}
+                href={section.href ?? `${sectionBase}#${section.id}`}
                 onClick={() => setMenuBuka(false)}
                 aria-current={aktif === section.id ? "true" : undefined}
                 className={`m3-state flex min-h-12 items-center rounded-md px-4 text-[17px] ${aktif === section.id ? "font-semibold" : "font-medium"}`}

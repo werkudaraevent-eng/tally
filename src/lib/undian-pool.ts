@@ -1,13 +1,20 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { checkpointState } from "@/lib/undian-checkpoint";
+import { loadDaftarCheckpoint, loadSetelanCheckpoint, type BarisCheckpoint, type SetelanCheckpoint } from "@/lib/checkpoint/server";
 import {
+  answerText,
+  hasMissingAnswer,
   invalidateBonusSessions,
   invalidateUnknownSessions,
   isTrulyEmpty,
   matchesConditions,
   normalizeExclusionRule,
   participantToCandidate,
+  usesAnswer,
   usesAttendance,
   type Candidate,
+  type CheckpointSummary,
+  type UndianAnswerField,
   type ParticipantPoolRow,
   type PoolBreakdown,
   type UndianConditionNode,
@@ -69,15 +76,19 @@ export type AttendanceSessionOption = { id: number; name: string };
  * yang sama dengan Client view (src/lib/live/data.ts).
  *
  * Pemindaian hanya dibaca bila `withAttendance` benar, yaitu bila ada syarat
- * check-in atau jumlah scan, atau bobotnya memakai jumlah scan. Tombol undi di panggung tidak perlu membayar bacaan yang tidak
- * dipakai.
+ * check-in, jumlah scan, atau checkpoint, atau bobotnya memakai jumlah scan.
+ * Tombol undi di panggung tidak perlu membayar bacaan yang tidak dipakai.
+ * Checkpoint ikut dihitung di sini karena buktinya sebagian besar pemindaian
+ * yang sama.
  */
 export async function loadParticipantPool(eventId: string, withAttendance: boolean): Promise<ParticipantPoolRow[] | null> {
-  const [pool, scans] = await Promise.all([
+  const [pool, scans, checkpoint, answers] = await Promise.all([
     poolRows(eventId),
     withAttendance ? attendedSessions(eventId) : Promise.resolve(new Map<string, number[]>()),
+    withAttendance ? loadCheckpointData(eventId) : Promise.resolve(undefined),
+    withAttendance ? loadAnswers(eventId) : Promise.resolve(undefined),
   ]);
-  if (!pool || !scans) return null;
+  if (!pool || !scans || checkpoint === null || answers === null) return null;
   return pool.map((row) => {
     const attended = scans.get(row.participant_id) ?? [];
     return {
@@ -85,8 +96,151 @@ export async function loadParticipantPool(eventId: string, withAttendance: boole
       checked_in: row.checked_in || attended.length > 0,
       scan_count: row.scan_count + attended.length,
       attended_sessions: attended,
+      ...(checkpoint ? checkpointState(checkpoint.setelan, checkpoint.daftar, attended, checkpoint.pickups.get(row.participant_id)) : {}),
+      ...(answers ? { answers: answerRow(answers.fields, answers.extra.get(row.participant_id)) } : {}),
     };
   });
+}
+
+/** Semua kunci pertanyaan yang masih ada, kosong sebagai "". */
+function answerRow(fields: UndianAnswerField[], extra: Record<string, unknown> | undefined): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const field of fields) result[field.key] = answerText(field.type, extra?.[field.key]);
+  return result;
+}
+
+/**
+ * Pertanyaan tambahan form registrasi acara (Registration > Edit form),
+ * termasuk kolom khusus panitia. Null bila gagal dibaca.
+ */
+async function loadFormFields(eventId: string): Promise<UndianAnswerField[] | null> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("events")
+    .select("registration_form_config")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (error) return null;
+  const fields = ((data as { registration_form_config?: { fields?: unknown } } | null)?.registration_form_config?.fields ?? []) as Record<string, unknown>[];
+  if (!Array.isArray(fields)) return [];
+  return fields
+    .filter((field) => typeof field?.key === "string" && typeof field?.label === "string")
+    .map((field) => ({
+      key: field.key as string,
+      label: (field.label as string).trim() || (field.key as string),
+      type: typeof field.type === "string" ? field.type : "text",
+      options: Array.isArray(field.options) ? (field.options as unknown[]).filter((option): option is string => typeof option === "string" && option.trim() !== "").map((option) => option.trim()) : [],
+    }));
+}
+
+/**
+ * Pertanyaan yang bisa dipakai di rule builder. Unggahan berkas tidak: isinya
+ * hanya "ada berkas", dan itu bukan dasar undian. Null bila gagal dibaca.
+ */
+export async function listAnswerFields(eventId: string): Promise<UndianAnswerField[] | null> {
+  const fields = await loadFormFields(eventId);
+  return fields ? fields.filter((field) => field.type !== "file") : null;
+}
+
+/**
+ * Pesan galat bila salah satu pohon memakai pertanyaan form yang tidak ada di
+ * form acara ini; `null` bila semuanya dikenal, `undefined` bila form gagal
+ * dibaca. Dipakai saat menyimpan: kunci yang tidak dikenal tersimpan sebagai
+ * syarat yang sejak awal tidak pernah terpenuhi.
+ */
+export async function unknownAnswerError(eventId: string, trees: UndianConditionNode[]): Promise<string | null | undefined> {
+  if (!trees.some(usesAnswer)) return null;
+  const fields = await listAnswerFields(eventId);
+  if (!fields) return undefined;
+  const keys = new Set(fields.map((field) => field.key));
+  return trees.some((tree) => hasMissingAnswer(tree, keys))
+    ? "A condition uses a form question that is not in this event's form. Delete it or choose another question."
+    : null;
+}
+
+/**
+ * Jawaban form semua peserta (participants.extra), keyset per id karena
+ * bacaan berhenti di 1.000 baris. Tanpa pertanyaan tambahan, tidak ada yang dibaca.
+ */
+async function loadAnswers(eventId: string): Promise<{ fields: UndianAnswerField[]; extra: Map<string, Record<string, unknown>> } | null> {
+  const fields = await loadFormFields(eventId);
+  if (!fields) return null;
+  const extra = new Map<string, Record<string, unknown>>();
+  if (fields.length === 0) return { fields, extra };
+  const client = getSupabaseServiceClient();
+  const PAGE = 1000;
+  let after: string | null = null;
+  for (;;) {
+    let query = client.from("participants").select("id,extra").eq("event_id", eventId).order("id").limit(PAGE);
+    if (after) query = query.gt("id", after);
+    const { data, error } = await query;
+    if (error) return null;
+    const rows = (data ?? []) as { id: string; extra: Record<string, unknown> | null }[];
+    for (const row of rows) if (row.extra && typeof row.extra === "object") extra.set(row.id, row.extra);
+    if (rows.length < PAGE) return { fields, extra };
+    after = rows[rows.length - 1].id;
+  }
+}
+
+type CheckpointData = {
+  setelan: SetelanCheckpoint;
+  daftar: BarisCheckpoint[];
+  /** Barang checkpoint yang sudah diserahkan, per peserta. */
+  pickups: Map<string, Set<number>>;
+};
+
+/**
+ * Setelan, daftar, dan penyerahan barang checkpoint. Null bila salah satunya
+ * gagal dibaca: kolam ikut gagal, bukan diam-diam menganggap semua orang 0 poin.
+ * Fitur yang mati atau tanpa checkpoint menghasilkan daftar kosong.
+ */
+async function loadCheckpointData(eventId: string): Promise<CheckpointData | null> {
+  const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
+  if (!setelan || !daftar) return null;
+  if (!setelan.enabled) return { setelan, daftar: [], pickups: new Map() };
+  const itemIds = [...new Set(daftar.map((cp) => cp.item_id).filter((id): id is number => id !== null))];
+  const pickups = itemIds.length > 0 ? await checkpointPickups(eventId, itemIds) : new Map<string, Set<number>>();
+  if (!pickups) return null;
+  return { setelan, daftar, pickups };
+}
+
+/** Penyerahan barang checkpoint, keyset per id (bacaan berhenti di 1.000 baris). */
+async function checkpointPickups(eventId: string, itemIds: number[]): Promise<Map<string, Set<number>> | null> {
+  const client = getSupabaseServiceClient();
+  const result = new Map<string, Set<number>>();
+  const PAGE = 1000;
+  let after = 0;
+  for (;;) {
+    const { data, error } = await client
+      .from("item_pickups")
+      .select("id,participant_id,item_id")
+      .eq("event_id", eventId)
+      .in("item_id", itemIds)
+      .gt("id", after)
+      .order("id")
+      .limit(PAGE);
+    if (error) return null;
+    const rows = (data ?? []) as { id: number; participant_id: string; item_id: number }[];
+    for (const row of rows) {
+      const set = result.get(row.participant_id) ?? new Set<number>();
+      set.add(Number(row.item_id));
+      result.set(row.participant_id, set);
+    }
+    if (rows.length < PAGE) return result;
+    after = Number(rows[rows.length - 1].id);
+  }
+}
+
+/** Ringkasan untuk teks bantuan rule builder. Null bila gagal dibaca. */
+export async function loadCheckpointSummary(eventId: string): Promise<CheckpointSummary | null> {
+  const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
+  if (!setelan || !daftar) return null;
+  return {
+    enabled: setelan.enabled,
+    points_enabled: setelan.points_enabled,
+    goal: setelan.goal?.points ?? null,
+    count: setelan.enabled ? daftar.length : 0,
+    total_points: setelan.points_enabled ? daftar.reduce((sum, cp) => sum + (cp.points ?? 0), 0) : 0,
+  };
 }
 
 /**
@@ -216,7 +370,10 @@ export async function activeRulesFor(eventId: string, prizeId: number | null): P
  * itu, sedangkan 'all_prizes' melihat semuanya. RPC tidak tahu hadiah mana yang
  * sedang diundi.
  */
-export async function buildPool(eventId: string, prize: UndianPrize): Promise<PoolResult | { error: "POOL_ERROR" }> {
+/** Aturan pengecualian aktif yang memakai pertanyaan form yang sudah tidak ada. */
+export type PoolRuleBroken = { error: "RULE_BROKEN"; rules: string[] };
+
+export async function buildPool(eventId: string, prize: UndianPrize): Promise<PoolResult | { error: "POOL_ERROR" } | PoolRuleBroken> {
   const client = getSupabaseServiceClient();
 
   if (prize.source === "entries") {
@@ -272,6 +429,17 @@ export async function buildPool(eventId: string, prize: UndianPrize): Promise<Po
 
   const [rawRules, sessions] = await Promise.all([activeRulesFor(eventId, prize.id), listAttendanceSessions(eventId)]);
   if (!sessions) return { error: "POOL_ERROR" };
+  // Aturan pengecualian yang pertanyaannya sudah hilang tidak mengecualikan siapa
+  // pun, dan undian akan berjalan dengan orang yang seharusnya tersingkir. Lebih
+  // baik undiannya ditolak dengan nama aturannya (kesiapan dan panel operator
+  // menyebutnya) daripada pemenang yang salah di atas panggung.
+  if (rawRules.some((rule) => usesAnswer(rule.conditions))) {
+    const fields = await listAnswerFields(eventId);
+    if (!fields) return { error: "POOL_ERROR" };
+    const keys = new Set(fields.map((field) => field.key));
+    const broken = rawRules.filter((rule) => hasMissingAnswer(rule.conditions, keys)).map((rule) => rule.name);
+    if (broken.length > 0) return { error: "RULE_BROKEN", rules: broken };
+  }
   const known = new Set(sessions.map((session) => session.id));
   const rules = rawRules.map((rule) => ({ ...rule, conditions: invalidateUnknownSessions(rule.conditions, known) }));
   const conditions = invalidateUnknownSessions(prize.conditions, known);

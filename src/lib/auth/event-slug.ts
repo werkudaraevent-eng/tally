@@ -34,6 +34,27 @@
 /** Header slug yang dipasang src/proxy.ts untuk permintaan di domain klien. */
 export const HOST_SLUG_HEADER = "x-tally-host-slug";
 
+/**
+ * Area peserta dirender di `/peserta/e/<slug>[/<bahasa>]`, bukan
+ * `/peserta?eventSlug=<slug>&bahasa=<bahasa>`. Tabnya hanya berbeda query
+ * (`?tab=perjalanan`), dan tab yang diketuk sebelum prefetch-nya selesai
+ * dirutekan Next 16 dengan menebak dari entri halaman yang sudah ada
+ * (segment-cache/cache.js: optimisticRenderedSearch memakai query entri itu
+ * bila tidak kosong). Dengan `?eventSlug=` query Beranda tidak pernah kosong,
+ * jadi tebakannya memakai query Beranda dan Beranda tetap tampil. Slug dan
+ * bahasa di path juga membuat setiap acara dan bahasa punya kunci cache
+ * sendiri. Mengubah `tujuan`; tujuan lain tidak disentuh.
+ */
+export function pesertaKePath(tujuan: URL) {
+  const slug = tujuan.searchParams.get("eventSlug");
+  if (tujuan.pathname !== "/peserta" || !slug) return;
+  const bahasa = tujuan.searchParams.get("bahasa");
+  const lang = bahasa === "en" || bahasa === "id" ? bahasa : null;
+  tujuan.pathname = `/peserta/e/${encodeURIComponent(slug)}${lang ? `/${lang}` : ""}`;
+  tujuan.searchParams.delete("eventSlug");
+  if (lang) tujuan.searchParams.delete("bahasa");
+}
+
 export function eventSlugFromRequest(request: Request) {
   // 0. Host domain klien: proxy memasang header ini dari peta domain dan
   //    MEMBUANG salinan yang dikirim browser, jadi nilainya tepercaya. Ia

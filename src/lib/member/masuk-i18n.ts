@@ -50,9 +50,9 @@ export type MasukUiText = {
 
 export const MASUK_UI: Record<LandingLang, MasukUiText> = {
   id: {
-    judul: { masuk: "Masuk area peserta", tautan: "Kirim tautan ke email", sandi: "Buat kata sandi", kode: "Masuk area peserta", verifikasi: "Cek email Anda", kolom: "Masuk area peserta" },
+    judul: { masuk: "Masuk ke Dashboard saya", tautan: "Kirim tautan ke email", sandi: "Buat kata sandi", kode: "Masuk ke Dashboard saya", verifikasi: "Cek email", kolom: "Masuk ke Dashboard saya" },
     tutup: "Tutup",
-    untukPertamaKali: "Untuk membuat kata sandi pertama kali, atau bila Anda lupa kata sandi.",
+    untukPertamaKali: "Untuk membuat kata sandi pertama kali, atau bila lupa kata sandi.",
     untuk: (email) => `Untuk ${email}.`,
     emailLabel: "Email pendaftaran",
     emailPlaceholder: "nama@perusahaan.com",
@@ -70,9 +70,9 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     // Netral untuk ketiga kemungkinan: tautan kata sandi, kabar "akses belum
     // dibuka" (peserta impor yang belum boleh masuk), atau tidak ada apa-apa.
     tautanTerkirim: (email) => `Bila ${email} terdaftar di acara ini, kami sudah mengirim email berisi langkah berikutnya. Periksa juga folder spam.`,
-    koneksi: "Koneksi terputus. Periksa jaringan Anda, lalu coba lagi.",
+    koneksi: "Koneksi terputus. Periksa jaringan, lalu coba lagi.",
     gagalUmum: "Belum berhasil. Coba lagi.",
-    alis: "Area peserta",
+    alis: "Peserta",
     bantuan: "Butuh bantuan?",
     hubungiPanitia: "Hubungi panitia",
     kodeCatatan: "Kami kirim kode 6 digit ke email ini. Tidak perlu kata sandi.",
@@ -81,10 +81,10 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     kirimUlang: "Kirim ulang kode",
     gantiEmail: "Ganti email",
     kodeBaru: "Bila email ini terdaftar, kode baru sedang dikirim. Pakai kode dari email terbaru.",
-    kolomCatatan: "Isi sesuai data yang Anda berikan ke panitia.",
+    kolomCatatan: "Isi sesuai data yang diberikan ke panitia.",
   },
   en: {
-    judul: { masuk: "Participant sign-in", tautan: "Email me a link", sandi: "Create a password", kode: "Participant sign-in", verifikasi: "Check your email", kolom: "Participant sign-in" },
+    judul: { masuk: "Sign in to My dashboard", tautan: "Email me a link", sandi: "Create a password", kode: "Sign in to My dashboard", verifikasi: "Check your email", kolom: "Sign in to My dashboard" },
     tutup: "Close",
     untukPertamaKali: "To create your password for the first time, or if you have forgotten it.",
     untuk: (email) => `For ${email}.`,
@@ -104,7 +104,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     tautanTerkirim: (email) => `If ${email} is registered for this event, we have sent an email with the next step. Check your spam folder too.`,
     koneksi: "Connection lost. Check your network, then try again.",
     gagalUmum: "That did not work. Please try again.",
-    alis: "Participant area",
+    alis: "Participants",
     bantuan: "Need help?",
     hubungiPanitia: "Contact the organisers",
     kodeCatatan: "We'll email you a 6-digit code. No password needed.",
@@ -122,7 +122,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
         case "METHOD_OFF":
           return "The sign-in method for this event has changed. Reload the page.";
         case "NOT_ELIGIBLE":
-          return "This account cannot sign in yet. The participant area is only for people registered for this event. Contact the organisers.";
+          return "This account cannot sign in yet. My dashboard is only for people registered for this event. Contact the organisers.";
         case "EMAIL_IN_USE":
           return 'This email already has an account for this event. Sign in with its password, or choose "Forgot password?".';
         case "EMAIL_NOT_CONFIGURED":
@@ -130,7 +130,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
         case "EMAIL_FAILED":
           return "The email was not sent. Please try again shortly.";
         case "MEMBER_DISABLED":
-          return "The participant area is not open for this event.";
+          return "My dashboard is not open for this event.";
         case "NOT_FOUND":
           return "Event not found.";
         case "VALIDATION_ERROR":

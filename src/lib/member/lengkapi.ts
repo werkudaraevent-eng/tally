@@ -13,7 +13,7 @@ import { hashToken } from "./account";
  *     boleh dibuka berkali-kali sampai kedaluwarsa, supaya salah ketik bisa
  *     dibetulkan dari email yang sama. Kiriman yang lebih baru mencabut tautan
  *     lama orang itu (cabutTautanLama di mesin.ts).
- *   - sesi area peserta, dari kartu "Lengkapi data Anda" di dashboard.
+ *   - sesi area peserta, dari kartu "Lengkapi data" di dashboard.
  */
 
 /** Masa berlaku tautan Lengkapi data, dihitung dari saat kiriman berangkat. */
@@ -100,7 +100,7 @@ export async function saveAnswers(
 
 /**
  * Pertanyaan yang masih kosong untuk peserta yang sedang masuk, untuk kartu
- * "Lengkapi data Anda" di dashboard. Kosong (kartu tidak tampil) bila acara
+ * "Lengkapi data" di dashboard. Kosong (kartu tidak tampil) bila acara
  * tidak punya pertanyaan participant_update, akun belum punya baris peserta,
  * atau semuanya sudah terisi. Acara tanpa pertanyaan itu tidak membaca apa pun.
  */

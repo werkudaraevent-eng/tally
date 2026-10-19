@@ -223,7 +223,7 @@ export default function EmailOtomatisPage() {
         values: { nama, perusahaan: contoh?.company ?? "", acara: dasar.eventName, tanggal: dasar.detail.tanggal ?? "" },
         qr: state === "approved" ? { code: KODE_CONTOH, src: qrContoh } : null,
         codeUrl: state === "approved" ? dasar.halamanUrl : null,
-        // Contoh tautan: kotak Akun Area peserta hanya ikut untuk pendaftar yang membuat akun saat mendaftar.
+        // Contoh tautan: kotak Akun Dashboard saya hanya ikut untuk pendaftar yang membuat akun saat mendaftar.
         akunUrl: data.member_on ? dasar.halamanUrl : null,
       });
     } catch {

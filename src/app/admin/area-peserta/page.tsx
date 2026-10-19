@@ -42,6 +42,8 @@ type Muat = {
   checkpoints_on?: boolean;
   /** Gathering Horizon: Participant home tanpa "Today's agenda". */
   horizon?: boolean;
+  /** Halaman English ada: Emergency and help menampilkan isian English. */
+  english?: boolean;
   /** Kolom yang boleh dipakai cara masuk Participant fields. */
   sign_in_options?: PilihanKolomMasuk[];
   /** Pengiriman email aktif (Email code membutuhkannya). */
@@ -286,13 +288,17 @@ export default function AreaPesertaPage() {
                       onSalin={(help) => set({ help })}
                       onFokus={() => setSorot((current) => (current?.id === "darurat" ? current : { id: "darurat", n: (current?.n ?? 0) + 1 }))}
                       tanpaNama={tanpaNama}
+                      english={data.english === true}
                     />
                   </SettingRow>
                 ) : null}
                 <SettingRow stacked={berpratinjau} title="Shown in the Participant area">
                   <div className="flex flex-col gap-4">
                     <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="QR code and participant code" description="For check-in at the entrance." />
-                    <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Seat" description="From the Seating plan." />
+                    {/* Gathering (Horizon juga) tidak menampilkan kursi, voting, dan tautan umpan balik (U-14): sakelarnya disembunyikan. */}
+                    {data.layout !== "gathering" ? (
+                      <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Seat" description="From the Seating plan." />
+                    ) : null}
                     <Switch checked={anggota.show_schedule !== false} onChange={(value) => set({ show_schedule: value })} label="Agenda" description="From the Agenda page." />
                     <Switch
                       checked={anggota.show_logistics === true}
@@ -300,16 +306,20 @@ export default function AreaPesertaPage() {
                       label="Room and bus"
                       description="From Logistics: room, roommate, bus, train tickets and kit items. Turn this on once allocations are final."
                     />
-                    <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Live voting" description="The participant code is filled in automatically on the voting page." />
-                    <TextField
-                      label="Feedback form link"
-                      optional
-                      type="url"
-                      placeholder="https://"
-                      hint="Leave empty if there is none. Opens in a new tab."
-                      value={anggota.feedback_url ?? ""}
-                      onChange={(event) => set({ feedback_url: event.target.value })}
-                    />
+                    {data.layout !== "gathering" ? (
+                      <>
+                        <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Live voting" description="The participant code is filled in automatically on the voting page." />
+                        <TextField
+                          label="Feedback form link"
+                          optional
+                          type="url"
+                          placeholder="https://"
+                          hint="Leave empty if there is none. Opens in a new tab."
+                          value={anggota.feedback_url ?? ""}
+                          onChange={(event) => set({ feedback_url: event.target.value })}
+                        />
+                      </>
+                    ) : null}
                   </div>
                 </SettingRow>
                 <SettingRow stacked={berpratinjau} title="How participants sign in" description="One way for every participant of this event.">

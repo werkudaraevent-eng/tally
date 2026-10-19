@@ -22,7 +22,7 @@ export async function requireMemberEvent(
   }
   const member = memberConfig(event);
   if (!member) {
-    return { event: null, member: null, response: memberError("MEMBER_DISABLED", 404, "Area peserta tidak dibuka untuk acara ini.") };
+    return { event: null, member: null, response: memberError("MEMBER_DISABLED", 404, "Dashboard saya belum dibuka untuk acara ini.") };
   }
   return { event, member, response: null };
 }
@@ -42,7 +42,7 @@ export function outcomeResponse(outcome: MemberOutcome, invalidMessage: string) 
       return memberError(
         "NOT_ELIGIBLE",
         403,
-        "Akun ini belum bisa masuk. Area peserta hanya untuk peserta yang terdaftar di acara ini. Hubungi panitia.",
+        "Akun ini belum bisa masuk. Dashboard saya hanya untuk peserta yang terdaftar di acara ini. Hubungi panitia.",
       );
     case "conflict":
       return memberError(

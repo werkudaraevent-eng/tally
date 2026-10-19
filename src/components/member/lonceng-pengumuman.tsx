@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowSquareOut, Bell, PushPin, X } from "@phosphor-icons/react";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
+import { CINCIN_PUTIH } from "@/components/landing/modern/cincin-horizon";
 
 /**
  * Lonceng pengumuman di bilah atas halaman acara, untuk peserta yang sudah masuk.
  *
- * Tombol ikon 44px dengan lencana jumlah belum dibaca (M3 Badge, warna error)
+ * Tombol ikon 44px (48px di Horizon) dengan lencana jumlah belum dibaca (M3 Badge, warna error)
  * yang membuka panel di bawahnya. Panelnya non-modal: halaman di belakang tetap
  * bisa digulir, Esc atau ketukan di luar menutupnya, dan fokus kembali ke
  * lonceng saat ditutup dengan Esc.
@@ -42,6 +43,7 @@ export function LoncengPengumuman({
   dashboardHref,
   buka,
   onBukaChange,
+  besar = false,
 }: {
   slug: string;
   lang: LandingLang;
@@ -52,6 +54,8 @@ export function LoncengPengumuman({
   /** Dikendalikan bilah atas, supaya panel ini dan menu tidak terbuka bersamaan. */
   buka: boolean;
   onBukaChange: (buka: boolean) => void;
+  /** Horizon: 48px dengan ikon 24px, sama dengan tombol Menu di sebelahnya. */
+  besar?: boolean;
 }) {
   const t = LANDING_UI[lang];
   const setBuka = onBukaChange;
@@ -125,11 +129,11 @@ export function LoncengPengumuman({
         aria-controls={panelId}
         aria-label={t.announcementsButton(belum)}
         onClick={() => setBuka(!buka)}
-        className={`m3-state relative inline-flex size-11 items-center justify-center rounded-md ${
+        className={`m3-state relative inline-flex ${besar ? "size-12" : "size-11"} items-center justify-center rounded-md ${
           buka ? "bg-[color-mix(in_srgb,var(--nav-text)_10%,transparent)]" : ""
         }`}
       >
-        <Bell size={22} aria-hidden />
+        <Bell size={besar ? 24 : 22} aria-hidden />
         {belum > 0 ? (
           // Lencana besar M3: tinggi 16dp, minimal selebar tingginya, di pojok
           // kanan atas ikon. Cincin selaras latar bilah supaya tidak menyatu
@@ -157,7 +161,7 @@ export function LoncengPengumuman({
           role="dialog"
           aria-labelledby={judulId}
           tabIndex={-1}
-          className="fixed inset-x-0 top-[var(--nav-h)] z-40 flex max-h-[calc(100dvh-var(--nav-h)-16px)] flex-col overflow-hidden rounded-b-lg bg-white text-[#181d27] shadow-[0_12px_32px_rgb(0_0_0/0.18),0_2px_6px_rgb(0_0_0/0.08)] outline-none sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[400px] sm:max-h-[min(560px,calc(100dvh-var(--nav-h)-24px))] sm:rounded-lg"
+          className={`fixed inset-x-0 top-[var(--nav-h)] z-40 flex max-h-[calc(100dvh-var(--nav-h)-16px)] flex-col overflow-hidden rounded-b-lg bg-white text-[#181d27] ${CINCIN_PUTIH} shadow-[0_12px_32px_rgb(0_0_0/0.18),0_2px_6px_rgb(0_0_0/0.08)] outline-none sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[400px] sm:max-h-[min(560px,calc(100dvh-var(--nav-h)-24px))] sm:rounded-lg`}
           style={{ "--m3-state-color": "#181d27" } as React.CSSProperties}
         >
           <div className="flex items-center justify-between gap-3 py-2 pl-5 pr-2 sm:pr-5 sm:pt-4 sm:pb-3">
@@ -170,7 +174,7 @@ export function LoncengPengumuman({
                 setBuka(false);
                 tombolRef.current?.focus();
               }}
-              aria-label={t.closeMenu}
+              aria-label={t.closeAnnouncements}
               className="m3-state inline-flex size-11 items-center justify-center rounded-md sm:hidden"
             >
               <X size={20} aria-hidden />

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowsOut, Bell, CalendarDots, CalendarPlus, CaretRight, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Megaphone, Phone, QrCode, SignOut, Suitcase, Train, User, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
+import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import { FormKeluar } from "@/components/member/form-keluar";
 import { IkonTabBawah, PenandaTab } from "@/components/member/muat-portal";
 import { PemicuQr } from "@/components/member/qr-fokus";
@@ -32,7 +33,7 @@ const PIL_EMAS =
 
 export type TabHorizon = { id: Exclude<PortalTab, "qr">; label: string; labelPendek: string; href: string };
 
-// Profil di ponsel menjadi "Menu": halaman yang juga memuat Perjalanan, kontak, dan Keluar.
+// Profil di ponsel menjadi "Menu": halaman yang juga memuat Outfit, kontak, dan Keluar.
 const IKON_TAB = { beranda: Compass, jadwal: CalendarDots, perjalanan: Suitcase, outfit: CoatHanger, info: Bell, profil: List } as const;
 
 /**
@@ -86,7 +87,7 @@ export function KepalaHorizon({
 }) {
   const profil = tabs.find((tab) => tab.id === "profil");
   return (
-    <header className="sticky top-0 z-30 bg-[var(--hz-navy)] text-white">
+    <header className={`sticky top-0 z-30 bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
       <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-6 py-2 md:px-16 lg:py-5 lg:short:py-2">
         <a href={homeHref} className="flex min-h-12 min-w-0 items-center">
           {logo ? (
@@ -124,7 +125,7 @@ export function KepalaHorizon({
             href={profil.href}
             aria-label={profilLabel}
             aria-current={aktif === "profil" ? "page" : undefined}
-            className="m3-state -mr-3 inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-[var(--hz-emas)] aria-[current]:bg-white/10"
+            className="m3-state -mr-3 inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-[var(--hz-emas)] aria-[current]:bg-white/10 aria-[current]:ring-2 aria-[current]:ring-inset aria-[current]:ring-[var(--hz-emas)]"
           >
             {inisial}
             {aktif !== "profil" ? <PenandaTab tab="profil" /> : null}
@@ -296,7 +297,7 @@ export function PassHorizon({
   const kelasSobekan =
     "m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 focus-visible:outline-offset-[-4px] md:px-[30px] xl:w-[210px] xl:shrink-0 xl:flex-col xl:justify-center xl:gap-3 xl:border-l xl:border-t-0 xl:px-6 xl:py-[30px]";
   return (
-    <section aria-label={label} className="overflow-hidden rounded-[20px] bg-[var(--hz-navy)] text-white md:rounded-[24px]">
+    <section aria-label={label} className={`overflow-hidden rounded-[20px] bg-[var(--hz-navy)] text-white md:rounded-[24px] ${CINCIN_NAVY}`}>
       {kv ? (
         // Hiasan: KV acara, dipotong tengah seperti rancangan (cover). Laptop berlayar pendek: 145 px (U-11).
         // eslint-disable-next-line @next/next/no-img-element
@@ -439,7 +440,8 @@ export function BabHorizon({ bab }: { bab: { label: string; judul: string; href:
  */
 export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul: string; href: string; aktif: boolean }[]; aria: string }) {
   return (
-    <nav aria-label={aria} className="sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
+    // pudar-bawah-gulir: tepi bawah memudar selama masih ada hari di bawah (U-06).
+    <nav aria-label={aria} className="pudar-bawah-gulir sticky top-[118px] -my-1 -ml-6 -mr-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
       <GulirHariAktif />
       <ol className="flex flex-col gap-1">
         {hari.map((item) => (
@@ -448,7 +450,7 @@ export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul
             <Link
               href={item.href}
               aria-current={item.aktif ? "page" : undefined}
-              className={`m3-state flex min-h-12 flex-col gap-1.5 rounded-[16px] px-5 py-4 ${item.aktif ? "bg-white shadow-[0_1px_2px_rgb(16_24_40/0.06)]" : ""}`}
+              className={`m3-state flex min-h-12 flex-col gap-1.5 rounded-[16px] px-5 py-4 ${item.aktif ? "bg-white shadow-[0_1px_2px_rgb(16_24_40/0.06)] ring-1 ring-inset ring-[#6F7C94]" : ""}`}
             >
               <span className="text-[11px] font-bold uppercase tracking-[0.6px]" style={{ color: item.aktif ? BIRU : LABEL }}>
                 {item.label}
@@ -467,7 +469,7 @@ export function HariJadwalHorizon({ hari, aria }: { hari: { label: string; judul
 /** Kepala tab selain Beranda: pita navy pendek di bawah bilah, teks putih. */
 export function PitaKepalaHorizon({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-[var(--hz-navy)] text-white">
+    <div className={`bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
       <div className="mx-auto w-full max-w-[1440px] px-6 pb-10 pt-4 md:px-16 md:pb-14 md:pt-8">{children}</div>
     </div>
   );
@@ -637,7 +639,7 @@ export function KartuPengumumanHorizon({
 }
 
 /** Nomor telepon panitia untuk tombol Telepon dan WhatsApp. */
-/** Tombol pil bergaris 48 px untuk kontak (panitia, kru bus, darurat). */
+/** Tombol pil bergaris 48 px: kontak (panitia, kru bus, darurat) dan kalender kereta. */
 const PIL_KONTAK = "m3-state inline-flex min-h-12 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold";
 const GAYA_PIL_KONTAK = { color: BIRU, borderColor: "#C9D1DE" };
 
@@ -914,7 +916,8 @@ export type LegKereta = {
  */
 export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string }; leg: LegKereta[] }) {
   return (
-    <section aria-label={judul} className="flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7" style={{ color: TINTA }}>
+    // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
+    <section id="kereta" aria-label={judul} className="flex scroll-mt-24 flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32" style={{ color: TINTA }}>
       <div className="flex items-center gap-2">
         <Train size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
         <h2 className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: LABEL }}>
@@ -964,7 +967,7 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
               </p>
             ) : null}
             {item.kalender ? (
-              <a href={item.kalender.href} className="m3-state inline-flex min-h-12 items-center gap-2 self-start rounded-full border px-4 text-[14px] font-semibold" style={{ color: BIRU, borderColor: "#C9D1DE" }}>
+              <a href={item.kalender.href} className={`${PIL_KONTAK} self-start`} style={GAYA_PIL_KONTAK}>
                 <CalendarPlus size={18} weight="bold" aria-hidden />
                 {item.kalender.label}
               </a>
@@ -1334,7 +1337,7 @@ export function ProfilHorizon({
       {sisipan}
       <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-8">
         <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-          <section aria-label={kartu.qr?.label ?? kartu.nama} className="overflow-hidden rounded-[20px] bg-[var(--hz-navy)] text-white md:rounded-[24px]">
+          <section aria-label={kartu.qr?.label ?? kartu.nama} className={`overflow-hidden rounded-[20px] bg-[var(--hz-navy)] text-white md:rounded-[24px] ${CINCIN_NAVY}`}>
             <div className="flex items-center gap-4 p-5 md:gap-5 md:p-[30px]">
               <span aria-hidden className="flex size-[52px] shrink-0 items-center justify-center rounded-full bg-[var(--hz-emas)] text-[19px] font-extrabold text-[var(--hz-on-emas)] md:size-[72px] md:text-[26px]">
                 {kartu.inisial}
@@ -1372,7 +1375,7 @@ export function ProfilHorizon({
               </PemicuQr>
             ) : null}
           </section>
-          {/* Layar lebar: Perjalanan dan Outfit sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
+          {/* Layar lebar: Outfit sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
           {menu.baris.length > 0 ? (
             <section aria-label={menu.judul} className="rounded-[20px] bg-white p-3 lg:hidden" style={{ color: TINTA }}>
               <DaftarProfil baris={menu.baris} rapat />

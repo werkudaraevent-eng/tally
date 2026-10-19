@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CINCIN_PUTIH } from "@/components/landing/modern/cincin-horizon";
 
 /**
  * Layar QR kehadiran Horizon (frame eY05h): navy, kartu putih 340 px,
@@ -28,6 +29,7 @@ export function QrHorizon({
   petunjukCatatan,
   status,
   kecerahan,
+  aksi,
 }: {
   judul: string;
   judulId?: string;
@@ -48,6 +50,14 @@ export function QrHorizon({
   /** Baris status di bawah petunjuk: tersimpan di ponsel, layar menyala. */
   status?: ReactNode;
   kecerahan: string;
+  /**
+   * Tombol "Pindai QR checkpoint" bila acara punya checkpoint scan mandiri:
+   * menempel di bawah layar, di jangkauan jempol (pola layar QRIS e-wallet:
+   * tunjukkan kode, atau pindai). Hanya bila layarnya cukup tinggi untuk seluruh
+   * kartu QR; di layar pendek (laptop 1280×588, ponsel kecil) ia ikut mengalir di
+   * bawah petunjuk, supaya kode dan Simpan QR tidak tertutup.
+   */
+  aksi?: ReactNode;
 }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-6 pb-10">
@@ -65,7 +75,7 @@ export function QrHorizon({
         {tutup}
       </div>
       {luring}
-      <div className="mx-auto mt-6 flex w-full max-w-[340px] flex-col items-center gap-4 rounded-[24px] bg-white p-[30px]" style={{ color: TINTA }}>
+      <div className={`mx-auto mt-6 flex w-full max-w-[340px] flex-col items-center gap-4 rounded-[24px] bg-white p-[30px] ${CINCIN_PUTIH}`} style={{ color: TINTA }}>
         <div className="flex w-full flex-col items-center gap-2">
           <p className="text-center text-[20px] font-extrabold [overflow-wrap:anywhere]">{nama}</p>
           {sub ? (
@@ -85,6 +95,7 @@ export function QrHorizon({
           {kecerahan}
         </p>
       </div>
+      {aksi ? <div className="-mx-6 -mb-10 mt-auto bg-[linear-gradient(to_bottom,transparent,var(--hz-navy)_24px)] px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-8 [@media(min-height:770px)]:sticky [@media(min-height:770px)]:bottom-0">{aksi}</div> : null}
     </div>
   );
 }

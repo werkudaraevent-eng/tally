@@ -47,7 +47,7 @@ type TimelineEvent = { at: string; kind: "draw" | "confirm" | "reject"; prize_na
 type Recap = { prize_name: string; draws: number; total: number; confirmed: number; pending: number; rejected: number; backups: number };
 type View = "winners" | "timeline" | "recap";
 
-const KIND_LABEL = { draw: "Diundi", confirm: "Hadir", reject: "Dibatalkan" } as const;
+const KIND_LABEL = { draw: "Drawn", confirm: "Present", reject: "Cancelled" } as const;
 const KIND_TONE = { draw: "primary", confirm: "success", reject: "error" } as const;
 
 
@@ -59,13 +59,13 @@ const KIND_TONE = { draw: "primary", confirm: "success", reject: "error" } as co
  * dipakai kebetulan masih berzona lain.
  */
 const clock = (iso: string) =>
-  new Date(iso).toLocaleString("id-ID", {
+  new Date(iso).toLocaleString("en-GB", {
     timeZone: "Asia/Jakarta", day: "2-digit", month: "short",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
 
 const clockShort = (iso: string) =>
-  new Date(iso).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
 /** `"all"` = seluruh riwayat, termasuk pemenang yang diundi sebelum fitur sesi ada. `null` = belum ada yang dibuka. */
 type Pilihan = number | "all" | null;
@@ -100,7 +100,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
   async function loadSessions() {
     const response = await fetch("/api/admin/undian/sessions", { cache: "no-store" }).catch(() => null);
     setSessionsLoaded(true);
-    if (!response?.ok) { setSessionsFailed(true); setError("Riwayat sesi gagal dimuat."); return; }
+    if (!response?.ok) { setSessionsFailed(true); setError("Could not load session history."); return; }
     setSessionsFailed(false);
     const data = await response.json();
     setSessions((data.sessions as Record<string, unknown>[]).map(normalizeSessionSummary));
@@ -137,13 +137,13 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     const data = response ? await response.json().catch(() => ({})) : {};
     setAdopting(false);
     if (!response?.ok) {
-      const failure = data?.error?.details?.form?.[0] ?? data?.error?.message ?? "Hasil lama gagal diarsipkan.";
-      setError(failure); toast.error("Gagal mengarsipkan", failure); return;
+      const failure = data?.error?.details?.form?.[0] ?? data?.error?.message ?? "Could not archive previous results.";
+      setError(failure); toast.error("Could not archive results", failure); return;
     }
     await loadSessions();
     await reloadOpenResults();
     onChanged();
-    toast.success("Hasil lama diarsipkan", `${data.adopted_winners} pemenang kembali bisa ikut undian.`);
+    toast.success("Previous results archived", `${data.adopted_winners} ${data.adopted_winners === 1 ? "winner can" : "winners can"} enter the draw again.`);
   }
 
   // setState langsung di badan effect ditolak React Compiler, jadi pemuatan awal
@@ -154,7 +154,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
   }, []);
 
   async function startSession() {
-    if (!newName.trim()) { setError("Nama sesi wajib diisi."); return; }
+    if (!newName.trim()) { setError("Enter a session name."); return; }
     setStarting(true); setError("");
     const response = await fetch("/api/admin/undian/sessions", {
       method: "POST",
@@ -164,13 +164,13 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     const data = await response.json().catch(() => ({}));
     setStarting(false);
     if (!response.ok) {
-      const failure = data?.error?.details?.message ?? data?.error?.message ?? "Sesi gagal dimulai.";
-      setError(failure); toast.error("Sesi gagal dimulai", failure); return;
+      const failure = data?.error?.details?.message ?? data?.error?.message ?? "Could not start session.";
+      setError(failure); toast.error("Could not start session", failure); return;
     }
     setNewName(""); setStartOpen(false);
     await loadSessions();
     onChanged();
-    toast.success("Sesi dimulai", "Semua undian setelah ini masuk ke sesi tersebut.");
+    toast.success("Session started", "All subsequent draws will belong to this session.");
   }
 
   async function closeSession() {
@@ -184,14 +184,14 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     const data = await response.json().catch(() => ({}));
     setBusy(false);
     if (!response.ok) {
-      const failure = data?.error?.message ?? "Sesi gagal ditutup.";
-      setError(failure); toast.error("Sesi gagal ditutup", failure); return;
+      const failure = data?.error?.message ?? "Could not close session.";
+      setError(failure); toast.error("Could not close session", failure); return;
     }
     setCloseTarget(null);
     await loadSessions();
     await reloadOpenResults();
     onChanged();
-    toast.success("Sesi ditutup", "Hasil tetap tersimpan. Peserta kembali bisa ikut undian berikutnya.");
+    toast.success("Session closed", "Results are kept. Participants can enter the next draw again.");
   }
 
   async function deleteSession() {
@@ -205,8 +205,8 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     const data = await response.json().catch(() => ({}));
     setBusy(false);
     if (!response.ok) {
-      const failure = data?.error?.message ?? "Sesi gagal dihapus.";
-      setError(failure); toast.error("Sesi gagal dihapus", failure); return;
+      const failure = data?.error?.message ?? "Could not delete session.";
+      setError(failure); toast.error("Could not delete session", failure); return;
     }
     const removedId = deleteTarget.id;
     setDeleteTarget(null); setDeletePhrase("");
@@ -215,7 +215,7 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     await loadSessions();
     await reloadOpenResults(next);
     onChanged();
-    toast.success("Hasil dihapus permanen", `${data.deleted_winners} baris pemenang terhapus.`);
+    toast.success("Results permanently deleted", `${data.deleted_winners} winner ${data.deleted_winners === 1 ? "record" : "records"} deleted.`);
   }
 
   function pick(pilihan: Exclude<Pilihan, null>) {
@@ -231,11 +231,11 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
     : `/api/admin/undian/export?session=${selected}`;
 
   const list = (
-    <Pane aria-label="Sesi undian">
+    <Pane aria-label="Draw sessions">
       <PaneHeader>
-        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Sesi</h2>
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold">Sessions</h2>
         {!active && sessionsLoaded && !sessionsFailed ? (
-          <Button variant="outlined" size="sm" icon={<Play size={16} />} onClick={() => { setStartOpen(true); setError(""); }}>Mulai sesi</Button>
+          <Button variant="outlined" size="sm" icon={<Play size={16} />} onClick={() => { setStartOpen(true); setError(""); }}>Start session</Button>
         ) : null}
       </PaneHeader>
       <PaneBody>
@@ -243,52 +243,52 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
           <EmptyState
             plain
             icon={<Warning size={40} />}
-            title="Riwayat sesi gagal dimuat"
-            description="Periksa koneksi, lalu coba lagi."
-            action={<Button variant="outlined" size="sm" onClick={() => void loadSessions()}>Coba lagi</Button>}
+            title="Could not load session history"
+            description="Check your connection, then try again."
+            action={<Button variant="outlined" size="sm" onClick={() => void loadSessions()}>Try again</Button>}
           />
         ) : (
           <>
             {active ? (
               <div className="flex flex-wrap items-center gap-3 border-b border-outline-variant px-4 py-3">
                 <div className="min-w-0 flex-1 text-body-medium">
-                  <p className="flex items-center gap-2 font-medium"><span aria-hidden className="size-2 shrink-0 rounded-full bg-success" />Sesi berjalan: {active.name}</p>
+                  <p className="flex items-center gap-2 font-medium"><span aria-hidden className="size-2 shrink-0 rounded-full bg-success" />Active session: {active.name}</p>
                   <p className="tabular-nums text-on-surface-variant">
-                    Mulai {clockShort(active.started_at)} · {active.winner_total} pemenang · {active.draw_count} kali undi
+                    Started {clockShort(active.started_at)} · {active.winner_total} {active.winner_total === 1 ? "winner" : "winners"} · {active.draw_count} {active.draw_count === 1 ? "draw" : "draws"}
                   </p>
                 </div>
-                <Button variant="outlined" size="sm" icon={<CheckCircle size={16} />} onClick={() => setCloseTarget(active)}>Tutup sesi</Button>
+                <Button variant="outlined" size="sm" icon={<CheckCircle size={16} />} onClick={() => setCloseTarget(active)}>Close session</Button>
               </div>
             ) : (
               <p className="border-b border-outline-variant px-4 py-3 text-body-medium text-on-surface-variant">
-                Belum ada sesi berjalan. Undian tetap bisa jalan, hasilnya saja yang tidak terkelompok.
+                No active session. Draws can still run, but results will be ungrouped.
               </p>
             )}
 
             <ListRow selected={selected === "all"} onSelect={() => pick("all")}>
               <ClockCounterClockwise size={16} aria-hidden className="shrink-0 text-on-surface-variant" />
-              <span className="min-w-0 flex-1 font-medium">Semua sesi</span>
-              <span className="text-on-surface-variant">Termasuk hasil tanpa sesi</span>
+              <span className="min-w-0 flex-1 font-medium">All sessions</span>
+              <span className="text-on-surface-variant">Includes results without a session</span>
             </ListRow>
             {sessions.map((session) => (
               <ListRow key={session.id} selected={selected === session.id} onSelect={() => pick(session.id)}>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{session.name}</span>
-                    {session.status === "active" ? <StatusChip dot tone="success">Berjalan</StatusChip> : <StatusChip>Ditutup</StatusChip>}
+                    {session.status === "active" ? <StatusChip dot tone="success">Active</StatusChip> : <StatusChip>Closed</StatusChip>}
                   </span>
                   <span className="block tabular-nums text-on-surface-variant">
                     {clockShort(session.started_at)}{session.closed_at ? ` – ${clockShort(session.closed_at)}` : ""}
                   </span>
                 </span>
                 <span className="shrink-0 text-right tabular-nums text-on-surface-variant">
-                  <span className="block text-on-surface">{session.winner_total} pemenang</span>
-                  {session.winner_confirmed} sah{session.winner_pending > 0 ? `, ${session.winner_pending} belum` : ""}
+                  <span className="block text-on-surface">{session.winner_total} {session.winner_total === 1 ? "winner" : "winners"}</span>
+                  {session.winner_confirmed} confirmed{session.winner_pending > 0 ? `, ${session.winner_pending} pending` : ""}
                 </span>
               </ListRow>
             ))}
             {sessions.length === 0 ? (
-              <p className="px-4 py-4 text-body-medium text-on-surface-variant">Belum ada sesi. Hasil undian tetap tercatat di Semua sesi.</p>
+              <p className="px-4 py-4 text-body-medium text-on-surface-variant">No sessions yet. Draw results are still recorded under All sessions.</p>
             ) : null}
           </>
         )}
@@ -297,42 +297,42 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
   );
 
   const detail = selected !== null ? (
-    <Pane as="aside" aria-label={terpilih ? `Hasil ${terpilih.name}` : "Hasil semua sesi"}>
+    <Pane as="aside" aria-label={terpilih ? `Results for ${terpilih.name}` : "Results for all sessions"}>
       <div className="flex shrink-0 flex-col gap-3 border-b border-outline-variant px-5 py-4">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-title-medium font-semibold">{terpilih ? terpilih.name : "Semua sesi"}</h2>
+            <h2 className="truncate text-title-medium font-semibold">{terpilih ? terpilih.name : "All sessions"}</h2>
             <p className="text-body-medium tabular-nums text-on-surface-variant">
               {terpilih
-                ? `${clockShort(terpilih.started_at)}${terpilih.closed_at ? ` – ${clockShort(terpilih.closed_at)}` : ", masih berjalan"}`
-                : "Seluruh riwayat, termasuk pemenang sebelum fitur sesi ada."}
+                ? `${clockShort(terpilih.started_at)}${terpilih.closed_at ? ` – ${clockShort(terpilih.closed_at)}` : ", still active"}`
+                : "Full history, including winners drawn before sessions were introduced."}
             </p>
           </div>
-          <IconButton size="sm" label="Tutup hasil" onClick={() => setSelected(null)}><X size={16} /></IconButton>
+          <IconButton size="sm" label="Close results" onClick={() => setSelected(null)}><X size={16} /></IconButton>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SegmentedButton<View>
-            label="Tampilan hasil"
+            label="Results view"
             value={view}
             onChange={setView}
             options={[
-              { value: "winners", label: "Pemenang", badge: winners.length },
+              { value: "winners", label: "Winners", badge: winners.length },
               { value: "timeline", label: "Timeline", badge: timeline.length },
-              { value: "recap", label: "Rekap", badge: recap.length },
+              { value: "recap", label: "Summary", badge: recap.length },
             ]}
           />
           <span className="flex-1" />
           {/* `native`: ini unduhan berkas. Navigasi sisi klien tidak pernah
               menyimpan berkasnya. */}
-          <ButtonLink native variant="outlined" size="sm" href={exportHref} icon={<DownloadSimple size={16} />}>Ekspor Excel</ButtonLink>
+          <ButtonLink native variant="outlined" size="sm" href={exportHref} icon={<DownloadSimple size={16} />}>Export Excel</ButtonLink>
         </div>
         {terpilih && (terpilih.status === "active" || isOwner) ? (
           <div className="flex flex-wrap gap-2">
-            {terpilih.status === "active" ? <Button variant="outlined" size="sm" icon={<CheckCircle size={16} />} onClick={() => setCloseTarget(terpilih)}>Tutup sesi</Button> : null}
+            {terpilih.status === "active" ? <Button variant="outlined" size="sm" icon={<CheckCircle size={16} />} onClick={() => setCloseTarget(terpilih)}>Close session</Button> : null}
             {/* Hapus permanen hanya tampil untuk pemilik sistem. Server juga
                 menolaknya lewat requireUser(["super_admin"]); tombolnya
                 disembunyikan agar klien tidak menemui aksi yang pasti gagal. */}
-            {isOwner ? <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => { setDeleteTarget(terpilih); setDeletePhrase(""); }}>Hapus hasil sesi</Button> : null}
+            {isOwner ? <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => { setDeleteTarget(terpilih); setDeletePhrase(""); }}>Delete session results</Button> : null}
           </div>
         ) : null}
       </div>
@@ -341,12 +341,12 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
           <EmptyState
             plain
             icon={<Warning size={40} />}
-            title="Hasil undian gagal dimuat"
-            description="Periksa koneksi, lalu coba lagi."
-            action={<Button variant="outlined" size="sm" onClick={() => void reloadOpenResults()}>Coba lagi</Button>}
+            title="Could not load draw results"
+            description="Check your connection, then try again."
+            action={<Button variant="outlined" size="sm" onClick={() => void reloadOpenResults()}>Try again</Button>}
           />
         ) : winners.length === 0 ? (
-          <EmptyState plain icon={<Trophy size={40} />} title="Belum ada hasil undian" description="Hasil muncul di sini setelah hadiah diundi dari panel operator." />
+          <EmptyState plain icon={<Trophy size={40} />} title="No draw results yet" description="Results appear here after a prize is drawn from the operator panel." />
         ) : view === "winners" ? <WinnerTable winners={winners} showSession={selected === "all"} />
           : view === "timeline" ? <TimelineList events={timeline} />
             : <RecapTable recap={recap} />}
@@ -366,11 +366,11 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
           tone="warning"
           icon={<Warning size={18} />}
           className="shrink-0"
-          actions={<Button variant="outlined" size="sm" loading={adopting} onClick={() => void adoptOrphans()}>Arsipkan hasil lama</Button>}
+          actions={<Button variant="outlined" size="sm" loading={adopting} onClick={() => void adoptOrphans()}>Archive previous results</Button>}
         >
-          <span className="font-medium">{orphanWinners} pemenang belum masuk sesi.</span>{" "}
-          Mereka diundi sebelum fitur sesi ada, jadi tidak ada sesi yang bisa ditutup untuk membebaskannya. Selama dibiarkan, mereka terus dianggap sudah pernah menang.
-          Arsipkan untuk membungkusnya menjadi satu sesi tertutup; datanya tetap utuh dan tetap bisa diekspor.
+          <span className="font-medium">{orphanWinners} {orphanWinners === 1 ? "winner has" : "winners have"} no session.</span>{" "}
+          These winners were drawn before sessions were introduced, so there is no session to close to restore their eligibility. Until archived, they remain counted as previous winners.
+          Archive them into one closed session; all data is kept and can still be exported.
         </Banner>
       ) : null}
       {error && !startOpen ? <Banner tone="error" icon={<Warning size={18} />} className="shrink-0">{error}</Banner> : null}
@@ -382,26 +382,26 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
         open={startOpen}
         onClose={() => setStartOpen(false)}
         dismissible={!starting}
-        title="Mulai sesi baru"
-        description="Semua undian setelah ini dikelompokkan ke sesi tersebut, sehingga hasilnya bisa dilihat dan diekspor terpisah."
+        title="Start new session"
+        description="All subsequent draws are grouped into this session, so results can be viewed and exported separately."
         actions={
           <>
-            <Button variant="outlined" disabled={starting} onClick={() => setStartOpen(false)}>Batal</Button>
-            <Button type="submit" form="form-sesi" loading={starting} disabled={!newName.trim()} icon={<Play size={16} />}>Mulai sesi</Button>
+            <Button variant="outlined" disabled={starting} onClick={() => setStartOpen(false)}>Cancel</Button>
+            <Button type="submit" form="form-sesi" loading={starting} disabled={!newName.trim()} icon={<Play size={16} />}>Start session</Button>
           </>
         }
       >
         <form id="form-sesi" onSubmit={(event) => { event.preventDefault(); void startSession(); }} className="mt-4 flex flex-col gap-3 text-body-medium">
           {error ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><Warning size={16} className="mt-0.5 shrink-0" />{error}</p> : null}
           <div>
-            <label htmlFor="session-name" className="block font-medium">Nama sesi</label>
+            <label htmlFor="session-name" className="block font-medium">Session name</label>
             <input id="session-name" autoFocus value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Gala dinner" className={INPUT} />
           </div>
           {/* Menjawab pertanyaan yang pasti muncul saat sesi kedua: apakah hadiahnya
               perlu dibuat ulang. Jawabannya tidak, dan menuliskannya di sini
               mencegah panitia membuat hadiah duplikat yang lalu mengacaukan rekap. */}
           <p className="text-on-surface-variant">
-            <span className="font-medium text-on-surface">Hadiah tidak perlu dibuat ulang.</span> Pakai hadiah yang sama; kuota dan daftar pemenangnya dihitung ulang untuk setiap sesi.
+            <span className="font-medium text-on-surface">No need to create prizes again.</span> Reuse the same prizes; quotas and winner lists are calculated separately for each session.
           </p>
         </form>
       </Dialog>
@@ -411,18 +411,18 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
         open={closeTarget !== null}
         onClose={() => setCloseTarget(null)}
         dismissible={!busy}
-        title={`Tutup sesi ${closeTarget?.name ?? ""}?`}
+        title={`Close session ${closeTarget?.name ?? ""}?`}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setCloseTarget(null)}>Batal</Button>
-            <Button loading={busy} icon={<CheckCircle size={16} />} onClick={() => void closeSession()}>Tutup sesi</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setCloseTarget(null)}>Cancel</Button>
+            <Button loading={busy} icon={<CheckCircle size={16} />} onClick={() => void closeSession()}>Close session</Button>
           </>
         }
       >
         <ul className="mt-4 space-y-2 text-body-medium">
-          <Butir icon={<CheckCircle size={16} className="text-success" />}>Hasil tetap tersimpan dan tetap bisa diekspor.</Butir>
-          <Butir icon={<CheckCircle size={16} className="text-success" />}>{closeTarget?.winner_total ?? 0} pemenang sesi ini kembali bisa ikut undian berikutnya.</Butir>
-          <Butir icon={<CheckCircle size={16} className="text-success" />}>Layar panggung dimatikan dan kembali diam.</Butir>
+          <Butir icon={<CheckCircle size={16} className="text-success" />}>Results are kept and can still be exported.</Butir>
+          <Butir icon={<CheckCircle size={16} className="text-success" />}>{closeTarget?.winner_total ?? 0} {(closeTarget?.winner_total ?? 0) === 1 ? "winner" : "winners"} from this session can enter the next draw again.</Butir>
+          <Butir icon={<CheckCircle size={16} className="text-success" />}>The stage screen is turned off and returns to idle.</Butir>
         </ul>
         {/* Pemenang yang belum dikonfirmasi diperingatkan, bukan diubah otomatis.
             Menandainya sah secara diam-diam akan mencatat hadiah sebagai terserahkan
@@ -431,8 +431,8 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
           <p className="mt-4 flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
             <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
             <span>
-              Masih ada <span className="font-medium">{closeTarget.winner_pending} pemenang</span> yang belum ditandai hadir. Statusnya tetap belum dikonfirmasi di laporan.
-              Batalkan dialog ini bila ingin menandainya dulu di panel operator.
+              <span className="font-medium">{closeTarget.winner_pending} {closeTarget.winner_pending === 1 ? "winner has" : "winners have"}</span> not been marked present. Their status will remain pending in reports.
+              Cancel this dialog to mark them present in the operator panel first.
             </span>
           </p>
         ) : null}
@@ -445,25 +445,25 @@ export function SessionHistory({ isOwner, onChanged }: { isOwner: boolean; onCha
         dismissible={!busy}
         tone="danger"
         size="md"
-        title="Hapus hasil undian"
-        description={<>Seluruh hasil sesi <span className="font-medium text-on-surface">{deleteTarget?.name}</span> dihapus dari basis data.</>}
+        title="Delete draw results"
+        description={<>All results for session <span className="font-medium text-on-surface">{deleteTarget?.name}</span> will be deleted from the database.</>}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setDeleteTarget(null)}>Batal</Button>
-            <Button variant="danger" loading={busy} disabled={deletePhrase !== DELETE_PHRASE} icon={<Trash size={16} />} onClick={() => void deleteSession()}>Hapus permanen</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="danger" loading={busy} disabled={deletePhrase !== DELETE_PHRASE} icon={<Trash size={16} />} onClick={() => void deleteSession()}>Delete permanently</Button>
           </>
         }
       >
         <ul className="mt-4 space-y-2 rounded-md bg-error-soft p-3 text-body-medium text-error">
-          <Butir icon={<Prohibit size={16} />}>{deleteTarget?.winner_total ?? 0} baris pemenang terhapus permanen, termasuk {deleteTarget?.winner_confirmed ?? 0} yang sudah sah.</Butir>
-          <Butir icon={<Prohibit size={16} />}>Tindakan ini tidak dapat dibatalkan.</Butir>
-          <Butir icon={<Prohibit size={16} />}>Isinya disalin ke jejak audit sebelum dihapus.</Butir>
+          <Butir icon={<Prohibit size={16} />}>{deleteTarget?.winner_total ?? 0} winner {(deleteTarget?.winner_total ?? 0) === 1 ? "record" : "records"} will be permanently deleted, including {deleteTarget?.winner_confirmed ?? 0} confirmed.</Butir>
+          <Butir icon={<Prohibit size={16} />}>This action cannot be undone.</Butir>
+          <Butir icon={<Prohibit size={16} />}>Records are copied to the audit trail before deletion.</Butir>
         </ul>
         <p className="mt-4 text-body-medium text-on-surface-variant">
-          Untuk mengakhiri sesi tanpa kehilangan data, pakai <span className="font-medium text-on-surface">Tutup sesi</span>. Hapus permanen hanya untuk membersihkan sisa gladi bersih.
+          To end a session without losing data, use <span className="font-medium text-on-surface">Close session</span>. Permanent deletion is only for clearing rehearsal results.
         </p>
         <label htmlFor="delete-phrase" className="mt-4 block text-body-medium font-medium">
-          Ketik <span className="text-error">{DELETE_PHRASE}</span> untuk konfirmasi
+          Type <span className="text-error">{DELETE_PHRASE}</span> to confirm
         </label>
         <input
           id="delete-phrase"
@@ -486,11 +486,11 @@ function WinnerTable({ winners, showSession }: { winners: Winner[]; showSession:
   return <Table density="flush" minWidth="640px">
     <TableHead>
       <TableRow>
-        {showSession && <TableHeaderCell>Sesi</TableHeaderCell>}
-        <TableHeaderCell>Hadiah</TableHeaderCell>
-        <TableHeaderCell>Pemenang</TableHeaderCell>
+        {showSession && <TableHeaderCell>Session</TableHeaderCell>}
+        <TableHeaderCell>Prize</TableHeaderCell>
+        <TableHeaderCell>Winner</TableHeaderCell>
         <TableHeaderCell>Status</TableHeaderCell>
-        <TableHeaderCell>Waktu</TableHeaderCell>
+        <TableHeaderCell>Time</TableHeaderCell>
       </TableRow>
     </TableHead>
     <TableBody>
@@ -498,18 +498,18 @@ function WinnerTable({ winners, showSession }: { winners: Winner[]; showSession:
           masih perlu tahu siapa yang ditolak dan alasannya), tetapi ia tidak lagi
           menuntut perhatian yang sama dengan pemenang yang berlaku. */}
       {winners.map((winner) => <TableRow key={winner.id} muted={winner.status === "rejected"}>
-        {showSession && <TableCell className="text-on-surface-variant">{winner.session_name ?? "Tanpa sesi"}</TableCell>}
+        {showSession && <TableCell className="text-on-surface-variant">{winner.session_name ?? "No session"}</TableCell>}
         <TableCell>
           <span className="font-medium">{winner.prize_name}</span>
-          <span className="block tabular-nums text-on-surface-variant">Undian ke-{winner.draw_round}</span>
+          <span className="block tabular-nums text-on-surface-variant">Draw {winner.draw_round}</span>
         </TableCell>
         <TableCell>
           <span className="flex flex-wrap items-center gap-1.5 font-medium">
             {winner.display_name}
-            {winner.is_backup && <StatusChip>Cadangan</StatusChip>}
+            {winner.is_backup && <StatusChip>Backup</StatusChip>}
           </span>
           <span className="block text-on-surface-variant">
-            {[winner.company, winner.seat_label && `Kursi ${winner.seat_label}`].filter(Boolean).join(" · ") || <EmptyCell />}
+            {[winner.company, winner.seat_label && `Seat ${winner.seat_label}`].filter(Boolean).join(" · ") || <EmptyCell />}
           </span>
         </TableCell>
         <TableCell>
@@ -525,7 +525,7 @@ function WinnerTable({ winners, showSession }: { winners: Winner[]; showSession:
 }
 
 function TimelineList({ events }: { events: TimelineEvent[] }) {
-  if (events.length === 0) return <p className="px-5 py-4 text-body-medium text-on-surface-variant">Belum ada kejadian.</p>;
+  if (events.length === 0) return <p className="px-5 py-4 text-body-medium text-on-surface-variant">No activity yet.</p>;
   return <ol>
     {events.map((event, index) => <li key={index} className="flex gap-3 border-b border-outline-variant px-5 py-2.5 text-body-medium">
       <span className="w-32 shrink-0 tabular-nums text-on-surface-variant">{clock(event.at)}</span>
@@ -543,13 +543,13 @@ function RecapTable({ recap }: { recap: Recap[] }) {
   return <Table density="flush" minWidth="560px">
     <TableHead>
       <TableRow>
-        <TableHeaderCell>Hadiah</TableHeaderCell>
-        <TableHeaderCell align="end">Diundi</TableHeaderCell>
+        <TableHeaderCell>Prize</TableHeaderCell>
+        <TableHeaderCell align="end">Drawn</TableHeaderCell>
         <TableHeaderCell align="end">Total</TableHeaderCell>
-        <TableHeaderCell align="end">Sah</TableHeaderCell>
-        <TableHeaderCell align="end">Belum</TableHeaderCell>
-        <TableHeaderCell align="end">Batal</TableHeaderCell>
-        <TableHeaderCell align="end">Cadangan</TableHeaderCell>
+        <TableHeaderCell align="end">Confirmed</TableHeaderCell>
+        <TableHeaderCell align="end">Pending</TableHeaderCell>
+        <TableHeaderCell align="end">Cancelled</TableHeaderCell>
+        <TableHeaderCell align="end">Backups</TableHeaderCell>
       </TableRow>
     </TableHead>
     <TableBody>

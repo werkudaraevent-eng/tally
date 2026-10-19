@@ -2,7 +2,8 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { normalizeExclusionRule } from "@/lib/undian";
+import { normalizeConditions, normalizeExclusionRule, type UndianConditionNode } from "@/lib/undian";
+import { unknownAnswerError } from "@/lib/undian-pool";
 import { RULE_COLUMNS, groupSchema } from "../route";
 
 // Ubah dan hapus satu aturan pengecualian.
@@ -26,10 +27,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   if (Object.keys(parsed.data).length === 0) return apiError("VALIDATION_ERROR", 422);
-
   const client = getSupabaseServiceClient();
   const { data: current } = await client.from("undian_exclusion_rules").select(RULE_COLUMNS).eq("event_id", eventId).eq("id", id).maybeSingle();
   if (!current) return apiError("UNDIAN_RULE_NOT_FOUND", 404);
+
+  // Aturan yang akan nonaktif tidak diperiksa: ia tidak ikut undian, dan editor
+  // selalu mengirim pohonnya, jadi tanpa ini sakelar Active di editor tidak
+  // dapat mematikan aturan yang rusak. Aturan yang tetap aktif diperiksa hanya
+  // pada pohon yang DIKIRIM (mengganti nama tidak terhalang), sedangkan aturan
+  // yang baru dinyalakan diperiksa pada pohon yang akan berlaku.
+  const stored = current as { is_active: boolean; conditions: unknown };
+  const activeAfter = parsed.data.is_active ?? stored.is_active;
+  const switchingOn = activeAfter && !stored.is_active;
+  const tree = parsed.data.conditions ?? (switchingOn ? stored.conditions : null);
+  const trees = activeAfter && tree ? [normalizeConditions(tree)] : [];
+  const answerError = await unknownAnswerError(eventId, trees as UndianConditionNode[]);
+  if (answerError === undefined) return apiError("INTERNAL_ERROR", 500);
+  if (answerError) return apiError("VALIDATION_ERROR", 422, { fieldErrors: { conditions: [answerError] } });
 
   // Hadiah sasaran juga harus milik event ini. Tanpa filter, aturan event A bisa
   // ditambatkan ke hadiah event B; FK komposit menolaknya, tetapi galat mentahnya
