@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-18.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-19.
 
 ## How to update this file
 
@@ -15,8 +15,6 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- "Your batch" (U-01 step 2, E-01, E-06, E-10), PR "Batch kamu": Agenda > Section > Who it's for (Everyone, or answers of one dropdown or single-choice participant field such as the staff-only Batch). Horizon Home skips other batches' sections, Schedule opens the participant's own section and says "Ini jadwalmu", the QR layer shows "Batch 2 · Bus 3". Mockup OK'd by Mas 18 Oct; waits on coordinator QA and SQL review, then migration 202610180002 (one nullable column; safe before or after the code).
-- Horizon phone bottom bar: Travel (Perjalanan) becomes a main tab in place of Menu; Menu opens from the initials in the top bar; events without travel info keep the Menu tab (draft PR, waiting QA, then Mas's timing OK for KSO).
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -24,6 +22,9 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #223 Your batch (U-01 step 2, E-01, E-06, E-10, merged 19 Oct): Agenda > Section > Who it's for (Everyone, or answers of one dropdown or single-choice participant field such as the staff-only Batch). Horizon Home skips other batches' sections, Schedule opens the participant's own section and says "Ini jadwalmu", the QR layer shows "Batch 2 · Bus 3". Migration 202610180002 was run by Mas on 19 Oct.
+- #225 Horizon sign-in entry (merged 19 Oct): the hero's middle button opens the sign-in dialog for guests while registration is closed and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. No SQL.
+- #224 Horizon phone bottom bar (merged 19 Oct): Travel (Perjalanan) is a main tab in place of Menu when the participant has travel info; Menu opens from the initials in the top bar; otherwise the Menu tab stays. No SQL.
 - #220 Participant words follow-ups from #215 QA (merged 19 Oct): the Modern footer guest link says "Masuk", footer links wrap between words, the classic Home "Lihat semua" link stays on one line, and the last old terms on sign-in errors, the checkpoint scan page, Forum EN, after registering and on /masuk are replaced. No SQL.
 - #221 Lucky draw follow-ups to #216 (merged 19 Oct): the operator panel names the broken exclusion rule, the prize editor preview says "Draw blocked" instead of a name count while such a rule is active, the prize list shows a "Blocked" chip, and the rule editor can save a broken rule as inactive (only active rules are checked for deleted form questions; switching a rule on checks its stored conditions). No SQL.
 - #216 Lucky draw form-answer conditions (merged 18 Oct): Add condition has a "Form answers" group listing the event's own Registration > Edit form questions (staff-only ones included, file uploads left out). Choice questions match ticked values (checkboxes as Yes/No, like the Participant list); others compare text. A deleted question makes its condition fail; an active exclusion rule with one blocks the draw (Readiness, rule list and operator panel say which rule), and saves reject unknown questions. No SQL.
@@ -196,6 +197,8 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #201: keys of questions deleted before this branch are not in `retired_keys`, so a new question named like one of those still gets its key and the answers stored under it; turning "Ask on the registration form" back on after saving it off leaves Required off; `/admin/registrasi?kolom=baru` opened as a new page (not from the Columns menu) shows the moderation screen until hydration; Client view > "Form answers the client sees" lists staff-only questions with no mark (needs a mockup).
 
 ### Landing/CMS
+
+- Horizon phone bar (#225): a very wide logo (about 4:1) shrinks for a signed-in participant at 360 px once the compact pill shows; on bilingual events the logo at the top is ~4 px narrower at 360 px than before because the bell grew to 48 px.
 - #108 L7: editor `data-sunting` attributes ship in public HTML (not re-confirmed).
 - #109 N2-N4/R3-4: stored backslashes or edge-spaced marks render differently, overlap leaves an empty `<mark>`, CJK runs expand whole, and some execCommand edge cases remain; an over-200 tagline save shows a raw 422 toast.
 - #110 L5/N3/K1: a custom Gathering agenda eyebrow is not counted when hidden, the Highlights subtitle is truncated at 1280, and the KV hint omits the confirmation email header.
