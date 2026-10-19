@@ -437,7 +437,10 @@ export function LandingNavModern({
             // berarti "bagian yang sedang dibaca" di bilah yang sama.
             // Kode pendek, karena "ID" di samping "EN" jelas terbaca sebagai
             // bahasa; nama lengkapnya untuk pembaca layar.
-            <div role="group" aria-label={t.languageGroup} className="flex shrink-0 items-center">
+            // Horizon di ponsel: saat pil Masuk/Dashboard tampil di bilah ringkas,
+            // ID | EN disembunyikan supaya logo tidak terjepit; pilihannya tetap
+            // ada di bilah penuh di puncak halaman.
+            <div role="group" aria-label={t.languageGroup} className={`flex shrink-0 items-center ${pilPonselHorizon ? "max-sm:hidden" : ""}`}>
               {(["id", "en"] as const).map((kode, i) => {
                 const label = LANDING_LANG_LABELS[kode];
                 const aktifBahasa = kode === lang;

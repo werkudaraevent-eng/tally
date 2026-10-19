@@ -431,18 +431,21 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
   // Gathering: apa yang menunggu tamu di area peserta (ubin mengikuti saklar
   // Area peserta). Tempatnya di susunan halaman, bawaannya tepat di atas kaki.
-  // Tombol tengah hero Horizon: yang paling dulu diketuk di layar pertama, jadi
-  // ia membawa ke tempat info acara berada. Peserta yang sudah masuk ke
-  // Dashboard saya; tamu undangan ke dialog masuk dengan teks tombol dari CMS.
-  // Tanpa area peserta atau dengan pendaftaran terbuka tetap menggulir ke cerita.
-  const labelHeroHorizon = config.hero_button_label?.trim() || t.horizon.start;
-  const aksiHeroHorizon: HorizonAksi = aksiPeserta
-    ? { ...aksiPeserta, link: true }
-    : undangan
-      ? { href: masukUrl, label: labelHeroHorizon, link: true, sunting: "pembuka:hero_button_label" }
-      : { href: "#mulai", label: labelHeroHorizon, sunting: "pembuka:hero_button_label" };
   // Tombol masuk Horizon: sama di bagian Portal peserta dan pita penutup undangan.
   const tombolPortalHorizon = config.portal_button_label?.trim() || t.horizon.inviteCta;
+  // Tombol tengah hero Horizon: yang paling dulu diketuk di layar pertama, jadi
+  // ia membawa ke tempat info acara berada. Peserta yang sudah masuk ke
+  // Dashboard saya. Tamu ke dialog masuk selama pendaftaran tertutup, karena
+  // hanya itu yang bisa mereka lakukan; teksnya dari CMS, atau teks tombol
+  // Portal peserta bila kosong (bawaan "Mulai perjalanan kita" tidak berkata
+  // "masuk"). Tanpa area peserta atau dengan pendaftaran terbuka tetap
+  // menggulir ke cerita.
+  const labelHeroHorizon = config.hero_button_label?.trim();
+  const aksiHeroHorizon: HorizonAksi = aksiPeserta
+    ? { ...aksiPeserta, link: true }
+    : member && !event.registration_enabled && !sudahMasuk
+      ? { href: masukUrl, label: labelHeroHorizon || tombolPortalHorizon, link: true, sunting: "pembuka:hero_button_label" }
+      : { href: "#mulai", label: labelHeroHorizon || t.horizon.start, sunting: "pembuka:hero_button_label" };
   const portal = member && horizon ? (
     <div data-bagian="portal">
       <UndanganHorizon
