@@ -53,11 +53,11 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
-- "Your batch" (In flight): run migration 202610180002. For KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Who it's for on each Batch section.
+- "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Who it's for on each Batch section.
 
 ## KSO participant-area audit (17 Oct): open items
 
-Every item (finding, recommendation, what is left, decisions and code pointers) is in `docs/kso-portal-audit.md` (U-xx findings, E-xx Eventnook lessons); change an item's status there and here in the same PR. Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08; U-02, U-07 and U-10 in #206. #201 adds the staff-only Batch column (nothing in the portal reads it yet), and #202 links bus trips to Agenda rows.
+Every item (finding, recommendation, what is left, decisions and code pointers) is in `docs/kso-portal-audit.md` (U-xx findings, E-xx Eventnook lessons); change an item's status there and here in the same PR. Done in #199/#200: U-03, U-05, U-11, U-16, U-18, U-28, E-03, E-07, E-08; U-02, U-07 and U-10 in #206. #201 adds the staff-only Batch column (#223 reads it), and #202 links bus trips to Agenda rows.
 
 - KSO content in the CMS (Mas): U-04 (who the Thursday 5 Nov section is for; "Taksaka"; check a few real tickets per batch against the rundown times), U-08 (organiser phone in Event settings, a bus trip per Agenda row in Logistics > Buses > Trips, linked to that row with #202, replace the ten "Microsite" rundown notes), U-15 (typos and one term per rundown item, the pinned tumbler announcement, FAQ), U-34 (two "Bukan sekadar..." headings), U-35 ("Limit" or "Limits"), E-03 (add the contacts in Participant area > Emergency and help, with "Add contact" or "Copy into contacts"; check the copied numbers in the preview before saving), E-08 (set the points goal, or turn Points off; if the goal is a Lucky draw entry, use the draw condition "Checkpoint points goal" once the checkpoint conditions PR merges).
 - Needs a decision or a mockup from Mas first: U-25 (V5 label sizes or 12 px rem labels), U-30 (a Masuk or initials control in the event page phone bar), E-13 (draw status in the portal), E-15 (post-event Home), and the bus time on participant Schedule rows (#202 follow-up).
