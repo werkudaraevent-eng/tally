@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { ringkasReset } from "@/lib/reset-check-in";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -82,24 +83,10 @@ async function muat(request: Request, context: { params: Promise<{ id: string }>
   return { auth, peserta: peserta as { id: string; name: string }, sessionId, bukti } as const;
 }
 
-/** Ringkasan untuk dialog: jumlah scan per sesi dan barang yang akan dikembalikan. */
-function ringkas(bukti: NonNullable<Awaited<ReturnType<typeof bacaBukti>>>) {
-  const perSesi = new Map<number, { session_id: number; count: number; first: string }>();
-  for (const scan of bukti.scans) {
-    const ada = perSesi.get(scan.session_id);
-    if (ada) ada.count += 1;
-    else perSesi.set(scan.session_id, { session_id: scan.session_id, count: 1, first: scan.scanned_at });
-  }
-  return {
-    scans: [...perSesi.values()],
-    pickups: bukti.pickups.map((row) => ({ item: bukti.itemNames.get(row.item_id) ?? "Kit item", size: row.size, session_id: row.session_id })),
-  };
-}
-
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const hasil = await muat(request, context);
   if ("response" in hasil) return hasil.response;
-  return Response.json(ringkas(hasil.bukti));
+  return Response.json(ringkasReset(hasil.bukti.scans, hasil.bukti.pickups, hasil.bukti.itemNames));
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -120,8 +107,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       participant_id: peserta.id,
       participant_name: peserta.name,
       session_id: sessionId ?? null,
-      scans: bukti.scans.map(({ id: _id, ...row }) => row),
-      pickups: bukti.pickups.map(({ id: _id, ...row }) => ({ ...row, item: bukti.itemNames.get(row.item_id) ?? null })),
+      scans: bukti.scans.map((row) => ({ session_id: row.session_id, scanned_at: row.scanned_at, scanned_by: row.scanned_by, method: row.method })),
+      pickups: bukti.pickups.map((row) => ({ item_id: row.item_id, item: bukti.itemNames.get(row.item_id) ?? null, size: row.size, session_id: row.session_id, picked_up_at: row.picked_up_at, picked_up_by: row.picked_up_by })),
     },
   } as never);
   if (galatAudit) return apiError("INTERNAL_ERROR", 500);

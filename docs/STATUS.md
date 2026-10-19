@@ -16,6 +16,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 ## In flight
 
 - #226 Horizon QR screen gets a "Pindai QR checkpoint" button (sticky at the bottom on tall screens) when the event has Participants/Both checkpoints, so the centre QR button covers both show-QR and self-scan; events without self-scan are unchanged (draft PR, waiting QA, then Mas's timing OK for KSO). No SQL.
+- Reset a participant's check-in (this PR, for rehearsals): Participant list > participant > Check-in has a reset icon per check-in point and "Reset all" when more than one is checked in. Admin only, confirm dialog names the scans and kit hand-outs removed; the audit trail (Danger zone) keeps a copy of what was removed. Checkpoints, points, lucky draw conditions and Export follow automatically; lucky draw winners already drawn stay. No SQL. Waits on coordinator QA and Mas's merge time. An event-wide "also clear check-ins" option in Settings > Reset data is proposed, not built (needs Mas's OK).
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".

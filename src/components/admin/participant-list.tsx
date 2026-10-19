@@ -642,7 +642,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     setParticipants((lama) => lama.map((p) => {
       if (p.id !== participantId) return p;
       if (sessionId === null) return { ...p, attendance: {} };
-      const { [String(sessionId)]: _hapus, ...sisa } = p.attendance ?? {};
+      const sisa = { ...p.attendance };
+      delete sisa[String(sessionId)];
       return { ...p, attendance: sisa };
     }));
     setNotice(`${nama} reset.`);

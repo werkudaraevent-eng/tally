@@ -25,32 +25,36 @@ export function ResetCheckInDialog({ target, sessions, jam, onClose, onDone }: {
   onClose: () => void;
   onDone: (participantId: string, sessionId: number | null) => void;
 }) {
-  const [pratinjau, setPratinjau] = useState<Pratinjau | null>(null);
-  const [galat, setGalat] = useState("");
+  // Hasil baca disimpan bersama alamatnya: dialog yang dibuka untuk sesi lain
+  // tidak pernah menampilkan pratinjau sesi sebelumnya.
+  const [muatan, setMuatan] = useState<{ alamat: string; data?: Pratinjau; galat?: string } | null>(null);
+  const [galatHapus, setGalatHapus] = useState("");
   const [menghapus, setMenghapus] = useState(false);
   const alamat = target ? `/api/admin/participants/${target.participant.id}/check-in${target.session ? `?session=${target.session.id}` : ""}` : null;
+  const pratinjau = muatan?.alamat === alamat ? muatan.data ?? null : null;
+  const galat = galatHapus || (muatan?.alamat === alamat ? muatan.galat ?? "" : "");
 
   useEffect(() => {
-    setPratinjau(null); setGalat("");
     if (!alamat) return;
     let batal = false;
     void fetch(alamat, { cache: "no-store" }).then(async (response) => {
       const body = await response.json().catch(() => ({}));
       if (batal) return;
-      if (!response.ok) { setGalat(body.error?.details?.message ?? body.error?.message ?? "Couldn't load this participant's check-ins."); return; }
-      setPratinjau(body as Pratinjau);
-    }, () => { if (!batal) setGalat("Connection lost. Try again."); });
+      if (!response.ok) { setMuatan({ alamat, galat: body.error?.details?.message ?? body.error?.message ?? "Couldn't load this participant's check-ins." }); return; }
+      setMuatan({ alamat, data: body as Pratinjau });
+    }, () => { if (!batal) setMuatan({ alamat, galat: "Connection lost. Try again." }); });
     return () => { batal = true; };
   }, [alamat]);
 
   async function reset() {
     if (!alamat || !target) return;
-    setMenghapus(true); setGalat("");
+    setMenghapus(true); setGalatHapus("");
     const response = await fetch(alamat, { method: "DELETE" }).catch(() => null);
     setMenghapus(false);
-    if (!response) { setGalat("Connection lost. Reload to see whether the check-in was reset."); return; }
+    if (!response) { setGalatHapus("Connection lost. Reload to see whether the check-in was reset."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setGalat(body.error?.details?.message ?? body.error?.message ?? "Couldn't reset the check-in."); return; }
+    if (!response.ok) { setGalatHapus(body.error?.details?.message ?? body.error?.message ?? "Couldn't reset the check-in."); return; }
+    setGalatHapus("");
     onDone(target.participant.id, target.session?.id ?? null);
   }
 
@@ -61,7 +65,7 @@ export function ResetCheckInDialog({ target, sessions, jam, onClose, onDone }: {
   return (
     <Dialog
       open={target !== null}
-      onClose={onClose}
+      onClose={() => { setGalatHapus(""); onClose(); }}
       dismissible={!menghapus}
       tone="danger"
       title={title}
@@ -70,7 +74,7 @@ export function ResetCheckInDialog({ target, sessions, jam, onClose, onDone }: {
         : `${target?.participant.name ?? "This participant"} shows as not checked in everywhere again, so the next scans count as their first.`}
       actions={
         <>
-          <Button type="button" variant="outlined" disabled={menghapus} onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="outlined" disabled={menghapus} onClick={() => { setGalatHapus(""); onClose(); }}>Cancel</Button>
           <Button simpan variant="danger" loading={menghapus} disabled={!pratinjau || (jumlahScan === 0 && pratinjau.pickups.length === 0)} onClick={() => void reset()}>
             {target?.session ? "Reset check-in" : "Reset all"}
           </Button>
@@ -78,7 +82,7 @@ export function ResetCheckInDialog({ target, sessions, jam, onClose, onDone }: {
       }
     >
       {pratinjau ? (
-        <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body-medium text-on-surface">
+        <ul className="mt-1 flex list-disc flex-col gap-1.5 pl-5 text-body-medium text-on-surface">
           {target?.session
             ? <li>Removes {plural(jumlahScan, "scan")}{pratinjau.scans[0] ? ` (first at ${jam(pratinjau.scans[0].first)})` : ""}.</li>
             : pratinjau.scans.map((baris) => <li key={baris.session_id}>{namaSesi(baris.session_id)}: removes {plural(baris.count, "scan")} (first at {jam(baris.first)}).</li>)}
