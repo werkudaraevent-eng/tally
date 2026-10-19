@@ -98,7 +98,8 @@ async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], lang: La
 const LABEL = "text-[12px] font-bold uppercase leading-4 tracking-[0.08em]";
 /** Teks sekunder di dalam kartu putih: selalu gelap, juga di latar Dark brand. */
 const MUTED_KARTU = "text-[#5F6B7F]";
-const KARTU_PUTIH = "bg-white text-[#1A2333] shadow-[0_1px_2px_rgb(16_24_40/0.06)]";
+// `--kartu-garis`: garis kartu portal Horizon (GARIS_KARTU); halaman lain tidak menyetelnya, jadi 0 px.
+const KARTU_PUTIH = "bg-white text-[#1A2333] shadow-[0_1px_2px_rgb(16_24_40/0.06)] ring-[length:var(--kartu-garis,0px)] ring-[rgb(16_30_56/0.12)]";
 // Semua warna di atas kartu putih memakai versi "di atas putih" (cukup kontras
 // dengan putih): merek yang terlalu terang jatuh ke tinta gelap (QA #127 M3).
 const TOMBOL = "m3-state inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--aksi-putih,var(--aksi,var(--reg-primary)))] px-5 text-center font-bold text-[var(--on-aksi-putih,var(--on-aksi,var(--reg-on-primary)))]";

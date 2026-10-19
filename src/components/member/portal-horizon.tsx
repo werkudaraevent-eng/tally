@@ -27,6 +27,13 @@ const BIRU = "#274FC0";
 const GARIS_NAVY = "#405272";
 const REDUP_NAVY = "#CDD7EA";
 
+/**
+ * Kartu putih di latar krem: pola M3 Outlined card, garis 1 px tinta 12%
+ * (~1,3:1, lebih lembut dari outline-variant). Putih di krem tanpa garis hanya
+ * ~1,05:1, jadi batas kartu hilang di susunan dua kolom Beranda.
+ */
+export const GARIS_KARTU = "ring-1 ring-[rgb(16_30_56/0.12)]";
+
 /** Tombol pil emas rancangan (14/700), teks dari --hz-on-emas, tinggi >= 48px. */
 const PIL_EMAS =
   "m3-state inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-full bg-[var(--hz-emas)] px-[18px] py-4 text-[14px] font-bold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)] md:py-[17px]";
@@ -529,7 +536,7 @@ export function KartuBerikutnyaHorizon({ alis, butir, tautan }: { alis: string; 
   if (butir.length === 0) return null;
   const satu = butir.length === 1 ? butir[0] : null;
   return (
-    <section aria-labelledby="berikutnya-alis" className="flex flex-col rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7" style={{ color: TINTA }}>
+    <section aria-labelledby="berikutnya-alis" className={`${GARIS_KARTU} flex flex-col rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7`} style={{ color: TINTA }}>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <p id="berikutnya-alis" className="text-[11px] font-bold uppercase leading-4 tracking-[0.8px]" style={{ color: BIRU }}>
           {alis}
@@ -595,7 +602,7 @@ export function KartuPengumumanHorizon({
   kosong: string;
 }) {
   return (
-    <section aria-labelledby="pengumuman-judul" className="rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-6" style={{ color: TINTA }}>
+    <section aria-labelledby="pengumuman-judul" className={`${GARIS_KARTU} rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-6`} style={{ color: TINTA }}>
       <div className="flex items-start gap-4">
         <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#EEF1F6]">
           <Megaphone size={22} />
@@ -697,7 +704,7 @@ export function KartuBantuanHorizon({
   tautan?: { href: string; label: string; tab: string } | null;
 }) {
   return (
-    <section aria-label={judul} className="flex flex-col gap-4 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7" style={{ color: TINTA }}>
+    <section aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-4 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7`} style={{ color: TINTA }}>
       <div className="flex items-center gap-2">
         <Lifebuoy size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
         <p className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: LABEL }}>
@@ -808,7 +815,7 @@ export function KartuDaruratHorizon({
   const kelasTombol = PIL_KONTAK;
   const gayaTombol = GAYA_PIL_KONTAK;
   return (
-    <section id="darurat" aria-label={judul} className="flex scroll-mt-24 flex-col gap-3 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32" style={{ color: TINTA }}>
+    <section id="darurat" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-3 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32`} style={{ color: TINTA }}>
       <div className="flex items-center gap-2">
         <Lifebuoy size={18} weight="bold" aria-hidden className="text-[#B42318]" />
         <h2 className="text-[11px] font-bold uppercase tracking-[1px] text-[#B42318]">{judul}</h2>
@@ -917,7 +924,7 @@ export type LegKereta = {
 export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string }; leg: LegKereta[] }) {
   return (
     // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
-    <section id="kereta" aria-label={judul} className="flex scroll-mt-24 flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32" style={{ color: TINTA }}>
+    <section id="kereta" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32`} style={{ color: TINTA }}>
       <div className="flex items-center gap-2">
         <Train size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
         <h2 className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: LABEL }}>
@@ -986,7 +993,7 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
  */
 export function BarisTautanHorizon({ href, Ikon, alis, judul, catatan, tab }: { href: string; Ikon: typeof Train; alis: string; judul: string; catatan: string | null; tab?: string }) {
   return (
-    <Link href={href} className="m3-state flex min-h-[72px] items-center gap-4 rounded-[20px] bg-white px-5 py-4 md:rounded-[24px] md:px-6 md:py-5" style={{ color: TINTA }}>
+    <Link href={href} className={`${GARIS_KARTU} m3-state flex min-h-[72px] items-center gap-4 rounded-[20px] bg-white px-5 py-4 md:rounded-[24px] md:px-6 md:py-5`} style={{ color: TINTA }}>
       <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#EEF1F6]">
         <Ikon size={22} />
       </span>
@@ -1031,7 +1038,7 @@ export function KartuInfoHorizon({
   children?: ReactNode;
 }) {
   return (
-    <section aria-label={judul} className="flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7" style={{ color: TINTA }}>
+    <section aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7`} style={{ color: TINTA }}>
       <div className="flex items-center gap-2">
         <Ikon size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
         <h2 className="text-[11px] font-bold uppercase tracking-[1px]" style={{ color: LABEL }}>
@@ -1217,7 +1224,7 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto }: { kapan: strin
   // Rancangan yang Mas Hanung setujui: foto kecil 4:5 di samping teks, jadi satu
   // hari dengan tiga pakaian tetap terbaca sekilas. Ketuk foto untuk ukuran penuh.
   return (
-    <article className="flex min-w-0 items-start gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5" style={{ color: TINTA }}>
+    <article className={`${GARIS_KARTU} flex min-w-0 items-start gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5`} style={{ color: TINTA }}>
       {foto ? (
         <a href={foto} target="_blank" rel="noreferrer noopener" className="m3-state block w-24 shrink-0 overflow-hidden rounded-[16px] md:w-32">
           {/* Foto dari unggahan admin: ukuran asli tidak diketahui, jadi <img> biasa dipotong 4:5.
@@ -1297,7 +1304,7 @@ function JudulKartuProfil({ Ikon, judul }: { Ikon: typeof Train; judul: string }
   );
 }
 
-const KARTU_PROFIL = "flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7";
+const KARTU_PROFIL = `${GARIS_KARTU} flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7`;
 
 /**
  * Halaman Profil Horizon (pola halaman akun Luma/Eventbrite dan Airbnb/Google
@@ -1377,7 +1384,7 @@ export function ProfilHorizon({
           </section>
           {/* Layar lebar: Outfit sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
           {menu.baris.length > 0 ? (
-            <section aria-label={menu.judul} className="rounded-[20px] bg-white p-3 lg:hidden" style={{ color: TINTA }}>
+            <section aria-label={menu.judul} className={`${GARIS_KARTU} rounded-[20px] bg-white p-3 lg:hidden`} style={{ color: TINTA }}>
               <DaftarProfil baris={menu.baris} rapat />
             </section>
           ) : null}

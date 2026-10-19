@@ -1543,8 +1543,29 @@ export async function DashboardGathering({
                     </div>
                   </BagianBeranda>
                 ) : null}
+                {/* Teman sekamar (ponsel saja) dan blok pilihan panitia ikut kolom utama, bukan baris
+                    sendiri di bawah grid: kolom kanan yang lebih tinggi tidak lagi
+                    menyisakan lubang, dan blok tunggal memakai lebar kolom penuh. */}
+                {tampilTeman ? (
+                  <BagianBeranda id="roommates" pratinjau={pratinjau}>
+                    <div className="order-[70] md:hidden">
+                      <TemanSekamarHorizon
+                        judul={tH.roommateTitle(teman.length)}
+                        orang={teman.map((orang) => ({ nama: orang.name, detail: [kamar ? tH.roomNo(kamar.room_number) : null, orang.company].filter(Boolean).join(" • ") || null }))}
+                      />
+                    </div>
+                  </BagianBeranda>
+                ) : null}
+                {lainnya.map((id) => (
+                  <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
+                    <div className="order-[80] lg:order-none">
+                      {kartuBlok.get(id)}
+                    </div>
+                  </BagianBeranda>
+                ))}
+                {/* Bantuan paling bawah di ponsel dan di akhir kolom utama di desktop. */}
                 {kontakHorizon ? (
-                  <div className="order-[60] lg:order-none">
+                  <div className="order-[90] lg:order-none">
                     <KartuBantuanHorizon alis={tH.helpCard.eyebrow} judul={tH.helpCard.title} catatan={kontakHorizon.tel ? tH.helpCard.note : tH.helpCard.noteEmail} kontak={kontakHorizon} label={labelKontak} />
                   </div>
                 ) : null}
@@ -1583,23 +1604,6 @@ export async function DashboardGathering({
                 ) : null}
               </div>
             </div>
-            {tampilTeman ? (
-              <BagianBeranda id="roommates" pratinjau={pratinjau}>
-                <TemanSekamarHorizon
-                  judul={tH.roommateTitle(teman.length)}
-                  orang={teman.map((orang) => ({ nama: orang.name, detail: [kamar ? tH.roomNo(kamar.room_number) : null, orang.company].filter(Boolean).join(" • ") || null }))}
-                />
-              </BagianBeranda>
-            ) : null}
-            {lainnya.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {lainnya.map((id) => (
-                  <BagianBeranda key={id} id={id} pratinjau={pratinjau}>
-                    {kartuBlok.get(id)}
-                  </BagianBeranda>
-                ))}
-              </div>
-            ) : null}
           </div>
         </>
       );
@@ -1800,7 +1804,7 @@ function gayaPortal(config: EventLandingConfig, horizon: boolean): CSSProperties
     const emas = [config.button_color, tokensTema.accent].find((nilai) => /^#[0-9a-f]{6}$/i.test(nilai ?? "")) ?? HORIZON_GOLD_DEFAULT;
     // Teks emas di atas navy (label dan sorot kartu checkpoint) memakai sorot yang
     // diukur kontrasnya, sama dengan halaman acara; emas yang sudah terbaca tidak berubah.
-    Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff", sorotHorizon(emas, tokensTema.accent, tokensTema.brand)), { backgroundColor: LATAR_PORTAL_HORIZON });
+    Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff", sorotHorizon(emas, tokensTema.accent, tokensTema.brand)), { backgroundColor: LATAR_PORTAL_HORIZON, "--kartu-garis": "1px" });
   }
   return gaya;
 }

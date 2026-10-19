@@ -61,7 +61,7 @@ export function SimpanQrGaleri({
         type="button"
         onClick={() => void simpan()}
         aria-busy={sibuk}
-        className="m3-state flex min-h-[72px] w-full items-center gap-4 rounded-[20px] bg-white px-5 py-4 text-left text-[#101E38] md:rounded-[24px] md:px-6 md:py-5"
+        className="m3-state flex min-h-[72px] w-full items-center gap-4 rounded-[20px] bg-white px-5 ring-1 ring-[rgb(16_30_56/0.12)] py-4 text-left text-[#101E38] md:rounded-[24px] md:px-6 md:py-5"
       >
         <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#EEF1F6]">
           <DownloadSimple size={22} />
