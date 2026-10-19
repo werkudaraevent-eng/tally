@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
+import { saringBlokPeserta } from "@/lib/sasaran-blok-server";
 import { logoNavPutih, isLandingBlockId, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
@@ -107,7 +108,8 @@ export async function DashboardModern({
   const hotelIds = inap ? new Set(inap.hotels.map((hotel) => hotel.id)) : undefined;
   // Blok yang admin pilih untuk halaman peserta (Show on), dalam urutan
   // Participant home (bawaannya tepat sebelum susunan acara).
-  const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
+  // Who sees it (src/lib/sasaran-blok.ts): blok bersasaran hanya untuk peserta yang cocok.
+  const blokPeserta = await saringBlokPeserta(landingMemberBlocks(config.sections, config.blocks, hotelIds), event, sesi.participant?.id ?? null, member.show_logistics === true);
   const tokens = landingTokens(config, "modern");
   const warnaTema = { brand: tokens.brand, accent: tokens.accent ?? null };
   const kartuBlok = new Map(

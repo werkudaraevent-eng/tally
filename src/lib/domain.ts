@@ -231,8 +231,11 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
 export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown"];
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
-export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
+export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on" | "audience">, page: "public" | "member"): boolean {
   const on = LANDING_BLOCK_MEMBER_TYPES.includes(block.type) ? block.show_on ?? "public" : "public";
+  // Blok untuk satu kelompok (Who sees it) butuh peserta yang masuk: tidak
+  // pernah di halaman publik, juga bila tersimpan sebagai Both.
+  if (page === "public" && block.audience) return false;
   return on === "both" || on === page;
 }
 
@@ -350,6 +353,13 @@ export type LandingBlock = {
   route_to?: LandingRouteStop;
   /** Rute: kosong = mengemudi. */
   maps_mode?: LandingRouteMapsMode;
+  /**
+   * Rute: siapa yang melihatnya di halaman peserta (src/lib/sasaran-blok.ts).
+   * Kosong = semua peserta yang masuk. Halaman acara publik tidak terpengaruh.
+   */
+  audience?: { field: string; values: string[] };
+  /** Rute: baris Agenda (rundown_items.id) yang diberi tautan "Cara ke sana" di Horizon. */
+  agenda_item_ids?: number[];
   /** Halaman tempat blok tampil (LANDING_BLOCK_MEMBER_TYPES saja). Kosong = halaman acara. */
   show_on?: LandingBlockShowOn;
   /** Hitung mundur: label asal dan tujuan di gaya Tiket (bawaan "Hari ini" dan nama tempat acara). */

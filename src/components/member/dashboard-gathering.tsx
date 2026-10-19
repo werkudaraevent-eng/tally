@@ -27,6 +27,8 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
 import { kontakPanitia, telHref } from "@/lib/kontak-panitia";
+import { saringBlokPeserta } from "@/lib/sasaran-blok-server";
+import { bacaSasaranBlok, bacaTautanAgenda } from "@/lib/sasaran-blok";
 import { logoNavPutih, isPortalEntry, landingBlockMemberOnly, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, slotPengumumanHorizon, susunanDenganPortal } from "@/lib/domain";
 import { KartuRute } from "@/components/landing/modern/blok-rute";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
@@ -333,7 +335,8 @@ export async function DashboardGathering({
   // Blok yang admin pilih untuk halaman peserta (Show on), dalam urutan
   // Participant home (bawaannya tepat sebelum Rundown hari ini).
   const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
-  const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
+  // Who sees it (src/lib/sasaran-blok.ts): blok bersasaran hanya untuk peserta yang cocok.
+  const blokPeserta = await saringBlokPeserta(landingMemberBlocks(config.sections, config.blocks, hotelIds), event, peserta?.id ?? null, member.show_logistics === true);
   // Kartu darurat dan bantuan (E-03): blok Columns khusus peserta pilihan
   // panitia, di Menu tepat di bawah Perjalanan dan ditaut dari kartu bantuan
   // Perjalanan, jadi tidak ikut di Beranda. Jenis lain tidak punya baris yang
@@ -528,6 +531,17 @@ export async function DashboardGathering({
   // hotel, bus, atau tiket kereta peserta ini.
   const perjalananBusHorizon = (logistik?.transport?.trips ?? []).filter((trip) => trip.bus);
   const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0);
+  // Rute bersasaran atau ditautkan ke baris Agenda tinggal di Perjalanan, di
+  // bawah kartu hotel, bus, dan kereta, seperti petunjuk arah di halaman
+  // reservasi. Tanpa tab Perjalanan (peserta tanpa kamar, bus, atau kereta)
+  // tetap di Beranda. Mata di Participant home tetap menyembunyikannya.
+  const rutePerjalanan = adaPerjalanan
+    ? blokPeserta.filter((block) => block.type === "route" && kartuBlok.has(block.id) && diBeranda(block.id) && (bacaSasaranBlok(block.audience) !== null || bacaTautanAgenda(block.agenda_item_ids).length > 0))
+    : [];
+  const idRutePerjalanan = new Set<string>(rutePerjalanan.map((block) => block.id));
+  // Baris Agenda > rute pertama yang menautkannya ("Cara ke sana").
+  const ruteBaris = new Map<number, string>();
+  for (const block of rutePerjalanan) for (const id of bacaTautanAgenda(block.agenda_item_ids)) if (!ruteBaris.has(id)) ruteBaris.set(id, block.id);
 
   // Plat dan kru bus yang ditampilkan kartu (bila panitia menyalakannya di Logistics > Buses).
   const detailNamaBus = namaBus ? logistik?.buses.find((bus) => bus.code === namaBus) : undefined;
@@ -862,6 +876,13 @@ export async function DashboardGathering({
                             {status ? <Chip nada="aksi">{status === "berlangsung" ? t.now : t.next}</Chip> : null}
                           </p>
                           {item.subtitle ? <p className={`mt-1 text-[14px] leading-5 ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
+                          {ruteBaris.has(item.id) ? (
+                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="-mb-2 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold text-[#274FC0]">
+                              {tH.agenda.routeLink}
+                              <CaretRight size={16} aria-hidden />
+                              <PenandaTab tab="perjalanan" />
+                            </Link>
+                          ) : null}
                           {adaTrip(bagian.tanggal, item) ? (
                             <Link href={keTab("perjalanan")} className="-mb-2 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold text-[#274FC0]">
                               {tH.agenda.tripLink}
@@ -1107,6 +1128,9 @@ export async function DashboardGathering({
           (kartuHotel ?? kartuBusHorizon)
         )}
         {kartuKeretaHorizon}
+        {rutePerjalanan.map((block) => (
+          <div key={block.id} id={block.id} className="scroll-mt-28">{kartuBlok.get(block.id)}</div>
+        ))}
         {kartuBantuanPerjalanan}
       </div>
     );
@@ -1445,7 +1469,7 @@ export async function DashboardGathering({
       // Simpan QR ke galeri (U-02): dari tiga hari sebelum acara sampai hari terakhirnya.
       const tampilSimpanQr =
         tampilKode && peserta && event.event_date ? kini.tanggal >= geserTanggal(event.event_date, -3) && kini.tanggal <= (event.end_date ?? event.event_date) : false;
-      const lainnya = beranda.order.filter((id) => diBeranda(id) && kartuBlok.has(id));
+      const lainnya = beranda.order.filter((id) => diBeranda(id) && kartuBlok.has(id) && !idRutePerjalanan.has(id));
       // Outfit hari ini (pola "Tonight's Attire" Royal Caribbean): satu baris
       // sesudah tiket kereta, menuju hari itu di halaman Outfit.
       const outfitBeranda = adaOutfit ? hariOutfitBeranda(hariOutfit, kini.tanggal, besokTanggal) : null;
@@ -1538,6 +1562,16 @@ export async function DashboardGathering({
                     </div>
                   ) : null}
                 </BagianBeranda>
+                {/* Checkpoint yang masih punya langkah: aksi utama hari H, di kolom utama tepat
+                    di bawah pass (seperti boarding pass di aplikasi maskapai), bukan di kolom
+                    samping yang membuatnya terlalu tinggi. Di ponsel urutannya tetap. */}
+                {checkpointAktif ? (
+                  <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
+                    <div className="order-[30] lg:order-none">
+                      {kartuCheckpointHorizon}
+                    </div>
+                  </BagianBeranda>
+                ) : null}
                 {barisOutfit}
                 {checkpointSelesai ? (
                   <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
@@ -1573,7 +1607,11 @@ export async function DashboardGathering({
                   </div>
                 ) : null}
               </div>
-              <div className="contents min-w-0 lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-6">
+              {/* Kolom samping (Berikutnya, Pengumuman) menempel saat discroll, seperti kotak
+                  pemesanan di listing Airbnb; hanya di layar yang cukup tinggi, supaya
+                  kartunya tidak terpotong di 1280×588. Jarak atas = bilah atas 102 px
+                  (logo 62 + py-5) ditambah 24. */}
+              <div className="contents min-w-0 lg:sticky lg:top-[126px] lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-6 lg:[@media(max-height:799px)]:static">
                 {statusPendaftaran ? (
                   <div className="order-[19] lg:order-none">
                     {statusPendaftaran}
@@ -1595,13 +1633,6 @@ export async function DashboardGathering({
                   <BagianBeranda id="announcements" pratinjau={pratinjau}>
                     <div className={`${orderPengumuman} lg:order-none`}>
                       {kartuPengumumanHorizon}
-                    </div>
-                  </BagianBeranda>
-                ) : null}
-                {checkpointAktif ? (
-                  <BagianBeranda id="checkpoints" pratinjau={pratinjau}>
-                    <div className="order-[30] lg:order-none">
-                      {kartuCheckpointHorizon}
                     </div>
                   </BagianBeranda>
                 ) : null}

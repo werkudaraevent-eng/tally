@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
 import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
+import { SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
+import { TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
@@ -81,6 +83,12 @@ const blockSchema = z.object({
   route_from: routeStop.optional(),
   route_to: routeStop.optional(),
   maps_mode: z.enum(LANDING_ROUTE_MAPS_MODES).optional(),
+  // Kolom pertanyaan (a-z0-9_) atau Hotel dari Logistics; lihat src/lib/sasaran-blok.ts.
+  audience: z.object({
+    field: z.string().regex(/^(@hotel|[a-z0-9_]{1,64})$/),
+    values: z.array(z.string().trim().min(1).max(SASARAN_NILAI_PANJANG)).min(1).max(SASARAN_NILAI_MAX),
+  }).refine((isi) => isi.field !== "@hotel" || isi.values.every((nilai) => /^[1-9]\d{0,17}$/.test(nilai)), "Hotel groups use hotel ids").optional(),
+  agenda_item_ids: z.array(z.number().int().positive()).max(TAUTAN_AGENDA_MAX).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
   layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo"]).optional(),
   eyebrow: teks(60),

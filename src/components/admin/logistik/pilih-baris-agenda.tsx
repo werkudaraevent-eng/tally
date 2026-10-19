@@ -94,13 +94,15 @@ const KELAS_OPSI = "flex min-h-[34px] cursor-pointer items-start gap-2.5 rounded
  * saja (bukan dialog di sekelilingnya). Tab berpindah di dalam panel dan keluar
  * kembali ke pemicu, supaya fokus tidak lepas dari dialog.
  */
-export function PilihBarisAgenda({ value, onChange, agendaTrip, dipakai }: {
+export function PilihBarisAgenda({ value, onChange, agendaTrip, dipakai, teks }: {
   /** `rundown_items.id`, atau null (Not linked). */
   value: number | null;
   onChange: (id: number | null) => void;
   agendaTrip: AgendaTrip;
   /** Nama trip lain per id baris, untuk "Used by". */
   dipakai: ReadonlyMap<number, string[]>;
+  /** Label dan petunjuk untuk pemakai selain trip bus (mis. blok Rute). */
+  teks?: { label: string; kosong: string; terpilih: string };
 }) {
   const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
   const kerangka = useRef<HTMLDivElement | null>(null);
@@ -211,7 +213,7 @@ export function PilihBarisAgenda({ value, onChange, agendaTrip, dipakai }: {
   // Nama tab hanya bila tanggal baris punya lebih dari satu tab (Batch 1 dan
   // Batch 2 di hari yang sama): tanpa itu dua baris bisa berbunyi sama. Selama
   // memuat, "Loading agenda…" cukup di pemicu; di bawahnya petunjuk biasa.
-  const pesan: ReactNode = value === null
+  const pesan: ReactNode = teks && (value === null || lokasi) ? (value === null ? teks.kosong : teks.terpilih) : value === null
     ? "Pick the row this bus is for. Participants then see a link to their bus on it in their schedule."
     : lokasi ? (
       <>
@@ -256,7 +258,7 @@ export function PilihBarisAgenda({ value, onChange, agendaTrip, dipakai }: {
   return (
     <div className="col-span-2">
       <label htmlFor={`${id}-cb`} className="m3-field-label flex items-baseline gap-2 text-label-large font-semibold text-on-surface">
-        Agenda row
+        {teks?.label ?? "Agenda row"}
         <span className="text-body-small font-normal text-on-surface-variant">optional</span>
       </label>
       <div
