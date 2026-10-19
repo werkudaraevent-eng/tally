@@ -78,14 +78,17 @@ export type PilihanPeserta = {
 export function pilihanPeserta(sasaran: ReadonlyArray<SasaranBagian | null>, extra: Record<string, unknown> | null | undefined): PilihanPeserta {
   const milik = new Set<number>();
   const bukanMilik = new Set<number>();
+  // Label dari kolom bagian yang cocok; tanpa bagian yang cocok, dari kolom sasaran pertama.
   let kelompok: string | null = null;
+  let cadangan: string | null = null;
   sasaran.forEach((isi, indeks) => {
     const hasil = milikPeserta(isi, extra);
     if (hasil === true) milik.add(indeks);
     if (hasil === false) bukanMilik.add(indeks);
-    if (isi && kelompok === null) kelompok = jawabanPeserta(extra, isi.field);
+    if (isi && hasil === true && kelompok === null) kelompok = jawabanPeserta(extra, isi.field);
+    if (isi && cadangan === null) cadangan = jawabanPeserta(extra, isi.field);
   });
-  return { milik, bukanMilik, kelompok };
+  return { milik, bukanMilik, kelompok: kelompok ?? cadangan };
 }
 
 /**

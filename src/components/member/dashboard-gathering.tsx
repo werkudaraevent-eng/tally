@@ -211,12 +211,13 @@ export async function DashboardGathering({
     const [logistikQr, setelanCheckpoint, sasaranQr] = await Promise.all([
       loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, undefined, true),
       loadSetelanCheckpoint(event.id),
-      loadSasaranPeserta(event.id, peserta.id),
+      // Sama dengan lapisan QR di dalam portal: kelompok hanya bila Jadwal ditampilkan.
+      member.show_schedule !== false ? loadSasaranPeserta(event.id, peserta.id) : null,
     ]);
     const tutupQr = dari ? keTab(dari, (dari === "jadwal" || dari === "outfit") && hari ? { hari: String(hari) } : {}) : keTab("beranda");
     const busQr = logistikQr ? namaBusPeserta(logistikQr, sekarang) : null;
     // "Batch 2 · Bus 3" di bawah nama (E-10): kelompok dari kolom yang dipakai Agenda > Who it's for.
-    const pilQr = labelPil(pilihanPeserta([...sasaranQr.sasaran.values()], sasaranQr.jawaban).kelompok, busQr, tH.bus);
+    const pilQr = labelPil((sasaranQr ? pilihanPeserta([...sasaranQr.sasaran.values()], sasaranQr.jawaban).kelompok : null), busQr, tH.bus);
     const dataQr = dataLapisanQr(busQr, pilQr);
     return (
       <main lang={LANDING_LANG_LABELS[lang].htmlLang} className="min-h-dvh" style={{ ...gaya, "--cincin-fokus": "var(--hz-cincin-navy)", backgroundColor: "var(--hz-navy)", color: "#ffffff" } as CSSProperties}>
@@ -757,7 +758,9 @@ export async function DashboardGathering({
     // Tiap hari dibuka di bagian milik peserta (Agenda > Who it's for), lalu yang untuk semua.
     const bukaHari = (item: (typeof hariJadwal)[number]) => bagianPertama(item.bagian.map((isi) => isi.indeks), pilihanKu) ?? item.bagian[0].indeks;
     const hariIniJadwal = hariJadwal.find((item) => item.tanggal === kini.tanggal);
-    const pilihan = Math.min(Math.max((hari ?? (hariIniJadwal ? bukaHari(hariIniJadwal) + 1 : 1)) - 1, 0), Math.max(agenda.length - 1, 0));
+    // Tanpa ?hari: hari ini bila hari acara, selain itu hari pertama; keduanya di bagian milik peserta.
+    const hariAwal = hariIniJadwal ?? hariJadwal[0];
+    const pilihan = Math.min(Math.max((hari ?? (hariAwal ? bukaHari(hariAwal) + 1 : 1)) - 1, 0), Math.max(agenda.length - 1, 0));
     const bagian: AgendaPreview | undefined = agenda[pilihan];
     const hariTerpilih = hariJadwal.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));
     const labelTerpilih = hariTerpilih?.bagian.find((isi) => isi.indeks === pilihan)?.label ?? null;
@@ -814,9 +817,10 @@ export async function DashboardGathering({
                       const milik = hariTerpilih.bagian.find((isiBagian) => pilihanKu.milik.has(isiBagian.indeks));
                       if (!milik || !pilihanKu.kelompok) return null;
                       const labelMilik = milik.label ?? tH.schedule.part(hariTerpilih.bagian.indexOf(milik) + 1);
-                      return milik.indeks === pilihan ? (
-                        <p className="mt-3 text-[14px] leading-5 text-[#4A5568]">{tH.schedule.yours(pilihanKu.kelompok)}</p>
-                      ) : (
+                      if (milik.indeks === pilihan) return <p className="mt-3 text-[14px] leading-5 text-[#4A5568]">{tH.schedule.yours(pilihanKu.kelompok)}</p>;
+                      // "Bukan jadwalmu" hanya untuk bagian kelompok lain, bukan bagian untuk semua di tanggal yang sama.
+                      if (!pilihanKu.bukanMilik.has(pilihan)) return null;
+                      return (
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[14px] leading-5 text-[#4A5568]">
                           <span>{tH.schedule.notYours(pilihanKu.kelompok)}</span>
                           <Link href={hrefBagian(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[#274FC0] underline underline-offset-4">
@@ -1811,12 +1815,12 @@ function namaBusPeserta(logistik: LogistikPeserta, sekarang: Date): string | nul
   return agendaBerikutnya(logistik, sekarang)?.bus ?? logistik.transport?.default_bus ?? null;
 }
 
-/** "Bus 3" apa adanya; kode yang hanya angka ("3") diberi kata "Bus" di depannya (E-10). */
 /** Pil di bawah nama di layar QR: "Batch 2 · Bus 3", salah satunya, atau null. */
 function labelPil(kelompok: string | null, bus: string | null, kata: string): string | null {
   return [kelompok, bus ? labelBus(bus, kata) : null].filter(Boolean).join(" · ") || null;
 }
 
+/** "Bus 3" apa adanya; kode yang hanya angka ("3") diberi kata "Bus" di depannya (E-10). */
 function labelBus(kode: string, kata: string): string {
   return /^\d+$/.test(kode.trim()) ? `${kata} ${kode.trim()}` : kode;
 }

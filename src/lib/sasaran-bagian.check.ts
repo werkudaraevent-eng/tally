@@ -62,4 +62,8 @@ assert.deepEqual(
 );
 assert.deepEqual(kolomSasaran(null), []);
 
+// QA #223 L3: dua kolom sasaran; label dari bagian yang cocok, bukan bagian bersasaran pertama.
+const dua = pilihanPeserta([{ field: "bus_no", values: ["7"] }, { field: "batch", values: ["Batch 2"] }], { bus_no: "3", batch: "Batch 2" });
+assert.equal(dua.kelompok, "Batch 2");
+assert.equal(pilihanPeserta([{ field: "bus_no", values: ["7"] }], { bus_no: "3" }).kelompok, "3");
 console.log("sasaran-bagian ok");

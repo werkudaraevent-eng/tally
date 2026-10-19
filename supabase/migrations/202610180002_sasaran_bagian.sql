@@ -32,18 +32,25 @@ alter table public.rundown_sections
   add column if not exists audience jsonb;
 
 alter table public.rundown_sections drop constraint if exists rundown_sections_audience_check;
+-- CASE, bukan AND: kunci yang hilang memberi NULL, dan NULL lolos CHECK
+-- (seperti di 202610160001). Kunci dan tipe dicek dulu, sisanya hanya
+-- dihitung bila bentuknya benar; setiap jawaban harus teks yang tidak kosong.
 alter table public.rundown_sections
   add constraint rundown_sections_audience_check
   check (
-    audience is null
-    or (
-      jsonb_typeof(audience) = 'object'
-      and jsonb_typeof(audience -> 'field') = 'string'
-      and (audience ->> 'field') ~ '^[a-z0-9_]{1,64}$'
-      and jsonb_typeof(audience -> 'values') = 'array'
-      and jsonb_array_length(audience -> 'values') between 1 and 20
-      and pg_column_size(audience) <= 4096
-    )
+    case
+      when audience is null then true
+      when jsonb_typeof(audience) = 'object'
+        and coalesce(jsonb_typeof(audience -> 'field'), '') = 'string'
+        and coalesce(jsonb_typeof(audience -> 'values'), '') = 'array'
+      then coalesce(
+        (audience ->> 'field') ~ '^[a-z0-9_]{1,64}$'
+        and jsonb_array_length(audience -> 'values') between 1 and 20
+        and not jsonb_path_exists(audience, '$.values[*] ? (@.type() != "string" || @ like_regex "^[[:space:]]*$")')
+        and pg_column_size(audience) <= 4096,
+        false)
+      else false
+    end
   );
 
 comment on column public.rundown_sections.audience is
