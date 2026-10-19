@@ -28,9 +28,9 @@ const GARIS_NAVY = "#405272";
 const REDUP_NAVY = "#CDD7EA";
 
 /**
- * Kartu putih di latar krem: M3 Outlined card, garis 1 px tinta 12% (setara
- * outline-variant). Putih di krem tanpa garis hanya ~1,05:1, jadi batas kartu
- * hilang di susunan dua kolom Beranda.
+ * Kartu putih di latar krem: pola M3 Outlined card, garis 1 px tinta 12%
+ * (~1,3:1, lebih lembut dari outline-variant). Putih di krem tanpa garis hanya
+ * ~1,05:1, jadi batas kartu hilang di susunan dua kolom Beranda.
  */
 export const GARIS_KARTU = "ring-1 ring-[rgb(16_30_56/0.12)]";
 
