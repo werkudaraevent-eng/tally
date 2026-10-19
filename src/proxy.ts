@@ -5,6 +5,8 @@ import { decideClientHost, redirectToClient } from "@/lib/domain-klien/rute";
 import { domainMap, eventIdForHost, PENANDA_PATH } from "@/lib/domain-klien/simpan";
 import { productionSiteOrigin } from "@/lib/domain-klien/situs";
 import { messagingAllowlist } from "@/lib/pesan/alamat";
+import { alamatSlugBaru } from "@/lib/slug-lama";
+import { slugLamaMap } from "@/lib/slug-lama-peta";
 
 /**
  * Menentukan tujuan rewrite untuk permintaan ber-scope event, atau null bila
@@ -101,6 +103,22 @@ export async function proxy(request: NextRequest) {
     return eventId
       ? Response.json({ event_id: eventId }, { headers: { "Cache-Control": "no-store" } })
       : new NextResponse("Halaman tidak ditemukan.", { status: 404 });
+  }
+
+  // Slug lama acara yang sudah ganti slug: alihkan ke slug sekarang di host
+  // yang sama, sebelum aturan domain klien (yang menolak slug acara lain).
+  // Hanya alamat yang membawa slug membaca petanya.
+  const { pathname: pathAsli, search: queryAsli } = request.nextUrl;
+  if (/^\/(?:peserta\/)?e\//.test(pathAsli) || request.nextUrl.searchParams.has("eventSlug")) {
+    const lama = await slugLamaMap().catch(() => null);
+    const ke = lama ? alamatSlugBaru(pathAsli, queryAsli, lama) : null;
+    if (ke) {
+      const tujuan = request.nextUrl.clone();
+      const tanya = ke.indexOf("?");
+      tujuan.pathname = tanya < 0 ? ke : ke.slice(0, tanya);
+      tujuan.search = tanya < 0 ? "" : ke.slice(tanya);
+      return alihkan(tujuan.toString());
+    }
   }
 
   // Domain klien (Pengaturan > Acara > Alamat halaman acara). Peta host diambil

@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "./service";
+import { oldSlugsLike } from "../slug-lama-peta";
 import type { EventRow, EventStatus, ParticipantSource, EventTimeZoneCode } from "../domain";
 
 /**
@@ -122,8 +123,9 @@ export type UpdateEventInput = Partial<{
 }>;
 
 /**
- * `slug` sengaja TIDAK bisa diubah: ia sudah tercetak di QR dan tersimpan di
- * bookmark LED. Mengubahnya mematikan semua tautan itu tanpa peringatan.
+ * `slug` sengaja TIDAK bisa diubah di sini: ia sudah tercetak di QR dan
+ * tersimpan di bookmark LED. Ganti slug hanya lewat SQL yang juga menulis slug
+ * lamanya ke event_slug_redirects, supaya tautan lama dialihkan (slug-lama.ts).
  */
 export async function updateEvent(eventId: string, updates: UpdateEventInput): Promise<EventRow> {
   const supabase = getSupabaseServiceClient();
@@ -187,7 +189,9 @@ export async function generateEventSlug(name: string): Promise<string> {
 
   if (error) throw new Error(`Gagal memeriksa slug: ${error.message}`);
 
-  const used = new Set(((taken as { slug: string }[] | null) ?? []).map((r) => r.slug));
+  // Slug lama acara yang sudah ganti slug juga terpakai: tautan lama dialihkan
+  // ke acara itu (src/lib/slug-lama.ts), acara baru tidak boleh mengambilnya.
+  const used = new Set([...((taken as { slug: string }[] | null) ?? []).map((r) => r.slug), ...(await oldSlugsLike(seed))]);
   if (!used.has(seed)) return seed;
 
   for (let n = 2; n <= 99; n += 1) {
