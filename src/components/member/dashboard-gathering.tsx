@@ -70,6 +70,7 @@ import {
   BarisTautanHorizon,
   ChipHariHorizon,
   ChipTanggalHorizon,
+  GARIS_KARTU,
   HariJadwalHorizon,
   KartuBantuanHorizon,
   KartuBerikutnyaHorizon,
@@ -1155,17 +1156,18 @@ export async function DashboardGathering({
     // Horizon: yang belum dibaca di atas (U-03), lalu yang disematkan dan sisanya seperti biasa.
     const daftarInfo = horizon ? [...pengumuman.items].sort((a, b) => Number(isUnread(b, pengumuman.seenAt)) - Number(isUnread(a, pengumuman.seenAt))) : pengumuman.items;
     isi = (
-      // Horizon di layar lebar: kartu dua kolom selebar halaman, yang disematkan selebar penuh.
-      <div className={horizon ? "grid gap-4 md:grid-cols-2" : "mx-auto flex w-full max-w-[720px] flex-col gap-3"}>
+      // Horizon: satu kolom rata kiri selebar kolom utama Beranda (790), terbaru di atas.
+      // Pengumuman itu prosa: dua kolom meninggalkan separuh baris kosong saat jumlahnya ganjil.
+      <div className={horizon ? "flex w-full max-w-[790px] flex-col gap-4" : "mx-auto flex w-full max-w-[720px] flex-col gap-3"}>
         {/* Tab ini yang menandai pengumuman terbaca, bukan setiap render portal (U-03). */}
         {!pratinjau && pengumuman.unread > 0 ? <TandaiPengumumanDibaca slug={event.slug} /> : null}
         {pengumuman.items.length === 0 ? (
-          <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noAnnouncements}</p>
+          <p className={`${KARTU} ${horizon ? GARIS_KARTU : ""} text-body-large ${MUTED}`}>{t.noAnnouncements}</p>
         ) : (
           daftarInfo.map((item) => {
             const baru = isUnread(item, pengumuman.seenAt);
             return (
-              <article key={item.id} className={`${KARTU} ${item.pinned ? `shadow-[inset_0_0_0_2px_var(--aksen)]! ${horizon ? "md:col-span-2" : ""}` : ""}`}>
+              <article key={item.id} className={`${KARTU} ${horizon ? GARIS_KARTU : ""} ${item.pinned ? "shadow-[inset_0_0_0_2px_var(--aksen)]!" : ""}`}>
                 {item.pinned || baru ? (
                   <div className="mb-2 flex flex-wrap gap-2">
                     {item.pinned ? (
