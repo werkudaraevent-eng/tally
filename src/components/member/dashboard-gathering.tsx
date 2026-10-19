@@ -70,6 +70,7 @@ import {
   BarisTautanHorizon,
   ChipHariHorizon,
   ChipTanggalHorizon,
+  GARIS_KARTU,
   HariJadwalHorizon,
   KartuBantuanHorizon,
   KartuBerikutnyaHorizon,
@@ -1155,17 +1156,18 @@ export async function DashboardGathering({
     // Horizon: yang belum dibaca di atas (U-03), lalu yang disematkan dan sisanya seperti biasa.
     const daftarInfo = horizon ? [...pengumuman.items].sort((a, b) => Number(isUnread(b, pengumuman.seenAt)) - Number(isUnread(a, pengumuman.seenAt))) : pengumuman.items;
     isi = (
-      // Horizon di layar lebar: kartu dua kolom selebar halaman, yang disematkan selebar penuh.
-      <div className={horizon ? "grid gap-4 md:grid-cols-2" : "mx-auto flex w-full max-w-[720px] flex-col gap-3"}>
+      // Horizon: satu kolom rata kiri selebar kolom utama Beranda (790), terbaru di atas.
+      // Pengumuman itu prosa: dua kolom meninggalkan separuh baris kosong saat jumlahnya ganjil.
+      <div className={horizon ? "flex w-full max-w-[790px] flex-col gap-4" : "mx-auto flex w-full max-w-[720px] flex-col gap-3"}>
         {/* Tab ini yang menandai pengumuman terbaca, bukan setiap render portal (U-03). */}
         {!pratinjau && pengumuman.unread > 0 ? <TandaiPengumumanDibaca slug={event.slug} /> : null}
         {pengumuman.items.length === 0 ? (
-          <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noAnnouncements}</p>
+          <p className={`${KARTU} ${horizon ? GARIS_KARTU : ""} text-body-large ${MUTED}`}>{t.noAnnouncements}</p>
         ) : (
           daftarInfo.map((item) => {
             const baru = isUnread(item, pengumuman.seenAt);
             return (
-              <article key={item.id} className={`${KARTU} ${item.pinned ? `shadow-[inset_0_0_0_2px_var(--aksen)]! ${horizon ? "md:col-span-2" : ""}` : ""}`}>
+              <article key={item.id} className={`${KARTU} ${horizon ? GARIS_KARTU : ""} ${item.pinned ? "shadow-[inset_0_0_0_2px_var(--aksen)]!" : ""}`}>
                 {item.pinned || baru ? (
                   <div className="mb-2 flex flex-wrap gap-2">
                     {item.pinned ? (
@@ -1177,8 +1179,9 @@ export async function DashboardGathering({
                     {baru ? <Chip nada="aksi">{t.isNew}</Chip> : null}
                   </div>
                 ) : null}
-                <h2 className="max-w-[70ch] text-title-large font-bold">{item.title}</h2>
-                {item.body ? <p className={`mt-1.5 max-w-[70ch] whitespace-pre-line text-body-large ${MUTED}`}>{item.body}</p> : null}
+                {/* Horizon: Title Medium 600 + Body Medium, sama dengan kartu Pengumuman di Beranda; 22 px tebal terlalu berat untuk daftar. */}
+                <h2 className={`max-w-[70ch] [overflow-wrap:anywhere] ${horizon ? "text-title-medium font-semibold" : "text-title-large font-bold"}`}>{item.title}</h2>
+                {item.body ? <p className={`max-w-[70ch] whitespace-pre-line [overflow-wrap:anywhere] ${horizon ? "mt-1 text-body-medium" : "mt-1.5 text-body-large"} ${MUTED}`}>{item.body}</p> : null}
                 {item.link_url ? (
                   <a href={item.link_url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex min-h-12 items-center gap-1.5 text-title-small font-bold text-[var(--alis)]">
                     {item.link_label?.trim() || item.link_url}
