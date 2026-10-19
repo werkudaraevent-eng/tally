@@ -8,7 +8,7 @@ import { ImagePreview } from "@/components/admin/image-preview";
 import { ExclusionRuleManager } from "@/components/admin/undian-exclusion-rules";
 import { SessionHistory } from "@/components/admin/undian-session-history";
 import { useToast } from "@/components/toast";
-import { normalizeBranding } from "@/lib/branding";
+import { DEFAULT_BRANDING, fontStack, normalizeBranding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
 import { ANIMATIONS, EMPTY_CONDITIONS, describeConditions, normalizePrize, type UndianPrize } from "@/lib/undian";
 import { undianCanRun, undianReadiness, type ReadinessStep, type ReadinessTab } from "@/lib/undian-readiness";
@@ -19,7 +19,7 @@ import {
 import { DisplaySettings } from "./display-settings";
 import { EntryLists } from "./entry-lists";
 import { PrizeEditor } from "./prize-editor";
-import type { EntryGroup, Exclusion, PoolStat, Preview, Settings } from "./types";
+import { FALLBACK, type EntryGroup, type Exclusion, type PoolStat, type Preview, type Settings } from "./types";
 
 // CMS Undian.
 //
@@ -489,6 +489,12 @@ export default function UndianAdminPage() {
       preview={preview}
       previewFailed={previewFailed}
       onRetrySessions={() => setPreviewRetry((current) => current + 1)}
+      stage={{
+        background: settings?.background_color ?? FALLBACK.background_color,
+        text: settings?.text_color ?? FALLBACK.text_color,
+        accent: settings?.accent_color ?? FALLBACK.accent_color,
+        fontFamily: fontStack(branding?.heading_font ?? DEFAULT_BRANDING.heading_font),
+      }}
       saving={savingPrize}
       uploading={uploadingPrizeImage}
       error={errorInPane ? error : ""}
