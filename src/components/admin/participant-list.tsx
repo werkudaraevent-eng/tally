@@ -1386,8 +1386,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             {sessions.length > 0 ? (
               <DetailSection
                 title="Check-in"
-                action={sessions.filter((sesi) => p.attendance?.[String(sesi.id)]).length > 1
-                  ? <Button simpan variant="text" size="sm" className="text-error" onClick={() => setResetCheckIn({ participant: p, session: null })}>Reset all</Button>
+                action={sessions.some((sesi) => p.attendance?.[String(sesi.id)])
+                  ? <Button simpan variant="text" size="sm" className="text-error" onClick={() => setResetCheckIn({ participant: { id: p.id, name: p.name, scannerCheckedIn: p.source_checked_in }, session: null })}>Reset all</Button>
                   : undefined}
               >
                 {sessions.map((sesi) => {
@@ -1397,7 +1397,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                       {catatan ? (
                         <span className="flex items-center gap-1">
                           <StatusChip dot tone="success" title={catatan.count > 1 ? `Scanned ${catatan.count} times` : undefined}>Checked in {jam(catatan.first)}</StatusChip>
-                          <IconButton simpan size="sm" className="-my-2" label={`Reset check-in at ${sesi.name}`} title="Reset check-in" onClick={() => setResetCheckIn({ participant: p, session: sesi })}><ArrowCounterClockwise size={16} /></IconButton>
+                          <IconButton simpan size="sm" className="-my-2" label={`Reset check-in at ${sesi.name}`} title="Reset check-in" onClick={() => setResetCheckIn({ participant: { id: p.id, name: p.name, scannerCheckedIn: p.source_checked_in }, session: sesi })}><ArrowCounterClockwise size={16} /></IconButton>
                         </span>
                       ) : <StatusChip dot>Not checked in</StatusChip>}
                     </KeyValue>

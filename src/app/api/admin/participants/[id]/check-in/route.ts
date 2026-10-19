@@ -13,7 +13,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  *
  * Yang dihapus hanya buktinya: baris `attendance_scans` peserta itu di sesi
  * tersebut, dan `item_pickups` yang tercatat di sesi itu (tanpa `session`: semua
- * barang kitnya). Checkpoint, poin, kolom check-in di Export dan syarat undian
+ * barang kitnya; sesi terakhir yang direset juga membawa barang dari sesi yang
+ * sudah dihapus). Checkpoint, poin, kolom check-in di Export dan syarat undian
  * semuanya dihitung dari dua tabel ini, jadi ikut kembali tanpa langkah lain.
  * Pemenang undian yang sudah terundi tidak disentuh.
  *
@@ -23,7 +24,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 
 const paramsSchema = z.string().uuid();
-const querySchema = z.object({ session: z.coerce.number().int().positive().optional() });
+// Hanya angka: `z.coerce` menerima "1e3" atau " 7 " sebagai id sesi.
+const querySchema = z.object({ session: z.string().regex(/^[1-9]\d{0,15}$/).transform(Number).optional() });
 
 type Scan = { id: number; session_id: number; scanned_at: string; scanned_by: string | null; method?: string | null };
 type Pickup = { id: number; item_id: number; session_id: number | null; size: string | null; picked_up_at: string; picked_up_by: string | null };
@@ -32,9 +34,18 @@ async function bacaBukti(eventId: string, participantId: string, sessionId: numb
   const client = getSupabaseServiceClient();
   let scans = client.from("attendance_scans").select("*").eq("event_id", eventId).eq("participant_id", participantId);
   let pickups = client.from("item_pickups").select("id,item_id,session_id,size,picked_up_at,picked_up_by").eq("event_id", eventId).eq("participant_id", participantId);
+  // Barang dari sesi yang sudah dihapus tercatat dengan session_id null (on
+  // delete set null). Ikut direset bersama check-in TERAKHIR peserta itu;
+  // kalau tidak, setelah sesi terakhir direset tidak ada tombol yang bisa
+  // mengembalikannya dan item_pickups_unique menahan penyerahan berikutnya.
+  let sesiLain = 0;
   if (sessionId !== undefined) {
+    const lain = await client.from("attendance_scans").select("id", { head: true, count: "exact" })
+      .eq("event_id", eventId).eq("participant_id", participantId).neq("session_id", sessionId);
+    if (lain.error) return null;
+    sesiLain = lain.count ?? 0;
     scans = scans.eq("session_id", sessionId);
-    pickups = pickups.eq("session_id", sessionId);
+    pickups = sesiLain > 0 ? pickups.eq("session_id", sessionId) : pickups.or(`session_id.eq.${sessionId},session_id.is.null`);
   }
   // Satu orang: jauh di bawah batas 1.000 baris, kecuali dipindai beribu kali.
   const [s, p, items] = await Promise.all([
@@ -113,15 +124,20 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   } as never);
   if (galatAudit) return apiError("INTERNAL_ERROR", 500);
 
+  // Jumlah yang dikembalikan adalah yang benar-benar terhapus (`select`), bukan yang dibaca tadi.
+  let scans = 0;
+  let pickups = 0;
   if (bukti.scans.length > 0) {
-    const { error: galat } = await client.from("attendance_scans").delete()
-      .eq("event_id", eventId).eq("participant_id", peserta.id).in("id", bukti.scans.map((row) => row.id));
+    const { data, error: galat } = await client.from("attendance_scans").delete()
+      .eq("event_id", eventId).eq("participant_id", peserta.id).in("id", bukti.scans.map((row) => row.id)).select("id");
     if (galat) return apiError("INTERNAL_ERROR", 500);
+    scans = data?.length ?? 0;
   }
   if (bukti.pickups.length > 0) {
-    const { error: galat } = await client.from("item_pickups").delete()
-      .eq("event_id", eventId).eq("participant_id", peserta.id).in("id", bukti.pickups.map((row) => row.id));
-    if (galat) return apiError("INTERNAL_ERROR", 500);
+    const { data, error: galat } = await client.from("item_pickups").delete()
+      .eq("event_id", eventId).eq("participant_id", peserta.id).in("id", bukti.pickups.map((row) => row.id)).select("id");
+    if (galat) return apiError("INTERNAL_ERROR", 500, { message: `Scans were reset, but the kit hand-outs could not be. Try again.` });
+    pickups = data?.length ?? 0;
   }
-  return Response.json({ scans: bukti.scans.length, pickups: bukti.pickups.length });
+  return Response.json({ scans, pickups });
 }
