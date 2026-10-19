@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Product direction and design basis (this PR): `docs/PRODUCT.md` gets a dated Direction section (Mas 19 Oct: all-in-one event platform, public by subscription; order KSO, organisations, WhatsApp, sign-up and billing). `DESIGN.md` opens with the design basis per screen type and drops chapters that contradicted the code. Also the #234 QA follow-ups (field roles, Completed → Active, Supabase local stack). Docs only.
+- Target map (this PR): `docs/PRODUCT.md` gets a feature-by-feature map per event stage with today's status, priority (P1 before public launch) and a reference product. Docs only.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -23,6 +23,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #237 Product direction and design basis (merged 19 Oct): `docs/PRODUCT.md` Direction section; `DESIGN.md` opens with the design basis per screen type and drops chapters that contradicted the code.
 - #222 Participant texts without pronouns (U-23, U-21 and E-09, merged 19 Oct): shared participant texts and emails drop "Anda"/"kamu" (sign-in, ribbons, Lengkapi data, registration form, sign-in/code/walk-in and confirmation emails, footers, logistics cards, checkpoint note, voting, classic Gathering page); "area peserta" becomes "Dashboard saya". Horizon keeps "kamu"; the Modern public page and staff-written message starters keep "Anda". No SQL.
 - #234 Docs clean-up (merged 19 Oct): new `docs/PRODUCT.md` feature map (every module, who uses it, what the CMS sets, decided-against list); old PRIMA-era docs and `tasks/` deleted (still in git history); README and `supabase/README.md` rewritten; cron setup moved to `docs/ops/cron.md` with placeholders; still-valid database gotchas moved into `CLAUDE.md`.
 - #233 Directions blocks set from the CMS, and Horizon home layout (merged 19 Oct): a Directions block shown on the participant page gets "Who sees it" (Everyone, or one group: a dropdown or single-choice participant field such as Batch, or Hotel from Logistics, with its answers) and optional linked Agenda rows. A group hides the route from everyone else (hotel only while rooms are shown to participants). On Horizon, a route with a group or a linked row sits in Perjalanan after the hotel, bus and train cards, and each linked row shows "Cara ke sana" in Susunan acara; participants without travel info see it on Beranda. Routes without either setting stay where they were. Beranda: the checkpoint guide with steps left moves to the main column under the pass, and the side column (Berikutnya, Pengumuman) sticks while scrolling on screens at least 800 px tall. Other layouts and the public page 0 px. No SQL.

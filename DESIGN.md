@@ -794,7 +794,7 @@ Jarak huruf positif milik M3 (0.015–0.031rem) dinolkan di bawah 16px. Sebelum
 ini ada **dua belas** nilai `tracking-[...]` tangan yang tidak seorang pun
 memilihnya secara sadar; jarak huruf sekarang milik peran, bukan milik tempat
 pemakaian. Pengecualiannya satu, `.press .ed-tracked`, untuk kolom yang jaraknya
-memang punya alasan — PIN enam digit. Kalau daftar itu tumbuh, yang salah rampnya.
+memang punya alasan (saat ini label "Tally" di halaman login). Kalau daftar itu tumbuh, yang salah rampnya.
 
 **Kenapa menimpa kelas, bukan token.** Terukur di CSS hasil build: `@theme
 inline` MENYALIN nilai literal untuk tipografi —
@@ -821,7 +821,7 @@ utilitas Tailwind.
 | `ed-label` | 12/16, bobot 600, jarak normal: nama kolom, judul kelompok, keterangan. Ukurannya terkunci |
 | `ed-num` | Lebar-tetap, angka rata: jam, nominal, kode |
 | `ed-plain` | Huruf antarmuka untuk label yang datang dari DATA (nama sesi, kolom buatan admin, nama hadiah) |
-| `ed-tracked` | Jalan keluar jarak huruf (`.press .ed-tracked`), saat ini hanya PIN |
+| `ed-tracked` | Jalan keluar jarak huruf (`.press .ed-tracked`); saat ini satu pemakaian, label "Tally" di halaman login |
 
 `ed-label` berhenti di kontrolnya: `.ed-label :where(input, select, textarea)`
 mengembalikan huruf antarmuka untuk teks yang diketik. Kolom yang memang harus

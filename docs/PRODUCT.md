@@ -27,13 +27,96 @@ URLs are written as `/e/<slug>/<page>`. Admin pages are `/e/<slug>/admin/<page>`
 
 Every feature is set up by the organiser alone in the CMS; placement and audience come from data they already enter, never from per-event or per-customer code.
 
-**Gaps against the goal:** organisations (each organiser's events, staff and settings kept to itself), WhatsApp sending with custom templates, self-serve sign-up, plans with usage limits and recurring billing, gamification beyond checkpoint points.
+**Gaps against the goal** (full list in the Target map below): organisations (each organiser's events, staff and settings kept to itself), WhatsApp sending with custom templates, self-serve sign-up, plans with usage limits and recurring billing, gamification beyond checkpoint points.
 
 **Order:** the KSO event (6-8 Nov) first; then organisations; then WhatsApp; then self-serve sign-up and billing, just before public launch. The existing modules are the product core; new modules wait until these are done.
 
 **Not doing:** online ticket sales or a payment gateway for participants (booth sales are a ledger; money moves at the cashier); a native app (phones use the web participant area); a free-form page builder.
 
 Review this section when the order changes; the date in the heading says when it was last decided.
+
+---
+
+## Target map (decided 2026-10-19)
+
+What "end to end" means feature by feature, per stage of an event. **Today:** Yes, Partly, No, or Not doing. **Priority:** P1 before public launch, P2 after launch, P3 only when customers ask. The reference names the product whose screen to look at first. When a row ships, update its Today column and its module in section 2.
+
+The aim is an answer at every stage, not parity with enterprise suites: Tally goes deep where Indonesian corporate events need it (logistics, seating, the event-day desk, the stage, WhatsApp).
+
+### Platform
+
+| Feature | Today | Priority | Reference |
+| --- | --- | --- | --- |
+| Organisations: each organiser's events, staff, senders and settings kept to itself | No | P1 | Luma calendars, Eventbrite organisations |
+| Plans with usage limits and recurring billing | No | P1 | Luma Plus, Cvent licence + per registrant |
+| Staff sign-in with email and two-step verification | Partly | P1 | Cvent platform licence (SSO) |
+| Consent at registration, delete-my-data requests, retention rules (UU PDP) | Partly | P1 | Eventbrite, Luma privacy per organiser |
+| Duplicate event, audit trail | Yes | | Cvent |
+| API, webhooks, Zapier | No | P2 | Eventbrite API, Luma API |
+
+### 1. Invite and register
+
+| Feature | Today | Priority | Reference |
+| --- | --- | --- | --- |
+| Event page, registration form, client domain, two languages | Yes | | Luma, Eventbrite |
+| Private invitations and reminders | Yes | | Luma invites |
+| Participant categories with a quota (VIP, Regular, Media), closing when full | Partly | P1 | Eventbrite ticket types |
+| Waitlist when a category is full | No | P1 | Luma waitlist |
+| Conditional questions on the form | No | P2 | Cvent registration |
+| One person registers several colleagues | No | P2 | Cvent group registration |
+| Paid tickets | Not doing | | |
+
+### 2. Communicate
+
+| Feature | Today | Priority | Reference |
+| --- | --- | --- | --- |
+| Email blasts with merge fields, scheduling, preview | Yes | | Luma |
+| Email sender per organisation (own domain, SPF/DKIM) | No | P1 | Cvent, Bizzabo custom sender |
+| WhatsApp approved templates (Meta), one number per organisation | No | P1 | SleekFlow event flows |
+| Automatic reminders (7 days, 1 day, morning of the event) | No | P1 | Luma reminders |
+| Inbox for WhatsApp replies | No | P2 | SleekFlow inbox |
+| Delivery and open statistics | Partly | P2 | Cvent email reports |
+
+### 3. Prepare participants
+
+| Feature | Today | Priority | Reference |
+| --- | --- | --- | --- |
+| Hotel rooms, buses, trains, kit items | Yes | | |
+| Flight tickets | No | P2 | Airline app boarding pass |
+| Seating plan and seat assignment | Yes | | Cvent seating |
+| Choose parallel sessions, with capacity | No | P2 | Cvent session selection, Sched |
+| Participants book their own hotel room | Not doing | P3 | Cvent Passkey |
+
+### 4. Run the day
+
+| Feature | Today | Priority | Reference |
+| --- | --- | --- | --- |
+| QR check-in, walk-ins, badge and sticker printing | Yes | | Cvent OnArrival |
+| Welcome screen, checkpoints, participant self-scan | Yes | | Bizzabo Klik |
+| Staff scanners keep working when the venue internet drops, and sync later | Partly | P1 | Cvent OnArrival, Swapcard offline scan |
+| Self check-in kiosk with badge printing | No | P2 | Cvent OnArrival kiosk |
+| Booth sales and cashier | Yes | | |
+
+### 5. Stage and gamification
+
+| Feature | Today | Priority | Reference |
+| --- | --- | --- | --- |
+| Lucky draw, live voting, leaderboard | Yes | | Slido polls |
+| Q&A with upvotes and moderation | No | P2 | Slido Q&A |
+| Quiz with scores | No | P2 | Kahoot, Whova contests |
+| One points total from check-in, sessions, quiz, booths and checkpoints | Partly | P2 | Whova leaderboard |
+| Networking and 1:1 meetings | Not doing | P3 | Brella, Swapcard |
+| Exhibitor lead retrieval | Not doing | P3 | Swapcard exhibitor tools |
+
+### 6. After the event and reports
+
+| Feature | Today | Priority | Reference |
+| --- | --- | --- | --- |
+| Live client view and exports | Yes | | Cvent reports |
+| One end-of-event report for the client (attendance vs registered, by organisation, checkpoints, winners, votes) | No | P1 | Bizzabo analytics, Cvent reports |
+| Post-event survey, NPS, rating per session | Partly | P2 | Cvent surveys |
+| E-certificate of attendance | No | P2 | Cvent CE tracking |
+| Photo gallery and materials after the event | Partly | P3 | Whova |
 
 ---
 
