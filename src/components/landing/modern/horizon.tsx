@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown } from "@phosphor-icons/react/dist/ssr";
+import { ArrowDown, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import type { LandingSpeaker } from "@/lib/domain";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -212,8 +212,13 @@ export function HeroHorizon({
             </p>
           ) : null}
           <Tautan aksi={aksi} className={`${PIL_EMAS} w-full justify-between gap-4 px-[22px] py-[15px] text-[15px] md:w-auto md:justify-center md:px-[26px] md:py-4 md:text-[16px]`}>
-            <span data-sunting="pembuka:hero_button_label">{aksi.label}</span>
-            <ArrowDown size={20} weight="bold" aria-hidden className="shrink-0" />
+            <span data-sunting={aksi.sunting}>{aksi.label}</span>
+            {/* Panah bawah menggulir ke cerita; panah kanan pindah ke dialog masuk atau Dashboard saya. */}
+            {aksi.href.startsWith("#") ? (
+              <ArrowDown size={20} weight="bold" aria-hidden className="shrink-0" />
+            ) : (
+              <ArrowRight size={20} weight="bold" aria-hidden className="shrink-0" />
+            )}
           </Tautan>
         </div>
         {/* Baris bawah di atas KV: bayangan tipis supaya tetap terbaca di atas ornamen emas. */}

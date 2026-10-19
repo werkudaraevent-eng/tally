@@ -362,6 +362,8 @@ export type LandingUiText = {
   signInMemberArea: string;
   /** Pengganti tombol Daftar di bilah atas saat peserta sudah masuk. */
   myDashboard: string;
+  /** Pil ringkas Dashboard saya di bilah atas ponsel (Horizon). */
+  dashboardShort: string;
   signOut: string;
   /** Pengganti tombol utama hero saat peserta sudah masuk. */
   viewMyTicket: string;
@@ -533,6 +535,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     memberArea: "Dashboard saya",
     signInMemberArea: "Masuk ke Dashboard saya",
     myDashboard: "Dashboard saya",
+    dashboardShort: "Dashboard",
     signOut: "Keluar",
     viewMyTicket: "Buka Dashboard saya",
     viewRegistrationStatus: "Lihat status pendaftaran",
@@ -683,6 +686,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     memberArea: "My dashboard",
     signInMemberArea: "Sign in to My dashboard",
     myDashboard: "My dashboard",
+    dashboardShort: "Dashboard",
     signOut: "Sign out",
     viewMyTicket: "Open My dashboard",
     viewRegistrationStatus: "View registration status",

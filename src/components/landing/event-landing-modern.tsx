@@ -36,7 +36,7 @@ import { gayaLatarBagian } from "./modern/latar-bagian";
 import { nadaKartu } from "@/lib/landing-card-icons";
 import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama } from "./modern/gathering-app";
 import { JalurHorizon } from "./modern/horizon-gerak";
-import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon } from "./modern/horizon";
+import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon, type HorizonAksi } from "./modern/horizon";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
 import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
@@ -433,6 +433,19 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Area peserta). Tempatnya di susunan halaman, bawaannya tepat di atas kaki.
   // Tombol masuk Horizon: sama di bagian Portal peserta dan pita penutup undangan.
   const tombolPortalHorizon = config.portal_button_label?.trim() || t.horizon.inviteCta;
+  // Tombol tengah hero Horizon: yang paling dulu diketuk di layar pertama, jadi
+  // ia membawa ke tempat info acara berada. Peserta yang sudah masuk ke
+  // Dashboard saya. Tamu ke dialog masuk selama pendaftaran tertutup, karena
+  // hanya itu yang bisa mereka lakukan; teksnya dari CMS, atau teks tombol
+  // Portal peserta bila kosong (bawaan "Mulai perjalanan kita" tidak berkata
+  // "masuk"). Tanpa area peserta atau dengan pendaftaran terbuka tetap
+  // menggulir ke cerita.
+  const labelHeroHorizon = config.hero_button_label?.trim();
+  const aksiHeroHorizon: HorizonAksi = aksiPeserta
+    ? { ...aksiPeserta, link: true }
+    : member && !event.registration_enabled && !sudahMasuk
+      ? { href: masukUrl, label: labelHeroHorizon || tombolPortalHorizon, link: true, sunting: "pembuka:hero_button_label" }
+      : { href: "#mulai", label: labelHeroHorizon || t.horizon.start, sunting: "pembuka:hero_button_label" };
   const portal = member && horizon ? (
     <div data-bagian="portal">
       <UndanganHorizon
@@ -918,7 +931,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           alisPonsel={config.hero_eyebrow?.trim() || [formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join("  /  ") || null}
           judul={judulAjakan ?? nama}
           catatan={config.hero_note?.trim() || null}
-          aksi={{ href: "#mulai", label: config.hero_button_label?.trim() || t.horizon.start }}
+          aksi={aksiHeroHorizon}
           kv={kvGathering(config)?.src ?? null}
           indeks={indeksHorizon}
           tandaTangan={tandaTanganHorizon}
