@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- #226 Horizon QR screen gets a "Pindai QR checkpoint" button (sticky at the bottom on tall screens) when the event has Participants/Both checkpoints, so the centre QR button covers both show-QR and self-scan; events without self-scan are unchanged (draft PR, waiting QA, then Mas's timing OK for KSO). No SQL.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".

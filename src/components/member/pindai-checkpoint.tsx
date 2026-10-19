@@ -30,7 +30,7 @@ const TEKS = {
     acaraLain: "QR ini untuk acara lain.",
     koneksi: "Koneksi terputus. Coba pindai lagi.",
     lagi: "Pindai lagi",
-    cadangan: "Tidak bisa? Tunjukkan QR-mu ke panitia",
+    cadangan: "Tidak bisa? Tunjukkan QR kehadiran ke panitia",
     selesai: (judul: string) => `${judul} selesai`,
     sudah: (judul: string) => `${judul} sudah selesai sebelumnya`,
     rinci: (poin: number | null, done: number | null, total: number | null) =>
@@ -44,12 +44,12 @@ const TEKS = {
     arahkan: "Point at the QR on the organisers' screen",
     catatan: "The QR changes every 30 seconds. Scan it straight from the screen, not from a photo.",
     mencatat: "Recording…",
-    kameraGagal: "The camera could not open. Allow the camera for this site, or scan the QR with your phone's own camera.",
+    kameraGagal: "The camera could not open. Allow the camera for this site, or scan the QR with the phone's own camera.",
     bukanQr: "This is not a checkpoint QR. Point at the QR on the organisers' screen.",
     acaraLain: "This QR is for another event.",
     koneksi: "Connection lost. Try scanning again.",
     lagi: "Scan again",
-    cadangan: "Can't scan? Show your QR to the organisers",
+    cadangan: "Can't scan? Show the attendance QR to the organisers",
     selesai: (judul: string) => `${judul} done`,
     sudah: (judul: string) => `${judul} was already done`,
     rinci: (poin: number | null, done: number | null, total: number | null) =>
@@ -138,6 +138,9 @@ export function PindaiCheckpoint({
   className,
   qrHref,
   children,
+  wadah,
+  kembaliKeQr,
+  sesudah,
 }: {
   slug: string;
   lang: LandingLang;
@@ -145,6 +148,12 @@ export function PindaiCheckpoint({
   /** Cadangan di layar kamera: QR peserta untuk dipindai panitia. Null: tanpa cadangan. */
   qrHref: string | null;
   children?: ReactNode;
+  /** Tempat layar kamera dipasang. Dari lapisan QR: dialognya (lapisan atas), bukan body. */
+  wadah?: HTMLElement | null;
+  /** Dibuka dari layar QR: cadangannya cukup menutup kamera, QR-nya ada di belakang. */
+  kembaliKeQr?: boolean;
+  /** Sesudah tercatat, menggantikan penyegaran kartu (mis. menutup lapisan QR, lalu menyegarkan). */
+  sesudah?: () => void;
 }) {
   const t = TEKS[lang];
   const router = useRouter();
@@ -171,11 +180,14 @@ export function PindaiCheckpoint({
           slug={slug}
           lang={lang}
           qrHref={qrHref}
+          wadah={wadah ?? null}
+          kembaliKeQr={kembaliKeQr === true}
           onTutup={tutup}
           onBerhasil={(hasil) => {
             setBuka(false);
             tampilkanKabar(hasil);
-            router.refresh();
+            if (sesudah) sesudah();
+            else router.refresh();
           }}
         />
       ) : null}
@@ -187,12 +199,16 @@ function LayarKamera({
   slug,
   lang,
   qrHref,
+  wadah,
+  kembaliKeQr,
   onTutup,
   onBerhasil,
 }: {
   slug: string;
   lang: LandingLang;
   qrHref: string | null;
+  wadah: HTMLElement | null;
+  kembaliKeQr: boolean;
   onTutup: () => void;
   onBerhasil: (kabar: KabarCheckpoint) => void;
 }) {
@@ -214,11 +230,18 @@ function LayarKamera({
     const lama = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     tutupRef.current?.focus();
-    const tombol = (event: KeyboardEvent) => { if (event.key === "Escape") onTutup(); };
-    window.addEventListener("keydown", tombol);
+    // Fase tangkap dan preventDefault: di dalam lapisan QR, Escape hanya menutup
+    // kamera, tidak ikut menutup dialog QR di belakangnya.
+    const tombol = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onTutup();
+    };
+    window.addEventListener("keydown", tombol, true);
     return () => {
       document.body.style.overflow = lama;
-      window.removeEventListener("keydown", tombol);
+      window.removeEventListener("keydown", tombol, true);
     };
   }, [onTutup]);
 
@@ -318,7 +341,13 @@ function LayarKamera({
           ) : null}
         </div>
       </div>
-      {qrHref ? (
+      {kembaliKeQr ? (
+        <div className="px-4 pb-[max(20px,env(safe-area-inset-bottom))] pt-3">
+          <button type="button" onClick={onTutup} className="m3-state flex min-h-12 w-full items-center justify-center rounded-full border border-white/40 px-4 text-center text-[15px] font-semibold">
+            {t.cadangan}
+          </button>
+        </div>
+      ) : qrHref ? (
         <div className="px-4 pb-[max(20px,env(safe-area-inset-bottom))] pt-3">
           <a href={qrHref} className="m3-state flex min-h-12 items-center justify-center rounded-full border border-white/40 px-4 text-center text-[15px] font-semibold">
             {t.cadangan}
@@ -326,6 +355,6 @@ function LayarKamera({
         </div>
       ) : null}
     </div>,
-    document.body,
+    wadah ?? document.body,
   );
 }

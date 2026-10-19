@@ -46,7 +46,7 @@ import { agendaBerikutnya, loadMemberLogistics, type LogistikPeserta } from "@/l
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
 import { KartuCheckpointHorizon } from "@/components/member/kartu-checkpoint-horizon";
-import { loadCheckpointPeserta, loadSetelanCheckpoint } from "@/lib/checkpoint/server";
+import { loadCheckpointPeserta, loadCheckpointQr } from "@/lib/checkpoint/server";
 import { gatheringColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { loadLandingLodging } from "@/lib/landing-hotel";
 import { landingTokens } from "@/lib/landing-tokens";
@@ -102,7 +102,7 @@ import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
 import { HtmlLang } from "@/components/html-lang";
 import { gabungMeta } from "@/lib/typography";
 import { QrHorizon } from "@/components/member/qr-horizon";
-import { PenyediaQr, PesanLuringQr, StatusQrHalaman, type DataLapisanQr } from "@/components/member/lapisan-qr";
+import { PenyediaQr, PesanLuringQr, StatusQrHalaman, TombolPindaiQr, type DataLapisanQr } from "@/components/member/lapisan-qr";
 import { HapusSalinanQr } from "@/components/member/form-keluar";
 import { SimpanQrGaleri } from "@/components/member/simpan-qr-galeri";
 import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/muat-portal";
@@ -208,9 +208,9 @@ export async function DashboardGathering({
   // dibutuhkan di gerbang, saat itu juga. Dari dalam portal, QR dibuka lapisan
   // QR klien tanpa ke server sama sekali.
   if (tabDiminta === "qr" && horizon && tampilKode && peserta) {
-    const [logistikQr, setelanCheckpoint, sasaranQr] = await Promise.all([
+    const [logistikQr, { setelan: setelanCheckpoint, pindai }, sasaranQr] = await Promise.all([
       loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, undefined, true),
-      loadSetelanCheckpoint(event.id),
+      loadCheckpointQr(event.id),
       // Sama dengan lapisan QR di dalam portal: kelompok hanya bila Jadwal ditampilkan.
       member.show_schedule !== false ? loadSasaranPeserta(event.id, peserta.id) : null,
     ]);
@@ -240,6 +240,7 @@ export async function DashboardGathering({
           petunjukCatatan={setelanCheckpoint?.enabled ? tH.qr.showNoteCheckpoint : tH.qr.showNote}
           status={<StatusQrHalaman data={dataQr} />}
           kecerahan={t.qrBrightness}
+          aksi={pindai ? <TombolPindaiQr slug={event.slug} lang={lang} kePortal={tutupQr} /> : null}
         />
       </main>
     );
@@ -275,6 +276,7 @@ export async function DashboardGathering({
         cobaLagi: q.retry,
       },
       luring: { sw: `${landingPath(event.slug, utama, utama)}/peserta-sw.js`, lingkup: dasar },
+      pindai: null,
     };
   }
 
@@ -304,14 +306,15 @@ export async function DashboardGathering({
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
   // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
   // dan tidak disembunyikan di Participant home.
-  const [logistik, checkpoint, setelanCheckpoint] = peserta
+  const [logistik, checkpoint, checkpointQr] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
         tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
         // Petunjuk layar QR menyebut checkpoint hanya bila fiturnya menyala.
-        horizon && tampilKode ? loadSetelanCheckpoint(event.id) : null,
+        horizon && tampilKode ? loadCheckpointQr(event.id) : null,
       ])
     : [null, null, null];
+  const setelanCheckpoint = checkpointQr?.setelan ?? null;
 
   const tanggal = formatEventDate(event, lang);
   const venue = event.venue_name?.trim() || null;
@@ -1630,6 +1633,7 @@ export async function DashboardGathering({
     // menyimpan QR peserta atau memasang service worker portal.
     const dataQr = tampilKode && peserta && !pratinjau ? dataLapisanQr(namaBus, labelPil(pilihanKu.kelompok, namaBus, tH.bus)) : null;
     if (dataQr && setelanCheckpoint?.enabled) dataQr.teks.petunjukCatatan = tH.qr.showNoteCheckpoint;
+    if (dataQr && checkpointQr?.pindai) dataQr.pindai = event.slug;
     const isiPortal = (
       <>
         <FokusPemicuQr />

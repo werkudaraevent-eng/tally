@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { bacaTujuan, tujuanPeserta, type TujuanPeserta, type TujuanPoin } from "@/lib/checkpoint/tujuan";
@@ -55,7 +56,7 @@ export function scanMandiriPerSesi(daftar: Pick<BarisCheckpoint, "session_id" | 
 
 export type SetelanCheckpoint = { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
 
-export async function loadSetelanCheckpoint(eventId: string): Promise<SetelanCheckpoint | null> {
+export const loadSetelanCheckpoint = cache(async (eventId: string): Promise<SetelanCheckpoint | null> => {
   try {
     // select *, bukan daftar kolom: sebelum migrasi 202610170001 kolom tujuan
     // belum ada, dan menyebutnya membuat seluruh setelan gagal dibaca (kartu
@@ -71,9 +72,9 @@ export async function loadSetelanCheckpoint(eventId: string): Promise<SetelanChe
   } catch {
     return null;
   }
-}
+});
 
-export async function loadDaftarCheckpoint(eventId: string): Promise<BarisCheckpoint[] | null> {
+export const loadDaftarCheckpoint = cache(async (eventId: string): Promise<BarisCheckpoint[] | null> => {
   try {
     // select *: kolom `completion` baru ada setelah migrasi 202610180001, dan
     // menyebutnya sebelum itu membuat kartu checkpoint hilang.
@@ -99,7 +100,7 @@ export async function loadDaftarCheckpoint(eventId: string): Promise<BarisCheckp
   } catch {
     return null;
   }
-}
+});
 
 /**
  * Kapan peserta ini menyelesaikan tiap checkpoint: pemindaian PERTAMA di sesinya
@@ -150,6 +151,16 @@ async function muatAktif(eventId: string): Promise<{ setelan: SetelanCheckpoint;
   const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
   if (!setelan?.enabled || !daftar || daftar.length === 0) return null;
   return { setelan, daftar };
+}
+
+/**
+ * Untuk layar QR kehadiran Horizon: setelan checkpoint, dan apakah ada
+ * checkpoint yang boleh dipindai peserta sendiri. Bila ada, layar QR memberi
+ * tombol "Pindai QR checkpoint" (pola QRIS: tunjukkan kode atau pindai).
+ */
+export async function loadCheckpointQr(eventId: string): Promise<{ setelan: SetelanCheckpoint | null; pindai: boolean }> {
+  const [setelan, daftar] = await Promise.all([loadSetelanCheckpoint(eventId), loadDaftarCheckpoint(eventId)]);
+  return { setelan, pindai: Boolean(setelan?.enabled && daftar && scanMandiriPerSesi(daftar).size > 0) };
 }
 
 /** Satu checkpoint seperti yang dilihat peserta, dalam bahasa halamannya. */
