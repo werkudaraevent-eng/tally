@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
+  ArrowCounterClockwise, ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
   Funnel, MagnifyingGlass, Package, Paperclip, PencilSimple, Plus, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import {
   ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, StatusChip, useColumnPrefs, usePopoverAnchor, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { ResetCheckInDialog, type TargetReset } from "@/components/admin/reset-check-in-dialog";
 import { useTerkunci } from "@/components/admin/page-context";
 import Link from "@/components/event-link";
 import { withEventPrefix } from "@/lib/event-path";
@@ -332,6 +333,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [kursiDraft, setKursiDraft] = useState<Record<number, string>>({});
   const [kursiAwal, setKursiAwal] = useState<Record<number, string>>({});
   const [confirmDelete, setConfirmDelete] = useState<Participant | null>(null);
+  const [resetCheckIn, setResetCheckIn] = useState<TargetReset | null>(null);
   // Pilihan bertahan lintas halaman. Saringan dan pencarian tidak bisa diubah
   // selama ada pilihan, karena bilah pilihan menutupi barisnya (pola bilah
   // kontekstual M3), jadi yang tercentang selalu yang cocok dengan saringan.
@@ -630,6 +632,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     setPilih((lama) => { if (!lama.has(participant.id)) return lama; const baru = new Set(lama); baru.delete(participant.id); return baru; });
     setMode(null);
     void load(debouncedQuery, page, sort, dir, perPage);
+    onChanged?.();
+  }
+
+  /** Setelah reset: kehadiran di baris yang tampil ikut kosong tanpa memuat ulang halaman. */
+  function checkInDireset(participantId: string, sessionId: number | null) {
+    const nama = resetCheckIn?.session ? `${resetCheckIn.participant.name}'s check-in at ${resetCheckIn.session.name}` : `All check-ins for ${resetCheckIn?.participant.name ?? "this participant"}`;
+    setResetCheckIn(null);
+    setParticipants((lama) => lama.map((p) => {
+      if (p.id !== participantId) return p;
+      if (sessionId === null) return { ...p, attendance: {} };
+      const sisa = { ...p.attendance };
+      delete sisa[String(sessionId)];
+      return { ...p, attendance: sisa };
+    }));
+    setNotice(`${nama} reset.`);
     onChanged?.();
   }
 
@@ -1367,12 +1384,22 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               </KeyValue>
             </DetailSection>
             {sessions.length > 0 ? (
-              <DetailSection title="Check-in">
+              <DetailSection
+                title="Check-in"
+                action={sessions.some((sesi) => p.attendance?.[String(sesi.id)])
+                  ? <Button simpan variant="text" size="sm" className="text-error" onClick={() => setResetCheckIn({ participant: { id: p.id, name: p.name, scannerCheckedIn: p.source_checked_in }, session: null })}>Reset all</Button>
+                  : undefined}
+              >
                 {sessions.map((sesi) => {
                   const catatan = p.attendance?.[String(sesi.id)];
                   return (
                     <KeyValue key={sesi.id} label={sesi.name}>
-                      {catatan ? <StatusChip dot tone="success" title={catatan.count > 1 ? `Scanned ${catatan.count} times` : undefined}>Checked in {jam(catatan.first)}</StatusChip> : <StatusChip dot>Not checked in</StatusChip>}
+                      {catatan ? (
+                        <span className="flex items-center gap-1">
+                          <StatusChip dot tone="success" title={catatan.count > 1 ? `Scanned ${catatan.count} times` : undefined}>Checked in {jam(catatan.first)}</StatusChip>
+                          <IconButton simpan size="sm" className="-my-2" label={`Reset check-in at ${sesi.name}`} title="Reset check-in" onClick={() => setResetCheckIn({ participant: { id: p.id, name: p.name, scannerCheckedIn: p.source_checked_in }, session: sesi })}><ArrowCounterClockwise size={16} /></IconButton>
+                        </span>
+                      ) : <StatusChip dot>Not checked in</StatusChip>}
                     </KeyValue>
                   );
                 })}
@@ -1458,6 +1485,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       >
         <p className="text-body-medium text-on-surface">{daftarNama}</p>
       </Dialog>
+      <ResetCheckInDialog target={resetCheckIn} sessions={sessions} jam={jam} onClose={() => setResetCheckIn(null)} onDone={checkInDireset} />
       <Dialog
         open={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
