@@ -49,7 +49,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 | --- | --- | --- | --- |
 | Organisations: each organiser's events, staff, senders and settings kept to itself | No | P1 | Luma calendars, Eventbrite organisations |
 | Plans with usage limits and recurring billing | No | P1 | Luma Plus, Cvent licence + per registrant |
-| Staff sign-in with email and two-step verification | Partly | P1 | Cvent platform licence (SSO) |
+| Staff sign-in with email and two-step verification (today: username and PIN) | No | P1 | Cvent platform licence (SSO) |
 | Consent at registration, delete-my-data requests, retention rules (UU PDP) | Partly | P1 | Eventbrite, Luma privacy per organiser |
 | Duplicate event, audit trail | Yes | | Cvent |
 | API, webhooks, Zapier | No | P2 | Eventbrite API, Luma API |
@@ -60,7 +60,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 | --- | --- | --- | --- |
 | Event page, registration form, client domain, two languages | Yes | | Luma, Eventbrite |
 | Private invitations and reminders | Yes | | Luma invites |
-| Participant categories with a quota (VIP, Regular, Media), closing when full | Partly | P1 | Eventbrite ticket types |
+| A quota per participant category (VIP, Regular, Media), closing when full; categories exist, quotas do not | No | P1 | Eventbrite ticket types |
 | Waitlist when a category is full | No | P1 | Luma waitlist |
 | Conditional questions on the form | No | P2 | Cvent registration |
 | One person registers several colleagues | No | P2 | Cvent group registration |
@@ -85,7 +85,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 | Flight tickets | No | P2 | Airline app boarding pass |
 | Seating plan and seat assignment | Yes | | Cvent seating |
 | Choose parallel sessions, with capacity | No | P2 | Cvent session selection, Sched |
-| Participants book their own hotel room | Not doing | P3 | Cvent Passkey |
+| Participants book their own hotel room | No | P3 | Cvent Passkey |
 
 ### 4. Run the day
 
@@ -105,8 +105,8 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 | Q&A with upvotes and moderation | No | P2 | Slido Q&A |
 | Quiz with scores | No | P2 | Kahoot, Whova contests |
 | One points total from check-in, sessions, quiz, booths and checkpoints | Partly | P2 | Whova leaderboard |
-| Networking and 1:1 meetings | Not doing | P3 | Brella, Swapcard |
-| Exhibitor lead retrieval | Not doing | P3 | Swapcard exhibitor tools |
+| Networking and 1:1 meetings | No | P3 | Brella, Swapcard |
+| Exhibitor lead retrieval | No | P3 | Swapcard exhibitor tools |
 
 ### 6. After the event and reports
 

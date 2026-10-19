@@ -78,6 +78,7 @@ Every item (finding, recommendation, what is left, decisions and code pointers) 
 
 ## Parked Lows and open findings
 
+- #238 Low: the comment above `.press .ed-tracked` in `globals.css` still describes it as for PINs and codes; its only use is the login page label. Fix with the next CSS change.
 Known issues that QA left open on purpose, by area. Fix one only when it is cheap and user-visible, or when you are already in that code; remove it here in the same PR. The full write-ups are in each PR's QA report (kept with the project owner).
 
 ### Seating
