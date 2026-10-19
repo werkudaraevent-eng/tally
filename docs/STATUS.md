@@ -15,7 +15,6 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Who it's for field picker (follow-up to #223): "One group" starts on "Choose a field" instead of picking the first column, a note says only dropdown and single-choice columns are listed, with a link to Registration; full-width menus (Who it's for, speaker order) are as wide as their field, and long option labels end in an ellipsis. Admin only, no SQL. Waits on coordinator QA.
 - #226 Horizon QR screen gets a "Pindai QR checkpoint" button (sticky at the bottom on tall screens) when the event has Participants/Both checkpoints, so the centre QR button covers both show-QR and self-scan; events without self-scan are unchanged (draft PR, waiting QA, then Mas's timing OK for KSO). No SQL.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -25,6 +24,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #227 Who it's for field picker (follow-up to #223, merged 19 Oct): "One group" starts on "Choose a field" instead of picking the first column, a note says only dropdown and single-choice columns are listed, with a link to Registration; full-width menus (Who it's for, speaker order) are as wide as their field, and long option labels end in an ellipsis. Admin only, no SQL.
 - #223 Your batch (U-01 step 2, E-01, E-06, E-10, merged 19 Oct): Agenda > Section > Who it's for (Everyone, or answers of one dropdown or single-choice participant field such as the staff-only Batch). Horizon Home skips other batches' sections, Schedule opens the participant's own section and says "Ini jadwalmu", the QR layer shows "Batch 2 · Bus 3". Migration 202610180002 was run by Mas on 19 Oct.
 - #225 Horizon sign-in entry (merged 19 Oct): the hero's middle button opens the sign-in dialog for guests while registration is closed and "Buka Dashboard saya" once signed in; phones show a small Masuk/Dashboard pill in the compact bar after the hero; the Horizon bell is 48 px. No SQL.
 - #224 Horizon phone bottom bar (merged 19 Oct): Travel (Perjalanan) is a main tab in place of Menu when the participant has travel info; Menu opens from the initials in the top bar; otherwise the Menu tab stays. No SQL.
