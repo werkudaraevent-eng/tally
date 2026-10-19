@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Who it's for field picker (follow-up to #223): "One group" starts on "Choose a field" instead of picking the first column, a note says only dropdown and single-choice columns are listed, with a link to Registration; full-width menus (Who it's for, speaker order) no longer run off the right edge on phones. Admin only, no SQL. Waits on coordinator QA.
+- Who it's for field picker (follow-up to #223): "One group" starts on "Choose a field" instead of picking the first column, a note says only dropdown and single-choice columns are listed, with a link to Registration; full-width menus (Who it's for, speaker order) are as wide as their field, and long option labels end in an ellipsis. Admin only, no SQL. Waits on coordinator QA.
 - #226 Horizon QR screen gets a "Pindai QR checkpoint" button (sticky at the bottom on tall screens) when the event has Participants/Both checkpoints, so the centre QR button covers both show-QR and self-scan; events without self-scan are unchanged (draft PR, waiting QA, then Mas's timing OK for KSO). No SQL.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
