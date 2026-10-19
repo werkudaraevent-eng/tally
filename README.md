@@ -21,7 +21,7 @@ npm install
 npm run dev
 ```
 
-Never point a local run at the production database. Use a local Postgres (apply `supabase/migrations/` in order) or a fake PostgREST, and stub every email and WhatsApp sender. See "Running locally" in `CLAUDE.md`.
+Never point a local run at the production database. Use the Supabase local stack (the repo has no `supabase/config.toml`, so run `supabase init` once, then `supabase start`; the migrations need pg_cron, pg_net, Vault and the Supabase roles, so plain Postgres won't run them all) or a fake PostgREST, and stub every email and WhatsApp sender. See "Running locally" in `CLAUDE.md`.
 
 Environment variables are read through `src/lib/env.ts`. The Supabase ones are `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (server only, never in browser code).
 

@@ -12,6 +12,31 @@ URLs are written as `/e/<slug>/<page>`. Admin pages are `/e/<slug>/admin/<page>`
 
 ---
 
+## Direction (decided 2026-10-19)
+
+**Goal.** Tally becomes an all-in-one event management platform, open to the public by subscription: one place to run an event end to end, from the first invitation to the final report.
+
+**Who it is for.** Event organisers and companies that run their own events (gatherings, forums, conferences, incentive trips). Each organiser works in its own organisation with its own events, staff and senders. Werkudara is the first. Their clients watch live numbers, participants use it on their phones, and field staff use it at desks, booths and on stage.
+
+**End to end:**
+1. Invite and register: event page, registration page and form, invitation blasts, confirmation and custom emails, custom WhatsApp messages, a custom domain per event.
+2. Manage participants: import, sync, approval, logistics, seating.
+3. Run the day: badge design and printing, check-in, welcome screen, checkpoints and gamification, booth sales.
+4. Run the stage: lucky draw, live voting, leaderboard.
+5. Report: live client view, reports and exports.
+
+Every feature is set up by the organiser alone in the CMS; placement and audience come from data they already enter, never from per-event or per-customer code.
+
+**Gaps against the goal:** organisations (each organiser's events, staff and settings kept to itself), WhatsApp sending with custom templates, self-serve sign-up, plans with usage limits and recurring billing, gamification beyond checkpoint points.
+
+**Order:** the KSO event (6-8 Nov) first; then organisations; then WhatsApp; then self-serve sign-up and billing, just before public launch. The existing modules are the product core; new modules wait until these are done.
+
+**Not doing:** online ticket sales or a payment gateway for participants (booth sales are a ledger; money moves at the cashier); a native app (phones use the web participant area); a free-form page builder.
+
+Review this section when the order changes; the date in the heading says when it was last decided.
+
+---
+
 ## 1. Platform and roles
 
 Tally runs many events from one workspace. Every event has its own data, settings, look and staff access. Staff sign in with a username and a 6-digit PIN; participants sign in per event in the participant area.
@@ -26,9 +51,9 @@ Tally runs many events from one workspace. Every event has its own data, setting
 | Viewer | `/live` | Client account: read-only live registration list, counts and download. |
 | Participant | Participant area | Their own QR, agenda, travel, announcements, checkpoints. |
 
-Booth, Cashier and Scanner can't open an event that is Draft or Completed. Every role except Super admin needs an access row per event.
+Booth, Cashier and Scanner can open only an Active event. Every role except Super admin needs an access row per event.
 
-**Event lifecycle.** New events start as Draft (the event page and registration already work). Draft → Active → Completed → Archived; Active and Archived can go back to Draft. Only Draft or Archived events can be deleted (type the slug to confirm). Duplicate copies configuration only (settings, agenda, seating, booths, offers, lucky-draw setup, leaderboard exclusions), never participants, orders, winners or access, and the copy starts as Draft. A slug change keeps old links and printed QR codes working through a redirect.
+**Event lifecycle.** New events start as Draft (the event page and registration already work). Draft → Active → Completed → Archived. Active and Archived can go back to Draft, and Completed can be activated again. Only Draft or Archived events can be deleted (type the slug to confirm). Duplicate copies configuration only (settings, agenda, seating, booths, offers, lucky-draw setup, leaderboard exclusions), never participants, orders, winners or access, and the copy starts as Draft. A slug change keeps old links and printed QR codes working through a redirect.
 
 **Admin menu**, grouped by when the organiser does the work: Setup (Event page, Agenda, Speakers, Seating plan), Participants (Participant list, Registration, Logistics, Messages, Participant area), Event day (Check-in, Badges & labels, Welcome screen, Lucky draw, Live voting, Leaderboard), Sales (Orders, Booths & items, Reports). Leaderboard and Sales show only when the event has booths. Event settings sits at the foot of the sidebar; Users & roles is workspace-wide (`/users`).
 
