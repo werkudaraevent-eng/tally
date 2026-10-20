@@ -22,6 +22,7 @@ const UI = {
     heading: (a: string, b: string) => `Dari ${a} ke ${b}`,
     stepByStep: (n: number) => `Langkah demi langkah (${n})`,
     photoOf: (cara: string) => `Foto patokan: ${cara}`,
+    moreWays: (n: number) => `+${n} cara lain`,
   },
   en: {
     from: "From", to: "To", ways: "Ways to get there", steps: "Steps", eyebrow: "Directions",
@@ -29,6 +30,7 @@ const UI = {
     heading: (a: string, b: string) => `From ${a} to ${b}`,
     stepByStep: (n: number) => `Step by step (${n})`,
     photoOf: (cara: string) => `Landmark photo: ${cara}`,
+    moreWays: (n: number) => `+${n} more ${n === 1 ? "way" : "ways"}`,
   },
 } as const;
 
@@ -306,6 +308,70 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
           </div>
         </details>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * Rute di tab Perjalanan portal Horizon: satu kartu, satu baris per rute di
+ * bawah kartu hotel, bus, dan kereta, seperti "Getting there" di halaman
+ * reservasi. Baris dibuka untuk alamat, peta, cara, dan langkah; tautan
+ * `#<id blok>` membukanya (BukaRuteDariHash).
+ */
+export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: LandingBlock[]; hotels: LandingHotel[]; lang: LandingLang }) {
+  const t = UI[lang];
+  const rute = (await Promise.all(blocks.map(async (block) => ({ block, rute: await siapkanRute(block, hotels, lang) })))).filter(
+    (isi): isi is { block: LandingBlock; rute: Rute } => isi.rute !== null,
+  );
+  if (!rute.length) return null;
+  return (
+    <section aria-label={t.eyebrow} className={`${KARTU_PUTIH} overflow-hidden rounded-[20px]`}>
+      <p className={`flex items-center gap-2 px-5 pb-2 pt-5 sm:px-6 ${LABEL} text-[var(--alis,var(--reg-primary))]`}>
+        <NavigationArrow size={16} weight="fill" aria-hidden />
+        {t.eyebrow}
+      </p>
+      {rute.map(({ block, rute: r }) => {
+        const pertama = r.cara[0];
+        const ringkas = pertama ? [pertama.label, pertama.waktu].filter(Boolean).join(" · ") + (r.cara.length > 1 ? ` \u00b7 ${t.moreWays(r.cara.length - 1)}` : "") : `${t.to} ${r.ke.name}`;
+        return (
+          <details key={block.id} id={block.id} className="group scroll-mt-28 border-t border-[#E6E9EE]">
+            <summary className="m3-state flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-3 focus-visible:outline-offset-[-3px] sm:px-6 [&::-webkit-details-marker]:hidden">
+              <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ background: UBIN.brand.latar, color: UBIN.brand.teks }}>
+                <NavigationArrow size={20} weight="fill" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-title-small font-bold [overflow-wrap:anywhere]">{r.judul}</span>
+                <span className={`block text-body-medium [overflow-wrap:anywhere] ${MUTED_KARTU}`}>{ringkas}</span>
+              </span>
+              <CaretDown size={20} weight="bold" aria-hidden className={`shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none ${MUTED_KARTU}`} />
+            </summary>
+            <div className="flex flex-col gap-6 px-5 pb-6 pt-2 sm:px-6">
+              <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+                <div className="flex flex-col gap-5">
+                  <TitikRute rute={r} lang={lang} />
+                  <TombolPeta rute={r} lang={lang} className={`${TOMBOL} text-title-small`} />
+                </div>
+                {r.cara.length > 0 ? (
+                  <div>
+                    <h3 className={`${LABEL} ${MUTED_KARTU}`}>{t.ways}</h3>
+                    <div className="mt-3">
+                      <DaftarCara rute={r} lang={lang} kartu="rounded-[16px] bg-[#F4F6F8] p-3" />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              {r.langkah.length > 0 ? (
+                <div>
+                  <h3 className={`${LABEL} ${MUTED_KARTU}`}>{t.steps}</h3>
+                  <div className="mt-3">
+                    <DaftarLangkah rute={r} />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </details>
+        );
+      })}
     </section>
   );
 }

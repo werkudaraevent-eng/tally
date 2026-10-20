@@ -159,7 +159,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Language: English version (off by default, Modern only) and main language. Forum has its own label language.
   - Built-in sections, each switchable and orderable: About, Key figures, Agenda, Speakers, Venue, FAQ, Sponsors & partners, Staff contacts. The hero always comes first.
   - Blocks (Modern only, up to 30): text and image, image cards, point cards, photo gallery, figures strip, quote, partner logos, downloads, call-to-action strip, columns, directions (route), countdown. Each block chooses where it shows: event page, participant area, or both.
-  - Directions block: from/to stops (a Logistics hotel or a free place), walking/driving/transit, steps, landmark photo.
+  - Directions block: from/to stops (a Logistics hotel or a free place), walking/driving/transit, steps, landmark photo. On the participant page it can be limited to one group ("Who sees it": a participant field or a Logistics hotel) and linked to Agenda rows ("Cara ke sana"). Horizon lists routes as tap-to-open rows in Perjalanan, or on Beranda for participants without travel info.
   - Invite only: when registration is closed, invited guests are asked to sign in instead.
 - **Client domain** (Event settings → Event): connect the client's own (sub)domain. Only participant-facing pages are served there; staff screens stay on the Tally address.
 - **Shows at:** `/e/<slug>`, `/e/<slug>/en`, `/e/<slug>/id`; Forum adds `/program` and `/info`.
