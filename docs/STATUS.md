@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Horizon routes as rows in Perjalanan (this PR): every Directions block shown on the participant page becomes one row in a "Rute" card under the hotel, bus and train cards (title plus the first way and its time); tapping a row opens the stops, Google Maps button, ways and steps, and "Cara ke sana" in Susunan acara opens its route. Routes leave Beranda for participants who have a Perjalanan tab; participants without hotel, bus or train still see the full card on Beranda. "Who sees it" only decides who sees a route. Horizon only, other layouts 0 px. No SQL. Waits on coordinator QA and Mas's merge time (visible on KSO).
 - Repo tidy-up (this PR): CI on every PR (typecheck, check, lint, build), PR template, `.env.example`, `docs/GLOSSARY.md`, setup steps in the README; removes the stale API PDF, Supabase CLI temp file and editor MCP config, renames the package to `tally`. No app code or SQL. After merge: branch protection on `main` requiring CI, squash merging and automatic branch deletion are GitHub settings for Mas.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.

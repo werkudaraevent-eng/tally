@@ -276,12 +276,13 @@ function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingB
   const siapa = sasaran && kolomAktif ? `participants whose ${kolomAktif.label} is ${labelNilai.join(" or ")}` : "every signed-in participant";
   // Kelompok butuh peserta yang masuk: tidak pernah di halaman acara publik (landingBlockShownOn).
   const keBoth = Boolean(sasaran) && block.show_on === "both";
-  const pindah = horizon && (sasaran !== null || baris.length > 0);
+  // Horizon: setiap rute menjadi baris di Perjalanan (DaftarRuteRingkas).
+  const pindah = horizon;
   const ringkas = (keBoth ? "Not on the Event page, because a group needs a signed-in participant. " : "") + (hotelHilangKarenaGagal && sasaran
     ? "Couldn\u2019t load hotels from Logistics, so this hotel group can\u2019t be shown here. It still applies on the participant page. Reload to try again."
     : hilang
     ? "Nowhere for now: the chosen field or answer no longer exists. Choose again or pick Everyone."
-    : `${pindah ? "In Travel, after the hotel, bus and train cards" : "On Home"}, for ${siapa}.${horizon && lokasi.length ? ` ${lokasi.length === 1 ? "The linked agenda row shows" : "The linked agenda rows show"} \u201cCara ke sana\u201d in the schedule.` : ""}${pindah && sasaran?.field !== KOLOM_HOTEL ? " Participants without a hotel, bus or train see it on Home." : ""}`);
+    : `${pindah ? "In Travel, as a row under the hotel, bus and train cards" : "On Home"}, for ${siapa}.${horizon && lokasi.length ? ` ${lokasi.length === 1 ? "The linked agenda row shows" : "The linked agenda rows show"} \u201cCara ke sana\u201d in the schedule.` : ""}${pindah && sasaran?.field !== KOLOM_HOTEL ? " Participants without a hotel, bus or train see it on Home." : ""}`);
   if ((block.show_on ?? "public") === "public") return null;
   return (
     <section aria-labelledby={`${block.id}-peserta`} className="flex flex-col gap-4 rounded-lg border border-outline-variant p-3">

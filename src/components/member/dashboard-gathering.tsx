@@ -28,9 +28,10 @@ import {
 import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
 import { kontakPanitia, telHref } from "@/lib/kontak-panitia";
 import { saringBlokPeserta } from "@/lib/sasaran-blok-server";
-import { bacaSasaranBlok, bacaTautanAgenda } from "@/lib/sasaran-blok";
+import { bacaTautanAgenda } from "@/lib/sasaran-blok";
 import { logoNavPutih, isPortalEntry, landingBlockMemberOnly, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, slotPengumumanHorizon, susunanDenganPortal } from "@/lib/domain";
-import { KartuRute } from "@/components/landing/modern/blok-rute";
+import { DaftarRuteRingkas, KartuRute } from "@/components/landing/modern/blok-rute";
+import { BukaRuteDariHash } from "@/components/member/buka-rute-dari-hash";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
@@ -531,12 +532,12 @@ export async function DashboardGathering({
   // hotel, bus, atau tiket kereta peserta ini.
   const perjalananBusHorizon = (logistik?.transport?.trips ?? []).filter((trip) => trip.bus);
   const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0);
-  // Rute bersasaran atau ditautkan ke baris Agenda tinggal di Perjalanan, di
-  // bawah kartu hotel, bus, dan kereta, seperti petunjuk arah di halaman
-  // reservasi. Tanpa tab Perjalanan (peserta tanpa kamar, bus, atau kereta)
-  // tetap di Beranda. Mata di Participant home tetap menyembunyikannya.
+  // Semua rute tinggal di Perjalanan sebagai baris ringkas di bawah kartu
+  // hotel, bus, dan kereta, seperti "Getting there" di halaman reservasi.
+  // Tanpa tab Perjalanan (peserta tanpa kamar, bus, atau kereta) tetap di
+  // Beranda. Mata di Participant home tetap menyembunyikannya.
   const rutePerjalanan = adaPerjalanan
-    ? blokPeserta.filter((block) => block.type === "route" && kartuBlok.has(block.id) && diBeranda(block.id) && (bacaSasaranBlok(block.audience) !== null || bacaTautanAgenda(block.agenda_item_ids).length > 0))
+    ? blokPeserta.filter((block) => block.type === "route" && kartuBlok.has(block.id) && diBeranda(block.id))
     : [];
   const idRutePerjalanan = new Set<string>(rutePerjalanan.map((block) => block.id));
   // Baris Agenda > rute pertama yang menautkannya ("Cara ke sana").
@@ -1128,9 +1129,12 @@ export async function DashboardGathering({
           (kartuHotel ?? kartuBusHorizon)
         )}
         {kartuKeretaHorizon}
-        {rutePerjalanan.map((block) => (
-          <div key={block.id} id={block.id} className="scroll-mt-28">{kartuBlok.get(block.id)}</div>
-        ))}
+        {rutePerjalanan.length ? (
+          <>
+            <DaftarRuteRingkas blocks={rutePerjalanan} hotels={inap.hotels} lang={lang} />
+            <BukaRuteDariHash />
+          </>
+        ) : null}
         {kartuBantuanPerjalanan}
       </div>
     );
