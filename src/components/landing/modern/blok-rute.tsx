@@ -22,6 +22,7 @@ const UI = {
     heading: (a: string, b: string) => `Dari ${a} ke ${b}`,
     stepByStep: (n: number) => `Langkah demi langkah (${n})`,
     photoOf: (cara: string) => `Foto patokan: ${cara}`,
+    moreWays: (n: number) => `+${n} cara lain`,
   },
   en: {
     from: "From", to: "To", ways: "Ways to get there", steps: "Steps", eyebrow: "Directions",
@@ -29,6 +30,7 @@ const UI = {
     heading: (a: string, b: string) => `From ${a} to ${b}`,
     stepByStep: (n: number) => `Step by step (${n})`,
     photoOf: (cara: string) => `Landmark photo: ${cara}`,
+    moreWays: (n: number) => `+${n} more ${n === 1 ? "way" : "ways"}`,
   },
 } as const;
 
@@ -330,10 +332,10 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
       </p>
       {rute.map(({ block, rute: r }) => {
         const pertama = r.cara[0];
-        const ringkas = pertama ? [pertama.label, pertama.waktu].filter(Boolean).join(" · ") + (r.cara.length > 1 ? ` +${r.cara.length - 1}` : "") : `${t.to} ${r.ke.name}`;
+        const ringkas = pertama ? [pertama.label, pertama.waktu].filter(Boolean).join(" · ") + (r.cara.length > 1 ? ` \u00b7 ${t.moreWays(r.cara.length - 1)}` : "") : `${t.to} ${r.ke.name}`;
         return (
           <details key={block.id} id={block.id} className="group scroll-mt-28 border-t border-[#E6E9EE]">
-            <summary className="m3-state flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-3 sm:px-6 [&::-webkit-details-marker]:hidden">
+            <summary className="m3-state flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-3 focus-visible:outline-offset-[-3px] sm:px-6 [&::-webkit-details-marker]:hidden">
               <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ background: UBIN.brand.latar, color: UBIN.brand.teks }}>
                 <NavigationArrow size={20} weight="fill" />
               </span>

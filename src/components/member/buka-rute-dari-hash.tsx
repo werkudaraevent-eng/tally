@@ -6,7 +6,12 @@ import { useEffect } from "react";
 export function BukaRuteDariHash() {
   useEffect(() => {
     const buka = () => {
-      const id = decodeURIComponent(window.location.hash.slice(1));
+      let id = "";
+      try {
+        id = decodeURIComponent(window.location.hash.slice(1));
+      } catch {
+        return; // Hash rusak (mis. %E0%A4%A): abaikan, jangan jatuhkan halaman.
+      }
       const baris = id ? document.getElementById(id) : null;
       if (!(baris instanceof HTMLDetailsElement)) return;
       baris.open = true;
