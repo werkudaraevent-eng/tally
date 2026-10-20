@@ -5,13 +5,15 @@ import { LANDING_CARD_ICON_POLA, type LandingCardTone } from "@/lib/landing-card
 import type { LandingHotel } from "@/lib/landing-hotel";
 import { hexLatarSendiri, warnaLatarSendiri } from "@/lib/landing-latar-sendiri";
 import type { LandingLang } from "@/lib/landing-i18n";
+import { GambarDenah } from "./gambar-denah";
 import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import { MUAT_IKON } from "./ikon-ssr";
 
 // Blok Rute (Directions): dari satu tempat ke tempat lain, mis. hotel A ke
 // hotel B. Titik berangkat dan tujuan dipilih dari hotel di Logistik (nama dan
 // alamat ikut Logistik) atau ditulis bebas. Butir = cara ke sana (ikon, nama,
-// waktu, catatan, foto patokan); `body` = langkah, satu per baris. Tombol
+// waktu, catatan, foto patokan); `body` = langkah, satu per baris;
+// `map_image_url` = denah, utuh di bawah cara, ketuk untuk layar penuh. Tombol
 // Google Maps dibangun dari dua alamat itu. Tampil di halaman acara
 // (BagianRute) dan/atau halaman peserta (KartuRute), sesuai `show_on`.
 
@@ -23,6 +25,11 @@ const UI = {
     stepByStep: (n: number) => `Langkah demi langkah (${n})`,
     photoOf: (cara: string) => `Foto patokan: ${cara}`,
     moreWays: (n: number) => `+${n} cara lain`,
+    map: "Denah",
+    mapOf: (judul: string) => `Denah: ${judul}`,
+    openMap: "Buka denah layar penuh",
+    close: "Tutup",
+    zoomHint: "Ketuk gambar untuk memperbesar",
   },
   en: {
     from: "From", to: "To", ways: "Ways to get there", steps: "Steps", eyebrow: "Directions",
@@ -31,6 +38,11 @@ const UI = {
     stepByStep: (n: number) => `Step by step (${n})`,
     photoOf: (cara: string) => `Landmark photo: ${cara}`,
     moreWays: (n: number) => `+${n} more ${n === 1 ? "way" : "ways"}`,
+    map: "Map",
+    mapOf: (judul: string) => `Map: ${judul}`,
+    openMap: "Open map full screen",
+    close: "Close",
+    zoomHint: "Tap the image to zoom in",
   },
 } as const;
 
@@ -64,6 +76,8 @@ type Rute = {
   alis: string;
   cara: { Ikon: Icon; nada: LandingCardTone; gambarIkon: string | null; label: string; waktu: string | null; catatan: string | null; foto: string | null }[];
   langkah: string[];
+  /** Denah (gambar utuh), atau null. */
+  denah: string | null;
   peta: string;
 };
 
@@ -92,6 +106,7 @@ async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], lang: La
         })),
     ),
     // Nomor yang diketik admin ("1.", "-") dibuang: nomornya digambar sendiri.
+    denah: block.map_image_url?.trim() || null,
     langkah: (block.body ?? "").split("\n").map((baris) => baris.replace(/^\s*(\d+[.)]|[-•*])\s+/, "").trim()).filter(Boolean),
     peta: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(kueri(dari))}&destination=${encodeURIComponent(kueri(ke))}&travelmode=${block.maps_mode ?? "driving"}`,
   };
@@ -197,6 +212,20 @@ function DaftarLangkah({ rute }: { rute: Rute }) {
   );
 }
 
+/** Denah di bawah cara ke sana; label kecil mengikuti kartu tempatnya. */
+function BagianDenah({ rute, lang, labelKelas }: { rute: Rute; lang: LandingLang; labelKelas: string }) {
+  if (!rute.denah) return null;
+  const t = UI[lang];
+  return (
+    <div>
+      <h3 className={`${LABEL} ${labelKelas}`}>{t.map}</h3>
+      <div className="mt-3">
+        <GambarDenah src={rute.denah} alt={t.mapOf(rute.judul)} judul={t.map} buka={t.openMap} tutup={t.close} perbesar={t.zoomHint} />
+      </div>
+    </div>
+  );
+}
+
 function TombolPeta({ rute, lang, className }: { rute: Rute; lang: LandingLang; className: string }) {
   return (
     <a href={rute.peta} target="_blank" rel="noreferrer noopener" className={className}>
@@ -253,6 +282,11 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
               <DaftarCara rute={rute} lang={lang} kartu={`${KARTU_PUTIH} rounded-[16px] p-4`} />
             </div>
           ) : null}
+          {rute.denah ? (
+            <div className={`${KARTU_PUTIH} rounded-[16px] p-4`}>
+              <BagianDenah rute={rute} lang={lang} labelKelas={MUTED_KARTU} />
+            </div>
+          ) : null}
           {rute.langkah.length > 0 ? (
             <div className="flex flex-col gap-4">
               <h3 className={`${LABEL} ${labelGelap}`}>{t.steps}</h3>
@@ -297,6 +331,11 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
           </div>
         ) : null}
       </div>
+      {rute.denah ? (
+        <div className="mt-6">
+          <BagianDenah rute={rute} lang={lang} labelKelas={MUTED_KARTU} />
+        </div>
+      ) : null}
       {rute.langkah.length > 0 ? (
         <details className="group mt-5 border-t border-[#E6E9EE] pt-2">
           <summary className="m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 text-title-small font-bold text-[var(--alis,var(--reg-primary))] [&::-webkit-details-marker]:hidden">
@@ -360,6 +399,7 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
                   </div>
                 ) : null}
               </div>
+              <BagianDenah rute={r} lang={lang} labelKelas={MUTED_KARTU} />
               {r.langkah.length > 0 ? (
                 <div>
                   <h3 className={`${LABEL} ${MUTED_KARTU}`}>{t.steps}</h3>

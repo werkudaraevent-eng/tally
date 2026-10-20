@@ -218,6 +218,13 @@ export function EditorRute({
         <p className="text-body-small text-on-surface-variant">How Google Maps draws the route when a participant taps the button.</p>
       </div>
       <TextArea label="Steps" optional rows={4} hint="One step per line. Shown numbered." value={block.body ?? ""} onChange={(event) => ubah({ body: event.target.value })} />
+      <ImageUploadField
+        label="Map image"
+        hint="Optional. A floor plan or map of the way there. Shown uncropped under the ways; participants tap it to open full screen."
+        kind="landing"
+        value={block.map_image_url ?? null}
+        onChange={(url) => ubah({ map_image_url: url })}
+      />
       <p className="text-body-small text-on-surface-variant">The &ldquo;Open route in Google Maps&rdquo; button is built from the two addresses.</p>
     </div>
   );
