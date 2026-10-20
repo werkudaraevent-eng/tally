@@ -42,3 +42,8 @@ next-env.d.ts
 
 # claude code — pengaturan personal, bukan milik repo
 .claude/settings.local.json
+!.env.example
+
+# editor and agent tool config with personal or environment-specific values
+.mcp.json
+.vscode/
