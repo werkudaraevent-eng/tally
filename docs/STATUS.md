@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-19.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-20.
 
 ## How to update this file
 
@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Target map (this PR): `docs/PRODUCT.md` gets a feature-by-feature map per event stage with today's status, priority (P1 before public launch) and a reference product. Docs only.
+- Repo tidy-up (this PR): CI on every PR (typecheck, check, lint, build), PR template, `.env.example`, `docs/GLOSSARY.md`, setup steps in the README; removes the stale API PDF, Supabase CLI temp file and editor MCP config, renames the package to `tally`. No app code or SQL. After merge: branch protection on `main` requiring CI, squash merging and automatic branch deletion are GitHub settings for Mas.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -23,6 +23,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #238 Target map (merged 19 Oct): `docs/PRODUCT.md` gets a feature-by-feature map per event stage with today's status, priority (P1 before public launch) and a reference product. Docs only.
 - #237 Product direction and design basis (merged 19 Oct): `docs/PRODUCT.md` Direction section; `DESIGN.md` opens with the design basis per screen type and drops chapters that contradicted the code.
 - #222 Participant texts without pronouns (U-23, U-21 and E-09, merged 19 Oct): shared participant texts and emails drop "Anda"/"kamu" (sign-in, ribbons, Lengkapi data, registration form, sign-in/code/walk-in and confirmation emails, footers, logistics cards, checkpoint note, voting, classic Gathering page); "area peserta" becomes "Dashboard saya". Horizon keeps "kamu"; the Modern public page and staff-written message starters keep "Anda". No SQL.
 - #234 Docs clean-up (merged 19 Oct): new `docs/PRODUCT.md` feature map (every module, who uses it, what the CMS sets, decided-against list); old PRIMA-era docs and `tasks/` deleted (still in git history); README and `supabase/README.md` rewritten; cron setup moved to `docs/ops/cron.md` with placeholders; still-valid database gotchas moved into `CLAUDE.md`.

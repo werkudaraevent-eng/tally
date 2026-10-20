@@ -11,21 +11,29 @@ One multi-event platform (Next.js + Supabase) for running live events: public ev
 | [`DESIGN.md`](DESIGN.md) | UI source of truth: palette, type, motion, components. |
 | [`CLAUDE.md`](CLAUDE.md) | Rules for every coding agent (and a good summary for humans): production safety, data rules, roles, language. |
 | [`docs/ops/cron.md`](docs/ops/cron.md) | Scheduled jobs (pg_cron and the external cron) and how to check them. |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | Indonesian words in paths and identifiers, with their English meaning, and the naming rules for new code. |
 
 History lives in `git log` and PR descriptions.
 
 ## Local development
 
+Requires Node.js 22 (the `check` script uses `--experimental-strip-types`) and npm.
+
 ```bash
-npm install
+npm ci
+cp .env.example .env.local   # fill in local values only
 npm run dev
 ```
 
 Never point a local run at the production database. Use the Supabase local stack (the repo has no `supabase/config.toml`, so run `supabase init` once, then `supabase start`; the migrations need pg_cron, pg_net, Vault and the Supabase roles, so plain Postgres won't run them all) or a fake PostgREST, and stub every email and WhatsApp sender. See "Running locally" in `CLAUDE.md`.
 
-Environment variables are read through `src/lib/env.ts`. The Supabase ones are `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (server only, never in browser code).
+Environment variables are listed in `.env.example`. The Supabase ones are read through `src/lib/env.ts`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (server only, never in browser code).
+
+Editor and agent tool config with environment-specific values (`.mcp.json`, `.vscode/`) is git-ignored: keep your own copy locally.
 
 ## Checks before a PR
+
+CI (`.github/workflows/ci.yml`) runs the same four on every pull request and on `main`.
 
 ```bash
 npm run typecheck
