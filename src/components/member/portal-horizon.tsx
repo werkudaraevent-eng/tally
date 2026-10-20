@@ -7,6 +7,7 @@ import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import { FormKeluar } from "@/components/member/form-keluar";
 import { IkonTabBawah, PenandaTab } from "@/components/member/muat-portal";
 import { PemicuQr } from "@/components/member/qr-fokus";
+import { SEPARATOR } from "@/lib/typography";
 
 /**
  * Portal peserta Gathering Horizon: rancangan pen.dev V5 Hanung (2026-10-13),
@@ -220,20 +221,28 @@ export function SapaanHorizon({
   judulPonsel: string;
   catatan: string;
   catatanPonsel?: boolean;
-  /** Ponsel: halaman yang dibuka dari Menu (bukan dari bilah bawah) punya tautan kembali ke Menu. */
-  kembali?: { href: string; label: string } | null;
+  /**
+   * Ponsel: halaman yang dibuka dari Menu (bukan dari bilah bawah) punya tautan
+   * kembali ke Menu. `semua`: halaman bagian dari tab lain (Outfit di bawah
+   * Susunan acara); tautannya tampil di semua lebar, di tempat alis.
+   */
+  kembali?: { href: string; label: string; semua?: boolean } | null;
 }) {
   // Laptop berlayar pendek (1280×588): judul 30 px tanpa alis, supaya isi tab
   // naik ke layar pertama (U-11). Berlaku di semua tab, jadi tinggi kepala tetap sama.
   return (
     <div className="mx-auto w-full max-w-[1440px] px-6 pt-6 md:px-16 md:pb-7 md:pt-12 lg:short:pb-5 lg:short:pt-6">
       {kembali ? (
-        <Link href={kembali.href} className="m3-state -ml-2 -mt-3 mb-1 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold lg:hidden" style={{ color: BIRU }}>
+        <Link
+          href={kembali.href}
+          className={`m3-state -ml-2 -mt-3 mb-1 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold ${kembali.semua ? "md:-mt-2 md:mb-0 md:min-h-8 lg:short:-mt-2" : "lg:hidden"}`}
+          style={{ color: BIRU }}
+        >
           <ArrowLeft size={20} aria-hidden />
           {kembali.label}
         </Link>
       ) : null}
-      <p className="hidden text-[11px] font-bold uppercase leading-[1.26] tracking-[1.5px] md:block lg:short:hidden" style={{ color: LABEL }}>
+      <p className={`hidden text-[11px] font-bold uppercase leading-[1.26] tracking-[1.5px] lg:short:hidden ${kembali?.semua ? "" : "md:block"}`} style={{ color: LABEL }}>
         {alis}
       </p>
       <h1 className="whitespace-pre-line text-balance text-[30px] font-extrabold leading-[1.15] [overflow-wrap:anywhere] md:mt-[14px] md:text-[48px] md:leading-[1.2] lg:short:mt-0 lg:short:text-[30px]" style={{ color: TINTA }}>
@@ -1190,35 +1199,51 @@ export function KontakKruHorizon({
 }
 
 /**
- * Pilihan hari di ponsel (halaman Outfit): pil yang sama dengan pilihan hari
- * tab Jadwal Horizon. Layar lebar memakai HariJadwalHorizon di kiri.
+ * Strip outfit di satu hari Susunan acara (keputusan Mas 20 Okt, pilihan A):
+ * label halaman lalu tiap isian "kapan · apa" persis seperti diisi panitia,
+ * seluruhnya satu tautan ke hari itu di halaman Outfit. Desktop: isian
+ * berdampingan dan teks tautan di kanan.
  */
-export function ChipHariHorizon({ hari, aria }: { hari: { label: string; href: string; aktif: boolean }[]; aria: string }) {
+export function StripOutfitHorizon({ label, isian, href, lihat }: { label: string; isian: { kapan: string | null; apa: string }[]; href: string; lihat: string }) {
   return (
-    <nav aria-label={aria} className="-mx-5 overflow-x-auto px-5 [mask-image:linear-gradient(to_right,transparent,#000_20px,#000_calc(100%-56px),transparent)] sm:mx-0 sm:px-0 sm:[mask-image:none] lg:hidden">
-      <ul className="flex gap-2">
-        {hari.map((item) => (
-          <li key={item.href} className="shrink-0">
-            <Link
-              href={item.href}
-              aria-current={item.aktif ? "page" : undefined}
-              className={`m3-state inline-flex min-h-12 min-w-[104px] items-center justify-center whitespace-nowrap rounded-full px-5 text-[14px] font-semibold leading-5 ${
-                item.aktif ? "bg-[var(--hz-emas)] text-[var(--hz-on-emas)]" : "bg-white text-[#1A2333] shadow-[inset_0_0_0_1px_#E6E9EE]"
-              }`}
-            >
-              {item.label}
-            </Link>
-          </li>
+    <Link
+      href={href}
+      className={`${GARIS_KARTU} m3-state mt-4 flex min-h-14 items-center gap-3 rounded-[16px] bg-white px-4 py-3.5 lg:gap-5 lg:px-5 lg:py-4`}
+      style={{ color: TINTA }}
+    >
+      <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF1F6] lg:size-10">
+        <CoatHanger size={20} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:flex-row lg:items-center lg:gap-6">
+        <span className="text-[13px] font-semibold leading-5 lg:shrink-0 lg:text-[15px] lg:font-bold" style={{ color: LABEL }}>
+          <span className="lg:text-[#101E38]">{label}</span>
+        </span>
+        {isian.map((item, index) => (
+          <span key={index} className="min-w-0 text-[14px] font-semibold leading-5 [overflow-wrap:anywhere] lg:flex lg:flex-1 lg:flex-col lg:gap-0.5">
+            {item.kapan ? (
+              <>
+                <span className="lg:text-[13px] lg:text-[#4D5D77]">{item.kapan}</span>
+                <span aria-hidden className="lg:hidden">{` ${SEPARATOR} `}</span>
+              </>
+            ) : null}
+            <span className="lg:text-[15px] lg:font-bold">{item.apa}</span>
+          </span>
         ))}
-      </ul>
-    </nav>
+      </span>
+      <span className="hidden shrink-0 items-center gap-1 text-[14px] font-semibold lg:inline-flex" style={{ color: BIRU }}>
+        {lihat}
+        <CaretRight size={14} aria-hidden />
+      </span>
+      <CaretRight size={18} aria-hidden className="shrink-0 lg:hidden" style={{ color: REDUP }} />
+      <PenandaTab tab="outfit" />
+    </Link>
   );
 }
 
 /**
  * Kartu satu outfit (pola "Attire" Zola, "Tonight's Attire" Royal Caribbean):
- * foto contoh 4:5 bila ada (tanpa kotak kosong bila tidak), waktu sebagai alis
- * biru, pakaiannya sebagai judul, catatan redup.
+ * foto contoh 4:5 bila ada (tanpa kotak kosong bila tidak), waktu sebagai
+ * label kalimat biasa, pakaiannya sebagai judul, catatan redup.
  */
 export function KartuOutfitHorizon({ kapan, apa, catatan, foto }: { kapan: string | null; apa: string; catatan: string | null; foto: string | null }) {
   // Rancangan yang Mas Hanung setujui: foto kecil 4:5 di samping teks, jadi satu
@@ -1235,7 +1260,7 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto }: { kapan: strin
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
         {kapan ? (
-          <p className="text-[12px] font-bold uppercase leading-4 tracking-[0.8px] [overflow-wrap:anywhere]" style={{ color: BIRU }}>
+          <p className="text-[13px] font-semibold leading-5 [overflow-wrap:anywhere]" style={{ color: LABEL }}>
             {kapan}
           </p>
         ) : null}

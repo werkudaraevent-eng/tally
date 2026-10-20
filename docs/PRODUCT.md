@@ -170,7 +170,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Sections (usually one per day): name, tab label, date, highlight the current item, show on public page. New sections start as drafts.
   - Items: start, end, title, details (one speaker per line; bold, italic, colour, lists), note, break. English title optional. Items sort by time; only parallel items are reordered by hand.
   - Who it's for (per section): Everyone, or one group picked from a dropdown/choice participant field. Gathering Horizon shows the participant's own sections first and hides nothing; no answer sees all.
-  - Outfit / what to wear (per section, Horizon).
+  - Outfit / what to wear (per section, Horizon): shown on that day of the participant Schedule and on the Outfit page under Susunan acara; the page label is set here (empty reads "Outfit").
   - Public agenda header: title, subtitle, colours, background, logo.
   - A linked Logistics trip shows a Bus chip; moving the item moves the trip.
 - **Shows at:** `/e/<slug>/rundown?sesi=<section>`, the event page Agenda section, Forum `/program`, the participant area schedule.
@@ -243,7 +243,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Participant home (Modern and Gathering): order and show/hide its cards; organiser blocks are added from the Event page.
   - Emergency and help (Horizon): card title, note, up to 8 contacts with call, WhatsApp and map buttons.
   - What shows: QR code (on), seat, agenda, room and bus (off), live voting, feedback link.
-- **Horizon portal tabs:** Beranda, Acara, Perjalanan, Pengumuman, Profil/Menu, a QR button in the bottom bar, optional Outfit. The QR can be saved for offline use.
+- **Horizon portal tabs:** Beranda, Acara, Perjalanan, Pengumuman, Profil/Menu, and a QR button in the bottom bar. The QR can be saved for offline use. Outfit is part of Acara: a strip on each Schedule day with outfits opens the Outfit page (back to Susunan acara, Acara stays lit), and both follow the participant's batch.
 - **Shows at:** `/e/<slug>/peserta` (and `/en/peserta`), sign-in `/e/<slug>/masuk`, update details `/e/<slug>/lengkapi`, event calendar `/e/<slug>/kalender.ics`.
 
 ### Check-in

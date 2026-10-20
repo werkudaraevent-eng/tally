@@ -15,8 +15,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Map image on Directions blocks (this PR): an optional "Map image" per Directions block (a floor plan or map of the way there), shown uncropped under the ways on the public page, the participant route card and the Horizon route rows; tapping it opens a full-screen viewer (close on the left, Esc or phone Back closes it, tap to zoom 2x). Routes without a map image change by 0 px. No SQL. Waits on coordinator QA and Mas's merge time.
-- Repo tidy-up (this PR): CI on every PR (typecheck, check, lint, build), PR template, `.env.example`, `docs/GLOSSARY.md`, setup steps in the README; removes the stale API PDF, Supabase CLI temp file and editor MCP config, renames the package to `tally`. No app code or SQL. After merge: branch protection on `main` requiring CI, squash merging and automatic branch deletion are GitHub settings for Mas.
+- Outfit under Susunan acara (this PR; decided by Mas 20 Oct, option A): on Horizon the Outfit page is part of Acara instead of a desktop tab and a phone Menu row. Each Schedule day with outfits shows a strip ("‹label›", then each "when · what" exactly as entered) that opens that day on the Outfit page; the page uses the Schedule's date chips and day list, opens the participant's own batch section (Agenda > Who it's for) with the Batch switch and "Ini jadwalmu" sentence, writes the date once, adds a "Hari ini" chip and a "Berikutnya" row, and links back to Susunan acara with Acara lit. The Home outfit row also follows the batch. Admin: "Menu label" becomes "Page label"; the Gathering preset's "Sebelum berangkat" block no longer adds a "Dress code" card. No SQL. Visible on KSO: waits on Mas's merge time.
+- Participant area redesign, next PRs (decided by Mas 20 Oct; mockups on the "Area peserta · usulan 20 Okt" board in Mas's Pencil file): (1) Beranda "Hari ini" by phase (before, during, after, from the event dates), heading "Halo, {Nama}", 12-13 px sentence-case labels and "·" separators on Horizon (U-09, U-24, U-25); (2) drag cards directly in the Participant area preview, with new Home rows Today's outfit and Help card, Next up fixed at the top, Help card at the bottom, and each event's saved Announcements position kept. Not started; (1) goes first.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -24,6 +24,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #241 Map image on Directions blocks (merged 20 Oct): an optional "Map image" per Directions block (a floor plan or map of the way there), shown uncropped under the ways on the public page, the participant route card and the Horizon route rows; tapping it opens a full-screen viewer (close on the left, Esc or phone Back closes it, tap to zoom 2x). Routes without a map image change by 0 px. No SQL.
+- #239 Repo tidy-up (merged 20 Oct): CI on every PR (typecheck, check, lint, build), PR template, `.env.example`, `docs/GLOSSARY.md`, setup steps in the README; removes the stale API PDF, Supabase CLI temp file and editor MCP config, renames the package to `tally`. No app code or SQL.
 - #240 Horizon routes as rows in Perjalanan (merged 20 Oct): every Directions block on the participant page is one tap-to-open row in a "Rute" card under the hotel, bus and train cards; "Cara ke sana" in Susunan acara opens its row. Participants without travel info still see the full card on Beranda. Other layouts 0 px. No SQL.
 - #238 Target map (merged 19 Oct): `docs/PRODUCT.md` gets a feature-by-feature map per event stage with today's status, priority (P1 before public launch) and a reference product. Docs only.
 - #237 Product direction and design basis (merged 19 Oct): `docs/PRODUCT.md` Direction section; `DESIGN.md` opens with the design basis per screen type and drops chapters that contradicted the code.
@@ -69,6 +71,9 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
 - "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Who it's for on each Batch section.
+- Repo settings after #239: branch protection on `main` requiring CI, squash merging and automatic branch deletion (GitHub settings).
+- KSO outfit page label (with the Outfit under Susunan acara PR): Agenda > any section > Outfit > Page label = "Dresscode" (decided 20 Oct).
+- KSO Event page: if the hidden "Sebelum berangkat" block still has a "Dress code" card, delete that card, so the dress code is only entered in Agenda > Section > Outfit (decided 20 Oct).
 
 ## KSO participant-area audit (17 Oct): open items
 

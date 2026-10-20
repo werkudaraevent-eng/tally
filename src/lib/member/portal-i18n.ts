@@ -90,15 +90,23 @@ export type PortalUiText = {
       seatLine: (gerbong: string | null, kursi: string | null) => string | null;
     };
     /**
-     * Halaman Outfit (dress code per hari dari Agenda). Labelnya per acara
-     * (`member.outfit_label`, bawaan "Outfit"), jadi kalimat yang memuatnya
-     * berupa fungsi. Alis baris Beranda ditampilkan huruf besar.
+     * Halaman Outfit (dress code per hari dari Agenda), bagian dari Susunan
+     * acara. Labelnya per acara (`member.outfit_label`, bawaan "Outfit"), jadi
+     * kalimat yang memuatnya berupa fungsi. Alis baris Beranda ditampilkan
+     * huruf besar.
      */
     outfit: {
       note: string;
       empty: string;
       dayEmpty: string;
-      menuRow: string;
+      /** Chip di judul hari yang sedang berlangsung. */
+      today: string;
+      /** Teks tautan strip di Susunan acara (desktop): "Lihat Dresscode". */
+      stripLink: (label: string) => string;
+      /** Label baris hari berikutnya di bawah kartu: "Berikutnya · Min, 8 Nov". */
+      next: string;
+      /** Pakaian lain di hari berikutnya: "+1 lagi". */
+      more: (jumlah: number) => string;
       row: {
         hariIni: (label: string) => string;
         besok: (label: string) => string;
@@ -283,7 +291,10 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: "Pakaian tiap hari, dari panitia.",
         empty: "Panitia belum membagikan pakaian untuk acara ini.",
         dayEmpty: "Tidak ada ketentuan pakaian khusus.",
-        menuRow: "Pakaian tiap hari",
+        today: "Hari ini",
+        stripLink: (label) => `Lihat ${label}`,
+        next: "Berikutnya",
+        more: (jumlah) => `+${jumlah} lagi`,
         row: {
           hariIni: (label) => `${label} hari ini`,
           besok: (label) => `${label} besok`,
@@ -466,7 +477,10 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: "What to wear each day, from the organisers.",
         empty: "The organisers haven't shared what to wear yet.",
         dayEmpty: "No set dress code.",
-        menuRow: "What to wear each day",
+        today: "Today",
+        stripLink: (label) => `See ${label}`,
+        next: "Next",
+        more: (jumlah) => `+${jumlah} more`,
         row: {
           hariIni: (label) => `Today's ${label}`,
           besok: (label) => `Tomorrow's ${label}`,

@@ -192,8 +192,12 @@ const TENTANG_BAWAAN: TentangBawaan = {
   en: { heading: LANDING_UI.en.aboutHeadingDefault, cards: LANDING_UI.en.aboutCardsDefault },
 };
 
-/** Judul kartu bagian "Sebelum berangkat" untuk acara gathering. */
-const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];
+/**
+ * Judul kartu bagian "Sebelum berangkat" untuk acara gathering. Tanpa kartu
+ * "Dress code" (keputusan Mas 20 Okt): pakaian diisi sekali di Agenda > Section >
+ * Outfit, jadi tidak ada tempat kedua yang bisa berbeda isinya.
+ */
+const INFO_GATHERING = ["Yang perlu dibawa", "Kontak panitia"];
 
 /**
  * Preset ditambah, khusus Gathering, blok Kartu poin "Sebelum berangkat"

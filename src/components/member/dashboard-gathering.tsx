@@ -6,6 +6,7 @@ import {
   Bell,
   Bus,
   CalendarBlank,
+  CalendarCheck,
   CaretRight,
   CheckCircle,
   CoatHanger,
@@ -71,7 +72,6 @@ import { HORIZON_GOLD_DEFAULT, sorotHorizon } from "@/lib/landing-tokens";
 import { gayaHorizon } from "@/components/landing/modern/horizon";
 import {
   BarisTautanHorizon,
-  ChipHariHorizon,
   ChipTanggalHorizon,
   GARIS_KARTU,
   HariJadwalHorizon,
@@ -92,6 +92,7 @@ import {
   PitaKepalaHorizon,
   SapaanHorizon,
   SegmenBagianHorizon,
+  StripOutfitHorizon,
   TemanSekamarHorizon,
   TiketKeretaHorizon,
   TombolKontakHorizon,
@@ -112,7 +113,7 @@ import { HapusSalinanQr } from "@/components/member/form-keluar";
 import { SimpanQrGaleri } from "@/components/member/simpan-qr-galeri";
 import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/muat-portal";
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
-import { hariOutfitBeranda, labelOutfit } from "@/lib/outfit";
+import { bagianOutfitTanggal, hariOutfitBeranda, labelOutfit } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
 import { bagianPertama, pilihanPeserta } from "@/lib/sasaran-bagian";
 import { loadSasaranPeserta } from "@/lib/sasaran-bagian-server";
@@ -291,8 +292,9 @@ export async function DashboardGathering({
   const [agenda, petaOutfit, sasaranPeserta, slugLama] = await Promise.all([
     tampilSusunan ? loadAgendaPreview(event.id, lang) : [],
     horizon ? loadOutfitBagian(event.id) : null,
-    // Untuk siapa tiap bagian (Agenda > Who it's for): Horizon, peserta yang sudah disetujui.
-    horizon && peserta && tampilSusunan ? loadSasaranPeserta(event.id, peserta.id) : null,
+    // Untuk siapa tiap bagian (Agenda > Who it's for): Horizon, peserta yang sudah
+    // disetujui. Juga saat Jadwal disembunyikan: Outfit tetap ikut batch peserta.
+    horizon && peserta ? loadSasaranPeserta(event.id, peserta.id) : null,
     pratinjau ? [] : oldSlugsFor(event.id),
   ]);
   // Lingkup salinan QR luring kedua bahasa portal, juga di bawah slug lama
@@ -308,6 +310,12 @@ export async function DashboardGathering({
   // Hari Outfit = hari tab Jadwal (bagian yang diterbitkan dan berisi), juga bila Jadwal disembunyikan.
   const hariOutfit = petaOutfit ? agendaNav.map((bagian) => ({ ...bagian, outfit: (bagian.id !== undefined ? petaOutfit.get(bagian.id) : undefined) ?? [] })) : [];
   const adaOutfit = hariOutfit.some((bagian) => bagian.outfit.length > 0);
+  // Bagian milik peserta untuk Outfit (keputusan Mas 20 Okt: ikut batch), dari
+  // hari Outfit, bukan dari agenda Jadwal yang kosong bila Jadwal disembunyikan.
+  const pilihanOutfit = pilihanPeserta(
+    hariOutfit.map((bagian) => (bagian.id !== undefined ? (sasaranPeserta?.sasaran.get(bagian.id) ?? null) : null)),
+    sasaranPeserta?.jawaban ?? {},
+  );
   const labelMenuOutfit = labelOutfit(member.outfit_label);
   const tab: PortalTab =
     (!horizon && tabDiminta === "perjalanan") || (tabDiminta === "outfit" && !adaOutfit) ? "beranda" : tabDiminta;
@@ -697,7 +705,7 @@ export async function DashboardGathering({
   let isi: ReactNode;
   let kepala: ReactNode;
   // Horizon: judul tab di atas latar krem seperti sapaan Beranda, bukan pita navy.
-  let judulHorizon: { alis: string; judul: string; judulPonsel?: string; catatan: string } | null = null;
+  let judulHorizon: { alis: string; judul: string; judulPonsel?: string; catatan: string; kembali?: { href: string; label: string; semua?: boolean } } | null = null;
   if (tabAktif === "beranda") {
     kepala = (
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -854,6 +862,16 @@ export async function DashboardGathering({
                       );
                     })()}
                   </div>
+                ) : null}
+                {/* Outfit bagian ini (keputusan Mas 20 Okt, pilihan A): satu strip di
+                    atas susunan hari itu, menuju hari yang sama di halaman Outfit. */}
+                {(hariOutfit[pilihan]?.outfit.length ?? 0) > 0 ? (
+                  <StripOutfitHorizon
+                    label={labelMenuOutfit}
+                    isian={hariOutfit[pilihan].outfit.map((isian) => ({ kapan: isian.when ?? null, apa: isian.what }))}
+                    href={keTab("outfit", { hari: String(pilihan + 1) })}
+                    lihat={tH.outfit.stripLink(labelMenuOutfit)}
+                  />
                 ) : null}
                 <ol className="mt-4 flex flex-col gap-2">
                   {bagian.items.map((item, _i, semua) => {
@@ -1140,29 +1158,79 @@ export async function DashboardGathering({
     );
   } else if (tabAktif === "outfit") {
     // Hanya Horizon dengan outfit (selain itu sudah dialihkan ke Beranda di atas).
-    // Kerangka hari sama dengan tab Jadwal: daftar hari di kiri (lg), pil di ponsel.
+    // Bagian dari Susunan acara (keputusan Mas 20 Okt, pilihan A): kembali ke
+    // Susunan acara, dan hari dibentuk dari TANGGAL seperti tab Jadwal (pilihan
+    // hari yang sama di ponsel dan desktop). Tiap tanggal dibuka di bagian milik
+    // peserta (Agenda > Who it's for); `?hari=` tetap urutan bagian.
     const to = tH.outfit;
-    judulHorizon = { alis: nama, judul: labelMenuOutfit, catatan: to.note };
-    const indeksHariIniOutfit = hariOutfit.findIndex((bagian) => bagian.tanggal === kini.tanggal);
-    const pilihan = Math.min(Math.max((hari ?? (indeksHariIniOutfit >= 0 ? indeksHariIniOutfit + 1 : 1)) - 1, 0), Math.max(hariOutfit.length - 1, 0));
+    const hariO = kelompokkanHari(hariOutfit);
+    const bukaHariO = (item: (typeof hariO)[number]) => {
+      const indeks = item.tanggal ? bagianOutfitTanggal(hariOutfit, item.tanggal, pilihanOutfit) : -1;
+      return indeks >= 0 ? indeks : (bagianPertama(item.bagian.map((isi) => isi.indeks), pilihanOutfit) ?? item.bagian[0].indeks);
+    };
+    const hariAwalO = hariO.find((item) => item.tanggal === kini.tanggal) ?? hariO[0];
+    const pilihan = Math.min(Math.max((hari ?? (hariAwalO ? bukaHariO(hariAwalO) + 1 : 1)) - 1, 0), Math.max(hariOutfit.length - 1, 0));
     const bagian = hariOutfit[pilihan];
-    const daftarHari = hariOutfit.map((b, index) => ({
-      label: [String(index + 1).padStart(2, "0"), b.tanggal ? tanggalBab(b.tanggal, lang) : null].filter(Boolean).join(" / "),
-      judul: b.sectionTitle?.trim() || t.day(index + 1),
-      href: keTab("outfit", { hari: String(index + 1) }),
-      aktif: index === pilihan,
-    }));
+    const hariTerpilih = hariO.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));
+    const hrefO = (indeks: number) => keTab("outfit", { hari: String(indeks + 1) });
+    // Hari berikutnya yang punya outfit untuk peserta ini: satu baris di bawah kartu.
+    const urutanTerpilih = hariTerpilih ? hariO.indexOf(hariTerpilih) : -1;
+    const hariBerikutO = urutanTerpilih >= 0 ? hariO[urutanTerpilih + 1] : undefined;
+    const indeksBerikutO = hariBerikutO ? bukaHariO(hariBerikutO) : -1;
+    const outfitBerikutO = indeksBerikutO >= 0 ? hariOutfit[indeksBerikutO].outfit : [];
+    judulHorizon = {
+      alis: nama,
+      judul: labelMenuOutfit,
+      catatan: to.note,
+      kembali: { href: keTab("jadwal", { hari: String(pilihan + 1) }), label: t.schedule, semua: true },
+    };
     isi = (
-      <div className={hariOutfit.length > 1 ? "w-full lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14" : "w-full"}>
-        {hariOutfit.length > 1 ? <HariJadwalHorizon aria={t.daysAria} hari={daftarHari} /> : null}
+      <div className={hariO.length > 1 ? "w-full lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-14" : "w-full"}>
+        {hariO.length > 1 ? (
+          <HariJadwalHorizon
+            aria={t.daysAria}
+            hari={hariO.map((item, urutan) => ({
+              label: [String(urutan + 1).padStart(2, "0"), item.tanggal ? tanggalBab(item.tanggal, lang) : null].filter(Boolean).join(" / "),
+              judul: tanpaLabelBagian(hariOutfit[item.bagian[0].indeks].sectionTitle?.trim() || t.day(urutan + 1), item.bagian[0].label),
+              href: hrefO(bukaHariO(item)),
+              aktif: item === hariTerpilih,
+            }))}
+          />
+        ) : null}
         <div className="min-w-0 lg:col-start-2 lg:max-w-[880px]">
-          {hariOutfit.length > 1 ? <ChipHariHorizon aria={t.daysAria} hari={daftarHari.map((item) => ({ label: item.judul, href: item.href, aktif: item.aktif }))} /> : null}
+          {hariO.length > 1 ? (
+            <ChipTanggalHorizon
+              aria={t.daysAria}
+              hari={hariO.map((item, urutan) => ({
+                ...(item.tanggal ? chipTanggal(item.tanggal, lang) : { atas: hariOutfit[item.bagian[0].indeks].sectionTitle?.trim() || t.day(urutan + 1), bawah: null }),
+                href: hrefO(bukaHariO(item)),
+                aktif: item === hariTerpilih,
+              }))}
+            />
+          ) : null}
           {bagian ? (
             <>
-              <div className={`flex flex-col gap-1 ${hariOutfit.length > 1 ? "mt-5 lg:mt-0" : ""}`}>
-                {bagian.tanggal ? <p className={`text-[14px] font-medium leading-5 ${MUTED}`}>{tanggalPanjangBab(bagian.tanggal, lang)}</p> : null}
-                <h2 className="text-[22px] font-semibold leading-7 [overflow-wrap:anywhere] lg:text-[24px] lg:leading-8">{bagian.sectionTitle?.trim() || t.day(pilihan + 1)}</h2>
+              {/* Tanggal ditulis sekali (dulu tanggal lalu label bagian yang sama). */}
+              <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${hariO.length > 1 ? "mt-5 lg:mt-0" : ""}`}>
+                <h2 className="text-[22px] font-semibold leading-7 [overflow-wrap:anywhere] lg:text-[24px] lg:leading-8">
+                  {bagian.tanggal ? tanggalPanjangBab(bagian.tanggal, lang) : bagian.sectionTitle?.trim() || t.day(pilihan + 1)}
+                </h2>
+                {bagian.tanggal === kini.tanggal ? (
+                  <Chip nada="aksi">
+                    <CalendarCheck size={14} weight="bold" aria-hidden />
+                    {to.today}
+                  </Chip>
+                ) : null}
               </div>
+              {hariTerpilih && hariTerpilih.bagian.length > 1 ? (
+                <div className="mt-3">
+                  <SegmenBagianHorizon
+                    aria={tH.schedule.partsAria}
+                    bagian={hariTerpilih.bagian.map((isiBagian, urutan) => ({ label: isiBagian.label ?? tH.schedule.part(urutan + 1), href: hrefO(isiBagian.indeks), aktif: isiBagian.indeks === pilihan }))}
+                  />
+                  {pilihanOutfit.kelompok && pilihanOutfit.milik.has(pilihan) ? <p className="mt-3 text-[14px] leading-5 text-[#4A5568]">{tH.schedule.yours(pilihanOutfit.kelompok)}</p> : null}
+                </div>
+              ) : null}
               {bagian.outfit.length === 0 ? (
                 <p className={`mt-4 text-[16px] leading-6 ${MUTED}`}>{to.dayEmpty}</p>
               ) : (
@@ -1172,6 +1240,25 @@ export async function DashboardGathering({
                   ))}
                 </div>
               )}
+              {hariBerikutO && outfitBerikutO.length > 0 ? (
+                <Link
+                  href={hrefO(indeksBerikutO)}
+                  className={`${GARIS_KARTU} m3-state mt-4 flex min-h-12 items-center gap-3 rounded-[16px] px-4 py-3 text-[14px] leading-5 ${MUTED}`}
+                >
+                  <CalendarBlank size={20} aria-hidden className="shrink-0" />
+                  {/* Dua baris: hari berikutnya sebagai label, lalu pakaian pertamanya apa adanya. */}
+                  <span className="flex min-w-0 flex-1 flex-col [overflow-wrap:anywhere]">
+                    <span className="text-[13px] font-semibold">
+                      {gabungMeta([to.next, hariBerikutO.tanggal ? (({ atas, bawah }) => `${atas}, ${bawah}`)(chipTanggal(hariBerikutO.tanggal, lang)) : t.day(urutanTerpilih + 2)])}
+                    </span>
+                    <span className="font-semibold text-[#101E38]">
+                      {gabungMeta([outfitBerikutO[0].when, outfitBerikutO[0].what])}
+                      {outfitBerikutO.length > 1 ? ` ${to.more(outfitBerikutO.length - 1)}` : ""}
+                    </span>
+                  </span>
+                  <CaretRight size={16} aria-hidden className="shrink-0" />
+                </Link>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -1280,10 +1367,9 @@ export async function DashboardGathering({
         }}
         menu={{
           judul: tp.menu,
-          baris: [
-            // Perjalanan punya tab sendiri di bilah bawah, jadi tidak diulang di Menu.
-            ...(adaOutfit ? [{ href: keTab("outfit"), judul: labelMenuOutfit, isi: tH.outfit.menuRow, Ikon: CoatHanger, tab: "outfit" }] : []),
-          ],
+          // Perjalanan punya tab sendiri di bilah bawah, jadi tidak diulang di Menu.
+          // Outfit kini di bawah Susunan acara (keputusan Mas 20 Okt), bukan di Menu.
+          baris: [],
         }}
         darurat={kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
         data={{
@@ -1371,17 +1457,16 @@ export async function DashboardGathering({
   }
 
   if (horizon) {
-    const tabHorizon = (id: TabHorizon["id"]): TabHorizon =>
-      id === "outfit" ? { id, label: labelMenuOutfit, labelPendek: labelMenuOutfit, href: keTab(id) } : { id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) };
+    const tabHorizon = (id: Exclude<TabHorizon["id"], "outfit">): TabHorizon => ({ id, label: tH.tabs[id], labelPendek: tH.tabsShort[id], href: keTab(id) });
     // Desktop: semua halaman di bilah atas (Profil lewat inisial). Ponsel: lima
     // tujuan (Beranda, Jadwal, QR, Perjalanan, Pengumuman); Menu lewat inisial di
-    // bilah atas, Outfit dibuka dari Menu. Tanpa info perjalanan, tab Menu kembali.
-    const tabsHorizon = (
-      ["beranda", "jadwal", ...(adaPerjalanan ? (["perjalanan"] as const) : []), ...(adaOutfit ? (["outfit"] as const) : []), "info", "profil"] as const
-    ).map(tabHorizon);
+    // bilah atas. Tanpa info perjalanan, tab Menu kembali. Outfit bukan tab: ia
+    // bagian dari Susunan acara (keputusan Mas 20 Okt), jadi tab Jadwal menyala.
+    const tabsHorizon = (["beranda", "jadwal", ...(adaPerjalanan ? (["perjalanan"] as const) : []), "info", "profil"] as const).map(tabHorizon);
     const tabsBawahHorizon = (adaPerjalanan ? (["beranda", "jadwal", "perjalanan", "info"] as const) : (["beranda", "jadwal", "info", "profil"] as const)).map(tabHorizon);
-    // Tab yang disorot bilah bawah: Outfit (dan Perjalanan bila tidak di bilah) termasuk Menu.
-    const aktifBawah = tabsBawahHorizon.some((tab) => tab.id === tabAktif) ? tabAktif : "profil";
+    const tabMenyala: PortalTab = tabAktif === "outfit" ? "jadwal" : tabAktif;
+    // Tab yang disorot bilah bawah: Perjalanan yang tidak di bilah termasuk Menu.
+    const aktifBawah = tabsBawahHorizon.some((tab) => tab.id === tabMenyala) ? tabMenyala : "profil";
     let badan: ReactNode;
     if (tabAktif === "beranda") {
       const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
@@ -1476,7 +1561,7 @@ export async function DashboardGathering({
       const lainnya = beranda.order.filter((id) => diBeranda(id) && kartuBlok.has(id) && !idRutePerjalanan.has(id));
       // Outfit hari ini (pola "Tonight's Attire" Royal Caribbean): satu baris
       // sesudah tiket kereta, menuju hari itu di halaman Outfit.
-      const outfitBeranda = adaOutfit ? hariOutfitBeranda(hariOutfit, kini.tanggal, besokTanggal) : null;
+      const outfitBeranda = adaOutfit ? hariOutfitBeranda(hariOutfit, kini.tanggal, besokTanggal, pilihanOutfit) : null;
       const barisOutfit = (() => {
         if (!outfitBeranda) return null;
         const bagian = hariOutfit[outfitBeranda.indeks];
@@ -1655,7 +1740,7 @@ export async function DashboardGathering({
               judulPonsel={judulHorizon.judulPonsel ?? judulHorizon.judul}
               catatan={judulHorizon.catatan}
               catatanPonsel
-              kembali={(tabAktif === "perjalanan" && !adaPerjalanan) || tabAktif === "outfit" ? { href: keTab("profil"), label: tH.travel.backToMenu } : null}
+              kembali={judulHorizon.kembali ?? (tabAktif === "perjalanan" && !adaPerjalanan ? { href: keTab("profil"), label: tH.travel.backToMenu } : null)}
             />
           ) : (
             <PitaKepalaHorizon>{kepala}</PitaKepalaHorizon>
@@ -1689,7 +1774,7 @@ export async function DashboardGathering({
           nama={nama}
           homeHref={halamanAcara}
           tabs={tabsHorizon}
-          aktif={tabAktif}
+          aktif={tabMenyala}
           inisial={inisial}
           profilLabel={tH.profileAriaWith(inisial)}
           infoBelum={infoBelum}
