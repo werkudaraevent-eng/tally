@@ -41,7 +41,7 @@ const PIL_EMAS =
 
 export type TabHorizon = { id: Exclude<PortalTab, "qr">; label: string; labelPendek: string; href: string };
 
-// Profil di ponsel menjadi "Menu": halaman yang juga memuat Outfit, kontak, dan Keluar.
+// Profil di ponsel menjadi "Menu": halaman yang juga memuat kontak dan Keluar (dan Outfit bila Jadwal disembunyikan).
 const IKON_TAB = { beranda: Compass, jadwal: CalendarDots, perjalanan: Suitcase, outfit: CoatHanger, info: Bell, profil: List } as const;
 
 /**
@@ -72,6 +72,7 @@ export function KepalaHorizon({
   homeHref,
   tabs,
   aktif,
+  halaman = aktif,
   inisial,
   profilLabel,
   infoBelum,
@@ -83,7 +84,10 @@ export function KepalaHorizon({
   nama: string;
   homeHref: string;
   tabs: TabHorizon[];
+  /** Tab yang menyala. */
   aktif: Exclude<PortalTab, "qr">;
+  /** Halaman yang terbuka, bila bukan tab itu sendiri (Outfit di bawah Susunan acara). */
+  halaman?: Exclude<PortalTab, "qr">;
   inisial: string;
   profilLabel: string;
   /** Jumlah pengumuman yang belum dibaca; 0 = tanpa lencana. */
@@ -116,13 +120,13 @@ export function KepalaHorizon({
                 <li key={tab.id}>
                   <Link
                     href={tab.href}
-                    aria-current={tab.id === aktif ? "page" : undefined}
+                    aria-current={tab.id === halaman ? "page" : tab.id === aktif ? "true" : undefined}
                     className="m3-state relative inline-flex min-h-12 items-center gap-1.5 rounded-md px-1 text-[14px] font-semibold text-[#E1E6F1] aria-[current]:text-white"
                   >
                     {tab.label}
                     {tab.id === "info" ? <LencanaBelum jumlah={infoBelum} label={infoBelumLabel} className="-mt-3 ring-[var(--hz-navy)]" /> : null}
                     {tab.id === aktif ? <span aria-hidden className="absolute inset-x-1 bottom-2 h-0.5 rounded-full bg-[var(--hz-emas)]" /> : null}
-                    {tab.id !== aktif ? <PenandaTab tab={tab.id} /> : null}
+                    {tab.id !== halaman ? <PenandaTab tab={tab.id} /> : null}
                   </Link>
                 </li>
               ))}
@@ -132,11 +136,11 @@ export function KepalaHorizon({
           <Link
             href={profil.href}
             aria-label={profilLabel}
-            aria-current={aktif === "profil" ? "page" : undefined}
+            aria-current={halaman === "profil" ? "page" : aktif === "profil" ? "true" : undefined}
             className="m3-state -mr-3 inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-[var(--hz-emas)] aria-[current]:bg-white/10 aria-[current]:ring-2 aria-[current]:ring-inset aria-[current]:ring-[var(--hz-emas)]"
           >
             {inisial}
-            {aktif !== "profil" ? <PenandaTab tab="profil" /> : null}
+            {halaman !== "profil" ? <PenandaTab tab="profil" /> : null}
           </Link>
         ) : null}
       </div>
@@ -153,13 +157,17 @@ export function KepalaHorizon({
 export function NavBawahHorizon({
   tabs,
   aktif,
+  halaman = aktif,
   tabsAria,
   infoBelum,
   infoBelumLabel,
   qr,
 }: {
   tabs: TabHorizon[];
+  /** Tab yang menyala. */
   aktif: Exclude<PortalTab, "qr">;
+  /** Halaman yang terbuka, bila bukan tab itu sendiri (Outfit di bawah Susunan acara). */
+  halaman?: Exclude<PortalTab, "qr">;
   tabsAria: string;
   infoBelum: number;
   infoBelumLabel: string;
@@ -189,7 +197,7 @@ export function NavBawahHorizon({
             <li key={tab.id}>
               <Link
                 href={tab.href}
-                aria-current={ini ? "page" : undefined}
+                aria-current={tab.id === halaman ? "page" : ini ? "true" : undefined}
                 className={`m3-state flex min-h-12 flex-col items-center justify-center gap-[5px] rounded-md text-[10px] ${ini ? "font-bold text-[#101E38]" : "font-semibold text-[#526078]"}`}
               >
                 {/* Rancangan: ikon dan label aktif emas di atas putih (kontras 1,6:1).
@@ -197,7 +205,7 @@ export function NavBawahHorizon({
                 <IkonTabBawah tab={tab.id} aktif={ini} isi={<Ikon size={20} />} isiAktif={<Ikon size={20} weight="fill" />} />
                 {tab.labelPendek}
                 {tab.id === "info" && !ini ? <LencanaBelum jumlah={infoBelum} label={infoBelumLabel} className="absolute left-1/2 top-0 ml-1 ring-white" /> : null}
-                {!ini ? <PenandaTab tab={tab.id} /> : null}
+                {tab.id !== halaman ? <PenandaTab tab={tab.id} /> : null}
               </Link>
             </li>,
           ];
@@ -226,7 +234,7 @@ export function SapaanHorizon({
    * kembali ke Menu. `semua`: halaman bagian dari tab lain (Outfit di bawah
    * Susunan acara); tautannya tampil di semua lebar, di tempat alis.
    */
-  kembali?: { href: string; label: string; semua?: boolean } | null;
+  kembali?: { href: string; label: string; semua?: boolean; tab?: string } | null;
 }) {
   // Laptop berlayar pendek (1280×588): judul 30 px tanpa alis, supaya isi tab
   // naik ke layar pertama (U-11). Berlaku di semua tab, jadi tinggi kepala tetap sama.
@@ -235,11 +243,16 @@ export function SapaanHorizon({
       {kembali ? (
         <Link
           href={kembali.href}
-          className={`m3-state -ml-2 -mt-3 mb-1 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold ${kembali.semua ? "md:-mt-2 md:mb-0 md:min-h-8 lg:short:-mt-2" : "lg:hidden"}`}
+          // `semua` dari 768 px: tetap 48 px untuk jari, tetapi margin negatif
+          // membuatnya setinggi alis yang digantikannya, jadi judul tiap tab sejajar.
+          // Laptop pendek tanpa alis: disembunyikan, tab yang menyala di bilah atas
+          // sudah menjadi jalan kembali.
+          className={`m3-state -ml-2 -mt-3 mb-1 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold ${kembali.semua ? "md:-mb-3.5 md:-mt-5 md:flex md:w-fit lg:short:hidden" : "lg:hidden"}`}
           style={{ color: BIRU }}
         >
           <ArrowLeft size={20} aria-hidden />
           {kembali.label}
+          {kembali.tab ? <PenandaTab tab={kembali.tab} /> : null}
         </Link>
       ) : null}
       <p className={`hidden text-[11px] font-bold uppercase leading-[1.26] tracking-[1.5px] lg:short:hidden ${kembali?.semua ? "" : "md:block"}`} style={{ color: LABEL }}>
@@ -1000,7 +1013,7 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
  * Baris ringkas di Beranda yang membuka halaman topiknya (pola kartu "Upcoming"
  * aplikasi perjalanan): satu baris ringkasan, rinciannya di halaman sendiri.
  */
-export function BarisTautanHorizon({ href, Ikon, alis, judul, catatan, tab }: { href: string; Ikon: typeof Train; alis: string; judul: string; catatan: string | null; tab?: string }) {
+export function BarisTautanHorizon({ href, Ikon, alis, judul, catatan, tab, lampu }: { href: string; Ikon: typeof Train; alis: string; judul: string; catatan: string | null; tab?: string; lampu?: string }) {
   return (
     <Link href={href} className={`${GARIS_KARTU} m3-state flex min-h-[72px] items-center gap-4 rounded-[20px] bg-white px-5 py-4 md:rounded-[24px] md:px-6 md:py-5`} style={{ color: TINTA }}>
       <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#EEF1F6]">
@@ -1018,7 +1031,7 @@ export function BarisTautanHorizon({ href, Ikon, alis, judul, catatan, tab }: { 
         ) : null}
       </span>
       <CaretRight size={20} aria-hidden className="shrink-0" style={{ color: LABEL }} />
-      {tab ? <PenandaTab tab={tab} /> : null}
+      {tab ? <PenandaTab tab={tab} lampu={lampu} /> : null}
     </Link>
   );
 }
@@ -1208,34 +1221,38 @@ export function StripOutfitHorizon({ label, isian, href, lihat }: { label: strin
   return (
     <Link
       href={href}
-      className={`${GARIS_KARTU} m3-state mt-4 flex min-h-14 items-center gap-3 rounded-[16px] bg-white px-4 py-3.5 lg:gap-5 lg:px-5 lg:py-4`}
+      className={`${GARIS_KARTU} m3-state mt-4 flex min-h-14 items-center gap-3 rounded-[16px] bg-white px-4 py-3.5 xl:gap-5 xl:px-5 xl:py-4`}
       style={{ color: TINTA }}
     >
-      <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF1F6] lg:size-10">
+      <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF1F6] xl:size-10">
         <CoatHanger size={20} />
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:flex-row lg:items-center lg:gap-6">
-        <span className="text-[13px] font-semibold leading-5 lg:shrink-0 lg:text-[15px] lg:font-bold" style={{ color: LABEL }}>
-          <span className="lg:text-[#101E38]">{label}</span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 xl:flex-row xl:items-center xl:gap-6">
+        <span className="text-[13px] font-semibold leading-5 xl:shrink-0 xl:text-[15px] xl:font-bold" style={{ color: LABEL }}>
+          <span className="xl:text-[#101E38]">{label}</span>
         </span>
         {isian.map((item, index) => (
-          <span key={index} className="min-w-0 text-[14px] font-semibold leading-5 [overflow-wrap:anywhere] lg:flex lg:flex-1 lg:flex-col lg:gap-0.5">
+          <span key={index} className="min-w-0 text-[14px] font-semibold leading-5 [overflow-wrap:anywhere] xl:flex xl:flex-1 xl:flex-col xl:gap-0.5">
             {item.kapan ? (
               <>
-                <span className="lg:text-[13px] lg:text-[#4D5D77]">{item.kapan}</span>
-                <span aria-hidden className="lg:hidden">{` ${SEPARATOR} `}</span>
+                <span className="xl:text-[13px] xl:text-[#4D5D77]">{item.kapan}</span>
+                {/* Spasi di luar bagian yang disembunyikan: pembaca layar tetap memisahkan dua kata. */}
+                <span className="xl:hidden">
+                  {" "}
+                  <span aria-hidden>{SEPARATOR}</span>{" "}
+                </span>
               </>
             ) : null}
-            <span className="lg:text-[15px] lg:font-bold">{item.apa}</span>
+            <span className="xl:text-[15px] xl:font-bold">{item.apa}</span>
           </span>
         ))}
       </span>
-      <span className="hidden shrink-0 items-center gap-1 text-[14px] font-semibold lg:inline-flex" style={{ color: BIRU }}>
+      <span className="hidden shrink-0 items-center gap-1 text-[14px] font-semibold xl:inline-flex" style={{ color: BIRU }}>
         {lihat}
         <CaretRight size={14} aria-hidden />
       </span>
-      <CaretRight size={18} aria-hidden className="shrink-0 lg:hidden" style={{ color: REDUP }} />
-      <PenandaTab tab="outfit" />
+      <CaretRight size={18} aria-hidden className="shrink-0 xl:hidden" style={{ color: REDUP }} />
+      <PenandaTab tab="outfit" lampu="jadwal" />
     </Link>
   );
 }
@@ -1335,7 +1352,7 @@ const KARTU_PROFIL = `${GARIS_KARTU} flex flex-col gap-5 rounded-[20px] bg-white
  * Halaman Profil Horizon (pola halaman akun Luma/Eventbrite dan Airbnb/Google
  * Account): kartu tiket navy berisi identitas dan QR, data diri sebagai label
  * dan nilai, lalu bantuan dan pengaturan dalam satu kartu. Layar lebar dua
- * kolom; ponsel satu tumpukan dengan Menu (Perjalanan, Outfit) di bawah tiket,
+ * kolom; ponsel satu tumpukan dengan Menu (Perjalanan, Outfit bila Jadwal disembunyikan) di bawah tiket,
  * karena di ponsel halaman ini adalah tab "Menu".
  */
 export function ProfilHorizon({
@@ -1407,7 +1424,7 @@ export function ProfilHorizon({
               </PemicuQr>
             ) : null}
           </section>
-          {/* Layar lebar: Outfit sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
+          {/* Layar lebar: Outfit (bila Jadwal disembunyikan) sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
           {menu.baris.length > 0 ? (
             <section aria-label={menu.judul} className={`${GARIS_KARTU} rounded-[20px] bg-white p-3 lg:hidden`} style={{ color: TINTA }}>
               <DaftarProfil baris={menu.baris} rapat />

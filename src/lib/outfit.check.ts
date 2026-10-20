@@ -65,5 +65,25 @@ assert.deepEqual(hariOutfitBeranda(hariBatch, "2026-11-08", "2026-11-09", { mili
 assert.equal(bagianOutfitTanggal(hariBatch, "2026-11-06", batch2), 1);
 assert.equal(bagianOutfitTanggal(hariBatch, "2026-11-07", batch1), 2);
 assert.equal(bagianOutfitTanggal(hariBatch, "2026-11-09", batch1), -1);
-// Semua bagian tanggal itu untuk kelompok lain: tetap dibuka (seperti Jadwal).
-assert.equal(bagianOutfitTanggal(hariBatch, "2026-11-06", { milik: new Set(), bukanMilik: new Set([0, 1]) }), 0);
+// Semua bagian tanggal itu untuk kelompok lain: halaman tetap membukanya (seperti Jadwal), Beranda tidak.
+assert.equal(bagianOutfitTanggal(hariBatch, "2026-11-06", { milik: new Set(), bukanMilik: new Set([0, 1]) }, true), 0);
+assert.equal(bagianOutfitTanggal(hariBatch, "2026-11-06", { milik: new Set(), bukanMilik: new Set([0, 1]) }), -1);
+// Sesudah acara: hari terakhir milik peserta, bukan bagian terakhir agenda (Batch 2).
+assert.equal(hariOutfitBeranda(hariBatch, "2026-11-09", "2026-11-10", batch1), null);
+assert.deepEqual(hariOutfitBeranda(hariBatch, "2026-11-09", "2026-11-10", batch2), { indeks: 4, jenis: "terakhir" });
+// Batch berselang: 5 Nov hanya Batch 1, jadi untuk Batch 2 hari itu dilewati.
+const hariSelang = [
+  { tanggal: "2026-11-05", outfit: [{ what: "Rapi B1" }] },
+  { tanggal: "2026-11-06", outfit: [{ what: "Kaos B2" }] },
+];
+const selang2 = { milik: new Set([1]), bukanMilik: new Set([0]) };
+assert.deepEqual(hariOutfitBeranda(hariSelang, "2026-11-05", "2026-11-06", selang2), { indeks: 1, jenis: "besok" });
+assert.deepEqual(hariOutfitBeranda(hariSelang, "2026-11-03", "2026-11-04", selang2), { indeks: 1, jenis: "pertama" });
+// Bagian milik peserta tanpa outfit, bagian untuk semua berisi: yang berisi.
+const hariSemua = [
+  { tanggal: "2026-11-07", outfit: [{ what: "Formal" }] },
+  { tanggal: "2026-11-07", outfit: [] },
+];
+assert.deepEqual(hariOutfitBeranda(hariSemua, "2026-11-07", "2026-11-08", { milik: new Set([1]), bukanMilik: new Set() }), { indeks: 0, jenis: "hariIni" });
+// "Hari pertama" dari tanggal, bukan dari indeks: Batch 2 di hari pertama juga.
+assert.deepEqual(hariOutfitBeranda(hariBatch, "2026-11-01", "2026-11-02", batch2), { indeks: 1, jenis: "pertama" });

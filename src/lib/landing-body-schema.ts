@@ -263,7 +263,7 @@ export const memberSchema = z.object({
   /** Beranda halaman peserta: id bawaan (MEMBER_HOME_BUILTINS) atau id blok. */
   home: z.object({ order: z.array(idBeranda).max(MAX_BLOCKS + 10).optional(), hidden: z.array(idBeranda).max(MAX_BLOCKS + 10).optional() }).optional(),
   /**
-   * Label menu Outfit portal Horizon. Kosong = bawaan "Outfit" (disimpan null).
+   * Label halaman Outfit portal Horizon. Kosong = bawaan "Outfit" (disimpan null).
    * Tidak dikirim = tidak diubah: transform mengembalikan undefined, jadi
    * kuncinya tidak muncul di hasil parse dan gabungan `member` mempertahankannya.
    */

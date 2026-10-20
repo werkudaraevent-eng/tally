@@ -671,7 +671,7 @@ export default function RundownAdminPage() {
     setOutfitDrafts((current) => ({ ...current, [active.id]: next }));
   }
 
-  /** Draf outfit bagian ini atau label menu berbeda dari yang tersimpan. */
+  /** Draf outfit bagian ini atau label halaman berbeda dari yang tersimpan. */
   function outfitBerubah(sectionId: number) {
     if (!outfitInfo?.available) return false;
     const draf = outfitDrafts[sectionId];

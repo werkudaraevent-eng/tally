@@ -99,8 +99,16 @@ export type PortalUiText = {
       note: string;
       empty: string;
       dayEmpty: string;
+      /** Baris Menu bila Jadwal disembunyikan (Outfit tidak di bawah Susunan acara). */
+      menuRow: string;
       /** Chip di judul hari yang sedang berlangsung. */
       today: string;
+      /** Bagian milik peserta (Agenda > Who it's for): "Untuk Batch 2, sesuai jadwalmu." */
+      yours: (kelompok: string) => string;
+      /** Bagian kelompok lain: "Ini untuk Batch 1. Kamu terdaftar di Batch 2." */
+      notYours: (bagian: string, kelompok: string) => string;
+      /** Tautan ke bagian milik peserta: "Lihat Outfit Batch 2". */
+      seeYours: (label: string, bagian: string) => string;
       /** Teks tautan strip di Susunan acara (desktop): "Lihat Dresscode". */
       stripLink: (label: string) => string;
       /** Label baris hari berikutnya di bawah kartu: "Berikutnya · Min, 8 Nov". */
@@ -291,10 +299,14 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: "Pakaian tiap hari, dari panitia.",
         empty: "Panitia belum membagikan pakaian untuk acara ini.",
         dayEmpty: "Tidak ada ketentuan pakaian khusus.",
+        menuRow: "Pakaian tiap hari",
         today: "Hari ini",
+        yours: (kelompok) => `Untuk ${kelompok}, sesuai jadwalmu.`,
+        notYours: (bagian, kelompok) => `Ini untuk ${bagian}. Kamu terdaftar di ${kelompok}.`,
+        seeYours: (label, bagian) => `Lihat ${label} ${bagian}`,
         stripLink: (label) => `Lihat ${label}`,
         next: "Berikutnya",
-        more: (jumlah) => `+${jumlah} lagi`,
+        more: (jumlah) => `+${jumlah}\u00A0lagi`,
         row: {
           hariIni: (label) => `${label} hari ini`,
           besok: (label) => `${label} besok`,
@@ -477,10 +489,14 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         note: "What to wear each day, from the organisers.",
         empty: "The organisers haven't shared what to wear yet.",
         dayEmpty: "No set dress code.",
+        menuRow: "What to wear each day",
         today: "Today",
+        yours: (kelompok) => `For ${kelompok}, as in your schedule.`,
+        notYours: (bagian, kelompok) => `This is for ${bagian}. You are in ${kelompok}.`,
+        seeYours: (label, bagian) => `See the ${bagian} ${label}`,
         stripLink: (label) => `See ${label}`,
         next: "Next",
-        more: (jumlah) => `+${jumlah} more`,
+        more: (jumlah) => `+${jumlah}\u00A0more`,
         row: {
           hariIni: (label) => `Today's ${label}`,
           besok: (label) => `Tomorrow's ${label}`,

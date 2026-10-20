@@ -18,7 +18,7 @@ const patchSchema = z.object({
   outfit: outfitSchema,
 });
 
-/** Outfit tiap bagian event ini, label menunya, dan apakah acaranya Gathering Horizon. */
+/** Outfit tiap bagian event ini, label halamannya, dan apakah acaranya Gathering Horizon. */
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
