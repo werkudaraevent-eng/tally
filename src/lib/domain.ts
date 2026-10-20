@@ -353,6 +353,8 @@ export type LandingBlock = {
   route_to?: LandingRouteStop;
   /** Rute: kosong = mengemudi. */
   maps_mode?: LandingRouteMapsMode;
+  /** Rute: denah atau peta jalan ke sana, tampil utuh di bawah cara; ketuk untuk layar penuh. */
+  map_image_url?: string | null;
   /**
    * Rute: siapa yang melihatnya di halaman peserta (src/lib/sasaran-blok.ts).
    * Kosong = semua peserta yang masuk. Halaman acara publik tidak terpengaruh.

@@ -83,6 +83,7 @@ const blockSchema = z.object({
   route_from: routeStop.optional(),
   route_to: routeStop.optional(),
   maps_mode: z.enum(LANDING_ROUTE_MAPS_MODES).optional(),
+  map_image_url: gambarUrl,
   // Kolom pertanyaan (a-z0-9_) atau Hotel dari Logistics; lihat src/lib/sasaran-blok.ts.
   audience: z.object({
     field: z.string().regex(/^(@hotel|[a-z0-9_]{1,64})$/),

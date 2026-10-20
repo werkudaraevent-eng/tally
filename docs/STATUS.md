@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Horizon routes as rows in Perjalanan (this PR): every Directions block shown on the participant page becomes one row in a "Rute" card under the hotel, bus and train cards (title plus the first way and its time); tapping a row opens the stops, Google Maps button, ways and steps, and "Cara ke sana" in Susunan acara opens its route. Routes leave Beranda for participants who have a Perjalanan tab; participants without hotel, bus or train still see the full card on Beranda. "Who sees it" only decides who sees a route. Horizon only, other layouts 0 px. No SQL. Waits on coordinator QA and Mas's merge time (visible on KSO).
+- Map image on Directions blocks (this PR): an optional "Map image" per Directions block (a floor plan or map of the way there), shown uncropped under the ways on the public page, the participant route card and the Horizon route rows; tapping it opens a full-screen viewer (close on the left, Esc or phone Back closes it, tap to zoom 2x). Routes without a map image change by 0 px. No SQL. Waits on coordinator QA and Mas's merge time.
 - Repo tidy-up (this PR): CI on every PR (typecheck, check, lint, build), PR template, `.env.example`, `docs/GLOSSARY.md`, setup steps in the README; removes the stale API PDF, Supabase CLI temp file and editor MCP config, renames the package to `tally`. No app code or SQL. After merge: branch protection on `main` requiring CI, squash merging and automatic branch deletion are GitHub settings for Mas.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -24,6 +24,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #240 Horizon routes as rows in Perjalanan (merged 20 Oct): every Directions block on the participant page is one tap-to-open row in a "Rute" card under the hotel, bus and train cards; "Cara ke sana" in Susunan acara opens its row. Participants without travel info still see the full card on Beranda. Other layouts 0 px. No SQL.
 - #238 Target map (merged 19 Oct): `docs/PRODUCT.md` gets a feature-by-feature map per event stage with today's status, priority (P1 before public launch) and a reference product. Docs only.
 - #237 Product direction and design basis (merged 19 Oct): `docs/PRODUCT.md` Direction section; `DESIGN.md` opens with the design basis per screen type and drops chapters that contradicted the code.
 - #222 Participant texts without pronouns (U-23, U-21 and E-09, merged 19 Oct): shared participant texts and emails drop "Anda"/"kamu" (sign-in, ribbons, Lengkapi data, registration form, sign-in/code/walk-in and confirmation emails, footers, logistics cards, checkpoint note, voting, classic Gathering page); "area peserta" becomes "Dashboard saya". Horizon keeps "kamu"; the Modern public page and staff-written message starters keep "Anda". No SQL.
