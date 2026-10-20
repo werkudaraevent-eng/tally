@@ -8,11 +8,12 @@ import { ArrowsOut, X } from "@phosphor-icons/react";
  * layar penuh. Layar penuhnya dialog layar penuh M3: latar hitam, tombol tutup
  * di KIRI bilah atas, judul di sebelahnya, gambar dipaskan ke layar. Ketuk
  * gambar untuk memperbesar 2x dan menggesernya; cubit tetap bisa karena
- * viewport tidak mengunci skala. Tidak menambah entri riwayat: Kembali ke
- * alamat yang sama membuat router Next menggulir ke `#id` rute dan
- * melepas fokus, jadi halaman melompat saat denah ditutup.
+ * viewport tidak mengunci skala. Kembali di ponsel menutup denah (lihat efek
+ * di bawah).
+ * Gambar yang gagal dimuat menandai `data-denah-gagal`, jadi bagian Denah
+ * di induknya disembunyikan (`has-[[data-denah-gagal]]:hidden`).
  */
-export function GambarDenah({ src, alt, judul, buka, tutup, perbesar }: {
+export function GambarDenah({ src, alt, judul, buka, tutup }: {
   src: string;
   alt: string;
   /** Judul bilah atas layar penuh, mis. "Denah". */
@@ -20,14 +21,36 @@ export function GambarDenah({ src, alt, judul, buka, tutup, perbesar }: {
   /** Label tombol pembuka untuk pembaca layar. */
   buka: string;
   tutup: string;
-  /** Petunjuk di bawah gambar layar penuh. */
-  perbesar: string;
 }) {
   const dialog = useRef<HTMLDialogElement | null>(null);
   const wadah = useRef<HTMLDivElement | null>(null);
   const pemicu = useRef<HTMLButtonElement | null>(null);
   const [terbuka, setTerbuka] = useState(false);
   const [besar, setBesar] = useState(false);
+  const [gagal, setGagal] = useState(false);
+  const gambar = useRef<HTMLImageElement | null>(null);
+  const entriDenah = useRef(false);
+  const stateAsli = useRef<unknown>(null);
+
+  const bukaDialog = () => {
+    // Kembali menutup denah: satu entri riwayat beralamat sama. Router Next
+    // mendaftarkan popstate lebih dulu, jadi tidak bisa dihentikan; ia
+    // mengabaikan entri ber-state null, jadi entri bawah dan entri denah
+    // sama-sama null selama denah terbuka, lalu state Next dikembalikan.
+    // Metode prototipe dipakai karena versi tambalan Next selalu menyalin
+    // state-nya.
+    stateAsli.current = window.history.state;
+    History.prototype.replaceState.call(window.history, null, "");
+    History.prototype.pushState.call(window.history, null, "");
+    entriDenah.current = true;
+    setTerbuka(true);
+  };
+
+  // Galat yang terjadi sebelum hidrasi tidak sampai ke onError.
+  useEffect(() => {
+    const img = gambar.current;
+    if (img?.complete && img.naturalWidth === 0) setGagal(true);
+  }, []);
 
   useEffect(() => {
     if (!terbuka) return;
@@ -35,7 +58,21 @@ export function GambarDenah({ src, alt, judul, buka, tutup, perbesar }: {
     const tombol = pemicu.current;
     if (el && !el.open) el.showModal();
     document.documentElement.style.overflow = "hidden";
+    const y = window.scrollY;
+    const kembali = () => {
+      entriDenah.current = false;
+      History.prototype.replaceState.call(window.history, stateAsli.current, "");
+      setTerbuka(false);
+      // Alamat dengan `#id` rute: peramban menggulir ke sana dan melepas fokus
+      // saat kembali ke entri itu. Posisi dan fokus dikembalikan sesudahnya.
+      requestAnimationFrame(() => {
+        window.scrollTo(0, y);
+        if (tombol?.isConnected) tombol.focus({ preventScroll: true });
+      });
+    };
+    window.addEventListener("popstate", kembali);
     return () => {
+      window.removeEventListener("popstate", kembali);
       document.documentElement.style.overflow = "";
       if (el?.open) el.close();
       setBesar(false);
@@ -43,7 +80,11 @@ export function GambarDenah({ src, alt, judul, buka, tutup, perbesar }: {
     };
   }, [terbuka]);
 
-  const tutupDialog = () => setTerbuka(false);
+  // X dan Esc lewat riwayat juga, supaya entri denah tidak tertinggal.
+  const tutupDialog = () => {
+    if (entriDenah.current) window.history.back();
+    else setTerbuka(false);
+  };
 
   const ketukGambar = (event: MouseEvent<HTMLImageElement>) => {
     const w = wadah.current;
@@ -65,17 +106,17 @@ export function GambarDenah({ src, alt, judul, buka, tutup, perbesar }: {
 
   return (
     <>
-      <div className="relative">
+      <div className="relative" data-denah-gagal={gagal || undefined}>
         <button
           ref={pemicu}
           type="button"
-          onClick={() => setTerbuka(true)}
+          onClick={bukaDialog}
           aria-label={buka}
           aria-haspopup="dialog"
-          className="block w-full cursor-zoom-in overflow-hidden rounded-[16px] border border-[#E6E9EE] bg-[#F4F6F8]"
+          className="block min-h-12 w-full cursor-zoom-in overflow-hidden rounded-[16px] border border-[#E6E9EE] bg-[#F4F6F8]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- URL bebas dari unggahan admin, sama seperti gambar blok lain */}
-          <img src={src} alt={alt} loading="lazy" decoding="async" className="mx-auto block h-auto max-h-[560px] w-full object-contain" />
+          <img ref={gambar} src={src} alt={alt} onError={() => setGagal(true)} loading="lazy" decoding="async" className="mx-auto block h-auto max-h-[560px] w-full object-contain" />
         </button>
         <span aria-hidden className="pointer-events-none absolute right-2 top-2 flex size-12 items-center justify-center rounded-full bg-white/90 text-[#1A2333] shadow-[0_1px_3px_rgb(16_24_40/0.18)]">
           <ArrowsOut size={24} />
@@ -107,7 +148,6 @@ export function GambarDenah({ src, alt, judul, buka, tutup, perbesar }: {
             />
           ) : null}
         </div>
-        <p className="shrink-0 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 text-center text-body-small text-white/70">{perbesar}</p>
       </dialog>
     </>
   );

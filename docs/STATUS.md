@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Map image on Directions blocks (this PR): an optional "Map image" per Directions block (a floor plan or map of the way there), shown uncropped under the ways on the public page, the participant route card and the Horizon route rows; tapping it opens a full-screen viewer (close on the left, Esc closes, tap to zoom 2x). Routes without a map image change by 0 px. No SQL. Waits on coordinator QA and Mas's merge time.
+- Map image on Directions blocks (this PR): an optional "Map image" per Directions block (a floor plan or map of the way there), shown uncropped under the ways on the public page, the participant route card and the Horizon route rows; tapping it opens a full-screen viewer (close on the left, Esc or phone Back closes it, tap to zoom 2x). Routes without a map image change by 0 px. No SQL. Waits on coordinator QA and Mas's merge time.
 - Repo tidy-up (this PR): CI on every PR (typecheck, check, lint, build), PR template, `.env.example`, `docs/GLOSSARY.md`, setup steps in the README; removes the stale API PDF, Supabase CLI temp file and editor MCP config, renames the package to `tally`. No app code or SQL. After merge: branch protection on `main` requiring CI, squash merging and automatic branch deletion are GitHub settings for Mas.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.

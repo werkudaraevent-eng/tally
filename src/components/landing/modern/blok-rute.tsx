@@ -29,7 +29,6 @@ const UI = {
     mapOf: (judul: string) => `Denah: ${judul}`,
     openMap: "Buka denah layar penuh",
     close: "Tutup",
-    zoomHint: "Ketuk gambar untuk memperbesar",
   },
   en: {
     from: "From", to: "To", ways: "Ways to get there", steps: "Steps", eyebrow: "Directions",
@@ -42,7 +41,6 @@ const UI = {
     mapOf: (judul: string) => `Map: ${judul}`,
     openMap: "Open map full screen",
     close: "Close",
-    zoomHint: "Tap the image to zoom in",
   },
 } as const;
 
@@ -217,10 +215,10 @@ function BagianDenah({ rute, lang, labelKelas }: { rute: Rute; lang: LandingLang
   if (!rute.denah) return null;
   const t = UI[lang];
   return (
-    <div>
+    <div className="has-[[data-denah-gagal]]:hidden">
       <h3 className={`${LABEL} ${labelKelas}`}>{t.map}</h3>
       <div className="mt-3">
-        <GambarDenah src={rute.denah} alt={t.mapOf(rute.judul)} judul={t.map} buka={t.openMap} tutup={t.close} perbesar={t.zoomHint} />
+        <GambarDenah src={rute.denah} alt={t.mapOf(rute.judul)} judul={t.map} buka={t.openMap} tutup={t.close} />
       </div>
     </div>
   );
@@ -283,7 +281,7 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
             </div>
           ) : null}
           {rute.denah ? (
-            <div className={`${KARTU_PUTIH} rounded-[16px] p-4`}>
+            <div className={`${KARTU_PUTIH} rounded-[16px] p-4 has-[[data-denah-gagal]]:hidden`}>
               <BagianDenah rute={rute} lang={lang} labelKelas={MUTED_KARTU} />
             </div>
           ) : null}
@@ -332,7 +330,7 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
         ) : null}
       </div>
       {rute.denah ? (
-        <div className="mt-6">
+        <div className="mt-6 has-[[data-denah-gagal]]:hidden">
           <BagianDenah rute={rute} lang={lang} labelKelas={MUTED_KARTU} />
         </div>
       ) : null}
