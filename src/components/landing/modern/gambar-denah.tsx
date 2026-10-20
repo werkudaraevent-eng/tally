@@ -30,18 +30,12 @@ export function GambarDenah({ src, alt, judul, buka, tutup }: {
   const [gagal, setGagal] = useState(false);
   const gambar = useRef<HTMLImageElement | null>(null);
   const entriDenah = useRef(false);
-  const stateAsli = useRef<unknown>(null);
 
   const bukaDialog = () => {
-    // Kembali menutup denah: satu entri riwayat beralamat sama. Router Next
-    // mendaftarkan popstate lebih dulu, jadi tidak bisa dihentikan; ia
-    // mengabaikan entri ber-state null, jadi entri bawah dan entri denah
-    // sama-sama null selama denah terbuka, lalu state Next dikembalikan.
-    // Metode prototipe dipakai karena versi tambalan Next selalu menyalin
-    // state-nya.
-    stateAsli.current = window.history.state;
-    History.prototype.replaceState.call(window.history, null, "");
-    History.prototype.pushState.call(window.history, null, "");
+    // Kembali menutup denah: satu entri riwayat beralamat sama, dengan state
+    // Next disalin supaya entri itu tetap sah bagi router (maju, muat ulang).
+    // Metode prototipe dipakai supaya tambalan Next tidak ikut campur.
+    History.prototype.pushState.call(window.history, { ...window.history.state, denah: true }, "");
     entriDenah.current = true;
     setTerbuka(true);
   };
@@ -61,10 +55,9 @@ export function GambarDenah({ src, alt, judul, buka, tutup }: {
     const y = window.scrollY;
     const kembali = () => {
       entriDenah.current = false;
-      History.prototype.replaceState.call(window.history, stateAsli.current, "");
       setTerbuka(false);
-      // Alamat dengan `#id` rute: peramban menggulir ke sana dan melepas fokus
-      // saat kembali ke entri itu. Posisi dan fokus dikembalikan sesudahnya.
+      // Kembali ke entri bawah menjalankan router Next; pada alamat `#id` rute
+      // ia menggulir ke sana dan melepas fokus. Posisi dan fokus dikembalikan.
       requestAnimationFrame(() => {
         window.scrollTo(0, y);
         if (tombol?.isConnected) tombol.focus({ preventScroll: true });
