@@ -1514,6 +1514,12 @@ export async function DashboardGathering({
         kini.tanggal,
       );
       const sebelum = fase === null || fase.fase === "sebelum";
+      const dinding = (iso: string) => sekarangDi(zona, new Date(iso));
+      // "Berangkat" hanya pada tanggal peserta memang berangkat: kereta berangkatnya,
+      // atau perjalanan bus pertamanya. Selain itu dihitung dari mulainya acara.
+      const tanggalBerangkat =
+        (logistik?.trains ?? []).find((leg) => leg.direction === "outbound")?.depart_date ??
+        ((logistik?.transport?.trips ?? []).flatMap((trip) => (trip.bus && trip.depart_at ? [dinding(trip.depart_at).tanggal] : [])).sort()[0] ?? null);
       const teksFase = !fase
         ? null
         : fase.fase === "saat"
@@ -1522,18 +1528,21 @@ export async function DashboardGathering({
             : null
           : fase.fase === "sesudah"
             ? tH.home.ended
-            : fase.sisaHari === 0
-              ? tH.home.today(adaPerjalanan)
-              : fase.sisaHari === 1
-                ? tH.home.tomorrow(adaPerjalanan)
-                : tH.home.inDays(fase.sisaHari);
+            : tanggalBerangkat === kini.tanggal
+              ? tH.home.today(true)
+              : tanggalBerangkat === besokTanggal
+                ? tH.home.tomorrow(true)
+                : fase.sisaHari === 0
+                  ? tH.home.today(false)
+                  : fase.sisaHari === 1
+                    ? tH.home.tomorrow(false)
+                    : tH.home.inDays(fase.sisaHari);
 
       // Sekarang dan berikutnya (E-06, U-05). Bus pagi itu dari perjalanan yang tertaut ke barisnya.
       const tampilBerikut = diBeranda("next") && tampilSusunan;
       const sedang = tampilBerikut ? ringkasan.berlangsung : [];
       const berikut = tampilBerikut ? ringkasan.berikutnya : null;
       const tripPeserta = logistik?.transport?.trips ?? [];
-      const dinding = (iso: string) => sekarangDi(zona, new Date(iso));
       const hariBerikut = !berikut ? null : berikut.kapan === "hari-ini" ? (sedang.length > 0 ? tH.agenda.next : tH.today) : berikut.kapan === "besok" ? tH.tomorrow : tanggalLeg(berikut.tanggal, lang);
       const butirBerikut = (berikut?.butir ?? []).map((butir) => {
         const trip = adaPerjalanan && tampilLogistik ? tripUntukBaris(tripPeserta, dinding, agenda[butir.indeks].tanggal ?? null, butir.item) : null;
@@ -1550,12 +1559,13 @@ export async function DashboardGathering({
             : null,
         };
       });
-      // Tanpa yang berlangsung: butir sesudah yang berikutnya sebagai satu baris ringkas (v5T1l).
+      // Tanpa yang berlangsung dan dengan satu butir berikutnya: butir sesudahnya sebagai
+      // satu baris ringkas (v5T1l). Dicari dari daftar lengkap, karena butir berikutnya bisa jeda.
       const sesudahnya = (() => {
         if (sedang.length > 0 || !berikut || berikut.butir.length !== 1) return null;
         const { indeks, item, label } = berikut.butir[0];
-        const berjam = agenda[indeks].items.filter((butir) => !butir.jeda && menitDari(butir.time) !== null);
-        const lanjut = berjam[berjam.findIndex((butir) => butir.id === item.id) + 1];
+        const semua = agenda[indeks].items;
+        const lanjut = semua.slice(semua.indexOf(item) + 1).find((butir) => !butir.jeda && menitDari(butir.time) !== null);
         return lanjut ? { judul: tanpaLabelBagian(lanjut.title, label), jam: lanjut.time } : null;
       })();
       const indeksSusunan = berikut?.butir[0]?.indeks ?? sedang[0]?.indeks ?? null;
@@ -1623,7 +1633,14 @@ export async function DashboardGathering({
         return (
           <KartuOutfitBerandaHorizon
             judul={judul}
-            meta={outfitBeranda.jenis === "hariIni" ? (kelompok ? tH.home.forGroup(kelompok) : null) : gabungMeta([bagian.tanggal ? tanggalSapaan(bagian.tanggal, lang) : null, kelompok]) || null}
+            meta={
+              // "nanti" sudah menulis tanggalnya di judul ("Dresscode · Jum, 6 Nov").
+              outfitBeranda.jenis === "hariIni" || outfitBeranda.jenis === "nanti"
+                ? kelompok
+                  ? tH.home.forGroup(kelompok)
+                  : null
+                : gabungMeta([bagian.tanggal ? tanggalSapaan(bagian.tanggal, lang) : null, kelompok]) || null
+            }
             isian={bagian.outfit.map((isian, index) => ({ kunci: String(index), kapan: isian.when?.trim() || null, apa: isian.what, catatan: isian.note?.trim() || null, foto: isian.photo_url ?? null }))}
             tautan={{ href: keTab("outfit", { hari: String(outfitBeranda.indeks + 1) }), label: tH.home.seeAll, tab: "outfit", lampu: outfitDiAcara ? "jadwal" : undefined }}
           />
@@ -1639,13 +1656,23 @@ export async function DashboardGathering({
       // Bus and room: sebelum berangkat kartu perjalanan penuh (dengan kereta berikutnya di
       // faktanya); selama acara ringkasan Perjalananmu; sesudahnya hanya kereta yang belum berangkat.
       const legBeranda = tampilLogistik ? legBerikutnya(logistik?.trains ?? [], kini) : null;
-      const faktaKereta: FaktaPass[] = legBeranda
+      // Kartu perjalanan (sebelum acara): tiket berangkat, juga sesudah keretanya jalan menjelang
+      // acara; tiket pulang hanya bila tidak ada tiket berangkat, dan diberi label "Pulang".
+      const legPass = tampilLogistik ? ((logistik?.trains ?? []).find((leg) => leg.direction === "outbound") ?? legBeranda) : null;
+      const faktaKereta: FaktaPass[] = legPass
         ? [
-            ...(legBeranda.depart_date || legBeranda.depart_time
-              ? [{ label: tH.home.departs, nilai: [legBeranda.depart_date ? chipTanggal(legBeranda.depart_date, lang).atas : null, jamTampil(legBeranda.depart_time, lang)].filter(Boolean).join(", "), ponsel: true, pendek: true }]
+            ...(legPass.depart_date || legPass.depart_time
+              ? [
+                  {
+                    label: legPass.direction === "return" ? tH.train.return : tH.home.departs,
+                    nilai: [legPass.depart_date ? chipTanggal(legPass.depart_date, lang).atas : null, jamTampil(legPass.depart_time, lang)].filter(Boolean).join(", "),
+                    ponsel: true,
+                    pendek: true,
+                  },
+                ]
               : []),
-            ...(legBeranda.carriage ? [{ label: tH.train.carriage, nilai: legBeranda.carriage, ponsel: true, pendek: true }] : []),
-            ...(legBeranda.seat ? [{ label: tH.train.seat, nilai: legBeranda.seat, ponsel: true, pendek: true }] : []),
+            ...(legPass.carriage ? [{ label: tH.train.carriage, nilai: legPass.carriage, ponsel: true, pendek: true }] : []),
+            ...(legPass.seat ? [{ label: tH.train.seat, nilai: legPass.seat, ponsel: true, pendek: true }] : []),
           ]
         : [];
       const fakta: FaktaPass[] =
@@ -1769,6 +1796,7 @@ export async function DashboardGathering({
                   ? kartuLogistik
                   : (kartuBlok.get(id) ?? null);
       const SAMPING = new Set(["announcements", "outfit"]);
+      const temanDiKartu = Boolean(tampilTeman && fase?.fase === "saat" && kamar);
       // Di bawah lg kartu diurutkan dengan `order` lewat pembungkus `contents`;
       // reading-flow membuat urutan baca dan Tab mengikuti urutan tampil (U-19).
       const susun = (id: string) => {
@@ -1781,9 +1809,9 @@ export async function DashboardGathering({
             </div>
           </BagianBeranda>
         );
-        // Teman sekamar kini satu baris di kartu perjalanan, jadi baris Roommates di
-        // Participant home menyorot kartu itu.
-        return id === "logistics" && tampilTeman ? (
+        // Teman sekamar kini satu baris di kartu Perjalananmu selama acara, jadi baris
+        // Roommates di Participant home menyorot kartu itu bila barisnya ada.
+        return id === "logistics" && temanDiKartu ? (
           <BagianBeranda key={id} id="roommates" pratinjau={pratinjau}>
             {kartu}
           </BagianBeranda>
@@ -1791,9 +1819,11 @@ export async function DashboardGathering({
           kartu
         );
       };
+      const kartuSamping = ["announcements", "outfit"].map(susun).filter(Boolean);
       badan = (
         <>
           <SapaanHorizon
+            alisDiCatatan
             alis={gabungMeta([tanggalSapaan(kini.tanggal, lang), teksFase])}
             judul={tH.home.heading(namaDepan)}
             judulPonsel={tH.home.heading(namaDepan)}
@@ -1814,13 +1844,17 @@ export async function DashboardGathering({
                 {/* Bantuan selalu paling bawah: di ponsel dan di akhir kolom utama desktop. */}
                 {kartuBantuan ? <div className="order-[999] lg:order-none">{kartuBantuan}</div> : null}
               </div>
-              {/* Kolom samping menempel saat digulir, seperti kotak pemesanan di listing
-                  Airbnb; hanya di layar yang cukup tinggi, supaya kartunya tidak terpotong
-                  di 1280×588. Jarak atas = bilah atas 102 px ditambah 24. */}
-              <div className="contents min-w-0 lg:sticky lg:top-[126px] lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-6 lg:[@media(max-height:799px)]:static">
-                {urutan.filter((id) => SAMPING.has(id)).map(susun)}
-                {kartuQrSamping}
-              </div>
+              {/* Kolom samping, urutannya tetap (pengumuman, dresscode, QR); tempat
+                  Announcements yang disimpan hanya berlaku di ponsel. Menempel saat digulir,
+                  seperti kotak pemesanan di listing Airbnb, hanya di layar setinggi 940 px
+                  atau lebih, supaya tombol QR di bawahnya tidak terpotong. Jarak atas =
+                  bilah atas 102 px ditambah 24. */}
+              {kartuSamping.length > 0 || kartuQrSamping ? (
+                <div className="contents min-w-0 lg:sticky lg:top-[126px] lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-6 lg:[@media(max-height:939px)]:static">
+                  {kartuSamping}
+                  {kartuQrSamping}
+                </div>
+              ) : null}
             </div>
           </div>
         </>
@@ -1830,6 +1864,7 @@ export async function DashboardGathering({
         <>
           {judulHorizon ? (
             <SapaanHorizon
+              alisDiCatatan={tabAktif === "jadwal"}
               alis={judulHorizon.alis}
               judul={judulHorizon.judul}
               judulPonsel={judulHorizon.judulPonsel ?? judulHorizon.judul}
@@ -2085,7 +2120,7 @@ function tanggalSapaan(tanggal: string, lang: LandingLang): string {
   return new Date(`${tanggal}T00:00:00Z`).toLocaleDateString(lang === "en" ? "en-GB" : "id-ID", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 }
 
-/** "08:20" menjadi "08.20" di halaman Indonesia, seperti jam susunan acara; apa adanya di English. */
+/** Jam "8:20", "08:20" atau "08.20:00" menjadi "08.20" (Indonesia, seperti jam susunan acara) atau "08:20" (English), tanpa detik. */
 function jamTampil(jam: string | null | undefined, lang: LandingLang): string | null {
   const cocok = jam?.match(/^(\d{1,2})[.:](\d{2})/);
   return cocok ? `${cocok[1].padStart(2, "0")}${lang === "en" ? ":" : "."}${cocok[2]}` : null;

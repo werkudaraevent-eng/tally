@@ -175,15 +175,17 @@ export function NavBawahHorizon({
 }) {
   const tengah = Math.ceil(tabs.length / 2);
   return (
-    <nav aria-label={tabsAria} className="fixed inset-x-0 bottom-0 z-20 bg-white px-2 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-1px_0_#E6E9EE] lg:hidden">
-      <ul className={`mx-auto grid max-w-[560px] ${qr ? "grid-cols-5" : "grid-cols-4"}`}>
+    <nav aria-label={tabsAria} className="fixed inset-x-0 bottom-0 z-20 bg-white px-2 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-1px_0_#E6E9EE] max-[339px]:px-0 lg:hidden">
+      {/* Label 12 px (U-25); 11 px di bawah 380 px dan 10 px di bawah 340 px, dengan sel QR
+          selebar isinya, supaya "Perjalanan" dan "Pengumuman" tidak bertumpuk. */}
+      <ul className={`mx-auto grid max-w-[560px] ${qr ? "grid-cols-5 max-[339px]:grid-cols-[1fr_1fr_auto_1fr_1fr]" : "grid-cols-4"}`}>
         {tabs.flatMap((tab, index) => {
           const Ikon = IKON_TAB[tab.id];
           const ini = tab.id === aktif;
           const tombolQr =
             qr && index === tengah ? (
               <li key="qr">
-                <PemicuQr id="pemicu-qr-nav" href={qr.href} className="m3-state flex min-h-12 flex-col items-center justify-center gap-[5px] rounded-md text-[0.6875rem] font-bold text-[#101E38] min-[380px]:text-[0.75rem]">
+                <PemicuQr id="pemicu-qr-nav" href={qr.href} className="m3-state flex min-h-12 flex-col items-center justify-center gap-[5px] rounded-md text-[0.6875rem] font-bold text-[#101E38] max-[339px]:text-[0.625rem] min-[380px]:text-[0.75rem]">
                   <span aria-hidden className="-mt-7 flex size-14 items-center justify-center rounded-full bg-[var(--hz-emas)] text-[var(--hz-on-emas)] shadow-[0_4px_12px_rgba(16,30,56,0.25)] ring-4 ring-white">
                     <QrCode size={26} weight="bold" />
                   </span>
@@ -198,7 +200,7 @@ export function NavBawahHorizon({
               <Link
                 href={tab.href}
                 aria-current={tab.id === halaman ? "page" : ini ? "true" : undefined}
-                className={`m3-state flex min-h-12 flex-col items-center justify-center gap-[5px] rounded-md text-[0.6875rem] min-[380px]:text-[0.75rem] ${ini ? "font-bold text-[#101E38]" : "font-semibold text-[#526078]"}`}
+                className={`m3-state flex min-h-12 flex-col items-center justify-center gap-[5px] rounded-md text-[0.6875rem] max-[339px]:text-[0.625rem] min-[380px]:text-[0.75rem] ${ini ? "font-bold text-[#101E38]" : "font-semibold text-[#526078]"}`}
               >
                 {/* Rancangan: ikon dan label aktif emas di atas putih (kontras 1,6:1).
                     Diganti pil emas di belakang ikon, label navy. */}
@@ -222,6 +224,7 @@ export function SapaanHorizon({
   judulPonsel,
   catatan,
   catatanPonsel = false,
+  alisDiCatatan = false,
   kembali = null,
 }: {
   alis: string;
@@ -229,6 +232,12 @@ export function SapaanHorizon({
   judulPonsel: string;
   catatan: string;
   catatanPonsel?: boolean;
+  /**
+   * Laptop berlayar pendek menyembunyikan alis; alis yang berisi fakta (tanggal
+   * dan fase di Beranda, rentang tanggal dan tempat di Susunan acara) ikut di
+   * depan catatan di sana, jadi tidak hilang.
+   */
+  alisDiCatatan?: boolean;
   /**
    * Ponsel: halaman yang dibuka dari Menu (bukan dari bilah bawah) punya tautan
    * kembali ke Menu. `semua`: halaman bagian dari tab lain (Outfit di bawah
@@ -247,7 +256,10 @@ export function SapaanHorizon({
           // membuatnya setinggi alis yang digantikannya, jadi judul tiap tab sejajar.
           // Laptop pendek tanpa alis: disembunyikan, tab yang menyala di bilah atas
           // sudah menjadi jalan kembali.
-          className={`m3-state -ml-2 -mt-3 mb-1 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold ${kembali.semua ? "md:-mb-3.5 md:-mt-5 md:flex md:w-fit lg:short:hidden" : "lg:hidden"}`}
+          // `semua`: 48 px untuk jari, tetapi kotak marginnya 20 px, setinggi alis yang
+          // digantikannya (margin bawah negatif menyatu dengan margin atas judul), jadi
+          // judul tiap tab sejajar di semua lebar.
+          className={`m3-state -ml-2 min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold ${kembali.semua ? "-mb-3 -mt-4 flex w-fit md:-mb-[11px] md:-mt-[17px] lg:short:hidden" : "-mt-3 mb-1 inline-flex lg:hidden"}`}
           style={{ color: BIRU }}
         >
           <ArrowLeft size={20} aria-hidden />
@@ -270,6 +282,7 @@ export function SapaanHorizon({
       </h1>
       {catatan ? (
         <p className={`text-[17px] leading-[1.5] md:mt-[14px] md:block lg:short:mt-2 ${catatanPonsel ? "mt-1.5 text-[15px] md:text-[17px]" : "mt-[14px] hidden"}`} style={{ color: REDUP }}>
+          {alisDiCatatan && alis ? <span className="hidden lg:short:inline">{`${alis} ${SEPARATOR} `}</span> : null}
           {catatan}
         </p>
       ) : null}
@@ -331,8 +344,9 @@ export function PassHorizon({
       </span>
     </>
   ) : null;
+  // Di bawah 1024 px QR ada di bilah bawah, jadi sobekannya hanya untuk layar tanpa bilah bawah (v5T1l).
   const kelasSobekan =
-    "m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 focus-visible:outline-offset-[-4px] md:px-[30px] xl:w-[210px] xl:shrink-0 xl:flex-col xl:justify-center xl:gap-3 xl:border-l xl:border-t-0 xl:px-6 xl:py-[30px]";
+    "m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 focus-visible:outline-offset-[-4px] max-lg:hidden md:px-[30px] xl:w-[210px] xl:shrink-0 xl:flex-col xl:justify-center xl:gap-3 xl:border-l xl:border-t-0 xl:px-6 xl:py-[30px]";
   return (
     <section aria-label={label} className={`overflow-hidden rounded-[20px] bg-[var(--hz-navy)] text-white md:rounded-[24px] ${CINCIN_NAVY}`}>
       {kv ? (

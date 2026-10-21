@@ -49,8 +49,8 @@ export type ButirSekarang = { kunci: string; label: string | null; judul: string
  * Kartu Sekarang dan berikutnya (E-06, U-05; pola layar Now + Up next): yang
  * sedang berjalan dan yang berikutnya dalam satu kartu, berdampingan mulai
  * 1280 px. Bus pagi itu tampil di butir berikutnya bila perjalanan Logistik
- * tertaut ke barisnya. Sebelum acara, tanpa yang berlangsung, butir sesudahnya
- * tampil sebagai satu baris ringkas. Hari dengan beberapa bagian (peserta
+ * tertaut ke barisnya. Tanpa yang berlangsung dan dengan satu butir
+ * berikutnya, butir sesudahnya tampil sebagai satu baris ringkas. Hari dengan beberapa bagian (peserta
  * tanpa jawaban batch): satu butir per bagian, dengan label bagiannya.
  */
 export function KartuSekarangHorizon({
@@ -150,8 +150,8 @@ export function KartuSekarangHorizon({
  * Kartu dresscode di Beranda: pakaian hari ini (saat acara) atau tanggal
  * berikutnya (sebelum acara), mengikuti batch peserta, ditulis apa adanya
  * seperti diisi panitia di Agenda > Section > Outfit. Judulnya memakai label
- * halaman acara ("Dresscode hari ini"). Ponsel: "Lihat semua" di kepala kartu;
- * kolom samping desktop yang sempit: di bawah isian.
+ * halaman acara ("Dresscode hari ini"). "Lihat semua" di bawah isian di ponsel
+ * dan di kolom samping desktop (mulai 1024 px); di kepala kartu pada 768-1023 px.
  */
 export function KartuOutfitBerandaHorizon({
   judul,

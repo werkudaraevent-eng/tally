@@ -74,12 +74,11 @@ function geser(order: string[], dari: number, ke: number) {
 }
 
 /**
- * Tempat Announcements di Horizon, dihitung persis seperti dashboard: ponsel
- * melihat posisinya terhadap Bus and room, layar lebar terhadap Next up.
- * 0 = paling atas (layar lebar sebelum Next up), 1 = setelah Bus and room,
- * 2 = setelah Next up, 3 = paling atas di ponsel tetapi setelah Next up di
- * layar lebar (urutan lama dari Gathering klasik; dipertahankan sampai admin
- * memindahkannya sendiri).
+ * Tempat Announcements di Horizon di bawah 1024 px, dihitung persis seperti
+ * dashboard (slotPengumumanHorizon): 0 = paling atas, 1 = setelah Bus and
+ * room, 2 = setelah Next up, 3 = urutan lama dari Gathering klasik, juga
+ * paling atas (dipertahankan sampai admin memindahkannya sendiri). Mulai
+ * 1024 px Announcements selalu di kolom samping.
  */
 type SlotPengumuman = SlotPengumumanHorizon;
 
@@ -186,8 +185,9 @@ export function SusunanBeranda({
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
     // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
-    // Horizon di layar lebar: Announcements selalu setelah Next up di kolom kanan. Disebut, bukan diam-diam.
-    const sub = id === "announcements" && diHorizon ? `Side column on wide screens · ${bawaan?.sub}` : id === "roommates" && diHorizon ? `Inside Bus and room · ${bawaan?.sub}` : bawaan?.sub ?? "";
+    // Horizon mulai 1024 px: Announcements selalu di kolom samping; tempat yang disimpan berlaku di bawah 1024 px.
+    // Teman sekamar: satu baris di kartu perjalanan selama acara. Disebut, bukan diam-diam.
+    const sub = id === "announcements" && diHorizon ? `Side column on wide screens · ${bawaan?.sub}` : id === "roommates" && diHorizon ? `In the travel card during the event · ${bawaan?.sub}` : bawaan?.sub ?? "";
     if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id), sumber: bawaan.source };
     const block = blocks.find((item) => item.id === id)!;
     const jenis = LANDING_BLOCK_LABELS[block.type];

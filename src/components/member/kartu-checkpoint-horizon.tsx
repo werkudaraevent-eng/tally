@@ -127,7 +127,8 @@ export function KartuCheckpointHorizon({
   const daftar = <ol className="mt-4 border-t border-[#E6E9EE] pt-4">{data.steps.map((step, urutan) => baris(step, urutan === data.steps.length - 1))}</ol>;
 
   // Cara menyelesaikan langkah berikutnya, menurut siapa yang memindai. Tanpa
-  // tombol emas: QR kehadiran ada di bilah bawah (desktop: kartu QR di samping).
+  // tombol emas: QR kehadiran ada di bilah bawah; di desktop di sobekan kartu
+  // perjalanan sebelum acara, lalu di kartu QR samping sejak acara mulai.
   const aksi = !sisa ? null : sisa.self_scan ? (
     // Scan mandiri: peserta memindai QR panitia, seperti membayar dengan QRIS.
     <>
@@ -158,14 +159,17 @@ export function KartuCheckpointHorizon({
         <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#EEF1F6]">
           <Flag size={22} />
         </span>
-        <h2 id="checkpoint-judul" className="min-w-0 flex-1 text-[17px] font-semibold leading-6">
-          {t.judul}
-        </h2>
-        <p className="shrink-0 text-[14px] tabular-nums" style={{ color: REDUP }}>
-          <span className="sr-only">{t.kemajuan(data.done, total)}</span>
-          <span aria-hidden>{`${data.done}/${total}`}</span>
-          {data.points ? <span>{` ${SEPARATOR} ${t.poin(data.earned, data.total_points)}`}</span> : null}
-        </p>
+        {/* Judul dan angka kemajuan dalam satu kotak yang boleh turun baris di layar sempit. */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <h2 id="checkpoint-judul" className="text-[17px] font-semibold leading-6">
+            {t.judul}
+          </h2>
+          <p className="text-[14px] tabular-nums" style={{ color: REDUP }}>
+            <span className="sr-only">{t.kemajuan(data.done, total)}</span>
+            <span aria-hidden>{`${data.done}/${total}`}</span>
+            {data.points ? <span>{` ${SEPARATOR} ${t.poin(data.earned, data.total_points)}`}</span> : null}
+          </p>
+        </div>
       </div>
       <div aria-hidden className="mt-4 flex gap-1.5">
         {data.steps.map((step) => (
