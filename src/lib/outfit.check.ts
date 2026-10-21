@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  adaTautan, alasanDaftarOutfit, bacaOutfit, bagianOutfitTanggal, cekDaftarOutfit, hariOutfitBeranda, jenisOutfit, labelOutfit, labelTabOutfit, outfitSchema,
+  adaTautan, alasanDaftarOutfit, bacaOutfit, bagianOutfitTanggal, cekDaftarOutfit, hariOutfitBeranda, jenisOutfit, labelOutfit, labelTabOutfit, outfitSchema, outfitTerlihat,
   segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, tautkanOutfit, teksWaktuOutfit, urutOutfit,
 } from "./outfit.ts";
 
@@ -218,3 +218,15 @@ const hariSemua = [
 assert.deepEqual(hariOutfitBeranda(hariSemua, "2026-11-07", "2026-11-08", { milik: new Set([1]), bukanMilik: new Set() }), { indeks: 0, jenis: "hariIni" });
 // "Hari pertama" dari tanggal, bukan dari indeks: Batch 2 di hari pertama juga.
 assert.deepEqual(hariOutfitBeranda(hariBatch, "2026-11-01", "2026-11-02", batch2), { indeks: 1, jenis: "pertama" });
+
+// Isian bertaut hanya untuk baris yang tampil bagi peserta; item_id tidak ikut ke halaman.
+{
+  const isian = [
+    { what: "Batik" },
+    { item_id: 5, when: "17.30 Gala dinner", what: "Formal" },
+    { item_id: 6, when: "06.00 Berkumpul (Batch 2)", what: "Kaos" },
+  ];
+  assert.deepEqual(outfitTerlihat(isian, [{ id: 5 }]), [{ what: "Batik" }, { when: "17.30 Gala dinner", what: "Formal" }]);
+  assert.deepEqual(outfitTerlihat(isian, []), [{ what: "Batik" }]);
+}
+

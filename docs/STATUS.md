@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Agenda Who sees it per item (approved by Mas 21 Oct): branch `feat/agenda-siapa-melihat`, needs migration `202610210001_sasaran_baris` run by Mas after QA; code merges after his post-check. Also hides a dress code line whose linked item is hidden (post-hoc M-1 on #247).
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
@@ -75,10 +76,10 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
-- "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Who it's for on each Batch section.
+- "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Show first for (was Who it's for) on each Batch section. For rows that only one batch should see (meeting point, train), merge the batch tabs of a day and set Who sees it on each row once the Who sees it PR is merged.
 - Repo settings after #239: branch protection on `main` requiring CI, squash merging and automatic branch deletion (GitHub settings).
 - KSO dress code page name, now that #247 is merged: Participant area > Dress code page > Page name = "Dresscode"; it moved there from Agenda (decided 20 Oct).
-- KSO dress codes, now that #247 is merged: re-link the typed lines in Agenda > Dress code by picking each tab's own item (Gala Dinner on both Jumat tabs), and set Who it's for on each batch tab ("Your batch" above), so each batch reads its own tab's dress code.
+- KSO dress codes, now that #247 is merged: re-link the typed lines in Agenda > Dress code by picking each tab's own item (Gala Dinner on both Jumat tabs), and set Show first for (was Who it's for) on each batch tab ("Your batch" above), so each batch reads its own tab's dress code.
 - KSO every-day dress code, now that #248 is merged: set Every day to "Kaos KSO" in Participant area > Dress code page (plus the note and photo if he has them); then remove any old per-tab "Kaos KSO" lines in Agenda > Dress code, otherwise participants see it twice; and set the Gala Dinner line on both Jumat tabs, linked to the Gala Dinner item (#247, above).
 - KSO Event page: if the hidden "Sebelum berangkat" block still has a "Dress code" card, delete that card, so the dress code is only entered in Agenda > Dress code (decided 20 Oct).
 
