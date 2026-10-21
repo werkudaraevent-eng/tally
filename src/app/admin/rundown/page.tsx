@@ -68,6 +68,13 @@ function tanpa<T>(isi: Record<number, T>, kunci: number): Record<number, T> {
   return sisa;
 }
 
+/** Aksi yang meninggalkan formulir terbuka. `ke` dan `fokus`: lihat lindungi(). */
+type Tunda = { aksi: () => void; ke?: FormAgenda; fokus: HTMLElement | null };
+
+function fokusSekarang(): HTMLElement | null {
+  return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+}
+
 /** Satu isian Outfit yang sedang disunting. Teks kosong = tidak diisi. */
 type OutfitDraft = { when: string; what: string; note: string; photo_url: string | null };
 /**
@@ -158,6 +165,8 @@ export default function RundownAdminPage() {
   const [savingSection, setSavingSection] = useState(false);
   const [deletingSection, setDeletingSection] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
+  // Logo atau gambar sponsor yang sedang diunggah di BrandingEditor.
+  const [uploadingBranding, setUploadingBranding] = useState(false);
   // Header berdiri sendiri dari bagian: satu setelan untuk seluruh acara, dengan
   // tombol Simpan sendiri. Digabung ke tombol Simpan bagian, admin yang hanya ingin
   // mengubah warna header terpaksa ikut menyimpan setelan tab yang tidak dia sentuh.
@@ -185,7 +194,17 @@ export default function RundownAdminPage() {
   // Banner atas halaman. `kunci`: formulir tempat galat itu terjadi.
   const [galatPanel, setGalatPanel] = useState<{ kunci: string; pesan: string } | null>(null);
   // Aksi yang menunggu jawaban dialog "Discard changes to …?".
-  const [tertunda, setTertunda] = useState<{ form: FormAgenda; aksi: () => void } | null>(null);
+  const [tertunda, setTertunda] = useState<(Tunda & { form: FormAgenda }) | null>(null);
+  // Aksi yang diminta selagi formulir terbuka disimpan. Discard tidak
+  // ditawarkan selama permintaannya berjalan, karena permintaan itu tetap
+  // mendarat: aksinya menunggu jawaban server, lalu lewat lindungi() lagi.
+  const [sesudahSimpan, setSesudahSimpan] = useState<Tunda | null>(null);
+  // Sesi formulir terbuka, naik tiap kali formulir ditinggalkan atau dibuang.
+  // Unggahan mencatat sesinya saat mulai, dan hasil yang tiba sesudah sesinya
+  // berganti dibuang: formulirnya sudah ditinggalkan. `sesi` salinannya untuk
+  // render (callback BrandingEditor).
+  const sesiForm = useRef(0);
+  const [sesi, setSesi] = useState(0);
   // Tanggal mulai dan selesai acara (Event page), untuk peringatan tanggal bagian.
   const [eventDates, setEventDates] = useState<{ start: string | null; end: string | null } | null>(null);
   // Outfit per bagian: dimuat sekali saat halaman dibuka, terpisah dari load()
@@ -196,7 +215,8 @@ export default function RundownAdminPage() {
   const [outfitDrafts, setOutfitDrafts] = useState<Record<number, OutfitDraft[]>>({});
   const [outfitLabel, setOutfitLabel] = useState("");
   const [outfitTried, setOutfitTried] = useState(false);
-  const [uploadingOutfit, setUploadingOutfit] = useState<number | null>(null);
+  // Foto outfit yang sedang diunggah: bagian dan nomor isiannya.
+  const [uploadingOutfit, setUploadingOutfit] = useState<{ bagian: number; index: number } | null>(null);
   // Untuk siapa bagian ini: dimuat dan disimpan seperti outfit. Draf null =
   // untuk semua peserta; tidak ada di peta = belum disentuh.
   const [sasaranInfo, setSasaranInfo] = useState<SasaranInfo | null>(null);
@@ -390,11 +410,14 @@ export default function RundownAdminPage() {
    * seperti perubahan warna dan judul.
    */
   async function uploadHeaderBackground(file: File) {
+    const sesiAwal = sesiForm.current;
     setUploadingBackground(true); setError(""); setGalatPanel(null);
     const form = new FormData();
     form.append("file", file);
     const response = await fetch("/api/display/background", { method: "POST", body: form }).catch(() => null);
     const data = response ? await response.json().catch(() => null) : null;
+    // Header dibuang (Discard) selama unggahan berjalan: hasilnya ikut dibuang.
+    if (sesiAwal !== sesiForm.current) return;
     setUploadingBackground(false);
     if (!response?.ok) {
       gagalPanel("Image upload failed", response ? data?.error?.details?.file ?? data?.error?.message ?? "Image upload failed." : PUTUS);
@@ -519,8 +542,12 @@ export default function RundownAdminPage() {
       gagalPanel("Section not deleted", response ? failureMessage(data, "Section not deleted.") : PUTUS);
       return;
     }
-    // Suntingan bagian ini ikut terhapus bersama bagiannya (sudah dikonfirmasi).
-    buangForm({ jenis: "bagian", id: section.id });
+    // Suntingan bagian ini ikut terhapus bersama bagiannya (sudah dikonfirmasi),
+    // tetapi bukan label halaman Outfit: ia berlaku untuk seluruh acara, dan
+    // formulir bagian berikutnya menghitung serta menyimpannya.
+    setGalatPanel(null);
+    sesiBaru();
+    buangBagian(section.id);
     setDrafts((kini) => tanpa(kini, section.id));
     setActiveId(null);
     setSelectedItemId(null);
@@ -624,7 +651,7 @@ export default function RundownAdminPage() {
     if (!changes) return;
     // Optimistis: hanya sort_order yang diubah. Suntingan yang belum disimpan
     // ada di lapisan suntingBaris dan tidak tersentuh.
-    const before = items;
+    const before = sectionItems.filter((row) => changes.some((change) => change.id === row.id)).map(({ id, sort_order }) => ({ id, sort_order }));
     const apply = (list: Array<{ id: number; sort_order: number }>) =>
       setItems((current) => current.map((row) => {
         const found = list.find((change) => change.id === row.id);
@@ -643,9 +670,10 @@ export default function RundownAdminPage() {
     if (!response?.ok) {
       // Kembali ke susunan sebelumnya, lalu baca ulang sort_order saja: server
       // menulis baris satu per satu, jadi kegagalan di tengah bisa meninggalkan
-      // sebagian perubahan. Kolom lain tidak disentuh; suntingan yang belum
-      // disimpan ada di lapisannya sendiri.
-      setItems(before);
+      // sebagian perubahan. Yang dikembalikan hanya sort_order yang digeser
+      // tadi: simpanan atau baris baru yang dimuat selama permintaan berjalan
+      // tetap, dan suntingan yang belum disimpan ada di lapisannya sendiri.
+      apply(before);
       const failure = response ? failureMessage(data, "Something went wrong. Try again.") : PUTUS;
       if (dariPanel) gagalPanel("Order not saved", failure);
       else { setError(failure); toast.error("Order not saved", failure); }
@@ -663,8 +691,9 @@ export default function RundownAdminPage() {
     const changes = susunUlangBagian(sections, ids);
     if (!changes || changes.length === 0) return;
     // Optimistis dan hanya sort_order. Suntingan bagian yang belum disimpan ada
-    // di lapisan suntingBagian dan tidak tersentuh.
-    const before = sections;
+    // di lapisan suntingBagian dan tidak tersentuh. Gagal = sort_order yang
+    // digeser saja yang kembali, sama dengan reorderSlot.
+    const before = sections.filter((row) => changes.some((change) => change.id === row.id)).map(({ id, sort_order }) => ({ id, sort_order }));
     const apply = (list: Array<{ id: number; sort_order: number }>) =>
       setSections((current) => current.map((row) => {
         const found = list.find((change) => change.id === row.id);
@@ -680,7 +709,7 @@ export default function RundownAdminPage() {
     setReordering(false);
     const data = response ? await response.json().catch(() => ({})) : {};
     if (!response?.ok) {
-      setSections(before);
+      apply(before);
       gagalPanel("Tab order not saved", response ? failureMessage(data, "Something went wrong. Try again.") : PUTUS);
       const fresh = await fetch("/api/admin/rundown/sections", { cache: "no-store" }).catch(() => null);
       if (fresh?.ok) apply(((await fresh.json()) as Payload).sections);
@@ -718,6 +747,8 @@ export default function RundownAdminPage() {
   // Portal hanya menampilkan hari yang punya butir publik berjudul (loadAgendaPreview).
   const adaButirPublik = activeItems.some((item) => item.is_published && Boolean(item.title?.trim()));
   const outfitAktif: OutfitDraft[] = active ? (outfitDrafts[active.id] ?? outfitSaved[active.id] ?? []) : [];
+  // Nomor isian yang fotonya sedang diunggah di bagian ini.
+  const unggahIsian = active && uploadingOutfit?.bagian === active.id ? uploadingOutfit.index : null;
 
   function setOutfitAktif(next: OutfitDraft[]) {
     if (!active) return;
@@ -746,17 +777,30 @@ export default function RundownAdminPage() {
 
   /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk state sampai Save section. */
   async function uploadOutfitPhoto(index: number, file: File) {
-    setUploadingOutfit(index); setError(""); setGalatPanel(null);
+    if (!active) return;
+    const id = active.id;
+    const sesiAwal = sesiForm.current;
+    setUploadingOutfit({ bagian: id, index }); setError(""); setGalatPanel(null);
     const form = new FormData();
     form.append("file", file);
     const response = await fetch("/api/display/background", { method: "POST", body: form }).catch(() => null);
     const data = response ? await response.json().catch(() => null) : null;
+    // Bagian ini dibuang (Discard) atau dihapus selama unggahan berjalan: hasilnya ikut dibuang.
+    if (sesiAwal !== sesiForm.current) return;
     setUploadingOutfit(null);
     if (!response?.ok) {
       gagalPanel("Image upload failed", response ? data?.error?.details?.file ?? data?.error?.message ?? "Image upload failed." : PUTUS);
       return;
     }
-    updateOutfit(index, { photo_url: data.url });
+    // Hanya foto isian ini, di draf terkini: yang diketik selama unggahan tetap
+    // ada. outfitSaved dari render ini masih berlaku karena Save section tidak
+    // berjalan bersamaan dengan unggahan, dan Remove menunggu juga supaya nomor
+    // isiannya tidak bergeser.
+    const url = data.url as string;
+    setOutfitDrafts((kini) => ({
+      ...kini,
+      [id]: (kini[id] ?? outfitSaved[id] ?? []).map((entry, i) => (i === index ? { ...entry, photo_url: url } : entry)),
+    }));
     toast.info("Photo uploaded", "Select Save section to show it to participants.");
   }
 
@@ -867,6 +911,8 @@ export default function RundownAdminPage() {
   const panelAktif: Panel = active ? panel : "header";
   const terbuka = formTerbuka(panelAktif, active?.id ?? null, selectedItem?.id ?? null);
 
+  // Unggahan yang masih berjalan dihitung suntingan: hasilnya milik formulir
+  // ini, jadi meninggalkannya ditanyakan dulu.
   function formBerubah(form: FormAgenda): boolean {
     if (form.jenis === "baris") {
       const asli = barisTersimpan.get(form.id);
@@ -878,15 +924,37 @@ export default function RundownAdminPage() {
     }
     if (form.jenis === "bagian") {
       const asli = sections.find((row) => row.id === form.id);
-      return Boolean(asli && suntingBagian?.id === form.id && adaBeda(asli, suntingBagian.isi)) || outfitBerubah(form.id) || sasaranBerubah(form.id);
+      return Boolean(asli && suntingBagian?.id === form.id && adaBeda(asli, suntingBagian.isi))
+        || outfitBerubah(form.id) || sasaranBerubah(form.id) || uploadingOutfit?.bagian === form.id;
     }
-    return Boolean(suntingHeader && adaBeda(header, suntingHeader));
+    return Boolean(suntingHeader && adaBeda(header, suntingHeader)) || uploadingBackground || uploadingBranding;
   }
   const berubah = formBerubah(terbuka);
+  // Formulir terbuka sedang disimpan, atau New item-nya sedang ditambahkan.
+  const menyimpan = terbuka.jenis === "baris" ? savingItem === terbuka.id
+    : terbuka.jenis === "baru" ? addingItem
+      : terbuka.jenis === "bagian" ? savingSection
+        : savingHeader;
+
+  /** Unggahan yang masih berjalan untuk formulir yang ditinggalkan tidak lagi mendarat. */
+  function sesiBaru() {
+    sesiForm.current += 1;
+    setSesi(sesiForm.current);
+  }
+
+  /** Lapisan satu bagian: kolomnya, Outfit, Who it's for, dan foto yang sedang diunggah. */
+  function buangBagian(id: number) {
+    setSuntingBagian((kini) => (kini?.id === id ? null : kini));
+    setOutfitDrafts((kini) => tanpa(kini, id));
+    setSasaranDrafts((kini) => tanpa(kini, id));
+    setUploadingOutfit((kini) => (kini?.bagian === id ? null : kini));
+    setOutfitTried(false);
+  }
 
   /** Formulir kembali ke nilai tersimpan: lapisan suntingannya dibuang. */
   function buangForm(form: FormAgenda) {
     setGalatPanel(null);
+    sesiBaru();
     if (form.jenis === "baris") {
       const id = form.id;
       setSuntingBaris((kini) => (kini?.id === id ? null : kini));
@@ -894,33 +962,57 @@ export default function RundownAdminPage() {
       const bagian = form.bagian;
       setDrafts((kini) => tanpa(kini, bagian));
     } else if (form.jenis === "bagian") {
-      const id = form.id;
-      setSuntingBagian((kini) => (kini?.id === id ? null : kini));
-      setOutfitDrafts((kini) => tanpa(kini, id));
-      setSasaranDrafts((kini) => tanpa(kini, id));
+      buangBagian(form.id);
       // Label halaman Outfit berlaku untuk seluruh acara, tetapi disunting dan
       // disimpan di Section, jadi ikut kembali.
       setOutfitLabel(outfitInfo?.label ?? "");
-      setOutfitTried(false);
     } else {
       setSuntingHeader(null);
+      setUploadingBackground(false);
+      setUploadingBranding(false);
     }
   }
 
   /**
    * Jalankan `aksi` yang meninggalkan formulir terbuka (`ke`: formulir sesudah
-   * aksi; tanpa `ke` selalu meninggalkan). Yang bersuntingan ditanyakan dulu;
-   * yang bersih dikosongkan, supaya lapisannya tidak basi saat dibuka lagi.
+   * aksi; tanpa `ke` selalu meninggalkan). Yang bersih dikosongkan, supaya
+   * lapisannya tidak basi saat dibuka lagi. Yang bersuntingan ditanyakan dulu,
+   * atau menunggu selama formulirnya disimpan. `fokus`: elemen yang terfokus
+   * sebelum strip tab atau segmen memindahkan fokus ke tujuannya (sesudah
+   * onChange), untuk Keep editing.
    */
-  function lindungi(aksi: () => void, ke?: FormAgenda) {
+  function lindungi(aksi: () => void, ke?: FormAgenda, fokus = fokusSekarang()) {
     if (ke && kunciForm(ke) === kunciForm(terbuka)) {
       aksi();
-    } else if (berubah) {
-      setTertunda({ form: terbuka, aksi });
-    } else {
+    } else if (!berubah) {
       buangForm(terbuka);
       aksi();
+    } else if (menyimpan) {
+      setSesudahSimpan({ aksi, ke, fokus });
+    } else {
+      setTertunda({ form: terbuka, aksi, fokus });
     }
+  }
+
+  // Simpanan selesai: aksi yang menunggu lewat lindungi() lagi. Berhasil dan
+  // bersih = langsung jalan; gagal, atau ada ketikan baru selama permintaan
+  // berjalan = ditanyakan.
+  useEffect(() => {
+    if (!sesudahSimpan || menyimpan) return;
+    const timer = window.setTimeout(() => {
+      setSesudahSimpan(null);
+      lindungi(sesudahSimpan.aksi, sesudahSimpan.ke, sesudahSimpan.fokus);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  });
+
+  /** Keep editing atau Esc: tetap di formulir. */
+  function tetapSunting() {
+    const fokus = tertunda?.fokus;
+    setTertunda(null);
+    // Sesudah Dialog mengembalikan fokusnya sendiri: ke tab atau segmen yang
+    // masih terpilih, bukan ke tujuan yang batal dipilih.
+    if (fokus) window.requestAnimationFrame(() => fokus.focus());
   }
 
   /** Pindah tab, baris terpilih atau segmen panel lewat lindungi(). */
@@ -951,7 +1043,7 @@ export default function RundownAdminPage() {
 
   // Menutup atau memuat ulang tab, rel navigasi dan palet perintah juga
   // ditanyakan selama formulir terbuka punya suntingan.
-  useJagaNavigasi(berubah, (lanjut) => setTertunda({ form: terbuka, aksi: lanjut }));
+  useJagaNavigasi(berubah, (lanjut) => lindungi(lanjut, undefined, null));
   const galatKaki = galatPanel?.kunci === kunciForm(terbuka) ? galatPanel.pesan : null;
 
   // ---- Panel utama: jadwal bagian aktif -------------------------------------------
@@ -1330,7 +1422,8 @@ export default function RundownAdminPage() {
                 <div key={index} className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
                   <div className="flex items-center gap-2">
                     <p className="min-w-0 flex-1 text-body-medium font-medium text-on-surface">Outfit {index + 1}</p>
-                    <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setOutfitAktif(outfitAktif.filter((_, i) => i !== index))}>
+                    {/* Menunggu unggahan foto selesai: menghapus isian menggeser nomor isian tujuannya. */}
+                    <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} disabled={unggahIsian !== null} onClick={() => setOutfitAktif(outfitAktif.filter((_, i) => i !== index))}>
                       Remove
                     </Button>
                   </div>
@@ -1364,15 +1457,16 @@ export default function RundownAdminPage() {
                     ) : null}
                     <label className={cx(
                       "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium font-medium text-on-surface hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
-                      uploadingOutfit === index && "pointer-events-none opacity-60",
+                      unggahIsian === index && "pointer-events-none opacity-60",
                     )}>
                       <UploadSimple size={16} aria-hidden />
-                      {uploadingOutfit === index ? "Uploading…" : entry.photo_url ? "Replace photo" : "Upload photo"}
+                      {unggahIsian === index ? "Uploading…" : entry.photo_url ? "Replace photo" : "Upload photo"}
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/webp"
                         className="sr-only"
-                        disabled={uploadingOutfit !== null}
+                        // Tidak selama Save section: fotonya ditambahkan ke draf yang dibaca saat unggahan mulai.
+                        disabled={uploadingOutfit !== null || savingSection}
                         onChange={(event) => {
                           const file = event.target.files?.[0];
                           if (file) void uploadOutfitPhoto(index, file);
@@ -1507,9 +1601,19 @@ export default function RundownAdminPage() {
       {/* Editor logo, jenis huruf, ukuran, dan warna per elemen. Komponen yang sama
           dipakai /admin/seat-map dan /admin/display. */}
       <Kelompok title="Logo and type">
+        {/* Unggahan logo atau gambar sponsor ikut penjaga suntingan header. Hasil
+            yang tiba sesudah header dibuang ditolak: sesinya sudah berganti, dan
+            `key` memasang editor baru tanpa "Uploading…" yang tertinggal. */}
         <BrandingEditor
+          key={sesi}
           value={headerBranding}
-          onChange={(changes) => updateHeader(changes)}
+          onChange={(changes) => {
+            if (sesi !== sesiForm.current) return false;
+            updateHeader(changes);
+          }}
+          onUploadingChange={(uploading) => {
+            if (sesi === sesiForm.current) setUploadingBranding(uploading);
+          }}
           idPrefix="rundown-header"
           baseTextColor={headerTampil.text_color ?? "#1a1a1a"}
           baseBackgroundColor={headerTampil.background_color ?? "#ffffff"}
@@ -1540,7 +1644,8 @@ export default function RundownAdminPage() {
       },
     bagian: {
       note: belumDisimpan ?? "This section only",
-      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Save section</Button> : null,
+      // Menunggu foto outfit selesai diunggah: tersimpan bersama, bukan sesudahnya sebagai suntingan baru.
+      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection} disabled={unggahIsian !== null}>Save section</Button> : null,
     },
     header: {
       note: belumDisimpan ?? "Applies to every tab",
@@ -1686,12 +1791,12 @@ export default function RundownAdminPage() {
           mengembalikan formulir ke nilai tersimpan, lalu menjalankan aksinya. */}
       <Dialog
         open={tertunda !== null}
-        onClose={() => setTertunda(null)}
+        onClose={tetapSunting}
         title={tertunda ? judulBuang(tertunda.form, namaForm(tertunda.form)) : ""}
         description={tertunda ? keteranganBuang(tertunda.form) : undefined}
         actions={
           <>
-            <Button variant="outlined" onClick={() => setTertunda(null)}>Keep editing</Button>
+            <Button variant="outlined" onClick={tetapSunting}>Keep editing</Button>
             <Button
               variant="danger"
               onClick={() => {

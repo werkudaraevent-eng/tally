@@ -21,6 +21,15 @@ const nanti = (lanjut: () => void) => () => {
   window.setTimeout(lanjut, 0);
 };
 
+/**
+ * Klik tautan yang sedang dikirim ulang sesudah Discard. AdminShell
+ * melewatkannya: ketukan di rel sentuh yang biasanya hanya membuka rel harus
+ * memindahkan halaman di sini.
+ */
+export function klikUlang() {
+  return lewati;
+}
+
 /** Navigasi lewat kode (router.push): langsung, atau sesudah halaman bertanya. */
 export function navigasiTerjaga(lanjut: () => void) {
   if (penjaga) penjaga(nanti(lanjut));
@@ -49,6 +58,9 @@ function tahanKlik(event: MouseEvent) {
   if (lewati || !penjaga) return;
   const tautan = event.target instanceof Element ? event.target.closest("a[href]") : null;
   if (!(tautan instanceof HTMLAnchorElement)) return;
+  // Rel terlipat di layar sentuh: ketukan pertama hanya membuka rel
+  // (AdminShell), jadi yang ditanyakan ketukan berikutnya, saat labelnya terlihat.
+  if (tautan.closest('[data-rail="1"]') && !tautan.closest("[data-peek-skip]") && !window.matchMedia("(hover: hover)").matches) return;
   const klik = {
     href: tautan.href,
     target: tautan.target,
