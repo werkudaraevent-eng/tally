@@ -8,6 +8,7 @@ import { Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
 import { cariHalaman } from "@/components/admin/nav-config";
 import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
 import type { EventStatus } from "@/lib/domain";
+import { navigasiTerjaga } from "@/lib/jaga-navigasi";
 
 /**
  * Pengalih acara di puncak sidebar.
@@ -136,7 +137,8 @@ export function EventMenu({
 
   function pilih(event: EventPilihan) {
     ubahTerbuka(false);
-    router.push(tujuan(event.slug));
+    // Halaman yang punya suntingan belum disimpan bertanya dulu.
+    navigasiTerjaga(() => router.push(tujuan(event.slug)));
   }
 
   function onKeyDown(peristiwa: React.KeyboardEvent) {
