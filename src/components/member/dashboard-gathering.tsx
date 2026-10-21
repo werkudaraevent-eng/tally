@@ -111,8 +111,9 @@ import { HapusSalinanQr } from "@/components/member/form-keluar";
 import { SimpanQrGaleri } from "@/components/member/simpan-qr-galeri";
 import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/muat-portal";
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
-import { bagianOutfitTanggal, hariOutfitBeranda, labelOutfit } from "@/lib/outfit";
+import { bagianOutfitTanggal, labelOutfit, type OutfitEntry } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
+import { bacaOutfitSetiapHari, denganSetiapHari, hariOutfitBerandaSetiapHari, hariTanpaAgenda, teksBarisOutfit } from "@/lib/outfit-setiap-hari";
 import { bagianPertama, pilihanPeserta } from "@/lib/sasaran-bagian";
 import { loadSasaranPeserta } from "@/lib/sasaran-bagian-server";
 
@@ -310,7 +311,13 @@ export async function DashboardGathering({
   const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
   // Hari Outfit = hari tab Jadwal (bagian yang diterbitkan dan berisi), juga bila Jadwal disembunyikan.
   const hariOutfit = petaOutfit ? agendaNav.map((bagian) => ({ ...bagian, outfit: (bagian.id !== undefined ? petaOutfit.get(bagian.id) : undefined) ?? [] })) : [];
-  const adaOutfit = hariOutfit.some((bagian) => bagian.outfit.length > 0);
+  // Dresscode Setiap hari dari Participant area (keputusan Mas 21 Okt): ada di
+  // setiap hari, juga di acara tanpa tab Agenda. Hanya Horizon, seperti Outfit.
+  const setiapHari = horizon ? bacaOutfitSetiapHari(member.outfit_every_day) : null;
+  const adaOutfit = hariOutfit.some((bagian) => bagian.outfit.length > 0) || setiapHari !== null;
+  // Baris satu bagian seperti yang dilihat peserta, Setiap hari di depan. Bagian
+  // tiap tanggal tetap dipilih dari barisnya sendiri (bagianOutfitTanggal).
+  const outfitTampil = (indeks: number) => denganSetiapHari(hariOutfit[indeks]?.outfit ?? [], setiapHari, tH.outfit.everyDay);
   // Bagian milik peserta untuk Outfit (keputusan Mas 20 Okt: ikut batch), dari
   // hari Outfit, bukan dari agenda Jadwal yang kosong bila Jadwal disembunyikan.
   const pilihanOutfit = pilihanPeserta(
@@ -319,8 +326,9 @@ export async function DashboardGathering({
   );
   // Outfit bagian dari Susunan acara (strip per hari, tab Acara menyala). Bila
   // panitia menyembunyikan Jadwal, Acara kosong: Outfit tetap di Menu dan bilah
-  // atas seperti sebelumnya, supaya halamannya tetap terjangkau.
-  const outfitDiAcara = tampilSusunan;
+  // atas seperti sebelumnya, supaya halamannya tetap terjangkau. Begitu pula
+  // acara tanpa tab Agenda yang hanya punya Setiap hari: tidak ada hari untuk stripnya.
+  const outfitDiAcara = tampilSusunan && !(setiapHari && hariOutfit.length === 0);
   const labelOutfitHalaman = labelOutfit(member.outfit_label);
   const tab: PortalTab =
     (!horizon && tabDiminta === "perjalanan") || (tabDiminta === "outfit" && !adaOutfit) ? "beranda" : tabDiminta;
@@ -804,6 +812,7 @@ export async function DashboardGathering({
     const hariAwal = hariIniJadwal ?? hariJadwal[0];
     const pilihan = Math.min(Math.max((hari ?? (hariAwal ? bukaHari(hariAwal) + 1 : 1)) - 1, 0), Math.max(agenda.length - 1, 0));
     const bagian: AgendaPreview | undefined = agenda[pilihan];
+    const outfitHari = outfitTampil(pilihan);
     const hariTerpilih = hariJadwal.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));
     const labelTerpilih = hariTerpilih?.bagian.find((isi) => isi.indeks === pilihan)?.label ?? null;
     const statusBagian = bagian && bagian.tanggal === kini.tanggal ? statusHari(bagian.items, kini.menit) : new Map<number, StatusButir>();
@@ -875,10 +884,10 @@ export async function DashboardGathering({
                 ) : null}
                 {/* Outfit bagian ini (keputusan Mas 20 Okt, pilihan A): satu strip di
                     atas susunan hari itu, menuju hari yang sama di halaman Outfit. */}
-                {(hariOutfit[pilihan]?.outfit.length ?? 0) > 0 ? (
+                {outfitHari.length > 0 ? (
                   <StripOutfitHorizon
                     label={labelOutfitHalaman}
-                    isian={hariOutfit[pilihan].outfit.map((isian) => ({ kapan: isian.when ?? null, apa: isian.what }))}
+                    isian={outfitHari.map((isian) => ({ kapan: isian.when ?? null, apa: isian.what }))}
                     href={keTab("outfit", { hari: String(pilihan + 1) })}
                     lihat={tH.outfit.stripLink(labelOutfitHalaman)}
                   />
@@ -1182,19 +1191,24 @@ export async function DashboardGathering({
     const hariAwalO = hariO.find((item) => item.tanggal === kini.tanggal) ?? hariO[0];
     const pilihan = Math.min(Math.max((hari ?? (hariAwalO ? bukaHariO(hariAwalO) + 1 : 1)) - 1, 0), Math.max(hariOutfit.length - 1, 0));
     const bagian = hariOutfit[pilihan];
+    // Kartu bagian terpilih, Setiap hari di depan; tanpa tab Agenda hanya kartu Setiap hari,
+    // langsung di bawah judul halaman (tanpa judul tanggal), jadi judulnya h2.
+    const kartuHari = outfitTampil(pilihan).map((isian, index) => (
+      <KartuOutfitHorizon key={index} kapan={isian.when ?? null} apa={isian.what} catatan={isian.note ?? null} foto={isian.photo_url ?? null} tingkat={bagian ? 3 : 2} />
+    ));
     const hariTerpilih = hariO.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));
     const hrefO = (indeks: number) => keTab("outfit", { hari: String(indeks + 1) });
     // Hari sesudahnya yang pertama punya outfit untuk peserta ini (bukan untuk
-    // kelompok lain): satu baris di bawah kartu.
+    // kelompok lain; dengan Setiap hari, tanggal berikutnya): satu baris di bawah kartu.
     const urutanTerpilih = hariTerpilih ? hariO.indexOf(hariTerpilih) : -1;
     const berikutO = (urutanTerpilih >= 0 ? hariO.slice(urutanTerpilih + 1) : [])
       .map((item) => ({ item, indeks: item.tanggal ? bagianOutfitTanggal(hariOutfit, item.tanggal, pilihanOutfit) : -1 }))
-      .find(({ indeks }) => indeks >= 0 && hariOutfit[indeks].outfit.length > 0);
+      .find(({ indeks }) => indeks >= 0 && outfitTampil(indeks).length > 0);
     judulHorizon = {
       alis: nama,
       judul: labelOutfitHalaman,
       catatan: to.note,
-      // Bagian dari Susunan acara; Jadwal disembunyikan: halaman Menu seperti dulu.
+      // Bagian dari Susunan acara; Jadwal disembunyikan atau tanpa tab Agenda: halaman Menu seperti dulu.
       kembali: outfitDiAcara
         ? { href: keTab("jadwal", { hari: String(pilihan + 1) }), label: t.schedule, semua: true, tab: "jadwal" }
         : { href: keTab("profil"), label: tH.travel.backToMenu, tab: "profil" },
@@ -1265,14 +1279,10 @@ export async function DashboardGathering({
                   })()}
                 </div>
               ) : null}
-              {bagian.outfit.length === 0 ? (
+              {kartuHari.length === 0 ? (
                 <p className={`mt-4 text-[16px] leading-6 ${MUTED}`}>{to.dayEmpty}</p>
               ) : (
-                <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
-                  {bagian.outfit.map((isian, index) => (
-                    <KartuOutfitHorizon key={index} kapan={isian.when ?? null} apa={isian.what} catatan={isian.note ?? null} foto={isian.photo_url ?? null} />
-                  ))}
-                </div>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">{kartuHari}</div>
               )}
               {berikutO && berikutO.item.tanggal ? (
                 <Link
@@ -1280,20 +1290,24 @@ export async function DashboardGathering({
                   className={`${GARIS_KARTU} m3-state mt-4 flex min-h-12 items-center gap-3 rounded-[16px] px-4 py-3 text-[14px] leading-5 ${MUTED}`}
                 >
                   <CalendarBlank size={20} aria-hidden className="shrink-0" />
-                  {/* Dua baris: hari berikutnya sebagai label, lalu pakaian pertamanya apa adanya. */}
+                  {/* Hari berikutnya sebagai label, lalu setiap pakaiannya satu per baris, seperti strip Susunan acara. */}
                   <span className="flex min-w-0 flex-1 flex-col [overflow-wrap:anywhere]">
                     <span className="text-[13px] font-semibold">
                       {gabungMeta([to.next, (({ atas, bawah }) => `${atas}, ${bawah}`)(chipTanggal(berikutO.item.tanggal, lang))])}
                     </span>
-                    <span className="font-semibold text-[#101E38]">
-                      {gabungMeta([hariOutfit[berikutO.indeks].outfit[0].when, hariOutfit[berikutO.indeks].outfit[0].what])}
-                      {hariOutfit[berikutO.indeks].outfit.length > 1 ? ` ${to.more(hariOutfit[berikutO.indeks].outfit.length - 1)}` : ""}
-                    </span>
+                    {teksBarisOutfit(outfitTampil(berikutO.indeks)).map((teks, index) => (
+                      <span key={index} className="font-semibold text-[#101E38]">
+                        {teks}
+                      </span>
+                    ))}
                   </span>
                   <CaretRight size={16} aria-hidden className="shrink-0" />
                 </Link>
               ) : null}
             </>
+          ) : setiapHari ? (
+            // Acara tanpa tab Agenda: hanya kartu Setiap hari, tanpa chip hari dan Berikutnya.
+            <div className="grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">{kartuHari}</div>
           ) : null}
         </div>
       </div>
@@ -1624,18 +1638,22 @@ export async function DashboardGathering({
       ) : null;
 
       // Dresscode hari ini (saat acara) atau tanggal berikutnya (sebelum acara), ikut batch peserta.
-      // Sesudah acara tidak lagi berguna, jadi tidak tampil.
-      const outfitBeranda = adaOutfit && diBeranda("outfit") && fase?.fase !== "sesudah" ? hariOutfitBeranda(hariOutfit, kini.tanggal, besokTanggal, pilihanOutfit) : null;
+      // Sesudah acara tidak lagi berguna, jadi tidak tampil. Acara tanpa tab Agenda
+      // (hanya Setiap hari): hari-harinya dari tanggal acara.
+      const hariBeranda: { tanggal: string | null; sectionTitle: string | null; outfit: OutfitEntry[] }[] =
+        hariOutfit.length > 0 ? hariOutfit : hariTanpaAgenda(event.event_date, event.end_date, kini.tanggal).map((tanggal) => ({ tanggal, sectionTitle: null, outfit: [] }));
+      const outfitBeranda =
+        adaOutfit && diBeranda("outfit") && fase?.fase !== "sesudah" ? hariOutfitBerandaSetiapHari(hariBeranda, kini.tanggal, besokTanggal, pilihanOutfit, setiapHari) : null;
       const kartuOutfit = (() => {
         if (!outfitBeranda) return null;
-        const bagian = hariOutfit[outfitBeranda.indeks];
+        const bagian = hariBeranda[outfitBeranda.indeks];
         const baris = tH.outfit.row;
         const judul =
           outfitBeranda.jenis === "nanti"
             ? baris.nanti(labelOutfitHalaman, (bagian.tanggal ? tanggalLeg(bagian.tanggal, lang) : null) ?? bagian.sectionTitle?.trim() ?? t.day(outfitBeranda.indeks + 1))
             : baris[outfitBeranda.jenis](labelOutfitHalaman);
         // Tanggalnya (bukan hari ini) dan batch peserta bila tanggal itu punya beberapa bagian.
-        const hariItu = kelompokkanHari(hariOutfit).find((item) => item.bagian.some((isi) => isi.indeks === outfitBeranda.indeks));
+        const hariItu = kelompokkanHari(hariBeranda).find((item) => item.bagian.some((isi) => isi.indeks === outfitBeranda.indeks));
         const kelompok = hariItu && hariItu.bagian.length > 1 && pilihanOutfit.milik.has(outfitBeranda.indeks) ? pilihanOutfit.kelompok : null;
         return (
           <KartuOutfitBerandaHorizon
@@ -1648,8 +1666,8 @@ export async function DashboardGathering({
                   : null
                 : gabungMeta([bagian.tanggal ? tanggalSapaan(bagian.tanggal, lang) : null, kelompok]) || null
             }
-            isian={bagian.outfit.map((isian, index) => ({ kunci: String(index), kapan: isian.when?.trim() || null, apa: isian.what, catatan: isian.note?.trim() || null, foto: isian.photo_url ?? null }))}
-            tautan={{ href: keTab("outfit", { hari: String(outfitBeranda.indeks + 1) }), label: tH.home.seeAll, tab: "outfit", lampu: outfitDiAcara ? "jadwal" : undefined }}
+            isian={denganSetiapHari(bagian.outfit, setiapHari, tH.outfit.everyDay).map((isian, index) => ({ kunci: String(index), kapan: isian.when?.trim() || null, apa: isian.what, catatan: isian.note?.trim() || null, foto: isian.photo_url ?? null }))}
+            tautan={{ href: keTab("outfit", hariOutfit.length > 0 ? { hari: String(outfitBeranda.indeks + 1) } : {}), label: tH.home.seeAll, tab: "outfit", lampu: outfitDiAcara ? "jadwal" : undefined }}
           />
         );
       })();

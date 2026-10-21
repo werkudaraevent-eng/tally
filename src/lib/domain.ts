@@ -1229,6 +1229,14 @@ export type LandingMemberConfig = {
    */
   outfit_label?: string | null;
   /**
+   * Dresscode Setiap hari portal Gathering Horizon (keputusan Mas 21 Okt): satu
+   * baris untuk seluruh acara, di depan baris tiap hari, juga tanpa tab Agenda.
+   * Tidak ada atau `what` kosong = tidak ada. Dibaca lewat
+   * bacaOutfitSetiapHari (lib/outfit-setiap-hari.ts), karena portal tidak
+   * memeriksa `member` dengan skema.
+   */
+  outfit_every_day?: { what: string; note?: string; photo_url?: string } | null;
+  /**
    * Kartu darurat dan bantuan di Menu portal Gathering Horizon (E-03): satu
    * blok khusus peserta pilihan panitia, tampil di bawah Perjalanan dan
    * ditaut dari kartu bantuan Perjalanan, bukan di Beranda. Kosong = tidak ada.
