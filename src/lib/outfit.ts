@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PilihanPeserta } from "./sasaran-bagian.ts";
 
 /**
  * Outfit (dress code) per bagian Agenda: kolom `rundown_sections.outfit`
@@ -12,7 +13,7 @@ import { z } from "zod";
 
 export const OUTFIT_MAX = 3;
 export const OUTFIT_BATAS = { when: 40, what: 120, note: 200 } as const;
-/** Label menu bawaan; sama di kedua bahasa. */
+/** Label halaman bawaan; sama di kedua bahasa. */
 export const OUTFIT_LABEL_BAWAAN = "Outfit";
 export const OUTFIT_LABEL_MAX = 16;
 
@@ -81,7 +82,7 @@ export function bacaOutfit(nilai: unknown): OutfitEntry[] {
     });
 }
 
-/** Label menu Outfit acara ini (`landing_config.member.outfit_label`). */
+/** Label halaman Outfit acara ini (`landing_config.member.outfit_label`). */
 export function labelOutfit(label: string | null | undefined): string {
   return label?.trim().slice(0, OUTFIT_LABEL_MAX) || OUTFIT_LABEL_BAWAAN;
 }
@@ -94,25 +95,47 @@ export function kolomOutfitBelumAda(error: { code?: string } | null | undefined)
 
 export type HariOutfitBeranda = { indeks: number; jenis: "hariIni" | "besok" | "pertama" | "terakhir" | "nanti" };
 
+type HariOutfit = { tanggal: string | null; outfit: OutfitEntry[] };
+type PilihanBagian = Pick<PilihanPeserta, "milik" | "bukanMilik">;
+
+/**
+ * Bagian yang outfitnya dipakai untuk satu tanggal (indeks di `hari`, -1 bila
+ * tidak ada). Bagian kelompok lain (Agenda > Who it's for) tidak dipakai. Dari
+ * bagian yang boleh: milik peserta yang berisi outfit, lalu yang berisi (bagian
+ * untuk semua), lalu milik peserta, lalu yang pertama. Tanpa jawaban batch:
+ * yang pertama berisi outfit.
+ *
+ * `buka`: untuk navigasi halaman Outfit saja. Tanggal yang semua bagiannya
+ * untuk kelompok lain tetap dibuka, seperti tab Jadwal; Beranda tidak pernah
+ * menampilkan outfit kelompok lain.
+ */
+export function bagianOutfitTanggal(hari: readonly HariOutfit[], tanggal: string, pilihan?: PilihanBagian | null, buka = false): number {
+  const diTanggal = hari.flatMap((h, indeks) => (h.tanggal === tanggal ? [indeks] : []));
+  const boleh = pilihan ? diTanggal.filter((indeks) => !pilihan.bukanMilik.has(indeks)) : diTanggal;
+  const kandidat = boleh.length > 0 ? boleh : buka ? diTanggal : [];
+  const berisi = (indeks: number) => hari[indeks].outfit.length > 0;
+  const milik = pilihan ? kandidat.filter((indeks) => pilihan.milik.has(indeks)) : [];
+  return milik.find(berisi) ?? kandidat.find(berisi) ?? milik[0] ?? kandidat[0] ?? -1;
+}
+
 /**
  * Hari yang outfitnya tampil di Beranda, seperti agenda Beranda: hari ini
  * selama acara, hari berikutnya di sela acara (besok atau hari pertama sebelum
- * acara), hari terakhir sesudahnya. Dua bagian di tanggal yang sama (Batch 1
- * dan 2): yang pertama berisi outfit. Null bila hari terpilih tanpa outfit.
+ * acara), hari terakhir sesudahnya. Hanya tanggal yang punya bagian untuk
+ * peserta ini (bagianOutfitTanggal); tanggal yang semua bagiannya untuk
+ * kelompok lain dilewati, seperti agenda Beranda. Null bila bagian terpilih
+ * tanpa outfit.
  */
-export function hariOutfitBeranda(hari: Array<{ tanggal: string | null; outfit: OutfitEntry[] }>, hariIni: string, besok: string): HariOutfitBeranda | null {
+export function hariOutfitBeranda(hari: readonly HariOutfit[], hariIni: string, besok: string, pilihan?: PilihanBagian | null): HariOutfitBeranda | null {
   if (hari.length === 0) return null;
   const pilih = (indeks: number, jenis: HariOutfitBeranda["jenis"]) => (indeks >= 0 && hari[indeks].outfit.length > 0 ? { indeks, jenis } : null);
-  const sama = (tanggal: string) => {
-    const berisi = hari.findIndex((h) => h.tanggal === tanggal && h.outfit.length > 0);
-    return berisi >= 0 ? berisi : hari.findIndex((h) => h.tanggal === tanggal);
-  };
-  if (hari.some((h) => h.tanggal === hariIni)) return pilih(sama(hariIni), "hariIni");
   // Tanpa tanggal sama sekali: hari pertama.
   if (!hari.some((h) => h.tanggal)) return pilih(0, "pertama");
-  const berikut = hari.findIndex((h) => h.tanggal !== null && h.tanggal > hariIni);
-  if (berikut < 0) return pilih(hari.length - 1, "terakhir");
-  const tanggal = hari[berikut].tanggal!;
-  const indeks = sama(tanggal);
-  return pilih(indeks, tanggal === besok ? "besok" : indeks === 0 ? "pertama" : "nanti");
+  const sama = (tanggal: string) => bagianOutfitTanggal(hari, tanggal, pilihan);
+  const tanggalKu = [...new Set(hari.flatMap((h) => (h.tanggal ? [h.tanggal] : [])))].filter((tanggal) => sama(tanggal) >= 0);
+  if (tanggalKu.length === 0) return null;
+  if (tanggalKu.includes(hariIni)) return pilih(sama(hariIni), "hariIni");
+  const berikut = tanggalKu.find((tanggal) => tanggal > hariIni);
+  if (!berikut) return pilih(sama(tanggalKu[tanggalKu.length - 1]), "terakhir");
+  return pilih(sama(berikut), berikut === besok ? "besok" : berikut === tanggalKu[0] ? "pertama" : "nanti");
 }

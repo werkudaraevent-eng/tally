@@ -14,11 +14,14 @@ import { useLinkStatus } from "next/link";
  */
 
 let tujuan: string | null = null;
+/** Tab bilah bawah yang menyala selama memuat; biasanya sama dengan `tujuan`. */
+let lampuTujuan: string | null = null;
 const pendengar = new Set<() => void>();
 
-function setel(tab: string | null) {
-  if (tujuan === tab) return;
+function setel(tab: string | null, lampu: string | null = tab) {
+  if (tujuan === tab && lampuTujuan === lampu) return;
   tujuan = tab;
+  lampuTujuan = lampu;
   pendengar.forEach((fn) => fn());
 }
 
@@ -29,13 +32,17 @@ function langganan(fn: () => void) {
   };
 }
 
-/** Di dalam <Link> tab: melapor saat navigasinya tertunda. */
-export function PenandaTab({ tab }: { tab: string }) {
+/**
+ * Di dalam <Link> tab: melapor saat navigasinya tertunda. `lampu`: tab bilah
+ * bawah yang menyala selama memuat, bila halaman itu bagian dari tab lain
+ * (Outfit di bawah Susunan acara menyalakan Acara).
+ */
+export function PenandaTab({ tab, lampu }: { tab: string; lampu?: string }) {
   const { pending } = useLinkStatus();
   useEffect(() => {
-    if (pending) setel(tab);
+    if (pending) setel(tab, lampu ?? tab);
     else if (tujuan === tab) setel(null);
-  }, [pending, tab]);
+  }, [pending, tab, lampu]);
   // Bila halaman berganti sebelum efek di atas sempat membersihkan.
   useEffect(() => () => {
     if (tujuan === tab) setel(null);
@@ -43,9 +50,14 @@ export function PenandaTab({ tab }: { tab: string }) {
   return null;
 }
 
-/** Tab yang sedang dituju, untuk ikon tab bawah yang langsung tampil aktif. */
+/** Tab yang sedang dituju, untuk kerangka halaman tujuannya. */
 export function useTabTujuan() {
   return useSyncExternalStore(langganan, () => tujuan, () => null);
+}
+
+/** Tab bilah bawah yang menyala selama memuat, untuk ikon yang langsung tampil aktif. */
+function useLampuTujuan() {
+  return useSyncExternalStore(langganan, () => lampuTujuan, () => null);
 }
 
 export type KepalaTab = { judul: string; judulPonsel: string; catatan: string; jenis: "jadwal" | "kartu" };
@@ -95,7 +107,7 @@ export function KerangkaPortal({ kepala, garisLabel }: { kepala: Record<string, 
  * dituju, supaya ketukan terasa diterima sebelum halaman baru tiba.
  */
 export function IkonTabBawah({ tab, aktif, isi, isiAktif }: { tab: string; aktif: boolean; isi: ReactNode; isiAktif: ReactNode }) {
-  const dituju = useTabTujuan();
+  const dituju = useLampuTujuan();
   const nyala = dituju ? dituju === tab : aktif;
   return (
     <span aria-hidden className={`relative flex h-6 w-12 items-center justify-center rounded-full ${nyala ? "bg-[var(--hz-emas)] text-[var(--hz-on-emas)]" : ""}`}>

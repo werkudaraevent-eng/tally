@@ -14,9 +14,9 @@ Status per item as of 18 Oct 2026, after #199 to #202. This is the working copy 
 | Status | Count | Items |
 |---|---|---|
 | KSO content in the CMS (Mas) | 5 | U-04, U-08, U-15, U-34, U-35 |
-| Needs a decision or a mockup from Mas | 3 | U-25, U-30, E-13 |
+| Needs a decision or a mockup from Mas | 2 | U-30, E-13 |
 | Partly done | 8 | U-01, U-09, U-24, U-26, E-01, E-06, E-10, E-12 |
-| Not started | 8 | U-27, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
+| Not started | 9 | U-25, U-27, U-32, U-36, E-02, E-04, E-05, E-11, E-15 |
 | Done | 27 | U-02, U-03, U-05, U-06, U-07, U-10, U-11, U-12, U-13, U-14, U-16, U-17, U-18, U-19, U-20, U-21, U-22, U-23, U-28, U-29, U-31, U-33, E-03, E-07, E-08, E-09, E-14 |
 
 Suggested order:
@@ -137,7 +137,7 @@ Measured at audit time:
 - Compared with: Airbnb's trip card takes its date range from the booking, and Luma writes multi-day events as a date range.
 - Recommendation: Count "N hari" from the event start and end dates, the same source as the pass. Make the "01–NN" counter follow the same count or remove it (a V5 element, Mas decides). Add an English warning in Agenda and a Readiness item when a section is published outside the event dates. The subtitle names only what has data.
 - Left: #199 moved the Home and Schedule subtitles to the event date range. Still open: jumlahHariAgenda still counts unique section dates and feeds the event page day heading (classic and Horizon), so it can disagree with the CMS hint, which counts event dates; the "01–NN" counter still counts sections, batches included; #206 added the warnings: Agenda > Section shows one under Date when the date is outside the event, and Readiness lists "N Agenda sections dated outside the event" (drafts included, the same rule as the Agenda warning). Minor: the Home subtitle ("Tiket dan jadwalmu untuk" plus the dates) names the ticket and schedule even when those are switched off. #201 and #202 change none of this.
-- Decision on record or question for Mas: Open for Mas: (1) the "01–NN" counter on the event page is a V5 element; should it follow the date count or go? (2) Home has two headings from V5, "siap bikin cerita baru?" on desktop and "ini perjalananmu." on phones; keep two, or use one?
+- Decision on record or question for Mas: (2) decided by Mas on 20 Oct: one Home heading on phone and desktop, "Halo, {Nama}" (with the Beranda redesign, the next participant-area PR). Still open for Mas: (1) the "01–NN" counter on the event page is a V5 element; should it follow the date count or go?
 - Code: `src/lib/landing-agenda.ts` (jumlahHariAgenda); `src/components/landing/event-landing-modern.tsx` (day heading and 01–NN counter); `src/components/member/dashboard-gathering.tsx` (Home subtitle); `src/lib/member/portal-i18n.ts` (subtitleDates); `src/app/admin/landing/page.tsx` (day count hint); `src/app/admin/rundown/page.tsx` (Agenda, where the out-of-range warning would go); `src/app/admin/page.tsx` (kesiapan, the Readiness list)
 - Related: U-04
 
@@ -300,18 +300,18 @@ Measured at audit time:
 - Compared with: Luma shows times in the venue's time zone, with the local time in brackets when it differs.
 - Recommendation: Use formatEventDateRingkas for the Schedule header and the countdown. Use one metadata separator across the portal; Mas chooses between "•" from V5 and the SEPARATOR constant "·". Add one zone note on each page that shows times, for example "Semua jam WIB". Keep two day patterns: "Jum, 6 Nov" for rows and "Jumat, 6 November" for headings.
 - Left: 1) Mas picks one metadata separator ("•" or "·"); see the decision below. 2) The countdown block on the public event page still shows the long range from formatEventDate (siapkanHitungMundur in src/components/landing/modern/landing-blocks.tsx); it is a block every layout uses, so it waits for the same decision rather than changing other events now. Done in this PR: 3) the Travel subtitle carries the zone ("Hotel, kamar, bus, dan kereta kamu. Semua jam WIB."), so check-in, bus and train times have a zone note like Schedule.
-- Decision on record or question for Mas: Open for Mas: pick one metadata separator, "•" or "·".
+- Decision on record or question for Mas: decided by Mas on 20 Oct: "·" (the SEPARATOR constant) everywhere on Horizon. Rows still using "•" change with the Beranda redesign, the next participant-area PR; the Outfit strip and its next-day row already use "·".
 - Code: `src/lib/event-datetime.ts` (formatEventDate, formatEventDateRingkas); `src/components/landing/modern/landing-blocks.tsx` (siapkanHitungMundur); `src/components/member/dashboard-gathering.tsx` (DashboardGathering: dataLapisanQr, Travel tab); `src/lib/typography.ts` (SEPARATOR, gabungMeta); `src/lib/member/portal-i18n.ts` (schedule.timeNote, travel.note)
 
 ### U-25 Fact and bottom bar labels are 10 px, sizes are set in px, and card titles are uppercased by CSS
 
-- Status: Needs a decision or a mockup from Mas
+- Status: Not started (decided 20 Oct)
 - Priority: low. Area: All portal tabs: bottom bar (phone and tablet), Home pass, Travel and Profile cards (phone, tablet, desktop). Scope: platform.
 - Finding: The labels that tell a room from a bus, or a carriage from a seat, are the smallest text on the card: 10 px, below the 11 px label-small in DESIGN.md, and set in px, so they do not grow when a participant raises the browser text size. Travel and Profile card titles are written in sentence case in the i18n file and then uppercased by CSS at 11 px. Contrast passes and the sizes follow the V5 design, so this is a choice for Mas rather than a defect.
 - Compared with: Material 3 navigation bar labels are 12 sp; iOS tab bar labels are 10 pt.
 - Recommendation: Choose between staying with V5 and labels of at least 12 px, set in rem, with sentence-case card titles. Short uppercase labels are not banned (PR #30 used 13 px uppercase section labels). On desktop the eyebrow above the H1 repeats the event name already in the logo; if it is removed or turned into a fact, treat every tab the same way, Home included, so header heights stay equal (CLAUDE.md rejected list: inconsistent header heights between portal tabs).
-- Left: Mas chooses between the V5 sizes (10 px labels, 11 px uppercase card titles) and labels of at least 12 px in rem with sentence-case card titles, bottom bar labels included; no code change until then. The eyebrow condition holds for what has changed so far: SapaanHorizon hides the eyebrow on every tab, Home included, on short laptop screens (720 px tall or less). On tablets and taller desktop screens it still shows, and on every tab except Home (whose eyebrow is "Perjalananmu dimulai di sini") it is the event name.
-- Decision on record or question for Mas: Open for Mas: keep the V5 sizes or follow the DESIGN.md type scale; the bottom bar label size waits on the same choice.
+- Left: apply the decision below with the Beranda redesign (the next participant-area PR): labels of 12-13 px in sentence case, bottom bar labels included. The Outfit card's "when" label already follows it (13 px, sentence case). The eyebrow condition holds for what has changed so far: SapaanHorizon hides the eyebrow on every tab, Home included, on short laptop screens (720 px tall or less). On tablets and taller desktop screens it still shows, and on every tab except Home (whose eyebrow is "Perjalananmu dimulai di sini") it is the event name.
+- Decision on record or question for Mas: decided by Mas on 20 Oct: labels of 12-13 px in sentence case instead of the V5 10-11 px uppercase, bottom bar included.
 - Code: `src/components/member/portal-horizon.tsx` (NavBawahHorizon, PassHorizon, TiketKeretaHorizon, KartuInfoHorizon, JudulKartuProfil, SapaanHorizon); `src/lib/member/portal-i18n.ts`; `DESIGN.md`
 - Related: U-11, U-36
 

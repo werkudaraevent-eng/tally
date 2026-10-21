@@ -1222,8 +1222,9 @@ export type LandingMemberConfig = {
    */
   home?: { order?: string[]; hidden?: string[] };
   /**
-   * Label menu Outfit di portal Gathering Horizon (bilah atas, Menu, judul
-   * halaman, baris Beranda). Kosong = "Outfit". Paling panjang 16 huruf.
+   * Label halaman Outfit di portal Gathering Horizon (judul halaman, strip di
+   * Susunan acara, baris Beranda; bilah atas dan Menu bila Jadwal
+   * disembunyikan). Kosong = "Outfit". Paling panjang 16 huruf.
    * Disunting di Agenda > Section > Outfit, disimpan lewat Area peserta.
    */
   outfit_label?: string | null;

@@ -671,7 +671,7 @@ export default function RundownAdminPage() {
     setOutfitDrafts((current) => ({ ...current, [active.id]: next }));
   }
 
-  /** Draf outfit bagian ini atau label menu berbeda dari yang tersimpan. */
+  /** Draf outfit bagian ini atau label halaman berbeda dari yang tersimpan. */
   function outfitBerubah(sectionId: number) {
     if (!outfitInfo?.available) return false;
     const draf = outfitDrafts[sectionId];
@@ -769,8 +769,8 @@ export default function RundownAdminPage() {
       }).catch(() => null);
       const data = response ? await response.json().catch(() => ({})) : {};
       if (!response?.ok) {
-        const failure = response ? failureMessage(data, "Menu label not saved.") : "Check your connection and try again.";
-        setError(failure); toast.error("Menu label not saved", failure);
+        const failure = response ? failureMessage(data, "Page label not saved.") : "Check your connection and try again.";
+        setError(failure); toast.error("Page label not saved", failure);
         return false;
       }
       const tersimpan = (data as { member?: { outfit_label?: string | null } }).member?.outfit_label ?? null;
@@ -1171,7 +1171,7 @@ export default function RundownAdminPage() {
           title="Outfit"
           note={outfitInfo.available
             ? adaButirPublik
-              ? `Participants see it on the Outfit page for this day, and on Home. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
+              ? `Participants see it on this day of their Schedule, on the outfit page and on Home. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
               : `Participants see it once this section has a public agenda item. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
             : undefined}
         >
@@ -1180,12 +1180,12 @@ export default function RundownAdminPage() {
           ) : (
             <>
               <TextField
-                label="Menu label"
+                label="Page label"
                 optional
                 placeholder={OUTFIT_LABEL_BAWAAN}
                 maxLength={OUTFIT_LABEL_MAX}
                 counter
-                hint={`Applies to the whole event: the participant menu, the page title and the Home row. Left empty, it reads ${OUTFIT_LABEL_BAWAAN}.`}
+                hint={`Applies to the whole event: the page title, the strip in the Schedule and the Home row. Left empty, it reads ${OUTFIT_LABEL_BAWAAN}.`}
                 value={outfitLabel}
                 onChange={(event) => setOutfitLabel(event.target.value)}
               />
