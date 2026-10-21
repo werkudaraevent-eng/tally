@@ -10,7 +10,8 @@ import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
 import { KontakDaruratForm } from "./kontak-darurat";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
-import { type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
+import { TETAP_HORIZON, letakkanHorizon, urutanHorizon } from "@/lib/member/susunan-horizon";
 import type { PilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
@@ -42,6 +43,12 @@ type Muat = {
   checkpoints_on?: boolean;
   /** Gathering Horizon: Participant home tanpa "Today's agenda". */
   horizon?: boolean;
+  /** Horizon: tanggal dan jam mulai acara untuk "Preview on" di pratinjau. */
+  dates?: { start: string | null; end: string | null; start_time?: string | null };
+  /** Horizon: jumlah bagian Agenda yang punya outfit (baris Today's outfit). */
+  outfit_days?: number;
+  /** Horizon: ada telepon atau email panitia di Event settings (baris Help card). */
+  organiser_contact?: boolean;
   /** Halaman English ada: Emergency and help menampilkan isian English. */
   english?: boolean;
   /** Kolom yang boleh dipakai cara masuk Participant fields. */
@@ -126,6 +133,8 @@ export default function AreaPesertaPage() {
   const [slug, setSlug] = useState<string | null>(null);
   const [pesertaPratinjau, setPesertaPratinjau] = useState<PesertaPratinjau | null>(null);
   const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
+  // Kartu yang diklik atau diseret di pratinjau: barisnya disorot tanpa menggulir pratinjau.
+  const [pilihKartu, setPilihKartu] = useState<string | null>(null);
   const [tanpaNama, setTanpaNama] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -191,6 +200,30 @@ export default function AreaPesertaPage() {
   // Modern dan Gathering: pratinjau di kiri, setelan di kanan, seperti Event page.
   const berpratinjau = Boolean(data?.layout && slug);
 
+  // Gathering Horizon: seret kartu di pratinjau ponsel, dengan urutan dan aturan
+  // tempat tetap yang sama dengan daftar Participant home (susunan-horizon.ts).
+  const susunanHorizon = data?.horizon && data.layout === "gathering" && anggota ? urutanHorizon(anggota.home, data.blocks.map((block) => block.id)) : null;
+  const seretPratinjau =
+    susunanHorizon && data
+      ? {
+          gerak: susunanHorizon.filter((id) => !TETAP_HORIZON.has(id)),
+          // Teman sekamar tidak punya kartu sendiri: barisnya di kartu perjalanan.
+          kartu: susunanHorizon.filter((id) => id !== "roommates"),
+          urutan: susunanHorizon,
+          label: Object.fromEntries(
+            susunanHorizon.map((id) => {
+              const bawaan = MEMBER_HOME_BUILTINS.horizon.find((item) => item.id === id);
+              const blok = data.blocks.find((block) => block.id === id);
+              return [id, bawaan?.label ?? blok?.heading ?? (blok ? LANDING_BLOCK_LABELS[blok.type] : id)];
+            }),
+          ),
+        }
+      : null;
+  const cariBaris = (id: string) => {
+    setPilihKartu(id);
+    window.requestAnimationFrame(() => document.getElementById(`baris-beranda-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+  };
+
   return (
     <div lang="en" className="contents">
     <WorkspacePage width={berpratinjau ? "full" : "form"} fill={berpratinjau}>
@@ -230,7 +263,24 @@ export default function AreaPesertaPage() {
           // Layar pendek (1280x588): halaman bergulir utuh, jadi pratinjau menempel
           // di bawah bilah atas agar tetap terlihat saat menyunting bagian bawah.
           <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0 lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:h-[calc(100dvh-var(--workspace-top,58px)-32px)] lg:short:self-start">
-            <PratinjauPeserta slug={slug} peserta={pesertaPratinjau} onPeserta={setPesertaPratinjau} member={anggota} sorot={sorot} reloadKey={0} />
+            <PratinjauPeserta
+              slug={slug}
+              peserta={pesertaPratinjau}
+              onPeserta={setPesertaPratinjau}
+              member={anggota}
+              sorot={sorot}
+              reloadKey={0}
+              tanggal={data.horizon ? (data.dates ?? null) : null}
+              seret={seretPratinjau}
+              onPindah={(id, sebelum) => {
+                if (!susunanHorizon) return;
+                // Seret yang tidak memindah apa pun tidak mengubah draf (dan tidak mengubah simpanan lama).
+                const baru = letakkanHorizon(susunanHorizon, id, sebelum);
+                if (baru.join() !== susunanHorizon.join()) set({ home: { ...anggota.home, order: baru } });
+                cariBaris(id);
+              }}
+              onPilihKartu={cariBaris}
+            />
           </div>
         ) : null}
         <Pane aria-label="Participant area settings" className={berpratinjau ? "lg:w-[460px] lg:shrink-0" : undefined}>
@@ -259,7 +309,15 @@ export default function AreaPesertaPage() {
                   </div>
                 </SettingRow>
                 {data.layout ? (
-                  <SettingRow stacked={berpratinjau} title="Participant home" description="What participants see first after signing in, and in what order. Click a row to find it in the preview.">
+                  <SettingRow
+                    stacked={berpratinjau}
+                    title="Participant home"
+                    description={
+                      seretPratinjau
+                        ? "What participants see first after signing in, and in what order. Drag a row here or a card in the preview; click a row to find its card."
+                        : "What participants see first after signing in, and in what order. Click a row to find it in the preview."
+                    }
+                  >
                     <SusunanBeranda
                       layout={data.layout}
                       member={anggota}
@@ -269,9 +327,39 @@ export default function AreaPesertaPage() {
                       jumlahBlok={data.blocks_count ?? data.blocks.length}
                       adaPerubahan={berubah}
                       set={set}
-                      dipilih={sorot?.id ?? null}
-                      onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}
+                      dipilih={pilihKartu ?? sorot?.id ?? null}
+                      onPilih={(id) => {
+                        setPilihKartu(null);
+                        setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
+                      }}
+                      outfitAda={data.outfit_days === undefined ? undefined : data.outfit_days > 0}
+                      kontakAda={data.organiser_contact}
                     />
+                  </SettingRow>
+                ) : null}
+                {seretPratinjau ? (
+                  <SettingRow
+                    stacked={berpratinjau}
+                    title="Outfit page"
+                    description={
+                      <>
+                        Shown under each day of the participant Schedule and as Today&rsquo;s outfit on Participant home. With Agenda off for participants, it is a tab on wide screens and a Menu row on phones. Outfits and the page label (now: {anggota.outfit_label?.trim() || "Outfit"}) are set in{" "}
+                        <Link
+                          href="/admin/rundown"
+                          className={TAUTAN}
+                          onClick={(event) => {
+                            if (!berubah) return;
+                            event.preventDefault();
+                            toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
+                          }}
+                        >
+                          Agenda › Section › Outfit
+                        </Link>
+                        .
+                      </>
+                    }
+                  >
+                    {null}
                   </SettingRow>
                 ) : null}
                 {data.horizon === true ? (

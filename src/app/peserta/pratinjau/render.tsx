@@ -12,8 +12,10 @@ import { loadMemberAnnouncements } from "@/lib/member/pengumuman";
  *
  * Pengumuman dibaca saja: pratinjau tidak menandai apa pun terbaca.
  * `tab` "profil" (Gathering saja): Menu, tempat kartu darurat (E-03).
+ * `waktu` (Gathering saja): saat yang dipilih di "Preview on" (ms epoch), untuk
+ * melihat Beranda sebelum, saat, atau sesudah acara; null = saat ini.
  */
-export async function renderBerandaPratinjau(event: EventRow, member: LandingMemberConfig, sesi: MemberSession, tab: "beranda" | "profil" = "beranda") {
+export async function renderBerandaPratinjau(event: EventRow, member: LandingMemberConfig, sesi: MemberSession, tab: "beranda" | "profil" = "beranda", waktu: number | null = null) {
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   if (landing.layout !== "modern") return null;
   const lang = landingDefaultLang(landing);
@@ -21,7 +23,7 @@ export async function renderBerandaPratinjau(event: EventRow, member: LandingMem
   const setelan = { ...member, enabled: true };
   const pengumuman = await loadMemberAnnouncements(event.id, sesi);
   return landing.gathering === true ? (
-    <DashboardGathering event={event} lang={lang} member={setelan} sesi={sesi} pengumuman={pengumuman} konfirmasi={null} tab={tab} hari={null} pratinjau />
+    <DashboardGathering event={event} lang={lang} member={setelan} sesi={sesi} pengumuman={pengumuman} konfirmasi={null} tab={tab} hari={null} pratinjau waktuPratinjau={waktu} />
   ) : (
     <DashboardModern event={event} lang={lang} member={setelan} sesi={sesi} pengumuman={pengumuman} konfirmasi={null} pratinjau />
   );

@@ -29,7 +29,8 @@ import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/do
 import { kontakPanitia, telHref } from "@/lib/kontak-panitia";
 import { saringBlokPeserta } from "@/lib/sasaran-blok-server";
 import { bacaTautanAgenda } from "@/lib/sasaran-blok";
-import { logoNavPutih, isPortalEntry, landingBlockMemberOnly, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, slotPengumumanHorizon, susunanDenganPortal } from "@/lib/domain";
+import { logoNavPutih, isPortalEntry, landingBlockMemberOnly, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { urutanHorizon } from "@/lib/member/susunan-horizon";
 import { DaftarRuteRingkas, KartuRute } from "@/components/landing/modern/blok-rute";
 import { BukaRuteDariHash } from "@/components/member/buka-rute-dari-hash";
 import { KartuHitungMundur } from "@/components/landing/modern/landing-blocks";
@@ -170,6 +171,7 @@ export async function DashboardGathering({
   hari,
   dari = null,
   pratinjau = false,
+  waktuPratinjau = null,
 }: {
   event: EventRow;
   lang?: LandingLang;
@@ -184,6 +186,8 @@ export async function DashboardGathering({
   dari?: "jadwal" | "perjalanan" | "outfit" | "info" | "profil" | null;
   /** Pratinjau di Participant area: tiap isi Beranda diberi penanda untuk digulir ke sana. */
   pratinjau?: boolean;
+  /** Pratinjau saja: saat yang dipilih di "Preview on" (ms epoch); tanpa itu, saat ini. */
+  waktuPratinjau?: number | null;
 }) {
   const t = PORTAL_UI[lang];
   const p = PESERTA_UI[lang];
@@ -198,7 +202,7 @@ export async function DashboardGathering({
 
   const zona = normalizeTimeZone(event.time_zone);
   const singkatanZona = timeZoneAbbr(zona);
-  const sekarang = new Date();
+  const sekarang = pratinjau && waktuPratinjau ? new Date(waktuPratinjau) : new Date();
   const kini = sekarangDi(zona, sekarang);
   const gaya = gayaPortal(config, horizon);
   const peserta = sesi.participant;
@@ -376,7 +380,10 @@ export async function DashboardGathering({
     ]),
   );
   const beranda = memberHomeOrder(member.home, [...kartuBlok.keys()], true);
-  const diBeranda = (id: string) => !beranda.hidden.has(id);
+  // Mata Participant home dibaca dari simpanan apa adanya: Horizon punya isi yang
+  // tidak dikenal Gathering klasik (Today's outfit, Help card).
+  const tersembunyiBeranda = new Set(member.home?.hidden ?? []);
+  const diBeranda = (id: string) => !tersembunyiBeranda.has(id);
   const { navSections, tampil } = bagianModern(event, config, sectionsHalaman, agendaNav, lang, { gathering: true, adaHotel, hotelIds });
   const menuAtas = (() => {
     const urutan = susunanDenganPortal(config.sections, config.blocks);
@@ -1618,7 +1625,7 @@ export async function DashboardGathering({
 
       // Dresscode hari ini (saat acara) atau tanggal berikutnya (sebelum acara), ikut batch peserta.
       // Sesudah acara tidak lagi berguna, jadi tidak tampil.
-      const outfitBeranda = adaOutfit && fase?.fase !== "sesudah" ? hariOutfitBeranda(hariOutfit, kini.tanggal, besokTanggal, pilihanOutfit) : null;
+      const outfitBeranda = adaOutfit && diBeranda("outfit") && fase?.fase !== "sesudah" ? hariOutfitBeranda(hariOutfit, kini.tanggal, besokTanggal, pilihanOutfit) : null;
       const kartuOutfit = (() => {
         if (!outfitBeranda) return null;
         const bagian = hariOutfit[outfitBeranda.indeks];
@@ -1755,7 +1762,7 @@ export async function DashboardGathering({
         tampilKode && peserta && !kartuPass ? (
           <KartuQrSampingHorizon href={keTab("qr")} judul={t.qrTitle} tombol={tH.qr.showQr} kode={<QrMini code={peserta.qr_code} alt="" />} />
         ) : null;
-      const kartuBantuan = kontakHorizon ? (
+      const kartuBantuan = kontakHorizon && diBeranda("help") ? (
         <KartuBantuanHorizon
           alis={tH.helpCard.eyebrow}
           judul={tH.helpCard.title}
@@ -1766,23 +1773,14 @@ export async function DashboardGathering({
         />
       ) : null;
 
-      // Urutan ponsel (keputusan Mas 20 Okt): Pengumuman di tempat yang disimpan
-      // tiap acara (paling atas, setelah Sekarang dan berikutnya, atau setelah Bus
-      // and room), lalu Sekarang dan berikutnya, dresscode, checkpoint, perjalanan,
-      // blok pilihan panitia, dan kartu bantuan paling bawah. Desktop: kolom utama
-      // dan kolom samping (pengumuman, dresscode, QR) dalam urutan yang sama.
-      const slot = slotPengumumanHorizon(beranda.order);
-      const lainnya = beranda.order.filter((id) => diBeranda(id) && kartuBlok.has(id) && !idRutePerjalanan.has(id));
-      const urutan = [
-        ...(slot === 1 || slot === 2 ? [] : ["announcements"]),
-        "next",
-        ...(slot === 2 ? ["announcements"] : []),
-        "outfit",
-        "checkpoints",
-        "logistics",
-        ...(slot === 1 ? ["announcements"] : []),
-        ...lainnya,
-      ];
+      // Urutan ponsel dari Participant home (lib/member/susunan-horizon.ts, keputusan
+      // Mas 20 Okt): Next up paling atas (hanya Announcements boleh di atasnya), Help
+      // card paling bawah, sisanya diatur panitia; simpanan lama hanya menyimpan tempat
+      // Announcements. Teman sekamar ada di kartu perjalanan, jadi tanpa kartu sendiri.
+      // Desktop: kolom utama dan kolom samping (pengumuman, dresscode, QR).
+      const urutan = urutanHorizon(member.home, [...kartuBlok.keys()]).filter(
+        (id) => id !== "roommates" && id !== "help" && (!kartuBlok.has(id) || (diBeranda(id) && !idRutePerjalanan.has(id))),
+      );
       const isiKartu = (id: string): ReactNode =>
         id === "announcements"
           ? kartuPengumumanHorizon
@@ -1842,7 +1840,11 @@ export async function DashboardGathering({
                 {statusPendaftaran ? <div className="order-[0] lg:order-none">{statusPendaftaran}</div> : null}
                 {urutan.filter((id) => !SAMPING.has(id)).map(susun)}
                 {/* Bantuan selalu paling bawah: di ponsel dan di akhir kolom utama desktop. */}
-                {kartuBantuan ? <div className="order-[999] lg:order-none">{kartuBantuan}</div> : null}
+                {kartuBantuan ? (
+                  <BagianBeranda id="help" pratinjau={pratinjau}>
+                    <div className="order-[999] lg:order-none">{kartuBantuan}</div>
+                  </BagianBeranda>
+                ) : null}
               </div>
               {/* Kolom samping, urutannya tetap (pengumuman, dresscode, QR); tempat
                   Announcements yang disimpan hanya berlaku di ponsel. Menempel saat digulir,
