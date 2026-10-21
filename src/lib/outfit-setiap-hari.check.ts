@@ -4,7 +4,8 @@ import type { LandingMemberConfig } from "./domain.ts";
 import { hariOutfitBeranda, type OutfitEntry } from "./outfit.ts";
 import {
   SETIAP_HARI_ADMIN, bacaOutfitSetiapHari, barisDenganSetiapHari, denganSetiapHari, drafSetiapHari, galatSetiapHari, hariOutfitBerandaSetiapHari, hariTanpaAgenda, isianSetiapHari,
-  keteranganSetiapHari, kirimanSetiapHari, kosongDresscode, lihatSetiapHari, outfitSetiapHariSchema, petunjukSeharian, samaSetiapHari, setiapHariDiTab, tanpaSetiapHariKosong, teksBarisOutfit,
+  keteranganSetiapHari, kirimanSetiapHari, kosongDresscode, lihatSetiapHari, outfitSetiapHariSchema, petunjukApaSetiapHari, petunjukSeharian, samaSetiapHari, setiapHariDiTab, tanpaSetiapHariKosong,
+  teksBarisOutfit,
 } from "./outfit-setiap-hari.ts";
 
 const LABEL = "Setiap hari";
@@ -213,6 +214,23 @@ assert.equal(samaSetiapHari({ what: "Kaos KSO" }, { what: "Kaos KSO", photo_url:
 assert.equal(lihatSetiapHari({ what: " Kaos KSO ", note: "x" }), "Setiap hari · Kaos KSO");
 assert.equal(lihatSetiapHari({ what: " " }), null);
 assert.equal(lihatSetiapHari(undefined), null);
+// Petunjuk What to wear: kosong sementara catatan atau foto masih tampil = peringatan, karena
+// Save changes mengirim null dan keduanya ikut terhapus. Hanya yang masih ada yang disebut.
+const petunjukBiasa = { hint: "Leave empty if there is no dress code for every day" };
+assert.deepEqual(petunjukApaSetiapHari(undefined), petunjukBiasa);
+assert.deepEqual(petunjukApaSetiapHari(tersimpan), petunjukBiasa);
+assert.deepEqual(petunjukApaSetiapHari({ what: "", note: "  " }), petunjukBiasa);
+assert.deepEqual(petunjukApaSetiapHari(drafSetiapHari(tersimpan, { what: "" }, tersimpan)), {
+  hint: "Left empty, Save changes removes Every day, including its note.",
+  warning: true,
+});
+assert.deepEqual(petunjukApaSetiapHari({ what: "  ", photo_url: "https://x.supabase.co/k.jpg" }), {
+  hint: "Left empty, Save changes removes Every day, including its photo.",
+  warning: true,
+});
+const tanpaApa = { what: "", note: "Dibagikan panitia saat ambil badge", photo_url: "https://x.supabase.co/k.jpg" };
+assert.deepEqual(petunjukApaSetiapHari(tanpaApa), { hint: "Left empty, Save changes removes Every day, including its note and photo.", warning: true });
+assert.equal(kirimanSetiapHari(tanpaApa), null);
 
 // Gabungan PATCH Participant area ({ ...tersimpan, ...patch } lalu tanpaSetiapHariKosong),
 // dengan skema kolom yang sama dengan memberSchema.

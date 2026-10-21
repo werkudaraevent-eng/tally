@@ -8,7 +8,7 @@ import { FieldMessages } from "@/components/m3/text-field";
 import type { LandingMemberConfig } from "@/lib/domain";
 import { OUTFIT_BATAS } from "@/lib/outfit";
 import { FOTO_OUTFIT_TERIMA } from "@/lib/outfit-foto";
-import { isianSetiapHari, lihatSetiapHari, type IsianSetiapHari } from "@/lib/outfit-setiap-hari";
+import { isianSetiapHari, lihatSetiapHari, petunjukApaSetiapHari, type IsianSetiapHari } from "@/lib/outfit-setiap-hari";
 
 /**
  * Participant area > Dress code page > Every day (keputusan Mas 21 Okt): satu
@@ -19,7 +19,8 @@ import { isianSetiapHari, lihatSetiapHari, type IsianSetiapHari } from "@/lib/ou
  *
  * Add note dan Add photo baru muncul sesudah What to wear diisi: tanpa What to
  * wear tidak ada yang tersimpan, jadi catatan atau foto yang diisi lebih dulu
- * akan hilang diam-diam saat disimpan.
+ * akan hilang diam-diam saat disimpan. What to wear yang dikosongkan sesudahnya
+ * memperingatkan di kolomnya bahwa catatan dan fotonya ikut terhapus.
  */
 export function KelompokSetiapHari({ nilai, onUbah, labelHalaman, tautanAgenda, unggah, menyimpan, galat, onUnggah }: {
   /** Draf `member.outfit_every_day`. */
@@ -58,9 +59,10 @@ export function KelompokSetiapHari({ nilai, onUbah, labelHalaman, tautanAgenda, 
         optional
         maxLength={OUTFIT_BATAS.what}
         counter
-        hint="Leave empty if there is no dress code for every day"
+        {...petunjukApaSetiapHari(nilai)}
         value={isian.what}
         onChange={(event) => onUbah({ what: event.target.value })}
+        data-setiap-apa=""
       />
       {catatanTampil ? (
         <TextField

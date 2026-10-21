@@ -236,6 +236,18 @@ export function lihatSetiapHari(nilai: unknown): string | null {
 }
 
 /**
+ * Petunjuk kolom What to wear. Kosong berarti tidak ada Every day, jadi catatan
+ * dan foto yang masih tampil ikut terhapus saat Save changes; peringatannya
+ * muncul sebelum disimpan, bukan sesudah keduanya hilang.
+ */
+export function petunjukApaSetiapHari(nilai: unknown): { hint: string; warning?: boolean } {
+  const isian = isianSetiapHari(nilai);
+  const ikut = [isian.note.trim() ? "note" : "", isian.photo_url?.trim() ? "photo" : ""].filter(Boolean);
+  if (isian.what.trim() || ikut.length === 0) return { hint: "Leave empty if there is no dress code for every day" };
+  return { hint: `Left empty, Save changes removes Every day, including its ${ikut.join(" and ")}.`, warning: true };
+}
+
+/**
  * `member` sesudah digabung di PATCH Participant area: Every day yang
  * dikosongkan (null dari skema tulis) dibuang dari simpanan, bukan disimpan null.
  */

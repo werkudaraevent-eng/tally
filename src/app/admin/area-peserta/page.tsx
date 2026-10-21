@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, Warning, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, SelectField, StatusChip, Switch, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { SettingRow } from "@/components/admin/settings-panel";
@@ -161,8 +161,29 @@ export default function AreaPesertaPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
 
+  // ?fokus= dari Agenda › Dress code ("Edit in Participant area", "Rename in
+  // Participant area"): baris Dress code page jauh di bawah Participant home,
+  // jadi kolomnya dibawa ke layar dan difokus, sekali sesudah dimuat. Ke
+  // tengah, bukan ke atas: bagian atas layar tertutup bilah atas yang menempel.
+  const tautanFokus = useRef(false);
+  useEffect(() => {
+    if (!data || tautanFokus.current) return;
+    tautanFokus.current = true;
+    const fokus = new URLSearchParams(window.location.search).get("fokus");
+    const pilih = fokus === "setiap-hari" ? "[data-setiap-apa]" : fokus === "nama-halaman" ? "[data-nama-halaman]" : null;
+    if (!pilih) return;
+    window.requestAnimationFrame(() => {
+      const kolom = document.querySelector<HTMLElement>(pilih);
+      kolom?.scrollIntoView({ block: "center" });
+      kolom?.focus({ preventScroll: true });
+    });
+  }, [data]);
+
   const set = (patch: Partial<LandingMemberConfig>) => setAnggotaState((current) => current && { ...current, ...patch });
   const berubah = Boolean(data && anggota && JSON.stringify(anggota) !== JSON.stringify(data.member));
+  // Untuk meninggalkan halaman, foto Every day yang masih diunggah dihitung
+  // belum disimpan, seperti di Agenda: hasilnya mendarat di draf halaman ini.
+  const belumDisimpan = berubah || unggahFoto;
 
   /** Satu kolom Every day. Isian yang sama persis dengan yang tersimpan kembali ke nilai tersimpan, bukan perubahan. */
   const ubahSetiapHari = (ubah: Partial<IsianSetiapHari>) => {
@@ -377,7 +398,7 @@ export default function AreaPesertaPage() {
                       checkpointsOn={data.checkpoints_on === true}
                       horizon={data.horizon === true}
                       jumlahBlok={data.blocks_count ?? data.blocks.length}
-                      adaPerubahan={berubah}
+                      adaPerubahan={belumDisimpan}
                       set={set}
                       dipilih={pilihKartu ?? sorot?.id ?? null}
                       onPilih={(id) => {
@@ -408,7 +429,7 @@ export default function AreaPesertaPage() {
                             href="/admin/rundown"
                             className={TAUTAN}
                             onClick={(event) => {
-                              if (!berubah) return;
+                              if (!belumDisimpan) return;
                               event.preventDefault();
                               toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
                             }}
@@ -433,6 +454,7 @@ export default function AreaPesertaPage() {
                           // Dikosongkan saat yang tersimpan juga kosong: kembali ke nilai tersimpan, bukan perubahan.
                           set({ outfit_label: nilai.trim() || data.member.outfit_label?.trim() ? nilai : data.member.outfit_label });
                         }}
+                        data-nama-halaman=""
                       />
                     </div>
                   </SettingRow>
@@ -496,7 +518,7 @@ export default function AreaPesertaPage() {
               </ul>
             </SettingRow>
           </PaneBody>
-          <PaneFooter note={berubah ? "Unsaved changes" : null}>
+          <PaneFooter note={belumDisimpan ? "Unsaved changes" : null}>
             {/* Menunggu foto Every day selesai diunggah: tersimpan bersama, bukan mendarat sesudahnya sebagai suntingan baru. */}
             {berubah ? (
               <Button

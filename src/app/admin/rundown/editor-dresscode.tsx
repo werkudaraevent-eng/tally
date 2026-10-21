@@ -780,10 +780,11 @@ export function EditorDresscode({
       <div>
         <h3 id={idJudul} tabIndex={-1} className="text-body-medium font-semibold text-on-surface">Dress code</h3>
         <p className="mt-1 text-body-medium text-on-surface-variant">{tab.name.trim()} only. Other tabs have their own.</p>
-        {/* Nama halaman berlaku untuk seluruh acara, jadi disunting di Participant area, bukan per tab. */}
+        {/* Nama halaman berlaku untuk seluruh acara, jadi disunting di Participant area, bukan per tab.
+            ?fokus=: Participant area membawa kolomnya ke layar, jauh di bawah halaman itu. */}
         <p className="mt-2 text-body-small text-on-surface-variant">
           Participants see the page as <span className="font-medium text-on-surface">{labelHalaman}</span>.{" "}
-          <Link href="/admin/area-peserta" className={TAUTAN}>
+          <Link href="/admin/area-peserta?fokus=nama-halaman" className={TAUTAN}>
             Rename in Participant area
             <ArrowSquareOut size={14} aria-hidden />
           </Link>
@@ -800,7 +801,7 @@ export function EditorDresscode({
               <span className="font-medium text-on-surface">{SETIAP_HARI_ADMIN}:</span> <span className="text-on-surface">{setiapHari.what}</span>
             </p>
             <p className="mt-0.5 text-body-small">{keteranganSetiapHari(adaSeharian)}</p>
-            <Link href="/admin/area-peserta" className={cx("mt-1", TAUTAN)}>
+            <Link href="/admin/area-peserta?fokus=setiap-hari" className={cx("mt-1", TAUTAN)}>
               Edit in Participant area
               <ArrowSquareOut size={14} aria-hidden />
             </Link>
