@@ -177,6 +177,37 @@ export type PortalUiText = {
     travelDetails: (isi: string) => string;
     travelParts: { hotel: string; bus: string; train: string };
     subtitleDates: (tanggal: string, adaKamar: boolean) => string;
+    /**
+     * Beranda "Hari ini" (keputusan Mas 20 Okt): satu judul di ponsel dan
+     * desktop (U-09), dan isi yang berganti sebelum, saat, dan sesudah acara.
+     */
+    home: {
+      heading: (namaDepan: string) => string;
+      /** Fase sesudah tanggal hari ini di atas judul: "Sabtu, 7 November · hari ke-2 dari 3". */
+      dayOf: (hariKe: number, lama: number) => string;
+      inDays: (hari: number) => string;
+      /** `berangkat`: peserta punya info perjalanan (hotel, bus, atau kereta). */
+      tomorrow: (berangkat: boolean) => string;
+      today: (berangkat: boolean) => string;
+      ended: string;
+      timeNote: (zona: string) => string;
+      /** Kartu Sekarang dan berikutnya: tautan ke susunan acara hari itu. */
+      scheduleToday: string;
+      scheduleDay: (hari: string) => string;
+      /** Kartu dresscode: "Lihat semua", dan batch peserta hari ini ("Untuk Batch 2"). */
+      seeAll: string;
+      forGroup: (kelompok: string) => string;
+      /** Kartu Perjalananmu, pengganti kartu perjalanan selama acara. */
+      travelTitle: string;
+      travelLink: string;
+      roommates: (nama: string, jumlah: number) => string;
+      trainNext: (pulang: boolean) => string;
+      /** Fakta kartu perjalanan sebelum berangkat: jam kereta berangkat. */
+      departs: string;
+      /** Kartu pengumuman: label di samping waktunya, dan tautan ke tab Pengumuman. */
+      announcement: string;
+      allAnnouncements: string;
+    };
     /** Layar QR (U-20, U-28, U-02). */
     qr: {
       codeLabel: string;
@@ -312,7 +343,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           besok: (label) => `${label} besok`,
           pertama: (label) => `${label} hari pertama`,
           terakhir: (label) => `${label} hari terakhir`,
-          nanti: (label, hari) => `${label} • ${hari}`,
+          nanti: (label, hari) => `${label} · ${hari}`,
         },
       },
       welcome: "Perjalananmu dimulai di sini",
@@ -372,6 +403,26 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       travelDetails: (isi) => (isi ? `Detail perjalanan: ${isi}` : "Detail perjalanan"),
       travelParts: { hotel: "hotel", bus: "bus", train: "kereta" },
       subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Kamar dan susunan acaramu untuk ${tanggal}.` : `Susunan acaramu untuk ${tanggal}.`),
+      home: {
+        heading: (nama) => `Halo, ${nama}`,
+        dayOf: (hariKe, lama) => `hari ke-${hariKe} dari ${lama}`,
+        inDays: (hari) => `${hari} hari lagi`,
+        tomorrow: (berangkat) => (berangkat ? "besok berangkat" : "acara mulai besok"),
+        today: (berangkat) => (berangkat ? "hari ini berangkat" : "acara mulai hari ini"),
+        ended: "acara sudah selesai",
+        timeNote: (zona) => `Semua jam ${zona}.`,
+        scheduleToday: "Susunan acara hari ini",
+        scheduleDay: (hari) => `Susunan acara ${hari}`,
+        seeAll: "Lihat semua",
+        forGroup: (kelompok) => `Untuk ${kelompok}`,
+        travelTitle: "Perjalananmu",
+        travelLink: "Detail perjalanan",
+        roommates: (nama, jumlah) => `${jumlah > 1 ? "teman-teman sekamar" : "teman sekamar"} ${nama}`,
+        trainNext: (pulang) => (pulang ? "Kereta pulang" : "Kereta berangkat"),
+        departs: "Berangkat",
+        announcement: "Pengumuman",
+        allAnnouncements: "Semua pengumuman",
+      },
       qr: {
         codeLabel: "Kode, bila QR tidak terbaca",
         save: "Simpan QR ke galeri",
@@ -502,7 +553,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           besok: (label) => `Tomorrow's ${label}`,
           pertama: (label) => `Day one ${label}`,
           terakhir: (label) => `Last day ${label}`,
-          nanti: (label, hari) => `${label} • ${hari}`,
+          nanti: (label, hari) => `${label} · ${hari}`,
         },
       },
       welcome: "Your journey starts here",
@@ -562,6 +613,26 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       travelDetails: (isi) => (isi ? `Travel details: ${isi}` : "Travel details"),
       travelParts: { hotel: "hotel", bus: "bus", train: "train" },
       subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Your room and schedule for ${tanggal}.` : `Your schedule for ${tanggal}.`),
+      home: {
+        heading: (nama) => `Hi, ${nama}`,
+        dayOf: (hariKe, lama) => `day ${hariKe} of ${lama}`,
+        inDays: (hari) => `in ${hari} days`,
+        tomorrow: (berangkat) => (berangkat ? "you travel tomorrow" : "starts tomorrow"),
+        today: (berangkat) => (berangkat ? "you travel today" : "starts today"),
+        ended: "the event has ended",
+        timeNote: (zona) => `All times ${zona}.`,
+        scheduleToday: "Today's schedule",
+        scheduleDay: (hari) => `Schedule for ${hari}`,
+        seeAll: "See all",
+        forGroup: (kelompok) => `For ${kelompok}`,
+        travelTitle: "Your trip",
+        travelLink: "Travel details",
+        roommates: (nama, jumlah) => `${jumlah > 1 ? "roommates" : "roommate"} ${nama}`,
+        trainNext: (pulang) => (pulang ? "Return train" : "Outbound train"),
+        departs: "Departs",
+        announcement: "Announcement",
+        allAnnouncements: "All announcements",
+      },
       qr: {
         codeLabel: "Code, if the QR won't scan",
         save: "Save QR to your photos",
