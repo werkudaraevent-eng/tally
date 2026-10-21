@@ -85,8 +85,6 @@ export type PortalUiText = {
       whatsapp: string;
       /** Label aksesibel tombol kontak kru, mis. "Telepon kru Bus 3". */
       contactLabel: (aksi: string, bus: string) => string;
-      /** Baris tiket kereta di Beranda: "Kereta • Kam, 5 Nov". */
-      trainRow: string;
       seatLine: (gerbong: string | null, kursi: string | null) => string | null;
     };
     /**
@@ -123,10 +121,6 @@ export type PortalUiText = {
         nanti: (label: string, hari: string) => string;
       };
     };
-    welcome: string;
-    heading: (namaDepan: string) => string;
-    headingMobile: (namaDepan: string) => string;
-    subtitle: (hari: number) => string;
     participant: string;
     hotel: string;
     /** Kartu tiket kereta (tabel train_tickets). */
@@ -142,7 +136,6 @@ export type PortalUiText = {
     showQr: string;
     enlargeQr: string;
     help: string;
-    roommateTitle: (jumlah: number) => string;
     roomNo: (nomor: string) => string;
     profileAria: string;
     /** Nama aksesibel inisial di bilah atas, memuat teks yang terlihat ("HS, Profil"). */
@@ -157,8 +150,6 @@ export type PortalUiText = {
       until: (jam: string) => string;
       next: string;
       inTime: (menit: number) => string;
-      seeSchedule: (label: string | null) => string;
-      seeDay: (hari: string) => string;
       tripLink: string;
       /** Tautan baris Agenda ke rute yang menautkannya, di Perjalanan. */
       routeLink: string;
@@ -173,10 +164,37 @@ export type PortalUiText = {
     emergency: string;
     /** Tombol peta pada kontak darurat (E-03). */
     emergencyMap: string;
-    /** Fakta pass sebagai tautan ke Perjalanan (U-16): "Detail perjalanan: hotel, bus, kereta". */
-    travelDetails: (isi: string) => string;
-    travelParts: { hotel: string; bus: string; train: string };
-    subtitleDates: (tanggal: string, adaKamar: boolean) => string;
+    /**
+     * Beranda "Hari ini" (keputusan Mas 20 Okt): satu judul di ponsel dan
+     * desktop (U-09), dan isi yang berganti sebelum, saat, dan sesudah acara.
+     */
+    home: {
+      heading: (namaDepan: string) => string;
+      /** Fase sesudah tanggal hari ini di atas judul: "Sabtu, 7 November · hari ke-2 dari 3". */
+      dayOf: (hariKe: number, lama: number) => string;
+      inDays: (hari: number) => string;
+      /** `berangkat`: peserta punya info perjalanan (hotel, bus, atau kereta). */
+      tomorrow: (berangkat: boolean) => string;
+      today: (berangkat: boolean) => string;
+      ended: string;
+      timeNote: (zona: string) => string;
+      /** Kartu Sekarang dan berikutnya: tautan ke susunan acara hari itu. */
+      scheduleToday: string;
+      scheduleDay: (hari: string) => string;
+      /** Kartu dresscode: "Lihat semua", dan batch peserta hari ini ("Untuk Batch 2"). */
+      seeAll: string;
+      forGroup: (kelompok: string) => string;
+      /** Kartu Perjalananmu, pengganti kartu perjalanan selama acara. */
+      travelTitle: string;
+      travelLink: string;
+      roommates: (nama: string, jumlah: number) => string;
+      trainNext: (pulang: boolean) => string;
+      /** Fakta kartu perjalanan sebelum berangkat: jam kereta berangkat. */
+      departs: string;
+      /** Kartu pengumuman: label di samping waktunya, dan tautan ke tab Pengumuman. */
+      announcement: string;
+      allAnnouncements: string;
+    };
     /** Layar QR (U-20, U-28, U-02). */
     qr: {
       codeLabel: string;
@@ -193,7 +211,6 @@ export type PortalUiText = {
     };
     /** Jadwal (U-06, U-01, U-24). */
     schedule: {
-      timeNote: (zona: string) => string;
       part: (n: number) => string;
       partsAria: string;
       /** Bagian milik peserta (Agenda > Who it's for), mis. "Batch 2". */
@@ -292,7 +309,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         call: "Telepon",
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} kru ${bus}`,
-        trainRow: "Kereta",
         seatLine: (gerbong, kursi) => [gerbong ? `Gerbong ${gerbong}` : null, kursi ? `kursi ${kursi}` : null].filter(Boolean).join(", ") || null,
       },
       outfit: {
@@ -312,16 +328,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           besok: (label) => `${label} besok`,
           pertama: (label) => `${label} hari pertama`,
           terakhir: (label) => `${label} hari terakhir`,
-          nanti: (label, hari) => `${label} • ${hari}`,
+          nanti: (label, hari) => `${label} · ${hari}`,
         },
       },
-      welcome: "Perjalananmu dimulai di sini",
-      heading: (nama) => `${nama}, siap bikin cerita baru?`,
-      headingMobile: (nama) => `${nama},\nini perjalananmu.`,
-      subtitle: (hari) =>
-        hari > 0
-          ? `Teman perjalanan dan ${["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh"][hari] ?? hari} hari yang menunggumu.`
-          : "Teman perjalanan dan susunan acara yang menunggumu.",
       participant: "Peserta",
       hotel: "Hotel",
       train: { title: "Tiket kereta", outbound: "Berangkat", return: "Pulang", carriage: "Gerbong", seat: "Kursi", booking: "Kode booking" },
@@ -336,7 +345,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       showQr: "Tampilkan QR kehadiran",
       enlargeQr: "Perbesar",
       help: "Butuh bantuan? Hubungi panitia",
-      roommateTitle: (jumlah) => (jumlah > 1 ? "Teman-teman sekamarmu" : "Teman sekamarmu"),
       roomNo: (nomor) => `Kamar ${nomor}`,
       profileAria: "Profil",
       profileAriaWith: (inisial) => `${inisial}, Profil dan menu`,
@@ -351,8 +359,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           const jam = Math.floor(menit / 60);
           return menit % 60 ? `${jam} jam ${menit % 60} menit lagi` : `${jam} jam lagi`;
         },
-        seeSchedule: (label) => (label ? `Lihat susunan acara ${label}` : "Lihat susunan acara"),
-        seeDay: (hari) => `Lihat susunan acara ${hari}`,
         tripLink: "Bus dan titik kumpul ada di Perjalanan",
         routeLink: "Cara ke sana",
       },
@@ -369,9 +375,26 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       emergency: "Darurat dan bantuan",
       emergencyMap: "Peta",
-      travelDetails: (isi) => (isi ? `Detail perjalanan: ${isi}` : "Detail perjalanan"),
-      travelParts: { hotel: "hotel", bus: "bus", train: "kereta" },
-      subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Kamar dan susunan acaramu untuk ${tanggal}.` : `Susunan acaramu untuk ${tanggal}.`),
+      home: {
+        heading: (nama) => `Halo, ${nama}`,
+        dayOf: (hariKe, lama) => `hari ke-${hariKe} dari ${lama}`,
+        inDays: (hari) => `${hari} hari lagi`,
+        tomorrow: (berangkat) => (berangkat ? "besok berangkat" : "acara mulai besok"),
+        today: (berangkat) => (berangkat ? "hari ini berangkat" : "acara mulai hari ini"),
+        ended: "acara sudah selesai",
+        timeNote: (zona) => `Semua jam ${zona}.`,
+        scheduleToday: "Susunan acara hari ini",
+        scheduleDay: (hari) => `Susunan acara ${hari}`,
+        seeAll: "Lihat semua",
+        forGroup: (kelompok) => `Untuk ${kelompok}`,
+        travelTitle: "Perjalananmu",
+        travelLink: "Detail perjalanan",
+        roommates: (nama, jumlah) => `${jumlah > 1 ? "teman-teman sekamar" : "teman sekamar"} ${nama}`,
+        trainNext: (pulang) => (pulang ? "Kereta pulang" : "Kereta berangkat"),
+        departs: "Berangkat",
+        announcement: "Pengumuman",
+        allAnnouncements: "Semua pengumuman",
+      },
       qr: {
         codeLabel: "Kode, bila QR tidak terbaca",
         save: "Simpan QR ke galeri",
@@ -386,7 +409,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         retry: "Coba lagi",
       },
       schedule: {
-        timeNote: (zona) => `semua jam ${zona}`,
         part: (n) => `Bagian ${n}`,
         partsAria: "Pilih bagian",
         yours: (kelompok) => `Ini jadwalmu. Kamu terdaftar di ${kelompok}.`,
@@ -482,7 +504,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         call: "Call",
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} the ${bus} crew`,
-        trainRow: "Train",
         seatLine: (gerbong, kursi) => [gerbong ? `Carriage ${gerbong}` : null, kursi ? `seat ${kursi}` : null].filter(Boolean).join(", ") || null,
       },
       outfit: {
@@ -502,16 +523,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           besok: (label) => `Tomorrow's ${label}`,
           pertama: (label) => `Day one ${label}`,
           terakhir: (label) => `Last day ${label}`,
-          nanti: (label, hari) => `${label} • ${hari}`,
+          nanti: (label, hari) => `${label} · ${hari}`,
         },
       },
-      welcome: "Your journey starts here",
-      heading: (nama) => `${nama}, ready for a new story?`,
-      headingMobile: (nama) => `${nama},\nthis is your trip.`,
-      subtitle: (hari) =>
-        hari > 0
-          ? `Your travel mates and ${["", "one day", "two days", "three days", "four days", "five days", "six days", "seven days"][hari] ?? `${hari} days`} ahead.`
-          : "Your travel mates and the schedule ahead.",
       participant: "Participant",
       hotel: "Hotel",
       train: { title: "Train tickets", outbound: "Outbound", return: "Return", carriage: "Carriage", seat: "Seat", booking: "Booking code" },
@@ -526,7 +540,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       showQr: "Show attendance QR",
       enlargeQr: "Enlarge",
       help: "Need help? Contact the organisers",
-      roommateTitle: (jumlah) => (jumlah > 1 ? "Your roommates" : "Your roommate"),
       roomNo: (nomor) => `Room ${nomor}`,
       profileAria: "Profile",
       profileAriaWith: (inisial) => `${inisial}, Profile and menu`,
@@ -541,8 +554,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           const jam = Math.floor(menit / 60);
           return menit % 60 ? `in ${jam} h ${menit % 60} min` : `in ${jam} h`;
         },
-        seeSchedule: (label) => (label ? `See the ${label} schedule` : "See the schedule"),
-        seeDay: (hari) => `See ${hari}`,
         tripLink: "Your bus and meeting point are in Travel",
         routeLink: "Getting there",
       },
@@ -559,9 +570,26 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       emergency: "Emergency and help",
       emergencyMap: "Map",
-      travelDetails: (isi) => (isi ? `Travel details: ${isi}` : "Travel details"),
-      travelParts: { hotel: "hotel", bus: "bus", train: "train" },
-      subtitleDates: (tanggal, adaKamar) => (adaKamar ? `Your room and schedule for ${tanggal}.` : `Your schedule for ${tanggal}.`),
+      home: {
+        heading: (nama) => `Hi, ${nama}`,
+        dayOf: (hariKe, lama) => `day ${hariKe} of ${lama}`,
+        inDays: (hari) => `in ${hari} days`,
+        tomorrow: (berangkat) => (berangkat ? "you travel tomorrow" : "starts tomorrow"),
+        today: (berangkat) => (berangkat ? "you travel today" : "starts today"),
+        ended: "the event has ended",
+        timeNote: (zona) => `All times ${zona}.`,
+        scheduleToday: "Today's schedule",
+        scheduleDay: (hari) => `Schedule for ${hari}`,
+        seeAll: "See all",
+        forGroup: (kelompok) => `For ${kelompok}`,
+        travelTitle: "Your trip",
+        travelLink: "Travel details",
+        roommates: (nama, jumlah) => `${jumlah > 1 ? "roommates" : "roommate"} ${nama}`,
+        trainNext: (pulang) => (pulang ? "Return train" : "Outbound train"),
+        departs: "Departs",
+        announcement: "Announcement",
+        allAnnouncements: "All announcements",
+      },
       qr: {
         codeLabel: "Code, if the QR won't scan",
         save: "Save QR to your photos",
@@ -576,7 +604,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         retry: "Try again",
       },
       schedule: {
-        timeNote: (zona) => `all times ${zona}`,
         part: (n) => `Part ${n}`,
         partsAria: "Choose a part",
         yours: (kelompok) => `This is your schedule. You are in ${kelompok}.`,

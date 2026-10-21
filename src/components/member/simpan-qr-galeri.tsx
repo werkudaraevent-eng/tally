@@ -67,7 +67,7 @@ export function SimpanQrGaleri({
           <DownloadSimple size={22} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-[#274FC0]">{teks.eyebrow}</span>
+          <span className="text-[0.8125rem] text-[#4D5D77]">{teks.eyebrow}</span>
           <span className="text-[16px] font-semibold leading-6">{teks.title}</span>
           <span className="text-[14px] leading-5 text-[#526078]">{teks.note}</span>
         </span>

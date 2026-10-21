@@ -55,11 +55,13 @@ type Baris = {
 const MAKS_BLOK = 30;
 
 /**
- * Gathering Horizon menaruh isi bawaan di tempat tetap, urutan ponsel: Next up
- * (Berlangsung dan Berikutnya), panduan checkpoint, Bus and room (pass, tiket),
- * teman sekamar. Yang dipakai dari urutan hanya posisi Announcements, dan
- * urutan blok di bawah. Layar lebar: Next up, Announcements, lalu checkpoint di
- * kolom kanan. Quick links dan Today's agenda tidak dirender, jadi tidak ditawarkan.
+ * Gathering Horizon menaruh isi bawaan di tempat tetap (Beranda "Hari ini",
+ * keputusan Mas 20 Okt), urutan ponsel: Next up (Sekarang dan berikutnya),
+ * dresscode hari ini, checkpoint, Bus and room (kartu perjalanan sebelum
+ * berangkat, Perjalananmu selama acara, dengan teman sekamar di dalamnya), blok,
+ * lalu Hubungi panitia. Yang dipakai dari urutan hanya posisi Announcements, dan
+ * urutan blok. Layar lebar: Announcements dan dresscode di kolom samping. Quick
+ * links dan Today's agenda tidak dirender, jadi tidak ditawarkan.
  */
 const HORIZON_TETAP = ["next", "checkpoints", "logistics", "roommates"] as const;
 const HORIZON_TANPA = ["quick", "agenda"];
@@ -72,12 +74,11 @@ function geser(order: string[], dari: number, ke: number) {
 }
 
 /**
- * Tempat Announcements di Horizon, dihitung persis seperti dashboard: ponsel
- * melihat posisinya terhadap Bus and room, layar lebar terhadap Next up.
- * 0 = paling atas (layar lebar sebelum Next up), 1 = setelah Bus and room,
- * 2 = setelah Next up, 3 = paling atas di ponsel tetapi setelah Next up di
- * layar lebar (urutan lama dari Gathering klasik; dipertahankan sampai admin
- * memindahkannya sendiri).
+ * Tempat Announcements di Horizon di bawah 1024 px, dihitung persis seperti
+ * dashboard (slotPengumumanHorizon): 0 = paling atas, 1 = setelah Bus and
+ * room, 2 = setelah Next up, 3 = urutan lama dari Gathering klasik, juga
+ * paling atas (dipertahankan sampai admin memindahkannya sendiri). Mulai
+ * 1024 px Announcements selalu di kolom samping.
  */
 type SlotPengumuman = SlotPengumumanHorizon;
 
@@ -184,8 +185,9 @@ export function SusunanBeranda({
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
     // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
-    // Horizon di layar lebar: Announcements selalu setelah Next up di kolom kanan. Disebut, bukan diam-diam.
-    const sub = id === "announcements" && diHorizon ? `After Next up on wide screens · ${bawaan?.sub}` : bawaan?.sub ?? "";
+    // Horizon mulai 1024 px: Announcements selalu di kolom samping; tempat yang disimpan berlaku di bawah 1024 px.
+    // Teman sekamar: satu baris di kartu perjalanan selama acara. Disebut, bukan diam-diam.
+    const sub = id === "announcements" && diHorizon ? `Side column on wide screens · ${bawaan?.sub}` : id === "roommates" && diHorizon ? `In the travel card during the event · ${bawaan?.sub}` : bawaan?.sub ?? "";
     if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id), sumber: bawaan.source };
     const block = blocks.find((item) => item.id === id)!;
     const jenis = LANDING_BLOCK_LABELS[block.type];
@@ -327,7 +329,7 @@ export function SusunanBeranda({
       </ol>
       <p className="text-body-small text-on-surface-variant">
         {diHorizon
-          ? "Horizon keeps Checkpoints, Bus and room, Next up and Roommates in fixed places. Drag Announcements to choose where it shows; your blocks follow at the bottom in this order. "
+          ? "Horizon keeps Next up, Checkpoints and Bus and room in fixed places, with today's outfit after Next up and Contact the organisers at the bottom. Drag Announcements to choose where it shows on phones; your blocks follow in this order. "
           : gathering
           ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
           : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}
