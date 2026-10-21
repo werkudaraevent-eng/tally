@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton, TopAppBar } from "@/components/m3";
 import { eventApiPath } from "@/lib/event-url";
+import { klikUlang } from "@/lib/jaga-navigasi";
 import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
 import { cariHalaman, grupDari, navigation } from "@/components/admin/nav-config";
 import { AdminBarSlotsProvider, AdminHeaderScrollProvider, AdminPageProvider } from "@/components/admin/page-context";
@@ -212,6 +213,9 @@ export function AdminShell({
    * lewat seperti biasa.
    */
   function onClickCapture(peristiwa: React.MouseEvent) {
+    // Klik ulang penjaga suntingan sesudah Discard: tujuannya sudah dipilih, dan
+    // ketukan di Discard sudah menutup rel, jadi tautannya dijalankan.
+    if (klikUlang()) return;
     if (bisaHover || !relMenerimaPeek || peeking) return;
     // Tombol sematan dikecualikan. Ia satu-satunya kontrol di rel yang tugasnya
     // memang mengubah rel itu sendiri, dan mencegatnya berarti tablet tidak
