@@ -40,6 +40,22 @@ function daftarKolom(info: InfoSiapaMelihat): Kolom[] {
   ];
 }
 
+/**
+ * Syarat tersimpan yang tidak bisa cocok lagi: kolom atau jawabannya sudah
+ * dihapus, atau bentuknya rusak (kolom kosong). Baris itu tersembunyi dari
+ * semua. Hotel yang gagal dimuat tidak dihitung mati.
+ */
+export function syaratMati(syarat: DrafSyarat | null, info: InfoSiapaMelihat | null): boolean {
+  if (!syarat || !info) return false;
+  const kolom = daftarKolom(info);
+  return syarat.some((isi) => {
+    if (!isi.field || isi.values.length === 0) return true;
+    if (isi.field === KOLOM_HOTEL && info.hotels_failed) return false;
+    const k = kolom.find((x) => x.key === isi.field);
+    return !k || !isi.values.every((v) => k.options.some((o) => samaJawaban(o.value, v)));
+  });
+}
+
 /** "Batch 2 · Gramm Hotel": ringkasan untuk chip baris di daftar jadwal. */
 export function ringkasSyarat(syarat: DrafSyarat, info: InfoSiapaMelihat | null): string {
   const kolom = info ? daftarKolom(info) : [];
@@ -51,17 +67,25 @@ export function ringkasSyarat(syarat: DrafSyarat, info: InfoSiapaMelihat | null)
     .join(" · ");
 }
 
-export function KelompokSiapaMelihat({ info, value, onChange }: { info: InfoSiapaMelihat; value: DrafSyarat | null; onChange: (next: DrafSyarat | null) => void }) {
+/**
+ * `tersimpan`: syarat yang tersimpan untuk baris ini. Selama nilainya belum
+ * disentuh, syarat rusak tersimpan (kolom kosong) dibaca mati, bukan draf yang
+ * belum lengkap. `tombol`: tombol yang menyimpannya (Save item atau Add item).
+ */
+export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "Save item", onChange }: {
+  info: InfoSiapaMelihat;
+  value: DrafSyarat | null;
+  tersimpan?: DrafSyarat | null;
+  tombol?: string;
+  onChange: (next: DrafSyarat | null) => void;
+}) {
   const kolom = daftarKolom(info);
   const TAUTAN = "inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline";
   const lengkap = syaratLengkap(value);
   // Kolom atau jawaban tersimpan yang sudah dihapus: baris tersembunyi dari semua.
-  const hilang = Boolean(value?.some((isi) => {
-    if (!isi.field) return false;
-    if (isi.field === KOLOM_HOTEL && info.hotels_failed) return false;
-    const k = kolom.find((x) => x.key === isi.field);
-    return !k || !isi.values.every((v) => k.options.some((o) => samaJawaban(o.value, v)));
-  }));
+  // Syarat yang sedang diisi (kolom belum dipilih) belum lengkap, bukan mati.
+  const belumDisentuh = tersimpan !== null && JSON.stringify(value) === JSON.stringify(tersimpan);
+  const hilang = syaratMati(belumDisentuh ? value : value?.filter((isi) => isi.field) ?? null, info);
   const pakaiHotel = Boolean(value?.some((isi) => isi.field === KOLOM_HOTEL));
 
   // Hitungan peserta yang cocok, dari server dengan aturan yang sama dengan portal.
@@ -102,7 +126,7 @@ export function KelompokSiapaMelihat({ info, value, onChange }: { info: InfoSiap
   return (
     <Kelompok
       title="Who sees it"
-      note={info.available && kolom.length > 0 ? "Limit this row to some participants. Everyone else doesn't see it, and it is never on the public page, the rundown screen or badges. Saved with Save item." : undefined}
+      note={info.available && kolom.length > 0 ? `Limit this row to some participants. Everyone else doesn't see it, and it is never on the public page, the rundown screen or badges. Saved with ${tombol}.` : undefined}
     >
       {!info.available ? (
         <p className="text-body-medium text-on-surface-variant">Who sees it needs a database update first (migration 202610210001).</p>
@@ -170,7 +194,7 @@ export function KelompokSiapaMelihat({ info, value, onChange }: { info: InfoSiap
                 );
               })}
               {value.length < SYARAT_MAX && sisaKolom.length > 0 ? (
-                <Button variant="text" size="sm" icon={<Plus size={16} />} className="self-start" onClick={() => onChange([...value, { field: "", values: [] }])}>
+                <Button variant="text" icon={<Plus size={16} />} className="self-start" onClick={() => onChange([...value, { field: "", values: [] }])}>
                   Add condition
                 </Button>
               ) : null}

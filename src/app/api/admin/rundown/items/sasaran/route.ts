@@ -4,8 +4,9 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { semuaBaris } from "@/lib/logistik/server";
 import { memberConfig } from "@/lib/member/account";
 import { kolomOutfitBelumAda } from "@/lib/outfit";
-import { jawabanPeserta, kolomSasaran, SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
-import { bacaSyaratBaris, barisUntukPeserta, SYARAT_MAX, type SyaratBaris } from "@/lib/sasaran-baris";
+import { jawabanPeserta, kolomSasaran } from "@/lib/sasaran-bagian";
+import { bacaSyaratBaris, barisUntukPeserta } from "@/lib/sasaran-baris";
+import { muatHotel, periksaSyarat, syaratSchema } from "@/lib/sasaran-baris-server";
 import { KOLOM_HOTEL } from "@/lib/sasaran-blok";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -17,56 +18,12 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 // (PATCH), bukan CMS Agenda yang gagal dimuat.
 //
 //   GET    syarat tiap baris, kolom peserta yang bisa dipakai, dan hotel Logistics
-//   PATCH  {id, audience}: simpan syarat satu baris (null = semua)
+//   PATCH  {id, audience}: simpan syarat satu baris (null = semua). New item
+//          menyimpan syaratnya lewat POST /api/admin/rundown/items.
 //   POST   {audience}: berapa peserta yang cocok, untuk hitungan di editor
-
-const syaratSchema = z
-  .array(
-    z.object({
-      field: z.string().regex(/^([a-z0-9_]{1,64}|@hotel)$/),
-      values: z.array(z.string().trim().min(1).max(SASARAN_NILAI_PANJANG)).min(1).max(SASARAN_NILAI_MAX),
-    }),
-  )
-  .min(1)
-  .max(SYARAT_MAX)
-  .nullable();
 
 const patchSchema = z.object({ id: z.number().int().positive(), audience: syaratSchema });
 const hitungSchema = z.object({ audience: syaratSchema });
-
-type Hotel = { id: number; name: string };
-
-async function muatHotel(eventId: string): Promise<Hotel[] | null> {
-  const { data, error } = await getSupabaseServiceClient().from("lodging_hotels").select("id,name,sort_order").eq("event_id", eventId).order("sort_order").order("id");
-  return error ? null : ((data ?? []) as unknown as Hotel[]).map(({ id, name }) => ({ id, name }));
-}
-
-/**
- * Syarat kiriman yang sah untuk acara ini: hanya kolom pilihan acara ini dan
- * pilihannya, atau hotel acara ini, dan satu syarat per kolom. Kolom lain bisa
- * menampilkan jawaban kolom staf yang tidak dimaksudkan, jadi ditolak.
- */
-function syaratSah(
-  audience: z.infer<typeof syaratSchema>,
-  config: unknown,
-  hotels: Hotel[],
-): { syarat: SyaratBaris | null } | { galat: string } {
-  if (!audience) return { syarat: null };
-  const kolom = kolomSasaran(config);
-  const dipakai = new Set<string>();
-  for (const isi of audience) {
-    if (dipakai.has(isi.field)) return { galat: "Each field can be used in one condition only." };
-    dipakai.add(isi.field);
-    if (isi.field === KOLOM_HOTEL) {
-      if (!isi.values.every((nilai) => hotels.some((hotel) => String(hotel.id) === nilai))) return { galat: "That hotel is no longer in Logistics. Reload the page." };
-      continue;
-    }
-    const pilihan = kolom.find((k) => k.key === isi.field);
-    if (!pilihan) return { galat: "That participant field no longer exists. Reload the page." };
-    if (!isi.values.every((nilai) => pilihan.options.includes(nilai))) return { galat: "That answer is no longer in the participant field. Reload the page." };
-  }
-  return { syarat: bacaSyaratBaris(audience) };
-}
 
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
@@ -104,10 +61,8 @@ export async function PATCH(request: Request) {
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const { id } = parsed.data;
-  const hotels = parsed.data.audience?.some((isi) => isi.field === KOLOM_HOTEL) ? await muatHotel(event.id) : [];
-  if (hotels === null) return apiError("INTERNAL_ERROR", 500);
-  const sah = syaratSah(parsed.data.audience, event.registration_form_config, hotels);
-  if ("galat" in sah) return apiError("VALIDATION_ERROR", 422, { message: sah.galat });
+  const sah = await periksaSyarat(parsed.data.audience, event);
+  if ("galat" in sah) return sah.galat ? apiError("VALIDATION_ERROR", 422, { message: sah.galat }) : apiError("INTERNAL_ERROR", 500);
 
   const client = getSupabaseServiceClient();
   const { data: current, error: galatBaca } = await client.from("rundown_items").select("id,audience").eq("event_id", event.id).eq("id", id).maybeSingle();
@@ -143,7 +98,8 @@ export async function PATCH(request: Request) {
  * seperti di portal.
  */
 export async function POST(request: Request) {
-  const auth = await requireRequestEvent(request, ["admin"]);
+  // Hanya membaca: hitungan tetap jalan di acara Completed atau Archived.
+  const auth = await requireRequestEvent(request, ["admin"], { readOnly: true });
   if (auth.response) return auth.response;
   const event = auth.scope.event;
 
