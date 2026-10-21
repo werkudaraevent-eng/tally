@@ -14,6 +14,8 @@ import { hrefTrip, jamBerangkatBaru, kalimatHapus, kapanBerangkat, selisihMenit,
 import type { EventTimeZone } from "@/lib/timezone";
 import { bacaSasaran, type KolomSasaran, type SasaranBagian } from "@/lib/sasaran-bagian";
 import { OUTFIT_MAX, alasanDaftarOutfit, cekDaftarOutfit, labelOutfit, labelTabOutfit, tabTerlihatOutfit, type OutfitEntry } from "@/lib/outfit";
+import { FOTO_OUTFIT_SALAH, fotoOutfitSah, unggahFotoOutfit } from "@/lib/outfit-foto";
+import { bacaOutfitSetiapHari, setiapHariDiTab, type OutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { bandingkanBagian, bandingkanBaris, geserBagian, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal } from "@/lib/rundown-urutan";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -83,12 +85,11 @@ function fokusSekarang(): HTMLElement | null {
  * Dress code dari /api/admin/rundown/sections/outfit. `available` false: kolomnya
  * belum ada (migrasi 202610160001 belum dijalankan). `horizon`: Dress code hanya
  * tampil untuk preset Gathering Horizon, satu-satunya portal yang punya
- * halamannya. `label`: nama halaman, disunting di Participant area.
+ * halamannya. `label`: nama halaman, dan `every_day`: dress code Every day
+ * seluruh acara; keduanya disunting di Participant area, di sini hanya dibaca.
  */
-type OutfitInfo = { available: boolean; horizon: boolean; label: string | null };
+type OutfitInfo = { available: boolean; horizon: boolean; label: string | null; every_day: OutfitSetiapHari | null };
 
-/** Endpoint unggah menjawab dalam bahasa Indonesia; admin membaca ini. */
-const FOTO_SALAH = "The photo must be a JPG, PNG or WebP up to 5 MB.";
 /** Dress code: permintaan yang tidak mendapat jawaban sama sekali. */
 const CEK_KONEKSI = "Check your connection and try again.";
 
@@ -267,12 +268,14 @@ export default function RundownAdminPage() {
     // Gagal dimuat: baris Dress code menyebutnya dengan Try again; sisa halaman tetap berjalan.
     setOutfitMuat("memuat");
     const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), { cache: "no-store" }).catch(() => null);
-    const data = response?.ok ? ((await response.json().catch(() => null)) as (OutfitInfo & { sections: Array<{ id: number; outfit: OutfitEntry[] }> }) | null) : null;
+    const data = response?.ok
+      ? ((await response.json().catch(() => null)) as (Omit<OutfitInfo, "every_day"> & { every_day?: unknown; sections: Array<{ id: number; outfit: OutfitEntry[] }> }) | null)
+      : null;
     if (!data) {
       setOutfitMuat("gagal");
       return;
     }
-    setOutfitInfo({ available: data.available, horizon: data.horizon, label: data.label });
+    setOutfitInfo({ available: data.available, horizon: data.horizon, label: data.label, every_day: bacaOutfitSetiapHari(data.every_day) });
     setOutfitSaved(Object.fromEntries(data.sections.map((row) => [row.id, row.outfit])));
     setOutfitMuat("siap");
   }
@@ -796,38 +799,33 @@ export default function RundownAdminPage() {
     if (baris) setOutfitSaved((kini) => ({ ...kini, [id]: baris.outfit }));
   }
 
-  /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk draf sampai Save dress code. */
+  /**
+   * Foto contoh lewat endpoint unggah yang sama dengan latar header (lib/outfit-foto.ts,
+   * juga dipakai Every day di Participant area); masuk draf sampai Save dress code.
+   */
   async function uploadFotoDresscode(kunci: string, file: File) {
     if (!active) return;
     const id = active.id;
     // Diperiksa di sini dulu: berkas yang salah tidak perlu diunggah untuk ditolak.
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size === 0 || file.size > 5 * 1024 * 1024) {
-      gagalPanel("Photo not uploaded", FOTO_SALAH);
+    if (!fotoOutfitSah(file)) {
+      gagalPanel("Photo not uploaded", FOTO_OUTFIT_SALAH);
       return;
     }
     const sesiAwal = sesiForm.current;
     setUploadingOutfit({ bagian: id, kunci }); setError(""); setGalatPanel(null);
-    const form = new FormData();
-    form.append("file", file);
-    const response = await fetch("/api/display/background", { method: "POST", body: form }).catch(() => null);
-    const data = response ? await response.json().catch(() => null) : null;
+    const hasil = await unggahFotoOutfit(file);
     // Dress code ini dibuang (Discard) atau bagiannya dihapus selama unggahan berjalan: hasilnya ikut dibuang.
     if (sesiAwal !== sesiForm.current) return;
     setUploadingOutfit(null);
-    if (!response?.ok) {
-      // 422 berbahasa Indonesia, kecuali batas piksel yang sudah English dan lebih tepat.
-      const pesan = data?.error?.details?.file;
-      gagalPanel(
-        "Photo not uploaded",
-        !response ? CEK_KONEKSI : response.status === 422 ? (typeof pesan === "string" && pesan.startsWith("Images can be") ? pesan : FOTO_SALAH) : failureMessage(data ?? {}, "The photo was not uploaded. Try again."),
-      );
+    if ("galat" in hasil) {
+      gagalPanel("Photo not uploaded", hasil.galat);
       return;
     }
     // Hanya foto kartu ini, di draf terkini: yang diketik selama unggahan tetap
     // ada. outfitSaved dari render ini masih berlaku karena unggahan berjalan
     // satu per satu (Add photo mati di semua kartu) dan Save dress code
     // menunggunya selesai.
-    const url = data.url as string;
+    const url = hasil.url;
     setOutfitDrafts((kini) => ({ ...kini, [id]: (kini[id] ?? keDraf(outfitSaved[id] ?? [])).map((isi) => (isi.kunci === kunci ? { ...isi, photo_url: url } : isi)) }));
     toast.info("Photo uploaded", "Select Save dress code to show it to participants.");
   }
@@ -891,6 +889,7 @@ export default function RundownAdminPage() {
       terlihat: terlihat(id),
       siapa: sasaranSaved[id]?.values ?? [],
       tanggal: tersimpan?.event_date ?? section.event_date,
+      setiapHari: Boolean(outfitInfo?.every_day),
     }));
   }
 
@@ -1139,6 +1138,8 @@ export default function RundownAdminPage() {
             const row = barisTersimpan.get(id);
             return row && row.section_id === active.id ? row : null;
           })}
+          // Every day tampil seperti dibaca peserta: tidak, bila tab punya Whole day tersimpan sendiri.
+          setiap={setiapHariDiTab(outfitSaved[active.id] ?? [], outfitInfo?.every_day)?.what ?? null}
           labelTab={(sections.find((row) => row.id === active.id)?.name ?? active.name).trim()}
           dipilih={panelAktif === "dresscode"}
           belum={dcBerubah(active.id) || uploadingOutfit?.bagian === active.id}
@@ -1517,6 +1518,7 @@ export default function RundownAdminPage() {
       tab={{ id: active.id, name: tabDc.name }}
       labelHalaman={labelOutfit(outfitInfo?.label)}
       labelBatch={labelTabOutfit(sections, active.id, tabTerlihat)}
+      setiapHari={outfitInfo?.every_day ?? null}
       daftar={drafDc(active.id)}
       onUbah={(next) => setOutfitDrafts((kini) => ({ ...kini, [active.id]: next }))}
       baris={barisTab(active.id)}

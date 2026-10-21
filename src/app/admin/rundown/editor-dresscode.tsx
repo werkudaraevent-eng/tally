@@ -2,6 +2,7 @@
 
 import { ArrowSquareOut, CaretDown, Check, CoatHanger, DeviceMobile, Info, MagnifyingGlass, Plus, Trash, Warning } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { FotoDresscode } from "@/components/admin/foto-dresscode";
 import { KELAS_OPSI } from "@/components/admin/logistik/pilih-baris-agenda";
 import Link from "@/components/event-link";
 import { Banner, Button, ListRow, Popover, Skeleton, StatusChip, TextField, usePopoverAnchor, type PopoverAnchor } from "@/components/m3";
@@ -9,6 +10,7 @@ import { cocokCari, daftarNama, hariPendek } from "@/lib/logistik/trip-agenda";
 import { cx } from "@/lib/m3/cx";
 import { labelPembeda } from "@/lib/member/hari-agenda";
 import { OUTFIT_BATAS, OUTFIT_MAX, bagianOutfitTanggal, jenisOutfit, teksWaktuOutfit, type JenisOutfit, type OutfitEntry } from "@/lib/outfit";
+import { SETIAP_HARI_ADMIN, barisDenganSetiapHari, keteranganSetiapHari, kosongDresscode, petunjukSeharian, type OutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { plural } from "@/lib/plural";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { bandingkanBagian } from "@/lib/rundown-urutan";
@@ -140,9 +142,12 @@ export function bannerDresscode({ tab, tabs, terlihat, bersasaran, jumlahIsian }
   return { jenis: "bersama", tanggal: hariPendek(tab.event_date), jumlah: sama.length, tab: label };
 }
 
-/** Keterangan toast sesudah disimpan, dari keadaan tab yang tersimpan. */
-export function keteranganTersimpan({ jumlah, terbit, terlihat, siapa, tanggal }: { jumlah: number; terbit: boolean; terlihat: boolean; siapa: string[]; tanggal: string }): string {
-  if (jumlah === 0) return "This tab has no dress code now.";
+/**
+ * Keterangan toast sesudah disimpan, dari keadaan tab yang tersimpan.
+ * `setiapHari`: acara punya Every day, jadi tab tanpa baris tetap punya pakaian.
+ */
+export function keteranganTersimpan({ jumlah, terbit, terlihat, siapa, tanggal, setiapHari = false }: { jumlah: number; terbit: boolean; terlihat: boolean; siapa: string[]; tanggal: string; setiapHari?: boolean }): string {
+  if (jumlah === 0) return setiapHari ? "This tab now shows only the every-day dress code." : "This tab has no dress code now.";
   if (!terbit) return "Participants see it once Show on public page is on for this tab.";
   if (!terlihat) return "Participants see it once this tab has an item on the public page.";
   return siapa.length ? `${daftarNama(siapa)} participants see it on ${hariPendek(tanggal)}.` : `Participants see it on ${hariPendek(tanggal)}.`;
@@ -152,11 +157,14 @@ export function keteranganTersimpan({ jumlah, terbit, terlihat, siapa, tanggal }
  * Baris Dress code di antara kepala panel Schedule dan daftarnya, jadi tidak
  * ikut tergulir. Selalu menampilkan yang tersimpan (yang dibaca peserta);
  * suntingan yang belum disimpan hanya ditandai. Seluruh barisnya satu tombol.
- * `baris`: daftar yang dirender; baris hanya-baca bisa ditaruh di depannya.
+ * `baris`: baris tab sendiri. `setiap`: pakaian Every day bila tampil di tab
+ * ini (setiapHariDiTab), baris pertama yang hanya dibaca; Add dan Edit tetap
+ * mengikuti baris tab sendiri.
  */
-export function BarisDresscode({ keadaan, baris, labelTab, dipilih, belum, onBuka, onCobaLagi }: {
+export function BarisDresscode({ keadaan, baris, setiap, labelTab, dipilih, belum, onBuka, onCobaLagi }: {
   keadaan: "memuat" | "gagal" | "siap";
   baris: RingkasDc[];
+  setiap: string | null;
   labelTab: string;
   dipilih: boolean;
   belum: boolean;
@@ -189,9 +197,11 @@ export function BarisDresscode({ keadaan, baris, labelTab, dipilih, belum, onBuk
       </div>
     );
   }
-  const ringkas = baris.map((isi) => `${isi.untuk}, ${isi.apa}`).join("; ");
-  const nama = baris.length > 0
-    ? `Dress code for ${labelTab}: ${ringkas}.${belum ? " Unsaved changes." : ""} Edit`
+  const tampil = barisDenganSetiapHari(baris, setiap);
+  const aksi = baris.length > 0 || belum ? "Edit" : "Add";
+  const ringkas = tampil.map((isi) => `${isi.untuk}, ${isi.apa}`).join("; ");
+  const nama = tampil.length > 0
+    ? `Dress code for ${labelTab}: ${ringkas}.${belum ? " Unsaved changes." : ""} ${aksi}`
     : belum ? `Dress code for ${labelTab}: none saved yet. Unsaved changes. Edit` : `Add a dress code for ${labelTab}`;
   const tandaBelum = (kelas: string) => (belum ? <StatusChip tone="warning" className={kelas}>Unsaved changes</StatusChip> : null);
   return (
@@ -202,8 +212,8 @@ export function BarisDresscode({ keadaan, baris, labelTab, dipilih, belum, onBuk
       <ListRow selected={dipilih} onSelect={onBuka} label={nama} className={cx("@container items-start py-3", !dipilih && "bg-surface-container-high")}>
         {judul}
         <span className="flex min-w-0 flex-1 flex-col gap-1">
-          {baris.length > 0 ? (
-            baris.map((isi, indeks) => (
+          {tampil.length > 0 ? (
+            tampil.map((isi, indeks) => (
               // Mulai 640px dipotong satu baris; di ponsel dibiarkan membungkus.
               <span key={indeks} className="block min-w-0 sm:truncate">
                 <span className="text-on-surface-variant">{isi.untuk}</span>
@@ -219,7 +229,7 @@ export function BarisDresscode({ keadaan, baris, labelTab, dipilih, belum, onBuk
           {tandaBelum("self-start max-w-full! @lg:hidden")}
         </span>
         {tandaBelum("@max-lg:hidden")}
-        <span className="shrink-0 font-medium text-primary">{baris.length > 0 || belum ? "Edit" : "Add"}</span>
+        <span className="shrink-0 font-medium text-primary">{aksi}</span>
       </ListRow>
     </div>
   );
@@ -433,10 +443,12 @@ function fokusKartu(kunci: string, kolom: "apa" | "nama" | "catatan") {
   window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${kunci}"] [data-dresscode-${kolom}]`)?.focus(), 0);
 }
 
-function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, seharianBebas, seharianGanda, tautanTersimpan, coba, unggah, adaUnggah, menyimpan, onUbah, onHapus, onUnggah }: {
+function KartuDresscode({ draf, labelHalaman, labelBatch, setiapHari, baris, dipakai, seharianBebas, seharianGanda, tautanTersimpan, coba, unggah, adaUnggah, menyimpan, onUbah, onHapus, onUnggah }: {
   draf: DrafDresscode;
   labelHalaman: string;
   labelBatch: string | null;
+  /** Every day acara ini: petunjuk Whole day menyebut bahwa baris ini menggantikannya. */
+  setiapHari: OutfitSetiapHari | null;
   /** Baris berjudul tab ini, urut jam mulai. */
   baris: readonly BarisDc[];
   dipakai: ReadonlySet<number>;
@@ -545,7 +557,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
           }}
         />
       ) : null}
-      {draf.jenis === "seharian" ? <p className="-mt-2 text-body-small text-on-surface-variant">Covers the whole of this tab. Other tabs need their own.</p> : null}
+      {draf.jenis === "seharian" ? <p className="-mt-2 text-body-small text-on-surface-variant">{petunjukSeharian(setiapHari)}</p> : null}
       {peringatan ? (
         <p className="flex items-start gap-1.5 text-body-small font-medium text-warning">
           <Warning size={16} className="mt-px shrink-0" aria-hidden />
@@ -601,11 +613,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
         }}
       />
       {draf.photo_url ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span aria-hidden className="h-15 w-12 shrink-0 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${draf.photo_url})` }} />
-          <Button variant="outlined" size="sm" loading={unggah} disabled={adaUnggah || menyimpan} onClick={() => berkas.current?.click()}>Replace photo</Button>
-          <Button variant="text" size="sm" className="text-error" disabled={unggah} onClick={() => onUbah({ photo_url: null })}>Remove photo</Button>
-        </div>
+        <FotoDresscode url={draf.photo_url} unggah={unggah} mati={adaUnggah || menyimpan} onGanti={() => berkas.current?.click()} onHapus={() => onUbah({ photo_url: null })} />
       ) : null}
       {!catatanTampil || !draf.photo_url ? (
         <div className="-my-1 -ml-3 flex flex-wrap items-center gap-1">
@@ -645,12 +653,14 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
  * jadi hasil unggahan yang tiba belakangan mendarat di kartu yang benar.
  */
 export function EditorDresscode({
-  idJudul, tab, labelHalaman, labelBatch, daftar, onUbah, baris, tautanTersimpan, banner, tabLain, coba, unggah, menyimpan, onUnggah, onBukaBagian, onBukaTab,
+  idJudul, tab, labelHalaman, labelBatch, setiapHari, daftar, onUbah, baris, tautanTersimpan, banner, tabLain, coba, unggah, menyimpan, onUnggah, onBukaBagian, onBukaTab,
 }: {
   idJudul: string;
   tab: { id: number; name: string };
   labelHalaman: string;
   labelBatch: string | null;
+  /** Every day acara ini (Participant area), atau null. Hanya dibaca di sini. */
+  setiapHari: OutfitSetiapHari | null;
   daftar: DrafDresscode[];
   onUbah: (daftar: DrafDresscode[]) => void;
   /** Baris tab ini seperti tersimpan, urut jam mulai. */
@@ -675,6 +685,7 @@ export function EditorDresscode({
   const berjudul = baris.filter((item) => item.title.trim());
   const adaSeharian = daftar.some((isi) => isi.jenis === "seharian");
   const penuh = daftar.length >= OUTFIT_MAX;
+  const kosong = kosongDresscode(setiapHari);
   const tertaut = (kecuali?: string) => new Set(daftar.flatMap((isi) => (isi.kunci !== kecuali && isi.jenis === "baris" && isi.item_id !== null ? [isi.item_id] : [])));
 
   function ubahKartu(kunci: string, perubahan: Partial<DrafDresscode>) {
@@ -769,23 +780,39 @@ export function EditorDresscode({
       <div>
         <h3 id={idJudul} tabIndex={-1} className="text-body-medium font-semibold text-on-surface">Dress code</h3>
         <p className="mt-1 text-body-medium text-on-surface-variant">{tab.name.trim()} only. Other tabs have their own.</p>
-        {/* Nama halaman berlaku untuk seluruh acara, jadi disunting di Participant area, bukan per tab. */}
+        {/* Nama halaman berlaku untuk seluruh acara, jadi disunting di Participant area, bukan per tab.
+            ?fokus=: Participant area membawa kolomnya ke layar, jauh di bawah halaman itu. */}
         <p className="mt-2 text-body-small text-on-surface-variant">
           Participants see the page as <span className="font-medium text-on-surface">{labelHalaman}</span>.{" "}
-          <Link href="/admin/area-peserta" className={TAUTAN}>
+          <Link href="/admin/area-peserta?fokus=nama-halaman" className={TAUTAN}>
             Rename in Participant area
             <ArrowSquareOut size={14} aria-hidden />
           </Link>
         </p>
       </div>
       {banners}
+      {setiapHari ? (
+        // Satu baris untuk seluruh acara punya satu tempat sunting (Participant
+        // area); di sini hanya dibaca, dengan apakah tab ini menampilkannya.
+        <div className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant">
+          <CoatHanger size={16} className="mt-0.5 shrink-0" aria-hidden />
+          <div className="min-w-0">
+            <p>
+              <span className="font-medium text-on-surface">{SETIAP_HARI_ADMIN}:</span> <span className="text-on-surface">{setiapHari.what}</span>
+            </p>
+            <p className="mt-0.5 text-body-small">{keteranganSetiapHari(adaSeharian)}</p>
+            <Link href="/admin/area-peserta?fokus=setiap-hari" className={cx("mt-1", TAUTAN)}>
+              Edit in Participant area
+              <ArrowSquareOut size={14} aria-hidden />
+            </Link>
+          </div>
+        </div>
+      ) : null}
       {tampil.length === 0 ? (
         <div className="flex flex-col gap-3 rounded-lg border border-outline-variant p-4">
           <div>
-            <p className="text-body-medium font-semibold text-on-surface">No dress code for this tab yet</p>
-            <p className="mt-1 text-body-medium text-on-surface-variant">
-              Add one for the whole day, or for one of this tab’s agenda items. Participants see it above this day in their schedule.
-            </p>
+            <p className="text-body-medium font-semibold text-on-surface">{kosong.judul}</p>
+            <p className="mt-1 text-body-medium text-on-surface-variant">{kosong.teks}</p>
           </div>
           {tombolTambah}
         </div>
@@ -797,6 +824,7 @@ export function EditorDresscode({
               draf={isi}
               labelHalaman={labelHalaman}
               labelBatch={labelBatch}
+              setiapHari={setiapHari}
               baris={berjudul}
               dipakai={tertaut(isi.kunci)}
               seharianBebas={!adaSeharian}

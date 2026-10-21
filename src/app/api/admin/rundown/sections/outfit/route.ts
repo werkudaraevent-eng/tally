@@ -4,6 +4,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { gatheringHorizon, type EventLandingConfig } from "@/lib/domain";
 import { bacaOutfit, kolomOutfitBelumAda, outfitSchema, tautkanOutfit, type BarisOutfit } from "@/lib/outfit";
 import { konteksTautan } from "@/lib/outfit-server";
+import { bacaOutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Outfit per bagian Agenda (kolom rundown_sections.outfit, migrasi 202610160001).
@@ -22,12 +23,16 @@ const patchSchema = z.object({
 /** 422 dengan alasan yang dibaca admin di kaki panel dan toast. */
 const tolak = (message: string) => apiError("VALIDATION_ERROR", 422, { message });
 
-/** Outfit tiap bagian event ini, label halamannya, dan apakah acaranya Gathering Horizon. */
+/**
+ * Outfit tiap bagian event ini, label halamannya, Every day seluruh acara
+ * (keduanya dari Participant area, hanya dibaca di Agenda), dan apakah acaranya
+ * Gathering Horizon.
+ */
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const landing = (auth.scope.event.landing_config ?? {}) as EventLandingConfig;
-  const dasar = { horizon: gatheringHorizon(landing), label: landing.member?.outfit_label ?? null };
+  const dasar = { horizon: gatheringHorizon(landing), label: landing.member?.outfit_label ?? null, every_day: bacaOutfitSetiapHari(landing.member?.outfit_every_day) };
 
   const { data, error } = await getSupabaseServiceClient().from("rundown_sections").select("id,outfit").eq("event_id", auth.scope.event.id);
   if (error) {
