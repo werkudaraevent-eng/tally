@@ -13,7 +13,7 @@ import { eventApiPath } from "@/lib/event-url";
 import { hrefTrip, jamBerangkatBaru, kalimatHapus, kapanBerangkat, selisihMenit, type TripTertaut } from "@/lib/logistik/trip-agenda";
 import type { EventTimeZone } from "@/lib/timezone";
 import { bacaSasaran, type KolomSasaran, type SasaranBagian } from "@/lib/sasaran-bagian";
-import { OUTFIT_BATAS, OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, OUTFIT_MAX, type OutfitEntry } from "@/lib/outfit";
+import { OUTFIT_MAX, alasanDaftarOutfit, cekDaftarOutfit, labelOutfit, labelTabOutfit, tabTerlihatOutfit, type OutfitEntry } from "@/lib/outfit";
 import { bandingkanBagian, bandingkanBaris, geserBagian, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal } from "@/lib/rundown-urutan";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -29,6 +29,10 @@ import {
   adaBeda, drafBaruBerubah, formTerbuka, judulBuang, keteranganBuang, kunciForm, lapisanSisa, sisaSunting, type DrafBaru, type FormAgenda, type Panel,
 } from "@/lib/agenda-simpan-aman";
 import { useJagaNavigasi } from "@/lib/jaga-navigasi";
+import {
+  BarisDresscode, CatatanDresscodeBaris, EditorDresscode, bannerDresscode, drafKurang, kartuBaru, keDraf, keKiriman, keteranganTersimpan, ringkasDresscode, samaDraf, urutDraf,
+  type BarisDc, type DrafDresscode,
+} from "./editor-dresscode";
 
 // CMS rundown acara. Supporting pane: jadwal bagian aktif di panel utama,
 // penyunting di panel kanan (baris terpilih, setelan bagian, header publik).
@@ -75,15 +79,18 @@ function fokusSekarang(): HTMLElement | null {
   return document.activeElement instanceof HTMLElement ? document.activeElement : null;
 }
 
-/** Satu isian Outfit yang sedang disunting. Teks kosong = tidak diisi. */
-type OutfitDraft = { when: string; what: string; note: string; photo_url: string | null };
 /**
- * Outfit dari /api/admin/rundown/sections/outfit. `available` false: kolomnya
- * belum ada (migrasi 202610160001 belum dijalankan). `horizon`: kelompok Outfit
- * hanya tampil untuk preset Gathering Horizon, satu-satunya portal yang punya
- * halaman Outfit.
+ * Dress code dari /api/admin/rundown/sections/outfit. `available` false: kolomnya
+ * belum ada (migrasi 202610160001 belum dijalankan). `horizon`: Dress code hanya
+ * tampil untuk preset Gathering Horizon, satu-satunya portal yang punya
+ * halamannya. `label`: nama halaman, disunting di Participant area.
  */
 type OutfitInfo = { available: boolean; horizon: boolean; label: string | null };
+
+/** Endpoint unggah menjawab dalam bahasa Indonesia; admin membaca ini. */
+const FOTO_SALAH = "The photo must be a JPG, PNG or WebP up to 5 MB.";
+/** Dress code: permintaan yang tidak mendapat jawaban sama sekali. */
+const CEK_KONEKSI = "Check your connection and try again.";
 
 /**
  * Untuk siapa tiap bagian, dari /api/admin/rundown/sections/sasaran.
@@ -91,9 +98,6 @@ type OutfitInfo = { available: boolean; horizon: boolean; label: string | null }
  * Gathering Horizon, satu-satunya portal yang membuka bagian milik peserta.
  */
 type SasaranInfo = { available: boolean; horizon: boolean; fields: KolomSasaran[] };
-
-const keDraftOutfit = (list: OutfitEntry[]): OutfitDraft[] =>
-  list.map((entry) => ({ when: entry.when ?? "", what: entry.what, note: entry.note ?? "", photo_url: entry.photo_url ?? null }));
 
 // Petunjuk satu kalimat per aturan: baris per pembicara, label, format.
 const HINT_KETERANGAN = "One line per speaker. A line ending in a colon becomes a label (e.g. Moderator:). Bold, italic, theme colour and lists show on the event page.";
@@ -207,16 +211,19 @@ export default function RundownAdminPage() {
   const [sesi, setSesi] = useState(0);
   // Tanggal mulai dan selesai acara (Event page), untuk peringatan tanggal bagian.
   const [eventDates, setEventDates] = useState<{ start: string | null; end: string | null } | null>(null);
-  // Outfit per bagian: dimuat sekali saat halaman dibuka, terpisah dari load()
-  // yang dipanggil ulang tiap simpan, supaya suntingan outfit yang belum
-  // disimpan tidak tertimpa saat admin menyimpan baris atau bagian.
+  // Dress code per bagian: dimuat sekali saat halaman dibuka, terpisah dari
+  // load() yang dipanggil ulang tiap simpan. Kartu yang belum disimpan ada di
+  // outfitDrafts; outfitSaved yang tersimpan, yang dibaca peserta.
   const [outfitInfo, setOutfitInfo] = useState<OutfitInfo | null>(null);
-  const [outfitSaved, setOutfitSaved] = useState<Record<number, OutfitDraft[]>>({});
-  const [outfitDrafts, setOutfitDrafts] = useState<Record<number, OutfitDraft[]>>({});
-  const [outfitLabel, setOutfitLabel] = useState("");
-  const [outfitTried, setOutfitTried] = useState(false);
-  // Foto outfit yang sedang diunggah: bagian dan nomor isiannya.
-  const [uploadingOutfit, setUploadingOutfit] = useState<{ bagian: number; index: number } | null>(null);
+  const [outfitMuat, setOutfitMuat] = useState<"memuat" | "gagal" | "siap">("memuat");
+  const [outfitSaved, setOutfitSaved] = useState<Record<number, OutfitEntry[]>>({});
+  const [outfitDrafts, setOutfitDrafts] = useState<Record<number, DrafDresscode[]>>({});
+  const [savingOutfit, setSavingOutfit] = useState<number | null>(null);
+  // Bagian yang Save dress code-nya pernah ditekan: kolom wajib yang kosong baru ditandai sesudahnya.
+  const [percobaanDc, setPercobaanDc] = useState<number | null>(null);
+  // Foto dress code yang sedang diunggah: bagian dan kunci kartunya. Kunci,
+  // bukan nomor: Whole day selalu di depan, jadi nomor kartu bisa bergeser.
+  const [uploadingOutfit, setUploadingOutfit] = useState<{ bagian: number; kunci: string } | null>(null);
   // Untuk siapa bagian ini: dimuat dan disimpan seperti outfit. Draf null =
   // untuk semua peserta; tidak ada di peta = belum disentuh.
   const [sasaranInfo, setSasaranInfo] = useState<SasaranInfo | null>(null);
@@ -229,6 +236,7 @@ export default function RundownAdminPage() {
   const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
   const idGalat = useId();
+  const idJudulDc = useId();
 
   /** true bila bagian dan baris berhasil dimuat. */
   async function load(): Promise<boolean> {
@@ -256,13 +264,17 @@ export default function RundownAdminPage() {
   // setState langsung di badan effect ditolak React Compiler, jadi pemuatan awal
   // ditunda satu tick. Pola yang sama dipakai di seluruh halaman admin.
   async function loadOutfit() {
-    // Gagal dimuat = kelompok Outfit tidak tampil; sisa halaman tetap berjalan.
+    // Gagal dimuat: baris Dress code menyebutnya dengan Try again; sisa halaman tetap berjalan.
+    setOutfitMuat("memuat");
     const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) return;
-    const data = (await response.json()) as OutfitInfo & { sections: Array<{ id: number; outfit: OutfitEntry[] }> };
+    const data = response?.ok ? ((await response.json().catch(() => null)) as (OutfitInfo & { sections: Array<{ id: number; outfit: OutfitEntry[] }> }) | null) : null;
+    if (!data) {
+      setOutfitMuat("gagal");
+      return;
+    }
     setOutfitInfo({ available: data.available, horizon: data.horizon, label: data.label });
-    setOutfitLabel(data.label ?? "");
-    setOutfitSaved(Object.fromEntries(data.sections.map((row) => [row.id, keDraftOutfit(row.outfit)])));
+    setOutfitSaved(Object.fromEntries(data.sections.map((row) => [row.id, row.outfit])));
+    setOutfitMuat("siap");
   }
 
   async function loadSasaran() {
@@ -486,10 +498,8 @@ export default function RundownAdminPage() {
   }
 
   async function saveSection(section: RundownSection) {
-    // Outfit ikut tersimpan lewat Save section, tombol utama panel. Isian yang
-    // tidak lengkap ditolak sebelum apa pun dikirim, supaya tidak setengah tersimpan.
-    const simpanOutfit = outfitBerubah(section.id);
-    if (simpanOutfit && !outfitLengkap()) return;
+    // Dress code punya segmen dan tombol simpannya sendiri, jadi isiannya yang
+    // belum lengkap tidak lagi memblokir Save section. Who it's for tetap di sini.
     const simpanSasaran = sasaranBerubah(section.id);
     if (simpanSasaran && !sasaranLengkap(section.id)) return;
     const dikirim = suntingBagian?.id === section.id ? suntingBagian.isi : null;
@@ -518,8 +528,7 @@ export default function RundownAdminPage() {
       gagalPanel("Section not saved", response ? failureMessage(data, "Section not saved.") : PUTUS);
       return;
     }
-    // Gagal menyimpan outfit sudah menampilkan pesannya sendiri; drafnya tetap ada.
-    const outfitOk = simpanOutfit ? await saveOutfit(section) : true;
+    // Gagal menyimpan Who it's for sudah menampilkan pesannya sendiri; drafnya tetap ada.
     const sasaranOk = simpanSasaran ? await saveSasaran(section) : true;
     // Muat ulang dulu, baru lapisan suntingan dibuang: tanggal bagian menggeser
     // jam bus lewat pemicu, dan catatan bus membaca tanggal tersimpan bersama
@@ -528,7 +537,7 @@ export default function RundownAdminPage() {
     if (!(await load())) setSections((kini) => kini.map((row) => (row.id === section.id ? { ...row, ...(data as RundownSection) } : row)));
     if (dikirim) setSuntingBagian((kini) => (kini?.id === section.id ? lapisanSisa(kini, dikirim) : kini));
     setSavingSection(false);
-    if (outfitOk && sasaranOk) toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
+    if (sasaranOk) toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
   }
 
   async function deleteSection(section: RundownSection) {
@@ -543,11 +552,11 @@ export default function RundownAdminPage() {
       return;
     }
     // Suntingan bagian ini ikut terhapus bersama bagiannya (sudah dikonfirmasi),
-    // tetapi bukan label halaman Outfit: ia berlaku untuk seluruh acara, dan
-    // formulir bagian berikutnya menghitung serta menyimpannya.
+    // termasuk kartu Dress code-nya: dress code tersimpan di baris bagian itu.
     setGalatPanel(null);
     sesiBaru();
     buangBagian(section.id);
+    buangDresscode(section.id);
     setDrafts((kini) => tanpa(kini, section.id));
     setActiveId(null);
     setSelectedItemId(null);
@@ -629,13 +638,17 @@ export default function RundownAdminPage() {
   async function deleteItem(item: RundownItem) {
     setDeletingItem(item.id); setError(""); setGalatPanel(null);
     const response = await fetch(`/api/admin/rundown/items?id=${item.id}`, { method: "DELETE" }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
     setDeletingItem(null);
     setConfirmItem(null);
     if (!response?.ok) {
-      const data = response ? await response.json().catch(() => ({})) : {};
       gagalPanel("Agenda item not deleted", response ? failureMessage(data, "Agenda item not deleted.") : PUTUS);
       return;
     }
+    // Dress code yang menaut ke baris ini dihapus server sesudah barisnya. Tanpa
+    // `outfit` (tulisan kedua gagal) yang tersimpan tetap: "Item not found".
+    const dresscode = (data as { outfit?: { section_id: number; entries: OutfitEntry[] } }).outfit;
+    if (dresscode) setOutfitSaved((kini) => ({ ...kini, [dresscode.section_id]: dresscode.entries }));
     // Suntingan baris ini ikut terhapus bersama barisnya (sudah dikonfirmasi).
     setSuntingBaris((kini) => (kini?.id === item.id ? null : kini));
     setSelectedItemId((current) => (current === item.id ? null : current));
@@ -743,65 +756,142 @@ export default function RundownAdminPage() {
     }
   }
 
-  // ---- Outfit bagian aktif ------------------------------------------------------
-  // Portal hanya menampilkan hari yang punya butir publik berjudul (loadAgendaPreview).
-  const adaButirPublik = activeItems.some((item) => item.is_published && Boolean(item.title?.trim()));
-  const outfitAktif: OutfitDraft[] = active ? (outfitDrafts[active.id] ?? outfitSaved[active.id] ?? []) : [];
-  // Nomor isian yang fotonya sedang diunggah di bagian ini.
-  const unggahIsian = active && uploadingOutfit?.bagian === active.id ? uploadingOutfit.index : null;
+  // ---- Dress code bagian aktif ------------------------------------------------------
+  // Hanya Gathering Horizon dengan kolom outfit (migrasi 202610160001).
+  const dresscodeAda = outfitMuat === "siap" && Boolean(outfitInfo?.horizon && outfitInfo.available);
+  // Baris Dress code tampil juga saat memuat atau gagal, bila Who it's for sudah
+  // memastikan acaranya Horizon. Acara lain tidak bergeser satu piksel pun.
+  const barisDcTampil = outfitMuat === "siap" ? dresscodeAda : Boolean(sasaranInfo?.horizon);
+  const drafDc = (id: number): DrafDresscode[] => outfitDrafts[id] ?? keDraf(outfitSaved[id] ?? []);
 
-  function setOutfitAktif(next: OutfitDraft[]) {
-    if (!active) return;
-    setOutfitDrafts((current) => ({ ...current, [active.id]: next }));
+  /** Kartu Dress code bagian ini berbeda dari yang tersimpan. */
+  function dcBerubah(id: number) {
+    const draf = outfitDrafts[id];
+    return draf !== undefined && !samaDraf(draf, keDraf(outfitSaved[id] ?? []));
   }
 
-  /** Draf outfit bagian ini atau label halaman berbeda dari yang tersimpan. */
-  function outfitBerubah(sectionId: number) {
-    if (!outfitInfo?.available) return false;
-    const draf = outfitDrafts[sectionId];
-    const drafBerubah = draf !== undefined && JSON.stringify(draf) !== JSON.stringify(outfitSaved[sectionId] ?? []);
-    return drafBerubah || outfitLabel.trim() !== (outfitInfo.label ?? "");
+  /** Baris tersimpan satu bagian, urut jadwal: server dan peserta membaca yang tersimpan. */
+  function barisTab(id: number): BarisDc[] {
+    return items.filter((row) => row.section_id === id).sort(bandingkanBaris);
   }
 
-  function outfitLengkap() {
-    setOutfitTried(true);
-    const kosong = outfitAktif.findIndex((entry) => !entry.what.trim());
-    if (kosong < 0) return true;
-    gagalPanel("Section not saved", `Fill in What to wear for outfit ${kosong + 1}, or remove it.`);
-    return false;
+  // Tab yang dibuka portal: terbit dan punya butir publik berjudul
+  // (loadAgendaPreview). Banner, toast dan label batch memakai aturan yang
+  // sama dengan server, jadi "Participants see" sama dengan teks tersimpan.
+  const tabTerlihat = tabTerlihatOutfit(sections, items);
+  function terlihat(id: number) {
+    return tabTerlihat.has(id);
   }
 
-  function updateOutfit(index: number, changes: Partial<OutfitDraft>) {
-    setOutfitAktif(outfitAktif.map((entry, i) => (i === index ? { ...entry, ...changes } : entry)));
+  /**
+   * Dress code tersimpan satu bagian dibaca ulang, misalnya sesudah 422
+   * karena barisnya dihapus di tempat lain. Bukan loadOutfit(): keadaan
+   * "memuat" menutup segmen Dress code dan memasang ulang editornya. Kartu
+   * yang belum disimpan tetap di outfitDrafts.
+   */
+  async function muatUlangDresscode(id: number) {
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), { cache: "no-store" }).catch(() => null);
+    const data = response?.ok ? ((await response.json().catch(() => null)) as { sections?: Array<{ id: number; outfit: OutfitEntry[] }> } | null) : null;
+    const baris = data?.sections?.find((row) => row.id === id);
+    if (baris) setOutfitSaved((kini) => ({ ...kini, [id]: baris.outfit }));
   }
 
-  /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk state sampai Save section. */
-  async function uploadOutfitPhoto(index: number, file: File) {
+  /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk draf sampai Save dress code. */
+  async function uploadFotoDresscode(kunci: string, file: File) {
     if (!active) return;
     const id = active.id;
+    // Diperiksa di sini dulu: berkas yang salah tidak perlu diunggah untuk ditolak.
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size === 0 || file.size > 5 * 1024 * 1024) {
+      gagalPanel("Photo not uploaded", FOTO_SALAH);
+      return;
+    }
     const sesiAwal = sesiForm.current;
-    setUploadingOutfit({ bagian: id, index }); setError(""); setGalatPanel(null);
+    setUploadingOutfit({ bagian: id, kunci }); setError(""); setGalatPanel(null);
     const form = new FormData();
     form.append("file", file);
     const response = await fetch("/api/display/background", { method: "POST", body: form }).catch(() => null);
     const data = response ? await response.json().catch(() => null) : null;
-    // Bagian ini dibuang (Discard) atau dihapus selama unggahan berjalan: hasilnya ikut dibuang.
+    // Dress code ini dibuang (Discard) atau bagiannya dihapus selama unggahan berjalan: hasilnya ikut dibuang.
     if (sesiAwal !== sesiForm.current) return;
     setUploadingOutfit(null);
     if (!response?.ok) {
-      gagalPanel("Image upload failed", response ? data?.error?.details?.file ?? data?.error?.message ?? "Image upload failed." : PUTUS);
+      // 422 berbahasa Indonesia, kecuali batas piksel yang sudah English dan lebih tepat.
+      const pesan = data?.error?.details?.file;
+      gagalPanel(
+        "Photo not uploaded",
+        !response ? CEK_KONEKSI : response.status === 422 ? (typeof pesan === "string" && pesan.startsWith("Images can be") ? pesan : FOTO_SALAH) : failureMessage(data ?? {}, "The photo was not uploaded. Try again."),
+      );
       return;
     }
-    // Hanya foto isian ini, di draf terkini: yang diketik selama unggahan tetap
-    // ada. outfitSaved dari render ini masih berlaku karena Save section tidak
-    // berjalan bersamaan dengan unggahan, dan Remove menunggu juga supaya nomor
-    // isiannya tidak bergeser.
+    // Hanya foto kartu ini, di draf terkini: yang diketik selama unggahan tetap
+    // ada. outfitSaved dari render ini masih berlaku karena unggahan berjalan
+    // satu per satu (Add photo mati di semua kartu) dan Save dress code
+    // menunggunya selesai.
     const url = data.url as string;
-    setOutfitDrafts((kini) => ({
-      ...kini,
-      [id]: (kini[id] ?? outfitSaved[id] ?? []).map((entry, i) => (i === index ? { ...entry, photo_url: url } : entry)),
+    setOutfitDrafts((kini) => ({ ...kini, [id]: (kini[id] ?? keDraf(outfitSaved[id] ?? [])).map((isi) => (isi.kunci === kunci ? { ...isi, photo_url: url } : isi)) }));
+    toast.info("Photo uploaded", "Select Save dress code to show it to participants.");
+  }
+
+  /**
+   * Save dress code: hanya dress code tab ini, bukan setelan bagiannya. Server
+   * memeriksa tautan baris dan menulis teks waktunya.
+   */
+  async function saveDresscode(section: RundownSection) {
+    const id = section.id;
+    const daftar = drafDc(id);
+    const dikirim = outfitDrafts[id];
+    setPercobaanDc(id);
+    // Isian yang belum lengkap ditolak sebelum dikirim; kolom pertamanya difokus.
+    const kurang = urutDraf(daftar).find((isi) => drafKurang(isi) !== null);
+    if (kurang) {
+      gagalPanel("Dress code not saved", "Fill in the missing fields, or remove those lines.");
+      window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${kurang.kunci}"] [data-dresscode-${drafKurang(kurang)}]`)?.focus(), 0);
+      return;
+    }
+    // Aturan daftar yang sama dengan server, sebelum dikirim: isian lama tanpa
+    // When terbaca sebagai beberapa Whole day. For kartu kedua difokus.
+    const masalah = cekDaftarOutfit(keKiriman(daftar));
+    if (masalah) {
+      const ganda = urutDraf(daftar).filter((isi) => (masalah.jenis === "barisGanda" ? isi.jenis === "baris" && isi.item_id === masalah.item_id : isi.jenis === "seharian"))[1];
+      gagalPanel("Dress code not saved", alasanDaftarOutfit(masalah, (itemId) => barisTersimpan.get(itemId)?.title.trim() || "That item"));
+      if (ganda) window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${ganda.kunci}"] [data-dresscode-untuk]`)?.focus(), 0);
+      return;
+    }
+    setSavingOutfit(id); setError(""); setGalatPanel(null);
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, outfit: keKiriman(daftar) }),
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    setSavingOutfit(null);
+    if (!response?.ok) {
+      if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "OUTFIT_NOT_READY") {
+        setOutfitInfo((current) => current && { ...current, available: false });
+      }
+      gagalPanel("Dress code not saved", response ? failureMessage(data, "Dress code not saved.") : CEK_KONEKSI);
+      // Baris yang dihapus di tab atau oleh admin lain: agenda dan dress code
+      // tersimpan dimuat ulang, jadi baris Dress code dan kartunya menyebut
+      // yang benar-benar dibaca peserta.
+      if (response?.status === 422) {
+        void load();
+        void muatUlangDresscode(id);
+      }
+      return;
+    }
+    const simpanan = (data as { outfit?: OutfitEntry[] }).outfit ?? [];
+    setOutfitSaved((kini) => ({ ...kini, [id]: simpanan }));
+    // Draf yang diganti selama permintaan berjalan belum tersimpan: tetap ada.
+    setOutfitDrafts((kini) => (kini[id] === dikirim ? tanpa(kini, id) : kini));
+    setPercobaanDc(null);
+    const tersimpan = sections.find((row) => row.id === id);
+    toast.success("Dress code saved", keteranganTersimpan({
+      jumlah: simpanan.length,
+      terbit: Boolean(tersimpan?.is_published),
+      terlihat: terlihat(id),
+      siapa: sasaranSaved[id]?.values ?? [],
+      tanggal: tersimpan?.event_date ?? section.event_date,
     }));
-    toast.info("Photo uploaded", "Select Save section to show it to participants.");
   }
 
   // ---- Untuk siapa bagian aktif ---------------------------------------------------
@@ -846,69 +936,23 @@ export default function RundownAdminPage() {
     return true;
   }
 
-  /** Dipanggil dari saveSection sesudah bagian tersimpan. true = outfit tersimpan. */
-  async function saveOutfit(section: RundownSection): Promise<boolean> {
-    // Label menu berlaku untuk seluruh acara: disimpan lewat Area peserta, yang
-    // menggabungkan `member` dan tidak menyentuh setelan lainnya.
-    const label = outfitLabel.trim();
-    const dikirim = outfitAktif;
-    if (outfitInfo && label !== (outfitInfo.label ?? "")) {
-      const response = await fetch(eventApiPath("/api/admin/area-peserta"), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ member: { outfit_label: label || null } }),
-      }).catch(() => null);
-      const data = response ? await response.json().catch(() => ({})) : {};
-      if (!response?.ok) {
-        gagalPanel("Page label not saved", response ? failureMessage(data, "Page label not saved.") : PUTUS);
-        return false;
-      }
-      const tersimpan = (data as { member?: { outfit_label?: string | null } }).member?.outfit_label ?? null;
-      setOutfitInfo((current) => current && { ...current, label: tersimpan });
-      setOutfitLabel((kini) => (kini.trim() === label ? tersimpan ?? "" : kini));
-    }
-    const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: section.id,
-        outfit: outfitAktif.map((entry) => ({
-          when: entry.when.trim() || null,
-          what: entry.what.trim(),
-          note: entry.note.trim() || null,
-          photo_url: entry.photo_url,
-        })),
-      }),
-    }).catch(() => null);
-    const data = response ? await response.json().catch(() => ({})) : {};
-    if (!response?.ok) {
-      if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "OUTFIT_NOT_READY") {
-        setOutfitInfo((current) => current && { ...current, available: false });
-      }
-      gagalPanel("Outfit not saved", response ? failureMessage(data, "Outfit not saved.") : PUTUS);
-      return false;
-    }
-    const simpanan = keDraftOutfit((data as { outfit: OutfitEntry[] }).outfit ?? []);
-    setOutfitSaved((current) => ({ ...current, [section.id]: simpanan }));
-    // Draf yang diganti selama permintaan berjalan belum tersimpan: tetap ada.
-    setOutfitDrafts((current) => (current[section.id] === dikirim ? tanpa(current, section.id) : current));
-    setOutfitTried(false);
-    return true;
-  }
-
   // Dari `sections` yang tersimpan: sakelar yang belum disimpan belum mengubah halaman publik.
   const publishedCount = sections.filter((row) => row.is_published).length;
   // Menghapus bagian ikut menghapus barisnya: trip bus yang tertaut ke baris
   // itu disebut di dialog hapus, sama dengan dialog hapus satu baris.
   const tripBagian = kalimatHapus(activeItems.flatMap((item) => item.bus_trips ?? []).map((trip) => trip.name));
+  // Dress code tersimpan yang ikut terhapus: yang menaut ke baris itu, atau seluruh isian bagian itu.
+  const dcHapus = confirmItem ? (outfitSaved[confirmItem.section_id] ?? []).find((isian) => isian.item_id === confirmItem.id)?.what ?? null : null;
+  const jumlahDcBagian = confirmSection ? (outfitSaved[confirmSection.id] ?? []).length : 0;
 
   // ---- Penjaga suntingan --------------------------------------------------------
   // Panel kanan membuka satu formulir, dan hanya formulir itu yang boleh punya
   // suntingan belum disimpan. Pindah tab, segmen atau baris, Close, Add item,
   // + Section dan meninggalkan halaman ditanyakan dulu (pola Speakers). Susun
   // ulang, urutan tab dan simpanan tidak menyentuh lapisan suntingan.
-  // Tanpa bagian, hanya header yang bisa disunting.
-  const panelAktif: Panel = active ? panel : "header";
+  // Tanpa bagian, hanya header yang bisa disunting. Dress code yang ternyata
+  // belum bisa dipakai (kolomnya belum ada) kembali ke Section.
+  const panelAktif: Panel = !active ? "header" : panel === "dresscode" && !dresscodeAda ? "bagian" : panel;
   const terbuka = formTerbuka(panelAktif, active?.id ?? null, selectedItem?.id ?? null);
 
   // Unggahan yang masih berjalan dihitung suntingan: hasilnya milik formulir
@@ -924,9 +968,9 @@ export default function RundownAdminPage() {
     }
     if (form.jenis === "bagian") {
       const asli = sections.find((row) => row.id === form.id);
-      return Boolean(asli && suntingBagian?.id === form.id && adaBeda(asli, suntingBagian.isi))
-        || outfitBerubah(form.id) || sasaranBerubah(form.id) || uploadingOutfit?.bagian === form.id;
+      return Boolean(asli && suntingBagian?.id === form.id && adaBeda(asli, suntingBagian.isi)) || sasaranBerubah(form.id);
     }
+    if (form.jenis === "dresscode") return dcBerubah(form.bagian) || uploadingOutfit?.bagian === form.bagian;
     return Boolean(suntingHeader && adaBeda(header, suntingHeader)) || uploadingBackground || uploadingBranding;
   }
   const berubah = formBerubah(terbuka);
@@ -934,7 +978,8 @@ export default function RundownAdminPage() {
   const menyimpan = terbuka.jenis === "baris" ? savingItem === terbuka.id
     : terbuka.jenis === "baru" ? addingItem
       : terbuka.jenis === "bagian" ? savingSection
-        : savingHeader;
+        : terbuka.jenis === "dresscode" ? savingOutfit === terbuka.bagian
+          : savingHeader;
 
   /** Unggahan yang masih berjalan untuk formulir yang ditinggalkan tidak lagi mendarat. */
   function sesiBaru() {
@@ -942,13 +987,17 @@ export default function RundownAdminPage() {
     setSesi(sesiForm.current);
   }
 
-  /** Lapisan satu bagian: kolomnya, Outfit, Who it's for, dan foto yang sedang diunggah. */
+  /** Lapisan formulir Section satu bagian: kolomnya dan Who it's for. */
   function buangBagian(id: number) {
     setSuntingBagian((kini) => (kini?.id === id ? null : kini));
-    setOutfitDrafts((kini) => tanpa(kini, id));
     setSasaranDrafts((kini) => tanpa(kini, id));
+  }
+
+  /** Kartu Dress code satu bagian dan foto yang sedang diunggah untuknya. */
+  function buangDresscode(id: number) {
+    setOutfitDrafts((kini) => tanpa(kini, id));
     setUploadingOutfit((kini) => (kini?.bagian === id ? null : kini));
-    setOutfitTried(false);
+    setPercobaanDc((kini) => (kini === id ? null : kini));
   }
 
   /** Formulir kembali ke nilai tersimpan: lapisan suntingannya dibuang. */
@@ -963,9 +1012,8 @@ export default function RundownAdminPage() {
       setDrafts((kini) => tanpa(kini, bagian));
     } else if (form.jenis === "bagian") {
       buangBagian(form.id);
-      // Label halaman Outfit berlaku untuk seluruh acara, tetapi disunting dan
-      // disimpan di Section, jadi ikut kembali.
-      setOutfitLabel(outfitInfo?.label ?? "");
+    } else if (form.jenis === "dresscode") {
+      buangDresscode(form.bagian);
     } else {
       setSuntingHeader(null);
       setUploadingBackground(false);
@@ -1038,7 +1086,33 @@ export default function RundownAdminPage() {
   function namaForm(form: FormAgenda): string | null {
     if (form.jenis === "baris") return barisTersimpan.get(form.id)?.title ?? null;
     if (form.jenis === "bagian") return sections.find((row) => row.id === form.id)?.name ?? null;
+    if (form.jenis === "dresscode") return sections.find((row) => row.id === form.bagian)?.name ?? null;
     return null;
+  }
+
+  /**
+   * Segmen Dress code lewat penjaga. Di bawah 1024px panelnya di bawah jadwal,
+   * jadi judulnya digulir ke layar dan difokus; tanpa itu klik di baris Dress
+   * code tampak tidak berbuat apa-apa.
+   */
+  function bukaDresscode() {
+    pindah({ panel: "dresscode" }, () => window.setTimeout(() => {
+      if (window.matchMedia("(min-width: 1024px)").matches) return;
+      const judul = document.getElementById(idJudulDc);
+      judul?.scrollIntoView({ block: "start" });
+      judul?.focus({ preventScroll: true });
+    }, 0));
+  }
+
+  /** Dari Edit item: segmen Dress code, lalu What to wear di kartu baris itu, atau kartu baru untuknya. */
+  function dresscodeBaris(item: RundownItem, baru: boolean) {
+    const bagian = item.section_id;
+    pindah({ panel: "dresscode" }, () => {
+      const kartu = baru ? kartuBaru("baris", item.id) : null;
+      if (kartu) setOutfitDrafts((kini) => ({ ...kini, [bagian]: [...(kini[bagian] ?? keDraf(outfitSaved[bagian] ?? [])), kartu] }));
+      const pilih = kartu ? `[data-dresscode-kartu="${kartu.kunci}"]` : `[data-dresscode-baris="${item.id}"]`;
+      window.setTimeout(() => document.querySelector<HTMLElement>(`${pilih} [data-dresscode-apa]`)?.focus(), 0);
+    });
   }
 
   // Menutup atau memuat ulang tab, rel navigasi dan palet perintah juga
@@ -1057,6 +1131,21 @@ export default function RundownAdminPage() {
         </span>
         <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Add item</Button>
       </PaneHeader>
+      {barisDcTampil ? (
+        // Di antara kepala panel dan daftar yang bergulir: tidak pernah tergulir hilang.
+        <BarisDresscode
+          keadaan={outfitMuat}
+          baris={ringkasDresscode(outfitSaved[active.id] ?? [], (id) => {
+            const row = barisTersimpan.get(id);
+            return row && row.section_id === active.id ? row : null;
+          })}
+          labelTab={(sections.find((row) => row.id === active.id)?.name ?? active.name).trim()}
+          dipilih={panelAktif === "dresscode"}
+          belum={dcBerubah(active.id) || uploadingOutfit?.bagian === active.id}
+          onBuka={bukaDresscode}
+          onCobaLagi={() => void loadOutfit()}
+        />
+      ) : null}
       <PaneBody>
         {activeItems.length === 0 ? (
           <EmptyState
@@ -1181,6 +1270,8 @@ export default function RundownAdminPage() {
   );
 
   // ---- Panel samping: baris --------------------------------------------------------
+  // Dress code tersimpan tab baris terpilih, untuk catatan di bawah Title.
+  const dcBaris = selectedItem && dresscodeAda ? outfitSaved[selectedItem.section_id] ?? [] : null;
   const isiBaris = selectedItem ? (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
@@ -1214,6 +1305,15 @@ export default function RundownAdminPage() {
         ) : null}
       </div>
       <TextField label="Title" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
+      {dcBaris ? (
+        <CatatanDresscodeBaris
+          apa={dcBaris.find((isian) => isian.item_id === selectedItem.id)?.what ?? null}
+          penuh={dcBaris.length >= OUTFIT_MAX}
+          tersembunyi={!barisTersimpan.get(selectedItem.id)?.is_published}
+          onBuka={() => (dcBaris.some((isian) => isian.item_id === selectedItem.id) ? dresscodeBaris(selectedItem, false) : bukaDresscode())}
+          onTambah={() => dresscodeBaris(selectedItem, true)}
+        />
+      ) : null}
       {jamBelumDisimpan && selectedSlotLokal > 1 ? (
         <p className="border-t border-outline-variant pt-4 text-body-small text-on-surface-variant">
           Save the time change first to reorder items that start at {kunciSlot(selectedItem.start_time).slice(0, 5)}.
@@ -1395,111 +1495,6 @@ export default function RundownAdminPage() {
         />
       </Kelompok>
       {sasaranInfo?.horizon ? <KelompokSasaran info={sasaranInfo} value={sasaranAktif} onChange={setSasaranAktif} /> : null}
-      {outfitInfo?.horizon ? (
-        <Kelompok
-          title="Outfit"
-          note={outfitInfo.available
-            ? adaButirPublik
-              ? `Participants see it on this day of their Schedule, on the outfit page and on Home. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
-              : `Participants see it once this section has a public agenda item. Up to ${OUTFIT_MAX} per section. Saved with Save section.`
-            : undefined}
-        >
-          {!outfitInfo.available ? (
-            <p className="text-body-medium text-on-surface-variant">Outfit needs a database update first (migration 202610160001).</p>
-          ) : (
-            <>
-              <TextField
-                label="Page label"
-                optional
-                placeholder={OUTFIT_LABEL_BAWAAN}
-                maxLength={OUTFIT_LABEL_MAX}
-                counter
-                hint={`Applies to the whole event: the page title, the strip in the Schedule and the Home row. Left empty, it reads ${OUTFIT_LABEL_BAWAAN}.`}
-                value={outfitLabel}
-                onChange={(event) => setOutfitLabel(event.target.value)}
-              />
-              {outfitAktif.map((entry, index) => (
-                <div key={index} className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
-                  <div className="flex items-center gap-2">
-                    <p className="min-w-0 flex-1 text-body-medium font-medium text-on-surface">Outfit {index + 1}</p>
-                    {/* Menunggu unggahan foto selesai: menghapus isian menggeser nomor isian tujuannya. */}
-                    <Button variant="text" size="sm" className="text-error" icon={<Trash size={16} />} disabled={unggahIsian !== null} onClick={() => setOutfitAktif(outfitAktif.filter((_, i) => i !== index))}>
-                      Remove
-                    </Button>
-                  </div>
-                  <TextField
-                    label="When"
-                    optional
-                    placeholder="e.g. Gala dinner • 19.00"
-                    maxLength={OUTFIT_BATAS.when}
-                    value={entry.when}
-                    onChange={(event) => updateOutfit(index, { when: event.target.value })}
-                  />
-                  <TextField
-                    label="What to wear"
-                    placeholder="e.g. Long-sleeved batik, formal shoes"
-                    maxLength={OUTFIT_BATAS.what}
-                    error={outfitTried && !entry.what.trim() ? "Required. Fill it in or remove this outfit." : undefined}
-                    value={entry.what}
-                    onChange={(event) => updateOutfit(index, { what: event.target.value })}
-                  />
-                  <TextField
-                    label="Note"
-                    optional
-                    placeholder="e.g. Women: batik or a modern kebaya"
-                    maxLength={OUTFIT_BATAS.note}
-                    value={entry.note}
-                    onChange={(event) => updateOutfit(index, { note: event.target.value })}
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    {entry.photo_url ? (
-                      <span aria-hidden className="h-15 w-12 shrink-0 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${entry.photo_url})` }} />
-                    ) : null}
-                    <label className={cx(
-                      "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-body-medium font-medium text-on-surface hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
-                      unggahIsian === index && "pointer-events-none opacity-60",
-                    )}>
-                      <UploadSimple size={16} aria-hidden />
-                      {unggahIsian === index ? "Uploading…" : entry.photo_url ? "Replace photo" : "Upload photo"}
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="sr-only"
-                        // Tidak selama Save section: fotonya ditambahkan ke draf yang dibaca saat unggahan mulai.
-                        disabled={uploadingOutfit !== null || savingSection}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void uploadOutfitPhoto(index, file);
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
-                    {entry.photo_url ? (
-                      <Button variant="text" size="sm" className="text-error" onClick={() => updateOutfit(index, { photo_url: null })}>Remove photo</Button>
-                    ) : (
-                      <span className="text-body-small text-on-surface-variant">Optional. Portrait works best.</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <div className="flex flex-wrap items-center gap-2">
-                {outfitAktif.length < OUTFIT_MAX ? (
-                  <Button
-                    variant="text"
-                    size="sm"
-                    icon={<Plus size={16} />}
-                    onClick={() => setOutfitAktif([...outfitAktif, { when: "", what: "", note: "", photo_url: null }])}
-                  >
-                    Add outfit
-                  </Button>
-                ) : (
-                  <span className="text-body-small text-on-surface-variant">{OUTFIT_MAX} outfits is the most per section.</span>
-                )}
-              </div>
-            </>
-          )}
-        </Kelompok>
-      ) : null}
       <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
         <div className="min-w-0 flex-1">
           <p className="text-body-medium font-medium text-on-surface">Delete section</p>
@@ -1508,6 +1503,42 @@ export default function RundownAdminPage() {
         <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmSection(sections.find((row) => row.id === active.id) ?? active)}>Delete</Button>
       </section>
     </div>
+  ) : null;
+
+  // ---- Panel samping: dress code ---------------------------------------------------
+  // Segmen sendiri, bukan kelompok di Section: dress code disimpan sendiri, jadi
+  // isian yang belum lengkap tidak memblokir Save section. `key` dengan sesi:
+  // Discard memasang kartu baru tanpa catatan yang tadi dibuka.
+  const tabDc = active ? sections.find((row) => row.id === active.id) ?? null : null;
+  const isiDresscode = active && tabDc && dresscodeAda ? (
+    <EditorDresscode
+      key={`${active.id}-${sesi}`}
+      idJudul={idJudulDc}
+      tab={{ id: active.id, name: tabDc.name }}
+      labelHalaman={labelOutfit(outfitInfo?.label)}
+      labelBatch={labelTabOutfit(sections, active.id, tabTerlihat)}
+      daftar={drafDc(active.id)}
+      onUbah={(next) => setOutfitDrafts((kini) => ({ ...kini, [active.id]: next }))}
+      baris={barisTab(active.id)}
+      tautanTersimpan={new Set((outfitSaved[active.id] ?? []).flatMap((isian) => (isian.item_id ? [isian.item_id] : [])))}
+      banner={bannerDresscode({
+        tab: tabDc,
+        tabs: sections,
+        terlihat,
+        bersasaran: sasaranInfo ? (id) => Boolean(sasaranSaved[id]) : null,
+        jumlahIsian: (id) => (id === active.id ? drafDc(id).length : (outfitSaved[id] ?? []).length),
+      })}
+      tabLain={[...sections]
+        .sort(bandingkanBagian)
+        .filter((row) => row.id !== active.id && row.event_date === tabDc.event_date && (outfitSaved[row.id] ?? []).length === 0)
+        .map((row) => ({ id: row.id, name: row.name }))}
+      coba={percobaanDc === active.id}
+      unggah={uploadingOutfit?.bagian === active.id ? uploadingOutfit.kunci : null}
+      menyimpan={savingOutfit === active.id}
+      onUnggah={(kunci, file) => void uploadFotoDresscode(kunci, file)}
+      onBukaBagian={() => pindah({ panel: "bagian" })}
+      onBukaTab={(id) => pindah({ bagian: id, panel: "dresscode" })}
+    />
   ) : null;
 
   // ---- Panel samping: header publik -------------------------------------------------
@@ -1644,8 +1675,16 @@ export default function RundownAdminPage() {
       },
     bagian: {
       note: belumDisimpan ?? "This section only",
-      // Menunggu foto outfit selesai diunggah: tersimpan bersama, bukan sesudahnya sebagai suntingan baru.
-      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection} disabled={unggahIsian !== null}>Save section</Button> : null,
+      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Save section</Button> : null,
+    },
+    dresscode: {
+      note: belumDisimpan ?? "This tab only",
+      // Menunggu foto selesai diunggah: tersimpan bersama, bukan sesudahnya sebagai suntingan baru.
+      aksi: active ? (
+        <Button simpan size="sm" onClick={() => void saveDresscode(active)} loading={savingOutfit === active.id} disabled={!dcBerubah(active.id) || uploadingOutfit?.bagian === active.id}>
+          Save dress code
+        </Button>
+      ) : null,
     },
     header: {
       note: belumDisimpan ?? "Applies to every tab",
@@ -1656,19 +1695,24 @@ export default function RundownAdminPage() {
   const samping = (
     <Pane as="aside" aria-label="Agenda editor">
       <div className="shrink-0 border-b border-outline-variant px-4 py-3">
+        {/* Empat segmen di Horizon: padat, supaya muat di ponsel 360px. Acara lain tetap tiga. */}
         <SegmentedButton<Panel>
           label="Editing"
           value={panelAktif}
           onChange={(next) => pindah({ panel: next })}
           className="w-full"
+          padat={dresscodeAda}
           options={[
             { value: "baris", label: "Item", disabled: !active },
             { value: "bagian", label: "Section", disabled: !active },
-            { value: "header", label: "Page header" },
+            ...(dresscodeAda ? [{ value: "dresscode" as const, label: "Dress code", disabled: !active }] : []),
+            { value: "header", label: "Header" },
           ]}
         />
       </div>
-      <PaneBody className="px-4 py-4">{panelAktif === "baris" ? isiBaris : panelAktif === "bagian" ? isiBagian : isiHeader}</PaneBody>
+      <PaneBody className="px-4 py-4">
+        {panelAktif === "baris" ? isiBaris : panelAktif === "bagian" ? isiBagian : panelAktif === "dresscode" ? isiDresscode : isiHeader}
+      </PaneBody>
       <PaneFooter
         note={galatKaki ? (
           // Galat simpan di samping tombolnya, dengan bentuk galat TextField.
@@ -1762,8 +1806,14 @@ export default function RundownAdminPage() {
         tone="danger"
         title={`Delete ${confirmItem?.title.trim() || "this item"}?`}
         // Trip bus yang tertaut tetap ada dengan jam terakhirnya; tautannya
-        // dikosongkan database (FK on delete set null).
-        description={["This item is removed from the agenda and the public page.", kalimatHapus((confirmItem?.bus_trips ?? []).map((trip) => trip.name)), "A copy is kept in the audit log."].filter(Boolean).join(" ")}
+        // dikosongkan database (FK on delete set null). Dress code yang menaut
+        // ke baris ini ikut dihapus server, jadi keduanya disebut.
+        description={[
+          "This item is removed from the agenda and the public page.",
+          dcHapus ? `Its dress code (${dcHapus}) is deleted too.` : "",
+          kalimatHapus((confirmItem?.bus_trips ?? []).map((trip) => trip.name)),
+          "A copy is kept in the audit log.",
+        ].filter(Boolean).join(" ")}
         actions={
           <>
             <Button variant="outlined" disabled={deletingItem !== null} onClick={() => setConfirmItem(null)}>Cancel</Button>
@@ -1778,7 +1828,7 @@ export default function RundownAdminPage() {
         dismissible={!deletingSection}
         tone="danger"
         title={`Delete section ${confirmSection?.name ?? ""}?`}
-        description={`${confirmSection?.is_published ? "This section is on the public page now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}${tripBagian ? `${tripBagian} ` : ""}A copy is kept in the audit log.`}
+        description={`${confirmSection?.is_published ? "This section is on the public page now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}${jumlahDcBagian === 0 ? "" : jumlahDcBagian === 1 ? "Its dress code is deleted too. " : "Its dress codes are deleted too. "}${tripBagian ? `${tripBagian} ` : ""}A copy is kept in the audit log.`}
         actions={
           <>
             <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Cancel</Button>
@@ -1887,7 +1937,7 @@ function CatatanBus({ item, trips, jamTersimpan, tanggalTersimpan, zone }: {
  * Agenda > This section > Who it's for. Everyone (bawaan) atau satu kelompok:
  * satu pertanyaan pilihan dan satu atau beberapa jawabannya. Peserta kelompok
  * itu melihat bagian ini lebih dulu di Home dan Schedule; yang lain tetap bisa
- * membukanya. Disimpan lewat Save section, seperti Outfit.
+ * membukanya. Disimpan lewat Save section.
  */
 function KelompokSasaran({ info, value, onChange }: { info: SasaranInfo; value: SasaranBagian | null; onChange: (next: SasaranBagian | null) => void }) {
   const kolom = value ? info.fields.find((isi) => isi.key === value.field) ?? null : null;

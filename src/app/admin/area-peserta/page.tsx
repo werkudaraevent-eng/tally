@@ -16,6 +16,7 @@ import type { PilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { rapikanBantuan } from "@/lib/member/kontak-darurat";
+import { OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX } from "@/lib/outfit";
 import { plural } from "@/lib/plural";
 
 /**
@@ -45,7 +46,7 @@ type Muat = {
   horizon?: boolean;
   /** Horizon: tanggal dan jam mulai acara untuk "Preview on" di pratinjau. */
   dates?: { start: string | null; end: string | null; start_time?: string | null };
-  /** Horizon: jumlah bagian Agenda yang punya outfit (baris Today's outfit). */
+  /** Horizon: jumlah bagian Agenda yang punya dress code (baris Today's dress code). */
   outfit_days?: number;
   /** Horizon: ada telepon atau email panitia di Event settings (baris Help card). */
   organiser_contact?: boolean;
@@ -169,13 +170,14 @@ export default function AreaPesertaPage() {
       return;
     }
     setSimpan(true);
-    // Label Outfit disunting di Agenda > Section > Outfit. Tidak dikirim dari
-    // sini, jadi salinan lama di layar ini tidak menimpa label yang baru disimpan.
     const setelan: Partial<LandingMemberConfig> = { ...anggota, feedback_url: umpanBalik, help: bantuan.help };
     // Kontak darurat hanya dikirim bila diubah di layar ini, supaya tab lain
     // yang basi tidak menghapus kontak yang baru disimpan di tab ini.
     if (JSON.stringify(anggota.help ?? null) === JSON.stringify(data?.member.help ?? null)) delete setelan.help;
-    delete setelan.outfit_label;
+    // Nama halaman Dress code: satu-satunya penulisnya layar ini (Agenda hanya
+    // menampilkannya). Sama dengan kontak, hanya dikirim bila diubah di sini.
+    if ((anggota.outfit_label ?? "").trim() === (data?.member.outfit_label ?? "").trim()) delete setelan.outfit_label;
+    else setelan.outfit_label = anggota.outfit_label?.trim() || null;
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
     delete setelan.show_bus_crew;
@@ -340,10 +342,10 @@ export default function AreaPesertaPage() {
                 {seretPratinjau ? (
                   <SettingRow
                     stacked={berpratinjau}
-                    title="Outfit page"
+                    title="Dress code page"
                     description={
                       <>
-                        Shown under each day of the participant Schedule and as Today&rsquo;s outfit on Participant home. With Agenda off for participants, it is a tab on wide screens and a Menu row on phones. Outfits and the page label (now: {anggota.outfit_label?.trim() || "Outfit"}) are set in{" "}
+                        Shown under each day of the participant Schedule and as Today’s dress code on Participant home. With Agenda off for participants, it is a tab on wide screens and a Menu row on phones. Each tab’s dress code is set in{" "}
                         <Link
                           href="/admin/rundown"
                           className={TAUTAN}
@@ -353,13 +355,26 @@ export default function AreaPesertaPage() {
                             toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
                           }}
                         >
-                          Agenda › Section › Outfit
+                          Agenda › Dress code
                         </Link>
                         .
                       </>
                     }
                   >
-                    {null}
+                    {/* Untuk seluruh acara, jadi di sini, bukan per tab di Agenda. */}
+                    <TextField
+                      label="Page name"
+                      optional
+                      maxLength={OUTFIT_LABEL_MAX}
+                      counter
+                      hint={`For the whole event. Left empty, participants see “${OUTFIT_LABEL_BAWAAN}”.`}
+                      value={anggota.outfit_label ?? ""}
+                      onChange={(event) => {
+                        const nilai = event.target.value;
+                        // Dikosongkan saat yang tersimpan juga kosong: kembali ke nilai tersimpan, bukan perubahan.
+                        set({ outfit_label: nilai.trim() || data.member.outfit_label?.trim() ? nilai : data.member.outfit_label });
+                      }}
+                    />
                   </SettingRow>
                 ) : null}
                 {data.horizon === true ? (

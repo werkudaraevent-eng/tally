@@ -76,7 +76,8 @@ export function useAgendaTrip(siap: boolean): AgendaTrip {
   return { agenda, memuat: siap && memuat, muatUlang };
 }
 
-const KELAS_OPSI = "flex min-h-[34px] cursor-pointer items-start gap-2.5 rounded-md px-3 py-[7px] text-body-medium text-on-surface";
+/** Satu opsi daftar baris Agenda; dipakai juga menu Agenda > Dress code. */
+export const KELAS_OPSI = "flex min-h-[34px] cursor-pointer items-start gap-2.5 rounded-md px-3 py-[7px] text-body-medium text-on-surface";
 
 /**
  * Kolom "Agenda row" di dialog New trip / Edit trip: pilihan tunggal dari baris

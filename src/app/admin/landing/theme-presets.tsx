@@ -195,7 +195,7 @@ const TENTANG_BAWAAN: TentangBawaan = {
 /**
  * Judul kartu bagian "Sebelum berangkat" untuk acara gathering. Gathering
  * Horizon tanpa kartu "Dress code" (keputusan Mas 20 Okt): pakaiannya diisi
- * sekali di Agenda > Section > Outfit, jadi tidak ada tempat kedua yang bisa
+ * sekali di Agenda > Dress code, jadi tidak ada tempat kedua yang bisa
  * berbeda isinya. Gathering klasik tidak punya Outfit, jadi kartunya tetap.
  */
 const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];

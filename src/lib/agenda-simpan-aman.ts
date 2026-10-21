@@ -6,22 +6,24 @@
 // Suntingan disimpan sebagai lapisan (hanya kolom yang diubah) di atas data
 // tersimpan, jadi memuat ulang data sesudah simpanan lain tidak menimpanya.
 
-export type Panel = "baris" | "bagian" | "header";
+export type Panel = "baris" | "bagian" | "dresscode" | "header";
 
 /** Isian New item, per bagian. */
 export type DrafBaru = { start_time: string; end_time: string; title: string; subtitle: string; is_break: boolean };
 
-/** Formulir di panel kanan: Edit item, New item, Section, atau Page header. */
+/** Formulir di panel kanan: Edit item, New item, Section, Dress code tab itu, atau Header. */
 export type FormAgenda =
   | { jenis: "baris"; id: number }
   | { jenis: "baru"; bagian: number }
   | { jenis: "bagian"; id: number }
+  | { jenis: "dresscode"; bagian: number }
   | { jenis: "header" };
 
 /** Formulir yang tampil untuk segmen, tab dan baris terpilih. Tanpa tab: hanya header. */
 export function formTerbuka(panel: Panel, bagian: number | null, baris: number | null): FormAgenda {
   if (bagian === null || panel === "header") return { jenis: "header" };
   if (panel === "bagian") return { jenis: "bagian", id: bagian };
+  if (panel === "dresscode") return { jenis: "dresscode", bagian };
   return baris === null ? { jenis: "baru", bagian } : { jenis: "baris", id: baris };
 }
 
@@ -29,6 +31,7 @@ export function kunciForm(form: FormAgenda): string {
   if (form.jenis === "baris") return `baris:${form.id}`;
   if (form.jenis === "baru") return `baru:${form.bagian}`;
   if (form.jenis === "bagian") return `bagian:${form.id}`;
+  if (form.jenis === "dresscode") return `dresscode:${form.bagian}`;
   return "header";
 }
 
@@ -85,6 +88,7 @@ export function judulBuang(form: FormAgenda, nama?: string | null): string {
   if (form.jenis === "baris") return `Discard changes to ${isi || "this item"}?`;
   if (form.jenis === "baru") return "Discard the new item?";
   if (form.jenis === "bagian") return isi ? `Discard changes to the ${isi} tab?` : "Discard changes to this section?";
+  if (form.jenis === "dresscode") return isi ? `Discard changes to the ${isi} dress code?` : "Discard changes to this dress code?";
   return "Discard changes to the page header?";
 }
 
@@ -92,5 +96,6 @@ export function keteranganBuang(form: FormAgenda): string {
   if (form.jenis === "baris") return "Your changes to this item are not saved yet.";
   if (form.jenis === "baru") return "It has not been added to the agenda yet.";
   if (form.jenis === "bagian") return "Your changes to this section are not saved yet.";
+  if (form.jenis === "dresscode") return "Your changes to this dress code are not saved yet.";
   return "Your changes to the page header are not saved yet.";
 }
