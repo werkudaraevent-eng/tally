@@ -407,6 +407,13 @@ export default function AreaPesertaPage() {
                       }}
                       // Every day (draf, seperti pratinjau) juga mengisi kartunya, tanpa tab Agenda sekalipun.
                       outfitAda={data.outfit_days === undefined ? undefined : data.outfit_days > 0 || bacaOutfitSetiapHari(anggota.outfit_every_day) !== null}
+                      outfitDari={
+                        data.outfit_days === undefined || bacaOutfitSetiapHari(anggota.outfit_every_day) === null
+                          ? "agenda"
+                          : data.outfit_days > 0
+                            ? "keduanya"
+                            : "setiap"
+                      }
                       kontakAda={data.organiser_contact}
                     />
                   </SettingRow>

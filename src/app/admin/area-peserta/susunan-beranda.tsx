@@ -78,6 +78,7 @@ export function SusunanBeranda({
   dipilih,
   onPilih,
   outfitAda,
+  outfitDari,
   kontakAda,
 }: {
   layout: "gathering" | "modern";
@@ -95,8 +96,14 @@ export function SusunanBeranda({
   /** Baris yang sedang disorot di pratinjau. */
   dipilih: string | null;
   onPilih: (id: string) => void;
-  /** Horizon: ada dress code di Agenda; false = baris Today's dress code menyebut di mana mengisinya. */
+  /** Horizon: ada dress code di Agenda atau Every day; false = baris Today's dress code menyebut di mana mengisinya. */
   outfitAda?: boolean;
+  /**
+   * Horizon: asal isi Today's dress code. "setiap" = hanya Every day (mis. acara
+   * tanpa tab Agenda), jadi barisnya menunjuk ke kolom Every day di halaman ini,
+   * bukan ke Agenda yang tidak berisi apa-apa.
+   */
+  outfitDari?: "agenda" | "setiap" | "keduanya";
   /** Horizon: ada telepon atau email panitia di Event settings; false = baris Help card menyebutnya. */
   kontakAda?: boolean;
 }) {
@@ -122,17 +129,23 @@ export function SusunanBeranda({
     if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Room and bus is off below";
     if (id === "roommates" && member.show_roommates === false) return "Roommates are off in Logistics";
     if (id === "checkpoints" && !checkpointsOn) return "Off in Check-in";
-    if (id === "outfit" && outfitAda === false) return "No dress codes in Agenda yet";
+    if (id === "outfit" && outfitAda === false) return "No dress code yet in Agenda or Every day";
     if (id === "help" && kontakAda === false) return "No organiser phone or email in Event settings";
     return null;
   };
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[diHorizon ? "horizon" : layout].find((item) => item.id === id);
+    const subBawaan =
+      id === "outfit" && outfitDari === "setiap"
+        ? "From Every day under Dress code page"
+        : id === "outfit" && outfitDari === "keduanya"
+          ? "From Agenda > Dress code and Every day"
+          : bawaan?.sub;
     // Horizon mulai 1024 px: Announcements dan Today's dress code di kolom samping; urutan ini berlaku di bawah 1024 px.
     // Teman sekamar: satu baris di kartu perjalanan selama acara. Disebut, bukan diam-diam.
     const sub =
       diHorizon && (id === "announcements" || id === "outfit")
-        ? `Side column on wide screens · ${bawaan?.sub}`
+        ? `Side column on wide screens · ${subBawaan}`
         : diHorizon && id === "roommates"
           ? `In the travel card during the event · ${bawaan?.sub}`
           : bawaan?.sub ?? "";
@@ -195,21 +208,38 @@ export function SusunanBeranda({
 
   // Tempat isi baris disunting. Pindah layar membuang urutan dan mata yang
   // belum disimpan, jadi ditahan dulu selama ada perubahan.
-  const tautanSumber = (b: Baris, letak: string) => (
-    <Link
-      href={b.sumber.href}
-      onClick={(event) => {
-        if (!adaPerubahan) return;
-        event.preventDefault();
-        toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
-      }}
-      className={cx("m3-state min-h-9 items-center gap-0.5 whitespace-nowrap rounded-md px-1 text-label-large font-medium text-primary sm:pl-2", letak)}
-      aria-label={b.blok ? `Edit ${b.judul}` : `Edit ${b.judul} in ${b.sumber.label}`}
-    >
-      {b.blok ? "Edit" : `Edit in ${b.sumber.label}`}
-      <CaretRight size={14} aria-hidden />
-    </Link>
-  );
+  const tautanSumber = (b: Baris, letak: string) =>
+    b.id === "outfit" && outfitDari === "setiap" ? (
+      // Hanya Every day: kolomnya ada di halaman ini, jadi dibawa ke layar dan
+      // difokus (seperti ?fokus=setiap-hari dari Agenda), tanpa pindah layar.
+      <button
+        type="button"
+        onClick={() => {
+          const kolom = document.querySelector<HTMLElement>("[data-setiap-apa]");
+          kolom?.scrollIntoView({ block: "center", behavior: "smooth" });
+          kolom?.focus({ preventScroll: true });
+        }}
+        className={cx("m3-state min-h-9 items-center gap-0.5 whitespace-nowrap rounded-md px-1 text-label-large font-medium text-primary sm:pl-2", letak)}
+        aria-label={`Edit ${b.judul} in Every day`}
+      >
+        Edit Every day
+        <CaretRight size={14} aria-hidden />
+      </button>
+    ) : (
+      <Link
+        href={b.sumber.href}
+        onClick={(event) => {
+          if (!adaPerubahan) return;
+          event.preventDefault();
+          toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
+        }}
+        className={cx("m3-state min-h-9 items-center gap-0.5 whitespace-nowrap rounded-md px-1 text-label-large font-medium text-primary sm:pl-2", letak)}
+        aria-label={b.blok ? `Edit ${b.judul}` : `Edit ${b.judul} in ${b.sumber.label}`}
+      >
+        {b.blok ? "Edit" : `Edit in ${b.sumber.label}`}
+        <CaretRight size={14} aria-hidden />
+      </Link>
+    );
 
   return (
     <div className="flex flex-col gap-2">
