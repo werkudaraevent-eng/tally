@@ -1247,7 +1247,8 @@ export type LandingMemberConfig = {
   } | null;
 };
 
-export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";
+/** `outfit` dan `help`: hanya Gathering Horizon (Beranda "Hari ini"). */
+export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda" | "outfit" | "help";
 
 /**
  * Isi bawaan Beranda halaman peserta, dalam urutan bawaannya per tata letak.
@@ -1261,12 +1262,13 @@ const SUMBER_LOGISTIK: MemberHomeSource = { label: "Logistics", href: "/admin/lo
 const SUMBER_PESAN: MemberHomeSource = { label: "Messages", href: "/admin/pengumuman/lonceng" };
 const SUMBER_CHECKPOINT: MemberHomeSource = { label: "Check-in", href: "/admin/attendance?tab=checkpoint" };
 const SUMBER_HALAMAN: MemberHomeSource = { label: "Event page", href: "/admin/landing" };
+const SUMBER_PENGATURAN: MemberHomeSource = { label: "Event settings", href: "/admin/settings" };
 
 /**
  * `source`: layar tempat isi baris itu disunting. Participant home menautkannya
  * ("Edit in Agenda"), bukan menyalin editornya: satu data, satu tempat.
  */
-export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id: MemberHomeId; label: string; sub: string; source: MemberHomeSource; side?: boolean }[]> = {
+export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern" | "horizon", readonly { id: MemberHomeId; label: string; sub: string; source: MemberHomeSource; side?: boolean }[]> = {
   gathering: [
     { id: "quick", label: "Quick links", sub: "Ticket, map, organisers", source: SUMBER_HALAMAN, side: true },
     { id: "announcements", label: "Announcements", sub: "Latest announcement", source: SUMBER_PESAN },
@@ -1283,6 +1285,16 @@ export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id:
     { id: "agenda", label: "Agenda", sub: "Their sessions", source: SUMBER_AGENDA },
     { id: "logistics", label: "Room, bus and items", sub: "Their room, bus and kit items", source: SUMBER_LOGISTIK, side: true },
     { id: "quick", label: "Quick links", sub: "Voting, feedback, map", source: SUMBER_HALAMAN, side: true },
+  ],
+  // Gathering Horizon (Beranda "Hari ini"); urutannya diatur lib/member/susunan-horizon.ts.
+  horizon: [
+    { id: "announcements", label: "Announcements", sub: "Latest announcement", source: SUMBER_PESAN },
+    { id: "next", label: "Next up", sub: "Now and next sessions", source: SUMBER_AGENDA },
+    { id: "outfit", label: "Today's outfit", sub: "From Agenda > Section > Outfit", source: SUMBER_AGENDA },
+    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step", source: SUMBER_CHECKPOINT },
+    { id: "logistics", label: "Bus and room", sub: "Travel card before the event, then a trip summary", source: SUMBER_LOGISTIK },
+    { id: "roommates", label: "Roommates", sub: "Who shares their room", source: SUMBER_LOGISTIK },
+    { id: "help", label: "Help card", sub: "Organiser phone and WhatsApp", source: SUMBER_PENGATURAN },
   ],
 };
 

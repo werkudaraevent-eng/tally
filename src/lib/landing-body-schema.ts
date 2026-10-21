@@ -233,7 +233,7 @@ const forumSchema = z.object({
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 /** Setelan area peserta (`landing_config.member`), disimpan di /admin/area-peserta. */
-const idBeranda = z.union([z.enum(["quick", "announcements", "next", "checkpoints", "logistics", "roommates", "agenda"]), blockId]);
+const idBeranda = z.union([z.enum(["quick", "announcements", "next", "checkpoints", "logistics", "roommates", "agenda", "outfit", "help"]), blockId]);
 
 export const memberSchema = z.object({
   enabled: z.boolean(),

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { renderPratinjauPeserta } from "./actions";
+import { kotakTampil as kotakPenanda, pasangSeret, type SetelanSeret } from "./seret-kartu";
 
 /** Jeda setelah perubahan terakhir sebelum draf dirender ulang. */
 const JEDA_MS = 300;
@@ -9,10 +10,8 @@ const JEDA_MS = 300;
 /** Elemen pertama yang benar-benar tampil di dalam penanda `data-beranda` (display: contents). */
 function kotakTampil(id: string): HTMLElement | null {
   for (const penanda of document.querySelectorAll<HTMLElement>(`[data-beranda="${CSS.escape(id)}"]`)) {
-    for (const anak of penanda.querySelectorAll<HTMLElement>("*")) {
-      const kotak = anak.getBoundingClientRect();
-      if (kotak.width > 0 && kotak.height > 0) return anak;
-    }
+    const kotak = kotakPenanda(penanda);
+    if (kotak) return kotak;
   }
   return null;
 }
@@ -24,9 +23,14 @@ function kotakTampil(id: string): HTMLElement | null {
  *
  * Tautan tidak berpindah halaman: halaman di baliknya tidak memuat draf, dan
  * tanpa sesi peserta semuanya berakhir di dialog Masuk.
+ *
+ * Gathering Horizon: kartu Participant home bisa diseret dan diklik di sini
+ * (seret-kartu.ts); urutan barunya dihitung dan disimpan sebagai draf di layar
+ * admin, lalu dikirim kembali seperti draf lain.
  */
 export function PratinjauBeranda({ slug, pesertaId, children }: { slug: string; pesertaId: string; children: ReactNode }) {
   const [isi, setIsi] = useState<ReactNode>(children);
+  const seret = useRef<SetelanSeret | null>(null);
 
   useEffect(() => {
     let timer: number | undefined;
@@ -53,14 +57,17 @@ export function PratinjauBeranda({ slug, pesertaId, children }: { slug: string; 
     function terima(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== window.parent) return;
       if (event.data?.jenis === "tally-beranda-sorot" && typeof event.data.id === "string") { window.clearTimeout(timerGulir); gulir(event.data.id); return; }
+      if (event.data?.jenis === "tally-beranda-seret") { seret.current = event.data.setelan ?? null; return; }
       if (event.data?.jenis !== "tally-beranda-draf") return;
       const draf = event.data.member;
       const sorot = typeof event.data.sorot === "string" ? event.data.sorot : null;
       const tab = event.data.tab === "profil" ? "profil" : "beranda";
+      // "Preview on": tanggal dan jam di zona acara; diperiksa lagi di server.
+      const waktu = event.data.waktu ?? null;
       window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
         const nomor = ++urutan;
-        const hasil = await renderPratinjauPeserta(slug, pesertaId, draf, tab).catch(() => null);
+        const hasil = await renderPratinjauPeserta(slug, pesertaId, draf, tab, waktu).catch(() => null);
         if (nomor !== urutan) return;
         if (hasil?.ok) {
           setIsi(hasil.isi);
@@ -80,8 +87,10 @@ export function PratinjauBeranda({ slug, pesertaId, children }: { slug: string; 
     window.addEventListener("message", terima);
     window.addEventListener("click", klik, true);
     window.addEventListener("submit", klik, true);
+    const lepasSeret = pasangSeret(() => seret.current, lapor);
     lapor({ jenis: "tally-beranda-siap" });
     return () => {
+      lepasSeret();
       window.removeEventListener("message", terima);
       window.removeEventListener("click", klik, true);
       window.removeEventListener("submit", klik, true);

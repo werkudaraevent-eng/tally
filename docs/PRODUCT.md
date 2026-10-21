@@ -240,7 +240,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Open participant area (adds Sign in to the event page).
   - Who can sign in: approved registrations (default) or everyone on the list.
   - How: email and password (default), email code, or two participant fields (weaker; the screen says so and counts duplicates). Optionally email a sign-in link to new walk-ins (off by default).
-  - Participant home (Modern and Gathering): order and show/hide its cards; organiser blocks are added from the Event page.
+  - Participant home (Modern and Gathering): order and show/hide its cards; organiser blocks are added from the Event page. On Gathering Horizon, cards are dragged in the Phone preview or in the list (Next up fixed at the top, Help card at the bottom, Today's outfit and Help card as rows), and "Preview on" shows Home on any event day.
   - Emergency and help (Horizon): card title, note, up to 8 contacts with call, WhatsApp and map buttons.
   - What shows: QR code (on), seat, agenda, room and bus (off), live voting, feedback link.
 - **Horizon portal tabs:** Beranda, Acara, Perjalanan, Pengumuman, Profil/Menu, and a QR button in the bottom bar. The QR can be saved for offline use. Outfit is part of Acara: a strip on each Schedule day with outfits opens the Outfit page (back to Susunan acara, Acara stays lit), and both follow the participant's batch. With the Schedule hidden for participants, Outfit is a desktop tab and a Menu row instead.

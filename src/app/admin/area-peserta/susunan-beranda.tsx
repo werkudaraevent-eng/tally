@@ -1,12 +1,13 @@
 "use client";
 
-import { CaretRight, DotsSixVertical, Eye, EyeSlash, Plus } from "@phosphor-icons/react";
+import { CaretRight, DotsSixVertical, Eye, EyeSlash, LockSimple, Plus } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import Link from "@/components/event-link";
 import { Button } from "@/components/m3";
 import { useToast } from "@/components/toast";
-import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, slotPengumumanHorizon, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig, type SlotPengumumanHorizon } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { TETAP_HORIZON, pindahHorizon, urutanHorizon } from "@/lib/member/susunan-horizon";
 import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
 import { TambahBlokDialog } from "../landing/blocks";
@@ -17,8 +18,9 @@ import { TambahBlokDialog } from "../landing/blocks";
  *
  * Isinya isi bawaan dashboard (MEMBER_HOME_BUILTINS) dan blok halaman acara
  * yang Show on-nya Participant page atau Both. Urutan dan yang disembunyikan
- * disimpan di `member.home`; urutannya dihitung memberHomeOrder, fungsi yang
- * sama dengan dashboard, jadi daftar ini selalu sama dengan halamannya.
+ * disimpan di `member.home`; urutannya dihitung memberHomeOrder (Gathering
+ * Horizon: urutanHorizon), fungsi yang sama dengan dashboard, jadi daftar ini
+ * selalu sama dengan halamannya.
  *
  * Mata di sini hanya menyembunyikan dari Beranda. Data di baliknya (Agenda,
  * Logistik) tetap diatur saklarnya di "Also available to participants": baris
@@ -54,18 +56,6 @@ type Baris = {
 /** Batas jumlah blok per acara, sama dengan Event page dan skema server. */
 const MAKS_BLOK = 30;
 
-/**
- * Gathering Horizon menaruh isi bawaan di tempat tetap (Beranda "Hari ini",
- * keputusan Mas 20 Okt), urutan ponsel: Next up (Sekarang dan berikutnya),
- * dresscode hari ini, checkpoint, Bus and room (kartu perjalanan sebelum
- * berangkat, Perjalananmu selama acara, dengan teman sekamar di dalamnya), blok,
- * lalu Hubungi panitia. Yang dipakai dari urutan hanya posisi Announcements, dan
- * urutan blok. Layar lebar: Announcements dan dresscode di kolom samping. Quick
- * links dan Today's agenda tidak dirender, jadi tidak ditawarkan.
- */
-const HORIZON_TETAP = ["next", "checkpoints", "logistics", "roommates"] as const;
-const HORIZON_TANPA = ["quick", "agenda"];
-
 function geser(order: string[], dari: number, ke: number) {
   const next = [...order];
   const [id] = next.splice(dari, 1);
@@ -73,43 +63,8 @@ function geser(order: string[], dari: number, ke: number) {
   return next;
 }
 
-/**
- * Tempat Announcements di Horizon di bawah 1024 px, dihitung persis seperti
- * dashboard (slotPengumumanHorizon): 0 = paling atas, 1 = setelah Bus and
- * room, 2 = setelah Next up, 3 = urutan lama dari Gathering klasik, juga
- * paling atas (dipertahankan sampai admin memindahkannya sendiri). Mulai
- * 1024 px Announcements selalu di kolom samping.
- */
-type SlotPengumuman = SlotPengumumanHorizon;
-
-/** Urutan yang tampil di editor: urutan ponsel, lalu blok. */
-function tampilanHorizon(slot: SlotPengumuman | null, blok: string[]): string[] {
-  const isi: string[] = [...HORIZON_TETAP];
-  if (slot !== null) isi.splice(slot === 0 || slot === 3 ? 0 : slot === 2 ? isi.indexOf("next") + 1 : isi.indexOf("roommates"), 0, "announcements");
-  return [...isi, ...blok];
-}
-
-/** Tempat Announcements setelah dipindah di editor: dibaca dari urutan TAMPILAN (ponsel). */
-function slotDariTampilan(order: string[]): SlotPengumuman | null {
-  const posisi = order.indexOf("announcements");
-  if (posisi < 0) return null;
-  if (posisi < order.indexOf("next")) return 0;
-  return posisi < order.indexOf("logistics") ? 2 : 1;
-}
-
-/**
- * Urutan yang disimpan: bentuk lama yang dibaca slotPengumumanHorizon
- * (posisi terhadap Bus and room dan Next up), jadi simpanan lama tetap sama artinya.
- */
-function simpananHorizon(slot: SlotPengumuman | null, blok: string[]): string[] {
-  const bawaan =
-    slot === 3 ? ["next", "announcements", "checkpoints", "logistics", "roommates"]
-      : slot === 2 ? ["checkpoints", "logistics", "next", "announcements", "roommates"]
-        : slot === 1 ? ["checkpoints", "logistics", "announcements", "next", "roommates"]
-          : slot === 0 ? ["announcements", "checkpoints", "logistics", "next", "roommates"]
-            : ["checkpoints", "logistics", "next", "roommates"];
-  return [...bawaan, ...blok];
-}
+/** Keterangan tempat tetap Horizon (lib/member/susunan-horizon.ts). */
+const TEMPAT_TETAP: Record<string, string> = { next: "Fixed at the top", roommates: "Stays with Bus and room", help: "Fixed at the bottom" };
 
 export function SusunanBeranda({
   layout,
@@ -122,6 +77,8 @@ export function SusunanBeranda({
   set,
   dipilih,
   onPilih,
+  outfitAda,
+  kontakAda,
 }: {
   layout: "gathering" | "modern";
   member: LandingMemberConfig;
@@ -138,6 +95,10 @@ export function SusunanBeranda({
   /** Baris yang sedang disorot di pratinjau. */
   dipilih: string | null;
   onPilih: (id: string) => void;
+  /** Horizon: ada outfit di Agenda; false = baris Today's outfit menyebut di mana mengisinya. */
+  outfitAda?: boolean;
+  /** Horizon: ada telepon atau email panitia di Event settings; false = baris Help card menyebutnya. */
+  kontakAda?: boolean;
 }) {
   const gathering = layout === "gathering";
   const router = useRouter();
@@ -146,48 +107,35 @@ export function SusunanBeranda({
   const toast = useToast();
   const [seret, setSeret] = useState<number | null>(null);
   const [sasaran, setSasaran] = useState<number | null>(null);
-  const { order: urutanPenuh, hidden } = memberHomeOrder(member.home, blocks.map((block) => block.id), gathering);
   const diHorizon = gathering && horizon;
-  const tetap = new Set<string>(diHorizon ? HORIZON_TETAP : []);
-  const tanpa = new Set(diHorizon ? HORIZON_TANPA : []);
-  const blokDari = (ids: string[]) => ids.filter((id) => !tetap.has(id) && !tanpa.has(id) && id !== "announcements");
-  const slot = diHorizon ? slotPengumumanHorizon(urutanPenuh) : null;
-  const order = diHorizon ? tampilanHorizon(slot, blokDari(urutanPenuh)) : urutanPenuh;
-  /**
-   * Urutan tampilan setelah satu baris dipindah menjadi urutan simpanan. Di
-   * Horizon hanya Announcements yang mengganti tempat; baris lain yang dipindah
-   * tidak menyentuh tempatnya, jadi slot 3 tidak hilang karena blok digeser.
-   */
-  const keSimpanan = (next: string[], yangDipindah: string | null) => {
-    if (!diHorizon) return next;
-    const slotBaru: SlotPengumuman | null =
-      yangDipindah === "announcements" ? slotDariTampilan(next) : slot;
-    return simpananHorizon(slotBaru, blokDari(next));
-  };
-  // Baris yang tidak ditawarkan kembali tepat sebelum isi yang dulu mengikutinya.
-  const lengkapi = (next: string[]) => {
-    const hasil = [...next];
-    urutanPenuh.forEach((id, index) => {
-      if (!tanpa.has(id)) return;
-      const pengikut = urutanPenuh.slice(index + 1).find((lain) => hasil.includes(lain));
-      hasil.splice(pengikut ? hasil.indexOf(pengikut) : hasil.length, 0, id);
-    });
-    return hasil;
-  };
+  const idBlok = blocks.map((block) => block.id);
+  const { order: urutanPenuh, hidden: tersembunyiLama } = memberHomeOrder(member.home, idBlok, gathering);
+  // Horizon: urutan tampil dengan tempat tetap (Next up di atas, Help card di bawah),
+  // dan mata dibaca apa adanya, karena Today's outfit dan Help card tidak dikenal
+  // Gathering klasik. Simpanan lama dibaca sebagai tempat Announcements saja.
+  const order = diHorizon ? urutanHorizon(member.home, idBlok) : urutanPenuh;
+  const hidden = diHorizon ? new Set(member.home?.hidden ?? []) : tersembunyiLama;
+  const tetap: ReadonlySet<string> = diHorizon ? TETAP_HORIZON : new Set<string>();
   const logistikMati = member.show_logistics !== true;
   const alasanMati = (id: string): string | null => {
     if (id === "agenda" && member.show_schedule === false) return "Agenda is off below";
     if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Room and bus is off below";
     if (id === "roommates" && member.show_roommates === false) return "Roommates are off in Logistics";
     if (id === "checkpoints" && !checkpointsOn) return "Off in Check-in";
+    if (id === "outfit" && outfitAda === false) return "No outfits yet in Agenda";
+    if (id === "help" && kontakAda === false) return "No organiser phone or email in Event settings";
     return null;
   };
   const baris: Baris[] = order.map((id) => {
-    const bawaan = MEMBER_HOME_BUILTINS[layout].find((item) => item.id === id);
-    // Urutan lama: di ponsel paling atas, di layar lebar setelah Next up. Disebut, bukan diam-diam dipindah.
-    // Horizon mulai 1024 px: Announcements selalu di kolom samping; tempat yang disimpan berlaku di bawah 1024 px.
+    const bawaan = MEMBER_HOME_BUILTINS[diHorizon ? "horizon" : layout].find((item) => item.id === id);
+    // Horizon mulai 1024 px: Announcements dan Today's outfit di kolom samping; urutan ini berlaku di bawah 1024 px.
     // Teman sekamar: satu baris di kartu perjalanan selama acara. Disebut, bukan diam-diam.
-    const sub = id === "announcements" && diHorizon ? `Side column on wide screens · ${bawaan?.sub}` : id === "roommates" && diHorizon ? `In the travel card during the event · ${bawaan?.sub}` : bawaan?.sub ?? "";
+    const sub =
+      diHorizon && (id === "announcements" || id === "outfit")
+        ? `Side column on wide screens · ${bawaan?.sub}`
+        : diHorizon && id === "roommates"
+          ? `In the travel card during the event · ${bawaan?.sub}`
+          : bawaan?.sub ?? "";
     if (bawaan) return { id, judul: bawaan.label, sub, blok: false, tampil: !hidden.has(id), mati: alasanMati(id), tetap: tetap.has(id), sumber: bawaan.source };
     const block = blocks.find((item) => item.id === id)!;
     const jenis = LANDING_BLOCK_LABELS[block.type];
@@ -209,10 +157,11 @@ export function SusunanBeranda({
     };
   });
 
-  const hasilPindah = (dari: number, ke: number) => keSimpanan(geser(order, dari, ke), order[dari]);
+  // Horizon menyimpan urutan tampil apa adanya (format baru, memuat "help"); tempat tetap dirapikan.
+  const hasilPindah = (dari: number, ke: number) => (diHorizon ? pindahHorizon(order, order[dari], ke) : geser(order, dari, ke));
   const pindah = (dari: number, ke: number) => {
     if (ke < 0 || ke >= order.length || dari === ke) return;
-    set({ home: { ...member.home, order: lengkapi(hasilPindah(dari, ke)) } });
+    set({ home: { ...member.home, order: hasilPindah(dari, ke) } });
   };
   const lepas = (target: number) => {
     if (seret !== null) pindah(seret, target);
@@ -225,16 +174,16 @@ export function SusunanBeranda({
     else next.delete(b.id);
     // Urutan ikut disimpan: tanpa itu, blok yang ditambahkan nanti bisa
     // menggeser isi yang posisinya sudah dilihat admin di pratinjau.
-    set({ home: { ...member.home, order: diHorizon ? lengkapi(keSimpanan(order, null)) : urutanPenuh, hidden: [...next] } });
+    set({ home: { ...member.home, order, hidden: [...next] } });
   };
   const tombolPegangan = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     event.preventDefault();
     const arah = event.key === "ArrowUp" ? -1 : 1;
-    // Horizon merapikan ke tempat tampil yang tetap: lompati langkah yang
-    // tidak mengubah apa pun, supaya satu panah selalu terlihat hasilnya.
+    // Horizon merapikan ke tempat tetap: lompati langkah yang tidak mengubah
+    // apa pun, supaya satu panah selalu terlihat hasilnya.
     let ke = index + arah;
-    const sekarang = keSimpanan(order, null).join();
+    const sekarang = order.join();
     while (ke >= 0 && ke < order.length && hasilPindah(index, ke).join() === sekarang) ke += arah;
     pindah(index, ke);
     // Fokus ikut barisnya, supaya panah berikutnya memindahkan baris yang sama.
@@ -265,6 +214,7 @@ export function SusunanBeranda({
         {baris.map((b, index) => (
           <li
             key={b.id}
+            id={`baris-beranda-${b.id}`}
             className={cx(
               "flex min-h-14 items-center gap-2 border-b border-outline-variant pr-1 last:border-b-0",
               dipilih === b.id && "bg-primary-soft shadow-[inset_3px_0_0_var(--color-primary)]",
@@ -276,7 +226,9 @@ export function SusunanBeranda({
             onDrop={(event: DragEvent<HTMLLIElement>) => { event.preventDefault(); lepas(index); }}
           >
             {b.tetap ? (
-              <span aria-hidden className="w-7 shrink-0" />
+              <span title={TEMPAT_TETAP[b.id] ?? "Fixed place"} className="flex h-14 w-7 shrink-0 items-center justify-center self-stretch text-on-surface-variant">
+                <LockSimple size={14} aria-hidden />
+              </span>
             ) : (
               <button
                 type="button"
@@ -309,7 +261,7 @@ export function SusunanBeranda({
                 {/* Jenis baris selalu terbaca; keterangannya yang terpotong bila sempit. */}
                 <span className="flex min-w-0 gap-1 text-body-small text-on-surface-variant">
                   <span className="shrink-0 font-medium">{b.blok ? "Your block" : "Automatic"}</span>
-                  <span className="truncate">{["", !b.tampil ? "Hidden" : b.mati, b.tetap ? "Fixed place" : null, b.sub].filter((bagian) => bagian !== null).join(" · ")}</span>
+                  <span className="truncate">{["", !b.tampil ? "Hidden" : b.mati, b.tetap ? (TEMPAT_TETAP[b.id] ?? "Fixed place") : null, b.sub].filter((bagian) => bagian !== null).join(" · ")}</span>
                 </span>
               </button>
               {tautanSumber(b, "inline-flex self-start sm:hidden")}
@@ -329,7 +281,7 @@ export function SusunanBeranda({
       </ol>
       <p className="text-body-small text-on-surface-variant">
         {diHorizon
-          ? "Horizon keeps Next up, Checkpoints and Bus and room in fixed places, with today's outfit after Next up and Contact the organisers at the bottom. Drag Announcements to choose where it shows on phones; your blocks follow in this order. "
+          ? "Drag a row here, or a card in the Phone preview. Next up stays at the top, where only Announcements can go above it, and the Help card stays at the bottom. Phones show this order; from 1024 px wide, Announcements and Today's outfit move to the side column. "
           : gathering
           ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
           : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}

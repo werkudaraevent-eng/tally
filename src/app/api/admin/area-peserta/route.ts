@@ -10,6 +10,8 @@ import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
 import { landingEnAvailable } from "@/lib/landing-i18n";
 import { KOLOM_MASUK_POLA, pilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain";
+import { kontakPanitia } from "@/lib/kontak-panitia";
+import { loadOutfitBagian } from "@/lib/outfit-server";
 
 /**
  * Setelan area peserta (menu admin "Area peserta").
@@ -104,6 +106,9 @@ export async function GET(request: Request) {
     client.from("participant_accounts").select("id", { count: "exact", head: true }).eq("event_id", eventId),
   ]);
   const layout = landing.layout === "modern" ? (landing.gathering === true ? "gathering" : "modern") : null;
+  const horizon = gatheringHorizon(landing);
+  // Horizon: baris Today's outfit menyebut bila Agenda belum punya outfit.
+  const petaOutfit = horizon && layout ? await loadOutfitBagian(eventId) : null;
   const diSusunan = new Map(normalizeLandingSections(landing.sections, landing.blocks).map((section) => [section.id as string, section.enabled]));
 
   // Blok khusus peserta yang dulu dimatikan di Page sections: kini diatur di
@@ -146,7 +151,16 @@ export async function GET(request: Request) {
     // Baris Checkpoints di Participant home menyebut bila fiturnya mati di Check-in.
     checkpoints_on: layout ? (await loadSetelanCheckpoint(eventId))?.enabled === true : false,
     // Gathering Horizon tidak menampilkan "Today's agenda": barisnya disembunyikan di CMS.
-    horizon: gatheringHorizon(landing),
+    horizon,
+    // Horizon: tanggal acara untuk "Preview on" di pratinjau, dan alasan baris
+    // Today's outfit (belum ada outfit di Agenda) dan Help card (tanpa kontak panitia).
+    ...(horizon
+      ? {
+          dates: { start: auth.scope.event.event_date ?? null, end: auth.scope.event.end_date ?? auth.scope.event.event_date ?? null },
+          outfit_days: petaOutfit ? [...petaOutfit.values()].filter((isian) => isian.length > 0).length : 0,
+          organiser_contact: kontakPanitia(landing) !== null,
+        }
+      : {}),
     // Halaman English ada: Emergency and help menampilkan isian English.
     english: landingEnAvailable(landing),
     // Cara masuk: kolom yang boleh dipilih untuk "Participant fields", dan
