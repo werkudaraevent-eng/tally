@@ -8,6 +8,7 @@ import { SettingRow } from "@/components/admin/settings-panel";
 import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
 import { KontakDaruratForm } from "./kontak-darurat";
+import { KelompokSetiapHari } from "./setiap-hari";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
@@ -16,7 +17,9 @@ import type { PilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { rapikanBantuan } from "@/lib/member/kontak-darurat";
-import { OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX } from "@/lib/outfit";
+import { OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, labelOutfit } from "@/lib/outfit";
+import { FOTO_OUTFIT_SALAH, fotoOutfitSah, unggahFotoOutfit } from "@/lib/outfit-foto";
+import { bacaOutfitSetiapHari, drafSetiapHari, galatSetiapHari, kirimanSetiapHari, samaSetiapHari, type IsianSetiapHari } from "@/lib/outfit-setiap-hari";
 import { plural } from "@/lib/plural";
 
 /**
@@ -137,6 +140,12 @@ export default function AreaPesertaPage() {
   // Kartu yang diklik atau diseret di pratinjau: barisnya disorot tanpa menggulir pratinjau.
   const [pilihKartu, setPilihKartu] = useState<string | null>(null);
   const [tanpaNama, setTanpaNama] = useState<number | null>(null);
+  // Every day: foto yang sedang diunggah, galat unggah atau 422 Save changes,
+  // dan versi kelompoknya (Cancel dan Save memasangnya ulang, jadi Note yang
+  // dibuka tanpa isi kembali menjadi Add note).
+  const [unggahFoto, setUnggahFoto] = useState(false);
+  const [galatSetiap, setGalatSetiap] = useState<string | null>(null);
+  const [versiSetiap, setVersiSetiap] = useState(0);
 
   const load = useCallback(async () => {
     setGalatMuat("");
@@ -154,6 +163,36 @@ export default function AreaPesertaPage() {
 
   const set = (patch: Partial<LandingMemberConfig>) => setAnggotaState((current) => current && { ...current, ...patch });
   const berubah = Boolean(data && anggota && JSON.stringify(anggota) !== JSON.stringify(data.member));
+
+  /** Satu kolom Every day. Isian yang sama persis dengan yang tersimpan kembali ke nilai tersimpan, bukan perubahan. */
+  const ubahSetiapHari = (ubah: Partial<IsianSetiapHari>) => {
+    setGalatSetiap(null);
+    setAnggotaState((current) => current && { ...current, outfit_every_day: drafSetiapHari(current.outfit_every_day, ubah, data?.member.outfit_every_day) });
+  };
+
+  function gagalFoto(pesan: string) {
+    setGalatSetiap(pesan);
+    toast.error("Photo not uploaded", pesan);
+  }
+
+  /** Foto Every day lewat endpoint unggah foto Agenda (lib/outfit-foto.ts); masuk draf sampai Save changes. */
+  async function unggahFotoSetiapHari(file: File) {
+    setGalatSetiap(null);
+    // Diperiksa di sini dulu: berkas yang salah tidak perlu diunggah untuk ditolak.
+    if (!fotoOutfitSah(file)) {
+      gagalFoto(FOTO_OUTFIT_SALAH);
+      return;
+    }
+    setUnggahFoto(true);
+    const hasil = await unggahFotoOutfit(file);
+    setUnggahFoto(false);
+    if ("galat" in hasil) {
+      gagalFoto(hasil.galat);
+      return;
+    }
+    ubahSetiapHari({ photo_url: hasil.url });
+    toast.info("Photo uploaded", "Select Save changes to show it to participants.");
+  }
 
   async function save() {
     if (!anggota) return;
@@ -178,6 +217,10 @@ export default function AreaPesertaPage() {
     // menampilkannya). Sama dengan kontak, hanya dikirim bila diubah di sini.
     if ((anggota.outfit_label ?? "").trim() === (data?.member.outfit_label ?? "").trim()) delete setelan.outfit_label;
     else setelan.outfit_label = anggota.outfit_label?.trim() || null;
+    // Every day: juga hanya ditulis layar ini, dan hanya dikirim bila diubah di
+    // sini. What to wear kosong dikirim sebagai null: server tidak menyimpan apa pun.
+    if (samaSetiapHari(anggota.outfit_every_day, data?.member.outfit_every_day)) delete setelan.outfit_every_day;
+    else setelan.outfit_every_day = kirimanSetiapHari(anggota.outfit_every_day);
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
     delete setelan.show_bus_crew;
@@ -191,10 +234,17 @@ export default function AreaPesertaPage() {
     setSimpan(false);
     if (!response) { toast.error("Connection failed", "Reload to see the current state."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { toast.error("Couldn't save", pesanGalatApi(body) ?? "Try again."); return; }
+    if (!response.ok) {
+      // Every day yang ditolak (422) juga disebut di kelompoknya, di dekat kolomnya.
+      setGalatSetiap(galatSetiapHari(body));
+      toast.error("Couldn't save", pesanGalatApi(body) ?? "Try again.");
+      return;
+    }
     const tersimpan = (body as { member: LandingMemberConfig }).member;
     setData((current) => current && { ...current, member: tersimpan });
     setAnggotaState(tersimpan);
+    setGalatSetiap(null);
+    setVersiSetiap((versi) => versi + 1);
     toast.success("Saved", tersimpan.enabled ? "The Event page uses the new settings right away." : "Participant area closed. The Sign in button no longer shows on the Event page.");
   }
 
@@ -334,7 +384,8 @@ export default function AreaPesertaPage() {
                         setPilihKartu(null);
                         setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
                       }}
-                      outfitAda={data.outfit_days === undefined ? undefined : data.outfit_days > 0}
+                      // Every day (draf, seperti pratinjau) juga mengisi kartunya, tanpa tab Agenda sekalipun.
+                      outfitAda={data.outfit_days === undefined ? undefined : data.outfit_days > 0 || bacaOutfitSetiapHari(anggota.outfit_every_day) !== null}
                       kontakAda={data.organiser_contact}
                     />
                   </SettingRow>
@@ -343,38 +394,47 @@ export default function AreaPesertaPage() {
                   <SettingRow
                     stacked={berpratinjau}
                     title="Dress code page"
-                    description={
-                      <>
-                        Shown under each day of the participant Schedule and as Today’s dress code on Participant home. With Agenda off for participants, it is a tab on wide screens and a Menu row on phones. Each tab’s dress code is set in{" "}
-                        <Link
-                          href="/admin/rundown"
-                          className={TAUTAN}
-                          onClick={(event) => {
-                            if (!berubah) return;
-                            event.preventDefault();
-                            toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
-                          }}
-                        >
-                          Agenda › Dress code
-                        </Link>
-                        .
-                      </>
-                    }
+                    description="A page under each day of the participant Schedule, and Today’s dress code on Participant home. With Agenda off for participants, it is a tab on wide screens and a Menu row on phones."
                   >
-                    {/* Untuk seluruh acara, jadi di sini, bukan per tab di Agenda. */}
-                    <TextField
-                      label="Page name"
-                      optional
-                      maxLength={OUTFIT_LABEL_MAX}
-                      counter
-                      hint={`For the whole event. Left empty, participants see “${OUTFIT_LABEL_BAWAAN}”.`}
-                      value={anggota.outfit_label ?? ""}
-                      onChange={(event) => {
-                        const nilai = event.target.value;
-                        // Dikosongkan saat yang tersimpan juga kosong: kembali ke nilai tersimpan, bukan perubahan.
-                        set({ outfit_label: nilai.trim() || data.member.outfit_label?.trim() ? nilai : data.member.outfit_label });
-                      }}
-                    />
+                    {/* Every day dan nama halaman untuk seluruh acara, jadi di sini, bukan per tab di Agenda. */}
+                    <div className="flex min-w-0 flex-col gap-4">
+                      <KelompokSetiapHari
+                        key={versiSetiap}
+                        nilai={anggota.outfit_every_day}
+                        onUbah={ubahSetiapHari}
+                        labelHalaman={labelOutfit(anggota.outfit_label)}
+                        tautanAgenda={
+                          <Link
+                            href="/admin/rundown"
+                            className={TAUTAN}
+                            onClick={(event) => {
+                              if (!berubah) return;
+                              event.preventDefault();
+                              toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
+                            }}
+                          >
+                            Agenda › Dress code
+                          </Link>
+                        }
+                        unggah={unggahFoto}
+                        menyimpan={simpan}
+                        galat={galatSetiap}
+                        onUnggah={(file) => void unggahFotoSetiapHari(file)}
+                      />
+                      <TextField
+                        label="Page name"
+                        optional
+                        maxLength={OUTFIT_LABEL_MAX}
+                        counter
+                        hint={`For the whole event. Left empty, participants see “${OUTFIT_LABEL_BAWAAN}”.`}
+                        value={anggota.outfit_label ?? ""}
+                        onChange={(event) => {
+                          const nilai = event.target.value;
+                          // Dikosongkan saat yang tersimpan juga kosong: kembali ke nilai tersimpan, bukan perubahan.
+                          set({ outfit_label: nilai.trim() || data.member.outfit_label?.trim() ? nilai : data.member.outfit_label });
+                        }}
+                      />
+                    </div>
                   </SettingRow>
                 ) : null}
                 {data.horizon === true ? (
@@ -437,8 +497,22 @@ export default function AreaPesertaPage() {
             </SettingRow>
           </PaneBody>
           <PaneFooter note={berubah ? "Unsaved changes" : null}>
-            {berubah ? <Button variant="outlined" size="sm" disabled={simpan} onClick={() => setAnggotaState(data.member)}>Cancel</Button> : null}
-            <Button simpan size="sm" loading={simpan} disabled={!berubah} onClick={() => void save()}>Save changes</Button>
+            {/* Menunggu foto Every day selesai diunggah: tersimpan bersama, bukan mendarat sesudahnya sebagai suntingan baru. */}
+            {berubah ? (
+              <Button
+                variant="outlined"
+                size="sm"
+                disabled={simpan || unggahFoto}
+                onClick={() => {
+                  setAnggotaState(data.member);
+                  setGalatSetiap(null);
+                  setVersiSetiap((versi) => versi + 1);
+                }}
+              >
+                Cancel
+              </Button>
+            ) : null}
+            <Button simpan size="sm" loading={simpan} disabled={!berubah || unggahFoto} onClick={() => void save()}>Save changes</Button>
           </PaneFooter>
         </Pane>
         </div>

@@ -6,6 +6,7 @@ import { sectionsDenganBlokPeserta, type EventLandingConfig, type EventRow } fro
 import { memberSchema } from "@/lib/landing-body-schema";
 import { previewMemberSession } from "@/lib/member/account";
 import { bantuanPratinjau, type BantuanDarurat } from "@/lib/member/kontak-darurat";
+import { bacaOutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { EVENT_TIME_ZONES, normalizeTimeZone } from "@/lib/timezone";
 import { renderBerandaPratinjau } from "./render";
 
@@ -36,7 +37,12 @@ export async function renderPratinjauPeserta(slug: string, pesertaId: string, dr
   if (auth.response) return { ok: false, pesan: "Your session has expired. Reload this page." };
   // Tautan umpan balik yang masih diketik tidak menghentikan pratinjau.
   // Kontak darurat yang masih diketik (tanpa nama, peta setengah jadi) dilewati, bukan menghentikan pratinjau.
-  const drafRapi = draf && typeof draf === "object" && "help" in draf ? { ...draf, help: bantuanPratinjau((draf as { help?: BantuanDarurat | null }).help) } : draf;
+  // Every day dibaca seperti portal membacanya (bacaOutfitSetiapHari), di luar
+  // skema tulis: foto http data uji lokal tidak menghentikan pratinjau, dan
+  // Save tetap memeriksa https.
+  const setiap = draf && typeof draf === "object" && "outfit_every_day" in draf ? { outfit_every_day: bacaOutfitSetiapHari((draf as { outfit_every_day?: unknown }).outfit_every_day) } : null;
+  const drafAwal = setiap ? Object.fromEntries(Object.entries(draf as object).filter(([kunci]) => kunci !== "outfit_every_day")) : draf;
+  const drafRapi = drafAwal && typeof drafAwal === "object" && "help" in drafAwal ? { ...drafAwal, help: bantuanPratinjau((drafAwal as { help?: BantuanDarurat | null }).help) } : drafAwal;
   const parsed = [drafRapi, drafRapi && typeof drafRapi === "object" ? { ...drafRapi, feedback_url: null } : drafRapi].map((isi) => memberSchema.safeParse(isi)).find((hasil) => hasil.success) ?? memberSchema.safeParse(drafRapi);
   if (!parsed.success) return { ok: false, pesan: "Some settings aren't valid yet. The preview resumes once they're fixed." };
   const event = (await getEventBySlugPublic(slug)) as EventRow | null;
@@ -51,6 +57,6 @@ export async function renderPratinjauPeserta(slug: string, pesertaId: string, dr
   const nyala = tersembunyi ? (landing.blocks ?? []).map((block) => block.id as string).filter((id) => !tersembunyi.includes(id)) : [];
   const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyala);
   const acara = sections === landing.sections ? event : { ...event, landing_config: { ...landing, sections } };
-  const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data }, sesi, tab === "profil" ? "profil" : "beranda", waktuDari(waktu, event.time_zone));
+  const isi = await renderBerandaPratinjau(acara, { ...(landing.member ?? { enabled: false }), ...parsed.data, ...setiap }, sesi, tab === "profil" ? "profil" : "beranda", waktuDari(waktu, event.time_zone));
   return isi ? { ok: true, isi } : { ok: false, pesan: "Participant home is only on the Modern and Gathering layouts." };
 }

@@ -12,6 +12,7 @@ import { KOLOM_MASUK_POLA, pilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain";
 import { kontakPanitia } from "@/lib/kontak-panitia";
 import { loadOutfitBagian } from "@/lib/outfit-server";
+import { tanpaSetiapHariKosong } from "@/lib/outfit-setiap-hari";
 
 /**
  * Setelan area peserta (menu admin "Area peserta").
@@ -182,10 +183,11 @@ export async function GET(request: Request) {
  * admin (`nyalakan`) untuk blok khusus peserta ikut menyalakannya di Page
  * sections, satu-satunya tempat lama yang bisa mematikannya. Hanya mata yang
  * dinyalakan, bukan semua yang tidak tersembunyi: salinan basi tidak
- * menyalakan blok yang baru dimatikan di layar lain.
+ * menyalakan blok yang baru dimatikan di layar lain. Every day yang
+ * dikosongkan dibuang dari simpanan, bukan disimpan null.
  */
 function gabung(landing: EventLandingConfig, patch: Partial<LandingMemberConfig>, nyalakan: string[]): EventLandingConfig {
-  const member = { ...(landing.member ?? {}), ...patch } as LandingMemberConfig;
+  const member = tanpaSetiapHariKosong({ ...(landing.member ?? {}), ...patch } as LandingMemberConfig);
   const tersembunyi = patch.home?.hidden ?? landing.member?.home?.hidden ?? [];
   const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyalakan.filter((id) => !tersembunyi.includes(id)));
   return { ...landing, member, ...(sections !== landing.sections ? { sections } : {}) };
