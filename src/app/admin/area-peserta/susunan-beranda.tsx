@@ -95,7 +95,7 @@ export function SusunanBeranda({
   /** Baris yang sedang disorot di pratinjau. */
   dipilih: string | null;
   onPilih: (id: string) => void;
-  /** Horizon: ada outfit di Agenda; false = baris Today's outfit menyebut di mana mengisinya. */
+  /** Horizon: ada dress code di Agenda; false = baris Today's dress code menyebut di mana mengisinya. */
   outfitAda?: boolean;
   /** Horizon: ada telepon atau email panitia di Event settings; false = baris Help card menyebutnya. */
   kontakAda?: boolean;
@@ -111,7 +111,7 @@ export function SusunanBeranda({
   const idBlok = blocks.map((block) => block.id);
   const { order: urutanPenuh, hidden: tersembunyiLama } = memberHomeOrder(member.home, idBlok, gathering);
   // Horizon: urutan tampil dengan tempat tetap (Next up di atas, Help card di bawah),
-  // dan mata dibaca apa adanya, karena Today's outfit dan Help card tidak dikenal
+  // dan mata dibaca apa adanya, karena Today's dress code dan Help card tidak dikenal
   // Gathering klasik. Simpanan lama dibaca sebagai tempat Announcements saja.
   const order = diHorizon ? urutanHorizon(member.home, idBlok) : urutanPenuh;
   const hidden = diHorizon ? new Set(member.home?.hidden ?? []) : tersembunyiLama;
@@ -122,13 +122,13 @@ export function SusunanBeranda({
     if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Room and bus is off below";
     if (id === "roommates" && member.show_roommates === false) return "Roommates are off in Logistics";
     if (id === "checkpoints" && !checkpointsOn) return "Off in Check-in";
-    if (id === "outfit" && outfitAda === false) return "No outfits yet in Agenda";
+    if (id === "outfit" && outfitAda === false) return "No dress codes in Agenda yet";
     if (id === "help" && kontakAda === false) return "No organiser phone or email in Event settings";
     return null;
   };
   const baris: Baris[] = order.map((id) => {
     const bawaan = MEMBER_HOME_BUILTINS[diHorizon ? "horizon" : layout].find((item) => item.id === id);
-    // Horizon mulai 1024 px: Announcements dan Today's outfit di kolom samping; urutan ini berlaku di bawah 1024 px.
+    // Horizon mulai 1024 px: Announcements dan Today's dress code di kolom samping; urutan ini berlaku di bawah 1024 px.
     // Teman sekamar: satu baris di kartu perjalanan selama acara. Disebut, bukan diam-diam.
     const sub =
       diHorizon && (id === "announcements" || id === "outfit")
@@ -291,7 +291,7 @@ export function SusunanBeranda({
       </ol>
       <p className="text-body-small text-on-surface-variant">
         {diHorizon
-          ? "Drag a row here, or a card in the Phone preview. Next up stays at the top, where only Announcements can go above it, and the Help card stays at the bottom. Phones show this order; from 1024 px wide, Announcements and Today's outfit move to the side column. "
+          ? "Drag a row here, or a card in the Phone preview. Next up stays at the top, where only Announcements can go above it, and the Help card stays at the bottom. Phones show this order; from 1024 px wide, Announcements and Today's dress code move to the side column. "
           : gathering
           ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
           : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}

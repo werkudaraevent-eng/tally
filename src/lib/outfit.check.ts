@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { bacaOutfit, bagianOutfitTanggal, hariOutfitBeranda, labelOutfit, outfitSchema } from "./outfit.ts";
+import {
+  bacaOutfit, bagianOutfitTanggal, cekDaftarOutfit, hariOutfitBeranda, jenisOutfit, labelOutfit, labelTabOutfit, outfitSchema, teksWaktuOutfit, urutOutfit,
+} from "./outfit.ts";
 
 // Validasi tulis: foto hanya https, isian kosong dibuang jadi undefined, paling banyak tiga.
 const ok = outfitSchema.safeParse([{ when: "  Gala dinner • 19.00 ", what: " Batik ", note: "", photo_url: "https://x.supabase.co/a.jpg" }]);
@@ -22,6 +24,57 @@ assert.deepEqual(bacaOutfit([{ what: " " }, "x", { what: "Batik", photo_url: "ja
 assert.equal(labelOutfit(null), "Outfit");
 assert.equal(labelOutfit("  "), "Outfit");
 assert.equal(labelOutfit("Dress code"), "Dress code");
+
+// item_id lolos skema tulis dan bacaOutfit; zod membuang kunci yang tidak dikenal.
+const bertaut = outfitSchema.safeParse([{ item_id: 42, when: null, what: "Batik" }, { item_id: null, what: "Kaos" }]);
+assert.ok(bertaut.success);
+assert.deepEqual(JSON.parse(JSON.stringify(bertaut.data)), [{ item_id: 42, what: "Batik" }, { what: "Kaos" }]);
+for (const salah of [0, -1, 1.5, "3"]) assert.equal(outfitSchema.safeParse([{ item_id: salah, what: "Batik" }]).success, false, String(salah));
+assert.deepEqual(bacaOutfit([{ item_id: 42, when: "17.30 Gala Dinner", what: "Batik" }]), [{ item_id: 42, when: "17.30 Gala Dinner", what: "Batik" }]);
+assert.deepEqual(bacaOutfit(JSON.parse(JSON.stringify(bertaut.data))), [{ item_id: 42, what: "Batik" }, { what: "Kaos" }]);
+assert.deepEqual(bacaOutfit([{ item_id: "42", what: "A" }, { item_id: 0, what: "B" }, { item_id: 2.5, what: "C" }]), [{ what: "A" }, { what: "B" }, { what: "C" }]);
+
+// Jenis diturunkan dari isinya, jadi isian lama tanpa item_id tetap terbaca.
+assert.equal(jenisOutfit({ item_id: 7, when: "17.30 Gala Dinner" }), "baris");
+assert.equal(jenisOutfit({ when: "Malam hari" }), "waktu");
+assert.equal(jenisOutfit({ when: "  " }), "seharian");
+assert.equal(jenisOutfit({}), "seharian");
+
+// Teks waktu dari baris: jam bertitik, label batch dibuang, paling panjang 40 huruf termasuk "…".
+assert.equal(teksWaktuOutfit("17:30:00", "Gala Dinner"), "17.30 Gala Dinner");
+assert.equal(teksWaktuOutfit("7:05", " Sarapan "), "07.05 Sarapan");
+assert.equal(teksWaktuOutfit("05:00:00", "Berkumpul di Stasiun Gambir (Batch 1)", "Batch 1"), "05.00 Berkumpul di Stasiun Gambir");
+assert.equal(teksWaktuOutfit("05:00:00", "Sesi (Batch 2)", "Batch 1"), "05.00 Sesi (Batch 2)");
+const pas = `09.00 ${"a".repeat(34)}`;
+assert.equal(teksWaktuOutfit("09:00:00", "a".repeat(34)), pas);
+const panjang = teksWaktuOutfit("06:20:00", "Perjalanan menuju Yogyakarta dengan Kereta Api Taksaka");
+assert.ok(panjang.length <= 40 && panjang.endsWith("…") && panjang.startsWith("06.20 Perjalanan menuju"), panjang);
+assert.equal(teksWaktuOutfit("06:20:00", "x".repeat(60)), `06.20 ${"x".repeat(33)}…`);
+// Emoji di batas potong tidak terbelah jadi surrogate tunggal.
+const emoji = teksWaktuOutfit("10:00:00", `${"b".repeat(32)}🎉🎉🎉`);
+assert.ok(emoji.length <= 40 && !/[\uD800-\uDBFF]…$/.test(emoji), emoji);
+
+// Label batch dari nama tab bertanggal sama, seperti segmen Batch di portal.
+const tabJumat = [
+  { id: 1, name: "Jumat, 06 November 2026 (Batch 1)", event_date: "2026-11-06" },
+  { id: 2, name: "Jumat, 06 November 2026 (Batch 2)", event_date: "2026-11-06" },
+  { id: 3, name: "Sabtu, 07 November 2026", event_date: "2026-11-07" },
+];
+assert.equal(labelTabOutfit(tabJumat, 1), "Batch 1");
+assert.equal(labelTabOutfit(tabJumat, 2), "Batch 2");
+assert.equal(labelTabOutfit(tabJumat, 3), null);
+assert.equal(labelTabOutfit(tabJumat, 9), null);
+
+// Aturan daftar: tiga isian, satu seharian, satu baris tidak dua kali.
+assert.equal(cekDaftarOutfit([{}, { item_id: 3 }, { when: "Malam hari" }]), null);
+assert.deepEqual(cekDaftarOutfit([{}, { when: " " }]), { jenis: "seharianGanda" });
+assert.deepEqual(cekDaftarOutfit([{ item_id: 3 }, { item_id: 3, when: "17.30 Gala Dinner" }]), { jenis: "barisGanda", item_id: 3 });
+assert.deepEqual(cekDaftarOutfit([{ when: "a" }, { when: "b" }, { when: "c" }, { when: "d" }]), { jenis: "terlaluBanyak" });
+assert.equal(cekDaftarOutfit([]), null);
+
+// Urutan tersimpan tetap, isian seharian selalu di depan.
+assert.deepEqual(urutOutfit([{ when: "Malam hari", what: "a" }, { item_id: 2, what: "b" }, { what: "c" }]).map((isian) => isian.what), ["c", "a", "b"]);
+assert.deepEqual(urutOutfit([{ item_id: 2, what: "b" }, { when: "Pagi", what: "a" }]).map((isian) => isian.what), ["b", "a"]);
 
 // Hari di Beranda.
 const isi = [{ what: "Batik" }];

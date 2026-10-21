@@ -1225,7 +1225,8 @@ export type LandingMemberConfig = {
    * Label halaman Outfit di portal Gathering Horizon (judul halaman, strip di
    * Susunan acara, baris Beranda; bilah atas dan Menu bila Jadwal
    * disembunyikan). Kosong = "Outfit". Paling panjang 16 huruf.
-   * Disunting di Agenda > Section > Outfit, disimpan lewat Area peserta.
+   * Disunting dan disimpan di Participant area (Dress code page > Page name);
+   * Agenda > Dress code hanya menampilkannya.
    */
   outfit_label?: string | null;
   /**
@@ -1298,7 +1299,7 @@ export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern" | "horizon", re
   horizon: [
     { id: "announcements", label: "Announcements", sub: "Latest announcement", source: SUMBER_PESAN },
     { id: "next", label: "Next up", sub: "Now and next sessions", source: SUMBER_AGENDA },
-    { id: "outfit", label: "Today's outfit", sub: "From Agenda > Section > Outfit", source: SUMBER_AGENDA },
+    { id: "outfit", label: "Today's dress code", sub: "From Agenda > Dress code", source: SUMBER_AGENDA },
     { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step", source: SUMBER_CHECKPOINT },
     { id: "logistics", label: "Bus and room", sub: "Travel card before the event, then a trip summary", source: SUMBER_LOGISTIK },
     { id: "roommates", label: "Roommates", sub: "Who shares their room", source: SUMBER_LOGISTIK },

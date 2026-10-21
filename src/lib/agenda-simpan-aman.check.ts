@@ -8,8 +8,12 @@ assert.deepEqual(formTerbuka("baris", 3, null), { jenis: "baru", bagian: 3 });
 assert.deepEqual(formTerbuka("baris", 3, 9), { jenis: "baris", id: 9 });
 assert.deepEqual(formTerbuka("bagian", 3, 9), { jenis: "bagian", id: 3 });
 assert.deepEqual(formTerbuka("header", 3, 9), { jenis: "header" });
+assert.deepEqual(formTerbuka("dresscode", 3, 9), { jenis: "dresscode", bagian: 3 });
+assert.deepEqual(formTerbuka("dresscode", null, null), { jenis: "header" });
 
-// Pindah tab meninggalkan Section dan New item, tetapi tidak Page header (satu untuk seluruh acara).
+// Pindah tab meninggalkan Section, Dress code dan New item, tetapi tidak Header (satu untuk seluruh acara).
+assert.notEqual(kunciForm(formTerbuka("dresscode", 3, null)), kunciForm(formTerbuka("dresscode", 4, null)));
+assert.notEqual(kunciForm(formTerbuka("dresscode", 3, null)), kunciForm(formTerbuka("bagian", 3, null)));
 assert.notEqual(kunciForm(formTerbuka("bagian", 3, null)), kunciForm(formTerbuka("bagian", 4, null)));
 assert.notEqual(kunciForm(formTerbuka("baris", 3, null)), kunciForm(formTerbuka("baris", 4, null)));
 assert.equal(kunciForm(formTerbuka("header", 3, null)), kunciForm(formTerbuka("header", 4, null)));
@@ -67,7 +71,9 @@ assert.equal(judulBuang({ jenis: "baru", bagian: 2 }), "Discard the new item?");
 assert.equal(judulBuang({ jenis: "bagian", id: 2 }, "Day 1"), "Discard changes to the Day 1 tab?");
 assert.equal(judulBuang({ jenis: "bagian", id: 2 }, null), "Discard changes to this section?");
 assert.equal(judulBuang({ jenis: "header" }), "Discard changes to the page header?");
-const semua: FormAgenda[] = [{ jenis: "baris", id: 1 }, { jenis: "baru", bagian: 2 }, { jenis: "bagian", id: 2 }, { jenis: "header" }];
+assert.equal(judulBuang({ jenis: "dresscode", bagian: 2 }, "Jumat, 06 November 2026 (Batch 1)"), "Discard changes to the Jumat, 06 November 2026 (Batch 1) dress code?");
+assert.equal(judulBuang({ jenis: "dresscode", bagian: 2 }, ""), "Discard changes to this dress code?");
+const semua: FormAgenda[] = [{ jenis: "baris", id: 1 }, { jenis: "baru", bagian: 2 }, { jenis: "bagian", id: 2 }, { jenis: "dresscode", bagian: 2 }, { jenis: "header" }];
 for (const form of semua) assert.ok(!(judulBuang(form, "x") + keteranganBuang(form)).includes(String.fromCharCode(0x2014)), kunciForm(form));
 
 console.log("agenda-simpan-aman: ok");

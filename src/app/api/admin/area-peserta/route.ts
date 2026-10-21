@@ -107,7 +107,7 @@ export async function GET(request: Request) {
   ]);
   const layout = landing.layout === "modern" ? (landing.gathering === true ? "gathering" : "modern") : null;
   const horizon = gatheringHorizon(landing);
-  // Horizon: baris Today's outfit menyebut bila Agenda belum punya outfit.
+  // Horizon: baris Today's dress code menyebut bila Agenda belum punya dress code.
   const petaOutfit = horizon && layout ? await loadOutfitBagian(eventId) : null;
   const diSusunan = new Map(normalizeLandingSections(landing.sections, landing.blocks).map((section) => [section.id as string, section.enabled]));
 
@@ -153,7 +153,7 @@ export async function GET(request: Request) {
     // Gathering Horizon tidak menampilkan "Today's agenda": barisnya disembunyikan di CMS.
     horizon,
     // Horizon: tanggal acara untuk "Preview on" di pratinjau, dan alasan baris
-    // Today's outfit (belum ada outfit di Agenda) dan Help card (tanpa kontak panitia).
+    // Today's dress code (belum ada dress code di Agenda) dan Help card (tanpa kontak panitia).
     ...(horizon
       ? {
           dates: { start: auth.scope.event.event_date ?? null, end: auth.scope.event.end_date ?? auth.scope.event.event_date ?? null, start_time: auth.scope.event.start_time ?? null },
@@ -195,8 +195,8 @@ export async function PATCH(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
-  // `enabled` boleh tidak dikirim: Agenda > Section > Outfit hanya mengirim
-  // `outfit_label`, dan gabungan di bawah mempertahankan kunci lainnya.
+  // `enabled` boleh tidak dikirim: Logistics > Buses hanya mengirim setelan
+  // busnya, dan gabungan di bawah mempertahankan kunci lainnya.
   const body = await request.json().catch(() => null);
   const parsed = memberSchema.partial({ enabled: true }).safeParse(body?.member);
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -205,7 +205,7 @@ export async function PATCH(request: Request) {
 
   // Dua kolom wajib dipilih, dan keduanya masih ada di form, sebelum cara
   // dua kolom bisa disimpan. Tanpanya tidak ada peserta yang bisa masuk.
-  // Hanya bila cara masuk ikut dikirim: simpanan Buses / Outfit tidak boleh
+  // Hanya bila cara masuk ikut dikirim: simpanan Buses tidak boleh
   // gagal karena pertanyaan form yang dipakai kemudian dihapus.
   const akhir = { ...((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member, ...parsed.data };
   const ubahCaraMasuk = parsed.data.sign_in !== undefined || parsed.data.sign_in_fields !== undefined;

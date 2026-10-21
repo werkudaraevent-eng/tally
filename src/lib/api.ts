@@ -51,7 +51,7 @@ const messages: Record<ApiErrorCode, string> = {
   RUNDOWN_SECTION_NOT_FOUND: "Agenda section not found.",
   RUNDOWN_ITEM_NOT_FOUND: "Agenda item not found.",
   DUPLICATE_RUNDOWN_SLUG: "Another agenda section already uses this slug. Use a different slug.",
-  OUTFIT_NOT_READY: "Outfit needs a database update first.",
+  OUTFIT_NOT_READY: "Dress code needs a database update first.",
   AUDIENCE_NOT_READY: "Who it's for needs database migration 202610180002 first.",
   TRIP_AGENDA_NOT_READY: "Linking a trip to an Agenda row needs database migration 202610170002 first.",
   CHECKPOINT_GOAL_NOT_READY: "The points goal can't be saved yet: database migration 202610170001 has not been run.",

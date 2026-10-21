@@ -87,7 +87,8 @@ export const navigation: NavGroup[] = [
     alias: ["persiapan"],
     items: [
       { href: "/admin/landing", label: "Event page", icon: Browsers, description: "Content and look of the event page participants open.", alias: ["halaman acara", "landing"] },
-      { href: "/admin/rundown", label: "Agenda", icon: CalendarDots, description: "The programme shown on the event page and the agenda screen.", alias: ["rundown", "rundown acara", "susunan acara"] },
+      // Dress code diisi per tab di Agenda: kata yang diketik panitia mencarinya ikut membawanya ke sini.
+      { href: "/admin/rundown", label: "Agenda", icon: CalendarDots, description: "The programme shown on the event page and the agenda screen.", alias: ["rundown", "rundown acara", "susunan acara", "dress code", "dresscode", "outfit", "pakaian", "baju", "busana", "attire"] },
       // Data acara, bukan tata letak halaman: orangnya, foto, jabatan, sesi, dan
       // urutannya per tab. Dulu disunting di panel Halaman acara.
       { href: "/admin/speakers", label: "Speakers", icon: MicrophoneStage, description: "Speakers, their photos and sessions, and their order on the event page.", alias: ["pembicara", "narasumber", "moderator"] },
