@@ -109,14 +109,17 @@ export function labelOutfit(label: string | null | undefined): string {
   return label?.trim().slice(0, OUTFIT_LABEL_MAX) || OUTFIT_LABEL_BAWAAN;
 }
 
+/** Cukup untuk menurunkan jenis: isian tersimpan, atau kiriman editor (null = kosong). */
+type IsianJenis = { item_id?: number | null; when?: string | null };
+
 /** `item_id` = baris agenda; tanpa itu `when` = sebagian hari; selain itu seharian. */
-export function jenisOutfit(isian: Pick<OutfitEntry, "item_id" | "when">): JenisOutfit {
+export function jenisOutfit(isian: IsianJenis): JenisOutfit {
   if (isian.item_id) return "baris";
   return isian.when?.trim() ? "waktu" : "seharian";
 }
 
 /** Urutan tersimpan, kecuali isian seharian yang selalu di depan. */
-export function urutOutfit<T extends Pick<OutfitEntry, "item_id" | "when">>(daftar: readonly T[]): T[] {
+export function urutOutfit<T extends IsianJenis>(daftar: readonly T[]): T[] {
   const seharian = (isian: T) => jenisOutfit(isian) === "seharian";
   return [...daftar.filter(seharian), ...daftar.filter((isian) => !seharian(isian))];
 }
@@ -127,7 +130,7 @@ export type MasalahOutfit = { jenis: "terlaluBanyak" } | { jenis: "seharianGanda
  * Aturan daftar satu tab, sama di editor dan server: paling banyak tiga isian,
  * satu seharian, dan satu baris agenda tidak ditautkan dua kali. Null bila sah.
  */
-export function cekDaftarOutfit(daftar: readonly Pick<OutfitEntry, "item_id" | "when">[]): MasalahOutfit | null {
+export function cekDaftarOutfit(daftar: readonly IsianJenis[]): MasalahOutfit | null {
   if (daftar.length > OUTFIT_MAX) return { jenis: "terlaluBanyak" };
   if (daftar.filter((isian) => jenisOutfit(isian) === "seharian").length > 1) return { jenis: "seharianGanda" };
   const dilihat = new Set<number>();
@@ -137,6 +140,81 @@ export function cekDaftarOutfit(daftar: readonly Pick<OutfitEntry, "item_id" | "
     dilihat.add(isian.item_id);
   }
   return null;
+}
+
+/** Alasan yang dibaca admin di kaki panel dan toast, sama di editor dan server. `judul`: judul baris yang ditautkan dua kali. */
+export function alasanDaftarOutfit(masalah: MasalahOutfit, judul: (itemId: number) => string): string {
+  if (masalah.jenis === "seharianGanda") return "Only one Whole day line per tab.";
+  if (masalah.jenis === "barisGanda") return `${judul(masalah.item_id)} already has a dress code.`;
+  return `${OUTFIT_MAX} is the most per tab, so the phone strip stays short.`;
+}
+
+/** Baris agenda seperti tersimpan: bahan tautan dan teks waktunya. */
+export type BarisOutfit = { start_time: string; title: string | null; is_published: boolean };
+
+/**
+ * Isian yang ditulis Save dress code, atau alasan penolakannya. Baris yang
+ * baru ditautkan (tidak ada di `tersimpan`: item_id ke teks tersimpannya)
+ * harus ada di `barisTab` (baris tab itu di acara itu), berjudul, dan tampil
+ * di halaman publik. Tautan tersimpan tidak diperiksa ulang: baris yang
+ * kemudian disembunyikan tidak memblokir suntingan lain, dan baris yang hilang
+ * (acara salinan, hapus yang tulisan keduanya gagal) tetap memakai teks
+ * tersimpannya. `when` isian bertaut selalu dari barisnya, jadi judul dan jam
+ * yang diketik ulang tidak bisa basi.
+ */
+export function tautkanOutfit(
+  outfit: readonly OutfitEntry[],
+  tersimpan: ReadonlyMap<number, string | undefined>,
+  barisTab: ReadonlyMap<number, BarisOutfit>,
+  label: string | null,
+): { isian: OutfitEntry[] } | { alasan: string } {
+  const masalah = cekDaftarOutfit(outfit);
+  if (masalah) return { alasan: alasanDaftarOutfit(masalah, (id) => barisTab.get(id)?.title?.trim() || tersimpan.get(id) || "That item") };
+  const hasil: OutfitEntry[] = [];
+  for (const isian of outfit) {
+    if (!isian.item_id) {
+      hasil.push(isian);
+      continue;
+    }
+    const item = barisTab.get(isian.item_id);
+    if (!tersimpan.has(isian.item_id)) {
+      const judul = item?.title?.trim();
+      if (!item || !judul) return { alasan: "That item is not on this tab any more. Pick another." };
+      if (!item.is_published) return { alasan: `${judul} is hidden, so it cannot be picked.` };
+    }
+    hasil.push({ ...isian, when: item ? teksWaktuOutfit(item.start_time, item.title ?? "", label) : tersimpan.get(isian.item_id) ?? isian.when });
+  }
+  return { isian: urutOutfit(hasil) };
+}
+
+/** item_id isian jsonb apa adanya, atau null. */
+function idTautan(isian: unknown): number | null {
+  const id = isian && typeof isian === "object" ? (isian as { item_id?: unknown }).item_id : undefined;
+  return typeof id === "number" ? id : null;
+}
+
+/** Isian jsonb apa adanya yang menaut ke baris agenda. */
+export function adaTautan(daftar: unknown): boolean {
+  return Array.isArray(daftar) && daftar.some((isian) => idTautan(isian) !== null);
+}
+
+/** Isian tersimpan (jsonb apa adanya) tanpa yang menaut ke baris yang dihapus. */
+export function tanpaIsianBaris(daftar: readonly unknown[], itemId: number): unknown[] {
+  return daftar.filter((isian) => idTautan(isian) !== itemId);
+}
+
+/**
+ * Teks waktu isian bertaut ditulis ulang dari barisnya (`barisTab`: baris tab
+ * itu saja, jadi id dari acara asal sebuah salinan tidak ditemukan). Isian
+ * lain, dan isian yang barisnya tidak ditemukan, tidak disentuh: peserta tetap
+ * membaca teks tersimpannya. Kunci jsonb lain ikut apa adanya.
+ */
+export function segarkanIsianBaris(daftar: readonly unknown[], barisTab: ReadonlyMap<number, Pick<BarisOutfit, "start_time" | "title">>, label: string | null): unknown[] {
+  return daftar.map((isian) => {
+    const id = idTautan(isian);
+    const item = id === null ? undefined : barisTab.get(id);
+    return item ? { ...(isian as object), when: teksWaktuOutfit(item.start_time, item.title ?? "", label) } : isian;
+  });
 }
 
 /** Paling panjang `maks` huruf termasuk "…", tanpa memutus pasangan surrogate. */
@@ -165,13 +243,28 @@ export function teksWaktuOutfit(startTime: string, title: string, label: string 
 type TabOutfit = { id: number; name: string | null; title?: string | null; event_date: string | null };
 
 /**
- * Label pembeda tab ini di antara tab bertanggal sama ("Batch 1"), dibentuk
- * dari nama tab seperti segmen Batch di portal. Null bila tanggalnya satu tab.
+ * Tab yang dibuka portal (loadAgendaPreview): terbit dan punya butir publik
+ * berjudul. Hanya tab ini yang membentuk segmen Batch di Jadwal peserta.
  */
-export function labelTabOutfit(tabs: readonly TabOutfit[], id: number): string | null {
+export function tabTerlihatOutfit(
+  tabs: readonly { id: number; is_published: boolean }[],
+  butir: readonly { section_id: number; title: string | null; is_published: boolean }[],
+): Set<number> {
+  const berisi = new Set(butir.flatMap((item) => (item.is_published && item.title?.trim() ? [item.section_id] : [])));
+  return new Set(tabs.flatMap((tab) => (tab.is_published && berisi.has(tab.id) ? [tab.id] : [])));
+}
+
+/**
+ * Label pembeda tab ini ("Batch 1"), dibentuk seperti segmen Batch di portal:
+ * dari nama tab bertanggal sama yang dibuka peserta (`terlihat`, dari
+ * tabTerlihatOutfit), jadi tab draf atau tanpa butir publik tidak mengubahnya.
+ * Tab ini sendiri selalu ikut, supaya teksnya sudah benar begitu tab ini
+ * terlihat. Null bila tanggalnya satu tab.
+ */
+export function labelTabOutfit(tabs: readonly TabOutfit[], id: number, terlihat: ReadonlySet<number>): string | null {
   const tab = tabs.find((isi) => isi.id === id);
   if (!tab?.event_date) return null;
-  const sama = tabs.filter((isi) => isi.event_date === tab.event_date);
+  const sama = tabs.filter((isi) => isi.event_date === tab.event_date && (isi.id === id || terlihat.has(isi.id)));
   return labelPembeda(sama.map((isi) => isi.name?.trim() || isi.title?.trim() || null))[sama.indexOf(tab)] ?? null;
 }
 

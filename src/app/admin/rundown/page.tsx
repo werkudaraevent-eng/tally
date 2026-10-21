@@ -13,7 +13,7 @@ import { eventApiPath } from "@/lib/event-url";
 import { hrefTrip, jamBerangkatBaru, kalimatHapus, kapanBerangkat, selisihMenit, type TripTertaut } from "@/lib/logistik/trip-agenda";
 import type { EventTimeZone } from "@/lib/timezone";
 import { bacaSasaran, type KolomSasaran, type SasaranBagian } from "@/lib/sasaran-bagian";
-import { OUTFIT_MAX, labelOutfit, labelTabOutfit, type OutfitEntry } from "@/lib/outfit";
+import { OUTFIT_MAX, alasanDaftarOutfit, cekDaftarOutfit, labelOutfit, labelTabOutfit, tabTerlihatOutfit, type OutfitEntry } from "@/lib/outfit";
 import { bandingkanBagian, bandingkanBaris, geserBagian, geserDalamSlot, kunciSlot, pindahDalamSlot, susunUlangBagian, susunUlangSlot, urutBagianMenurutTanggal } from "@/lib/rundown-urutan";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -775,9 +775,25 @@ export default function RundownAdminPage() {
     return items.filter((row) => row.section_id === id).sort(bandingkanBaris);
   }
 
-  // Portal hanya menampilkan hari yang punya butir publik berjudul (loadAgendaPreview).
+  // Tab yang dibuka portal: terbit dan punya butir publik berjudul
+  // (loadAgendaPreview). Banner, toast dan label batch memakai aturan yang
+  // sama dengan server, jadi "Participants see" sama dengan teks tersimpan.
+  const tabTerlihat = tabTerlihatOutfit(sections, items);
   function terlihat(id: number) {
-    return items.some((row) => row.section_id === id && row.is_published && Boolean(row.title?.trim()));
+    return tabTerlihat.has(id);
+  }
+
+  /**
+   * Dress code tersimpan satu bagian dibaca ulang, misalnya sesudah 422
+   * karena barisnya dihapus di tempat lain. Bukan loadOutfit(): keadaan
+   * "memuat" menutup segmen Dress code dan memasang ulang editornya. Kartu
+   * yang belum disimpan tetap di outfitDrafts.
+   */
+  async function muatUlangDresscode(id: number) {
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), { cache: "no-store" }).catch(() => null);
+    const data = response?.ok ? ((await response.json().catch(() => null)) as { sections?: Array<{ id: number; outfit: OutfitEntry[] }> } | null) : null;
+    const baris = data?.sections?.find((row) => row.id === id);
+    if (baris) setOutfitSaved((kini) => ({ ...kini, [id]: baris.outfit }));
   }
 
   /** Foto contoh lewat endpoint unggah yang sama dengan latar header; masuk draf sampai Save dress code. */
@@ -808,8 +824,9 @@ export default function RundownAdminPage() {
       return;
     }
     // Hanya foto kartu ini, di draf terkini: yang diketik selama unggahan tetap
-    // ada. outfitSaved dari render ini masih berlaku karena Save dress code
-    // menunggu unggahan selesai.
+    // ada. outfitSaved dari render ini masih berlaku karena unggahan berjalan
+    // satu per satu (Add photo mati di semua kartu) dan Save dress code
+    // menunggunya selesai.
     const url = data.url as string;
     setOutfitDrafts((kini) => ({ ...kini, [id]: (kini[id] ?? keDraf(outfitSaved[id] ?? [])).map((isi) => (isi.kunci === kunci ? { ...isi, photo_url: url } : isi)) }));
     toast.info("Photo uploaded", "Select Save dress code to show it to participants.");
@@ -831,6 +848,15 @@ export default function RundownAdminPage() {
       window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${kurang.kunci}"] [data-dresscode-${drafKurang(kurang)}]`)?.focus(), 0);
       return;
     }
+    // Aturan daftar yang sama dengan server, sebelum dikirim: isian lama tanpa
+    // When terbaca sebagai beberapa Whole day. For kartu kedua difokus.
+    const masalah = cekDaftarOutfit(keKiriman(daftar));
+    if (masalah) {
+      const ganda = urutDraf(daftar).filter((isi) => (masalah.jenis === "barisGanda" ? isi.jenis === "baris" && isi.item_id === masalah.item_id : isi.jenis === "seharian"))[1];
+      gagalPanel("Dress code not saved", alasanDaftarOutfit(masalah, (itemId) => barisTersimpan.get(itemId)?.title.trim() || "That item"));
+      if (ganda) window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${ganda.kunci}"] [data-dresscode-untuk]`)?.focus(), 0);
+      return;
+    }
     setSavingOutfit(id); setError(""); setGalatPanel(null);
     const response = await fetch(eventApiPath("/api/admin/rundown/sections/outfit"), {
       method: "PATCH",
@@ -844,8 +870,13 @@ export default function RundownAdminPage() {
         setOutfitInfo((current) => current && { ...current, available: false });
       }
       gagalPanel("Dress code not saved", response ? failureMessage(data, "Dress code not saved.") : CEK_KONEKSI);
-      // Baris yang dihapus di tab atau oleh admin lain tampil "Item not found" sesudah dimuat ulang.
-      if (response?.status === 422) void load();
+      // Baris yang dihapus di tab atau oleh admin lain: agenda dan dress code
+      // tersimpan dimuat ulang, jadi baris Dress code dan kartunya menyebut
+      // yang benar-benar dibaca peserta.
+      if (response?.status === 422) {
+        void load();
+        void muatUlangDresscode(id);
+      }
       return;
     }
     const simpanan = (data as { outfit?: OutfitEntry[] }).outfit ?? [];
@@ -1485,10 +1516,11 @@ export default function RundownAdminPage() {
       idJudul={idJudulDc}
       tab={{ id: active.id, name: tabDc.name }}
       labelHalaman={labelOutfit(outfitInfo?.label)}
-      labelBatch={labelTabOutfit(sections, active.id)}
+      labelBatch={labelTabOutfit(sections, active.id, tabTerlihat)}
       daftar={drafDc(active.id)}
       onUbah={(next) => setOutfitDrafts((kini) => ({ ...kini, [active.id]: next }))}
       baris={barisTab(active.id)}
+      tautanTersimpan={new Set((outfitSaved[active.id] ?? []).flatMap((isian) => (isian.item_id ? [isian.item_id] : [])))}
       banner={bannerDresscode({
         tab: tabDc,
         tabs: sections,

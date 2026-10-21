@@ -175,7 +175,9 @@ export function BarisDresscode({ keadaan, baris, labelTab, dipilih, belum, onBuk
         {judul}
         {keadaan === "memuat" ? (
           <span className="min-w-0 flex-1 py-1" aria-busy="true">
-            <Skeleton className="h-4 w-48 max-w-full" />
+            {/* Warna bawaan Skeleton sama dengan bidang baris ini (plate-2): tanpa
+                warna lain baloknya tidak tergambar, apalagi bila gerak dikurangi. */}
+            <Skeleton className="h-4 w-48 max-w-full bg-outline-variant!" />
             <span className="sr-only">Loading the dress code</span>
           </span>
         ) : (
@@ -191,9 +193,13 @@ export function BarisDresscode({ keadaan, baris, labelTab, dipilih, belum, onBuk
   const nama = baris.length > 0
     ? `Dress code for ${labelTab}: ${ringkas}.${belum ? " Unsaved changes." : ""} Edit`
     : belum ? `Dress code for ${labelTab}: none saved yet. Unsaved changes. Edit` : `Add a dress code for ${labelTab}`;
+  const tandaBelum = (kelas: string) => (belum ? <StatusChip tone="warning" className={kelas}>Unsaved changes</StatusChip> : null);
   return (
     <div className="shrink-0">
-      <ListRow selected={dipilih} onSelect={onBuka} label={nama} className={cx("items-start py-3", !dipilih && "bg-surface-container-high")}>
+      {/* @container: lebar baris, bukan layar, yang menentukan tempat tanda. Panel
+          jadwal di ponsel dan di 1024px dengan rel tersemat terlalu sempit untuk
+          tanda di kolom sendiri: kolom barisnya tinggal beberapa piksel. */}
+      <ListRow selected={dipilih} onSelect={onBuka} label={nama} className={cx("@container items-start py-3", !dipilih && "bg-surface-container-high")}>
         {judul}
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           {baris.length > 0 ? (
@@ -208,8 +214,11 @@ export function BarisDresscode({ keadaan, baris, labelTab, dipilih, belum, onBuk
           ) : (
             <span className="block text-on-surface-variant">None for this tab yet</span>
           )}
+          {/* Paling lebar selebar kolomnya: di kolom yang sangat sempit tanda
+              terpotong dengan elipsis dan `title`, tidak menimpa Edit. */}
+          {tandaBelum("self-start max-w-full! @lg:hidden")}
         </span>
-        {belum ? <StatusChip tone="warning">Unsaved changes</StatusChip> : null}
+        {tandaBelum("@max-lg:hidden")}
         <span className="shrink-0 font-medium text-primary">{baris.length > 0 || belum ? "Edit" : "Add"}</span>
       </ListRow>
     </div>
@@ -424,7 +433,7 @@ function fokusKartu(kunci: string, kolom: "apa" | "nama" | "catatan") {
   window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${kunci}"] [data-dresscode-${kolom}]`)?.focus(), 0);
 }
 
-function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, seharianBebas, coba, unggah, menyimpan, onUbah, onHapus, onUnggah }: {
+function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, seharianBebas, seharianGanda, tautanTersimpan, coba, unggah, adaUnggah, menyimpan, onUbah, onHapus, onUnggah }: {
   draf: DrafDresscode;
   labelHalaman: string;
   labelBatch: string | null;
@@ -432,8 +441,15 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
   baris: readonly BarisDc[];
   dipakai: ReadonlySet<number>;
   seharianBebas: boolean;
+  /** Whole day kedua dan seterusnya: isian lama tanpa When terbaca begini, dan server menolaknya. */
+  seharianGanda: boolean;
+  /** Baris kartu ini sudah tertaut di yang tersimpan, jadi server tidak memeriksanya ulang. */
+  tautanTersimpan: boolean;
   coba: boolean;
+  /** Foto kartu ini yang sedang diunggah. */
   unggah: boolean;
+  /** Ada unggahan berjalan di tab ini: satu per satu, lihat uploadFotoDresscode. */
+  adaUnggah: boolean;
   menyimpan: boolean;
   onUbah: (perubahan: Partial<DrafDresscode>) => void;
   onHapus: () => void;
@@ -453,16 +469,26 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
       : item
         ? `${formatClock(item.start_time)}${item.end_time ? `–${formatClock(item.end_time)}` : ""} ${item.title.trim()}`
         : draf.when || "Item not found";
-  const peringatan = draf.jenis !== "baris"
-    ? null
-    : !item
-      ? "Item not found, so participants see the saved text. Pick the item again from For, or remove this line."
-      : !item.is_published
-        ? `${item.title.trim()} is hidden on the public page, but participants still see this dress code.`
-        : null;
-  // Format strip peserta: "kapan · apa", atau apa saja untuk seharian.
+  // Tautan baru ke baris yang hilang atau tersembunyi ditolak server; tautan
+  // tersimpan tidak diperiksa ulang dan peserta tetap membacanya.
+  const ditolak = draf.jenis === "baris" && !tautanTersimpan && (!item || !item.is_published);
+  const peringatan = seharianGanda
+    ? "Only one Whole day line per tab. Pick something else from For, or remove this line."
+    : draf.jenis !== "baris"
+      ? null
+      : !item
+        ? tautanTersimpan
+          ? "Item not found, so participants see the saved text. Pick the item again from For, or remove this line."
+          : "That item is not on this tab any more. Pick another from For, or remove this line."
+        : !item.is_published
+          ? tautanTersimpan
+            ? `${item.title.trim()} is hidden on the public page, but participants still see this dress code.`
+            : `${item.title.trim()} is hidden, so it cannot be picked. Pick another from For, or remove this line.`
+          : null;
+  // Format strip peserta: "kapan · apa", atau apa saja untuk seharian. Baris
+  // yang tidak akan tersimpan tidak punya pratinjau.
   const kapan = draf.jenis === "seharian" ? null : draf.jenis === "waktu" ? draf.when.trim() : item ? teksWaktuOutfit(item.start_time, item.title, labelBatch) : draf.when.trim();
-  const lihat = draf.what.trim() && (draf.jenis !== "waktu" || draf.when.trim()) ? gabungMeta([kapan, draf.what.trim()]) : null;
+  const lihat = !ditolak && !seharianGanda && draf.what.trim() && (draf.jenis !== "waktu" || draf.when.trim()) ? gabungMeta([kapan, draf.what.trim()]) : null;
   const catatanTampil = catatanBuka || draf.note !== "";
   const terpilih: PilihanUntuk = draf.jenis === "baris" ? { jenis: "baris", item_id: draf.item_id ?? 0 } : { jenis: draf.jenis };
 
@@ -486,6 +512,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
           aria-expanded={menu.open}
           aria-controls={menu.open ? `${id}-menu` : undefined}
           title={untuk}
+          data-dresscode-untuk=""
           onClick={menu.toggle}
           onKeyDown={(peristiwa) => {
             if (menu.open || peristiwa.key !== "ArrowDown") return;
@@ -565,7 +592,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
         type="file"
         accept="image/png,image/jpeg,image/webp"
         hidden
-        disabled={unggah || menyimpan}
+        disabled={adaUnggah || menyimpan}
         onChange={(peristiwa) => {
           const file = peristiwa.target.files?.[0];
           if (file) onUnggah(file);
@@ -576,7 +603,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
       {draf.photo_url ? (
         <div className="flex flex-wrap items-center gap-2">
           <span aria-hidden className="h-15 w-12 shrink-0 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${draf.photo_url})` }} />
-          <Button variant="outlined" size="sm" loading={unggah} disabled={menyimpan} onClick={() => berkas.current?.click()}>Replace photo</Button>
+          <Button variant="outlined" size="sm" loading={unggah} disabled={adaUnggah || menyimpan} onClick={() => berkas.current?.click()}>Replace photo</Button>
           <Button variant="text" size="sm" className="text-error" disabled={unggah} onClick={() => onUbah({ photo_url: null })}>Remove photo</Button>
         </div>
       ) : null}
@@ -596,7 +623,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
             </Button>
           ) : null}
           {!draf.photo_url ? (
-            <Button variant="text" size="sm" icon={<Plus size={16} />} loading={unggah} disabled={menyimpan} onClick={() => berkas.current?.click()}>
+            <Button variant="text" size="sm" icon={<Plus size={16} />} loading={unggah} disabled={adaUnggah || menyimpan} onClick={() => berkas.current?.click()}>
               Add photo
             </Button>
           ) : null}
@@ -618,7 +645,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, baris, dipakai, sehari
  * jadi hasil unggahan yang tiba belakangan mendarat di kartu yang benar.
  */
 export function EditorDresscode({
-  idJudul, tab, labelHalaman, labelBatch, daftar, onUbah, baris, banner, tabLain, coba, unggah, menyimpan, onUnggah, onBukaBagian, onBukaTab,
+  idJudul, tab, labelHalaman, labelBatch, daftar, onUbah, baris, tautanTersimpan, banner, tabLain, coba, unggah, menyimpan, onUnggah, onBukaBagian, onBukaTab,
 }: {
   idJudul: string;
   tab: { id: number; name: string };
@@ -628,6 +655,8 @@ export function EditorDresscode({
   onUbah: (daftar: DrafDresscode[]) => void;
   /** Baris tab ini seperti tersimpan, urut jam mulai. */
   baris: readonly BarisDc[];
+  /** item_id yang tertaut di dress code tersimpan tab ini. */
+  tautanTersimpan: ReadonlySet<number>;
   banner: BannerDc | null;
   /** Tab lain di tanggal yang sama yang belum punya dress code. */
   tabLain: Array<{ id: number; name: string }>;
@@ -663,6 +692,20 @@ export function EditorDresscode({
     pemicuTambah?.querySelector("button")?.focus();
   }
 
+  /**
+   * Remove melepas tombolnya sendiri dari halaman, jadi fokus dipindah ke For
+   * kartu sesudahnya, sebelumnya, atau tombol tambah, bukan jatuh ke <body>.
+   */
+  function hapusKartu(kunci: string) {
+    const posisi = tampil.findIndex((isi) => isi.kunci === kunci);
+    const tujuan = [tampil[posisi + 1], tampil[posisi - 1]].flatMap((isi) => (isi ? [`[data-dresscode-kartu="${isi.kunci}"] [data-dresscode-untuk]`] : []));
+    onUbah(daftar.filter((isi) => isi.kunci !== kunci));
+    window.setTimeout(() => {
+      const el = [...tujuan, "[data-dresscode-tambah] button"].map((pilih) => document.querySelector<HTMLElement>(pilih)).find(Boolean);
+      (el ?? document.getElementById(idJudul))?.focus();
+    }, 0);
+  }
+
   const banners = banner ? (
     <Banner tone="warning" icon={<Warning size={18} />}>
       <p>
@@ -679,7 +722,7 @@ export function EditorDresscode({
   const tombolTambah = penuh ? (
     <p className="text-body-small text-on-surface-variant">{OUTFIT_MAX} is the most per tab, so the phone strip stays short.</p>
   ) : (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-dresscode-tambah="" className="flex flex-wrap items-center gap-2">
       {!adaSeharian ? (
         <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => tambah({ jenis: "seharian" })}>Add for the whole day</Button>
       ) : null}
@@ -748,7 +791,7 @@ export function EditorDresscode({
         </div>
       ) : (
         <>
-          {tampil.map((isi) => (
+          {tampil.map((isi, indeks) => (
             <KartuDresscode
               key={isi.kunci}
               draf={isi}
@@ -757,11 +800,15 @@ export function EditorDresscode({
               baris={berjudul}
               dipakai={tertaut(isi.kunci)}
               seharianBebas={!adaSeharian}
+              // Whole day selalu di depan, jadi Whole day sesudah kartu pertama adalah yang kedua.
+              seharianGanda={isi.jenis === "seharian" && indeks > 0}
+              tautanTersimpan={isi.item_id !== null && tautanTersimpan.has(isi.item_id)}
               coba={coba}
               unggah={unggah === isi.kunci}
+              adaUnggah={unggah !== null}
               menyimpan={menyimpan}
               onUbah={(perubahan) => ubahKartu(isi.kunci, perubahan)}
-              onHapus={() => onUbah(daftar.filter((lain) => lain.kunci !== isi.kunci))}
+              onHapus={() => hapusKartu(isi.kunci)}
               onUnggah={(file) => onUnggah(isi.kunci, file)}
             />
           ))}

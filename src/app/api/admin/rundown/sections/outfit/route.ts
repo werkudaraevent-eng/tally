@@ -2,8 +2,8 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { gatheringHorizon, type EventLandingConfig } from "@/lib/domain";
-import { bacaOutfit, cekDaftarOutfit, kolomOutfitBelumAda, outfitSchema, teksWaktuOutfit, urutOutfit, type OutfitEntry } from "@/lib/outfit";
-import { labelBatchTab } from "@/lib/outfit-server";
+import { bacaOutfit, kolomOutfitBelumAda, outfitSchema, tautkanOutfit, type BarisOutfit } from "@/lib/outfit";
+import { konteksTautan } from "@/lib/outfit-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Outfit per bagian Agenda (kolom rundown_sections.outfit, migrasi 202610160001).
@@ -21,8 +21,6 @@ const patchSchema = z.object({
 
 /** 422 dengan alasan yang dibaca admin di kaki panel dan toast. */
 const tolak = (message: string) => apiError("VALIDATION_ERROR", 422, { message });
-
-type BarisTertaut = { id: number; start_time: string; title: string | null; is_published: boolean };
 
 /** Outfit tiap bagian event ini, label halamannya, dan apakah acaranya Gathering Horizon. */
 export async function GET(request: Request) {
@@ -59,47 +57,21 @@ export async function PATCH(request: Request) {
   const bagian = current as unknown as { outfit?: unknown; event_date: string | null };
 
   // Baris yang ditautkan dicari hanya di bagian ini dan acara ini: baris tab
-  // lain, atau id dari acara asal sebuah salinan, tidak ditemukan.
-  const idBaris = [...new Set(outfit.flatMap((isian) => (isian.item_id ? [isian.item_id] : [])))];
-  const tertaut = new Map<number, BarisTertaut>();
-  if (idBaris.length > 0) {
-    const { data: rows, error: galatBaris } = await client
-      .from("rundown_items")
-      .select("id,start_time,title,is_published")
-      .eq("event_id", eventId)
-      .eq("section_id", id)
-      .in("id", idBaris);
-    if (galatBaris) return apiError("INTERNAL_ERROR", 500);
-    for (const row of (rows ?? []) as unknown as BarisTertaut[]) tertaut.set(row.id, row);
+  // lain, atau id dari acara asal sebuah salinan, tidak ditemukan. Label batch
+  // dari tab bertanggal sama yang dibuka peserta, sama dengan portal.
+  let barisTab: ReadonlyMap<number, BarisOutfit> = new Map();
+  let label: string | null = null;
+  if (outfit.some((isian) => isian.item_id)) {
+    const konteks = await konteksTautan(eventId, { id, event_date: bagian.event_date });
+    if (!konteks) return apiError("INTERNAL_ERROR", 500);
+    ({ baris: barisTab, label } = konteks);
   }
 
-  // Tautan yang sudah tersimpan tidak diperiksa ulang: baris yang kemudian
-  // disembunyikan tidak memblokir suntingan lain, dan baris yang hilang
-  // (acara salinan, hapus yang tulisan keduanya gagal) tetap memakai teks tersimpan.
+  // Aturan per isian di tautkanOutfit (diuji di outfit.check.ts).
   const tersimpan = new Map(bacaOutfit(bagian.outfit).flatMap((isian) => (isian.item_id ? [[isian.item_id, isian.when] as const] : [])));
-  const judul = (itemId: number) => tertaut.get(itemId)?.title?.trim() || tersimpan.get(itemId) || "That item";
-
-  const masalah = cekDaftarOutfit(outfit);
-  if (masalah?.jenis === "seharianGanda") return tolak("Only one Whole day line per tab.");
-  if (masalah?.jenis === "barisGanda") return tolak(`${judul(masalah.item_id)} already has a dress code.`);
-  // Lebih dari tiga sudah ditolak skema; ini hanya jaring pengaman.
-  if (masalah) return apiError("VALIDATION_ERROR", 422);
-
-  const label = idBaris.length > 0 ? await labelBatchTab(eventId, { id, event_date: bagian.event_date }) : null;
-  const hasil: OutfitEntry[] = [];
-  for (const isian of outfit) {
-    if (!isian.item_id) {
-      hasil.push(isian);
-      continue;
-    }
-    const item = tertaut.get(isian.item_id);
-    const baru = !tersimpan.has(isian.item_id);
-    if (baru && (!item || !item.title?.trim())) return tolak("That item is not on this tab any more. Pick another.");
-    if (baru && item && !item.is_published) return tolak(`${item.title?.trim()} is hidden, so it cannot be picked.`);
-    // Teks waktu selalu dari baris: judul dan jam yang diketik ulang tidak bisa basi.
-    hasil.push({ ...isian, when: item ? teksWaktuOutfit(item.start_time, item.title ?? "", label) : tersimpan.get(isian.item_id) ?? isian.when });
-  }
-  const simpan = urutOutfit(hasil);
+  const keputusan = tautkanOutfit(outfit, tersimpan, barisTab, label);
+  if ("alasan" in keputusan) return tolak(keputusan.alasan);
+  const simpan = keputusan.isian;
 
   const { data, error } = await client
     .from("rundown_sections")

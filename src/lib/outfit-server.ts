@@ -1,85 +1,151 @@
-import { bacaOutfit, labelTabOutfit, teksWaktuOutfit, type OutfitEntry } from "./outfit";
+import { adaTautan, bacaOutfit, labelTabOutfit, segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, type BarisOutfit, type OutfitEntry } from "./outfit";
 import { getSupabaseServiceClient } from "./supabase/service";
 
-/**
- * Label batch tab ini untuk teksWaktuOutfit ("Batch 1"), dari tab bertanggal
- * sama di acara ini, termasuk yang masih draf. Gagal dibaca = tanpa label:
- * judulnya tetap utuh, bukan salah.
- */
-export async function labelBatchTab(eventId: string, tab: { id: number; event_date: string | null }): Promise<string | null> {
-  if (!tab.event_date) return null;
+type TabDb = { id: number; name: string | null; title: string | null; event_date: string | null; is_published: boolean };
+type ButirDb = BarisOutfit & { id: number; section_id: number };
+
+/** Butir tab-tab itu di acara ini, atau null bila gagal dibaca. */
+async function bacaButir(eventId: string, tabIds: number[]): Promise<ButirDb[] | null> {
   const { data, error } = await getSupabaseServiceClient()
-    .from("rundown_sections")
-    .select("id,name,title,event_date")
+    .from("rundown_items")
+    .select("id,section_id,start_time,title,is_published")
     .eq("event_id", eventId)
-    .eq("event_date", tab.event_date)
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
-  if (error || !data) return null;
-  return labelTabOutfit(data as unknown as Array<{ id: number; name: string | null; title: string | null; event_date: string | null }>, tab.id);
+    .in("section_id", tabIds);
+  return error || !data ? null : (data as unknown as ButirDb[]);
 }
 
-const menautKe = (isian: unknown, itemId: number) => Boolean(isian && typeof isian === "object" && (isian as { item_id?: unknown }).item_id === itemId);
+/**
+ * Bahan Save dress code untuk satu tab: label batchnya seperti segmen Batch di
+ * portal (dari tab bertanggal sama yang dibuka peserta, ditambah tab ini) dan
+ * baris tab ini menurut id. Null bila gagal dibaca.
+ */
+export async function konteksTautan(eventId: string, tab: { id: number; event_date: string | null }): Promise<{ label: string | null; baris: Map<number, ButirDb> } | null> {
+  const kueri = getSupabaseServiceClient().from("rundown_sections").select("id,name,title,event_date,is_published").eq("event_id", eventId);
+  const { data, error } = await (tab.event_date ? kueri.eq("event_date", tab.event_date) : kueri.eq("id", tab.id));
+  if (error || !data) return null;
+  const tabs = data as unknown as TabDb[];
+  const butir = await bacaButir(eventId, tabs.map((isi) => isi.id));
+  if (!butir) return null;
+  return {
+    label: labelTabOutfit(tabs, tab.id, tabTerlihatOutfit(tabs, butir)),
+    baris: new Map(butir.filter((item) => item.section_id === tab.id).map((item) => [item.id, item])),
+  };
+}
 
 /**
- * Isian Dress code yang menaut ke satu baris, sesudah baris itu diubah atau
- * dihapus. Ditulis ke jsonb apa adanya (hanya isian bertaut yang disentuh),
- * hanya di bagian baris itu dan acara ini: acara salinan membawa id baris lama.
- *
- * Tanpa transaksi dan tanpa foreign key, jadi ini tulisan kedua sesudah
- * barisnya tersimpan. Gagal tidak menggagalkan permintaan: peserta tetap
- * membaca teks tersimpan, dan editor menyebut barisnya "Item not found".
- * Hasil: isian bagian itu sesudah ditulis, atau null bila tidak ada yang ditulis.
+ * Baca, ubah, tulis outfit satu tab, hanya bila `updated_at` masih sama dengan
+ * yang dibaca. Save dress code yang masuk di antaranya tidak tertimpa daftar
+ * lama: bacaan ulang, lalu coba sekali lagi (pola PATCH Participant area).
+ * Hasil: isian sesudah ditulis, atau null bila tidak ada yang ditulis.
  */
-async function ubahIsianBaris(
+async function tulisOutfit(
   eventId: string,
   userId: string,
   sectionId: number,
-  itemId: number,
-  alasan: "item_updated" | "item_deleted",
-  ubah: (daftar: unknown[], section: { event_date: string | null }) => Promise<unknown[]>,
+  ubah: (daftar: readonly unknown[]) => unknown[],
+  jejak: Record<string, unknown>,
 ): Promise<OutfitEntry[] | null> {
-  try {
-    const client = getSupabaseServiceClient();
-    const { data, error } = await client.from("rundown_sections").select("id,outfit,event_date").eq("event_id", eventId).eq("id", sectionId).maybeSingle();
-    // Kolom outfit belum ada (migrasi 202610160001) atau bagiannya hilang: tidak ada tautan.
+  const client = getSupabaseServiceClient();
+  for (let percobaan = 0; ; percobaan++) {
+    const { data, error } = await client.from("rundown_sections").select("id,outfit,updated_at").eq("event_id", eventId).eq("id", sectionId).maybeSingle();
     if (error || !data) return null;
-    const baris = data as unknown as { outfit?: unknown; event_date: string | null };
-    const lama = baris.outfit;
-    if (!Array.isArray(lama) || !lama.some((isian) => menautKe(isian, itemId))) return null;
-    const baru = await ubah(lama, baris);
-    if (JSON.stringify(baru) === JSON.stringify(lama)) return null;
+    const baris = data as unknown as { outfit?: unknown; updated_at: string };
+    if (!Array.isArray(baris.outfit)) return null;
+    const baru = ubah(baris.outfit);
+    if (JSON.stringify(baru) === JSON.stringify(baris.outfit)) return null;
     const { data: hasil, error: galat } = await client
       .from("rundown_sections")
       .update({ outfit: baru, updated_at: new Date().toISOString(), updated_by: userId } as never)
       .eq("event_id", eventId)
       .eq("id", sectionId)
+      .eq("updated_at", baris.updated_at)
       .select("id,outfit")
-      .single();
-    if (galat || !hasil) return null;
-    await client.from("audit_logs").insert({
-      event_id: eventId,
-      user_id: userId,
-      action: "rundown_section_outfit_update",
-      payload: { id: sectionId, item_id: itemId, reason: alasan, old: lama, new: baru },
-    } as never);
-    return bacaOutfit((hasil as unknown as { outfit?: unknown }).outfit);
-  } catch {
-    return null;
+      .maybeSingle();
+    if (galat) return null;
+    if (hasil) {
+      await client.from("audit_logs").insert({
+        event_id: eventId,
+        user_id: userId,
+        action: "rundown_section_outfit_update",
+        payload: { id: sectionId, ...jejak, old: baris.outfit, new: baru },
+      } as never);
+      return bacaOutfit((hasil as unknown as { outfit?: unknown }).outfit);
+    }
+    if (percobaan >= 1) return null;
   }
 }
 
-/** Judul atau jam mulai baris berubah: teks waktu isian yang menaut ke baris itu ditulis ulang. */
-export function segarkanWaktuBaris(eventId: string, userId: string, item: { id: number; section_id: number; start_time: string; title: string }) {
-  return ubahIsianBaris(eventId, userId, item.section_id, item.id, "item_updated", async (daftar, section) => {
-    const teks = teksWaktuOutfit(item.start_time, item.title, await labelBatchTab(eventId, { id: item.section_id, event_date: section.event_date }));
-    return daftar.map((isian) => (menautKe(isian, item.id) ? { ...(isian as object), when: teks } : isian));
-  });
+type AlasanSegarkan = "item_created" | "item_updated" | "item_deleted" | "section_updated" | "section_deleted";
+
+/**
+ * Tulisan kedua sesudah agenda berubah: `when` isian bertaut di setiap tab
+ * pada tanggal pilihan ditulis ulang dari barisnya dengan label batch terkini,
+ * dan isian yang menaut ke baris yang baru dihapus (`hapus`) ikut dibuang.
+ * Label batch bergantung pada tab lain bertanggal sama (nama, tanggal, terbit,
+ * butir publik), jadi perubahan satu tab bisa mengubah teks tab lain. Hanya
+ * tab acara ini: acara salinan membawa id baris acara asal.
+ *
+ * Tanpa transaksi dan tanpa foreign key, jadi gagal tidak menggagalkan
+ * permintaan: peserta tetap membaca teks tersimpan, dan editor menyebut baris
+ * yang hilang "Item not found". Hasil: isian tiap tab yang ditulis.
+ */
+async function segarkan(
+  eventId: string,
+  userId: string,
+  pilihTanggal: (tabs: readonly TabDb[]) => ReadonlySet<string>,
+  alasan: AlasanSegarkan,
+  hapus?: { section_id: number; item_id: number },
+): Promise<Map<number, OutfitEntry[]>> {
+  const hasil = new Map<number, OutfitEntry[]>();
+  try {
+    const { data, error } = await getSupabaseServiceClient().from("rundown_sections").select("id,name,title,event_date,is_published,outfit").eq("event_id", eventId);
+    // Kolom outfit belum ada (migrasi 202610160001): tidak ada tautan.
+    if (error || !data) return hasil;
+    const semua = data as unknown as Array<TabDb & { outfit?: unknown }>;
+    const tanggal = pilihTanggal(semua);
+    const diTanggal = semua.filter((tab) => tab.event_date !== null && tanggal.has(tab.event_date));
+    const bertaut = diTanggal.filter((tab) => adaTautan(tab.outfit));
+    if (bertaut.length === 0) return hasil;
+    const butir = await bacaButir(eventId, diTanggal.map((tab) => tab.id));
+    if (!butir) return hasil;
+    const terlihat = tabTerlihatOutfit(diTanggal, butir);
+    for (const tab of bertaut) {
+      // Label dan baris dihitung sebelum outfit dibaca untuk ditulis, jadi
+      // jendela baca-tulis di tulisOutfit hanya hitungan murni.
+      const label = labelTabOutfit(diTanggal, tab.id, terlihat);
+      const barisTab = new Map(butir.filter((item) => item.section_id === tab.id).map((item) => [item.id, item]));
+      const buang = hapus?.section_id === tab.id ? hapus.item_id : null;
+      const ubah = (daftar: readonly unknown[]) => segarkanIsianBaris(buang === null ? daftar : tanpaIsianBaris(daftar, buang), barisTab, label);
+      // Tidak ada yang berubah menurut bacaan tadi: tab ini tidak dibaca ulang.
+      if (JSON.stringify(ubah(tab.outfit as unknown[])) === JSON.stringify(tab.outfit)) continue;
+      const tertulis = await tulisOutfit(eventId, userId, tab.id, ubah, { reason: alasan, ...(buang !== null ? { item_id: buang } : {}) });
+      if (tertulis) hasil.set(tab.id, tertulis);
+    }
+  } catch {
+    // Tulisan kedua tidak pernah menggagalkan permintaannya.
+  }
+  return hasil;
 }
 
-/** Baris dihapus: isian yang menaut ke baris itu ikut dihapus. */
-export function hapusIsianBaris(eventId: string, userId: string, item: { id: number; section_id: number }) {
-  return ubahIsianBaris(eventId, userId, item.section_id, item.id, "item_deleted", async (daftar) => daftar.filter((isian) => !menautKe(isian, item.id)));
+/** Sesudah tab diubah (nama, tanggal, terbit) atau dihapus: semua tab di tanggal lama dan barunya. */
+export function segarkanOutfitTanggal(eventId: string, userId: string, tanggal: readonly (string | null | undefined)[], alasan: "section_updated" | "section_deleted") {
+  const pilihan = new Set(tanggal.filter((isi): isi is string => Boolean(isi)));
+  return segarkan(eventId, userId, () => pilihan, alasan);
+}
+
+/**
+ * Sesudah satu baris ditambah, diubah atau dihapus: tab baris itu dan tab lain
+ * bertanggal sama (butir publik pertama atau terakhir mengubah tab mana yang
+ * dibuka peserta). Baris yang dihapus: isian yang menaut ke sana ikut dibuang.
+ */
+export function segarkanOutfitBaris(eventId: string, userId: string, item: { id: number; section_id: number }, alasan: "item_created" | "item_updated" | "item_deleted") {
+  return segarkan(
+    eventId,
+    userId,
+    (tabs) => new Set(tabs.flatMap((tab) => (tab.id === item.section_id && tab.event_date ? [tab.event_date] : []))),
+    alasan,
+    alasan === "item_deleted" ? { section_id: item.section_id, item_id: item.id } : undefined,
+  );
 }
 
 /**

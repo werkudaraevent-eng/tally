@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { hapusIsianBaris, segarkanWaktuBaris } from "@/lib/outfit-server";
+import { segarkanOutfitBaris } from "@/lib/outfit-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { ITEM_COLUMNS, toDbTime } from "@/lib/rundown";
 
@@ -151,6 +151,9 @@ export async function POST(request: Request) {
     action: "rundown_item_create",
     payload: { new: data },
   } as never);
+  // Butir publik pertama membuka tab ini bagi peserta, jadi label batch tab
+  // bertanggal sama (dan teks dress code yang memakainya) bisa berubah.
+  await segarkanOutfitBaris(eventId, auth.user.id, data as unknown as { id: number; section_id: number }, "item_created");
   return Response.json(data, { status: 201 });
 }
 
@@ -227,10 +230,12 @@ export async function PATCH(request: Request) {
 
   // Dress code yang menaut ke baris ini membawa "17.30 Gala Dinner" sebagai
   // teks tersimpan: ikut diperbarui saat judul atau jam mulainya berubah.
-  const sesudah = data as unknown as { id: number; section_id: number; start_time: string; title: string };
-  const sebelum = current as unknown as { start_time: string; title: string };
-  if (sesudah.title !== sebelum.title || sesudah.start_time !== sebelum.start_time) {
-    await segarkanWaktuBaris(eventId, auth.user.id, sesudah);
+  // Terbit atau tidaknya baris bisa mengubah tab mana yang dibuka peserta,
+  // jadi label batch tab bertanggal sama juga.
+  const sesudah = data as unknown as { id: number; section_id: number; start_time: string; title: string; is_published: boolean };
+  const sebelum = current as unknown as { start_time: string; title: string; is_published: boolean };
+  if (sesudah.title !== sebelum.title || sesudah.start_time !== sebelum.start_time || sesudah.is_published !== sebelum.is_published) {
+    await segarkanOutfitBaris(eventId, auth.user.id, sesudah, "item_updated");
   }
   return Response.json(data);
 }
@@ -266,6 +271,6 @@ export async function DELETE(request: Request) {
   // menyebutnya). Gagal di langkah kedua tidak menggagalkan permintaan.
   // `outfit`: isian bagian itu sesudahnya, bila ada yang dihapus.
   const baris = current as unknown as { id: number; section_id: number };
-  const outfit = await hapusIsianBaris(eventId, auth.user.id, baris);
+  const outfit = (await segarkanOutfitBaris(eventId, auth.user.id, baris, "item_deleted")).get(baris.section_id);
   return Response.json({ deleted: true, id: parsed.data.id, ...(outfit ? { outfit: { section_id: baris.section_id, entries: outfit } } : {}) });
 }
