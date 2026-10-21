@@ -45,23 +45,30 @@ function geserHari(tanggal: string, hari: number): string {
 const labelTanggal = (tanggal: string) =>
   new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${tanggal}T00:00:00Z`));
 
-/** Pilihan "Preview on": saat ini, sehari sebelum acara, tiap hari acara (paling banyak 14), dan sehari sesudahnya. */
-function pilihanWaktu(mulai: string, selesai: string): { nilai: Waktu; label: string; sub: string }[] {
+/**
+ * Pilihan "Preview on": saat ini, sehari sebelum acara, tiap hari acara
+ * (14 hari pertama), dan sehari sesudah hari terakhir. Hari pertama dimulai
+ * pada jam mulai acara bila itu sesudah 09.00, supaya isi "saat acara" terlihat.
+ */
+function pilihanWaktu(mulai: string, selesai: string, jamMulai: string | null): { nilai: Waktu; label: string; sub: string }[] {
+  const akhir = selesai >= mulai ? selesai : mulai;
   const hari: string[] = [];
-  for (let tanggal = mulai; tanggal <= selesai && hari.length < 14; tanggal = geserHari(tanggal, 1)) hari.push(tanggal);
+  for (let tanggal = mulai; tanggal <= akhir && hari.length < 14; tanggal = geserHari(tanggal, 1)) hari.push(tanggal);
+  const jamPertama = jamMulai && /^\d{2}:\d{2}/.test(jamMulai) && jamMulai.slice(0, 5) > JAM_PRATINJAU ? jamMulai.slice(0, 5) : JAM_PRATINJAU;
+  const sesudah = geserHari(akhir, 1);
   return [
     { nilai: null, label: "Now", sub: "The page as participants see it today" },
     { nilai: { tanggal: geserHari(mulai, -1), jam: JAM_PRATINJAU }, label: labelTanggal(geserHari(mulai, -1)), sub: "Day before the event" },
-    ...hari.map((tanggal, index) => ({ nilai: { tanggal, jam: JAM_PRATINJAU }, label: labelTanggal(tanggal), sub: `Day ${index + 1}` })),
-    { nilai: { tanggal: geserHari(hari[hari.length - 1] ?? mulai, 1), jam: JAM_PRATINJAU }, label: labelTanggal(geserHari(hari[hari.length - 1] ?? mulai, 1)), sub: "After the event" },
+    ...hari.map((tanggal, index) => ({ nilai: { tanggal, jam: index === 0 ? jamPertama : JAM_PRATINJAU }, label: labelTanggal(tanggal), sub: index === 0 && jamPertama !== JAM_PRATINJAU ? `Day 1, from ${jamPertama}` : `Day ${index + 1}` })),
+    { nilai: { tanggal: sesudah, jam: JAM_PRATINJAU }, label: labelTanggal(sesudah), sub: "After the event" },
   ];
 }
 
-function PilihWaktu({ mulai, selesai, waktu, onPilih }: { mulai: string; selesai: string; waktu: Waktu; onPilih: (waktu: Waktu) => void }) {
+function PilihWaktu({ mulai, selesai, jamMulai, waktu, onPilih }: { mulai: string; selesai: string; jamMulai: string | null; waktu: Waktu; onPilih: (waktu: Waktu) => void }) {
   const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
   const anchor = usePopoverAnchor(pemicu);
   const id = useId();
-  const pilihan = pilihanWaktu(mulai, selesai);
+  const pilihan = pilihanWaktu(mulai, selesai, jamMulai);
   const sekarang = pilihan.find((item) => item.nilai?.tanggal === waktu?.tanggal) ?? pilihan[0];
   return (
     <>
@@ -83,7 +90,7 @@ function PilihWaktu({ mulai, selesai, waktu, onPilih }: { mulai: string; selesai
       </button>
       <Popover anchor={anchor} label="Preview on" role="dialog" id={id} align="start" width={280}>
         <div className="flex flex-col gap-1 p-1">
-          <p className="px-2 pt-1 text-body-small text-on-surface-variant">Preview on. Participant home changes before, during and after the event; days show the page at 09:00 event time.</p>
+          <p className="px-2 pt-1 text-body-small text-on-surface-variant">Preview on. Participant home changes before, during and after the event; days show it at 09:00 event time. Announcements and checkpoint progress stay as they are now.</p>
           <ul role="listbox" aria-label="Preview on" className="max-h-72 overflow-y-auto py-0.5">
             {pilihan.map((item) => {
               const terpilih = item.label === sekarang.label;
@@ -204,10 +211,10 @@ export function PratinjauPeserta({
   /** Baris Participant home yang diklik: pratinjau menggulir ke isinya. `n` naik di setiap klik. */
   sorot: { id: string; n: number } | null;
   reloadKey: number;
-  /** Gathering Horizon: tanggal acara (YYYY-MM-DD) untuk "Preview on". */
-  tanggal?: { start: string | null; end: string | null } | null;
-  /** Gathering Horizon: kartu yang bisa diseret, semua kartu dalam urutan tampil, dan judul barisnya. */
-  seret?: { gerak: string[]; kartu: string[]; label: Record<string, string> } | null;
+  /** Gathering Horizon: tanggal acara (YYYY-MM-DD) dan jam mulainya untuk "Preview on". */
+  tanggal?: { start: string | null; end: string | null; start_time?: string | null } | null;
+  /** Gathering Horizon: kartu yang bisa diseret, semua kartu, urutan lengkap, dan judul barisnya. */
+  seret?: { gerak: string[]; kartu: string[]; urutan: string[]; label: Record<string, string> } | null;
   /** Kartu diseret di pratinjau: diletakkan sebelum `sebelum` (null = paling bawah). */
   onPindah?: (id: string, sebelum: string | null) => void;
   /** Kartu diklik di pratinjau: barisnya disorot di daftar. */
@@ -219,6 +226,8 @@ export function PratinjauPeserta({
   const [wadahUkuran, setWadahUkuran] = useState({ lebar: 0, tinggi: 0 });
   const [pesan, setPesan] = useState<string | null>(null);
   const [waktu, setWaktu] = useState<Waktu>(null);
+  // Layar sentuh: kartu di pratinjau hanya bisa diketuk; urutannya diatur di daftar.
+  const [sentuh] = useState(() => typeof window !== "undefined" && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
   const wadah = useRef<HTMLDivElement | null>(null);
   const bingkai = useRef<HTMLIFrameElement | null>(null);
   const terkini = useRef({ member, sorot, waktu, setelanSeret: null as object | null, onPindah, onPilihKartu });
@@ -283,7 +292,7 @@ export function PratinjauPeserta({
 
   // Seret di pratinjau: hanya tampilan ponsel (satu kolom, urutan yang sama
   // dengan daftar); di desktop kartu tetap bisa diklik untuk menemukan barisnya.
-  const setelanSeret = seret ? { aktif: device === "mobile", gerak: seret.gerak, kartu: seret.kartu, label: seret.label, skala } : null;
+  const setelanSeret = seret ? { aktif: device === "mobile", gerak: seret.gerak, kartu: seret.kartu, urutan: seret.urutan, label: seret.label, skala } : null;
   const cuplikanSeret = JSON.stringify(setelanSeret);
   useEffect(() => { terkini.current = { member, sorot, waktu, setelanSeret: JSON.parse(cuplikanSeret), onPindah, onPilihKartu }; });
   useEffect(() => { kirim({ jenis: "tally-beranda-seret", setelan: JSON.parse(cuplikanSeret) }); }, [cuplikanSeret]);
@@ -296,7 +305,7 @@ export function PratinjauPeserta({
       <Pane aria-label="Participant page preview">
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-4 py-2.5">
           <PilihPeserta peserta={peserta} onPilih={onPeserta} />
-          {tanggal?.start ? <PilihWaktu mulai={tanggal.start} selesai={tanggal.end ?? tanggal.start} waktu={waktu} onPilih={setWaktu} /> : null}
+          {tanggal?.start ? <PilihWaktu mulai={tanggal.start} selesai={tanggal.end ?? tanggal.start} jamMulai={tanggal.start_time ?? null} waktu={waktu} onPilih={setWaktu} /> : null}
           <SegmentedButton<Device>
             label="Preview screen size"
             value={device}
@@ -315,9 +324,13 @@ export function PratinjauPeserta({
           {pesan ? <p role="status" className="basis-full text-body-small text-error">{pesan}</p> : null}
         </div>
         {seret && peserta ? (
-          <p className="flex shrink-0 items-center gap-2 border-b border-outline-variant bg-primary-soft px-4 py-2 text-body-small text-primary">
+          <p className="flex shrink-0 items-center gap-2 border-b border-outline-variant bg-primary-soft px-4 py-2 text-body-small text-on-primary-soft">
             <HandGrabbing size={16} aria-hidden className="shrink-0" />
-            {device === "mobile" ? "Drag a card to reorder Participant home · Click a card to find its row" : "Click a card to find its row · Switch to Phone to drag cards"}
+            {sentuh
+              ? "Tap a card to find its row · Reorder in the list"
+              : device === "mobile"
+                ? "Drag a card to reorder Participant home · Click a card to find its row"
+                : "Click a card to find its row · Switch to Phone to drag cards"}
           </p>
         ) : null}
         <div ref={wadah} className="min-h-0 flex-1 overflow-hidden bg-surface-container-high p-4">

@@ -43,8 +43,8 @@ type Muat = {
   checkpoints_on?: boolean;
   /** Gathering Horizon: Participant home tanpa "Today's agenda". */
   horizon?: boolean;
-  /** Horizon: tanggal acara untuk "Preview on" di pratinjau. */
-  dates?: { start: string | null; end: string | null };
+  /** Horizon: tanggal dan jam mulai acara untuk "Preview on" di pratinjau. */
+  dates?: { start: string | null; end: string | null; start_time?: string | null };
   /** Horizon: jumlah bagian Agenda yang punya outfit (baris Today's outfit). */
   outfit_days?: number;
   /** Horizon: ada telepon atau email panitia di Event settings (baris Help card). */
@@ -209,6 +209,7 @@ export default function AreaPesertaPage() {
           gerak: susunanHorizon.filter((id) => !TETAP_HORIZON.has(id)),
           // Teman sekamar tidak punya kartu sendiri: barisnya di kartu perjalanan.
           kartu: susunanHorizon.filter((id) => id !== "roommates"),
+          urutan: susunanHorizon,
           label: Object.fromEntries(
             susunanHorizon.map((id) => {
               const bawaan = MEMBER_HOME_BUILTINS.horizon.find((item) => item.id === id);
@@ -273,7 +274,9 @@ export default function AreaPesertaPage() {
               seret={seretPratinjau}
               onPindah={(id, sebelum) => {
                 if (!susunanHorizon) return;
-                set({ home: { ...anggota.home, order: letakkanHorizon(susunanHorizon, id, sebelum) } });
+                // Seret yang tidak memindah apa pun tidak mengubah draf (dan tidak mengubah simpanan lama).
+                const baru = letakkanHorizon(susunanHorizon, id, sebelum);
+                if (baru.join() !== susunanHorizon.join()) set({ home: { ...anggota.home, order: baru } });
                 cariBaris(id);
               }}
               onPilihKartu={cariBaris}
@@ -341,7 +344,15 @@ export default function AreaPesertaPage() {
                     description={
                       <>
                         Shown under each day of the participant Schedule and as Today&rsquo;s outfit on Participant home. With Agenda off for participants, it is a tab on wide screens and a Menu row on phones. Outfits and the page label (now: {anggota.outfit_label?.trim() || "Outfit"}) are set in{" "}
-                        <Link href="/admin/rundown" className={TAUTAN}>
+                        <Link
+                          href="/admin/rundown"
+                          className={TAUTAN}
+                          onClick={(event) => {
+                            if (!berubah) return;
+                            event.preventDefault();
+                            toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
+                          }}
+                        >
                           Agenda › Section › Outfit
                         </Link>
                         .

@@ -161,7 +161,10 @@ export function SusunanBeranda({
   const hasilPindah = (dari: number, ke: number) => (diHorizon ? pindahHorizon(order, order[dari], ke) : geser(order, dari, ke));
   const pindah = (dari: number, ke: number) => {
     if (ke < 0 || ke >= order.length || dari === ke) return;
-    set({ home: { ...member.home, order: hasilPindah(dari, ke) } });
+    // Pindah yang dirapikan kembali ke tempat semula tidak mengubah draf.
+    const baru = hasilPindah(dari, ke);
+    if (baru.join() === order.join()) return;
+    set({ home: { ...member.home, order: baru } });
   };
   const lepas = (target: number) => {
     if (seret !== null) pindah(seret, target);
@@ -219,7 +222,8 @@ export function SusunanBeranda({
               "flex min-h-14 items-center gap-2 border-b border-outline-variant pr-1 last:border-b-0",
               dipilih === b.id && "bg-primary-soft shadow-[inset_3px_0_0_var(--color-primary)]",
               seret === index && "opacity-50",
-              seret !== null && sasaran === index && seret !== index && (seret < index ? "border-b-2 border-b-primary" : "border-t-2 border-t-primary"),
+              // Garis jatuh hanya di tempat yang benar-benar mengubah urutan (bukan pada baris bertempat tetap).
+              seret !== null && sasaran === index && seret !== index && !tetap.has(b.id) && hasilPindah(seret, index).join() !== order.join() && (seret < index ? "border-b-2 border-b-primary" : "border-t-2 border-t-primary"),
             )}
             onDragEnter={(event: DragEvent<HTMLLIElement>) => { if (seret !== null) event.preventDefault(); }}
             onDragOver={(event: DragEvent<HTMLLIElement>) => { if (seret === null) return; event.preventDefault(); setSasaran(index); }}
@@ -259,10 +263,16 @@ export function SusunanBeranda({
               <button type="button" onClick={() => onPilih(b.id)} className="m3-state min-w-0 flex-1 rounded-sm px-1 py-1 text-left sm:py-2" aria-label={`${b.judul}: show in preview`}>
                 <span className={cx("block truncate text-body-medium font-medium", b.tampil && !b.mati ? "text-on-surface" : "text-on-surface-variant")}>{b.judul}</span>
                 {/* Jenis baris selalu terbaca; keterangannya yang terpotong bila sempit. */}
-                <span className="flex min-w-0 gap-1 text-body-small text-on-surface-variant">
-                  <span className="shrink-0 font-medium">{b.blok ? "Your block" : "Automatic"}</span>
-                  <span className="truncate">{["", !b.tampil ? "Hidden" : b.mati, b.tetap ? (TEMPAT_TETAP[b.id] ?? "Fixed place") : null, b.sub].filter((bagian) => bagian !== null).join(" · ")}</span>
-                </span>
+                {(() => {
+                  // Dua baris paling banyak; teks lengkap di title, supaya tempat tetap dan alasannya terbaca.
+                  const keterangan = [!b.tampil ? "Hidden" : b.mati, b.tetap ? (TEMPAT_TETAP[b.id] ?? "Fixed place") : null, b.sub].filter(Boolean).join(" · ");
+                  return (
+                    <span className="flex min-w-0 gap-1 text-body-small text-on-surface-variant" title={`${b.blok ? "Your block" : "Automatic"} · ${keterangan}`}>
+                      <span className="shrink-0 font-medium">{b.blok ? "Your block" : "Automatic"}</span>
+                      <span className="line-clamp-2">{`· ${keterangan}`}</span>
+                    </span>
+                  );
+                })()}
               </button>
               {tautanSumber(b, "inline-flex self-start sm:hidden")}
             </div>

@@ -1,4 +1,5 @@
 import { memberHomeOrder, slotPengumumanHorizon, type LandingMemberConfig } from "../domain.ts";
+import { rapikanHorizon as rapikan } from "./aturan-horizon.ts";
 
 /**
  * Urutan Beranda Gathering Horizon (Participant area > Participant home),
@@ -13,33 +14,19 @@ import { memberHomeOrder, slotPengumumanHorizon, type LandingMemberConfig } from
  *
  * Simpanan baru memuat "help" dan menyimpan urutan tampil apa adanya. Simpanan
  * lama (tanpa "help", dari sebelum seret di pratinjau) hanya bermakna tempat
- * Announcements: paling atas, setelah Next up, atau setelah Bus and room.
- * Simpanan itu dibaca dengan aturan lama, jadi acara yang belum disentuh tidak
- * bergeser satu piksel pun.
+ * Announcements (paling atas, setelah Next up, atau setelah Bus and room) dan
+ * urutan blok. Simpanan itu dibaca dengan aturan lama, jadi acara yang belum
+ * disentuh tidak bergeser satu piksel pun.
  *
- * Tanpa impor runtime selain domain.ts (hanya impor tipe), jadi bisa diuji
- * langsung oleh Node (susunan-horizon.check.ts).
+ * Aturan tempat tetap ada di aturan-horizon.ts. Impor runtimenya hanya
+ * domain.ts dan aturan-horizon.ts, jadi bisa diuji langsung oleh Node
+ * (susunan-horizon.check.ts).
  */
 
 /** Isi bawaan Beranda Horizon, dalam urutan bawaannya. */
 export const ISI_HORIZON = ["announcements", "next", "outfit", "checkpoints", "logistics", "roommates", "help"] as const;
 
-/** Isi bawaan yang tempatnya tetap: tidak bisa diseret. */
-export const TETAP_HORIZON: ReadonlySet<string> = new Set(["next", "roommates", "help"]);
-
 const BEBAS = ["announcements", "next", "outfit", "checkpoints", "logistics"];
-
-/** Aturan tempat tetap: Next up di atas (Announcements boleh di atasnya), Roommates sesudah Bus and room, Help card di bawah. */
-function rapikan(urutan: readonly string[]): string[] {
-  const posisiNext = urutan.indexOf("next");
-  const posisiPengumuman = urutan.indexOf("announcements");
-  const pengumumanDiAtas = posisiPengumuman >= 0 && (posisiNext < 0 || posisiPengumuman < posisiNext);
-  const atas = pengumumanDiAtas ? ["announcements", "next"] : ["next"];
-  const sisa = urutan.filter((id) => !atas.includes(id) && id !== "roommates" && id !== "help");
-  const bus = sisa.indexOf("logistics");
-  sisa.splice(bus < 0 ? sisa.length : bus + 1, 0, "roommates");
-  return [...atas, ...sisa, "help"];
-}
 
 /** Simpanan baru: memuat "help". Tanpa itu simpanan dibaca dengan aturan lama. */
 export function simpananBebas(home: LandingMemberConfig["home"]): boolean {
@@ -78,27 +65,4 @@ export function urutanHorizon(home: LandingMemberConfig["home"], blok: readonly 
   return rapikan(hasil);
 }
 
-/**
- * Urutan sesudah `id` dipindah ke indeks `ke` di urutan tampil. Isi bertempat
- * tetap tidak bergerak; tujuan yang melanggar aturan dirapikan (di atas Next
- * up menjadi tepat di bawahnya, kecuali Announcements; di bawah Help card
- * menjadi tepat di atasnya).
- */
-export function pindahHorizon(urutan: readonly string[], id: string, ke: number): string[] {
-  const dari = urutan.indexOf(id);
-  if (dari < 0 || TETAP_HORIZON.has(id)) return [...urutan];
-  const hasil = urutan.filter((lain) => lain !== id);
-  hasil.splice(Math.max(0, Math.min(ke, hasil.length)), 0, id);
-  return rapikan(hasil);
-}
-
-/**
- * Seret di pratinjau: `id` diletakkan tepat sebelum `sebelum` (null = paling
- * bawah). Aturan tempat tetap sama dengan pindahHorizon.
- */
-export function letakkanHorizon(urutan: readonly string[], id: string, sebelum: string | null): string[] {
-  if (TETAP_HORIZON.has(id) || !urutan.includes(id) || id === sebelum) return [...urutan];
-  const tanpa = urutan.filter((lain) => lain !== id);
-  const ke = sebelum === null ? tanpa.length : tanpa.indexOf(sebelum);
-  return pindahHorizon(urutan, id, ke < 0 ? tanpa.length : ke);
-}
+export { TETAP_HORIZON, letakkanHorizon, pindahHorizon } from "./aturan-horizon.ts";

@@ -14,8 +14,12 @@
  * Layar sentuh tidak menyeret di sini (mengganggu gulir); daftar di samping
  * dan tombol panah di pegangannya tetap bisa dipakai. Lapisannya tidak
  * mengubah kartu (pointer-events: none), dan ukurannya dibagi skala
- * pratinjau supaya terbaca sama besar di layar admin.
+ * pratinjau supaya terbaca sama besar di layar admin. Garis dan label jatuh
+ * dihitung dengan aturan yang sama dengan daftar (aturan-horizon.ts), jadi
+ * selalu menunjuk tempat kartu itu benar-benar mendarat.
  */
+
+import { letakkanHorizon } from "@/lib/member/aturan-horizon";
 
 export type SetelanSeret = {
   /** Seret menyala (pratinjau ponsel, Gathering Horizon). Mati: hanya klik untuk mencari baris. */
@@ -24,6 +28,8 @@ export type SetelanSeret = {
   gerak: string[];
   /** Semua kartu Participant home, dalam urutan tampil. */
   kartu: string[];
+  /** Urutan Participant home lengkap (dengan Roommates dan Help card), untuk menghitung tempat jatuh. */
+  urutan: string[];
   /** Judul baris tiap kartu di daftar Participant home. */
   label: Record<string, string>;
   /** Skala bingkai pratinjau di layar admin. */
@@ -95,7 +101,11 @@ export function pasangSeret(setelan: () => SetelanSeret | null, lapor: (pesan: o
   function sorotArah(target: EventTarget | null) {
     const s = setelan();
     const kartu = kartuDi(target);
-    if (!s || !kartu) { sembunyikan(garisKartu, tag); return; }
+    if (!s || !kartu) {
+      sembunyikan(garisKartu, tag);
+      document.documentElement.style.cursor = "";
+      return;
+    }
     const kotak = kartu.kotak.getBoundingClientRect();
     letakkan(garisKartu, kotak);
     garisKartu.style.border = `${ukur(2)} solid ${BIRU}`;
@@ -105,29 +115,39 @@ export function pasangSeret(setelan: () => SetelanSeret | null, lapor: (pesan: o
     document.documentElement.style.cursor = bisaSeret ? "grab" : "";
   }
 
-  /** Tempat jatuh: sebelum kartu pertama yang tengahnya di bawah penunjuk; null = paling bawah. */
+  /**
+   * Tempat jatuh: sebelum kartu pertama yang tengahnya di bawah penunjuk (null
+   * = paling bawah), dirapikan dengan aturan tempat tetap. Garis dan label
+   * mengikuti tetangga kartu itu di urutan hasilnya, bukan celah di bawah
+   * penunjuk, jadi celah di atas Next up atau di bawah Help card tidak menipu.
+   */
   function hitungJatuh(y: number) {
     const s = setelan();
     if (!s || !seret) return;
-    const kartu = s.kartu
-      .filter((id) => id !== seret!.id)
-      .flatMap((id) => {
-        const penanda = document.querySelector(`[data-beranda="${CSS.escape(id)}"]`);
-        const kotak = penanda ? kotakTampil(penanda) : null;
-        return kotak ? [{ id, kotak: kotak.getBoundingClientRect() }] : [];
-      })
-      .sort((a, b) => a.kotak.top - b.kotak.top);
+    const tampil = new Map(
+      s.kartu
+        .filter((id) => id !== seret!.id)
+        .flatMap((id) => {
+          const penanda = document.querySelector(`[data-beranda="${CSS.escape(id)}"]`);
+          const kotak = penanda ? kotakTampil(penanda) : null;
+          return kotak ? [[id, kotak.getBoundingClientRect()] as const] : [];
+        }),
+    );
+    const kartu = [...tampil.entries()].sort((a, b) => a[1].top - b[1].top);
     if (kartu.length === 0) return;
-    const indeks = kartu.findIndex((item) => item.kotak.top + item.kotak.height / 2 > y);
-    const bawah = indeks < 0 ? kartu[kartu.length - 1] : null;
-    const sasaran = indeks < 0 ? null : kartu[indeks];
-    const sebelumnya = indeks < 0 ? kartu[kartu.length - 1] : kartu[indeks - 1] ?? null;
-    seret.sebelum = sasaran?.id ?? null;
-    const acuan = (sasaran ?? bawah)!.kotak;
-    const yGaris = sasaran ? (sebelumnya ? (sebelumnya.kotak.bottom + sasaran.kotak.top) / 2 : sasaran.kotak.top - 12) : acuan.bottom + 12;
+    const indeks = kartu.findIndex(([, kotak]) => kotak.top + kotak.height / 2 > y);
+    seret.sebelum = indeks < 0 ? null : kartu[indeks][0];
+    const hasil = letakkanHorizon(s.urutan, seret.id, seret.sebelum);
+    const posisi = hasil.indexOf(seret.id);
+    const sebelumnya = hasil.slice(0, posisi).reverse().find((id) => tampil.has(id)) ?? null;
+    const sesudahnya = hasil.slice(posisi + 1).find((id) => tampil.has(id)) ?? null;
+    const atas = sebelumnya ? tampil.get(sebelumnya)! : null;
+    const bawah = sesudahnya ? tampil.get(sesudahnya)! : null;
+    const acuan = (bawah ?? atas)!;
+    const yGaris = atas && bawah ? (atas.bottom + bawah.top) / 2 : bawah ? bawah.top - 12 : acuan.bottom + 12;
     const tebal = parseFloat(ukur(2));
     Object.assign(garisJatuh.style, { display: "block", left: `${acuan.left + window.scrollX}px`, top: `${yGaris + window.scrollY - tebal / 2}px`, width: `${acuan.width}px`, height: `${tebal}px` });
-    tulisTag(labelJatuh, sebelumnya ? `Drop here: after ${s.label[sebelumnya.id] ?? sebelumnya.id}` : "Drop here: at the top", acuan.left + window.scrollX, yGaris + window.scrollY + tebal);
+    tulisTag(labelJatuh, sebelumnya ? `Drop here: after ${s.label[sebelumnya] ?? sebelumnya}` : "Drop here: at the top", acuan.left + window.scrollX, yGaris + window.scrollY + tebal);
   }
 
   function selesai(kirim: boolean) {
@@ -190,7 +210,15 @@ export function pasangSeret(setelan: () => SetelanSeret | null, lapor: (pesan: o
   }
 
   function keluar() {
-    if (!seret) sembunyikan(garisKartu, tag);
+    if (seret) return;
+    sembunyikan(garisKartu, tag);
+    document.documentElement.style.cursor = "";
+  }
+
+  // Tautan dan gambar di kartu bisa diseret peramban sendiri (mulai sekitar 4 px,
+  // lalu pointercancel), jadi seret bawaan ditahan selama kartu sedang dipegang.
+  function tahanSeretAsli(event: DragEvent) {
+    if (mulai || seret) event.preventDefault();
   }
 
   const batal = () => selesai(false);
@@ -202,6 +230,7 @@ export function pasangSeret(setelan: () => SetelanSeret | null, lapor: (pesan: o
   window.addEventListener("click", klik, true);
   window.addEventListener("keydown", tombol, true);
   window.addEventListener("scroll", gulir, { passive: true });
+  window.addEventListener("dragstart", tahanSeretAsli, true);
   document.documentElement.addEventListener("pointerleave", keluar);
   return () => {
     selesai(false);
@@ -212,6 +241,7 @@ export function pasangSeret(setelan: () => SetelanSeret | null, lapor: (pesan: o
     window.removeEventListener("click", klik, true);
     window.removeEventListener("keydown", tombol, true);
     window.removeEventListener("scroll", gulir);
+    window.removeEventListener("dragstart", tahanSeretAsli, true);
     document.documentElement.removeEventListener("pointerleave", keluar);
     for (const el of [garisKartu, tag, garisJatuh, labelJatuh, hantu]) el.remove();
   };

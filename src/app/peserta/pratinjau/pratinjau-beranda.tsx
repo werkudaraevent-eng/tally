@@ -87,7 +87,18 @@ export function PratinjauBeranda({ slug, pesertaId, children }: { slug: string; 
     window.addEventListener("message", terima);
     window.addEventListener("click", klik, true);
     window.addEventListener("submit", klik, true);
-    const lepasSeret = pasangSeret(() => seret.current, lapor);
+    // Kartu yang diklik atau diseret menjadi pilihan baru: garis sorot baris sebelumnya dilepas.
+    const lepasSeret = pasangSeret(
+      () => seret.current,
+      (pesan: { jenis?: string }) => {
+        if (pesan.jenis === "tally-beranda-pilih" || pesan.jenis === "tally-beranda-pindah") {
+          sorotan?.style.removeProperty("outline");
+          sorotan?.style.removeProperty("outline-offset");
+          sorotan = null;
+        }
+        lapor(pesan);
+      },
+    );
     lapor({ jenis: "tally-beranda-siap" });
     return () => {
       lepasSeret();

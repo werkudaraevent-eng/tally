@@ -156,7 +156,7 @@ export async function GET(request: Request) {
     // Today's outfit (belum ada outfit di Agenda) dan Help card (tanpa kontak panitia).
     ...(horizon
       ? {
-          dates: { start: auth.scope.event.event_date ?? null, end: auth.scope.event.end_date ?? auth.scope.event.event_date ?? null },
+          dates: { start: auth.scope.event.event_date ?? null, end: auth.scope.event.end_date ?? auth.scope.event.event_date ?? null, start_time: auth.scope.event.start_time ?? null },
           outfit_days: petaOutfit ? [...petaOutfit.values()].filter((isian) => isian.length > 0).length : 0,
           organiser_contact: kontakPanitia(landing) !== null,
         }

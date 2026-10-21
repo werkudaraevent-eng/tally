@@ -148,7 +148,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #174 L1/L2: phone focus order differs from visual order (CSS `order`), and the editor highlight is lost on remount.
 - #175 D1/D2/L2/L3: the phone note is 17 px instead of 15 and has no overflow-wrap, and a long unbroken announcement word overflows.
 - #180 L2: the fold also applies on tablets; booking codes of 17+ characters may overflow at 390.
-- #183 L1/L2: re-inserting moves Agenda and Quick links in classic order, and the drop indicator on a fixed row does nothing.
+- Participant home on Horizon (drag-in-preview PR): a changed list is saved without Quick links and Today's agenda, so if the event is switched back to classic Gathering those two return at their default places.
 - #199: offline, every portal address shows the saved QR page (by design); Schedule links to Travel by matching date and time only for bus trips not linked to an Agenda row (#202 links the row itself), and shows no bus time on the row (needs its own mockup). Emergency card: rows have no icons (the approved mockup had icon tiles), and it is not in the saved offline page (offline shows the QR only).
 - #185 L3: `?tab=perjalanan` with no travel data shows no active tab.
 - #194 L8/L9: the short description has no tooltip, and block rows say only "Edit ›".
