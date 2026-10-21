@@ -1191,9 +1191,10 @@ export async function DashboardGathering({
     const hariAwalO = hariO.find((item) => item.tanggal === kini.tanggal) ?? hariO[0];
     const pilihan = Math.min(Math.max((hari ?? (hariAwalO ? bukaHariO(hariAwalO) + 1 : 1)) - 1, 0), Math.max(hariOutfit.length - 1, 0));
     const bagian = hariOutfit[pilihan];
-    // Kartu bagian terpilih, Setiap hari di depan; tanpa tab Agenda hanya kartu Setiap hari.
+    // Kartu bagian terpilih, Setiap hari di depan; tanpa tab Agenda hanya kartu Setiap hari,
+    // langsung di bawah judul halaman (tanpa judul tanggal), jadi judulnya h2.
     const kartuHari = outfitTampil(pilihan).map((isian, index) => (
-      <KartuOutfitHorizon key={index} kapan={isian.when ?? null} apa={isian.what} catatan={isian.note ?? null} foto={isian.photo_url ?? null} />
+      <KartuOutfitHorizon key={index} kapan={isian.when ?? null} apa={isian.what} catatan={isian.note ?? null} foto={isian.photo_url ?? null} tingkat={bagian ? 3 : 2} />
     ));
     const hariTerpilih = hariO.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));
     const hrefO = (indeks: number) => keTab("outfit", { hari: String(indeks + 1) });

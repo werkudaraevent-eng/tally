@@ -1142,8 +1142,11 @@ export function StripOutfitHorizon({ label, isian, href, lihat }: { label: strin
  * Kartu satu outfit (pola "Attire" Zola, "Tonight's Attire" Royal Caribbean):
  * foto contoh 4:5 bila ada (tanpa kotak kosong bila tidak), waktu sebagai
  * label kalimat biasa, pakaiannya sebagai judul, catatan redup.
+ * `tingkat`: judulnya h3 di bawah judul tanggal (h2); h2 bila kartu langsung di
+ * bawah judul halaman (acara tanpa tab Agenda), supaya tidak melompat dari h1 ke h3.
  */
-export function KartuOutfitHorizon({ kapan, apa, catatan, foto }: { kapan: string | null; apa: string; catatan: string | null; foto: string | null }) {
+export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3 }: { kapan: string | null; apa: string; catatan: string | null; foto: string | null; tingkat?: 2 | 3 }) {
+  const Judul = tingkat === 2 ? "h2" : "h3";
   // Rancangan yang Mas Hanung setujui: foto kecil 4:5 di samping teks, jadi satu
   // hari dengan tiga pakaian tetap terbaca sekilas. Ketuk foto untuk ukuran penuh.
   return (
@@ -1162,7 +1165,7 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto }: { kapan: strin
             {kapan}
           </p>
         ) : null}
-        <h3 className="text-[17px] font-semibold leading-6 [overflow-wrap:anywhere] md:text-[20px] md:leading-7">{apa}</h3>
+        <Judul className="text-[17px] font-semibold leading-6 [overflow-wrap:anywhere] md:text-[20px] md:leading-7">{apa}</Judul>
         {catatan ? (
           <p className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
             {catatan}
