@@ -3,6 +3,7 @@ import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-i
 import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
 import { SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
 import { TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
+import { outfitSetiapHariSchema } from "@/lib/outfit-setiap-hari";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
@@ -273,6 +274,8 @@ export const memberSchema = z.object({
     .max(OUTFIT_LABEL_MAX)
     .nullish()
     .transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
+  /** Dresscode Setiap hari portal Horizon. Tidak dikirim = tidak diubah; kosong = tidak ada (disimpan null). */
+  outfit_every_day: outfitSetiapHariSchema,
   /** Blok peserta yang tampil di Menu sebagai kartu darurat dan bantuan (portal Horizon). Kosong = tidak ada. */
   help_block: blockId.nullable().optional(),
   /**
