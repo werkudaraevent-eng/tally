@@ -1,5 +1,6 @@
-import { Check, Flag, MapPin, Target } from "@phosphor-icons/react/dist/ssr";
+import { CalendarBlank, Check, Flag, MapPin, Target } from "@phosphor-icons/react/dist/ssr";
 import type { CheckpointPeserta, LangkahPeserta } from "@/lib/checkpoint/server";
+import { tanggalDiZona, teksSelesai, teksWaktu } from "@/lib/checkpoint/waktu";
 import type { LandingLang } from "@/lib/landing-i18n";
 import type { EventTimeZone } from "@/lib/timezone";
 import { SEPARATOR, gabungMeta } from "@/lib/typography";
@@ -15,6 +16,10 @@ import { PindaiCheckpoint } from "@/components/member/pindai-checkpoint";
  * yang memindai, `self_scan`), dan garis tujuan poin (E-08). Daftar lengkap
  * dibuka di tempat. Tombol emas satu-satunya tetap QR di bilah bawah, jadi
  * kartu ini tidak punya tombol emas sendiri.
+ *
+ * Langkah bertanggal (When, dari Agenda) menulis tanggal dan jamnya di atas
+ * tempat, seperti segmen perjalanan di aplikasi maskapai: "Hari ini" sebagai
+ * chip, "Besok", atau tanggalnya. Langkah tanpa tanggal tampil seperti dulu.
  */
 
 const TEKS = {
@@ -34,6 +39,7 @@ const TEKS = {
     belum: "Belum",
     lihatSemua: (n: number) => `Lihat semua ${n} checkpoint`,
     sembunyikan: "Sembunyikan",
+    hariIni: "Hari ini",
   },
   en: {
     judul: "Checkpoints",
@@ -50,6 +56,7 @@ const TEKS = {
     belum: "Not yet",
     lihatSemua: (n: number) => `See all ${n} checkpoints`,
     sembunyikan: "Hide",
+    hariIni: "Today",
   },
 } as const;
 
@@ -85,12 +92,16 @@ export function KartuCheckpointHorizon({
   const total = data.steps.length;
   const berikut = data.steps.find((step) => !step.done_at) ?? null;
   const sisa = berikut && !berakhir ? berikut : null;
+  const hariIni = tanggalDiZona(new Date(), zona);
 
   const baris = (step: LangkahPeserta, akhir: boolean) => {
     const index = data.steps.indexOf(step);
     const selesai = Boolean(step.done_at);
     const ini = step.id === berikut?.id;
-    const sub = selesai ? gabungMeta([t.selesaiJam(jam(step.done_at!, zona, lang)), step.size ? t.ukuran(step.size) : null]) : step.place;
+    // Langkah bertanggal yang selesai di hari lain menyebut tanggalnya juga.
+    const jamSelesai = selesai ? (step.when ? teksSelesai(step.done_at!, zona, hariIni, lang) : jam(step.done_at!, zona, lang)) : "";
+    const sub = selesai ? gabungMeta([t.selesaiJam(jamSelesai), step.size ? t.ukuran(step.size) : null]) : step.place;
+    const kapan = !selesai && step.when ? teksWaktu(step.when, hariIni, lang, false).teks : null;
     return (
       <li key={step.id} className={`relative grid grid-cols-[28px_minmax(0,1fr)_auto] gap-3 ${akhir ? "" : "pb-4"}`}>
         {!akhir ? <i aria-hidden className={`absolute bottom-0 left-[13px] top-7 w-0.5 ${selesai ? "bg-[var(--hz-navy)]" : "bg-[#E1E6F1]"}`} /> : null}
@@ -107,6 +118,7 @@ export function KartuCheckpointHorizon({
             <span className="sr-only">{`${index + 1}. ${selesai ? t.sudah : t.belum}: `}</span>
             {step.title}
           </p>
+          {kapan ? <p className="mt-0.5 text-[13px] leading-[18px] [overflow-wrap:anywhere]">{kapan}</p> : null}
           {sub ? (
             <p className="mt-0.5 text-[13px] leading-[18px] [overflow-wrap:anywhere]" style={{ color: REDUP }}>
               {sub}
@@ -185,6 +197,7 @@ export function KartuCheckpointHorizon({
                 {t.berikut}
               </p>
               <p className="mt-1 text-[17px] font-semibold leading-6 [overflow-wrap:anywhere]">{sisa.title}</p>
+              {sisa.when ? <BarisKapan teks={teksWaktu(sisa.when, hariIni, lang, true)} hariIni={t.hariIni} /> : null}
               {sisa.place ? (
                 <p className="mt-1 flex items-start gap-1.5 text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
                   <MapPin size={18} aria-hidden className="shrink-0" />
@@ -209,5 +222,18 @@ export function KartuCheckpointHorizon({
         tombolKelas="m3-state -mx-2 mt-2 inline-flex min-h-12 items-center gap-1.5 rounded-md px-2 text-[14px] font-semibold text-[#274FC0]"
       />
     </section>
+  );
+}
+
+/** Baris tanggal Langkah berikutnya: ikon kalender, chip "Hari ini" bila hari ini, lalu jam atau tanggalnya. */
+function BarisKapan({ teks, hariIni }: { teks: ReturnType<typeof teksWaktu>; hariIni: string }) {
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] font-medium leading-5 [overflow-wrap:anywhere]">
+      <CalendarBlank size={18} aria-hidden className="shrink-0" style={{ color: REDUP }} />
+      {teks.relatif === "hari-ini" ? (
+        <span className="rounded-full bg-[var(--chip-aksen)] px-2 text-[12px] font-semibold leading-5 text-[var(--on-chip-aksen)]">{hariIni}</span>
+      ) : null}
+      <span className="min-w-0">{teks.tanpaRelatif}</span>
+    </p>
   );
 }
