@@ -1203,7 +1203,16 @@ export async function DashboardGathering({
     // Kartu bagian terpilih, Setiap hari di depan; tanpa tab Agenda hanya kartu Setiap hari,
     // langsung di bawah judul halaman (tanpa judul tanggal), jadi judulnya h2.
     const kartuHari = outfitTampil(pilihan).map((isian, index) => (
-      <KartuOutfitHorizon key={index} kapan={isian.when ?? null} apa={isian.what} catatan={isian.note ?? null} foto={isian.photo_url ?? null} tingkat={bagian ? 3 : 2} />
+      <KartuOutfitHorizon
+        key={index}
+        kapan={isian.when ?? null}
+        apa={isian.what}
+        catatan={isian.note ?? null}
+        foto={isian.photo_url ?? null}
+        tingkat={bagian ? 3 : 2}
+        judulFoto={labelOutfitHalaman}
+        teksFoto={{ buka: to.openPhoto(isian.what), lihat: to.viewPhoto, tutup: to.closePhoto }}
+      />
     ));
     const hariTerpilih = hariO.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));
     const hrefO = (indeks: number) => keTab("outfit", { hari: String(indeks + 1) });
@@ -1291,7 +1300,9 @@ export async function DashboardGathering({
               {kartuHari.length === 0 ? (
                 <p className={`mt-4 text-[16px] leading-6 ${MUTED}`}>{to.dayEmpty}</p>
               ) : (
-                <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">{kartuHari}</div>
+                // Satu kartu per baris di semua lebar: foto outfit isi utamanya, jadi di layar
+                // lebar kartunya selebar kolom (sejajar baris Berikutnya), bukan separuh.
+                <div className="mt-4 grid gap-4 lg:gap-6">{kartuHari}</div>
               )}
               {berikutO && berikutO.item.tanggal ? (
                 <Link

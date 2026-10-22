@@ -107,6 +107,10 @@ export type PortalUiText = {
       notYours: (bagian: string, kelompok: string) => string;
       /** Tautan ke bagian milik peserta: "Lihat Outfit Batch 2". */
       seeYours: (label: string, bagian: string) => string;
+      /** Foto contoh: label pembuka layar penuh, teks tombolnya (desktop), dan tombol tutup. */
+      openPhoto: (apa: string) => string;
+      viewPhoto: string;
+      closePhoto: string;
       /** Teks tautan strip di Susunan acara (desktop): "Lihat Dresscode". */
       stripLink: (label: string) => string;
       /** Label baris Setiap hari (Participant area) di depan baris tiap hari: "Setiap hari · Kaos KSO". */
@@ -320,6 +324,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         yours: (kelompok) => `Untuk ${kelompok}, sesuai jadwalmu.`,
         notYours: (bagian, kelompok) => `Ini untuk ${bagian}. Kamu terdaftar di ${kelompok}.`,
         seeYours: (label, bagian) => `Lihat ${label} ${bagian}`,
+        openPhoto: (apa) => `Buka foto ${apa} layar penuh`,
+        viewPhoto: "Lihat gambar penuh",
+        closePhoto: "Tutup",
         stripLink: (label) => `Lihat ${label}`,
         everyDay: "Setiap hari",
         next: "Berikutnya",
@@ -515,6 +522,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         yours: (kelompok) => `For ${kelompok}, as in your schedule.`,
         notYours: (bagian, kelompok) => `This is for ${bagian}. You are in ${kelompok}.`,
         seeYours: (label, bagian) => `See the ${bagian} ${label}`,
+        openPhoto: (apa) => `Open the ${apa} photo full screen`,
+        viewPhoto: "View full image",
+        closePhoto: "Close",
         stripLink: (label) => `See ${label}`,
         everyDay: "Every day",
         next: "Next",

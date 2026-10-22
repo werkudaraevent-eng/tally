@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { ArrowsOut, X } from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowsOut } from "@phosphor-icons/react";
+import { DialogGambar, usePenampilGambar } from "./penampil-gambar";
 
 /**
  * Denah blok Rute: gambar utuh (tidak dipotong) selebar kolom, ketuk untuk
- * layar penuh. Layar penuhnya dialog layar penuh M3: latar hitam, tombol tutup
- * di KIRI bilah atas, judul di sebelahnya, gambar dipaskan ke layar. Ketuk
- * gambar untuk memperbesar 2x dan menggesernya; cubit tetap bisa karena
- * viewport tidak mengunci skala. Kembali di ponsel menutup denah (lihat efek
- * di bawah).
+ * layar penuh (DialogGambar: tutup di kiri atas, ketuk untuk 2x, Kembali di
+ * ponsel menutupnya).
  * Gambar yang gagal dimuat menandai `data-denah-gagal`, jadi bagian Denah
  * di induknya disembunyikan (`has-[[data-denah-gagal]]:hidden`).
  */
@@ -22,23 +20,9 @@ export function GambarDenah({ src, alt, judul, buka, tutup }: {
   buka: string;
   tutup: string;
 }) {
-  const dialog = useRef<HTMLDialogElement | null>(null);
-  const wadah = useRef<HTMLDivElement | null>(null);
-  const pemicu = useRef<HTMLButtonElement | null>(null);
-  const [terbuka, setTerbuka] = useState(false);
-  const [besar, setBesar] = useState(false);
+  const penampil = usePenampilGambar();
   const [gagal, setGagal] = useState(false);
   const gambar = useRef<HTMLImageElement | null>(null);
-  const entriDenah = useRef(false);
-
-  const bukaDialog = () => {
-    // Kembali menutup denah: satu entri riwayat beralamat sama, dengan state
-    // Next disalin supaya entri itu tetap sah bagi router (maju, muat ulang).
-    // Metode prototipe dipakai supaya tambalan Next tidak ikut campur.
-    History.prototype.pushState.call(window.history, { ...window.history.state, denah: true }, "");
-    entriDenah.current = true;
-    setTerbuka(true);
-  };
 
   // Galat yang terjadi sebelum hidrasi tidak sampai ke onError.
   useEffect(() => {
@@ -46,64 +30,12 @@ export function GambarDenah({ src, alt, judul, buka, tutup }: {
     if (img?.complete && img.naturalWidth === 0) setGagal(true);
   }, []);
 
-  useEffect(() => {
-    if (!terbuka) return;
-    const el = dialog.current;
-    const tombol = pemicu.current;
-    if (el && !el.open) el.showModal();
-    document.documentElement.style.overflow = "hidden";
-    const y = window.scrollY;
-    const kembali = () => {
-      entriDenah.current = false;
-      setTerbuka(false);
-      // Kembali ke entri bawah menjalankan router Next; pada alamat `#id` rute
-      // ia menggulir ke sana dan melepas fokus. Posisi dan fokus dikembalikan.
-      requestAnimationFrame(() => {
-        window.scrollTo(0, y);
-        if (tombol?.isConnected) tombol.focus({ preventScroll: true });
-      });
-    };
-    window.addEventListener("popstate", kembali);
-    return () => {
-      window.removeEventListener("popstate", kembali);
-      document.documentElement.style.overflow = "";
-      if (el?.open) el.close();
-      setBesar(false);
-      if (tombol?.isConnected) tombol.focus({ preventScroll: true });
-    };
-  }, [terbuka]);
-
-  // X dan Esc lewat riwayat juga, supaya entri denah tidak tertinggal.
-  const tutupDialog = () => {
-    if (entriDenah.current) window.history.back();
-    else setTerbuka(false);
-  };
-
-  const ketukGambar = (event: MouseEvent<HTMLImageElement>) => {
-    const w = wadah.current;
-    if (!w) return;
-    const kotak = event.currentTarget.getBoundingClientRect();
-    // Titik yang diketuk tetap di bawah jari sesudah diperbesar.
-    const fx = (event.clientX - kotak.left) / kotak.width;
-    const fy = (event.clientY - kotak.top) / kotak.height;
-    setBesar((x) => {
-      if (!x) {
-        requestAnimationFrame(() => {
-          w.scrollLeft = fx * w.scrollWidth - w.clientWidth / 2;
-          w.scrollTop = fy * w.scrollHeight - w.clientHeight / 2;
-        });
-      }
-      return !x;
-    });
-  };
-
   return (
     <>
       <div className="relative" data-denah-gagal={gagal || undefined}>
         <button
-          ref={pemicu}
           type="button"
-          onClick={bukaDialog}
+          onClick={penampil.buka}
           aria-label={buka}
           aria-haspopup="dialog"
           className="block min-h-12 w-full cursor-zoom-in overflow-hidden rounded-[16px] border border-[#E6E9EE] bg-[#F4F6F8]"
@@ -115,33 +47,7 @@ export function GambarDenah({ src, alt, judul, buka, tutup }: {
           <ArrowsOut size={24} />
         </span>
       </div>
-      <dialog
-        ref={dialog}
-        aria-label={judul}
-        onCancel={(event) => {
-          event.preventDefault();
-          tutupDialog();
-        }}
-        className="m-0 hidden h-dvh max-h-none w-full max-w-none flex-col bg-black p-0 text-white backdrop:bg-black open:flex"
-      >
-        <div className="flex min-h-16 shrink-0 items-center gap-1 px-1 pt-[env(safe-area-inset-top)]">
-          <button type="button" onClick={tutupDialog} aria-label={tutup} className="m3-state flex size-12 shrink-0 items-center justify-center rounded-full">
-            <X size={24} aria-hidden />
-          </button>
-          <h2 className="min-w-0 truncate text-[22px] font-medium leading-7">{judul}</h2>
-        </div>
-        <div ref={wadah} className={`min-h-0 flex-1 overflow-auto ${besar ? "" : "flex items-center justify-center p-2"}`}>
-          {terbuka ? (
-            // eslint-disable-next-line @next/next/no-img-element -- URL bebas dari unggahan admin
-            <img
-              src={src}
-              alt={alt}
-              onClick={ketukGambar}
-              className={besar ? "block w-[200%] max-w-none cursor-zoom-out" : "block max-h-full max-w-full cursor-zoom-in object-contain"}
-            />
-          ) : null}
-        </div>
-      </dialog>
+      <DialogGambar penampil={penampil} src={src} alt={alt} judul={judul} tutupLabel={tutup} />
     </>
   );
 }
