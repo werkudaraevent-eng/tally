@@ -9,6 +9,7 @@ import { FotoLangkah, GambarDenah } from "./gambar-denah";
 import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import { MUAT_IKON } from "./ikon-ssr";
 import { PilihCara } from "./pilih-cara";
+import { LATAR_PORTAL_HORIZON } from "@/components/member/portal-horizon";
 
 // Blok Rute (Directions): dari satu tempat ke tempat lain, mis. hotel A ke
 // hotel B. Titik berangkat dan tujuan dipilih dari hotel di Logistik (nama dan
@@ -28,7 +29,7 @@ const UI = {
     photoOf: (cara: string) => `Foto patokan: ${cara}`,
     count: (n: number) => `${n} rute`,
     waysCount: (n: number) => `${n} cara`,
-    detail: "Detail", journey: "Perjalanan", chooseWay: "Pilih cara",
+    detail: "Detail", journey: "Perjalanan", chooseWay: "Pilih cara", allWays: "Untuk semua cara",
     map: "Denah",
     mapOf: (judul: string) => `Denah: ${judul}`,
     openMap: "Buka denah layar penuh",
@@ -44,7 +45,7 @@ const UI = {
     photoOf: (cara: string) => `Landmark photo: ${cara}`,
     count: (n: number) => `${n} routes`,
     waysCount: (n: number) => `${n} ways`,
-    detail: "Details", journey: "Journey", chooseWay: "Choose a way",
+    detail: "Details", journey: "Journey", chooseWay: "Choose a way", allWays: "For every way",
     map: "Map",
     mapOf: (judul: string) => `Map: ${judul}`,
     openMap: "Open map full screen",
@@ -393,8 +394,6 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
   );
 }
 
-/** Warna halaman portal Horizon (KREM): lubang sobekan tiket memakai warna ini. */
-const LATAR_HALAMAN = "#FAF8F2";
 
 const GARIS_LINTASAN = "absolute left-[15px] w-0.5 bg-[#D9DEE5]";
 
@@ -426,9 +425,11 @@ function TitikLintasan({ x, label, akhir }: { x: Titik; label: string; akhir: bo
  */
 function Lintasan({ rute, cara, lang }: { rute: Rute; cara: Rute["cara"][number] | null; lang: LandingLang }) {
   const t = UI[lang];
-  // Langkah untuk semua cara (bentuk lama) dipakai cara yang tidak punya langkah sendiri.
-  const langkah = cara?.langkah.length ? cara.langkah : rute.langkah;
-  return (
+  // Langkah untuk semua cara (bentuk lama): di garis bila cara ini tidak punya
+  // langkah sendiri, selain itu di bawah garis, seperti di halaman lain.
+  const sendiri = Boolean(cara?.langkah.length);
+  const langkah = sendiri ? cara!.langkah : rute.langkah;
+  const garis = (
     <ol className="flex flex-col">
       <TitikLintasan x={rute.dari} label={t.from} akhir={false} />
       {cara ? (
@@ -467,6 +468,18 @@ function Lintasan({ rute, cara, lang }: { rute: Rute; cara: Rute["cara"][number]
       <TitikLintasan x={rute.ke} label={t.to} akhir />
     </ol>
   );
+  if (!sendiri || !rute.langkah.length) return garis;
+  return (
+    <div className="flex flex-col gap-5">
+      {garis}
+      <div className="border-t border-[#E6E9EE] pt-5">
+        <h4 className={`${LABEL} ${MUTED_KARTU}`}>{t.allWays}</h4>
+        <div className="mt-3">
+          <DaftarLangkah langkah={rute.langkah} lang={lang} kecil />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -493,7 +506,8 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
       </p>
       {rute.map(({ block, rute: r }) => {
         const tunggal = r.cara.length === 1 ? r.cara[0] : null;
-        const IkonTengah = r.cara[0]?.Ikon ?? NavigationArrow;
+        // Satu cara: ikon dan waktunya di tengah; dua cara atau lebih: panah umum dan jumlahnya.
+        const IkonTengah = tunggal?.Ikon ?? NavigationArrow;
         const tengah = tunggal ? tunggal.waktu : r.cara.length > 1 ? t.waysCount(r.cara.length) : null;
         const panel = r.cara.length ? r.cara.map((cara, index) => <Lintasan key={index} rute={r} cara={cara} lang={lang} />) : [<Lintasan key={0} rute={r} cara={null} lang={lang} />];
         const sisi = r.denah || r.peta;
@@ -524,8 +538,8 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
               </span>
               {/* Sobekan tiket: garis putus-putus dengan dua lubang setengah lingkaran di tepi. */}
               <span aria-hidden className="relative block h-0 border-t-2 border-dashed border-[#E3E7EE] mx-5 sm:mx-7">
-                <span className="absolute -left-[34px] -top-[11px] size-5 rounded-full ring-1 ring-[rgb(16_30_56/0.12)] sm:-left-[42px]" style={{ background: LATAR_HALAMAN }} />
-                <span className="absolute -right-[34px] -top-[11px] size-5 rounded-full ring-1 ring-[rgb(16_30_56/0.12)] sm:-right-[42px]" style={{ background: LATAR_HALAMAN }} />
+                <span className="absolute -left-[34px] -top-[11px] size-5 rounded-full ring-1 ring-[rgb(16_30_56/0.12)] sm:-left-[42px]" style={{ background: LATAR_PORTAL_HORIZON }} />
+                <span className="absolute -right-[34px] -top-[11px] size-5 rounded-full ring-1 ring-[rgb(16_30_56/0.12)] sm:-right-[42px]" style={{ background: LATAR_PORTAL_HORIZON }} />
               </span>
               <span className="flex min-h-14 items-center gap-3 px-5 py-3 sm:px-7">
                 <span className="flex min-w-0 flex-1 flex-wrap gap-2">
@@ -533,7 +547,7 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
                     <span key={index} className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full bg-[#F1F3F8] px-3 text-label-large">
                       <Ikon size={16} weight="bold" aria-hidden className="shrink-0" />
                       <span className="truncate font-semibold">{label}</span>
-                      {waktu ? <span className={`shrink-0 tabular-nums ${MUTED_KARTU}`}>{waktu}</span> : null}
+                      {waktu && !tunggal ? <span className={`shrink-0 tabular-nums ${MUTED_KARTU}`}>{waktu}</span> : null}
                     </span>
                   ))}
                 </span>
