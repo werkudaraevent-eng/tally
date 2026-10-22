@@ -13,7 +13,8 @@ import { normalizeTimeZone } from "@/lib/timezone";
 //
 // Tidak ada data peserta di sini sama sekali. Rundown adalah informasi yang justru
 // ingin diketahui semua orang, jadi tidak ada penyaringan privasi seperti di denah
-// — yang tetap dijaga hanya batas publish, agar draf tidak bocor.
+// — yang tetap dijaga hanya batas publish, agar draf tidak bocor, dan baris yang
+// dibatasi Who sees it, yang hanya untuk peserta tertentu.
 
 const querySchema = z.object({ sesi: z.string().trim().max(40).optional() });
 
@@ -70,17 +71,25 @@ export async function GET(request: Request) {
   const requested = parsed.data.sesi;
   const section = (requested ? sections.find((row) => row.slug === requested) : null) ?? sections[0];
 
-  const { data: itemRows, error: itemError } = await client
-    .from("rundown_items")
-    .select(ITEM_COLUMNS)
-    .eq("event_id", eventId)
-    .eq("section_id", section.id)
-    .eq("is_published", true)
-    // Jam mulai dulu, sama dengan CMS rundown; sort_order hanya memisahkan
-    // butir berjam sama.
-    .order("start_time", { ascending: true })
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
+  const bacaBaris = (untukSemua: boolean) => {
+    const kueri = client
+      .from("rundown_items")
+      .select(ITEM_COLUMNS)
+      .eq("event_id", eventId)
+      .eq("section_id", section.id)
+      .eq("is_published", true);
+    // Baris bersyarat (Agenda > Who sees it) hanya untuk peserta yang masuk,
+    // tidak pernah di layar publik ini.
+    return (untukSemua ? kueri.is("audience", null) : kueri)
+      // Jam mulai dulu, sama dengan CMS rundown; sort_order hanya memisahkan
+      // butir berjam sama.
+      .order("start_time", { ascending: true })
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
+  };
+  let { data: itemRows, error: itemError } = await bacaBaris(true);
+  // Sebelum migrasi 202610210001 kolomnya belum ada, jadi belum ada baris bersyarat.
+  if (itemError && (itemError.code === "42703" || itemError.code === "PGRST204")) ({ data: itemRows, error: itemError } = await bacaBaris(false));
   if (itemError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
   return Response.json({

@@ -96,7 +96,8 @@ export async function DashboardModern({
   const halamanAcara = landingPath(event.slug, lang, utama);
   const lainnya: LandingLang = lang === "en" ? "id" : "en";
   const sections = normalizeLandingSections(config.sections, config.blocks);
-  const agenda = await loadAgendaPreview(event.id, lang);
+  // Who sees it per baris Agenda: baris bersyarat hanya untuk peserta yang cocok.
+  const agenda = await loadAgendaPreview(event.id, lang, { acara: asli, participantId: sesi.participant?.id ?? null, tampilKamar: member.show_logistics === true });
   // Pratinjau admin: semua pertanyaannya, supaya kartu terlihat seperti yang diterima peserta.
   const lengkapi = pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, sesi.participant?.id);
   // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.

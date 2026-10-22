@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUp, Bus as IkonBus, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUp, Bus as IkonBus, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, UsersThree, Warning } from "@phosphor-icons/react";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { keInputWaktu } from "@/components/admin/logistik/bersama";
@@ -31,6 +31,8 @@ import {
   adaBeda, drafBaruBerubah, formTerbuka, judulBuang, keteranganBuang, kunciForm, lapisanSisa, sisaSunting, type DrafBaru, type FormAgenda, type Panel,
 } from "@/lib/agenda-simpan-aman";
 import { useJagaNavigasi } from "@/lib/jaga-navigasi";
+import { bacaSyaratBaris } from "@/lib/sasaran-baris";
+import { KelompokSiapaMelihat, ringkasSyarat, syaratLengkap, syaratMati, type DrafSyarat, type InfoSiapaMelihat } from "./siapa-melihat";
 import {
   BarisDresscode, CatatanDresscodeBaris, EditorDresscode, bannerDresscode, drafKurang, kartuBaru, keDraf, keKiriman, keteranganTersimpan, ringkasDresscode, samaDraf, urutDraf,
   type BarisDc, type DrafDresscode,
@@ -230,6 +232,13 @@ export default function RundownAdminPage() {
   const [sasaranInfo, setSasaranInfo] = useState<SasaranInfo | null>(null);
   const [sasaranSaved, setSasaranSaved] = useState<Record<number, SasaranBagian | null>>({});
   const [sasaranDrafts, setSasaranDrafts] = useState<Record<number, SasaranBagian | null>>({});
+  // Siapa yang melihat tiap baris (Edit item > Who sees it), pola yang sama:
+  // null = semua; tidak ada di peta draf = belum disentuh. Hanya baris bersyarat yang tersimpan di peta.
+  const [syaratInfo, setSyaratInfo] = useState<InfoSiapaMelihat | null>(null);
+  const [syaratSaved, setSyaratSaved] = useState<Record<number, DrafSyarat>>({});
+  const [syaratDrafts, setSyaratDrafts] = useState<Record<number, DrafSyarat | null>>({});
+  // Who sees it di New item, per bagian. Ikut dikirim bersama barisnya.
+  const [syaratBaru, setSyaratBaru] = useState<Record<number, DrafSyarat | null>>({});
   // Zona acara dipakai supaya tanggal yang diecho di bawah kolom tanggal dihitung
   // dengan zona yang sama dengan halaman publik. Kalau tidak, admin bisa membaca
   // "Kamis" di CMS sementara tamu membaca "Rabu". Jam trip bus juga dibaca di
@@ -289,6 +298,18 @@ export default function RundownAdminPage() {
     setSasaranSaved(Object.fromEntries(data.sections.map((row) => [row.id, bacaSasaran(row.audience)])));
   }
 
+  async function loadSyarat() {
+    // Gagal dimuat = kelompok Who sees it tidak tampil; sisa halaman tetap berjalan.
+    const response = await fetch(eventApiPath("/api/admin/rundown/items/sasaran"), { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    const data = (await response.json()) as InfoSiapaMelihat & { items: Array<{ id: number; audience: unknown }> };
+    setSyaratInfo({ available: data.available, fields: data.fields, hotels: data.hotels, hotels_failed: data.hotels_failed, rooms_shown: data.rooms_shown });
+    setSyaratSaved(Object.fromEntries(data.items.flatMap((row) => {
+      const syarat = bacaSyaratBaris(row.audience);
+      return syarat ? [[row.id, syarat]] : [];
+    })));
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       // ?section=<id>&item=<id> dari "Edit in Agenda" di Logistics: tab baris
@@ -308,6 +329,7 @@ export default function RundownAdminPage() {
       void load();
       void loadOutfit();
       void loadSasaran();
+      void loadSyarat();
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -561,6 +583,7 @@ export default function RundownAdminPage() {
     buangBagian(section.id);
     buangDresscode(section.id);
     setDrafts((kini) => tanpa(kini, section.id));
+    setSyaratBaru((kini) => tanpa(kini, section.id));
     setActiveId(null);
     setSelectedItemId(null);
     toast.success("Section deleted", "All of its agenda items were deleted too.");
@@ -575,6 +598,11 @@ export default function RundownAdminPage() {
       return;
     }
     const bagian = activeId;
+    const syarat = syaratInfo?.available ? syaratBaru[bagian] ?? null : null;
+    if (!syaratLengkap(syarat)) {
+      setGalatPanel({ kunci: kunciForm(terbuka), pesan: "Choose a field and at least one answer for each condition under Who sees it, or select Everyone." });
+      return;
+    }
     setAddingItem(true); setError(""); setGalatPanel(null);
     const response = await fetch("/api/admin/rundown/items", {
       method: "POST",
@@ -588,14 +616,22 @@ export default function RundownAdminPage() {
         title,
         subtitle: draft.subtitle.trim() || null,
         is_break: draft.is_break,
+        ...(syarat ? { audience: syarat } : {}),
       }),
     }).catch(() => null);
     const data = response ? await response.json().catch(() => ({})) : {};
     setAddingItem(false);
     if (!response?.ok) {
+      if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "AUDIENCE_NOT_READY") {
+        setSyaratInfo((kini) => kini && { ...kini, available: false });
+      }
       gagalPanel("Agenda item not added", response ? failureMessage(data, "Agenda item not added.") : PUTUS);
       return;
     }
+    const baru = data as { id?: number; audience?: unknown };
+    const tersimpan = bacaSyaratBaris(baru.audience);
+    if (typeof baru.id === "number" && tersimpan) setSyaratSaved((kini) => ({ ...kini, [baru.id as number]: tersimpan }));
+    setSyaratBaru((kini) => tanpa(kini, bagian));
     // Jam mulai baris berikutnya diisi jam selesai baris ini. Rundown disusun
     // berurutan dan bersambung, jadi ini menghilangkan pengetikan yang berulang
     // sekaligus mengurangi celah waktu yang tidak disengaja.
@@ -608,7 +644,21 @@ export default function RundownAdminPage() {
   async function saveItem(item: RundownItem) {
     // Kolom yang dikirim: sesudah berhasil, hanya itu yang dibuang dari lapisan.
     const dikirim = suntingBaris?.id === item.id ? suntingBaris.isi : null;
+    const simpanSyarat = syaratBerubah(item.id);
+    if (simpanSyarat && !syaratLengkap(syaratDrafts[item.id] ?? null)) {
+      gagalPanel("Agenda item not saved", "Choose a field and at least one answer for each condition under Who sees it, or select Everyone.");
+      return;
+    }
     setSavingItem(item.id); setError(""); setGalatPanel(null);
+    // Urutan dua permintaan dipilih supaya gagal di tengah tidak pernah membuka
+    // baris ke lebih banyak peserta: syarat yang mempersempit disimpan DULU
+    // (baru sesudahnya Show on public page), Everyone disimpan TERAKHIR (sesudah
+    // baris mungkin disembunyikan). Gagal = berhenti, sisanya tetap draf.
+    const keSemua = simpanSyarat && !syaratDrafts[item.id];
+    if (simpanSyarat && !keSemua && !(await saveSyarat(item.id))) {
+      setSavingItem(null);
+      return;
+    }
     const response = await fetch("/api/admin/rundown/items", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -634,8 +684,10 @@ export default function RundownAdminPage() {
     // tetap). Kolom yang diketik selama permintaan berjalan tetap di lapisan.
     if (!(await load())) setItems((kini) => kini.map((row) => (row.id === item.id ? { ...row, ...(data as RundownItem) } : row)));
     if (dikirim) setSuntingBaris((kini) => (kini?.id === item.id ? lapisanSisa(kini, dikirim) : kini));
+    // Gagal menyimpan Who sees it sudah menampilkan pesannya sendiri; drafnya tetap ada.
+    const syaratOk = keSemua ? await saveSyarat(item.id) : true;
     setSavingItem(null);
-    toast.success("Agenda item saved");
+    if (syaratOk) toast.success("Agenda item saved");
   }
 
   async function deleteItem(item: RundownItem) {
@@ -901,6 +953,37 @@ export default function RundownAdminPage() {
     setSasaranDrafts((current) => ({ ...current, [active.id]: next }));
   }
 
+  // ---- Siapa yang melihat baris terpilih ------------------------------------------
+  function syaratBerubah(itemId: number) {
+    if (!syaratInfo?.available || !(itemId in syaratDrafts)) return false;
+    return JSON.stringify(syaratDrafts[itemId]) !== JSON.stringify(syaratSaved[itemId] ?? null);
+  }
+
+  async function saveSyarat(itemId: number): Promise<boolean> {
+    const dikirim = syaratDrafts[itemId];
+    const response = await fetch(eventApiPath("/api/admin/rundown/items/sasaran"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: itemId, audience: dikirim ?? null }),
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok) {
+      if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "AUDIENCE_NOT_READY") {
+        setSyaratInfo((kini) => kini && { ...kini, available: false });
+      }
+      gagalPanel("Who sees it not saved", response ? failureMessage(data, "Who sees it not saved.") : PUTUS);
+      return false;
+    }
+    const tersimpan = bacaSyaratBaris((data as { audience?: unknown }).audience);
+    setSyaratSaved((kini) => {
+      const next = tanpa(kini, itemId);
+      return tersimpan ? { ...next, [itemId]: tersimpan } : next;
+    });
+    // Draf yang diubah lagi selama permintaan berjalan tetap ada.
+    setSyaratDrafts((kini) => (JSON.stringify(kini[itemId]) === JSON.stringify(dikirim) ? tanpa(kini, itemId) : kini));
+    return true;
+  }
+
   function sasaranBerubah(sectionId: number) {
     if (!sasaranInfo?.available || !(sectionId in sasaranDrafts)) return false;
     return JSON.stringify(sasaranDrafts[sectionId]) !== JSON.stringify(sasaranSaved[sectionId] ?? null);
@@ -910,7 +993,7 @@ export default function RundownAdminPage() {
   function sasaranLengkap(sectionId: number) {
     const draf = sasaranDrafts[sectionId];
     if (!draf || draf.values.length > 0) return true;
-    gagalPanel("Section not saved", "Choose a participant field and at least one answer under Who it's for, or select Everyone.");
+    gagalPanel("Section not saved", "Choose a participant field and at least one answer under Show first for, or select Everyone.");
     return false;
   }
 
@@ -926,7 +1009,7 @@ export default function RundownAdminPage() {
       if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "AUDIENCE_NOT_READY") {
         setSasaranInfo((current) => current && { ...current, available: false });
       }
-      gagalPanel("Who it's for not saved", response ? failureMessage(data, "Who it's for not saved.") : PUTUS);
+      gagalPanel("Show first for not saved", response ? failureMessage(data, "Show first for not saved.") : PUTUS);
       return false;
     }
     setSasaranSaved((current) => ({ ...current, [section.id]: bacaSasaran((data as { audience?: unknown }).audience) }));
@@ -959,11 +1042,11 @@ export default function RundownAdminPage() {
   function formBerubah(form: FormAgenda): boolean {
     if (form.jenis === "baris") {
       const asli = barisTersimpan.get(form.id);
-      return Boolean(asli && suntingBaris?.id === form.id && adaBeda(asli, suntingBaris.isi));
+      return Boolean(asli && suntingBaris?.id === form.id && adaBeda(asli, suntingBaris.isi)) || syaratBerubah(form.id);
     }
     if (form.jenis === "baru") {
       const draf = drafts[form.bagian];
-      return draf !== undefined && drafBaruBerubah(draf, jamAwal[form.bagian] ?? "");
+      return (draf !== undefined && drafBaruBerubah(draf, jamAwal[form.bagian] ?? "")) || Boolean(syaratBaru[form.bagian]);
     }
     if (form.jenis === "bagian") {
       const asli = sections.find((row) => row.id === form.id);
@@ -1006,9 +1089,11 @@ export default function RundownAdminPage() {
     if (form.jenis === "baris") {
       const id = form.id;
       setSuntingBaris((kini) => (kini?.id === id ? null : kini));
+      setSyaratDrafts((kini) => tanpa(kini, id));
     } else if (form.jenis === "baru") {
       const bagian = form.bagian;
       setDrafts((kini) => tanpa(kini, bagian));
+      setSyaratBaru((kini) => tanpa(kini, bagian));
     } else if (form.jenis === "bagian") {
       buangBagian(form.id);
     } else if (form.jenis === "dresscode") {
@@ -1212,6 +1297,20 @@ export default function RundownAdminPage() {
                           ) : null}
                         </span>
                         {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
+                        {/* Baris sendiri, supaya judul tidak terpotong di layar sempit. */}
+                        {syaratSaved[item.id] ? (
+                          <span className="mt-1 flex min-w-0">
+                            {syaratMati(syaratSaved[item.id], syaratInfo) ? (
+                              <StatusChip tone="error" icon={<UsersThree size={14} aria-hidden />} title="Who sees it: a chosen field or answer no longer exists, so nobody sees this row">
+                                <span className="truncate">Nobody sees this{ringkasSyarat(syaratSaved[item.id], syaratInfo) ? ` · ${ringkasSyarat(syaratSaved[item.id], syaratInfo)}` : ""}</span>
+                              </StatusChip>
+                            ) : (
+                              <StatusChip tone="primary" icon={<UsersThree size={14} aria-hidden />} title="Who sees it: only participants who match every condition">
+                                <span className="truncate">{ringkasSyarat(syaratSaved[item.id], syaratInfo)}</span>
+                              </StatusChip>
+                            )}
+                          </span>
+                        ) : null}
                       </span>
                     </ListRow>
                     {/* Pegangan berada di luar <ListRow> karena ListRow sendiri sebuah
@@ -1377,7 +1476,16 @@ export default function RundownAdminPage() {
         checked={selectedItem.is_published}
         onChange={(checked) => updateItem(selectedItem.id, { is_published: checked })}
         label="Show on public page"
+        description="Off hides this row everywhere, participant pages and its dress code line included."
       />
+      {syaratInfo ? (
+        <KelompokSiapaMelihat
+          info={syaratInfo}
+          value={selectedItem.id in syaratDrafts ? syaratDrafts[selectedItem.id] : syaratSaved[selectedItem.id] ?? null}
+          tersimpan={syaratSaved[selectedItem.id] ?? null}
+          onChange={(next) => setSyaratDrafts((kini) => ({ ...kini, [selectedItem.id]: next }))}
+        />
+      ) : null}
     </div>
   ) : active ? (
     <div className="flex flex-col gap-4">
@@ -1402,6 +1510,14 @@ export default function RundownAdminPage() {
         onChange={(value) => updateDraft({ subtitle: value })}
       />
       <Switch checked={draft.is_break} onChange={(checked) => updateDraft({ is_break: checked })} label="Break" description="Shown dimmed on the public page." />
+      {syaratInfo ? (
+        <KelompokSiapaMelihat
+          info={syaratInfo}
+          tombol="Add item"
+          value={syaratBaru[active.id] ?? null}
+          onChange={(next) => setSyaratBaru((kini) => ({ ...kini, [active.id]: next }))}
+        />
+      ) : null}
       <p className="text-body-medium text-on-surface-variant">Leave the end time empty to mark a single moment. Select an item in the schedule to edit it.</p>
     </div>
   ) : null;
@@ -1936,7 +2052,8 @@ function CatatanBus({ item, trips, jamTersimpan, tanggalTersimpan, zone }: {
 }
 
 /**
- * Agenda > This section > Who it's for. Everyone (bawaan) atau satu kelompok:
+ * Agenda > This section > Show first for (dulu "Who it's for"; hanya mengurutkan,
+ * yang menyembunyikan adalah Who sees it per baris). Everyone (bawaan) atau satu kelompok:
  * satu pertanyaan pilihan dan satu atau beberapa jawabannya. Peserta kelompok
  * itu melihat bagian ini lebih dulu di Home dan Schedule; yang lain tetap bisa
  * membukanya. Disimpan lewat Save section.
@@ -1947,11 +2064,11 @@ function KelompokSasaran({ info, value, onChange }: { info: SasaranInfo; value: 
   const TAUTAN = "inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline";
   return (
     <Kelompok
-      title="Who it's for"
-      note={info.available && info.fields.length > 0 ? "Participants in this group see this section first on Home and Schedule. Everyone else can still open it. Saved with Save section." : undefined}
+      title="Show first for"
+      note={info.available && info.fields.length > 0 ? "Participants in this group see this section first on Home and Schedule. Everyone else can still open it. To hide a row from others, use Who sees it on that item. Saved with Save section." : undefined}
     >
       {!info.available ? (
-        <p className="text-body-medium text-on-surface-variant">Who it&apos;s for needs a database update first (migration 202610180002).</p>
+        <p className="text-body-medium text-on-surface-variant">Show first for needs a database update first (migration 202610180002).</p>
       ) : info.fields.length === 0 ? (
         <div className="flex flex-col gap-2">
           <p className="text-body-medium text-on-surface-variant">Add a dropdown or single-choice participant field first, such as Batch. It can be staff only.</p>
@@ -1962,7 +2079,7 @@ function KelompokSasaran({ info, value, onChange }: { info: SasaranInfo; value: 
       ) : (
         <>
           <SegmentedButton
-            label="Who it's for"
+            label="Show first for"
             options={[{ value: "semua", label: "Everyone" }, { value: "kelompok", label: "One group" }]}
             value={value ? "kelompok" : "semua"}
             onChange={(next) => onChange(next === "semua" ? null : { field: value?.field ?? "", values: value?.values ?? [] })}

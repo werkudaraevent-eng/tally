@@ -113,6 +113,7 @@ import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
 import { bagianOutfitTanggal, labelOutfit, type OutfitEntry } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
+import { outfitTerlihat } from "@/lib/outfit";
 import { bacaOutfitSetiapHari, denganSetiapHari, hariOutfitBerandaSetiapHari, hariTanpaAgenda, teksBarisOutfit } from "@/lib/outfit-setiap-hari";
 import { bagianPertama, pilihanPeserta } from "@/lib/sasaran-bagian";
 import { loadSasaranPeserta } from "@/lib/sasaran-bagian-server";
@@ -289,10 +290,12 @@ export async function DashboardGathering({
   }
 
   const tampilSusunan = member.show_schedule !== false;
+  // Who sees it per baris Agenda: baris bersyarat hanya untuk peserta yang cocok.
+  const penonton = { acara: event, participantId: peserta?.id ?? null, tampilKamar: member.show_logistics === true };
   // Outfit per bagian Agenda (kolom rundown_sections.outfit): hanya Horizon,
   // kueri sendiri yang kembali kosong sebelum migrasinya dijalankan.
   const [agenda, petaOutfit, sasaranPeserta, slugLama] = await Promise.all([
-    tampilSusunan ? loadAgendaPreview(event.id, lang) : [],
+    tampilSusunan ? loadAgendaPreview(event.id, lang, penonton) : [],
     horizon ? loadOutfitBagian(event.id) : null,
     // Untuk siapa tiap bagian (Agenda > Who it's for): Horizon, peserta yang sudah
     // disetujui. Juga saat Jadwal disembunyikan: Outfit tetap ikut batch peserta.
@@ -308,9 +311,15 @@ export async function DashboardGathering({
     agenda.map((bagian) => (bagian.id !== undefined ? (sasaranPeserta?.sasaran.get(bagian.id) ?? null) : null)),
     sasaranPeserta?.jawaban ?? {},
   );
-  const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang);
+  const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang, penonton);
   // Hari Outfit = hari tab Jadwal (bagian yang diterbitkan dan berisi), juga bila Jadwal disembunyikan.
-  const hariOutfit = petaOutfit ? agendaNav.map((bagian) => ({ ...bagian, outfit: (bagian.id !== undefined ? petaOutfit.get(bagian.id) : undefined) ?? [] })) : [];
+  // Dress code yang ditautkan ke baris hanya tampil bila baris itu tampil untuk
+  // peserta ini: baris yang disembunyikan (Show on public page mati, atau Who
+  // sees it tidak cocok) tidak boleh bocor lewat teks waktunya. `item_id` tidak
+  // ikut ke halaman.
+  const hariOutfit = petaOutfit
+    ? agendaNav.map((bagian) => ({ ...bagian, outfit: outfitTerlihat((bagian.id !== undefined ? petaOutfit.get(bagian.id) : undefined) ?? [], bagian.items) }))
+    : [];
   // Dresscode Setiap hari dari Participant area (keputusan Mas 21 Okt): ada di
   // setiap hari, juga di acara tanpa tab Agenda. Hanya Horizon, seperti Outfit.
   const setiapHari = horizon ? bacaOutfitSetiapHari(member.outfit_every_day) : null;

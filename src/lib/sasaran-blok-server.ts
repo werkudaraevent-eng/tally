@@ -23,11 +23,16 @@ export async function saringBlokPeserta(
   const sasaran = new Map(blocks.map((block) => [block, bacaSasaranBlok(block.audience)] as const));
   const terpakai = [...sasaran.values()].filter((isi) => isi !== null);
   if (terpakai.length === 0) return blocks;
-  const data = participantId ? await muatData(acara, participantId, terpakai, tampilKamar) : null;
+  const data = participantId ? await muatDataSasaran(acara, participantId, terpakai, tampilKamar) : null;
   return blocks.filter((block) => blokUntukPeserta(sasaran.get(block) ?? null, data));
 }
 
-async function muatData(
+/**
+ * Jawaban peserta di kolom-kolom yang dipakai sasaran, dan hotelnya bila ada
+ * sasaran Hotel dan kamar ditampilkan ke peserta. Dipakai juga Who sees it
+ * baris Agenda (loadAgendaPreview).
+ */
+export async function muatDataSasaran(
   acara: { id: string; registration_form_config: unknown },
   participantId: string,
   sasaran: { field: string }[],

@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { kolomOutfitBelumAda } from "@/lib/outfit";
 import { segarkanOutfitBaris } from "@/lib/outfit-server";
+import { periksaSyarat, syaratSchema } from "@/lib/sasaran-baris-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { ITEM_COLUMNS, toDbTime } from "@/lib/rundown";
 
@@ -55,6 +57,10 @@ const createSchema = z.object({
   title: z.string().trim().min(1).max(200),
   subtitle: subtitleField,
   is_break: z.boolean().optional(),
+  // Who sees it dari New item. Disimpan dalam INSERT yang sama: baris untuk
+  // sebagian peserta tidak pernah sesaat tampil ke semua. Tidak dikirim (atau
+  // null) = semua, dan sebelum migrasi 202610210001 klien tidak mengirimnya.
+  audience: syaratSchema.optional(),
 });
 
 const updateSchema = z.object({
@@ -109,6 +115,9 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!section) return apiError("RUNDOWN_SECTION_NOT_FOUND", 404);
 
+  const sah = await periksaSyarat(parsed.data.audience ?? null, auth.scope.event);
+  if ("galat" in sah) return sah.galat ? apiError("VALIDATION_ERROR", 422, { message: sah.galat }) : apiError("INTERNAL_ERROR", 500);
+
   // Baris baru masuk ke urutan paling belakang DI DALAM bagiannya. Sengaja bukan
   // urutan global: dua bagian punya daftar sendiri, dan nomor urut yang dibagi
   // bersama membuat baris bagian kedua selalu bernomor jauh lebih besar tanpa
@@ -138,12 +147,13 @@ export async function POST(request: Request) {
       // harus dipublikasikan satu per satu, menyusun rundown 20 butir berarti 20
       // klik tambahan yang tidak memberi kendali apa pun.
       is_published: true,
+      ...(sah.syarat ? { audience: sah.syarat } : {}),
       sort_order: nextOrder,
       updated_by: auth.user.id,
     } as never)
-    .select(ITEM_COLUMNS)
+    .select(sah.syarat ? `${ITEM_COLUMNS},audience` : ITEM_COLUMNS)
     .single();
-  if (error) return apiError("INTERNAL_ERROR", 500);
+  if (error) return kolomOutfitBelumAda(error) && sah.syarat ? apiError("AUDIENCE_NOT_READY", 409) : apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
     event_id: eventId,

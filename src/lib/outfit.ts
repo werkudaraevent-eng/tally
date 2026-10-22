@@ -198,6 +198,22 @@ export function adaTautan(daftar: unknown): boolean {
   return Array.isArray(daftar) && daftar.some((isian) => idTautan(isian) !== null);
 }
 
+/**
+ * Isian yang boleh dilihat peserta pada satu hari, dari baris yang tampil
+ * untuknya (`barisTampil`: baris hari itu sesudah Show on public page dan Who
+ * sees it). Isian yang ditautkan ke baris lain disembunyikan, karena teks
+ * waktunya membawa jam dan judul baris itu. `item_id` dibuang: halaman tidak
+ * memakainya.
+ */
+export function outfitTerlihat(isian: readonly OutfitEntry[], barisTampil: ReadonlyArray<{ id: number }>): OutfitEntry[] {
+  const tampil = new Set(barisTampil.map((baris) => baris.id));
+  return isian.filter((isi) => !isi.item_id || tampil.has(isi.item_id)).map((isi) => {
+    const salinan = { ...isi };
+    delete salinan.item_id;
+    return salinan;
+  });
+}
+
 /** Isian tersimpan (jsonb apa adanya) tanpa yang menaut ke baris yang dihapus. */
 export function tanpaIsianBaris(daftar: readonly unknown[], itemId: number): unknown[] {
   return daftar.filter((isian) => idTautan(isian) !== itemId);

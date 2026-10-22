@@ -158,7 +158,7 @@ export default async function AreaPesertaPage({
   if (landing.layout === "modern") {
     return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
   }
-  const agenda = tampilSusunan ? await loadAgendaPreview(event.id) : [];
+  const agenda = tampilSusunan ? await loadAgendaPreview(event.id, "id", { acara: event, participantId: peserta?.id ?? null, tampilKamar: member.show_logistics === true }) : [];
   const lengkapi = await kartuLengkapi(event, peserta?.id);
 
   return (
