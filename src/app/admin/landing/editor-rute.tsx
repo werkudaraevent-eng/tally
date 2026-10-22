@@ -4,7 +4,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, Plus, Trash } from "@phosphor-icons
 import { useEffect, useRef, useState } from "react";
 import Link from "@/components/event-link";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
-import { Button, FilterChip, IconButton, SegmentedButton, SelectField, SelectMenu, TextArea, TextField } from "@/components/m3";
+import { Button, FilterChip, IconButton, SegmentedButton, SelectField, SelectMenu, Switch, TextArea, TextField } from "@/components/m3";
 import { PilihBarisAgenda, useAgendaTrip } from "@/components/admin/logistik/pilih-baris-agenda";
 import {
   LANDING_BLOCK_SHOW_ON,
@@ -16,6 +16,7 @@ import {
   type LandingBlockShowOn,
   type LandingRouteMapsMode,
   type LandingRouteStop,
+  landingBlockLimits,
 } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
 import type { KolomSasaran } from "@/lib/sasaran-bagian";
@@ -154,6 +155,7 @@ export function EditorRute({
     ubah({ items: [...items, {}] });
   };
   // Saran = nama cara yang sudah ditulis di blok Rute acara ini (bukan daftar di kode).
+  const batasLangkah = landingBlockLimits(block).item?.body?.max;
   const saran = [...new Set(semuaBlok.filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
   return (
     <div className="flex flex-col gap-4">
@@ -189,7 +191,18 @@ export function EditorRute({
             </div>
             <TextField label="Name" list={`saran-${block.id}`} placeholder="e.g. Jalan kaki lewat jembatan" value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
             <TextField label="Time" optional placeholder="± 5 menit" value={item.value ?? ""} onChange={(event) => ubahItem(index, { value: event.target.value })} />
-            <TextArea className="col-span-2" rows={2} label="Note" optional value={item.body ?? ""} onChange={(event) => ubahItem(index, { body: event.target.value })} />
+            <TextArea
+              className="col-span-2"
+              rows={4}
+              label="Steps"
+              optional
+              placeholder={"Lift di samping resepsionis ke Lt. 2\nKeluar lift, belok kiri\nBallroom di ujung lorong"}
+              hint="One step per line, shown numbered under this way. A single line shows as a short note."
+              maxLength={batasLangkah}
+              counter
+              value={item.body ?? ""}
+              onChange={(event) => ubahItem(index, { body: event.target.value })}
+            />
             <div className="col-span-2">
               <ImageUploadField
                 label="Landmark photo"
@@ -207,25 +220,43 @@ export function EditorRute({
           </button>
         ) : null}
       </div>
-      <div className="flex flex-col gap-1.5">
-        <p className="text-body-medium font-medium text-on-surface">Route in Google Maps</p>
-        <SegmentedButton<LandingRouteMapsMode>
-          label="Route in Google Maps"
-          value={block.maps_mode ?? "driving"}
-          onChange={(maps_mode) => ubah({ maps_mode })}
-          options={LANDING_ROUTE_MAPS_MODES.map((value) => ({ value, label: LANDING_ROUTE_MAPS_MODE_LABELS[value] }))}
+      {/* Bentuk lama: satu daftar langkah untuk semua cara. Hanya tampil selama masih terisi. */}
+      {block.body ? (
+        <TextArea
+          label="Steps for every way"
+          optional
+          rows={4}
+          hint="From the older layout, shown under all ways. Put steps in each way above instead, then empty this field to remove it."
+          value={block.body}
+          onChange={(event) => ubah({ body: event.target.value })}
         />
-        <p className="text-body-small text-on-surface-variant">How Google Maps draws the route when a participant taps the button.</p>
-      </div>
-      <TextArea label="Steps" optional rows={4} hint="One step per line. Shown numbered." value={block.body ?? ""} onChange={(event) => ubah({ body: event.target.value })} />
+      ) : null}
       <ImageUploadField
-        label="Map image"
-        hint="Optional. A floor plan or map of the way there. Shown uncropped under the ways; participants tap it to open full screen."
+        label="Map or floor plan"
+        hint="Optional. Shown uncropped under the ways; participants tap it to open full screen. For a route inside a building, a floor plan helps most."
         kind="landing"
         value={block.map_image_url ?? null}
         onChange={(url) => ubah({ map_image_url: url })}
       />
-      <p className="text-body-small text-on-surface-variant">The &ldquo;Open route in Google Maps&rdquo; button is built from the two addresses.</p>
+      <div className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
+        <Switch
+          label="Google Maps button"
+          description="Opens the route between the two addresses. Turn it off for a route inside one building, e.g. lobby to ballroom."
+          checked={block.maps_button !== false}
+          onChange={(nyala) => ubah({ maps_button: nyala ? undefined : false })}
+        />
+        {block.maps_button !== false ? (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-body-medium font-medium text-on-surface">Travel mode in Google Maps</p>
+            <SegmentedButton<LandingRouteMapsMode>
+              label="Travel mode in Google Maps"
+              value={block.maps_mode ?? "driving"}
+              onChange={(maps_mode) => ubah({ maps_mode })}
+              options={LANDING_ROUTE_MAPS_MODES.map((value) => ({ value, label: LANDING_ROUTE_MAPS_MODE_LABELS[value] }))}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

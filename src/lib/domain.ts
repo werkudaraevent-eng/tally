@@ -346,13 +346,16 @@ export type LandingBlock = {
   align?: LandingBlockAlign;
   /**
    * Rute: titik berangkat dan tujuan. Butir = cara ke sana (`icon`, `label`
-   * nama, `value` waktu, `body` catatan, `image_url` foto patokan); `body`
-   * blok = langkah, satu per baris.
+   * nama, `value` waktu, `body` langkah cara itu, satu per baris; satu baris
+   * saja = catatan pendek, `image_url` foto patokan). `body` blok = langkah
+   * untuk semua cara, bentuk lama: CMS hanya menampilkannya bila terisi.
    */
   route_from?: LandingRouteStop;
   route_to?: LandingRouteStop;
   /** Rute: kosong = mengemudi. */
   maps_mode?: LandingRouteMapsMode;
+  /** Rute: false = tanpa tombol Google Maps, untuk rute di dalam satu gedung. Kosong = tombol tampil. */
+  maps_button?: false;
   /** Rute: denah atau peta jalan ke sana, tampil utuh di bawah cara; ketuk untuk layar penuh. */
   map_image_url?: string | null;
   /**
@@ -661,7 +664,7 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
       };
     }
     case "route":
-      return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 40 }, value: { max: 20 }, body: { max: 160, ideal: 120 } }, items: { max: 4 } };
+      return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 40 }, value: { max: 20 }, body: { max: 400 } }, items: { max: 4 } };
     case "countdown":
       return { eyebrow: ALIS_BATAS, heading: { max: 44, ideal: 36 }, countdown_from: { max: 16 }, countdown_to: { max: 28, ideal: 20 } };
   }

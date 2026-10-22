@@ -12,9 +12,10 @@ import { MUAT_IKON } from "./ikon-ssr";
 // Blok Rute (Directions): dari satu tempat ke tempat lain, mis. hotel A ke
 // hotel B. Titik berangkat dan tujuan dipilih dari hotel di Logistik (nama dan
 // alamat ikut Logistik) atau ditulis bebas. Butir = cara ke sana (ikon, nama,
-// waktu, catatan, foto patokan); `body` = langkah, satu per baris;
-// `map_image_url` = denah, utuh di bawah cara, ketuk untuk layar penuh. Tombol
-// Google Maps dibangun dari dua alamat itu. Tampil di halaman acara
+// waktu, langkah cara itu, foto patokan); `body` blok = langkah untuk semua
+// cara (bentuk lama); `map_image_url` = denah, utuh di bawah cara, ketuk untuk
+// layar penuh. Tombol Google Maps dibangun dari dua alamat itu, kecuali
+// `maps_button` false (rute di dalam gedung). Tampil di halaman acara
 // (BagianRute) dan/atau halaman peserta (KartuRute), sesuai `show_on`.
 
 const UI = {
@@ -72,12 +73,19 @@ type Rute = {
   ke: Titik;
   judul: string;
   alis: string;
-  cara: { Ikon: Icon; nada: LandingCardTone; gambarIkon: string | null; label: string; waktu: string | null; catatan: string | null; foto: string | null }[];
+  /** Catatan = isian satu baris; dua baris atau lebih menjadi `langkah` bernomor. */
+  cara: { Ikon: Icon; nada: LandingCardTone; gambarIkon: string | null; label: string; waktu: string | null; catatan: string | null; langkah: string[]; foto: string | null }[];
   langkah: string[];
   /** Denah (gambar utuh), atau null. */
   denah: string | null;
-  peta: string;
+  /** Tautan Google Maps, atau null bila tombolnya dimatikan. */
+  peta: string | null;
 };
+
+/** Satu langkah per baris; nomor yang diketik admin ("1.", "-") dibuang karena nomornya digambar sendiri. */
+function barisLangkah(teks: string | undefined): string[] {
+  return (teks ?? "").split("\n").map((baris) => baris.replace(/^\s*(\d+[.)]|[-•*])\s+/, "").trim()).filter(Boolean);
+}
 
 async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], lang: LandingLang): Promise<Rute | null> {
   const dari = titik(block.route_from, hotels);
@@ -93,20 +101,24 @@ async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], lang: La
     cara: await Promise.all(
       (block.items ?? [])
         .filter((item) => item.label?.trim())
-        .map(async (item) => ({
-          Ikon: await ikon(item.icon),
-          nada: item.tone ?? "brand",
-          gambarIkon: item.icon_url?.trim() || null,
-          label: item.label!.trim(),
-          waktu: item.value?.trim() || null,
-          catatan: item.body?.trim() || null,
-          foto: item.image_url || null,
-        })),
+        .map(async (item) => {
+          // Satu baris tetap catatan seperti dulu; beberapa baris = langkah cara ini.
+          const langkah = barisLangkah(item.body);
+          return {
+            Ikon: await ikon(item.icon),
+            nada: item.tone ?? "brand",
+            gambarIkon: item.icon_url?.trim() || null,
+            label: item.label!.trim(),
+            waktu: item.value?.trim() || null,
+            catatan: langkah.length > 1 ? null : item.body?.trim() || null,
+            langkah: langkah.length > 1 ? langkah : [],
+            foto: item.image_url || null,
+          };
+        }),
     ),
-    // Nomor yang diketik admin ("1.", "-") dibuang: nomornya digambar sendiri.
     denah: block.map_image_url?.trim() || null,
-    langkah: (block.body ?? "").split("\n").map((baris) => baris.replace(/^\s*(\d+[.)]|[-•*])\s+/, "").trim()).filter(Boolean),
-    peta: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(kueri(dari))}&destination=${encodeURIComponent(kueri(ke))}&travelmode=${block.maps_mode ?? "driving"}`,
+    langkah: barisLangkah(block.body),
+    peta: block.maps_button === false ? null : `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(kueri(dari))}&destination=${encodeURIComponent(kueri(ke))}&travelmode=${block.maps_mode ?? "driving"}`,
   };
 }
 
@@ -159,7 +171,7 @@ function TitikRute({ rute, lang, besar = false }: { rute: Rute; lang: LandingLan
 function DaftarCara({ rute, lang, kartu }: { rute: Rute; lang: LandingLang; kartu: string }) {
   return (
     <ul className="flex flex-col gap-3">
-      {rute.cara.map(({ Ikon, nada, gambarIkon, label, waktu, catatan, foto }, index) => (
+      {rute.cara.map(({ Ikon, nada, gambarIkon, label, waktu, catatan, langkah, foto }, index) => (
         <li key={index} className={kartu}>
           <div className="flex items-start gap-4">
             <span className="flex size-12 shrink-0 items-center justify-center [&>img]:my-0 [&>img]:size-12">
@@ -182,6 +194,11 @@ function DaftarCara({ rute, lang, kartu }: { rute: Rute; lang: LandingLang; kart
               {catatan ? <span className={`mt-1 block text-body-medium [overflow-wrap:anywhere] ${MUTED_KARTU}`}>{catatan}</span> : null}
             </span>
           </div>
+          {langkah.length > 0 ? (
+            <div className="mt-3 sm:pl-16">
+              <DaftarLangkah langkah={langkah} kecil />
+            </div>
+          ) : null}
           {foto ? (
             <div className="mt-3 sm:pl-16">
               {/* eslint-disable-next-line @next/next/no-img-element -- URL bebas dari unggahan admin, sama seperti gambar blok lain */}
@@ -194,16 +211,17 @@ function DaftarCara({ rute, lang, kartu }: { rute: Rute; lang: LandingLang; kart
   );
 }
 
-function DaftarLangkah({ rute }: { rute: Rute }) {
+/** Langkah bernomor. `kecil` = di dalam kartu satu cara. */
+function DaftarLangkah({ langkah, kecil = false }: { langkah: string[]; kecil?: boolean }) {
   return (
     <ol className="flex flex-col">
-      {rute.langkah.map((baris, index) => (
-        <li key={index} className="relative flex gap-4 pb-4 last:pb-0">
-          {index < rute.langkah.length - 1 ? <span aria-hidden className="absolute bottom-0 left-[13px] top-8 w-px bg-[#D9DEE5]" /> : null}
-          <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--reg-primary)] text-[13px] font-bold tabular-nums text-[var(--reg-on-primary)]">
+      {langkah.map((baris, index) => (
+        <li key={index} className={`relative flex ${kecil ? "gap-3 pb-3" : "gap-4 pb-4"} last:pb-0`}>
+          {index < langkah.length - 1 ? <span aria-hidden className={`absolute bottom-0 w-px bg-[#D9DEE5] ${kecil ? "left-[11px] top-7" : "left-[13px] top-8"}`} /> : null}
+          <span aria-hidden className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--reg-primary)] font-bold tabular-nums text-[var(--reg-on-primary)] ${kecil ? "size-6 text-[12px]" : "size-7 text-[13px]"}`}>
             {index + 1}
           </span>
-          <span className="min-w-0 pt-0.5 text-body-large [overflow-wrap:anywhere]">{baris}</span>
+          <span className={`min-w-0 [overflow-wrap:anywhere] ${kecil ? "pt-px text-body-medium" : "pt-0.5 text-body-large"}`}>{baris}</span>
         </li>
       ))}
     </ol>
@@ -225,6 +243,7 @@ function BagianDenah({ rute, lang, labelKelas }: { rute: Rute; lang: LandingLang
 }
 
 function TombolPeta({ rute, lang, className }: { rute: Rute; lang: LandingLang; className: string }) {
+  if (!rute.peta) return null;
   return (
     <a href={rute.peta} target="_blank" rel="noreferrer noopener" className={className}>
       <NavigationArrow size={20} weight="fill" aria-hidden />
@@ -270,7 +289,7 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
           </div>
           <div className={`${KARTU_PUTIH} rounded-[20px] p-6`}>
             <TitikRute rute={rute} lang={lang} besar />
-            <TombolPeta rute={rute} lang={lang} className={`${TOMBOL} mt-6 text-title-medium`} />
+            {rute.peta ? <TombolPeta rute={rute} lang={lang} className={`${TOMBOL} mt-6 text-title-medium`} /> : null}
           </div>
         </div>
         <div className="flex flex-col gap-8 lg:col-span-7">
@@ -289,7 +308,7 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
             <div className="flex flex-col gap-4">
               <h3 className={`${LABEL} ${labelGelap}`}>{t.steps}</h3>
               <div className={`${KARTU_PUTIH} rounded-[16px] p-5`}>
-                <DaftarLangkah rute={rute} />
+                <DaftarLangkah langkah={rute.langkah} />
               </div>
             </div>
           ) : null}
@@ -341,7 +360,7 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
             <CaretDown size={18} weight="bold" aria-hidden className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
           </summary>
           <div className="pt-3">
-            <DaftarLangkah rute={rute} />
+            <DaftarLangkah langkah={rute.langkah} />
           </div>
         </details>
       ) : null}
@@ -402,7 +421,7 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
                 <div>
                   <h3 className={`${LABEL} ${MUTED_KARTU}`}>{t.steps}</h3>
                   <div className="mt-3">
-                    <DaftarLangkah rute={r} />
+                    <DaftarLangkah langkah={r.langkah} />
                   </div>
                 </div>
               ) : null}

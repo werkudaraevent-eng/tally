@@ -140,12 +140,16 @@ export function labelKolomBlokEn(key: string): string {
 }
 
 export function labelIsianButirEn(block: LandingBlock, key: "label" | "title" | "body" | "value"): string {
+  if (block.type === "route") return LABEL_BUTIR_RUTE[key];
   return key === "label" && block.type === "logos" ? "Organisation name" : key === "label" && block.type === "multicolumn" ? "Link text" : LABEL_BUTIR[key];
 }
 
+/** Rute: nama kolom sama dengan editor ID (Name, Time, Steps). */
+const LABEL_BUTIR_RUTE: Record<"label" | "title" | "body" | "value", string> = { label: "Name", title: "Title", body: "Steps", value: "Time" };
+
 /** "Kolom 2", "Butir 3": judul kartu butir di editor English. */
 export function namaButirBlokEn(block: LandingBlock, index: number): string {
-  return `${block.type === "multicolumn" ? "Column" : "Item"} ${index + 1}`;
+  return `${block.type === "multicolumn" ? "Column" : block.type === "route" ? "Way" : "Item"} ${index + 1}`;
 }
 
 export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChange: (next: LandingBlock) => void }) {
@@ -161,7 +165,7 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
     return (
       <KolomEn
         key={key}
-        label={LABEL_BLOK[key]}
+        label={block.type === "route" && key === "body" ? "Steps for every way" : LABEL_BLOK[key]}
         sumber={block[key] ?? ""}
         value={en[key]}
         onChange={(value) => ubah(key, value)}
