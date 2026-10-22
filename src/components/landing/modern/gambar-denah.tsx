@@ -51,3 +51,44 @@ export function GambarDenah({ src, alt, judul, buka, tutup }: {
     </>
   );
 }
+
+/**
+ * Foto patokan satu langkah Rute: gambar kecil di kanan teks langkah, ketuk
+ * untuk layar penuh dengan teks langkahnya sebagai keterangan. Gagal dimuat =
+ * hilang, langkahnya tetap terbaca.
+ */
+export function FotoLangkah({ src, alt, judul, buka, tutup, keterangan }: {
+  src: string;
+  alt: string;
+  /** Judul bilah atas layar penuh, mis. "Langkah 2". */
+  judul: string;
+  buka: string;
+  tutup: string;
+  keterangan: string;
+}) {
+  const penampil = usePenampilGambar();
+  const [gagal, setGagal] = useState(false);
+  const gambar = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const img = gambar.current;
+    if (img?.complete && img.naturalWidth === 0) setGagal(true);
+  }, []);
+
+  if (gagal) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={penampil.buka}
+        aria-label={buka}
+        aria-haspopup="dialog"
+        className="m3-state h-[54px] w-[72px] shrink-0 cursor-zoom-in overflow-hidden rounded-[10px] bg-[#E6E9EE]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- URL bebas dari unggahan admin, sama seperti gambar blok lain */}
+        <img ref={gambar} src={src} alt={alt} onError={() => setGagal(true)} loading="lazy" decoding="async" className="size-full object-cover" />
+      </button>
+      <DialogGambar penampil={penampil} src={src} alt={alt} judul={judul} tutupLabel={tutup} keterangan={<p className="text-[17px] font-semibold leading-6 [overflow-wrap:anywhere]">{keterangan}</p>} />
+    </>
+  );
+}

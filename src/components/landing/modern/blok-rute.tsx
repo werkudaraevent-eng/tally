@@ -1,19 +1,19 @@
 import type { Icon } from "@phosphor-icons/react";
 import { ArrowUpRight, Car, CaretDown, MapPin, NavigationArrow } from "@phosphor-icons/react/dist/ssr";
-import type { LandingBlock, LandingRouteStop } from "@/lib/domain";
+import type { LandingBlock, LandingBlockItem, LandingRouteStop } from "@/lib/domain";
 import { LANDING_CARD_ICON_POLA, type LandingCardTone } from "@/lib/landing-card-icons";
 import type { LandingHotel } from "@/lib/landing-hotel";
 import { hexLatarSendiri, warnaLatarSendiri } from "@/lib/landing-latar-sendiri";
 import type { LandingLang } from "@/lib/landing-i18n";
-import { GambarDenah } from "./gambar-denah";
+import { FotoLangkah, GambarDenah } from "./gambar-denah";
 import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import { MUAT_IKON } from "./ikon-ssr";
 
 // Blok Rute (Directions): dari satu tempat ke tempat lain, mis. hotel A ke
 // hotel B. Titik berangkat dan tujuan dipilih dari hotel di Logistik (nama dan
 // alamat ikut Logistik) atau ditulis bebas. Butir = cara ke sana (ikon, nama,
-// waktu, langkah cara itu, foto patokan); `body` blok = langkah untuk semua
-// cara (bentuk lama); `map_image_url` = denah, utuh di bawah cara, ketuk untuk
+// waktu, langkah cara itu dengan foto patokan per langkah); `body` blok =
+// langkah untuk semua cara (bentuk lama); `map_image_url` = denah, utuh di bawah cara, ketuk untuk
 // layar penuh. Tombol Google Maps dibangun dari dua alamat itu, kecuali
 // `maps_button` false (rute di dalam gedung). Tampil di halaman acara
 // (BagianRute) dan/atau halaman peserta (KartuRute), sesuai `show_on`.
@@ -29,6 +29,8 @@ const UI = {
     map: "Denah",
     mapOf: (judul: string) => `Denah: ${judul}`,
     openMap: "Buka denah layar penuh",
+    stepPhoto: (n: number) => `Langkah ${n}`,
+    openPhoto: (n: number) => `Buka foto langkah ${n} layar penuh`,
     close: "Tutup",
   },
   en: {
@@ -41,6 +43,8 @@ const UI = {
     map: "Map",
     mapOf: (judul: string) => `Map: ${judul}`,
     openMap: "Open map full screen",
+    stepPhoto: (n: number) => `Step ${n}`,
+    openPhoto: (n: number) => `Open step ${n} photo full screen`,
     close: "Close",
   },
 } as const;
@@ -73,18 +77,31 @@ type Rute = {
   ke: Titik;
   judul: string;
   alis: string;
-  /** Catatan = isian satu baris; dua baris atau lebih menjadi `langkah` bernomor. */
-  cara: { Ikon: Icon; nada: LandingCardTone; gambarIkon: string | null; label: string; waktu: string | null; catatan: string | null; langkah: string[]; foto: string | null }[];
-  langkah: string[];
+  /** Catatan = satu langkah tanpa foto; selebihnya `langkah` bernomor. */
+  cara: { Ikon: Icon; nada: LandingCardTone; gambarIkon: string | null; label: string; waktu: string | null; catatan: string | null; langkah: Langkah[]; foto: string | null }[];
+  langkah: Langkah[];
   /** Denah (gambar utuh), atau null. */
   denah: string | null;
   /** Tautan Google Maps, atau null bila tombolnya dimatikan. */
   peta: string | null;
 };
 
-/** Satu langkah per baris; nomor yang diketik admin ("1.", "-") dibuang karena nomornya digambar sendiri. */
-function barisLangkah(teks: string | undefined): string[] {
-  return (teks ?? "").split("\n").map((baris) => baris.replace(/^\s*(\d+[.)]|[-•*])\s+/, "").trim()).filter(Boolean);
+type Langkah = { teks: string; foto: string | null };
+
+/** Nomor yang diketik admin ("1.", "-") dibuang karena nomornya digambar sendiri. */
+function tanpaNomor(teks: string): string {
+  return teks.replace(/^\s*(\d+[.)]|[-•*])\s+/, "").trim();
+}
+
+/** Bentuk lama: satu langkah per baris, tanpa foto. */
+function barisLangkah(teks: string | undefined): Langkah[] {
+  return (teks ?? "").split("\n").map(tanpaNomor).filter(Boolean).map((teks) => ({ teks, foto: null }));
+}
+
+/** Langkah satu cara: `steps` bila ada, selain itu `body` satu langkah per baris. */
+function langkahCara(item: LandingBlockItem): Langkah[] {
+  if (!item.steps) return barisLangkah(item.body);
+  return item.steps.map((langkah) => ({ teks: tanpaNomor(langkah.text ?? ""), foto: langkah.image_url?.trim() || null })).filter((langkah) => langkah.teks);
 }
 
 async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], lang: LandingLang): Promise<Rute | null> {
@@ -102,16 +119,17 @@ async function siapkanRute(block: LandingBlock, hotels: LandingHotel[], lang: La
       (block.items ?? [])
         .filter((item) => item.label?.trim())
         .map(async (item) => {
-          // Satu baris tetap catatan seperti dulu; beberapa baris = langkah cara ini.
-          const langkah = barisLangkah(item.body);
+          // Satu langkah tanpa foto tetap catatan seperti dulu; selebihnya langkah bernomor.
+          const langkah = langkahCara(item);
+          const catatan = langkah.length === 1 && !langkah[0].foto;
           return {
             Ikon: await ikon(item.icon),
             nada: item.tone ?? "brand",
             gambarIkon: item.icon_url?.trim() || null,
             label: item.label!.trim(),
             waktu: item.value?.trim() || null,
-            catatan: langkah.length > 1 ? null : item.body?.trim() || null,
-            langkah: langkah.length > 1 ? langkah : [],
+            catatan: catatan ? (item.steps ? langkah[0].teks : item.body?.trim() || null) : null,
+            langkah: catatan ? [] : langkah,
             foto: item.image_url || null,
           };
         }),
@@ -196,7 +214,7 @@ function DaftarCara({ rute, lang, kartu }: { rute: Rute; lang: LandingLang; kart
           </div>
           {langkah.length > 0 ? (
             <div className="mt-3 sm:pl-16">
-              <DaftarLangkah langkah={langkah} kecil />
+              <DaftarLangkah langkah={langkah} lang={lang} kecil />
             </div>
           ) : null}
           {foto ? (
@@ -211,17 +229,19 @@ function DaftarCara({ rute, lang, kartu }: { rute: Rute; lang: LandingLang; kart
   );
 }
 
-/** Langkah bernomor. `kecil` = di dalam kartu satu cara. */
-function DaftarLangkah({ langkah, kecil = false }: { langkah: string[]; kecil?: boolean }) {
+/** Langkah bernomor. `kecil` = di dalam kartu satu cara; foto patokan di kanan, ketuk untuk layar penuh. */
+function DaftarLangkah({ langkah, lang, kecil = false }: { langkah: Langkah[]; lang: LandingLang; kecil?: boolean }) {
+  const t = UI[lang];
   return (
     <ol className="flex flex-col">
-      {langkah.map((baris, index) => (
+      {langkah.map(({ teks: baris, foto }, index) => (
         <li key={index} className={`relative flex ${kecil ? "gap-3 pb-3" : "gap-4 pb-4"} last:pb-0`}>
           {index < langkah.length - 1 ? <span aria-hidden className={`absolute bottom-0 w-px bg-[#D9DEE5] ${kecil ? "left-[11px] top-7" : "left-[13px] top-8"}`} /> : null}
           <span aria-hidden className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--reg-primary)] font-bold tabular-nums text-[var(--reg-on-primary)] ${kecil ? "size-6 text-[12px]" : "size-7 text-[13px]"}`}>
             {index + 1}
           </span>
-          <span className={`min-w-0 [overflow-wrap:anywhere] ${kecil ? "pt-px text-body-medium" : "pt-0.5 text-body-large"}`}>{baris}</span>
+          <span className={`min-w-0 [overflow-wrap:anywhere] ${foto ? "flex-1" : ""} ${kecil ? "pt-px text-body-medium" : "pt-0.5 text-body-large"}`}>{baris}</span>
+          {foto ? <FotoLangkah src={foto} alt={t.photoOf(baris)} judul={t.stepPhoto(index + 1)} buka={t.openPhoto(index + 1)} tutup={t.close} keterangan={baris} /> : null}
         </li>
       ))}
     </ol>
@@ -308,7 +328,7 @@ export async function BagianRute({ block, hotels, lang, shell, section, judulKel
             <div className="flex flex-col gap-4">
               <h3 className={`${LABEL} ${labelGelap}`}>{t.steps}</h3>
               <div className={`${KARTU_PUTIH} rounded-[16px] p-5`}>
-                <DaftarLangkah langkah={rute.langkah} />
+                <DaftarLangkah langkah={rute.langkah} lang={lang} />
               </div>
             </div>
           ) : null}
@@ -360,7 +380,7 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
             <CaretDown size={18} weight="bold" aria-hidden className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
           </summary>
           <div className="pt-3">
-            <DaftarLangkah langkah={rute.langkah} />
+            <DaftarLangkah langkah={rute.langkah} lang={lang} />
           </div>
         </details>
       ) : null}
@@ -421,7 +441,7 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
                 <div>
                   <h3 className={`${LABEL} ${MUTED_KARTU}`}>{t.steps}</h3>
                   <div className="mt-3">
-                    <DaftarLangkah langkah={r.langkah} />
+                    <DaftarLangkah langkah={r.langkah} lang={lang} />
                   </div>
                 </div>
               ) : null}

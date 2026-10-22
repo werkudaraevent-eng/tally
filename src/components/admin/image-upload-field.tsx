@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash, UploadSimple } from "@phosphor-icons/react";
+import { Camera, Trash, UploadSimple } from "@phosphor-icons/react";
 import { useState } from "react";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";
@@ -32,6 +32,7 @@ export function ImageUploadField({
   perkecil,
   terima = ["image/png", "image/jpeg", "image/webp"],
   periksa,
+  ringkas = false,
 }: {
   label: string;
   hint?: string;
@@ -55,6 +56,11 @@ export function ImageUploadField({
    * pesan galat untuk menolak berkasnya, atau null.
    */
   periksa?: (ukuran: { lebar: number; tinggi: number }) => string | null;
+  /**
+   * Satu baris tanpa label terlihat, untuk daftar yang barisnya sudah berjudul
+   * (mis. foto tiap langkah Rute). `label` tetap dibacakan pembaca layar.
+   */
+  ringkas?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const toast = useToast();
@@ -97,6 +103,52 @@ export function ImageUploadField({
   }
 
   const mati = disabled || uploading;
+  const masukan = (
+    <input
+      type="file"
+      className="sr-only"
+      accept={terima.join(",")}
+      disabled={mati}
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        // Nilai input dikosongkan supaya memilih berkas YANG SAMA lagi
+        // tetap memicu perubahan: jalan keluar satu-satunya setelah
+        // unggahan pertama gagal.
+        event.target.value = "";
+        if (file) void upload(file);
+      }}
+    />
+  );
+
+  if (ringkas) {
+    return (
+      <div lang="en" className="flex items-center gap-2">
+        {value ? <ImagePreview url={value} alt="" fit="cover" className="h-9 w-12" /> : null}
+        <label
+          className={cx(
+            "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-2 text-body-medium font-medium text-primary hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
+            mati && "pointer-events-none opacity-50",
+          )}
+        >
+          {value ? <UploadSimple size={16} aria-hidden /> : <Camera size={16} aria-hidden />}
+          {uploading ? "Uploading…" : value ? "Replace" : "Add photo"}
+          <span className="sr-only">: {label}</span>
+          {masukan}
+        </label>
+        {value ? (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            disabled={mati}
+            aria-label={`Remove ${label.toLowerCase()}`}
+            className="inline-flex size-9 items-center justify-center rounded-md text-error hover:bg-error-soft disabled:opacity-50"
+          >
+            <Trash size={16} aria-hidden />
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div lang="en">
@@ -119,20 +171,7 @@ export function ImageUploadField({
         >
           <UploadSimple size={16} aria-hidden />
           {uploading ? "Uploading…" : value ? "Replace image" : "Upload image"}
-          <input
-            type="file"
-            className="sr-only"
-            accept={terima.join(",")}
-            disabled={mati}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              // Nilai input dikosongkan supaya memilih berkas YANG SAMA lagi
-              // tetap memicu perubahan: jalan keluar satu-satunya setelah
-              // unggahan pertama gagal.
-              event.target.value = "";
-              if (file) void upload(file);
-            }}
-          />
+          {masukan}
         </label>
 
         {value ? (

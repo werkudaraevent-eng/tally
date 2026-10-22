@@ -15,8 +15,10 @@ import {
   type LandingBlockItem,
   type LandingBlockShowOn,
   type LandingRouteMapsMode,
+  type LandingRouteStep,
   type LandingRouteStop,
-  landingBlockLimits,
+  LANDING_ROUTE_STEPS_MAX,
+  LANDING_ROUTE_STEP_TEXT_MAX,
 } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
 import type { KolomSasaran } from "@/lib/sasaran-bagian";
@@ -155,7 +157,6 @@ export function EditorRute({
     ubah({ items: [...items, {}] });
   };
   // Saran = nama cara yang sudah ditulis di blok Rute acara ini (bukan daftar di kode).
-  const batasLangkah = landingBlockLimits(block).item?.body?.max;
   const saran = [...new Set(semuaBlok.filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
   return (
     <div className="flex flex-col gap-4">
@@ -191,27 +192,21 @@ export function EditorRute({
             </div>
             <TextField label="Name" list={`saran-${block.id}`} placeholder="e.g. Jalan kaki lewat jembatan" value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
             <TextField label="Time" optional placeholder="± 5 menit" value={item.value ?? ""} onChange={(event) => ubahItem(index, { value: event.target.value })} />
-            <TextArea
-              className="col-span-2"
-              rows={4}
-              label="Steps"
-              optional
-              placeholder={"Lift di samping resepsionis ke Lt. 2\nKeluar lift, belok kiri\nBallroom di ujung lorong"}
-              hint="One step per line, shown numbered under this way. A single line shows as a short note."
-              maxLength={batasLangkah}
-              counter
-              value={item.body ?? ""}
-              onChange={(event) => ubahItem(index, { body: event.target.value })}
-            />
             <div className="col-span-2">
-              <ImageUploadField
-                label="Landmark photo"
-                hint="Optional. A photo of what to look for, e.g. the bridge entrance. Landscape works best."
-                kind="landing"
-                value={item.image_url ?? null}
-                onChange={(url) => ubahItem(index, { image_url: url })}
-              />
+              <LangkahCara id={`${block.id}-${kunciCara[index]}`} item={item} ubah={(patch) => ubahItem(index, patch)} />
             </div>
+            {/* Bentuk lama: satu foto untuk seluruh cara. Hanya tampil selama masih terisi. */}
+            {item.image_url ? (
+              <div className="col-span-2">
+                <ImageUploadField
+                  label="Photo for this way"
+                  hint="From the older layout, shown under the steps. Add photos to the steps instead, then remove this one."
+                  kind="landing"
+                  value={item.image_url}
+                  onChange={(url) => ubahItem(index, { image_url: url })}
+                />
+              </div>
+            ) : null}
           </div>
         ))}
         {items.length < 4 ? (
@@ -257,6 +252,102 @@ export function EditorRute({
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/** Nomor yang diketik admin ("1.", "-") dibuang: portal menggambar nomornya sendiri. */
+const tanpaNomor = (teks: string) => teks.replace(/^\s*(\d+[.)]|[-•*])\s+/, "").trim();
+
+/**
+ * Langkah satu cara: satu kolom per langkah, masing-masing boleh berfoto
+ * (Google Maps juga memberi gambar kecil di belokan). Cara lama menyimpan
+ * langkah di `body`, satu per baris; begitu disunting, isinya pindah ke
+ * `steps` dan `body` dikosongkan, termasuk terjemahannya bila jumlah barisnya sama.
+ */
+function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; ubah: (patch: Partial<LandingBlockItem>) => void }) {
+  const dariBody = (item.body ?? "").split("\n").map(tanpaNomor).filter(Boolean);
+  const langkah: LandingRouteStep[] = item.steps ?? dariBody.map((text) => ({ text }));
+  // Tanpa langkah sama sekali tetap tampil satu kolom kosong, supaya jelas tempat menulisnya.
+  const baris = langkah.length ? langkah : [{ text: "" }];
+  const nomor = useRef(0);
+  const [kunci, setKunci] = useState<string[]>(() => baris.map((_, i) => `l-${i}`));
+  const kunciBaris = baris.map((_, i) => kunci[i] ?? `l-lebih-${i}`);
+  const kunciBaru = () => `l-baru-${++nomor.current}`;
+  const tulis = (next: LandingRouteStep[], keys: string[]) => {
+    setKunci(keys);
+    if (item.steps) { ubah({ steps: next }); return; }
+    // Pindah dari `body`: terjemahan per baris ikut bila barisnya masih sepadan.
+    const enBaris = (item.en?.body ?? "").split("\n").map(tanpaNomor).filter(Boolean);
+    const ikutEn = enBaris.length > 0 && enBaris.length === dariBody.length;
+    ubah({
+      steps: next.map((isi, i) => (ikutEn && !isi.en && i < enBaris.length && isi.text === dariBody[i] ? { ...isi, en: { text: enBaris[i] } } : isi)),
+      body: undefined,
+      en: item.en ? { ...item.en, body: undefined } : undefined,
+    });
+  };
+  const fokus = (key: string) => window.requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-langkah="${id}-${key}"]`)?.focus());
+  const sisip = (posisi: number, isi: LandingRouteStep[]) => {
+    const muat = isi.slice(0, LANDING_ROUTE_STEPS_MAX - baris.length);
+    const keys = muat.map(kunciBaru);
+    tulis([...baris.slice(0, posisi), ...muat, ...baris.slice(posisi)], [...kunciBaris.slice(0, posisi), ...keys, ...kunciBaris.slice(posisi)]);
+    if (keys.length) fokus(keys[keys.length - 1]);
+  };
+  const geser = (i: number, ke: number) => {
+    const next = [...baris];
+    [next[i], next[ke]] = [next[ke], next[i]];
+    const keys = [...kunciBaris];
+    [keys[i], keys[ke]] = [keys[ke], keys[i]];
+    tulis(next, keys);
+  };
+  const penuh = baris.length >= LANDING_ROUTE_STEPS_MAX;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-body-medium font-medium text-on-surface">Steps</p>
+      {baris.map((isi, i) => (
+        <div key={kunciBaris[i]} className="flex flex-col gap-1">
+          <TextField
+            data-langkah={`${id}-${kunciBaris[i]}`}
+            label={`Step ${i + 1}`}
+            placeholder={i === 0 ? "e.g. Take the lift next to reception to floor 2" : undefined}
+            maxLength={LANDING_ROUTE_STEP_TEXT_MAX}
+            value={isi.text ?? ""}
+            onChange={(event) => tulis(baris.map((x, j) => (j === i ? { ...x, text: event.target.value } : x)), kunciBaris)}
+            onKeyDown={(event) => {
+              // Enter = langkah berikutnya, seperti daftar di Google Docs.
+              if (event.key === "Enter" && !event.nativeEvent.isComposing && !penuh) { event.preventDefault(); sisip(i + 1, [{ text: "" }]); }
+            }}
+            onPaste={(event) => {
+              const teks = event.clipboardData.getData("text");
+              if (!teks.includes("\n")) return;
+              // Beberapa baris sekaligus menjadi beberapa langkah.
+              event.preventDefault();
+              const potongan = teks.split(/\r?\n/).map(tanpaNomor).filter(Boolean).map((text) => ({ text: text.slice(0, LANDING_ROUTE_STEP_TEXT_MAX) }));
+              if (!potongan.length) return;
+              if (isi.text?.trim()) { sisip(i + 1, potongan); return; }
+              const [pertama, ...sisa] = potongan;
+              const ganti = baris.map((x, j) => (j === i ? { ...x, text: pertama.text } : x));
+              const muat = sisa.slice(0, LANDING_ROUTE_STEPS_MAX - baris.length);
+              const keys = muat.map(kunciBaru);
+              tulis([...ganti.slice(0, i + 1), ...muat, ...ganti.slice(i + 1)], [...kunciBaris.slice(0, i + 1), ...keys, ...kunciBaris.slice(i + 1)]);
+            }}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <ImageUploadField ringkas label={`Photo for step ${i + 1}`} kind="landing" value={isi.image_url ?? null} onChange={(url) => tulis(baris.map((x, j) => (j === i ? { ...x, image_url: url } : x)), kunciBaris)} />
+            <div className="flex items-center gap-1">
+              <IconButton label={`Move step ${i + 1} up`} disabled={i === 0} onClick={() => geser(i, i - 1)}><ArrowUp size={16} /></IconButton>
+              <IconButton label={`Move step ${i + 1} down`} disabled={i === baris.length - 1} onClick={() => geser(i, i + 1)}><ArrowDown size={16} /></IconButton>
+              <IconButton label={`Remove step ${i + 1}`} disabled={baris.length === 1 && !isi.text && !isi.image_url} onClick={() => tulis(baris.filter((_, j) => j !== i), kunciBaris.filter((_, j) => j !== i))}><Trash size={16} /></IconButton>
+            </div>
+          </div>
+        </div>
+      ))}
+      {penuh ? null : (
+        <button type="button" onClick={() => sisip(baris.length, [{ text: "" }])} className="m3-state inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-2 text-label-large font-semibold text-primary">
+          <Plus size={16} aria-hidden /> Add a step
+        </button>
+      )}
+      <p className="text-body-small text-on-surface-variant">Press Enter for the next step, or paste several lines at once. A photo helps at turns, e.g. the lift door. One step without a photo shows as a short note.</p>
     </div>
   );
 }

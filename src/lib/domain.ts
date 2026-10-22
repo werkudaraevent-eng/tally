@@ -289,6 +289,12 @@ export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "
  */
 export type LandingHighlight = "brand" | "accent" | "ink" | `#${string}`;
 
+/** Blok Rute: satu langkah satu cara, dengan foto patokan opsional (mis. pintu lift). */
+export type LandingRouteStep = { text?: string; image_url?: string | null; en?: { text?: string } };
+/** Batas langkah per cara dan panjang satu langkah. Sama di CMS dan validasi server. */
+export const LANDING_ROUTE_STEPS_MAX = 12;
+export const LANDING_ROUTE_STEP_TEXT_MAX = 120;
+
 export type LandingBlockItem = {
   image_url?: string | null;
   /**
@@ -307,6 +313,11 @@ export type LandingBlockItem = {
   tone?: LandingCardTone;
   /** Rute: gambar ikon sendiri. Diisi = menggantikan ikon dan ubinnya. */
   icon_url?: string | null;
+  /**
+   * Rute: langkah cara ini, masing-masing boleh berfoto. Diisi = menggantikan
+   * `body`; cara lama tanpa `steps` tetap membaca `body` (satu langkah per baris).
+   */
+  steps?: LandingRouteStep[];
   /** Teks English butir ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingItemEn;
 };
@@ -346,9 +357,10 @@ export type LandingBlock = {
   align?: LandingBlockAlign;
   /**
    * Rute: titik berangkat dan tujuan. Butir = cara ke sana (`icon`, `label`
-   * nama, `value` waktu, `body` langkah cara itu, satu per baris; satu baris
-   * saja = catatan pendek, `image_url` foto patokan). `body` blok = langkah
-   * untuk semua cara, bentuk lama: CMS hanya menampilkannya bila terisi.
+   * nama, `value` waktu, `steps` langkah berfoto; cara lama: `body` satu
+   * langkah per baris, `image_url` satu foto patokan). Satu langkah tanpa foto
+   * tampil sebagai catatan pendek. `body` blok = langkah untuk semua cara,
+   * bentuk lama: CMS hanya menampilkannya bila terisi.
    */
   route_from?: LandingRouteStop;
   route_to?: LandingRouteStop;
@@ -664,7 +676,7 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
       };
     }
     case "route":
-      return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 40 }, value: { max: 20 }, body: { max: 400 } }, items: { max: 4 } };
+      return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 40 }, value: { max: 20 }, body: { max: 160, ideal: 120 } }, items: { max: 4 } };
     case "countdown":
       return { eyebrow: ALIS_BATAS, heading: { max: 44, ideal: 36 }, countdown_from: { max: 16 }, countdown_to: { max: 28, ideal: 20 } };
   }

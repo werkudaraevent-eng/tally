@@ -25,6 +25,7 @@ import {
   type LandingHeadedSection,
   type LandingSectionId,
   type LandingTextLimit,
+  LANDING_ROUTE_STEP_TEXT_MAX,
 } from "@/lib/domain";
 
 /**
@@ -178,7 +179,7 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
   const butir = items
     .map((item, index) => {
       const isian = (["label", "title", "value", "body"] as const).filter((key) => ada(item[key]));
-      if (isian.length === 0) return null;
+      if (isian.length === 0 && !item.steps?.some((langkah) => ada(langkah.text))) return null;
       return (
         <Kartu key={index} judul={namaButirBlokEn(block, index)}>
           {isian.map((key) => {
@@ -196,6 +197,18 @@ export function BlockEditorEn({ block, onChange }: { block: LandingBlock; onChan
               />
             );
           })}
+          {(item.steps ?? []).map((langkah, urutan) =>
+            langkah.text?.trim() ? (
+              <KolomEn
+                key={`langkah-${urutan}`}
+                label={`Step ${urutan + 1}`}
+                sumber={langkah.text}
+                value={langkah.en?.text}
+                onChange={(value) => onChange({ ...block, items: items.map((butirIni, posisi) => (posisi === index ? { ...butirIni, steps: butirIni.steps?.map((isi, q) => (q === urutan ? { ...isi, en: { text: value } } : isi)) } : butirIni)) })}
+                max={LANDING_ROUTE_STEP_TEXT_MAX}
+              />
+            ) : null,
+          )}
         </Kartu>
       );
     })

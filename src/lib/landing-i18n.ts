@@ -135,7 +135,10 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
     about_cards: asli.about_cards?.map((kartu, index) => tumpuk(kartu, en.about_cards?.[index], ["title", "body"])),
     blocks: asli.blocks?.map((block) => ({
       ...tumpuk(block, block.en, LANDING_BLOCK_EN_KEYS),
-      items: block.items?.map((item) => tumpuk(item, item.en, LANDING_ITEM_EN_KEYS)),
+      items: block.items?.map((item) => ({
+        ...tumpuk(item, item.en, LANDING_ITEM_EN_KEYS),
+        ...(item.steps ? { steps: item.steps.map((langkah) => tumpuk(langkah, langkah.en, ["text"])) } : {}),
+      })),
     })),
     // `role_id`: peran Indonesia, supaya urutan moderator di /en sama dengan
     // di halaman Indonesia walau `role` sudah English.
@@ -337,9 +340,10 @@ export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
   for (const block of config.blocks ?? []) {
     if (!menyala.has(block.id)) continue;
     LANDING_BLOCK_EN_KEYS.filter((key) => key !== "name").forEach((key) => periksa(block[key], block.en?.[key], `blocks.${block.id}.${key}`, block.id));
-    block.items?.forEach((item, index) =>
-      LANDING_ITEM_EN_KEYS.forEach((key) => periksa(item[key], item.en?.[key], `blocks.${block.id}.items.${index}.${key}`, block.id)),
-    );
+    block.items?.forEach((item, index) => {
+      LANDING_ITEM_EN_KEYS.forEach((key) => periksa(item[key], item.en?.[key], `blocks.${block.id}.items.${index}.${key}`, block.id));
+      item.steps?.forEach((langkah, urutan) => periksa(langkah.text, langkah.en?.text, `blocks.${block.id}.items.${index}.steps.${urutan}.text`, block.id));
+    });
   }
   return hasil;
 }
