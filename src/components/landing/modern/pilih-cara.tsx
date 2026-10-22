@@ -48,7 +48,7 @@ export function PilihCara({ label, pilihan, panel }: {
               onKeyDown={(event) => geser(event, index)}
               className={`m3-state flex min-h-12 min-w-[88px] flex-1 flex-col items-center justify-center rounded-[10px] px-3 py-1.5 text-center ${pilih ? "bg-white text-[#1A2333] shadow-[0_1px_3px_rgb(16_24_40/0.12)]" : "text-[#5F6B7F]"}`}
             >
-              <span className="text-title-small font-bold [overflow-wrap:anywhere]">{judul}</span>
+              <span className="text-title-small font-bold [overflow-wrap:break-word]">{judul}</span>
               {waktu ? <span className="text-body-small tabular-nums">{waktu}</span> : null}
             </button>
           );
