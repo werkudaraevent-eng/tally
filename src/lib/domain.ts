@@ -289,6 +289,12 @@ export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "
  */
 export type LandingHighlight = "brand" | "accent" | "ink" | `#${string}`;
 
+/** Blok Rute: satu langkah satu cara, dengan foto patokan opsional (mis. pintu lift). */
+export type LandingRouteStep = { text?: string; image_url?: string | null; en?: { text?: string } };
+/** Batas langkah per cara dan panjang satu langkah. Sama di CMS dan validasi server. */
+export const LANDING_ROUTE_STEPS_MAX = 12;
+export const LANDING_ROUTE_STEP_TEXT_MAX = 120;
+
 export type LandingBlockItem = {
   image_url?: string | null;
   /**
@@ -307,6 +313,11 @@ export type LandingBlockItem = {
   tone?: LandingCardTone;
   /** Rute: gambar ikon sendiri. Diisi = menggantikan ikon dan ubinnya. */
   icon_url?: string | null;
+  /**
+   * Rute: langkah cara ini, masing-masing boleh berfoto. Diisi = menggantikan
+   * `body`; cara lama tanpa `steps` tetap membaca `body` (satu langkah per baris).
+   */
+  steps?: LandingRouteStep[];
   /** Teks English butir ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingItemEn;
 };
@@ -346,13 +357,17 @@ export type LandingBlock = {
   align?: LandingBlockAlign;
   /**
    * Rute: titik berangkat dan tujuan. Butir = cara ke sana (`icon`, `label`
-   * nama, `value` waktu, `body` catatan, `image_url` foto patokan); `body`
-   * blok = langkah, satu per baris.
+   * nama, `value` waktu, `steps` langkah berfoto; cara lama: `body` satu
+   * langkah per baris, `image_url` satu foto patokan). Satu langkah tanpa foto
+   * tampil sebagai catatan pendek. `body` blok = langkah untuk semua cara,
+   * bentuk lama: CMS hanya menampilkannya bila terisi.
    */
   route_from?: LandingRouteStop;
   route_to?: LandingRouteStop;
   /** Rute: kosong = mengemudi. */
   maps_mode?: LandingRouteMapsMode;
+  /** Rute: false = tanpa tombol Google Maps, untuk rute di dalam satu gedung. Kosong = tombol tampil. */
+  maps_button?: false;
   /** Rute: denah atau peta jalan ke sana, tampil utuh di bawah cara; ketuk untuk layar penuh. */
   map_image_url?: string | null;
   /**

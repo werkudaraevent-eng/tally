@@ -4,7 +4,7 @@ import { ArrowDown, ArrowSquareOut, ArrowUp, Plus, Trash } from "@phosphor-icons
 import { useEffect, useRef, useState } from "react";
 import Link from "@/components/event-link";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
-import { Button, FilterChip, IconButton, SegmentedButton, SelectField, SelectMenu, TextArea, TextField } from "@/components/m3";
+import { Button, FilterChip, IconButton, SegmentedButton, SelectField, SelectMenu, Switch, TextArea, TextField } from "@/components/m3";
 import { PilihBarisAgenda, useAgendaTrip } from "@/components/admin/logistik/pilih-baris-agenda";
 import {
   LANDING_BLOCK_SHOW_ON,
@@ -15,7 +15,10 @@ import {
   type LandingBlockItem,
   type LandingBlockShowOn,
   type LandingRouteMapsMode,
+  type LandingRouteStep,
   type LandingRouteStop,
+  LANDING_ROUTE_STEPS_MAX,
+  LANDING_ROUTE_STEP_TEXT_MAX,
 } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
 import type { KolomSasaran } from "@/lib/sasaran-bagian";
@@ -153,6 +156,8 @@ export function EditorRute({
     setKunci([...kunciCara, `cara-baru-${nomorKunci.current}`]);
     ubah({ items: [...items, {}] });
   };
+  // Kolom lama tetap terlihat selama layar ini terbuka, juga sesudah dikosongkan, supaya tidak hilang di tengah mengetik.
+  const [adaLangkahLama] = useState(Boolean(block.body));
   // Saran = nama cara yang sudah ditulis di blok Rute acara ini (bukan daftar di kode).
   const saran = [...new Set(semuaBlok.filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
   return (
@@ -189,16 +194,21 @@ export function EditorRute({
             </div>
             <TextField label="Name" list={`saran-${block.id}`} placeholder="e.g. Jalan kaki lewat jembatan" value={item.label ?? ""} onChange={(event) => ubahItem(index, { label: event.target.value })} />
             <TextField label="Time" optional placeholder="± 5 menit" value={item.value ?? ""} onChange={(event) => ubahItem(index, { value: event.target.value })} />
-            <TextArea className="col-span-2" rows={2} label="Note" optional value={item.body ?? ""} onChange={(event) => ubahItem(index, { body: event.target.value })} />
             <div className="col-span-2">
-              <ImageUploadField
-                label="Landmark photo"
-                hint="Optional. A photo of what to look for, e.g. the bridge entrance. Landscape works best."
-                kind="landing"
-                value={item.image_url ?? null}
-                onChange={(url) => ubahItem(index, { image_url: url })}
-              />
+              <LangkahCara id={`${block.id}-${kunciCara[index]}`} item={item} ubah={(patch) => ubahItem(index, patch)} />
             </div>
+            {/* Bentuk lama: satu foto untuk seluruh cara. Hanya tampil selama masih terisi. */}
+            {item.image_url ? (
+              <div className="col-span-2">
+                <ImageUploadField
+                  label="Photo for this way"
+                  hint="From the older layout, shown under the steps. Add photos to the steps instead, then remove this one."
+                  kind="landing"
+                  value={item.image_url}
+                  onChange={(url) => ubahItem(index, { image_url: url })}
+                />
+              </div>
+            ) : null}
           </div>
         ))}
         {items.length < 4 ? (
@@ -207,25 +217,146 @@ export function EditorRute({
           </button>
         ) : null}
       </div>
-      <div className="flex flex-col gap-1.5">
-        <p className="text-body-medium font-medium text-on-surface">Route in Google Maps</p>
-        <SegmentedButton<LandingRouteMapsMode>
-          label="Route in Google Maps"
-          value={block.maps_mode ?? "driving"}
-          onChange={(maps_mode) => ubah({ maps_mode })}
-          options={LANDING_ROUTE_MAPS_MODES.map((value) => ({ value, label: LANDING_ROUTE_MAPS_MODE_LABELS[value] }))}
+      {/* Bentuk lama: satu daftar langkah untuk semua cara. Hanya tampil selama masih terisi. */}
+      {block.body || adaLangkahLama ? (
+        <TextArea
+          label="Steps for every way"
+          optional
+          rows={4}
+          hint="From the older layout, shown under all ways. Put steps in each way above instead, then empty this field to remove it."
+          value={block.body ?? ""}
+          onChange={(event) => ubah({ body: event.target.value })}
         />
-        <p className="text-body-small text-on-surface-variant">How Google Maps draws the route when a participant taps the button.</p>
-      </div>
-      <TextArea label="Steps" optional rows={4} hint="One step per line. Shown numbered." value={block.body ?? ""} onChange={(event) => ubah({ body: event.target.value })} />
+      ) : null}
       <ImageUploadField
-        label="Map image"
-        hint="Optional. A floor plan or map of the way there. Shown uncropped under the ways; participants tap it to open full screen."
+        label="Map or floor plan"
+        hint="Optional. Shown uncropped under the ways; participants tap it to open full screen. For a route inside a building, a floor plan helps most."
         kind="landing"
         value={block.map_image_url ?? null}
         onChange={(url) => ubah({ map_image_url: url })}
       />
-      <p className="text-body-small text-on-surface-variant">The &ldquo;Open route in Google Maps&rdquo; button is built from the two addresses.</p>
+      <div className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
+        <Switch
+          label="Google Maps button"
+          description="Opens the route between the two addresses. Turn it off for a route inside one building, e.g. lobby to ballroom."
+          checked={block.maps_button !== false}
+          onChange={(nyala) => ubah({ maps_button: nyala ? undefined : false })}
+        />
+        {block.maps_button !== false ? (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-body-medium font-medium text-on-surface">Travel mode in Google Maps</p>
+            <SegmentedButton<LandingRouteMapsMode>
+              label="Travel mode in Google Maps"
+              value={block.maps_mode ?? "driving"}
+              onChange={(maps_mode) => ubah({ maps_mode })}
+              options={LANDING_ROUTE_MAPS_MODES.map((value) => ({ value, label: LANDING_ROUTE_MAPS_MODE_LABELS[value] }))}
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** Nomor yang diketik admin ("1.", "-") dibuang: portal menggambar nomornya sendiri. */
+const tanpaNomor = (teks: string) => teks.replace(/^\s*(\d+[.)]|[-•*])\s+/, "").trim();
+
+/**
+ * Langkah satu cara: satu kolom per langkah, masing-masing boleh berfoto
+ * (Google Maps juga memberi gambar kecil di belokan). Cara lama menyimpan
+ * langkah di `body`, satu per baris; begitu disunting, isinya pindah ke
+ * `steps` dan `body` dikosongkan, termasuk terjemahannya bila jumlah barisnya sama.
+ */
+function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; ubah: (patch: Partial<LandingBlockItem>) => void }) {
+  const dariBody = (item.body ?? "").split("\n").map(tanpaNomor).filter(Boolean);
+  // Terjemahan per baris menempel ke langkahnya sejak dibaca, jadi ikut saat langkah
+  // disunting, dipindah, atau disisipi. Jumlah baris berbeda: `en.body` dibiarkan utuh.
+  const enBaris = item.steps ? [] : (item.en?.body ?? "").split("\n").map(tanpaNomor).filter(Boolean);
+  const ikutEn = enBaris.length > 0 && enBaris.length === dariBody.length;
+  const langkah: LandingRouteStep[] = item.steps ?? dariBody.map((text, i) => (ikutEn ? { text, en: { text: enBaris[i] } } : { text }));
+  // Tanpa langkah sama sekali tetap tampil satu kolom kosong, supaya jelas tempat menulisnya.
+  const baris = langkah.length ? langkah : [{ text: "" }];
+  const nomor = useRef(0);
+  const [kunci, setKunci] = useState<string[]>(() => baris.map((_, i) => `l-${i}`));
+  const kunciBaris = baris.map((_, i) => kunci[i] ?? `l-lebih-${i}`);
+  const kunciBaru = () => `l-baru-${++nomor.current}`;
+  const tulis = (next: LandingRouteStep[], keys: string[]) => {
+    setKunci(keys);
+    if (item.steps) { ubah({ steps: next }); return; }
+    ubah({ steps: next, body: undefined, ...(ikutEn ? { en: { ...item.en, body: undefined } } : {}) });
+  };
+  const fokus = (key: string) => window.requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-langkah="${id}-${key}"]`)?.focus());
+  const sisip = (posisi: number, isi: LandingRouteStep[]) => {
+    const muat = isi.slice(0, LANDING_ROUTE_STEPS_MAX - baris.length);
+    const keys = muat.map(kunciBaru);
+    tulis([...baris.slice(0, posisi), ...muat, ...baris.slice(posisi)], [...kunciBaris.slice(0, posisi), ...keys, ...kunciBaris.slice(posisi)]);
+    if (keys.length) fokus(keys[keys.length - 1]);
+  };
+  const geser = (i: number, ke: number) => {
+    const next = [...baris];
+    [next[i], next[ke]] = [next[ke], next[i]];
+    const keys = [...kunciBaris];
+    [keys[i], keys[ke]] = [keys[ke], keys[i]];
+    tulis(next, keys);
+  };
+  const penuh = baris.length >= LANDING_ROUTE_STEPS_MAX;
+  // Tempelan yang dipotong (lebih dari 12 langkah atau 120 huruf) disebut, bukan hilang diam-diam.
+  const [dipotong, setDipotong] = useState(false);
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-body-medium font-medium text-on-surface">Steps</p>
+      {baris.map((isi, i) => (
+        <div key={kunciBaris[i]} className="flex flex-col gap-1">
+          <TextField
+            data-langkah={`${id}-${kunciBaris[i]}`}
+            label={`Step ${i + 1}`}
+            placeholder={i === 0 ? "e.g. Take the lift next to reception to floor 2" : undefined}
+            maxLength={LANDING_ROUTE_STEP_TEXT_MAX}
+            value={isi.text ?? ""}
+            onChange={(event) => tulis(baris.map((x, j) => (j === i ? { ...x, text: event.target.value } : x)), kunciBaris)}
+            onKeyDown={(event) => {
+              // Enter = langkah berikutnya, seperti daftar di Google Docs.
+              if (event.key === "Enter" && !event.nativeEvent.isComposing && !penuh) { event.preventDefault(); sisip(i + 1, [{ text: "" }]); }
+            }}
+            onPaste={(event) => {
+              const teks = event.clipboardData.getData("text");
+              if (!teks.includes("\n")) return;
+              // Beberapa baris sekaligus menjadi beberapa langkah.
+              event.preventDefault();
+              const barisTempel = teks.split(/\r?\n/).map(tanpaNomor).filter(Boolean);
+              const potongan = barisTempel.map((text) => ({ text: text.slice(0, LANDING_ROUTE_STEP_TEXT_MAX) }));
+              if (!potongan.length) return;
+              const ruang = LANDING_ROUTE_STEPS_MAX - baris.length + (isi.text?.trim() ? 0 : 1);
+              setDipotong(potongan.length > ruang || barisTempel.some((b) => b.length > LANDING_ROUTE_STEP_TEXT_MAX));
+              if (isi.text?.trim()) { sisip(i + 1, potongan); return; }
+              const [pertama, ...sisa] = potongan;
+              const ganti = baris.map((x, j) => (j === i ? { ...x, text: pertama.text } : x));
+              const muat = sisa.slice(0, LANDING_ROUTE_STEPS_MAX - baris.length);
+              const keys = muat.map(kunciBaru);
+              tulis([...ganti.slice(0, i + 1), ...muat, ...ganti.slice(i + 1)], [...kunciBaris.slice(0, i + 1), ...keys, ...kunciBaris.slice(i + 1)]);
+            }}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <ImageUploadField ringkas label={`Photo for step ${i + 1}`} kind="landing" value={isi.image_url ?? null} onChange={(url) => tulis(baris.map((x, j) => (j === i ? { ...x, image_url: url } : x)), kunciBaris)} />
+            <div className="ml-auto flex items-center gap-1">
+              <IconButton label={`Move step ${i + 1} up`} disabled={i === 0} onClick={() => geser(i, i - 1)}><ArrowUp size={16} /></IconButton>
+              <IconButton label={`Move step ${i + 1} down`} disabled={i === baris.length - 1} onClick={() => geser(i, i + 1)}><ArrowDown size={16} /></IconButton>
+              <IconButton label={`Remove step ${i + 1}`} disabled={baris.length === 1 && !isi.text && !isi.image_url} onClick={() => tulis(baris.filter((_, j) => j !== i), kunciBaris.filter((_, j) => j !== i))}><Trash size={16} /></IconButton>
+            </div>
+          </div>
+        </div>
+      ))}
+      {penuh ? null : (
+        <button type="button" onClick={() => sisip(baris.length, [{ text: "" }])} className="m3-state inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-2 text-label-large font-semibold text-primary">
+          <Plus size={16} aria-hidden /> Add a step
+        </button>
+      )}
+      {dipotong ? (
+        <p role="status" className="rounded-md bg-surface-container px-3 py-2 text-body-small text-on-surface">
+          Some pasted text was cut: a way holds up to {LANDING_ROUTE_STEPS_MAX} steps of {LANDING_ROUTE_STEP_TEXT_MAX} characters each.
+        </p>
+      ) : null}
+      <p className="text-body-small text-on-surface-variant">Press Enter for the next step, or paste several lines at once. A photo helps at turns, e.g. the lift door. One step without a photo shows as a short note.</p>
     </div>
   );
 }
