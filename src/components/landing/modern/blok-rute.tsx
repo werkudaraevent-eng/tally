@@ -8,6 +8,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
 import { FotoLangkah, GambarDenah } from "./gambar-denah";
 import { GambarIkonKartu } from "./gambar-ikon-kartu";
 import { MUAT_IKON } from "./ikon-ssr";
+import { PilihCara } from "./pilih-cara";
 
 // Blok Rute (Directions): dari satu tempat ke tempat lain, mis. hotel A ke
 // hotel B. Titik berangkat dan tujuan dipilih dari hotel di Logistik (nama dan
@@ -25,7 +26,9 @@ const UI = {
     heading: (a: string, b: string) => `Dari ${a} ke ${b}`,
     stepByStep: (n: number) => `Langkah demi langkah (${n})`,
     photoOf: (cara: string) => `Foto patokan: ${cara}`,
-    moreWays: (n: number) => `+${n} cara lain`,
+    count: (n: number) => `${n} rute`,
+    waysCount: (n: number) => `${n} cara`,
+    detail: "Detail", journey: "Perjalanan", chooseWay: "Pilih cara",
     map: "Denah",
     mapOf: (judul: string) => `Denah: ${judul}`,
     openMap: "Buka denah layar penuh",
@@ -39,7 +42,9 @@ const UI = {
     heading: (a: string, b: string) => `From ${a} to ${b}`,
     stepByStep: (n: number) => `Step by step (${n})`,
     photoOf: (cara: string) => `Landmark photo: ${cara}`,
-    moreWays: (n: number) => `+${n} more ${n === 1 ? "way" : "ways"}`,
+    count: (n: number) => `${n} routes`,
+    waysCount: (n: number) => `${n} ways`,
+    detail: "Details", journey: "Journey", chooseWay: "Choose a way",
     map: "Map",
     mapOf: (judul: string) => `Map: ${judul}`,
     openMap: "Open map full screen",
@@ -388,11 +393,90 @@ export async function KartuRute({ block, hotels, lang }: { block: LandingBlock; 
   );
 }
 
+/** Warna halaman portal Horizon (KREM): lubang sobekan tiket memakai warna ini. */
+const LATAR_HALAMAN = "#FAF8F2";
+
+const GARIS_LINTASAN = "absolute left-[15px] w-0.5 bg-[#D9DEE5]";
+
+/** Titik asal atau tujuan di Lintasan; garisnya turun ke baris berikutnya. */
+function TitikLintasan({ x, label, akhir }: { x: Titik; label: string; akhir: boolean }) {
+  return (
+    <li className="relative flex gap-3 pb-5 last:pb-0">
+      {akhir ? null : <span aria-hidden className={`${GARIS_LINTASAN} bottom-0 top-8`} />}
+      <span aria-hidden className="flex size-8 shrink-0 items-center justify-center">
+        {akhir ? (
+          <MapPin size={28} weight="fill" className="text-[var(--aksi-putih,var(--aksi,var(--reg-primary)))]" />
+        ) : (
+          <span className="size-[18px] rounded-full border-[5px] border-[var(--reg-primary)] bg-white" />
+        )}
+      </span>
+      <span className="min-w-0 pt-0.5">
+        <span className={`block ${LABEL} ${MUTED_KARTU}`}>{label}</span>
+        <span className="mt-0.5 block text-[17px] font-extrabold leading-snug [overflow-wrap:anywhere]">{x.name}</span>
+        {x.address ? <span className={`mt-0.5 block text-body-medium [overflow-wrap:anywhere] ${MUTED_KARTU}`}>{x.address}</span> : null}
+      </span>
+    </li>
+  );
+}
+
 /**
- * Rute di tab Perjalanan portal Horizon: satu kartu, satu baris per rute di
- * bawah kartu hotel, bus, dan kereta, seperti "Getting there" di halaman
- * reservasi. Baris dibuka untuk alamat, peta, cara, dan langkah; tautan
- * `#<id blok>` membukanya (BukaRuteDariHash).
+ * Satu perjalanan dari asal sampai tujuan, tegak seperti detail perjalanan di
+ * app kereta dan Google Maps transit: titik asal, baris cara (ikon, nama,
+ * waktu), langkah bernomor dengan foto patokan, lalu titik tujuan.
+ */
+function Lintasan({ rute, cara, lang }: { rute: Rute; cara: Rute["cara"][number] | null; lang: LandingLang }) {
+  const t = UI[lang];
+  // Langkah untuk semua cara (bentuk lama) dipakai cara yang tidak punya langkah sendiri.
+  const langkah = cara?.langkah.length ? cara.langkah : rute.langkah;
+  return (
+    <ol className="flex flex-col">
+      <TitikLintasan x={rute.dari} label={t.from} akhir={false} />
+      {cara ? (
+        <li className="relative flex gap-3 pb-5">
+          <span aria-hidden className={`${GARIS_LINTASAN} -top-1 bottom-0`} />
+          <span aria-hidden className="relative flex size-8 shrink-0 items-center justify-center rounded-full ring-4 ring-white [&>img]:my-0 [&>img]:size-8 [&>img]:rounded-full">
+            <GambarIkonKartu src={cara.gambarIkon}>
+              <span className="flex size-8 items-center justify-center rounded-full" style={{ background: UBIN[cara.nada].latar, color: UBIN[cara.nada].teks }}>
+                <cara.Ikon size={18} weight="bold" />
+              </span>
+            </GambarIkonKartu>
+          </span>
+          <span className="min-w-0 flex-1 pt-1">
+            <span className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-title-small font-bold [overflow-wrap:anywhere]">{cara.label}</span>
+              {cara.waktu ? <span className={`text-body-medium font-semibold tabular-nums ${MUTED_KARTU}`}>{cara.waktu}</span> : null}
+            </span>
+            {cara.catatan ? <span className={`mt-1 block text-body-medium [overflow-wrap:anywhere] ${MUTED_KARTU}`}>{cara.catatan}</span> : null}
+            {cara.foto ? (
+              // eslint-disable-next-line @next/next/no-img-element -- URL bebas dari unggahan admin, sama seperti gambar blok lain
+              <img src={cara.foto} alt={t.photoOf(cara.label)} loading="lazy" decoding="async" className="mt-3 aspect-[16/9] w-full max-w-[360px] rounded-[12px] bg-[#E6E9EE] object-cover" />
+            ) : null}
+          </span>
+        </li>
+      ) : null}
+      {langkah.map(({ teks, foto }, index) => (
+        <li key={index} className="relative flex gap-3 pb-5">
+          <span aria-hidden className={`${GARIS_LINTASAN} -top-1 bottom-0`} />
+          <span aria-hidden className="relative flex size-8 shrink-0 items-center justify-center">
+            <span className="flex size-6 items-center justify-center rounded-full bg-[#1A2333] text-[12px] font-bold tabular-nums text-white ring-4 ring-white">{index + 1}</span>
+          </span>
+          <span className={`min-w-0 pt-1 text-body-medium [overflow-wrap:anywhere] ${foto ? "flex-1" : ""}`}>{teks}</span>
+          {foto ? <FotoLangkah src={foto} alt={t.photoOf(teks)} judul={t.stepPhoto(index + 1)} buka={t.openPhoto(index + 1)} tutup={t.close} keterangan={teks} /> : null}
+        </li>
+      ))}
+      <TitikLintasan x={rute.ke} label={t.to} akhir />
+    </ol>
+  );
+}
+
+/**
+ * Rute di tab Perjalanan portal Horizon: satu kartu tiket per rute di bawah
+ * kartu hotel, bus, dan kereta, mengikuti kartu tiket Traveloka, tiket.com,
+ * dan KAI Access: asal dan tujuan besar di kiri dan kanan dengan garis dan
+ * ikon cara di tengah, sobekan putus-putus, lalu cara-caranya sebagai chip.
+ * Kartu dibuka untuk detail perjalanan (Lintasan), satu tab per cara, denah,
+ * dan tombol Google Maps; tautan `#<id blok>` membukanya (BukaRuteDariHash).
+ * Judul blok tidak dipakai di sini: nama dua tempatnya sudah judulnya.
  */
 export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: LandingBlock[]; hotels: LandingHotel[]; lang: LandingLang }) {
   const t = UI[lang];
@@ -401,48 +485,73 @@ export async function DaftarRuteRingkas({ blocks, hotels, lang }: { blocks: Land
   );
   if (!rute.length) return null;
   return (
-    <section aria-label={t.eyebrow} className={`${KARTU_PUTIH} overflow-hidden rounded-[20px]`}>
-      <p className={`flex items-center gap-2 px-5 pb-2 pt-5 sm:px-6 ${LABEL} text-[var(--alis,var(--reg-primary))]`}>
+    <section aria-label={t.eyebrow} className="flex flex-col gap-3">
+      <p className={`flex items-center gap-2 px-1 ${LABEL} text-[var(--alis,var(--reg-primary))]`}>
         <NavigationArrow size={16} weight="fill" aria-hidden />
         {t.eyebrow}
+        {rute.length > 1 ? <span className={`font-semibold normal-case tracking-normal ${MUTED_KARTU}`}>· {t.count(rute.length)}</span> : null}
       </p>
       {rute.map(({ block, rute: r }) => {
-        const pertama = r.cara[0];
-        const ringkas = pertama ? [pertama.label, pertama.waktu].filter(Boolean).join(" · ") + (r.cara.length > 1 ? ` \u00b7 ${t.moreWays(r.cara.length - 1)}` : "") : `${t.to} ${r.ke.name}`;
+        const tunggal = r.cara.length === 1 ? r.cara[0] : null;
+        const IkonTengah = r.cara[0]?.Ikon ?? NavigationArrow;
+        const tengah = tunggal ? tunggal.waktu : r.cara.length > 1 ? t.waysCount(r.cara.length) : null;
+        const panel = r.cara.length ? r.cara.map((cara, index) => <Lintasan key={index} rute={r} cara={cara} lang={lang} />) : [<Lintasan key={0} rute={r} cara={null} lang={lang} />];
+        const sisi = r.denah || r.peta;
         return (
-          <details key={block.id} id={block.id} className="group scroll-mt-28 border-t border-[#E6E9EE]">
-            <summary className="m3-state flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-3 focus-visible:outline-offset-[-3px] sm:px-6 [&::-webkit-details-marker]:hidden">
-              <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl" style={{ background: UBIN.brand.latar, color: UBIN.brand.teks }}>
-                <NavigationArrow size={20} weight="fill" />
+          <details key={block.id} id={block.id} className={`group scroll-mt-28 overflow-hidden rounded-[20px] ${KARTU_PUTIH}`}>
+            <summary className="m3-state block cursor-pointer list-none focus-visible:outline-offset-[-3px] [&::-webkit-details-marker]:hidden">
+              <span className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3 px-5 pb-4 pt-5 sm:gap-6 sm:px-7">
+                <span className="min-w-0">
+                  <span className={`block ${LABEL} ${MUTED_KARTU}`}>{t.from}</span>
+                  <span className="mt-1 block text-[16px] font-extrabold leading-snug [overflow-wrap:break-word] sm:text-[22px]">{r.dari.name}</span>
+                </span>
+                <span aria-hidden className="flex w-16 flex-col items-center gap-1 pt-5 sm:w-40 lg:w-56">
+                  <span className="flex w-full items-center text-[color-mix(in_srgb,var(--reg-primary)_45%,white)]">
+                    <span className="size-1.5 shrink-0 rounded-full bg-current" />
+                    <span className="flex-1 border-t-2 border-dashed border-current" />
+                    <span className="mx-1 flex size-8 shrink-0 items-center justify-center rounded-full text-[var(--on-chip-merek,var(--reg-on-primary-container))]" style={{ background: UBIN.brand.latar }}>
+                      <IkonTengah size={18} weight="bold" />
+                    </span>
+                    <span className="flex-1 border-t-2 border-dashed border-current" />
+                    <span className="size-1.5 shrink-0 rounded-full bg-current" />
+                  </span>
+                  {tengah ? <span className={`text-body-small font-semibold tabular-nums ${MUTED_KARTU}`}>{tengah}</span> : null}
+                </span>
+                <span className="min-w-0 text-right">
+                  <span className={`block ${LABEL} ${MUTED_KARTU}`}>{t.to}</span>
+                  <span className="mt-1 block text-[16px] font-extrabold leading-snug [overflow-wrap:break-word] sm:text-[22px]">{r.ke.name}</span>
+                </span>
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-title-small font-bold [overflow-wrap:anywhere]">{r.judul}</span>
-                <span className={`block text-body-medium [overflow-wrap:anywhere] ${MUTED_KARTU}`}>{ringkas}</span>
+              {/* Sobekan tiket: garis putus-putus dengan dua lubang setengah lingkaran di tepi. */}
+              <span aria-hidden className="relative block h-0 border-t-2 border-dashed border-[#E3E7EE] mx-5 sm:mx-7">
+                <span className="absolute -left-[34px] -top-[11px] size-5 rounded-full ring-1 ring-[rgb(16_30_56/0.12)] sm:-left-[42px]" style={{ background: LATAR_HALAMAN }} />
+                <span className="absolute -right-[34px] -top-[11px] size-5 rounded-full ring-1 ring-[rgb(16_30_56/0.12)] sm:-right-[42px]" style={{ background: LATAR_HALAMAN }} />
               </span>
-              <CaretDown size={20} weight="bold" aria-hidden className={`shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none ${MUTED_KARTU}`} />
+              <span className="flex min-h-14 items-center gap-3 px-5 py-3 sm:px-7">
+                <span className="flex min-w-0 flex-1 flex-wrap gap-2">
+                  {r.cara.map(({ Ikon, label, waktu }, index) => (
+                    <span key={index} className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full bg-[#F1F3F8] px-3 text-label-large">
+                      <Ikon size={16} weight="bold" aria-hidden className="shrink-0" />
+                      <span className="truncate font-semibold">{label}</span>
+                      {waktu ? <span className={`shrink-0 tabular-nums ${MUTED_KARTU}`}>{waktu}</span> : null}
+                    </span>
+                  ))}
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 text-label-large font-bold text-[var(--aksi-putih,var(--aksi,var(--reg-primary)))]">
+                  {t.detail}
+                  <CaretDown size={18} weight="bold" aria-hidden className="transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                </span>
+              </span>
             </summary>
-            <div className="flex flex-col gap-6 px-5 pb-6 pt-2 sm:px-6">
-              <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-                <div className="flex flex-col gap-5">
-                  <TitikRute rute={r} lang={lang} />
-                  <TombolPeta rute={r} lang={lang} className={`${TOMBOL} text-title-small`} />
-                </div>
-                {r.cara.length > 0 ? (
-                  <div>
-                    <h3 className={`${LABEL} ${MUTED_KARTU}`}>{t.ways}</h3>
-                    <div className="mt-3">
-                      <DaftarCara rute={r} lang={lang} kartu="rounded-[16px] bg-[#F4F6F8] p-3" />
-                    </div>
-                  </div>
-                ) : null}
+            <div className={`border-t border-[#E6E9EE] px-5 pb-6 pt-5 sm:px-7 ${sisi ? "lg:grid lg:grid-cols-2 lg:gap-10" : ""}`}>
+              <div className={`flex flex-col gap-5 ${sisi ? "" : "max-w-[640px]"}`}>
+                <h3 className={`${LABEL} ${MUTED_KARTU}`}>{r.cara.length > 1 ? t.chooseWay : t.journey}</h3>
+                <PilihCara label={t.ways} pilihan={r.cara.map(({ label, waktu }) => ({ judul: label, waktu }))} panel={panel} />
               </div>
-              <BagianDenah rute={r} lang={lang} labelKelas={MUTED_KARTU} />
-              {r.langkah.length > 0 ? (
-                <div>
-                  <h3 className={`${LABEL} ${MUTED_KARTU}`}>{t.steps}</h3>
-                  <div className="mt-3">
-                    <DaftarLangkah langkah={r.langkah} lang={lang} />
-                  </div>
+              {sisi ? (
+                <div className="mt-6 flex flex-col gap-5 lg:mt-0">
+                  <BagianDenah rute={r} lang={lang} labelKelas={MUTED_KARTU} />
+                  <TombolPeta rute={r} lang={lang} className={`${TOMBOL} text-title-small`} />
                 </div>
               ) : null}
             </div>
