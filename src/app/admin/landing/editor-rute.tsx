@@ -414,7 +414,7 @@ function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingB
   const siapa = sasaran && kolomAktif ? `participants whose ${kolomAktif.label} is ${labelNilai.join(" or ")}` : "every signed-in participant";
   // Kelompok butuh peserta yang masuk: tidak pernah di halaman acara publik (landingBlockShownOn).
   const keBoth = Boolean(sasaran) && block.show_on === "both";
-  // Horizon: setiap rute menjadi baris di Perjalanan (DaftarRuteRingkas).
+  // Horizon: setiap rute menjadi kartu tiket di Perjalanan (DaftarRuteRingkas).
   const pindah = horizon;
   const ringkas = (keBoth ? "Not on the Event page, because a group needs a signed-in participant. " : "") + (hotelHilangKarenaGagal && sasaran
     ? "Couldn\u2019t load hotels from Logistics, so this hotel group can\u2019t be shown here. It still applies on the participant page. Reload to try again."
