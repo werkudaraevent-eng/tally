@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-21.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-22.
 
 ## How to update this file
 
