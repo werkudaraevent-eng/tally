@@ -16,6 +16,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 ## In flight
 
 - Agenda Who sees it per item (approved by Mas 21 Oct): branch `feat/agenda-siapa-melihat`, needs migration `202610210001_sasaran_baris` run by Mas after QA; code merges after his post-check. Also hides a dress code line whose linked item is hidden (post-hoc M-1 on #247).
+- Outfit photos full screen with caption, one outfit per row on desktop (approved by Mas 22 Oct): branch `feat/outfit-foto-penuh`, visible on KSO, merge timing with Mas.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Build with AI: proposal written, waiting on Mas's "lanjut".

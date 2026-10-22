@@ -5,6 +5,7 @@ import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import { FormKeluar } from "@/components/member/form-keluar";
+import { KartuFotoOutfit } from "@/components/member/foto-outfit";
 import { IkonTabBawah, PenandaTab } from "@/components/member/muat-portal";
 import { PemicuQr } from "@/components/member/qr-fokus";
 import { SEPARATOR, gabungMeta } from "@/lib/typography";
@@ -1145,33 +1146,47 @@ export function StripOutfitHorizon({ label, isian, href, lihat }: { label: strin
  * `tingkat`: judulnya h3 di bawah judul tanggal (h2); h2 bila kartu langsung di
  * bawah judul halaman (acara tanpa tab Agenda), supaya tidak melompat dari h1 ke h3.
  */
-export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3 }: { kapan: string | null; apa: string; catatan: string | null; foto: string | null; tingkat?: 2 | 3 }) {
+export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3, judulFoto, teksFoto }: {
+  kapan: string | null;
+  apa: string;
+  catatan: string | null;
+  foto: string | null;
+  tingkat?: 2 | 3;
+  /** Judul bilah atas penampil foto (label halaman per acara). */
+  judulFoto: string;
+  teksFoto: { buka: string; lihat: string; tutup: string };
+}) {
   const Judul = tingkat === 2 ? "h2" : "h3";
   // Rancangan yang Mas Hanung setujui: foto kecil 4:5 di samping teks, jadi satu
-  // hari dengan tiga pakaian tetap terbaca sekilas. Ketuk foto untuk ukuran penuh.
-  return (
-    <article className={`${GARIS_KARTU} flex min-w-0 items-start gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5`} style={{ color: TINTA }}>
-      {foto ? (
-        <a href={foto} target="_blank" rel="noreferrer noopener" className="m3-state block w-24 shrink-0 overflow-hidden rounded-[16px] md:w-32">
-          {/* Foto dari unggahan admin: ukuran asli tidak diketahui, jadi <img> biasa dipotong 4:5.
-              Hiasan: isi kartu sudah menyebut pakaiannya. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={foto} alt="" loading="lazy" decoding="async" className="aspect-[4/5] w-full bg-[#EEF1F6] object-cover" />
-        </a>
+  // hari dengan tiga pakaian tetap terbaca sekilas. Layar lebar: satu kartu
+  // per baris dengan foto 320 px, karena fotonya isi utama (keputusan 22 Okt).
+  // Ketuk foto untuk layar penuh beserta keterangannya.
+  const kelas = `${GARIS_KARTU} flex min-w-0 items-start gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5 lg:gap-8 lg:p-6`;
+  const teks = (
+    <>
+      {kapan ? (
+        <p className="text-[13px] font-semibold leading-5 [overflow-wrap:anywhere] lg:text-[15px] lg:leading-6" style={{ color: LABEL }}>
+          {kapan}
+        </p>
       ) : null}
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
-        {kapan ? (
-          <p className="text-[13px] font-semibold leading-5 [overflow-wrap:anywhere]" style={{ color: LABEL }}>
-            {kapan}
-          </p>
-        ) : null}
-        <Judul className="text-[17px] font-semibold leading-6 [overflow-wrap:anywhere] md:text-[20px] md:leading-7">{apa}</Judul>
-        {catatan ? (
-          <p className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
-            {catatan}
-          </p>
-        ) : null}
-      </div>
+      <Judul className="text-[17px] font-semibold leading-6 [overflow-wrap:anywhere] md:text-[20px] md:leading-7 lg:text-[24px] lg:leading-8">{apa}</Judul>
+      {catatan ? (
+        <p className="text-[14px] leading-5 [overflow-wrap:anywhere] lg:text-[16px] lg:leading-6" style={{ color: REDUP }}>
+          {catatan}
+        </p>
+      ) : null}
+    </>
+  );
+  if (foto) {
+    return (
+      <KartuFotoOutfit kelas={kelas} warna={TINTA} foto={foto} kapan={kapan} apa={apa} catatan={catatan} judul={judulFoto} teks={teksFoto}>
+        {teks}
+      </KartuFotoOutfit>
+    );
+  }
+  return (
+    <article className={kelas} style={{ color: TINTA }}>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">{teks}</div>
     </article>
   );
 }
