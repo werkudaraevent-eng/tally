@@ -348,7 +348,7 @@ export async function DashboardGathering({
   const [logistik, checkpoint, checkpointQr] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
-        tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
+        tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, penonton) : null,
         // Petunjuk layar QR menyebut checkpoint hanya bila fiturnya menyala.
         horizon && tampilKode ? loadCheckpointQr(event.id) : null,
       ])
