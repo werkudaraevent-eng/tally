@@ -156,6 +156,8 @@ export function EditorRute({
     setKunci([...kunciCara, `cara-baru-${nomorKunci.current}`]);
     ubah({ items: [...items, {}] });
   };
+  // Kolom lama tetap terlihat selama layar ini terbuka, juga sesudah dikosongkan, supaya tidak hilang di tengah mengetik.
+  const [adaLangkahLama] = useState(Boolean(block.body));
   // Saran = nama cara yang sudah ditulis di blok Rute acara ini (bukan daftar di kode).
   const saran = [...new Set(semuaBlok.filter((b) => b.type === "route").flatMap((b) => (b.items ?? []).map((i) => i.label?.trim() ?? "")).filter(Boolean))];
   return (
@@ -216,13 +218,13 @@ export function EditorRute({
         ) : null}
       </div>
       {/* Bentuk lama: satu daftar langkah untuk semua cara. Hanya tampil selama masih terisi. */}
-      {block.body ? (
+      {block.body || adaLangkahLama ? (
         <TextArea
           label="Steps for every way"
           optional
           rows={4}
           hint="From the older layout, shown under all ways. Put steps in each way above instead, then empty this field to remove it."
-          value={block.body}
+          value={block.body ?? ""}
           onChange={(event) => ubah({ body: event.target.value })}
         />
       ) : null}
@@ -267,7 +269,11 @@ const tanpaNomor = (teks: string) => teks.replace(/^\s*(\d+[.)]|[-•*])\s+/, ""
  */
 function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; ubah: (patch: Partial<LandingBlockItem>) => void }) {
   const dariBody = (item.body ?? "").split("\n").map(tanpaNomor).filter(Boolean);
-  const langkah: LandingRouteStep[] = item.steps ?? dariBody.map((text) => ({ text }));
+  // Terjemahan per baris menempel ke langkahnya sejak dibaca, jadi ikut saat langkah
+  // disunting, dipindah, atau disisipi. Jumlah baris berbeda: `en.body` dibiarkan utuh.
+  const enBaris = item.steps ? [] : (item.en?.body ?? "").split("\n").map(tanpaNomor).filter(Boolean);
+  const ikutEn = enBaris.length > 0 && enBaris.length === dariBody.length;
+  const langkah: LandingRouteStep[] = item.steps ?? dariBody.map((text, i) => (ikutEn ? { text, en: { text: enBaris[i] } } : { text }));
   // Tanpa langkah sama sekali tetap tampil satu kolom kosong, supaya jelas tempat menulisnya.
   const baris = langkah.length ? langkah : [{ text: "" }];
   const nomor = useRef(0);
@@ -277,14 +283,7 @@ function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; u
   const tulis = (next: LandingRouteStep[], keys: string[]) => {
     setKunci(keys);
     if (item.steps) { ubah({ steps: next }); return; }
-    // Pindah dari `body`: terjemahan per baris ikut bila barisnya masih sepadan.
-    const enBaris = (item.en?.body ?? "").split("\n").map(tanpaNomor).filter(Boolean);
-    const ikutEn = enBaris.length > 0 && enBaris.length === dariBody.length;
-    ubah({
-      steps: next.map((isi, i) => (ikutEn && !isi.en && i < enBaris.length && isi.text === dariBody[i] ? { ...isi, en: { text: enBaris[i] } } : isi)),
-      body: undefined,
-      en: item.en ? { ...item.en, body: undefined } : undefined,
-    });
+    ubah({ steps: next, body: undefined, ...(ikutEn ? { en: { ...item.en, body: undefined } } : {}) });
   };
   const fokus = (key: string) => window.requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-langkah="${id}-${key}"]`)?.focus());
   const sisip = (posisi: number, isi: LandingRouteStep[]) => {
@@ -301,6 +300,8 @@ function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; u
     tulis(next, keys);
   };
   const penuh = baris.length >= LANDING_ROUTE_STEPS_MAX;
+  // Tempelan yang dipotong (lebih dari 12 langkah atau 120 huruf) disebut, bukan hilang diam-diam.
+  const [dipotong, setDipotong] = useState(false);
   return (
     <div className="flex flex-col gap-3">
       <p className="text-body-medium font-medium text-on-surface">Steps</p>
@@ -322,8 +323,11 @@ function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; u
               if (!teks.includes("\n")) return;
               // Beberapa baris sekaligus menjadi beberapa langkah.
               event.preventDefault();
-              const potongan = teks.split(/\r?\n/).map(tanpaNomor).filter(Boolean).map((text) => ({ text: text.slice(0, LANDING_ROUTE_STEP_TEXT_MAX) }));
+              const barisTempel = teks.split(/\r?\n/).map(tanpaNomor).filter(Boolean);
+              const potongan = barisTempel.map((text) => ({ text: text.slice(0, LANDING_ROUTE_STEP_TEXT_MAX) }));
               if (!potongan.length) return;
+              const ruang = LANDING_ROUTE_STEPS_MAX - baris.length + (isi.text?.trim() ? 0 : 1);
+              setDipotong(potongan.length > ruang || barisTempel.some((b) => b.length > LANDING_ROUTE_STEP_TEXT_MAX));
               if (isi.text?.trim()) { sisip(i + 1, potongan); return; }
               const [pertama, ...sisa] = potongan;
               const ganti = baris.map((x, j) => (j === i ? { ...x, text: pertama.text } : x));
@@ -332,9 +336,9 @@ function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; u
               tulis([...ganti.slice(0, i + 1), ...muat, ...ganti.slice(i + 1)], [...kunciBaris.slice(0, i + 1), ...keys, ...kunciBaris.slice(i + 1)]);
             }}
           />
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <ImageUploadField ringkas label={`Photo for step ${i + 1}`} kind="landing" value={isi.image_url ?? null} onChange={(url) => tulis(baris.map((x, j) => (j === i ? { ...x, image_url: url } : x)), kunciBaris)} />
-            <div className="flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-1">
               <IconButton label={`Move step ${i + 1} up`} disabled={i === 0} onClick={() => geser(i, i - 1)}><ArrowUp size={16} /></IconButton>
               <IconButton label={`Move step ${i + 1} down`} disabled={i === baris.length - 1} onClick={() => geser(i, i + 1)}><ArrowDown size={16} /></IconButton>
               <IconButton label={`Remove step ${i + 1}`} disabled={baris.length === 1 && !isi.text && !isi.image_url} onClick={() => tulis(baris.filter((_, j) => j !== i), kunciBaris.filter((_, j) => j !== i))}><Trash size={16} /></IconButton>
@@ -347,6 +351,11 @@ function LangkahCara({ id, item, ubah }: { id: string; item: LandingBlockItem; u
           <Plus size={16} aria-hidden /> Add a step
         </button>
       )}
+      {dipotong ? (
+        <p role="status" className="rounded-md bg-surface-container px-3 py-2 text-body-small text-on-surface">
+          Some pasted text was cut: a way holds up to {LANDING_ROUTE_STEPS_MAX} steps of {LANDING_ROUTE_STEP_TEXT_MAX} characters each.
+        </p>
+      ) : null}
       <p className="text-body-small text-on-surface-variant">Press Enter for the next step, or paste several lines at once. A photo helps at turns, e.g. the lift door. One step without a photo shows as a short note.</p>
     </div>
   );
