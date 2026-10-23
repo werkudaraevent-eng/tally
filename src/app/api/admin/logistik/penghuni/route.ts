@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       const galat = galatRpc(error);
       // Dengan malam, stay hotelnya sudah tersimpan sebelum kamar ditolak:
       // kalimatnya menyebut itu, supaya panitia tahu mereka "Room to follow".
-      const sisaStay = hotelId !== null ? " They still have this hotel for these nights, with the room to follow." : "";
+      const sisaStay = isi.check_in_at ? " They still have this hotel for these nights, with the room to follow." : "";
       if (masuk === 0 && !sisaStay) return galat;
       // Sebagian sudah masuk: kalimatnya menyebut itu, supaya panitia tidak
       // mengulang seluruh pilihan dan mengira semuanya gagal.
