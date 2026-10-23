@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowsOut, Bell, CalendarDots, CalendarPlus, CaretRight, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, User, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretRight, Clock, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, User, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
@@ -1142,9 +1142,38 @@ export function StripOutfitHorizon({ label, isian, href, lihat }: { label: strin
 }
 
 /**
+ * Label waktu kartu outfit: penanda tenang (bukan chip, jadi tanpa garis dan
+ * panah, karena chip M3 berarti bisa diketuk) supaya "kapan dipakai" terbaca
+ * sekilas seperti jam di boarding pass. Diawali jam ("17.30 Gala Dinner", ditulis
+ * server untuk isian baris agenda, atau diketik panitia): ikon jam dan jamnya
+ * tebal; selain itu ikon kalender ("Sepanjang hari", "Setiap hari", "Malam
+ * hari"). Tetap di bawah judul pakaian secara bobot.
+ */
+function LabelWaktuOutfit({ kapan }: { kapan: string }) {
+  const jam = /^(\d{1,2}[.:]\d{2})\s+(.+)$/.exec(kapan.trim());
+  const Ikon = jam ? Clock : CalendarBlank;
+  return (
+    <p className="mb-1 inline-flex min-h-8 items-center gap-1.5 self-start rounded-[8px] bg-[#EEF1F6] py-1 pl-2.5 pr-3 text-[14px] leading-5 [overflow-wrap:anywhere] lg:text-[15px] lg:leading-6">
+      <Ikon size={16} weight="bold" aria-hidden className="shrink-0" />
+      {jam ? (
+        <span>
+          <span className="font-bold tabular-nums">{jam[1]}</span>
+          <span aria-hidden className="mx-1.5" style={{ color: LABEL }}>
+            {SEPARATOR}
+          </span>
+          <span className="font-semibold">{jam[2]}</span>
+        </span>
+      ) : (
+        <span className="font-bold">{kapan}</span>
+      )}
+    </p>
+  );
+}
+
+/**
  * Kartu satu outfit (pola "Attire" Zola, "Tonight's Attire" Royal Caribbean):
- * foto contoh 4:5 bila ada (tanpa kotak kosong bila tidak), waktu sebagai
- * label kalimat biasa, pakaiannya sebagai judul, catatan redup.
+ * foto contoh bila ada (tanpa kotak kosong bila tidak), label waktu, pakaiannya
+ * sebagai judul, catatan redup.
  * `tingkat`: judulnya h3 di bawah judul tanggal (h2); h2 bila kartu langsung di
  * bawah judul halaman (acara tanpa tab Agenda), supaya tidak melompat dari h1 ke h3.
  */
@@ -1156,21 +1185,12 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3, jud
   tingkat?: 2 | 3;
   /** Judul bilah atas penampil foto (label halaman per acara). */
   judulFoto: string;
-  teksFoto: { buka: string; lihat: string; tutup: string };
+  teksFoto: { buka: string; lihat: string; perbesar: string; tutup: string };
 }) {
   const Judul = tingkat === 2 ? "h2" : "h3";
-  // Rancangan yang Mas Hanung setujui: foto kecil 4:5 di samping teks, jadi satu
-  // hari dengan tiga pakaian tetap terbaca sekilas. Layar lebar: satu kartu
-  // per baris dengan foto 320 px, karena fotonya isi utama (keputusan 22 Okt).
-  // Ketuk foto untuk layar penuh beserta keterangannya.
-  const kelas = `${GARIS_KARTU} flex min-w-0 items-start gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5 lg:gap-8 lg:p-6`;
   const teks = (
     <>
-      {kapan ? (
-        <p className="text-[13px] font-semibold leading-5 [overflow-wrap:anywhere] lg:text-[15px] lg:leading-6" style={{ color: LABEL }}>
-          {kapan}
-        </p>
-      ) : null}
+      {kapan ? <LabelWaktuOutfit kapan={kapan} /> : null}
       <Judul className="text-[17px] font-semibold leading-6 [overflow-wrap:anywhere] md:text-[20px] md:leading-7 lg:text-[24px] lg:leading-8">{apa}</Judul>
       {catatan ? (
         <p className="text-[14px] leading-5 [overflow-wrap:anywhere] lg:text-[16px] lg:leading-6" style={{ color: REDUP }}>
@@ -1180,6 +1200,11 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3, jud
     </>
   );
   if (foto) {
+    // Fotonya isi utama (papan dress code penuh teks dan contoh gaya). Ponsel dan
+    // tablet: foto selebar kartu dengan rasio aslinya, teks di bawah (keputusan
+    // 23 Okt; dulu foto 96 px yang terpotong 4:5). Layar lebar: foto 320 px di
+    // kiri (keputusan 22 Okt). Ketuk foto untuk layar penuh beserta keterangannya.
+    const kelas = `${GARIS_KARTU} flex min-w-0 flex-col gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5 lg:flex-row lg:items-start lg:gap-8 lg:p-6`;
     return (
       <KartuFotoOutfit kelas={kelas} warna={TINTA} foto={foto} kapan={kapan} apa={apa} catatan={catatan} judul={judulFoto} teks={teksFoto}>
         {teks}
@@ -1187,7 +1212,7 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3, jud
     );
   }
   return (
-    <article className={kelas} style={{ color: TINTA }}>
+    <article className={`${GARIS_KARTU} flex min-w-0 items-start gap-4 rounded-[20px] bg-white p-4 md:gap-5 md:rounded-[24px] md:p-5 lg:gap-8 lg:p-6`} style={{ color: TINTA }}>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">{teks}</div>
     </article>
   );

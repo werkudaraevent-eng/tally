@@ -113,7 +113,7 @@ import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
 import { bagianOutfitTanggal, labelOutfit, type OutfitEntry } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
-import { outfitTerlihat } from "@/lib/outfit";
+import { jenisOutfit, outfitTerlihat } from "@/lib/outfit";
 import { bacaOutfitSetiapHari, denganSetiapHari, hariOutfitBerandaSetiapHari, hariTanpaAgenda, teksBarisOutfit } from "@/lib/outfit-setiap-hari";
 import { bagianPertama, pilihanPeserta } from "@/lib/sasaran-bagian";
 import { loadSasaranPeserta } from "@/lib/sasaran-bagian-server";
@@ -1205,13 +1205,14 @@ export async function DashboardGathering({
     const kartuHari = outfitTampil(pilihan).map((isian, index) => (
       <KartuOutfitHorizon
         key={index}
-        kapan={isian.when ?? null}
+        // Isian seharian tanpa `when` tetap berlabel, sejajar dengan isian berjam di hari yang sama.
+        kapan={isian.when ?? (jenisOutfit(isian) === "seharian" ? to.allDay : null)}
         apa={isian.what}
         catatan={isian.note ?? null}
         foto={isian.photo_url ?? null}
         tingkat={bagian ? 3 : 2}
         judulFoto={labelOutfitHalaman}
-        teksFoto={{ buka: to.openPhoto(isian.what), lihat: to.viewPhoto, tutup: to.closePhoto }}
+        teksFoto={{ buka: to.openPhoto(isian.what), lihat: to.viewPhoto, perbesar: to.enlarge, tutup: to.closePhoto }}
       />
     ));
     const hariTerpilih = hariO.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));

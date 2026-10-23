@@ -110,7 +110,11 @@ export type PortalUiText = {
       /** Foto contoh: label pembuka layar penuh, teks tombolnya (desktop), dan tombol tutup. */
       openPhoto: (apa: string) => string;
       viewPhoto: string;
+      /** Pil di pojok foto (ponsel dan tablet). */
+      enlarge: string;
       closePhoto: string;
+      /** Label waktu isian seharian (tanpa baris agenda dan tanpa waktu). */
+      allDay: string;
       /** Teks tautan strip di Susunan acara (desktop): "Lihat Dresscode". */
       stripLink: (label: string) => string;
       /** Label baris Setiap hari (Participant area) di depan baris tiap hari: "Setiap hari · Kaos KSO". */
@@ -326,7 +330,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         seeYours: (label, bagian) => `Lihat ${label} ${bagian}`,
         openPhoto: (apa) => `Buka foto ${apa} layar penuh`,
         viewPhoto: "Lihat gambar penuh",
+        enlarge: "Perbesar",
         closePhoto: "Tutup",
+        allDay: "Sepanjang hari",
         stripLink: (label) => `Lihat ${label}`,
         everyDay: "Setiap hari",
         next: "Berikutnya",
@@ -524,7 +530,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         seeYours: (label, bagian) => `See the ${bagian} ${label}`,
         openPhoto: (apa) => `Open the ${apa} photo full screen`,
         viewPhoto: "View full image",
+        enlarge: "Enlarge",
         closePhoto: "Close",
+        allDay: "All day",
         stripLink: (label) => `See ${label}`,
         everyDay: "Every day",
         next: "Next",
