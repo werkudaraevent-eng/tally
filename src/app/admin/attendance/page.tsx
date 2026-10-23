@@ -36,7 +36,7 @@ type Sesi = {
   hadir: number;
   total_scan: number;
   terakhir: string | null;
-  /** Check-in > Sessions > Record luggage. Tidak ada sebelum migrasi 202610230002. */
+  /** Check-in > Sessions > Record luggage. Tidak ada sebelum migrasi 202610230003. */
   records_luggage?: boolean;
   /** Total bagasi sesi ini, hanya bila sesinya mencatat bagasi. */
   bagasi?: { bags: number; people: number; photos: number };

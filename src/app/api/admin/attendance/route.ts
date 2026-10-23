@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   const [sesi, scans] = await Promise.all([
     client
       .from("attendance_sessions")
-      // select *: `records_luggage` baru ada setelah migrasi 202610230002.
+      // select *: `records_luggage` baru ada setelah migrasi 202610230003.
       .select("*")
       .eq("event_id", eventId)
       .order("sort_order", { ascending: true })

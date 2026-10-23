@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   const [sesi, jalur, barang] = await Promise.all([
     client
       .from("attendance_sessions")
-      // select *: `records_luggage` baru ada setelah migrasi 202610230002, dan
+      // select *: `records_luggage` baru ada setelah migrasi 202610230003, dan
       // menyebutnya sebelum itu membuat layar pemindai kehilangan semua sesinya.
       .select("*")
       .eq("event_id", eventId)

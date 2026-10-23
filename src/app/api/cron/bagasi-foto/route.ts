@@ -5,7 +5,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
  * Penghapus foto bagasi: pg_cron memanggilnya sekali sehari lewat pg_net
- * (migrasi 202610230002), hanya bila ada foto dari acara yang selesai lebih
+ * (migrasi 202610230003), hanya bila ada foto dari acara yang selesai lebih
  * dari 30 hari lalu.
  *
  * Foto bagasi bisa memperlihatkan barang pribadi dan kadang orangnya. Setelah

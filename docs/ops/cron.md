@@ -125,7 +125,7 @@ Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
 
 ## Foto bagasi — pg_cron + pg_net (Supabase)
 
-Dijadwalkan lewat migrasi `202610230002_bagasi.sql`:
+Dijadwalkan lewat migrasi `202610230003_bagasi.sql`:
 
 - Job name: `tally-bagasi-foto`
 - Jadwal: sekali sehari pukul 02.23 WIB (`23 19 * * *`, UTC)
