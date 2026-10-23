@@ -20,6 +20,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Checkpoint date and time from Agenda rows, one or more per checkpoint for per-batch dates (approved by Mas 22 Oct): branch `feat/checkpoint-tanggal`, needs migration `202610220001_checkpoint_agenda` run by Mas after review; visible on KSO, merge timing with Mas.
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
+- Outfit card on phone and tablet: full-width uncropped photo, time label as a tonal label, "All day" for untimed entries (approved by Mas 23 Oct): branch `feat/outfit-foto-ponsel`, visible on KSO, merge timing with Mas.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
