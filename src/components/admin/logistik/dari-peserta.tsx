@@ -87,8 +87,11 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
 
   const lewat = ids.length - orang.length;
   const semuaTerhapus = siap && ids.length > 0 && orang.length === 0;
+  // Sekali per pembukaan: daftar yang di-render ulang (mis. muat ulang saat fokus) tidak mengulang toast.
+  const sudahDiberitahu = useRef<AksiLogistik | null>(null);
   useEffect(() => {
-    if (!siap || lewat === 0) return;
+    if (!siap || lewat === 0 || sudahDiberitahu.current === aksi) return;
+    sudahDiberitahu.current = aksi;
     if (orang.length === 0) {
       // Tidak ada yang bisa diubah: jangan buka dialog kosong.
       toast.warning(
@@ -99,7 +102,7 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
       return;
     }
     toast.info(`${plural(lewat, "participant")} skipped`, "Participants deleted at source cannot be placed in hotels or buses.");
-  }, [siap, lewat, orang.length, ids.length, toast, onClose]);
+  }, [siap, lewat, aksi, orang.length, ids.length, toast, onClose]);
 
   const keLogistik = (tab: "kamar" | "bus") => { tutup(); router.push(withEventPrefix(`/admin/logistik?tab=${tab}`, window.location.pathname)); };
   const selesai = (hasil: unknown) => { if (hasil !== null) tutup(); };
