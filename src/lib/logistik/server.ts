@@ -22,7 +22,7 @@ const PESAN_RPC: Record<string, string> = {
   ROOM_NOT_FOUND: "This room no longer exists. Reload the page.",
   HOTEL_NOT_FOUND: "This hotel no longer exists. Reload the page.",
   PARTICIPANT_NOT_FOUND: "A participant was not found or has been deleted at source. Reload the page.",
-  LODGING_DATES_INVALID: "Hotel check-out must be after hotel check-in.",
+  LODGING_DATES_INVALID: "Check-out must be after check-in.",
   ROOM_FULL: "This room is full. Choose another room or raise its capacity.",
   LODGING_GENDER_FIELD_NOT_SET:
     "No gender field chosen yet. Choose one in Room rules, or turn off Same-gender rooms only.",
@@ -161,7 +161,7 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
   if (ids.length === 0) return new Map();
   const db = klien();
   const [inap, angkut] = await Promise.all([
-    db.from("lodging_assignments").select("participant_id,hotel_id,room_id").eq("event_id", eventId).in("participant_id", ids),
+    db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at").eq("event_id", eventId).in("participant_id", ids),
     db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids),
   ]);
   const barisInap = (inap.error ? [] : inap.data ?? []) as BarisInap[];
@@ -190,14 +190,14 @@ export async function logistikAcara(eventId: string): Promise<Map<string, Logist
     return hasil;
   };
   const [barisInap, barisAngkut] = await Promise.all([
-    semua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id").eq("event_id", eventId).order("participant_id").order("room_id").range(dari, dari + 999)),
+    semua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at").eq("event_id", eventId).order("participant_id").order("id").range(dari, dari + 999)),
     semua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("participant_id").order("vehicle_id").range(dari, dari + 999)),
   ]);
   return susunLogistik(eventId, barisInap, barisAngkut, true);
 }
 
-/** `room_id` null = tamu hotel itu, nomor kamar menyusul. */
-type BarisInap = { participant_id: string; hotel_id: number; room_id: number | null };
+/** `room_id` null = tamu hotel itu, nomor kamar menyusul. Satu baris per stay. */
+type BarisInap = { participant_id: string; hotel_id: number; room_id: number | null; check_in_at: string | null };
 
 /** Id per `.in()`: jauh di bawah batas 1000 baris PostgREST dan batas panjang URL. */
 const POTONG_ID = 200;
@@ -245,8 +245,13 @@ async function susunLogistik(
 
   // Tanpa kamar: "Room to follow", dengan nama hotel bila hotelnya lebih dari satu.
   const menyusul = (hotelId: number) => banyakHotel ? `Room to follow · ${namaHotel.get(hotelId) ?? ""}` : "Room to follow";
-  for (const b of barisInap) {
-    hasil.set(b.participant_id, { kamar: b.room_id !== null ? labelKamar.get(b.room_id) ?? null : menyusul(b.hotel_id), bus: null });
+  // Pindah hotel: semua stay berurutan, "1208 · GRAMM → Room to follow · RAY".
+  // Stay tanpa tanggal sendiri lebih dulu, sama dengan urutan portal.
+  const urut = [...barisInap].sort((a, b) => (a.check_in_at ?? "").localeCompare(b.check_in_at ?? "") || a.hotel_id - b.hotel_id);
+  for (const b of urut) {
+    const label = b.room_id !== null ? labelKamar.get(b.room_id) ?? null : menyusul(b.hotel_id);
+    const lama = hasil.get(b.participant_id)?.kamar;
+    hasil.set(b.participant_id, { kamar: lama && label ? `${lama} → ${label}` : lama ?? label, bus: null });
   }
   for (const b of barisAngkut) {
     const lama = hasil.get(b.participant_id) ?? { kamar: null, bus: null };

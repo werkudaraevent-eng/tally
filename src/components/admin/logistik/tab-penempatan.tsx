@@ -3,11 +3,15 @@
 import { Bed, Bus as IkonBus, CaretLeft, CaretRight, MagnifyingGlass, Users, Warning, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { Banner, Button, ChipMenu, Dialog, EmptyState, IconButton, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, StatusChip, EMPTY_VALUE } from "@/components/m3";
+import { labelRentang, stayPerPeserta, tanggalStay, type Stay } from "@/lib/logistik/stay";
 import { kunciGender, type Bus, type Hotel, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
+import { timeZoneOffset } from "@/lib/timezone";
+import { useEventTimeZone } from "@/lib/use-event-timezone";
 import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import { KolomCari, type TabProps } from "./bersama";
+import { BannerAkibat, DialogStays, galatMalam, kalimatAkibat, malamHotel, malamKeIso, PilihMalam } from "./stay";
 
 /**
  * Tab Penempatan: titik mulai Logistik.
@@ -21,6 +25,10 @@ import { KolomCari, type TabProps } from "./bersama";
  * Hotel dulu, kamar menyusul: dialog kamar juga menawarkan "Hotel only, room
  * later" per hotel. Rooming list dari hotel biasanya datang mepet, padahal
  * peserta sudah perlu tahu hotelnya (kartu Kamar, Rute, Agenda per hotel).
+ *
+ * Pindah hotel: peserta boleh punya beberapa stay (GRAMM 5-6, lalu RAY 6-8).
+ * Kolom Stay menampilkan semuanya berurutan dan membuka dialog Stays orang
+ * itu; dialog massal punya pilihan "Only some nights".
  *
  * Tab Kamar dan Bus tetap ada untuk mengatur hotel, kamar, armada, dan
  * pengecualian per agenda; tab ini hanya menempatkan orang. Data orangnya
@@ -42,6 +50,8 @@ const POTONG_LEPAS = 200;
 
 /** Tujuan dialog: kamar tertentu, atau hotel saja (nomor kamar menyusul). */
 type Tujuan = { jenis: "kamar"; kamar: Kamar } | { jenis: "hotel"; hotel: Hotel };
+/** Malam yang dipilih di dialog. Null = All nights (tanggal hotel). */
+type Malam = { check_in_at: string; check_out_at: string } | null;
 
 export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data" | "kirim" | "busy"> & { keTab: (tab: "kamar" | "bus") => void }) {
   const [cari, setCari] = useState("");
@@ -51,17 +61,20 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
   const [pilih, setPilih] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<Dialogs>(null);
   const [halaman, setHalaman] = useState({ kunci: "", nomor: 0 });
+  const [stayDibuka, setStayDibuka] = useState<string | null>(null);
+  const { zone } = useEventTimeZone();
+  const offset = timeZoneOffset(zone);
 
   const kunciField = data.settings.gender_field_key;
   const satuHotel = data.hotels.length <= 1;
 
-  const inapPeserta = useMemo(() => new Map(data.lodging.map((b) => [b.participant_id, b])), [data.lodging]);
+  const hotelById = useMemo(() => new Map(data.hotels.map((hotel) => [hotel.id, hotel])), [data.hotels]);
+  const inapPeserta = useMemo(() => stayPerPeserta(data.lodging, hotelById), [data.lodging, hotelById]);
   const busPeserta = useMemo(
     () => new Map(data.transport.filter((b) => b.trip_id === null && b.vehicle_id !== null).map((b) => [b.participant_id, b.vehicle_id as number])),
     [data.transport],
   );
   const kamarById = useMemo(() => new Map(data.rooms.map((kamar) => [kamar.id, kamar])), [data.rooms]);
-  const hotelById = useMemo(() => new Map(data.hotels.map((hotel) => [hotel.id, hotel])), [data.hotels]);
   const busById = useMemo(() => new Map(data.vehicles.map((bus) => [bus.id, bus])), [data.vehicles]);
 
   const perusahaan = useMemo(() => {
@@ -74,10 +87,11 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
     const kata = cari.trim().toLowerCase();
     return data.participants.filter((orang) => {
       if (kata && !orang.name.toLowerCase().includes(kata) && !(orang.company ?? "").toLowerCase().includes(kata) && orang.qr_code.toLowerCase() !== kata) return false;
-      const inap = inapPeserta.get(orang.id);
-      if (saringKamar[0] === "belum" && inap) return false;
-      if (saringKamar[0] === "menyusul" && !(inap && inap.room_id === null)) return false;
-      if (saringKamar[0] === "sudah" && !(inap && inap.room_id !== null)) return false;
+      const inap = inapPeserta.get(orang.id) ?? [];
+      if (saringKamar[0] === "belum" && inap.length > 0) return false;
+      if (saringKamar[0] === "menyusul" && !inap.some((s) => s.room_id === null)) return false;
+      if (saringKamar[0] === "sudah" && !(inap.length > 0 && inap.every((s) => s.room_id !== null))) return false;
+      if (saringKamar[0] === "pindah" && inap.length < 2) return false;
       if (saringBus[0] === "belum" && busPeserta.has(orang.id)) return false;
       if (saringBus[0] === "sudah" && !busPeserta.has(orang.id)) return false;
       if (saringPerusahaan.length > 0 && !saringPerusahaan.includes(orang.company ?? "")) return false;
@@ -100,7 +114,8 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
   const sebagianDipilih = !semuaHalamanDipilih && barisHalaman.some((orang) => pilih.has(orang.id));
   const semuaTampilDipilih = tampil.length > 0 && tampil.every((orang) => pilih.has(orang.id));
   const belumHotel = data.participants.filter((orang) => !inapPeserta.has(orang.id)).length;
-  const menungguKamar = data.participants.filter((orang) => inapPeserta.get(orang.id)?.room_id === null).length;
+  const menungguKamar = data.participants.filter((orang) => inapPeserta.get(orang.id)?.some((s) => s.room_id === null)).length;
+  const pindahHotel = data.participants.filter((orang) => (inapPeserta.get(orang.id)?.length ?? 0) > 1).length;
   const belumBus = data.participants.filter((orang) => !busPeserta.has(orang.id)).length;
 
   function ubah(id: string, centang: boolean) {
@@ -130,16 +145,19 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
     return true;
   }
 
-  const labelKamar = (id: string) => {
-    const inap = inapPeserta.get(id);
-    if (!inap) return null;
-    const kamar = inap.room_id !== null ? kamarById.get(inap.room_id) : undefined;
-    const hotel = hotelById.get(inap.hotel_id)?.name ?? null;
+  const labelKamar = (stay: Stay, banyak: boolean) => {
+    const kamar = stay.room_id !== null ? kamarById.get(stay.room_id) : undefined;
+    const hotel = hotelById.get(stay.hotel_id);
+    const t = tanggalStay(stay, hotel);
+    // Tanggal hanya bila ada lebih dari satu stay atau stay ini punya malam
+    // sendiri: peserta satu hotel tampil seperti sebelumnya.
+    const malam = banyak || stay.check_in_at !== null || stay.check_out_at !== null ? labelRentang(t.masuk, t.keluar, offset) : null;
     // Tanpa kamar, nama hotel selalu disebut: itulah satu-satunya isinya.
-    if (!kamar) return { nomor: null, hotel };
-    return { nomor: kamar.room_number, hotel: satuHotel ? null : hotel };
+    if (!kamar) return { nomor: null, hotel: hotel?.name ?? null, malam };
+    return { nomor: kamar.room_number, hotel: satuHotel && !banyak ? null : hotel?.name ?? null, malam };
   };
   const adaInap = dipilih.filter((orang) => inapPeserta.has(orang.id));
+  const orangStay = stayDibuka ? data.participants.find((orang) => orang.id === stayDibuka) ?? null : null;
 
   const toolbar = pilih.size > 0 ? (
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
@@ -166,15 +184,16 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
       <KolomCari className="max-w-80" label="Search participants" placeholder="Search name, organisation or QR code" value={cari} onChange={setCari} />
       <ChipMenu
-        label="Room"
+        label="Stay"
         options={[
           { value: "belum", label: "No hotel", count: belumHotel },
           { value: "menyusul", label: "Room to follow", count: menungguKamar },
           { value: "sudah", label: "Has a room" },
+          ...(pindahHotel > 0 ? [{ value: "pindah", label: "Moves hotel", count: pindahHotel }] : []),
         ]}
         selected={saringKamar}
         onChange={setSaringKamar}
-        summary={(pilihan) => pilihan[0]?.label ?? "Room"}
+        summary={(pilihan) => pilihan[0]?.label ?? "Stay"}
       />
       <ChipMenu
         label="Bus"
@@ -233,14 +252,14 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                   <th scope="col" className={th}>Name</th>
                   <th scope="col" className={th}>Organisation</th>
                   {kunciField ? <th scope="col" className={th}>Gender</th> : null}
-                  <th scope="col" className={th}>Room</th>
+                  <th scope="col" className={th}>Stay</th>
                   <th scope="col" className={th}>Bus</th>
                 </tr>
               </thead>
               <tbody>
                 {barisHalaman.map((orang) => {
                   const centang = pilih.has(orang.id);
-                  const kamar = labelKamar(orang.id);
+                  const stays = inapPeserta.get(orang.id) ?? [];
                   const bus = busById.get(busPeserta.get(orang.id) ?? -1);
                   const td = "border-b border-outline-variant px-3 py-2";
                   return (
@@ -271,18 +290,37 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                       </td>
                       <td className={cx(td, "max-w-[220px] truncate text-on-surface-variant")}>{orang.company || EMPTY_VALUE}</td>
                       {kunciField ? <td className={cx(td, "text-on-surface-variant")}>{orang.gender || EMPTY_VALUE}</td> : null}
-                      <td className={cx(td, "whitespace-nowrap")}>
-                        {kamar?.nomor ? (
-                          <>
-                            <span className="tabular-nums text-on-surface">{kamar.nomor}</span>
-                            {kamar.hotel ? <span className="text-on-surface-variant"> · {kamar.hotel}</span> : null}
-                          </>
-                        ) : kamar ? (
-                          <span className="inline-flex items-center gap-2">
-                            <span className="text-on-surface">{kamar.hotel}</span>
-                            <StatusChip dot tone="warning">Room to follow</StatusChip>
-                          </span>
-                        ) : <span className="text-on-surface-variant">{EMPTY_VALUE}</span>}
+                      <td className={cx(td, "whitespace-nowrap py-1")}>
+                        {/* Satu tombol per sel: membuka dialog Stays orang ini
+                            (ubah malam, tambah atau lepas hotel). Baris tetap
+                            mencentang bila diklik di luar tombol ini. */}
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); setStayDibuka(orang.id); }}
+                          className="-mx-2 flex min-h-9 flex-col justify-center rounded-md px-2 py-1 text-left hover:bg-panel-high"
+                          aria-label={`Stays of ${orang.name}`}
+                        >
+                          {stays.length === 0 ? <span className="text-on-surface-variant">{EMPTY_VALUE}</span> : stays.map((stay, i) => {
+                            const kamar = labelKamar(stay, stays.length > 1);
+                            return (
+                              <span key={stay.hotel_id} className="flex items-center gap-2">
+                                {i > 0 ? <span className="text-on-surface-variant" aria-hidden>→</span> : null}
+                                {kamar.nomor ? (
+                                  <span>
+                                    <span className="tabular-nums text-on-surface">{kamar.nomor}</span>
+                                    {kamar.hotel ? <span className="text-on-surface-variant"> · {kamar.hotel}</span> : null}
+                                  </span>
+                                ) : (
+                                  <>
+                                    <span className="text-on-surface">{kamar.hotel}</span>
+                                    <StatusChip dot tone="warning">Room to follow</StatusChip>
+                                  </>
+                                )}
+                                {kamar.malam ? <span className="tabular-nums text-on-surface-variant">{kamar.malam}</span> : null}
+                              </span>
+                            );
+                          })}
+                        </button>
                       </td>
                       <td className={cx(td, "whitespace-nowrap", bus ? "text-on-surface" : "text-on-surface-variant")}>{bus?.code ?? EMPTY_VALUE}</td>
                     </tr>
@@ -319,9 +357,23 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         busy={busy}
         onClose={() => setDialog(null)}
         keTabKamar={() => { setDialog(null); keTab("kamar"); }}
-        simpan={async (tujuan) => selesai(await kirim("/api/admin/logistik/penghuni", "POST", tujuan.jenis === "kamar"
-          ? { room_id: tujuan.kamar.id, participant_ids: dipilih.map((o) => o.id) }
-          : { hotel_id: tujuan.hotel.id, participant_ids: dipilih.map((o) => o.id) }))}
+        stayPeserta={inapPeserta}
+        offset={offset}
+        simpan={async (tujuan, malam) => selesai(await kirim("/api/admin/logistik/penghuni", "POST", tujuan.jenis === "kamar"
+          ? { room_id: tujuan.kamar.id, participant_ids: dipilih.map((o) => o.id), ...(malam ?? {}) }
+          : { hotel_id: tujuan.hotel.id, participant_ids: dipilih.map((o) => o.id), ...(malam ?? {}) }))}
+      />
+
+      <DialogStays
+        key={stayDibuka ?? "tutup"}
+        orang={orangStay}
+        stays={stayDibuka ? inapPeserta.get(stayDibuka) ?? [] : []}
+        hotels={data.hotels}
+        rooms={data.rooms}
+        offset={offset}
+        busy={busy}
+        kirim={kirim}
+        onClose={() => setStayDibuka(null)}
       />
 
       <DialogBus
@@ -339,8 +391,8 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         open={dialog === "lepas-kamar"}
         onClose={() => setDialog(null)}
         dismissible={!busy}
-        title={`Remove ${plural(adaInap.length, "person", "people")} from their hotel?`}
-        description="They no longer see a hotel or room, and their places in rooms become free again. To keep the hotel and only clear the room, use Assign to hotel, then Hotel only."
+        title={`Remove ${plural(adaInap.length, "person", "people")} from their hotels?`}
+        description="Every hotel and room they have is removed, and their places in rooms become free again. To remove just one hotel or change nights, click their Stay instead."
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button>
@@ -404,21 +456,25 @@ function BarisTujuan({ nama, keterangan, sisa, alasan, checked, onPilih, name }:
   );
 }
 
-function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, simpan }: {
+function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, stayPeserta, offset, simpan }: {
   open: boolean;
   orang: LogistikPeserta[];
   data: TabProps["data"];
   busy: boolean;
   onClose: () => void;
   keTabKamar: () => void;
-  simpan: (tujuan: Tujuan) => Promise<boolean>;
+  stayPeserta: Map<string, Stay[]>;
+  offset: string;
+  simpan: (tujuan: Tujuan, malam: Malam) => Promise<boolean>;
 }) {
   const [cari, setCari] = useState("");
   const [semua, setSemua] = useState(false);
   // "h12" = hotel 12 saja, "k301" = kamar id 301.
   const [tujuan, setTujuan] = useState<string | null>(null);
+  const [semuaMalam, setSemuaMalam] = useState(true);
+  const [malam, setMalam] = useState({ masuk: "", keluar: "", diubah: false });
 
-  function tutup() { setCari(""); setSemua(false); setTujuan(null); onClose(); }
+  function tutup() { setCari(""); setSemua(false); setTujuan(null); setSemuaMalam(true); setMalam({ masuk: "", keluar: "", diubah: false }); onClose(); }
 
   const kunciField = data.settings.gender_field_key;
   const wajibSama = data.settings.enforce_same_gender;
@@ -491,6 +547,16 @@ function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, simpan }: {
     return null;
   })();
   const banyakHotel = data.hotels.length > 1;
+
+  // Malam: kolomnya mulai dari tanggal hotel yang dipilih, sampai panitia
+  // mengubahnya sendiri.
+  const hotelTujuan = pilihan ? (pilihan.jenis === "hotel" ? pilihan.hotel : data.hotels.find((h) => h.id === pilihan.kamar.hotel_id)) : undefined;
+  const awalMalam = malam.diubah ? malam : malamHotel(hotelTujuan, offset);
+  const galat = semuaMalam ? null : galatMalam(awalMalam.masuk, awalMalam.keluar);
+  const malamIso: Malam = semuaMalam || galat || !hotelTujuan ? null : malamKeIso(hotelTujuan, awalMalam.masuk, awalMalam.keluar, offset);
+  const akibat = hotelTujuan && (semuaMalam || malamIso)
+    ? kalimatAkibat({ orang, stayPeserta, hotelId: hotelTujuan.id, malam: malamIso, hotelById: new Map(data.hotels.map((h) => [h.id, h])), offset })
+    : [];
   const labelTombol = !pilihan ? "Assign"
     : pilihan.jenis === "hotel" ? `Assign to ${pilihan.hotel.name}`
     : `Assign to ${pilihan.kamar.room_number}`;
@@ -507,7 +573,7 @@ function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, simpan }: {
       actions={
         <>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
-          <Button simpan loading={busy} disabled={!pilihan || Boolean(pilihan.alasan)} onClick={async () => { if (pilihan && await simpan(pilihan)) tutup(); }}>
+          <Button simpan loading={busy} disabled={!pilihan || Boolean(pilihan.alasan) || Boolean(galat)} onClick={async () => { if (pilihan && await simpan(pilihan, malamIso)) tutup(); }}>
             {labelTombol}
           </Button>
         </>
@@ -561,6 +627,17 @@ function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, simpan }: {
               </li>
             ))}
           </ul>
+          <PilihMalam
+            semua={semuaMalam}
+            setSemua={setSemuaMalam}
+            masuk={awalMalam.masuk}
+            keluar={awalMalam.keluar}
+            ubah={(masuk, keluar) => setMalam({ masuk, keluar, diubah: true })}
+            galat={galat}
+            hotel={hotelTujuan}
+            offset={offset}
+          />
+          <BannerAkibat kalimat={akibat} />
         </div>
       )}
     </Dialog>

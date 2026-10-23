@@ -1,3 +1,5 @@
+import type { Stay } from "./stay";
+
 /**
  * Bentuk data halaman Logistik, dipakai bersama route dan halamannya.
  *
@@ -104,8 +106,11 @@ export type LogistikData = {
   participants: LogistikPeserta[];
   hotels: Hotel[];
   rooms: Kamar[];
-  /** `room_id` null = tamu hotel itu, nomor kamar menyusul. */
-  lodging: Array<{ participant_id: string; hotel_id: number; room_id: number | null }>;
+  /**
+   * Stay peserta: `room_id` null = nomor kamar menyusul; tanggal null = ikut
+   * tanggal hotel. Satu peserta boleh punya beberapa stay, satu per hotel.
+   */
+  lodging: Stay[];
   vehicles: Bus[];
   trips: Agenda[];
   /** `trip_id` null = bus bawaan. `vehicle_id` null = "tidak naik bus" di agenda itu. */

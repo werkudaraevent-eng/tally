@@ -1072,24 +1072,38 @@ export async function DashboardGathering({
     const peta = hotel
       ? hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`
       : null;
-    const kartuHotel = kamar ? (
-      <KartuInfoHorizon
-        judul={tv.hotelTitle}
-        Ikon={Bed}
-        nama={hotel?.name?.trim() || null}
-        alamat={hotel?.address?.trim() || null}
-        tautan={peta ? { href: peta, label: labelTautanPeta(peta, lang) } : null}
-        kolom={4}
-        fakta={[
-          { label: tH.room, nilai: kamar.room_number ?? tH.roomPending, besar: kamar.room_number !== null },
-          ...(teman && teman.length > 0 ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", ") }] : []),
-          ...(kamar.floor ? [{ label: tv.floor, nilai: kamar.floor }] : []),
-          ...(kamar.room_type ? [{ label: tv.roomType, nilai: kamar.room_type }] : []),
-          // Tanggal sebagai nilai, jam di bawahnya: kolom ponsel sempit tidak memotong "Kam, 5 Nov · 14.00".
-          ...(kamar.check_in_at ? [{ label: tv.checkIn, nilai: hariHorizon(kamar.check_in_at, zona, lang), catatan: jamHorizon(kamar.check_in_at, zona, lang) }] : []),
-          ...(kamar.check_out_at ? [{ label: tv.checkOut, nilai: hariHorizon(kamar.check_out_at, zona, lang), catatan: jamHorizon(kamar.check_out_at, zona, lang) }] : []),
-        ]}
-      />
+    // Satu kartu per stay, berurutan tanggal. Peserta yang pindah hotel
+    // (GRAMM lalu RAY) melihat kartu kedua berjudul "Pindah hotel · Jum, 6 Nov",
+    // seperti itinerary Booking.com; peserta satu hotel tetap satu kartu.
+    const daftarStay = (logistik?.stays.length ?? 0) > 1 ? logistik?.stays ?? [] : kamar ? [kamar] : [];
+    const kartuHotel = daftarStay.length > 0 ? (
+      <>
+        {daftarStay.map((stay, urut) => {
+          const h = stay.hotel;
+          const petaStay = h.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([h.name, h.address].filter(Boolean).join(", "))}`;
+          const temanStay = stay.roommates;
+          return (
+            <KartuInfoHorizon
+              key={urut}
+              judul={urut > 0 && stay.check_in_at ? tv.moveTitle(hariHorizon(stay.check_in_at, zona, lang)) : tv.hotelTitle}
+              Ikon={Bed}
+              nama={h?.name?.trim() || null}
+              alamat={h?.address?.trim() || null}
+              tautan={{ href: petaStay, label: labelTautanPeta(petaStay, lang) }}
+              kolom={4}
+              fakta={[
+                { label: tH.room, nilai: stay.room_number ?? tH.roomPending, besar: stay.room_number !== null },
+                ...(temanStay && temanStay.length > 0 ? [{ label: tH.roommate(temanStay.length), nilai: temanStay.map((orang) => orang.name).join(", ") }] : []),
+                ...(stay.floor ? [{ label: tv.floor, nilai: stay.floor }] : []),
+                ...(stay.room_type ? [{ label: tv.roomType, nilai: stay.room_type }] : []),
+                // Tanggal sebagai nilai, jam di bawahnya: kolom ponsel sempit tidak memotong "Kam, 5 Nov · 14.00".
+                ...(stay.check_in_at ? [{ label: tv.checkIn, nilai: hariHorizon(stay.check_in_at, zona, lang), catatan: jamHorizon(stay.check_in_at, zona, lang) }] : []),
+                ...(stay.check_out_at ? [{ label: tv.checkOut, nilai: hariHorizon(stay.check_out_at, zona, lang), catatan: jamHorizon(stay.check_out_at, zona, lang) }] : []),
+              ]}
+            />
+          );
+        })}
+      </>
     ) : null;
     const busUtama = logistik?.transport?.default_bus ?? namaBus;
     // Plat dan kru hanya ada bila panitia menyalakannya di Logistics > Buses.

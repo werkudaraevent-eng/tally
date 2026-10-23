@@ -1483,6 +1483,7 @@ export default function RundownAdminPage() {
           info={syaratInfo}
           value={selectedItem.id in syaratDrafts ? syaratDrafts[selectedItem.id] : syaratSaved[selectedItem.id] ?? null}
           tersimpan={syaratSaved[selectedItem.id] ?? null}
+          tanggal={sections.find((row) => row.id === selectedItem.section_id)?.event_date ?? null}
           onChange={(next) => setSyaratDrafts((kini) => ({ ...kini, [selectedItem.id]: next }))}
         />
       ) : null}
@@ -1514,6 +1515,7 @@ export default function RundownAdminPage() {
         <KelompokSiapaMelihat
           info={syaratInfo}
           tombol="Add item"
+          tanggal={active.event_date ?? null}
           value={syaratBaru[active.id] ?? null}
           onChange={(next) => setSyaratBaru((kini) => ({ ...kini, [active.id]: next }))}
         />

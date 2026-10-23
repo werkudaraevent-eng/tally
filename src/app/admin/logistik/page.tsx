@@ -158,8 +158,9 @@ export default function LogistikPage() {
   const aktif = new Set(data?.participants.map((orang) => orang.id));
   const inapAktif = data ? data.lodging.filter((b) => aktif.has(b.participant_id)) : [];
   const tanpaHotel = data ? data.participants.length - new Set(inapAktif.map((b) => b.participant_id)).size : 0;
-  // Hotel sudah, nomor kamar menyusul.
-  const menungguKamar = inapAktif.filter((b) => b.room_id === null).length;
+  // Hotel sudah, nomor kamar menyusul (orang, bukan stay: yang pindah hotel
+  // bisa menunggu kamar di dua hotel).
+  const menungguKamar = new Set(inapAktif.filter((b) => b.room_id === null).map((b) => b.participant_id)).size;
   const tanpaBus = data
     ? data.participants.length - new Set(data.transport.filter((b) => b.trip_id === null && b.vehicle_id !== null).map((b) => b.participant_id).filter((id) => aktif.has(id))).size
     : 0;

@@ -67,6 +67,8 @@ export type PortalUiText = {
       empty: string;
       backToMenu: string;
       hotelTitle: string;
+      /** Judul kartu hotel berikutnya bagi peserta yang pindah hotel, mis. "Pindah hotel · Jum, 6 Nov". */
+      moveTitle: (hari: string) => string;
       floor: string;
       roomType: string;
       checkIn: string;
@@ -319,6 +321,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         empty: "Info perjalanan belum dibagikan panitia.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & kamar",
+        moveTitle: (hari) => `Pindah hotel · ${hari}`,
         floor: "Lantai",
         roomType: "Tipe kamar",
         checkIn: "Check-in",
@@ -533,6 +536,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         empty: "The organisers haven't shared travel details yet.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & room",
+        moveTitle: (hari) => `Moving hotels · ${hari}`,
         floor: "Floor",
         roomType: "Room type",
         checkIn: "Check-in",
