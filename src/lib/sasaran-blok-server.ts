@@ -66,6 +66,8 @@ export async function muatStayPeserta(eventId: string, participantId: string): P
     const baris = (tempat.data ?? []) as Array<{ hotel_id: number; check_in_at: string | null; check_out_at: string | null }>;
     if (tempat.error || baris.length === 0) return [];
     const hotel = await db.from("lodging_hotels" as never).select("id,check_in_at,check_out_at").eq("event_id", eventId).in("id", baris.map((b) => b.hotel_id));
+    // Tanpa tanggal hotel, stay tanpa tanggal sendiri cocok setiap hari: gagal tertutup.
+    if (hotel.error) return [];
     const hotelById = new Map(((hotel.data ?? []) as Array<{ id: number; check_in_at: string | null; check_out_at: string | null }>).map((h) => [Number(h.id), h]));
     return baris.map((b) => {
       const t = tanggalStay({ hotel_id: Number(b.hotel_id), check_in_at: b.check_in_at, check_out_at: b.check_out_at }, hotelById.get(Number(b.hotel_id)));

@@ -94,12 +94,16 @@ export async function POST(request: Request) {
     } as never);
     if (error) {
       const galat = galatRpc(error);
-      if (masuk === 0) return galat;
+      // Dengan malam, stay hotelnya sudah tersimpan sebelum kamar ditolak:
+      // kalimatnya menyebut itu, supaya panitia tahu mereka "Room to follow".
+      const sisaStay = hotelId !== null ? " They still have this hotel for these nights, with the room to follow." : "";
+      if (masuk === 0 && !sisaStay) return galat;
       // Sebagian sudah masuk: kalimatnya menyebut itu, supaya panitia tidak
       // mengulang seluruh pilihan dan mengira semuanya gagal.
       const body = await galat.json();
       const alasan = body?.error?.details?.message ?? "The rest could not be added.";
-      return apiError("VALIDATION_ERROR", 422, { message: `${plural(masuk, "person", "people")} added to the room. The rest were rejected: ${alasan}` });
+      const awal = masuk === 0 ? `Not added to the room: ${alasan}` : `${plural(masuk, "person", "people")} added to the room. The rest were rejected: ${alasan}`;
+      return apiError("VALIDATION_ERROR", 422, { message: `${awal}${sisaStay}` });
     }
     masuk += 1;
   }

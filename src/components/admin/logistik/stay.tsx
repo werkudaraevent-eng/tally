@@ -70,7 +70,8 @@ export function kalimatAkibat({ orang, stayPeserta, hotelId, malam, hotelById, o
   const hitung = new Map<string, { kalimat: string; n: number }>();
   for (const o of orang) {
     for (const p of potonganStay(stayPeserta.get(o.id) ?? [], hotelId, malam.check_in_at, malam.check_out_at, hotelById, offset)) {
-      const kalimat = p.jenis === "akhir" ? `stay at ${nama(p.hotel_id)} will end on ${labelTanggal(p.tanggal)}`
+      const kalimat = p.jenis === "akhir"
+        ? `stay at ${nama(p.hotel_id)} will end on ${labelTanggal(p.tanggal)}${p.sisaHilang ? `. It does not continue after ${labelTanggal(p.sisaHilang)}; add ${nama(p.hotel_id)} again for those nights` : ""}`
         : p.jenis === "awal" ? `stay at ${nama(p.hotel_id)} will start on ${labelTanggal(p.tanggal)}`
         : `stay at ${nama(p.hotel_id)} will be removed, because it falls inside these nights`;
       const lama = hitung.get(kalimat);
