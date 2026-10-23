@@ -125,15 +125,18 @@ Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
 
 ## Foto bagasi — pg_cron + pg_net (Supabase)
 
-Dijadwalkan lewat migrasi `202610230003_bagasi.sql`:
+Dijadwalkan lewat migrasi `202610230003_bagasi.sql`, diganti oleh
+`202610230004_bagasi_rapi.sql`:
 
 - Job name: `tally-bagasi-foto`
 - Jadwal: sekali sehari pukul 02.23 WIB (`23 19 * * *`, UTC)
-- Perintah: bila ada foto bagasi dari acara yang hari terakhirnya
-  (`end_date`, atau `event_date` bila kosong) lebih dari 30 hari lalu, memanggil
-  `POST <tally_site_url>/api/cron/bagasi-foto` dengan rahasia Vault yang sama
-  dengan `tally-pesan`. Route menghapus berkasnya dari bucket privat
-  `luggage-photos` (maks 500 per panggilan) lalu mengosongkan `photo_path`.
+- Perintah: bila bucket privat `luggage-photos` masih menyimpan berkas di folder
+  acara (`<event_id>/`) yang hari terakhirnya (`end_date`, atau `event_date`
+  bila kosong) lebih dari 30 hari lalu, atau yang acaranya sudah dihapus,
+  memanggil `POST <tally_site_url>/api/cron/bagasi-foto` dengan rahasia Vault
+  yang sama dengan `tally-pesan`. Route mengosongkan folder itu (maks 500 berkas
+  per panggilan, sisanya besok) lalu mengosongkan `photo_path` baris yang
+  menunjuknya. Yang dibaca bucket, bukan tabel, jadi berkas yatim ikut terhapus.
   Jumlah bagasi tetap disimpan. Acara tanpa tanggal tidak disentuh.
 
 Tidak butuh env baru: memakai `CRON_SECRET` yang sudah ada.

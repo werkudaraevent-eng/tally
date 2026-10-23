@@ -1,6 +1,7 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { BUCKET_BAGASI, catatanBagasiStaf, sesiBagasi } from "@/lib/bagasi/server";
+import { BUCKET_BAGASI, catatanBagasiStaf, pathFotoBagasi, sesiBagasi } from "@/lib/bagasi/server";
+import { jenisGambarDariIsi } from "@/lib/jenis-gambar";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -12,8 +13,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  *
  * Penjaga yang sama dengan unggahan formulir pendaftaran: bucket privat, path
  * dibuat server (nama berkas dari ponsel tidak dipakai), daftar tipe tertutup
- * (JPEG dan WebP saja; ponsel mengecilkan ke JPEG sebelum mengirim), dan batas
- * ukuran. Foto pengganti menghapus foto lama setelah barisnya menunjuk yang baru.
+ * yang dibaca dari ISI berkas, bukan labelnya (JPEG dan WebP saja; ponsel
+ * mengecilkan ke JPEG sebelum mengirim), dan batas ukuran. Foto pengganti menghapus foto lama setelah barisnya menunjuk yang baru.
  */
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -34,9 +35,11 @@ export async function POST(request: Request) {
 
   if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { file: "No photo was sent." });
   if (!Number.isInteger(sessionId) || sessionId <= 0 || !UUID.test(participantId)) return apiError("VALIDATION_ERROR", 422);
-  const ext = ALLOWED.get(file.type);
-  if (!ext) return apiError("VALIDATION_ERROR", 422, { file: "The photo must be a JPEG or WebP image." });
   if (file.size === 0 || file.size > MAX_BYTES) return apiError("VALIDATION_ERROR", 422, { file: "The photo is larger than 2 MB." });
+  const isi = Buffer.from(await file.arrayBuffer());
+  const jenis = jenisGambarDariIsi(isi.subarray(0, 12));
+  const ext = jenis ? ALLOWED.get(jenis) : undefined;
+  if (!jenis || !ext) return apiError("VALIDATION_ERROR", 422, { file: "The photo must be a JPEG or WebP image." });
 
   const eventId = auth.scope.event.id;
   if (!(await sesiBagasi(eventId, sessionId))) {
@@ -55,10 +58,10 @@ export async function POST(request: Request) {
   if (!baris) return apiError("VALIDATION_ERROR", 422, { message: "Save the number of bags first." });
 
   const lama = (baris as { id: number; photo_path: string | null }).photo_path;
-  const path = `${eventId}/${sessionId}/${participantId.toLowerCase()}/${crypto.randomUUID()}.${ext}`;
+  const path = pathFotoBagasi(eventId, sessionId, participantId, ext);
   const { error: galatUnggah } = await db.storage
     .from(BUCKET_BAGASI)
-    .upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: false });
+    .upload(path, isi, { contentType: jenis, upsert: false });
   if (galatUnggah) return apiError("INTERNAL_ERROR", 500);
 
   const { error } = await db

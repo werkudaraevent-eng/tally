@@ -22,6 +22,16 @@ export const UMUR_TAUTAN_PESERTA = 3600;
 /** Batas jumlah, sama dengan CHECK di database. */
 export const BAGASI_MAKS = 30;
 
+/**
+ * Path foto di bucket: rata per acara, supaya penghapus foto cukup membaca satu
+ * folder per acara (migrasi 202610230004). Nama berkas membawa sesi dan
+ * peserta untuk penelusuran manual; baris `luggage_drops` tetap sumber
+ * kebenarannya.
+ */
+export function pathFotoBagasi(eventId: string, sessionId: number, participantId: string, ext: string) {
+  return `${eventId}/${sessionId}-${participantId.toLowerCase()}-${crypto.randomUUID()}.${ext}`;
+}
+
 /** Catatan bagasi seperti yang dikirim ke layar pemindai dan portal. */
 export type CatatanBagasi = {
   session_id: number;
