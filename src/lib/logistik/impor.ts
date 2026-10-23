@@ -23,7 +23,7 @@ export type BarisRencana = {
   baris: number;
   nama: string;
   kode: string | null;
-  /** "1208" atau "1208 · Mulia" untuk kamar, "Bus 3" untuk bus. */
+  /** "1208", "1208 · Mulia", atau "Mulia · room to follow" untuk kamar, "Bus 3" untuk bus. */
   tujuan: string;
   status: StatusBaris;
   alasan: string | null;
@@ -42,9 +42,10 @@ export type Rencana = {
   busBaru: string[];
   /**
    * Yang akan ditulis, dikelompokkan per tujuan. Kunci kamar memakai nama
-   * hotel dan nomor, bukan id, karena kamar baru belum punya id.
+   * hotel dan nomor, bukan id, karena kamar baru belum punya id. Impor kamar:
+   * `tujuan` null = hotel saja, nomor kamar menyusul.
    */
-  penempatan: Array<{ hotel: string | null; tujuan: string; participant_ids: string[] }>;
+  penempatan: Array<{ hotel: string | null; tujuan: string | null; participant_ids: string[] }>;
   /** Hanya impor kereta: tiket yang akan ditulis (baru atau diperbarui), satu per orang per arah. */
   tiket: TiketImpor[];
 };
@@ -56,7 +57,8 @@ export type KeadaanAcara = {
   peserta: Array<{ id: string; name: string; qr_code: string; gender: string | null }>;
   hotels: Array<{ id: number; name: string }>;
   rooms: Array<{ id: number; hotel_id: number; room_number: string; capacity: number }>;
-  lodging: Array<{ participant_id: string; room_id: number }>;
+  /** `room_id` null = tamu hotel itu, nomor kamar menyusul. */
+  lodging: Array<{ participant_id: string; hotel_id: number; room_id: number | null }>;
   settings: { gender_field_key: string | null; enforce_same_gender: boolean };
   vehicles: Array<{ id: number; code: string; capacity: number | null }>;
   /** Bus bawaan saja (trip_id null, vehicle_id terisi). */
@@ -95,6 +97,8 @@ export const TEMPLAT: Record<JenisImpor, { judul: string[]; contoh: string[][] }
       ["Sample Hotel", "1208", "Twin", "2", "", "Budi Santoso"],
       ["Sample Hotel", "1208", "Twin", "2", "", "Andi Pratama"],
       ["Sample Hotel", "1209", "Triple", "3", "", "Siti Rahayu"],
+      // Nomor kamar kosong: hotel saja, kamar menyusul.
+      ["Sample Hotel", "", "", "", "", "Dewi Lestari"],
     ],
   },
   bus: {
@@ -161,16 +165,21 @@ function kosong(jenis: JenisImpor, galat: string): Rencana {
 
 export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
   const judul = bacaJudul(sel);
-  if (!judul || judul.kolom.kamar === undefined) {
-    return kosong("kamar", "Room column not found. The header row must include Room, then Name or QR code. Download the template for an example.");
+  // Room boleh tidak ada atau kosong: baris tanpa nomor kamar menempatkan
+  // orangnya di hotel saja, dan rooming list yang datang belakangan mengisi
+  // kamarnya. Tanpa Room dan tanpa Hotel, berkas tidak menyebut tempat apa pun.
+  if (!judul || (judul.kolom.kamar === undefined && judul.kolom.hotel === undefined)) {
+    return kosong("kamar", "Hotel or Room column not found. The header row must include Hotel and/or Room, then Name or QR code. Download the template for an example.");
   }
   const { kolom, mulai } = judul;
   const isi = sel.slice(mulai);
   if (isi.length > BATAS_BARIS) return kosong("kamar", `You can import at most ${BATAS_BARIS.toLocaleString("en-GB")} rows at a time.`);
 
   const { gender_field_key: fieldGender, enforce_same_gender: wajibSama } = acara.settings;
-  if (wajibSama && !fieldGender) {
-    return kosong("kamar", "Room rules are incomplete. Choose a gender field on the Rooms tab, or allow mixed rooms, then import again.");
+  // Aturan kamar hanya menolak berkas yang memang menyebut nomor kamar.
+  const adaNomorKamar = kolom.kamar !== undefined && isi.some((b) => rapi(b[kolom.kamar!]));
+  if (wajibSama && !fieldGender && adaNomorKamar) {
+    return kosong("kamar", "Room rules are incomplete. Choose a gender field on the Rooms tab, or allow mixed rooms, then import again. Rows without a room number can still be imported on their own.");
   }
 
   // Tanpa kolom Hotel, berkas hanya jelas bila acaranya punya tepat satu hotel.
@@ -187,11 +196,16 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
   const kamarById = new Map(acara.rooms.map((kamar) => [kamar.id, kamar]));
   const hotelById = new Map(acara.hotels.map((hotel) => [hotel.id, hotel]));
   const orangById = new Map(acara.peserta.map((orang) => [orang.id, orang]));
-  const kamarSekarang = new Map(acara.lodging.filter((b) => orangById.has(b.participant_id)).map((b) => [b.participant_id, b.room_id]));
+  const inapSekarang = new Map(acara.lodging.filter((b) => orangById.has(b.participant_id)).map((b) => [b.participant_id, b]));
+  const kamarSekarang = new Map([...inapSekarang].flatMap(([pid, b]) => (b.room_id !== null ? [[pid, b.room_id] as const] : [])));
   const cocokkan = buatPencocok(acara.peserta);
 
   type Kelompok = { hotel: string; nomor: string; tipe: string | null; kapasitas: number | null; ada: { id: number; capacity: number } | null; orang: BarisRencana[] };
   const kelompok = new Map<string, Kelompok>();
+  // Hotel saja: nama hotel (seperti di berkas, atau nama yang sudah ada) > baris.
+  const hotelSaja = new Map<string, { hotel: string; orang: BarisRencana[] }>();
+  // Baris hotel saja untuk orang yang sudah di hotel itu: kamarnya tetap.
+  const tetapDiTempat = new Set<string>();
   const baris: BarisRencana[] = [];
   const sudah = new Map<string, number>();
   const banyakHotel = kolom.hotel !== undefined && new Set(isi.map((b) => kunci(b[kolom.hotel!])).filter(Boolean)).size > 1;
@@ -199,17 +213,50 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
   isi.forEach((sel1, i) => {
     const nomorBaris = mulai + i + 1;
     const hotel = hotelTetap ?? rapi(sel1[kolom.hotel!]);
-    const nomor = rapi(sel1[kolom.kamar!]).slice(0, 40);
+    const nomor = kolom.kamar !== undefined ? rapi(sel1[kolom.kamar]).slice(0, 40) : "";
     const kode = kolom.kode !== undefined ? rapi(sel1[kolom.kode]) : "";
     const nama = kolom.nama !== undefined ? rapi(sel1[kolom.nama]) : "";
     if (!hotel && !nomor && !kode && !nama) return;
     const adaOrang = Boolean(kode || nama);
-    const tujuan = nomor ? (banyakHotel ? `${nomor} · ${hotel}` : nomor) : "";
+    const tujuan = nomor ? (banyakHotel ? `${nomor} · ${hotel}` : nomor) : hotel ? `${hotel} · room to follow` : "";
     const tolak = (alasan: string) => { if (adaOrang) baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan, status: "tolak", alasan, participant_id: null }); };
-    if (!nomor) return tolak("Room number is empty");
-    if (!hotel) return tolak("Hotel name is empty");
+    if (!hotel) return tolak(nomor ? "Hotel name is empty" : "Hotel and room are empty");
 
     const hotelAda = hotelPerNama.get(kunci(hotel));
+    if (!nomor) {
+      // Hotel saja, nomor kamar menyusul.
+      if (!adaOrang) return;
+      const hasil = cocokkan(kode, nama);
+      if ("alasan" in hasil) return tolak(hasil.alasan);
+      const pertama = sudah.get(hasil.id);
+      if (pertama !== undefined) return tolak(`Same person already on row ${pertama}`);
+      sudah.set(hasil.id, nomorBaris);
+      const lama = inapSekarang.get(hasil.id);
+      const kamarLama = lama?.room_id != null ? kamarById.get(lama.room_id) : undefined;
+      const hotelSama = Boolean(lama && hotelAda && lama.hotel_id === hotelAda.id);
+      // Sudah di hotel ini (berkamar atau belum): tidak diubah. Berkas tanpa
+      // nomor kamar tidak pernah mengosongkan kamar yang sudah diatur.
+      const baru: BarisRencana = {
+        baris: nomorBaris,
+        nama: orangById.get(hasil.id)!.name,
+        kode: kode || null,
+        tujuan,
+        status: hotelSama ? "tetap" : lama ? "pindah" : "masuk",
+        alasan: hotelSama
+          ? kamarLama ? `Already in room ${kamarLama.room_number} at this hotel` : "Already at this hotel"
+          : lama ? `Moving from ${kamarLama ? `${kamarLama.room_number} · ` : ""}${hotelById.get(lama.hotel_id)?.name ?? "another hotel"}`
+          : null,
+        participant_id: hasil.id,
+      };
+      baris.push(baru);
+      if (hotelSama) tetapDiTempat.add(hasil.id);
+      const kunciHotel = kunci(hotel);
+      const grup = hotelSaja.get(kunciHotel) ?? { hotel: hotelAda?.name ?? hotel, orang: [] };
+      grup.orang.push(baru);
+      hotelSaja.set(kunciHotel, grup);
+      return;
+    }
+
     const kunciKamar = `${kunci(hotel)}\u0000${kunci(nomor)}`;
     let grup = kelompok.get(kunciKamar);
     if (!grup) {
@@ -231,6 +278,7 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
     const orang = orangById.get(hasil.id)!;
     const lama = kamarSekarang.get(hasil.id);
     const kamarLama = lama !== undefined ? kamarById.get(lama) : undefined;
+    const menunggu = inapSekarang.get(hasil.id);
     const tetap = grup.ada !== null && lama === grup.ada.id;
     const baru: BarisRencana = {
       baris: nomorBaris,
@@ -238,7 +286,10 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
       kode: kode || null,
       tujuan,
       status: tetap ? "tetap" : kamarLama ? "pindah" : "masuk",
-      alasan: tetap ? "Already in this room" : kamarLama ? `Moving from ${kamarLama.room_number}${banyakHotel ? ` · ${hotelById.get(kamarLama.hotel_id)?.name ?? ""}` : ""}` : null,
+      alasan: tetap ? "Already in this room"
+        : kamarLama ? `Moving from ${kamarLama.room_number}${banyakHotel ? ` · ${hotelById.get(kamarLama.hotel_id)?.name ?? ""}` : ""}`
+        : menunggu ? `Was waiting for a room${hotelAda && menunggu.hotel_id === hotelAda.id ? "" : ` at ${hotelById.get(menunggu.hotel_id)?.name ?? "another hotel"}`}`
+        : null,
       participant_id: hasil.id,
     };
     baris.push(baru);
@@ -247,7 +298,7 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
 
   // Isi akhir tiap kamar yang SUDAH ada: penghuni yang tidak disebut di berkas
   // tetap tinggal, kecuali berkas memindahkannya ke kamar lain.
-  const pindahKeLain = new Set(baris.filter((b) => b.participant_id && b.status !== "tolak").map((b) => b.participant_id!));
+  const pindahKeLain = new Set(baris.filter((b) => b.participant_id && b.status !== "tolak" && !tetapDiTempat.has(b.participant_id)).map((b) => b.participant_id!));
   const penghuniTinggal = new Map<number, string[]>();
   for (const [pid, roomId] of kamarSekarang) {
     if (pindahKeLain.has(pid)) continue;
@@ -255,9 +306,17 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
   }
   const genderDari = (pid: string) => kunci(orangById.get(pid)?.gender);
 
-  const hotelBaru = new Set<string>();
+  // Per kunci nama: "GRAMM" dan "Gramm" di dua baris adalah satu hotel baru.
+  const hotelBaru = new Map<string, string>();
   const kamarBaru: KamarBaru[] = [];
   const penempatan: Rencana["penempatan"] = [];
+  // Hotel saja lebih dulu: orang yang pindah dari kamar ke "menyusul"
+  // membebaskan tempatnya sebelum kamar diisi.
+  for (const grup of hotelSaja.values()) {
+    if (!hotelPerNama.has(kunci(grup.hotel)) && !hotelBaru.has(kunci(grup.hotel))) hotelBaru.set(kunci(grup.hotel), grup.hotel);
+    const masuk = grup.orang.filter((b) => b.status !== "tetap").map((b) => b.participant_id!);
+    if (masuk.length > 0) penempatan.push({ hotel: grup.hotel, tujuan: null, participant_ids: masuk });
+  }
   for (const grup of kelompok.values()) {
     const tinggal = grup.ada ? penghuniTinggal.get(grup.ada.id) ?? [] : [];
     const tetap = grup.orang.filter((b) => b.status === "tetap");
@@ -284,14 +343,14 @@ export function rencanaKamar(sel: string[][], acara: KeadaanAcara): Rencana {
     }
 
     if (!grup.ada) {
-      if (!hotelPerNama.has(kunci(grup.hotel))) hotelBaru.add(grup.hotel);
+      if (!hotelPerNama.has(kunci(grup.hotel)) && !hotelBaru.has(kunci(grup.hotel))) hotelBaru.set(kunci(grup.hotel), grup.hotel);
       kamarBaru.push({ hotel: grup.hotel, nomor: grup.nomor, tipe: grup.tipe, kapasitas });
     }
     if (masuk.length > 0) penempatan.push({ hotel: grup.hotel, tujuan: grup.nomor, participant_ids: masuk });
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hotelBaru], kamarBaru, busBaru: [], penempatan, tiket: [] };
+  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hotelBaru.values()], kamarBaru, busBaru: [], penempatan, tiket: [] };
 }
 
 /* -------------------------------------------------------------------- Bus */

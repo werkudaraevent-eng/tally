@@ -12,7 +12,7 @@ const acara: KeadaanAcara = {
   ],
   hotels: [{ id: 1, name: "Mulia" }],
   rooms: [{ id: 10, hotel_id: 1, room_number: "1208", capacity: 2 }],
-  lodging: [{ participant_id: "c", room_id: 10 }],
+  lodging: [{ participant_id: "c", hotel_id: 1, room_id: 10 }],
   settings: { gender_field_key: "jk", enforce_same_gender: true },
   vehicles: [{ id: 5, code: "Bus 1", capacity: 1 }],
   busBawaan: [],
@@ -52,10 +52,49 @@ assert.equal(campur.baris[0].alasan, "Gender differs from the occupants of this 
 const tukar = rencanaKamar([["Kamar", "Nama"], ["1208", "Andi Pratama"], ["1208", "Budi Santoso"], ["1209", "Citra Lestari"]], acara);
 assert.deepEqual(tukar.baris.map((b) => b.status), ["masuk", "masuk", "pindah"]);
 
-// Tanpa kolom Kamar.
-assert.match(rencanaKamar([["Nama"], ["Andi"]], acara).galat ?? "", /Room column/);
-// Aturan belum lengkap.
-assert.match(rencanaKamar([["Kamar", "Nama"]], { ...acara, settings: { gender_field_key: null, enforce_same_gender: true } }).galat ?? "", /Room rules/);
+// Tanpa kolom Kamar dan Hotel.
+assert.match(rencanaKamar([["Nama"], ["Andi"]], acara).galat ?? "", /Hotel or Room column/);
+// Aturan belum lengkap: hanya menolak berkas yang menyebut nomor kamar.
+const tanpaAturan = { ...acara, settings: { gender_field_key: null, enforce_same_gender: true } };
+assert.match(rencanaKamar([["Kamar", "Nama"], ["1208", "Andi Pratama"]], tanpaAturan).galat ?? "", /Room rules/);
+assert.equal(rencanaKamar([["Hotel", "Kamar", "Nama"], ["Mulia", "", "Andi Pratama"]], tanpaAturan).galat, null);
+
+// Hotel saja, nomor kamar menyusul: kolom Room kosong atau tidak ada.
+const hotelSaja = rencanaKamar([
+  ["Hotel", "Room", "QR code", "Name"],
+  ["Mulia", "", "Q-1", ""],
+  ["Seruni Baru", "", "", "Budi Santoso"],
+  ["mulia", "", "", "Citra Lestari"],
+  ["", "", "Q-4", ""],
+  ["Mulia", "", "Q-1", ""],
+], acara);
+assert.equal(hotelSaja.galat, null);
+assert.deepEqual(hotelSaja.baris.map((b) => `${b.status}:${b.tujuan}:${b.alasan ?? ""}`), [
+  "masuk:Mulia · room to follow:",
+  "masuk:Seruni Baru · room to follow:",
+  // Sudah di kamar 1208 hotel ini: kamarnya tidak dikosongkan.
+  "tetap:mulia · room to follow:Already in room 1208 at this hotel",
+  "tolak::Hotel and room are empty",
+  "tolak:Mulia · room to follow:Same person already on row 2",
+]);
+assert.deepEqual(hotelSaja.hotelBaru, ["Seruni Baru"]);
+assert.deepEqual(hotelSaja.kamarBaru, []);
+assert.deepEqual(hotelSaja.penempatan, [
+  { hotel: "Mulia", tujuan: null, participant_ids: ["a"] },
+  { hotel: "Seruni Baru", tujuan: null, participant_ids: ["b"] },
+]);
+// Tanpa kolom Room sama sekali, satu hotel di acara: kolom Hotel tetap wajib
+// bila berkas tidak menyebut kamar (tanpa keduanya tidak ada tempat).
+assert.equal(rencanaKamar([["Hotel", "Name"], ["Mulia", "Andi Pratama"]], acara).baris[0]?.status, "masuk");
+
+// Rooming list belakangan: tamu yang menunggu kamar diberi kamar, dan tempat
+// Citra (yang dipindah ke "menyusul" di berkas yang sama) bisa dipakai.
+const menunggu: typeof acara = { ...acara, lodging: [{ participant_id: "c", hotel_id: 1, room_id: 10 }, { participant_id: "a", hotel_id: 1, room_id: null }] };
+const rooming = rencanaKamar([["Hotel", "Room", "Name"], ["Mulia", "1301", "Andi Pratama"]], menunggu);
+assert.equal(rooming.baris[0]?.status, "masuk");
+assert.equal(rooming.baris[0]?.alasan, "Was waiting for a room");
+const keMenyusul = rencanaKamar([["Hotel", "Room", "Name"], ["Seruni", "", "Citra Lestari"], ["Mulia", "1208", "Dewi"]], { ...menunggu, settings: { gender_field_key: "jk", enforce_same_gender: false }, rooms: [{ id: 10, hotel_id: 1, room_number: "1208", capacity: 1 }] });
+assert.deepEqual(keMenyusul.baris.map((b) => `${b.status}:${b.alasan ?? ""}`), ["pindah:Moving from 1208 · Mulia", "masuk:"]);
 // Dua hotel tanpa kolom Hotel.
 assert.match(rencanaKamar([["Kamar", "Nama"]], { ...acara, hotels: [...acara.hotels, { id: 2, name: "Seruni" }] }).galat ?? "", /more than one hotel/);
 

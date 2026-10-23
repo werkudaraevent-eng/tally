@@ -12,12 +12,13 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export type LogistikKamar = {
   hotel: { name: string; address: string | null; map_url: string | null };
-  room_number: string;
+  /** null = hotel sudah, nomor kamar menyusul (migrasi 202610230001). */
+  room_number: string | null;
   room_type: string | null;
   floor: string | null;
   check_in_at: string | null;
   check_out_at: string | null;
-  /** null = panitia menyembunyikan teman sekamar (show_roommates). */
+  /** null = panitia menyembunyikan teman sekamar (show_roommates), atau kamar belum ada. */
   roommates: { name: string; company: string | null }[] | null;
 };
 

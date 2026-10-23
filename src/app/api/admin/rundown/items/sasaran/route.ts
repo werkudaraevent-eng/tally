@@ -115,13 +115,11 @@ export async function POST(request: Request) {
   const tampilKamar = memberConfig(event)?.show_logistics === true;
   let hotelPeserta = new Map<string, number>();
   if (tampilKamar && syarat.some((isi) => isi.field === KOLOM_HOTEL)) {
-    const [tempat, kamar] = await Promise.all([
-      semuaBaris<{ participant_id: string; room_id: number }>(() => db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", event.id).order("id")),
-      semuaBaris<{ id: number; hotel_id: number }>(() => db.from("lodging_rooms").select("id,hotel_id").eq("event_id", event.id).order("id")),
-    ]);
-    if (!tempat || !kamar) return apiError("INTERNAL_ERROR", 500);
-    const hotelKamar = new Map(kamar.map((isi) => [isi.id, Number(isi.hotel_id)]));
-    hotelPeserta = new Map(tempat.flatMap((isi) => (hotelKamar.has(isi.room_id) ? [[isi.participant_id, hotelKamar.get(isi.room_id)!] as const] : [])));
+    // Hotel dari penempatan, termasuk tamu yang nomor kamarnya menyusul.
+    const tempat = await semuaBaris<{ participant_id: string; hotel_id: number }>(() =>
+      db.from("lodging_assignments").select("participant_id,hotel_id").eq("event_id", event.id).order("id"));
+    if (!tempat) return apiError("INTERNAL_ERROR", 500);
+    hotelPeserta = new Map(tempat.map((isi) => [isi.participant_id, Number(isi.hotel_id)]));
   }
 
   const kolom = kolomSasaran(event.registration_form_config);
