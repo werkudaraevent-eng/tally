@@ -35,7 +35,8 @@ export type AksiLogistik =
 export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
   aksi: AksiLogistik | null;
   onClose: () => void;
-  /** Dipanggil sesudah dialog ditutup bila ada yang tersimpan: Daftar peserta memuat ulang kolomnya. */
+  /** Dipanggil bila ada yang tersimpan: Daftar peserta memuat ulang kolomnya. Stays memanggilnya
+   *  sesudah tiap simpan (dialognya tetap terbuka); dialog lain sesudah ditutup. */
   onChanged: () => void;
 }) {
   const { data, busy, muat, kirim } = useLogistik();
@@ -56,7 +57,10 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
 
   const kirimCatat: Kirim = async (path, method, body) => {
     const hasil = await kirim(path, method, body);
-    if (hasil !== null) berubah.current = true;
+    if (hasil === null) return hasil;
+    // Stays tetap terbuka untuk beberapa ubahan; kolom daftar langsung ikut, tidak menunggu ditutup.
+    if (aksi?.jenis === "stays") onChanged();
+    else berubah.current = true;
     return hasil;
   };
 
@@ -82,10 +86,23 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
   }, [data?.participants, ids]);
 
   const lewat = ids.length - orang.length;
+  const semuaTerhapus = siap && ids.length > 0 && orang.length === 0;
+  // Sekali per pembukaan: daftar yang di-render ulang (mis. muat ulang saat fokus) tidak mengulang toast.
+  const sudahDiberitahu = useRef<AksiLogistik | null>(null);
   useEffect(() => {
-    if (!siap || lewat === 0) return;
+    if (!siap || lewat === 0 || sudahDiberitahu.current === aksi) return;
+    sudahDiberitahu.current = aksi;
+    if (orang.length === 0) {
+      // Tidak ada yang bisa diubah: jangan buka dialog kosong.
+      toast.warning(
+        ids.length === 1 ? "This participant was deleted at source" : "All selected participants were deleted at source",
+        "Deleted participants cannot be placed in hotels or buses.",
+      );
+      onClose();
+      return;
+    }
     toast.info(`${plural(lewat, "participant")} skipped`, "Participants deleted at source cannot be placed in hotels or buses.");
-  }, [siap, lewat, toast]);
+  }, [siap, lewat, aksi, orang.length, ids.length, toast, onClose]);
 
   const keLogistik = (tab: "kamar" | "bus") => { tutup(); router.push(withEventPrefix(`/admin/logistik?tab=${tab}`, window.location.pathname)); };
   const selesai = (hasil: unknown) => { if (hasil !== null) tutup(); };
@@ -93,7 +110,7 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
   if (aksi?.jenis === "impor") {
     return <DialogImpor open jenisAwal="kamar" onClose={tutup} onSelesai={async () => { berubah.current = true; }} />;
   }
-  if (!siap || !data || !aksi) return null;
+  if (!siap || !data || !aksi || semuaTerhapus) return null;
 
   return (
     <>
