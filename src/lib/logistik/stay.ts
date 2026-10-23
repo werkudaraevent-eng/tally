@@ -100,7 +100,8 @@ export function stayPadaTanggal(masuk: string | null, keluar: string | null, tan
 }
 
 export type Potongan =
-  | { jenis: "akhir"; hotel_id: number; tanggal: string }
+  /** `sisaHilang`: stay lama berlanjut melewati malam baru; malam sesudahnya ikut hilang. */
+  | { jenis: "akhir"; hotel_id: number; tanggal: string; sisaHilang: string | null }
   | { jenis: "awal"; hotel_id: number; tanggal: string }
   | { jenis: "hapus"; hotel_id: number };
 
@@ -127,7 +128,10 @@ export function potonganStay(
     const sk = t.keluar === null ? null : Date.parse(t.keluar);
     const tabrak = (sm === null || sm < k) && (sk === null || sk > m);
     if (!tabrak) continue;
-    if (sm === null || sm < m) hasil.push({ jenis: "akhir", hotel_id: stay.hotel_id, tanggal: tanggalZona(masuk, offset) });
+    if (sm === null || sm < m) {
+      const sisaHilang = sk === null || sk > k ? tanggalZona(keluar, offset) : null;
+      hasil.push({ jenis: "akhir", hotel_id: stay.hotel_id, tanggal: tanggalZona(masuk, offset), sisaHilang });
+    }
     else if (sk === null || sk > k) hasil.push({ jenis: "awal", hotel_id: stay.hotel_id, tanggal: tanggalZona(keluar, offset) });
     else hasil.push({ jenis: "hapus", hotel_id: stay.hotel_id });
   }

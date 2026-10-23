@@ -23,6 +23,9 @@ const PESAN_RPC: Record<string, string> = {
   HOTEL_NOT_FOUND: "This hotel no longer exists. Reload the page.",
   PARTICIPANT_NOT_FOUND: "A participant was not found or has been deleted at source. Reload the page.",
   LODGING_DATES_INVALID: "Check-out must be after check-in.",
+  // Stay lain yang dipotong ke hari pindah akan berakhir sebelum mulai
+  // (mis. check-in 13.00 di hari check-in 14.00 hotel baru).
+  lodging_assignments_dates_check: "These nights would leave another hotel stay ending before it starts. Change or remove that stay first in Stays.",
   ROOM_FULL: "This room is full. Choose another room or raise its capacity.",
   LODGING_GENDER_FIELD_NOT_SET:
     "No gender field chosen yet. Choose one in Room rules, or turn off Same-gender rooms only.",

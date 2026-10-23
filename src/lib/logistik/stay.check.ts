@@ -30,9 +30,11 @@ assert.equal(stayPadaTanggal(null, null, "2026-12-31", WIB), true);
 
 // Potongan, cermin set_stay: yang lebih awal berakhir, yang lebih akhir mulai belakangan, yang di dalam dihapus.
 const satu: Stay[] = [{ participant_id: "a", hotel_id: 1, room_id: null, check_in_at: null, check_out_at: null }];
-assert.deepEqual(potonganStay(satu, 2, "2026-11-06T07:00:00.000Z", "2026-11-08T05:00:00.000Z", hotelById, WIB), [{ jenis: "akhir", hotel_id: 1, tanggal: "2026-11-06" }]);
+assert.deepEqual(potonganStay(satu, 2, "2026-11-06T07:00:00.000Z", "2026-11-08T05:00:00.000Z", hotelById, WIB), [{ jenis: "akhir", hotel_id: 1, tanggal: "2026-11-06", sisaHilang: null }]);
 assert.deepEqual(potonganStay(satu, 2, "2026-11-05T07:00:00.000Z", "2026-11-06T05:00:00.000Z", hotelById, WIB), [{ jenis: "awal", hotel_id: 1, tanggal: "2026-11-06" }]);
 assert.deepEqual(potonganStay(satu, 2, "2026-11-04T07:00:00.000Z", "2026-11-09T05:00:00.000Z", hotelById, WIB), [{ jenis: "hapus", hotel_id: 1 }]);
+// Malam baru di tengah stay lama: stay lama berakhir, malam sesudahnya hilang.
+assert.deepEqual(potonganStay(satu, 2, "2026-11-06T07:00:00.000Z", "2026-11-07T05:00:00.000Z", hotelById, WIB), [{ jenis: "akhir", hotel_id: 1, tanggal: "2026-11-06", sisaHilang: "2026-11-07" }]);
 // Tidak bertabrakan, dan stay di hotel yang sama, tidak dipotong.
 assert.deepEqual(potonganStay(stays, 1, "2026-11-04T07:00:00.000Z", "2026-11-05T05:00:00.000Z", hotelById, WIB), []);
 
