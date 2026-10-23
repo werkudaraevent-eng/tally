@@ -1096,47 +1096,55 @@ export function KontakKruHorizon({
 }
 
 /**
- * Strip outfit di satu hari Susunan acara (keputusan Mas 20 Okt, pilihan A):
- * label halaman lalu tiap isian "kapan · apa" persis seperti diisi panitia,
- * seluruhnya satu tautan ke hari itu di halaman Outfit. Desktop: isian
- * berdampingan dan teks tautan di kanan.
+ * Ringkasan outfit satu hari sebagai satu tautan (pola kartu berkepala M3,
+ * "Hours" Google Maps, kartu Airbnb Trips): kepala sebaris (ikon, judul, aksi)
+ * lalu tiap outfit satu blok selebar kartu, label waktu di atas nama, dipisah
+ * garis tipis. Dulu ikon rata tengah di kiri dan semua isian satu blok teks,
+ * jadi baris yang terlipat tidak terbedakan dari outfit berikutnya (23 Okt).
+ * `aksi`: teks tautan di kepala; tanpa itu hanya panah. Layar lebar: blok
+ * berdampingan.
  */
-export function StripOutfitHorizon({ label, isian, href, lihat }: { label: string; isian: { kapan: string | null; apa: string }[]; href: string; lihat: string }) {
+export function KartuRingkasOutfit({ Ikon, judul, aksi, isian, href, tab, lampu, redup = false }: {
+  Ikon: typeof CoatHanger;
+  judul: string;
+  aksi?: string;
+  isian: { kapan: string | null; apa: string }[];
+  href: string;
+  /** Penanda pindah tab (strip di Susunan acara); tanpa itu tautan di halaman yang sama. */
+  tab?: string;
+  lampu?: string;
+  /** Baris sekunder (Berikutnya): tanpa latar putih. */
+  redup?: boolean;
+}) {
   return (
     <Link
       href={href}
-      className={`${GARIS_KARTU} m3-state mt-4 flex min-h-14 items-center gap-3 rounded-[16px] bg-white px-4 py-3.5 xl:gap-5 xl:px-5 xl:py-4`}
+      className={`${GARIS_KARTU} m3-state mt-4 flex flex-col rounded-[16px] px-4 py-3.5 xl:px-5 xl:py-4 ${redup ? "" : "bg-white"}`}
       style={{ color: TINTA }}
     >
-      <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#EEF1F6] xl:size-10">
-        <CoatHanger size={20} />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 xl:flex-row xl:items-center xl:gap-6">
-        <span className="text-[13px] font-semibold leading-5 xl:shrink-0 xl:text-[15px] xl:font-bold" style={{ color: LABEL }}>
-          <span className="xl:text-[#101E38]">{label}</span>
+      <span className="flex min-h-6 items-center gap-2">
+        <Ikon size={20} aria-hidden className="shrink-0" />
+        <span className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${redup ? "text-[14px] font-semibold leading-5" : "text-[16px] font-semibold leading-6"}`} style={redup ? { color: LABEL } : undefined}>
+          {judul}
         </span>
+        {aksi ? (
+          <span className="inline-flex shrink-0 items-center gap-0.5 text-[14px] font-semibold" style={{ color: BIRU }}>
+            {aksi}
+            <CaretRight size={14} aria-hidden />
+          </span>
+        ) : (
+          <CaretRight size={16} aria-hidden className="shrink-0" style={{ color: REDUP }} />
+        )}
+      </span>
+      <span className="flex flex-col xl:flex-row xl:gap-6">
         {isian.map((item, index) => (
-          <span key={index} className="min-w-0 text-[14px] font-semibold leading-5 [overflow-wrap:anywhere] xl:flex xl:flex-1 xl:flex-col xl:gap-0.5">
-            {item.kapan ? (
-              <>
-                <span className="xl:text-[13px] xl:text-[#4D5D77]">{item.kapan}</span>
-                {/* Spasi di luar bagian yang disembunyikan: pembaca layar tetap memisahkan dua kata. */}
-                <span className="xl:hidden">
-                  {" "}
-                  <span aria-hidden>{SEPARATOR}</span>{" "}
-                </span>
-              </>
-            ) : null}
-            <span className="xl:text-[15px] xl:font-bold">{item.apa}</span>
+          <span key={index} className="mt-3 flex min-w-0 flex-col items-start gap-1.5 border-t border-[#E3E7EE] pt-3 xl:flex-1">
+            {item.kapan ? <LabelWaktuOutfit kapan={item.kapan} kecil /> : null}
+            <span className="text-[15px] font-semibold leading-[22px] [overflow-wrap:anywhere]">{item.apa}</span>
           </span>
         ))}
       </span>
-      <span className="hidden shrink-0 items-center gap-1 text-[14px] font-semibold xl:inline-flex" style={{ color: BIRU }}>
-        {lihat}
-        <CaretRight size={14} aria-hidden />
-      </span>
-      <CaretRight size={18} aria-hidden className="shrink-0 xl:hidden" style={{ color: REDUP }} />
-      <PenandaTab tab="outfit" lampu="jadwal" />
+      {tab ? <PenandaTab tab={tab} lampu={lampu} /> : null}
     </Link>
   );
 }
@@ -1149,12 +1157,19 @@ export function StripOutfitHorizon({ label, isian, href, lihat }: { label: strin
  * tebal; selain itu ikon kalender ("Sepanjang hari", "Setiap hari", "Malam
  * hari"). Tetap di bawah judul pakaian secara bobot.
  */
-function LabelWaktuOutfit({ kapan }: { kapan: string }) {
+function LabelWaktuOutfit({ kapan, kecil = false }: { kapan: string; /** Ringkasan (strip, Berikutnya): 24 px. */ kecil?: boolean }) {
   const jam = /^(\d{1,2}[.:]\d{2})\s+(.+)$/.exec(kapan.trim());
   const Ikon = jam ? Clock : CalendarBlank;
+  const Tag = kecil ? "span" : "p";
   return (
-    <p className="mb-1 inline-flex min-h-8 items-center gap-1.5 self-start rounded-[8px] bg-[#EEF1F6] py-1 pl-2.5 pr-3 text-[14px] leading-5 [overflow-wrap:anywhere] lg:text-[15px] lg:leading-6">
-      <Ikon size={16} weight="bold" aria-hidden className="shrink-0" />
+    <Tag
+      className={
+        kecil
+          ? "inline-flex min-h-6 items-center gap-1.5 self-start rounded-[6px] bg-[#EEF1F6] px-2 py-0.5 text-[13px] leading-[18px] [overflow-wrap:anywhere]"
+          : "mb-1 inline-flex min-h-8 items-center gap-1.5 self-start rounded-[8px] bg-[#EEF1F6] py-1 pl-2.5 pr-3 text-[14px] leading-5 [overflow-wrap:anywhere] lg:text-[15px] lg:leading-6"
+      }
+    >
+      <Ikon size={kecil ? 14 : 16} weight="bold" aria-hidden className="shrink-0" />
       {jam ? (
         <span>
           <span className="font-bold tabular-nums">{jam[1]}</span>
@@ -1166,7 +1181,7 @@ function LabelWaktuOutfit({ kapan }: { kapan: string }) {
       ) : (
         <span className="font-bold">{kapan}</span>
       )}
-    </p>
+    </Tag>
   );
 }
 

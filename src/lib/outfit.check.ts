@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  adaTautan, alasanDaftarOutfit, bacaOutfit, bagianOutfitTanggal, cekDaftarOutfit, hariOutfitBeranda, jenisOutfit, labelOutfit, labelTabOutfit, outfitSchema, outfitTerlihat,
+  adaTautan, alasanDaftarOutfit, bacaOutfit, bagianOutfitTanggal, cekDaftarOutfit, hariOutfitBeranda, jenisOutfit, kapanOutfit, labelOutfit, labelTabOutfit, outfitSchema, outfitTerlihat,
   segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, tautkanOutfit, teksWaktuOutfit, urutOutfit,
 } from "./outfit.ts";
 
@@ -230,3 +230,9 @@ assert.deepEqual(hariOutfitBeranda(hariBatch, "2026-11-01", "2026-11-02", batch2
   assert.deepEqual(outfitTerlihat(isian, []), [{ what: "Batik" }]);
 }
 
+
+// Label waktu peserta: when apa adanya; seharian (tanpa baris dan tanpa when) = label "Sepanjang hari".
+assert.equal(kapanOutfit({}, "Sepanjang hari"), "Sepanjang hari");
+assert.equal(kapanOutfit({ when: "  " }, "Sepanjang hari"), "Sepanjang hari");
+assert.equal(kapanOutfit({ when: "17.30 Gala Dinner" }, "Sepanjang hari"), "17.30 Gala Dinner");
+assert.equal(kapanOutfit({ item_id: 7, when: "" }, "Sepanjang hari"), null);
