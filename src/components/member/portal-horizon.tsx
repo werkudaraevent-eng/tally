@@ -133,12 +133,14 @@ export function KepalaHorizon({
               ))}
           </ul>
         </nav>
+        {/* Lingkaran emas di semua halaman supaya inisial terbaca sebagai tombol akun (pola Gmail/Maps).
+            Saat Menu terbuka lingkarannya terisi, sama dengan ikon bilah bawah yang berganti garis ke isi. */}
         {profil ? (
           <Link
             href={profil.href}
             aria-label={profilLabel}
             aria-current={halaman === "profil" ? "page" : aktif === "profil" ? "true" : undefined}
-            className="m3-state -mr-3 inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-[var(--hz-emas)] aria-[current]:bg-white/10 aria-[current]:ring-2 aria-[current]:ring-inset aria-[current]:ring-[var(--hz-emas)]"
+            className="m3-state -mr-3 inline-flex size-12 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold text-[var(--hz-emas)] ring-2 ring-inset ring-[var(--hz-emas)] aria-[current]:bg-[var(--hz-emas)] aria-[current]:text-[var(--hz-on-emas)] aria-[current]:[--m3-state-color:var(--hz-on-emas)]"
           >
             {inisial}
             {halaman !== "profil" ? <PenandaTab tab="profil" /> : null}
