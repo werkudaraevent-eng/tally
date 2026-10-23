@@ -114,10 +114,13 @@ export function kolomLogistik(bentuk: BentukLogistik): KolomLogistik[] {
       }
     }
   }
+  // Dua barang bernama sama tetap dua kolom yang bisa dibedakan, di tabel maupun header berkas.
+  const nama = (n: string) => n.trim().toLowerCase();
+  const kembar = new Set(bentuk.kit.map((b) => nama(b.name)).filter((n, i, semua) => semua.indexOf(n) !== i));
   for (const barang of bentuk.kit) {
     kolom.push({
       key: `kit:${barang.id}`,
-      label: `Kit: ${barang.name}`,
+      label: kembar.has(nama(barang.name)) ? `Kit: ${barang.name.trim()} (${barang.id})` : `Kit: ${barang.name}`,
       nilai: (r) => {
         if (!r?.kit || !(String(barang.id) in r.kit)) return "";
         return r.kit[String(barang.id)] || "Collected";

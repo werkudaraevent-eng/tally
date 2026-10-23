@@ -166,16 +166,17 @@ export type { LogistikRingkas };
 export async function logistikPeserta(eventId: string, ids: string[]): Promise<Map<string, LogistikRingkas>> {
   if (ids.length === 0) return new Map();
   const db = klien();
-  const [inap, angkut, kereta, ambil] = await Promise.all([
-    db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", ids),
-    db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids),
-    db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).in("participant_id", ids),
-    db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).in("participant_id", ids),
+  // Satu halaman daftar bisa 200 peserta x 6 barang kit = 1.200 baris, di atas
+  // potongan 1000 PostgREST: semua dibaca per 1000. Galat tetap ditelan (sel kosong).
+  const aman = <T,>(baca: Promise<T[]>) => baca.catch(() => [] as T[]);
+  const [barisInap, barisAngkut, kereta, ambil] = await Promise.all([
+    aman(bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", ids).order("participant_id").order("id").range(dari, dari + 999))),
+    aman(bacaSemua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids).order("participant_id").order("vehicle_id").range(dari, dari + 999))),
+    aman(bacaSemua<TiketKereta>((dari) => db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
+    aman(bacaSemua<BarisAmbil>((dari) => db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
   ]);
-  const barisInap = (inap.error ? [] : inap.data ?? []) as BarisInap[];
-  const barisAngkut = (angkut.error ? [] : angkut.data ?? []) as Array<{ participant_id: string; vehicle_id: number | null }>;
   const hasil = await susunLogistik(eventId, barisInap, barisAngkut, false);
-  tambahKeretaKit(hasil, kereta.error ? [] : (kereta.data ?? []) as TiketKereta[], ambil.error ? [] : (ambil.data ?? []) as BarisAmbil[]);
+  tambahKeretaKit(hasil, kereta, ambil);
   return hasil;
 }
 

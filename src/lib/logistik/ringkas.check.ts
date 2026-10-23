@@ -64,4 +64,9 @@ assert.equal(nilai("stay:in:1", diam, "layar"), "");
 assert.equal(nilai("kit:7", diam, "layar"), "");
 assert.equal(labelStay([]), null);
 
+// Barang kit bernama sama: header tetap unik.
+const kembar = kolomLogistik({ stays: 1, kit: [{ id: 1, name: "Kaos" }, { id: 2, name: "kaos " }, { id: 3, name: "Topi" }], kereta: false }).map((k) => k.label);
+assert.deepEqual(kembar.slice(-3), ["Kit: Kaos (1)", "Kit: kaos (2)", "Kit: Topi"]);
+assert.equal(new Set(kembar).size, kembar.length);
+
 console.log("ringkas.check: ok");
