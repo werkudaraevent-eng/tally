@@ -156,7 +156,10 @@ export default function LogistikPage() {
   // `transport_effective`: penempatan milik peserta yang dihapus di sumber
   // tetap tersimpan, tetapi tidak menempati tempat.
   const aktif = new Set(data?.participants.map((orang) => orang.id));
-  const tanpaKamar = data ? data.participants.length - new Set(data.lodging.map((b) => b.participant_id).filter((id) => aktif.has(id))).size : 0;
+  const inapAktif = data ? data.lodging.filter((b) => aktif.has(b.participant_id)) : [];
+  const tanpaHotel = data ? data.participants.length - new Set(inapAktif.map((b) => b.participant_id)).size : 0;
+  // Hotel sudah, nomor kamar menyusul.
+  const menungguKamar = inapAktif.filter((b) => b.room_id === null).length;
   const tanpaBus = data
     ? data.participants.length - new Set(data.transport.filter((b) => b.trip_id === null && b.vehicle_id !== null).map((b) => b.participant_id).filter((id) => aktif.has(id))).size
     : 0;
@@ -186,10 +189,14 @@ export default function LogistikPage() {
         meta={data ? (
           <>
             <span className="tabular-nums">{plural(data.participants.length, "active participant")}</span>
-            {data.rooms.length > 0 ? (
+            {data.rooms.length > 0 || data.lodging.length > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{tanpaKamar === 0 ? "Everyone has a room" : `${tanpaKamar.toLocaleString("en-GB")} without a room`}</span>
+                <span className="tabular-nums">
+                  {tanpaHotel + menungguKamar === 0 ? "Everyone has a room"
+                    : [tanpaHotel > 0 ? `${tanpaHotel.toLocaleString("en-GB")} without a hotel` : null,
+                      menungguKamar > 0 ? `${menungguKamar.toLocaleString("en-GB")} waiting for a room` : null].filter(Boolean).join(", ")}
+                </span>
               </>
             ) : null}
             {data.vehicles.length > 0 ? (

@@ -103,7 +103,7 @@ async function muatKeadaan(eventId: string, denganKereta: boolean): Promise<Kead
       db.from("participants").select("id,name,qr_code,extra").eq("event_id", eventId).is("source_removed_at", null).order("id")),
     semuaBaris<KeadaanAcara["hotels"][number]>(() => db.from("lodging_hotels").select("id,name").eq("event_id", eventId).order("id")),
     semuaBaris<KeadaanAcara["rooms"][number]>(() => db.from("lodging_rooms").select("id,hotel_id,room_number,capacity").eq("event_id", eventId).order("id")),
-    semuaBaris<KeadaanAcara["lodging"][number]>(() => db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).order("id")),
+    semuaBaris<KeadaanAcara["lodging"][number]>(() => db.from("lodging_assignments").select("participant_id,hotel_id,room_id").eq("event_id", eventId).order("id")),
     semuaBaris<KeadaanAcara["vehicles"][number]>(() => db.from("transport_vehicles").select("id,code,capacity").eq("event_id", eventId).order("id")),
     semuaBaris<{ participant_id: string; vehicle_id: number | null }>(() =>
       db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("id")),
@@ -165,14 +165,29 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
   }
 
   const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));
+  let masuk = 0;
+  const gagalHotel: Array<{ nama: string; alasan: string }> = [];
+  // Hotel saja (nomor kamar menyusul) lebih dulu, satu panggilan per hotel:
+  // orang yang keluar dari kamarnya membebaskan tempat sebelum kamar diisi.
+  for (const kelompok of rencana.penempatan) {
+    if (kelompok.tujuan !== null) continue;
+    const hotel = hotelId.get(kunci(kelompok.hotel));
+    if (hotel === undefined) continue;
+    const { data, error } = await db.rpc("assign_hotel" as never, { p_event_id: eventId, p_hotel_id: hotel, p_participant_ids: kelompok.participant_ids, p_actor: actor } as never);
+    if (error) {
+      const alasan = pesanRpc(error) ?? "Could not save.";
+      for (const pid of kelompok.participant_ids) gagalHotel.push({ nama: nama.get(pid) ?? pid, alasan });
+    } else masuk += Number(data ?? 0);
+  }
+
   const antre: Antre[] = [];
   for (const kelompok of rencana.penempatan) {
+    if (kelompok.tujuan === null) continue;
     const room = kamarId.get(`${hotelId.get(kunci(kelompok.hotel))}\u0000${kunci(kelompok.tujuan)}`);
     if (room === undefined) continue;
     for (const pid of kelompok.participant_ids) antre.push({ pid, room });
   }
 
-  let masuk = 0;
   const coba = async (daftar: Antre[]) => {
     const gagal: Array<Antre & { error: { message?: string; details?: string | null } }> = [];
     for (const { pid, room } of daftar) {
@@ -190,7 +205,7 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
   if (gagal.length < antre.length && gagal.some((g) => bisaUlang(g.error))) {
     gagal = gagal.filter((g) => !bisaUlang(g.error)).concat(await coba(gagal.filter((g) => bisaUlang(g.error))));
   }
-  return { masuk, dibuat, gagal: gagal.map((g) => ({ nama: nama.get(g.pid) ?? g.pid, alasan: pesanRpc(g.error) ?? "Could not save." })) };
+  return { masuk, dibuat, gagal: [...gagalHotel, ...gagal.map((g) => ({ nama: nama.get(g.pid) ?? g.pid, alasan: pesanRpc(g.error) ?? "Could not save." }))] };
 }
 
 type Antre = { pid: string; room: number };

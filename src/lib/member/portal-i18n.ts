@@ -29,6 +29,8 @@ export type PortalUiText = {
   floor: (lantai: string) => string;
   roommates: string;
   room: (nomor: string) => string;
+  /** Hotel sudah, nomor kamar belum (Logistics > Hotel only). */
+  roomPending: string;
   todayRundown: string;
   dayRundown: (hari: number) => string;
   /** Tautan dari kartu rundown beranda ke seluruh jadwal. */
@@ -145,6 +147,8 @@ export type PortalUiText = {
     enlargeQr: string;
     help: string;
     roomNo: (nomor: string) => string;
+    /** Nilai Kamar bila nomornya belum ada. */
+    roomPending: string;
     profileAria: string;
     /** Nama aksesibel inisial di bilah atas, memuat teks yang terlihat ("HS, Profil"). */
     profileAriaWith: (inisial: string) => string;
@@ -271,6 +275,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     floor: (lantai) => `Lantai ${lantai}`,
     roommates: "Teman sekamar",
     room: (nomor) => `Kamar ${nomor}`,
+    roomPending: "Nomor kamar menyusul",
     todayRundown: "Susunan acara hari ini",
     dayRundown: (hari) => `Susunan acara hari ${hari}`,
     seeSchedule: "Lihat semua",
@@ -359,6 +364,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       enlargeQr: "Perbesar",
       help: "Butuh bantuan? Hubungi panitia",
       roomNo: (nomor) => `Kamar ${nomor}`,
+      roomPending: "Menyusul",
       profileAria: "Profil",
       profileAriaWith: (inisial) => `${inisial}, Profil dan menu`,
       unread: (jumlah) => `${jumlah} belum dibaca`,
@@ -471,6 +477,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
     floor: (lantai) => `Floor ${lantai}`,
     roommates: "Roommates",
     room: (nomor) => `Room ${nomor}`,
+    roomPending: "Room number to follow",
     todayRundown: "Today's schedule",
     dayRundown: (hari) => `Day ${hari} schedule`,
     seeSchedule: "See all",
@@ -559,6 +566,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       enlargeQr: "Enlarge",
       help: "Need help? Contact the organisers",
       roomNo: (nomor) => `Room ${nomor}`,
+      roomPending: "To follow",
       profileAria: "Profile",
       profileAriaWith: (inisial) => `${inisial}, Profile and menu`,
       unread: (jumlah) => `${jumlah} unread`,

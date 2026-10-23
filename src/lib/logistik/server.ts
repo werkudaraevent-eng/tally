@@ -20,6 +20,7 @@ import type { TripTertaut } from "@/lib/logistik/trip-agenda";
  */
 const PESAN_RPC: Record<string, string> = {
   ROOM_NOT_FOUND: "This room no longer exists. Reload the page.",
+  HOTEL_NOT_FOUND: "This hotel no longer exists. Reload the page.",
   PARTICIPANT_NOT_FOUND: "A participant was not found or has been deleted at source. Reload the page.",
   LODGING_DATES_INVALID: "Hotel check-out must be after hotel check-in.",
   ROOM_FULL: "This room is full. Choose another room or raise its capacity.",
@@ -160,10 +161,10 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
   if (ids.length === 0) return new Map();
   const db = klien();
   const [inap, angkut] = await Promise.all([
-    db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).in("participant_id", ids),
+    db.from("lodging_assignments").select("participant_id,hotel_id,room_id").eq("event_id", eventId).in("participant_id", ids),
     db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids),
   ]);
-  const barisInap = (inap.error ? [] : inap.data ?? []) as Array<{ participant_id: string; room_id: number }>;
+  const barisInap = (inap.error ? [] : inap.data ?? []) as BarisInap[];
   const barisAngkut = (angkut.error ? [] : angkut.data ?? []) as Array<{ participant_id: string; vehicle_id: number | null }>;
   return susunLogistik(eventId, barisInap, barisAngkut, false);
 }
@@ -189,11 +190,14 @@ export async function logistikAcara(eventId: string): Promise<Map<string, Logist
     return hasil;
   };
   const [barisInap, barisAngkut] = await Promise.all([
-    semua<{ participant_id: string; room_id: number }>((dari) => db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).order("participant_id").order("room_id").range(dari, dari + 999)),
+    semua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id").eq("event_id", eventId).order("participant_id").order("room_id").range(dari, dari + 999)),
     semua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("participant_id").order("vehicle_id").range(dari, dari + 999)),
   ]);
   return susunLogistik(eventId, barisInap, barisAngkut, true);
 }
+
+/** `room_id` null = tamu hotel itu, nomor kamar menyusul. */
+type BarisInap = { participant_id: string; hotel_id: number; room_id: number | null };
 
 /** Id per `.in()`: jauh di bawah batas 1000 baris PostgREST dan batas panjang URL. */
 const POTONG_ID = 200;
@@ -218,19 +222,19 @@ async function bacaMenurutId<T>(ids: number[], baca: (potong: number[]) => Promi
 
 async function susunLogistik(
   eventId: string,
-  barisInap: Array<{ participant_id: string; room_id: number }>,
+  barisInap: BarisInap[],
   barisAngkut: Array<{ participant_id: string; vehicle_id: number | null }>,
   ketat: boolean,
 ): Promise<Map<string, LogistikRingkas>> {
   const hasil = new Map<string, LogistikRingkas>();
   const db = klien();
-  const idKamar = [...new Set(barisInap.map((b) => b.room_id))];
+  const idKamar = [...new Set(barisInap.map((b) => b.room_id).filter((id): id is number => id !== null))];
   const idBus = [...new Set(barisAngkut.map((b) => b.vehicle_id).filter((id): id is number => id !== null))];
   const [barisKamar, barisBus] = await Promise.all([
     bacaMenurutId<{ id: number; room_number: string; hotel_id: number }>(idKamar, (potong) => db.from("lodging_rooms").select("id,room_number,hotel_id").eq("event_id", eventId).in("id", potong), ketat),
     bacaMenurutId<{ id: number; code: string }>(idBus, (potong) => db.from("transport_vehicles").select("id,code").eq("event_id", eventId).in("id", potong), ketat),
   ]);
-  const idHotel = [...new Set(barisKamar.map((k) => k.hotel_id))];
+  const idHotel = [...new Set(barisInap.map((b) => b.hotel_id))];
   const barisHotel = await bacaMenurutId<{ id: number; name: string }>(idHotel, (potong) => db.from("lodging_hotels").select("id,name").eq("event_id", eventId).in("id", potong), ketat);
   const namaHotel = new Map(barisHotel.map((h) => [h.id, h.name]));
   // Nama hotel hanya disebut bila acaranya punya lebih dari satu hotel di
@@ -239,7 +243,11 @@ async function susunLogistik(
   const labelKamar = new Map(barisKamar.map((k) => [k.id, banyakHotel ? `${k.room_number} · ${namaHotel.get(k.hotel_id) ?? ""}` : k.room_number]));
   const kodeBus = new Map(barisBus.map((b) => [b.id, b.code]));
 
-  for (const b of barisInap) hasil.set(b.participant_id, { kamar: labelKamar.get(b.room_id) ?? null, bus: null });
+  // Tanpa kamar: "Room to follow", dengan nama hotel bila hotelnya lebih dari satu.
+  const menyusul = (hotelId: number) => banyakHotel ? `Room to follow · ${namaHotel.get(hotelId) ?? ""}` : "Room to follow";
+  for (const b of barisInap) {
+    hasil.set(b.participant_id, { kamar: b.room_id !== null ? labelKamar.get(b.room_id) ?? null : menyusul(b.hotel_id), bus: null });
+  }
   for (const b of barisAngkut) {
     const lama = hasil.get(b.participant_id) ?? { kamar: null, bus: null };
     hasil.set(b.participant_id, { ...lama, bus: b.vehicle_id !== null ? kodeBus.get(b.vehicle_id) ?? null : null });

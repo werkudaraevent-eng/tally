@@ -49,16 +49,17 @@ export async function muatDataSasaran(
   return { jawaban, hotelId, kolom: kolomSasaran(acara.registration_form_config) };
 }
 
-/** Id hotel kamar peserta (lodging_assignments > lodging_rooms), atau null. Tidak melempar. */
+/**
+ * Id hotel peserta (lodging_assignments.hotel_id), atau null. Tidak melempar.
+ * Tamu yang nomor kamarnya menyusul sudah punya hotel, jadi Rute dan Agenda
+ * per hotel sudah berlaku untuknya.
+ */
 async function muatHotelPeserta(eventId: string, participantId: string): Promise<number | null> {
   try {
     const db = getSupabaseServiceClient();
-    const tempat = await db.from("lodging_assignments" as never).select("room_id").eq("event_id", eventId).eq("participant_id", participantId).maybeSingle();
-    const roomId = (tempat.data as { room_id?: number } | null)?.room_id;
-    if (tempat.error || !roomId) return null;
-    const kamar = await db.from("lodging_rooms" as never).select("hotel_id").eq("event_id", eventId).eq("id", roomId).maybeSingle();
-    const hotelId = (kamar.data as { hotel_id?: number } | null)?.hotel_id;
-    return kamar.error || !hotelId ? null : Number(hotelId);
+    const tempat = await db.from("lodging_assignments" as never).select("hotel_id").eq("event_id", eventId).eq("participant_id", participantId).maybeSingle();
+    const hotelId = (tempat.data as { hotel_id?: number } | null)?.hotel_id;
+    return tempat.error || !hotelId ? null : Number(hotelId);
   } catch {
     return null;
   }

@@ -609,8 +609,10 @@ export async function DashboardGathering({
       Ikon={Bed}
       ikonWarna="aksen"
       label={t.yourRoom}
-      angka={kamar.room_number}
-      catatan={teman && teman.length > 0 ? t.withRoommate(teman.map((orang) => orang.name).join(", ")) : [kamar.floor ? t.floor(kamar.floor) : null, kamar.room_type].filter(Boolean).join(" · ") || kamar.hotel.name}
+      // Hotel saja: nama hotel jadi isi utama kartu, nomor kamar menyusul.
+      angka={kamar.room_number ?? kamar.hotel.name}
+      catatan={kamar.room_number === null ? t.roomPending
+        : teman && teman.length > 0 ? t.withRoommate(teman.map((orang) => orang.name).join(", ")) : [kamar.floor ? t.floor(kamar.floor) : null, kamar.room_type].filter(Boolean).join(" · ") || kamar.hotel.name}
     />
   ) : null;
   const kartuKereta = logistik && logistik.trains.length > 0 ? <KartuKereta logistik={logistik} lang={lang} kelas={KARTU} redup={MUTED} /> : null;
@@ -629,7 +631,7 @@ export async function DashboardGathering({
               </span>
               <div className="min-w-0">
                 <p className="text-title-medium font-bold">{orang.name}</p>
-                <p className={`text-body-medium ${MUTED}`}>{[orang.company, kamar ? t.room(kamar.room_number) : null].filter(Boolean).join(" · ")}</p>
+                <p className={`text-body-medium ${MUTED}`}>{[orang.company, kamar?.room_number ? t.room(kamar.room_number) : null].filter(Boolean).join(" · ")}</p>
               </div>
             </li>
           ))}
@@ -1073,7 +1075,7 @@ export async function DashboardGathering({
         tautan={peta ? { href: peta, label: labelTautanPeta(peta, lang) } : null}
         kolom={4}
         fakta={[
-          { label: tH.room, nilai: kamar.room_number, besar: true },
+          { label: tH.room, nilai: kamar.room_number ?? tH.roomPending, besar: kamar.room_number !== null },
           ...(teman && teman.length > 0 ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", ") }] : []),
           ...(kamar.floor ? [{ label: tv.floor, nilai: kamar.floor }] : []),
           ...(kamar.room_type ? [{ label: tv.roomType, nilai: kamar.room_type }] : []),
@@ -1478,7 +1480,7 @@ export async function DashboardGathering({
     );
     const baris: { href: string; judul: string; isi: string | null; Ikon: typeof House; luar?: boolean; pemicuQr?: string }[] = [
       ...(tampilKode && peserta ? [{ href: keTab("qr"), judul: t.ticket, isi: peserta.qr_code, Ikon: Ticket, pemicuQr: "pemicu-qr-profil" }] : []),
-      ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: [kamar.room_number, teman?.map((o) => o.name).join(", ")].filter(Boolean).join(" · "), Ikon: Bed }] : []),
+      ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: (kamar.room_number === null ? [kamar.hotel.name, t.roomPending] : [kamar.room_number, teman?.map((o) => o.name).join(", ")]).filter(Boolean).join(" · "), Ikon: Bed }] : []),
       ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
       ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(" · "), Ikon: Phone, luar: true }] : []),
       ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: t.languageRow, isi: null, Ikon: Globe }] : []),
@@ -1724,7 +1726,7 @@ export async function DashboardGathering({
               { label: tH.participant, nilai: sesi.name, ponsel: false },
               ...(tampilLogistik && kamar?.hotel?.name?.trim() ? [{ label: tH.hotel, nilai: kamar.hotel.name.trim(), ponsel: true, lebar: true }] : []),
               ...(tampilLogistik && namaBus ? [{ label: tH.bus, nilai: namaBus, ponsel: true, pendek: true }] : []),
-              ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number, ponsel: true, pendek: true }] : []),
+              ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number ?? tH.roomPending, ponsel: true, pendek: true }] : []),
               ...(tampilTeman ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
             ];
       const kartuPass = sebelum ? (
@@ -1748,8 +1750,11 @@ export async function DashboardGathering({
                     {
                       kunci: "hotel",
                       label: tH.hotel,
-                      judul: kamar.hotel?.name?.trim() || tH.roomNo(kamar.room_number),
-                      catatan: gabungMeta([kamar.hotel?.name?.trim() ? tH.roomNo(kamar.room_number) : null, tampilTeman ? tH.home.roommates(teman.map((orang) => orang.name).join(", "), teman.length) : null]) || null,
+                      judul: kamar.hotel?.name?.trim() || (kamar.room_number ? tH.roomNo(kamar.room_number) : t.roomPending),
+                      catatan: gabungMeta([
+                        kamar.hotel?.name?.trim() ? (kamar.room_number ? tH.roomNo(kamar.room_number) : t.roomPending) : null,
+                        tampilTeman ? tH.home.roommates(teman.map((orang) => orang.name).join(", "), teman.length) : null,
+                      ]) || null,
                     },
                   ]
                 : []),

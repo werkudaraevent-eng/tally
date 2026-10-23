@@ -92,15 +92,23 @@ export function KartuKamar({ logistik, zona }: { logistik: LogistikPeserta; zona
       {kamar ? (
         <>
           {kamar.hotel.address ? <p className={`mt-1 text-body-medium ${MUTED}`}>{kamar.hotel.address}</p> : null}
-          <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-1">
-            <div>
-              <p className={`text-body-medium ${MUTED}`}>Nomor kamar</p>
-              <p className="text-[40px] font-bold leading-[44px] tracking-[-0.01em] tabular-nums">{kamar.room_number}</p>
+          {kamar.room_number === null ? (
+            // Hotel sudah, kamar belum (Logistics > Hotel only).
+            <div className="mt-4 rounded-md bg-[var(--reg-surface)] p-3">
+              <p className="text-body-large font-semibold">Nomor kamar menyusul</p>
+              <p className={`text-body-medium ${MUTED}`}>Nomor kamar dan teman sekamar muncul di sini begitu panitia mengaturnya.</p>
             </div>
-            {[kamar.floor ? `Lantai ${kamar.floor}` : null, kamar.room_type].some(Boolean) ? (
-              <p className={`pb-1 text-body-large ${MUTED}`}>{[kamar.floor ? `Lantai ${kamar.floor}` : null, kamar.room_type].filter(Boolean).join(" · ")}</p>
-            ) : null}
-          </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-1">
+              <div>
+                <p className={`text-body-medium ${MUTED}`}>Nomor kamar</p>
+                <p className="text-[40px] font-bold leading-[44px] tracking-[-0.01em] tabular-nums">{kamar.room_number}</p>
+              </div>
+              {[kamar.floor ? `Lantai ${kamar.floor}` : null, kamar.room_type].some(Boolean) ? (
+                <p className={`pb-1 text-body-large ${MUTED}`}>{[kamar.floor ? `Lantai ${kamar.floor}` : null, kamar.room_type].filter(Boolean).join(" · ")}</p>
+              ) : null}
+            </div>
+          )}
           {kamar.check_in_at || kamar.check_out_at ? (
             <dl className="mt-4 grid grid-cols-[110px_minmax(0,1fr)] gap-y-2 text-body-large">
               {kamar.check_in_at ? (

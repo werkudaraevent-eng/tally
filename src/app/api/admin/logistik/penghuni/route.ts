@@ -5,17 +5,22 @@ import { galatRpc, klien } from "@/lib/logistik/server";
 import { plural } from "@/lib/plural";
 
 /**
- * Menempatkan peserta di kamar, dan mengeluarkannya.
+ * Menempatkan peserta di kamar atau di hotel saja, dan mengeluarkannya.
  *
- * Satu panggilan `assign_room` per orang, berurutan. RPC itu mengunci kamar dan
- * memeriksa kapasitas serta jenis kelamin di transaksinya sendiri; memanggilnya
- * satu per satu berarti penempatan yang sudah berhasil tetap tersimpan ketika
- * orang ketiga ditolak, dan jawaban menyebut berapa yang masuk.
+ * Kamar: satu panggilan `assign_room` per orang, berurutan. RPC itu mengunci
+ * kamar dan memeriksa kapasitas serta jenis kelamin di transaksinya sendiri;
+ * memanggilnya satu per satu berarti penempatan yang sudah berhasil tetap
+ * tersimpan ketika orang ketiga ditolak, dan jawaban menyebut berapa yang masuk.
+ *
+ * Hotel saja (`hotel_id`, nomor kamar menyusul): satu panggilan
+ * `assign_hotel` untuk semua orang. Tanpa aturan kamar, jadi tidak ada yang
+ * ditolak satu per satu, dan rombongan ratusan orang selesai dalam satu
+ * transaksi. Dipakai juga untuk melepas kamar tanpa melepas hotelnya.
  */
-const tempatkan = z.object({
-  room_id: z.number().int().positive(),
-  participant_ids: z.array(z.string().uuid()).min(1).max(20),
-});
+const tempatkan = z.union([
+  z.object({ room_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(20) }),
+  z.object({ hotel_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(2000) }),
+]);
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
@@ -23,6 +28,17 @@ export async function POST(request: Request) {
 
   const parsed = tempatkan.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  if ("hotel_id" in parsed.data) {
+    const { data, error } = await klien().rpc("assign_hotel" as never, {
+      p_event_id: auth.scope.event.id,
+      p_hotel_id: parsed.data.hotel_id,
+      p_participant_ids: parsed.data.participant_ids,
+      p_actor: auth.user.id,
+    } as never);
+    if (error) return galatRpc(error);
+    return Response.json({ assigned: Number(data ?? 0) });
+  }
 
   let masuk = 0;
   for (const participantId of parsed.data.participant_ids) {

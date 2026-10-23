@@ -104,7 +104,8 @@ export type LogistikData = {
   participants: LogistikPeserta[];
   hotels: Hotel[];
   rooms: Kamar[];
-  lodging: Array<{ participant_id: string; room_id: number }>;
+  /** `room_id` null = tamu hotel itu, nomor kamar menyusul. */
+  lodging: Array<{ participant_id: string; hotel_id: number; room_id: number | null }>;
   vehicles: Bus[];
   trips: Agenda[];
   /** `trip_id` null = bus bawaan. `vehicle_id` null = "tidak naik bus" di agenda itu. */
