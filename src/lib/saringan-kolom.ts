@@ -78,7 +78,7 @@ export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaring
     { key: "phone", label: "Phone", jenis: "teks", grup: "kolom" },
     { key: "qr_code", label: "QR code", jenis: "teks", grup: "kolom" },
     { key: "seat", label: "Seat", jenis: "teks", grup: "kolom" },
-    { key: "kamar", label: "Room", jenis: "teks", grup: "kolom" },
+    { key: "kamar", label: "Hotel", jenis: "teks", grup: "kolom" },
     { key: "bus", label: "Bus", jenis: "pilihan", grup: "kolom" },
     { key: "source", label: "Source", jenis: "pilihan", grup: "kolom" },
     { key: "undian", label: "Lucky draw", jenis: "pilihan", grup: "kolom" },
