@@ -19,6 +19,8 @@ export type Sesi = {
   jumlah_barang?: number;
   /** Peserta boleh memindai QR checkpoint sesi ini sendiri (Show QR). Tidak ada: panitia saja. */
   self_scan?: "self" | "both";
+  /** Check-in > Sessions > Record luggage: lembar hasil meminta jumlah dan foto bagasi. */
+  bagasi?: true;
 };
 
 /** Satu baris daftar centang barang, dari `pickup_checklist`. */
@@ -149,3 +151,13 @@ export type StatusCetak = { fase: "diam" | "jalan" | "selesai" | "galat"; teks?:
 
 /** Data peserta yang cukup untuk dicetak. Alias, supaya pemanggil tidak perlu tahu asalnya. */
 export type DataLabel = LabelData;
+
+/** Catatan bagasi di layar pemindai (`/api/attendance/luggage`). `photo_url`: signed URL berumur pendek. */
+export type CatatanBagasi = {
+  session_id: number;
+  bag_count: number;
+  photo_url: string | null;
+  recorded_at: string;
+  updated_at: string;
+  by?: string | null;
+};

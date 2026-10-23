@@ -19,6 +19,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Dialog } from "@/components/m3";
 import { standard } from "@/lib/m3/motion";
 import { ItemChecklist } from "./item-checklist";
+import { LuggageForm } from "./luggage-form";
 import { bukaSuara } from "./umpan-balik";
 import type { CatatanCheckpoint, Hasil, StatusCetak, StatusHasil } from "./types";
 
@@ -150,6 +151,12 @@ type Props = {
   barang: { sessionId: number; laneId: number | null } | null;
   /** Jumlah barang yang dicentang tetapi belum diserahkan, dilaporkan ke atas. */
   onCentang: (jumlah: number) => void;
+  /** Sesi yang mencatat bagasi (Record luggage). Null = tanpa isian bagasi. */
+  bagasi?: { sessionId: number } | null;
+  /** 1 selama jumlah atau foto bagasi tamu ini belum tersimpan. */
+  onBagasi?: (jumlah: number) => void;
+  /** Kamera bawaan dibuka (true) atau ditutup (false) untuk foto bagasi. */
+  onKameraFoto?: (buka: boolean) => void;
   /** Lembar ini sedang menghitung mundur untuk menutup sendiri. */
   tutupOtomatis: boolean;
   /** Ketukan apa pun di lembar: hentikan hitung mundur. */
@@ -160,6 +167,8 @@ type Props = {
    */
   tertahan: Hasil | null;
   onLewati: () => void;
+  /** Yang belum selesai untuk tamu ini: menentukan kalimat tamu tertahan. */
+  alasanTahan?: "barang" | "bagasi";
 };
 
 export function ResultSheet({
@@ -177,10 +186,14 @@ export function ResultSheet({
   onUlangi,
   barang,
   onCentang,
+  bagasi,
+  onBagasi,
+  onKameraFoto,
   tutupOtomatis,
   onSentuh,
   tertahan,
   onLewati,
+  alasanTahan = "barang",
 }: Props) {
   const status = hasil?.status;
   const tampilan = status ? (hasil?.tersimpanSebelumnya ? TAMPILAN.recorded : TAMPILAN[status]) : null;
@@ -188,6 +201,7 @@ export function ResultSheet({
   const hadir = status === "recorded" || status === "created" || status === "duplicate";
   const adaOrang = Boolean(peserta) && hadir;
   const adaBarang = Boolean(barang && peserta && hadir);
+  const adaBagasi = Boolean(bagasi && peserta && hadir);
 
   /**
    * Fokus mendarat di lembar itu sendiri, bukan di sebuah tombol.
@@ -201,6 +215,8 @@ export function ResultSheet({
   const wadah = useRef<HTMLDivElement>(null);
   // Tempat tombol Serahkan barang di bilah aksi; diisi ItemChecklist lewat portal.
   const [tempatSerahkan, setTempatSerahkan] = useState<HTMLDivElement | null>(null);
+  // Tempat tombol Simpan bagasi; diisi LuggageForm lewat portal.
+  const [tempatBagasi, setTempatBagasi] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (hasil) wadah.current?.focus({ preventScroll: true });
   }, [hasil, kedip]);
@@ -376,6 +392,20 @@ export function ResultSheet({
                 </div>
               ) : null}
 
+              {adaBagasi && bagasi && peserta ? (
+                <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+                  {/* Dipasang ulang per tamu, sama seperti daftar barang. */}
+                  <LuggageForm
+                    key={`${kedip}-${peserta.id}`}
+                    sessionId={bagasi.sessionId}
+                    participantId={peserta.id}
+                    onTertunda={onBagasi}
+                    onKamera={onKameraFoto}
+                    tempatTombol={tempatBagasi}
+                  />
+                </div>
+              ) : null}
+
               {/* Bilah aksi menempel di bawah panel. Di ponsel pendek, atau saat
                   daftar barang panjang, panelnya bergulir dan tombolnya tetap
                   terlihat. */}
@@ -383,7 +413,7 @@ export function ResultSheet({
                 {tertahan ? (
                   <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-body-medium text-on-warning-soft">
                     <span className="min-w-0 flex-1">
-                      {tertahan.participant?.name ?? `Code ${tertahan.qr ?? "?"}`} is scanned and waiting. Hand out items to{" "}
+                      {tertahan.participant?.name ?? `Code ${tertahan.qr ?? "?"}`} is scanned and waiting. {alasanTahan === "bagasi" ? "Save the luggage of" : "Hand out items to"}{" "}
                       {peserta?.name ?? "this participant"} first.
                     </span>
                     <Button variant="text" size="md" onClick={onLewati}>Skip</Button>
@@ -449,6 +479,7 @@ export function ResultSheet({
                       kanan sebagai aksi utama. `contents` supaya tombolnya ikut
                       menjadi anggota baris ini. */}
                   {adaBarang ? <div ref={setTempatSerahkan} className="contents" /> : null}
+                  {adaBagasi ? <div ref={setTempatBagasi} className="contents" /> : null}
                 </div>
               </div>
             </div>

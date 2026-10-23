@@ -35,7 +35,9 @@ export async function GET(request: Request) {
   const [sesi, jalur, barang] = await Promise.all([
     client
       .from("attendance_sessions")
-      .select("id,name,slug,sort_order")
+      // select *: `records_luggage` baru ada setelah migrasi 202610230003, dan
+      // menyebutnya sebelum itu membuat layar pemindai kehilangan semua sesinya.
+      .select("*")
       .eq("event_id", eventId)
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
@@ -61,7 +63,7 @@ export async function GET(request: Request) {
 
   // Orang unik per sesi dan jumlah terdaftar, sebagai hitungan. Dulu dihitung
   // dari baris attendance_scans di sini, yang terpotong di 1.000 baris.
-  const daftarSesi = (sesi.data ?? []) as Array<{ id: number }>;
+  const daftarSesi = (sesi.data ?? []) as Array<{ id: number; name: string; slug: string; sort_order: number; records_luggage?: boolean }>;
   const angka = await hitungKehadiran(eventId, daftarSesi.map((row) => row.id)).catch(() => null);
 
   // Setelan walk-in ikut di jawaban yang sama, bukan endpoint kedua, dengan
@@ -92,8 +94,11 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
-    sessions: daftarSesi.map((row) => ({
-      ...row,
+    sessions: daftarSesi.map(({ records_luggage, ...row }) => ({
+      ...pilihKolom(row),
+      // Check-in > Sessions > Record luggage: lembar hasil meminta jumlah bagasi
+      // dan foto. Sesi lain tidak mendapat kunci ini, jadi layarnya tidak berubah.
+      ...(records_luggage === true ? { bagasi: true } : {}),
       hadir: angka?.hadir[row.id] ?? null,
       jumlah_barang: jumlahBarang.get(row.id) ?? 0,
       ...(mandiri.has(row.id) ? { self_scan: mandiri.get(row.id) } : {}),
@@ -110,4 +115,9 @@ export async function GET(request: Request) {
     // tersimpan menyala: itulah urutan "Yang dicetak di meja registrasi".
     badge_meja: !label.enabled && meja.badge ? { siap: meja.siap, menit: meja.menit } : null,
   });
+}
+
+/** Kolom sesi yang memang dikirim ke petugas, bukan seisi baris dari `select *`. */
+function pilihKolom(row: { id: number; name: string; slug: string; sort_order: number }) {
+  return { id: row.id, name: row.name, slug: row.slug, sort_order: row.sort_order };
 }

@@ -19,6 +19,7 @@ import {
   Phone,
   PushPin,
   SignOut,
+  Suitcase,
   Ticket,
   User,
   Users,
@@ -47,6 +48,8 @@ import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { bantuanBahasa, barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { agendaBerikutnya, loadMemberLogistics, type LogistikPeserta } from "@/lib/logistik/peserta";
+import { bagasiPeserta } from "@/lib/bagasi/server";
+import { FotoBagasi } from "@/components/member/foto-bagasi";
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
 import { KartuCheckpointHorizon } from "@/components/member/kartu-checkpoint-horizon";
@@ -345,14 +348,17 @@ export async function DashboardGathering({
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
   // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
   // dan tidak disembunyikan di Participant home.
-  const [logistik, checkpoint, checkpointQr] = peserta
+  const [logistik, checkpoint, checkpointQr, bagasi] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
         tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, penonton) : null,
         // Petunjuk layar QR menyebut checkpoint hanya bila fiturnya menyala.
         horizon && tampilKode ? loadCheckpointQr(event.id) : null,
+        // Bagasi yang dicatat di meja bagasi (Check-in > Sessions > Record
+        // luggage), di Perjalanan. Tautan fotonya hanya dibuat di tab itu.
+        horizon ? bagasiPeserta(event.id, peserta.id, tab === "perjalanan").catch(() => []) : [],
       ])
-    : [null, null, null];
+    : [null, null, null, []];
   const setelanCheckpoint = checkpointQr?.setelan ?? null;
 
   const tanggal = formatEventDate(event, lang);
@@ -566,7 +572,7 @@ export async function DashboardGathering({
   // Horizon: halaman Perjalanan (dan menunya) hanya ada bila panitia membagikan
   // hotel, bus, atau tiket kereta peserta ini.
   const perjalananBusHorizon = (logistik?.transport?.trips ?? []).filter((trip) => trip.bus);
-  const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0);
+  const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0 || bagasi.length > 0);
   // Semua rute tinggal di Perjalanan sebagai baris ringkas di bawah kartu
   // hotel, bus, dan kereta, seperti "Getting there" di halaman reservasi.
   // Tanpa tab Perjalanan (peserta tanpa kamar, bus, atau kereta) tetap di
@@ -1170,6 +1176,36 @@ export async function DashboardGathering({
     });
     const kartuKeretaHorizon =
       legKereta.length > 0 ? <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking }} leg={legDenganKalender} /> : null;
+    // Bagasi (Record luggage): satu kartu per meja bagasi tempat peserta dipindai.
+    // Pola kartu klaim titip koper hotel dan "bags checked" di aplikasi maskapai:
+    // jumlah besar, kapan dan di mana, foto, lalu ajakan memeriksa sebelum pergi.
+    const tl = tv.luggage;
+    const kartuBagasi = bagasi.length > 0 ? (
+      <>
+        {bagasi.map((item) => (
+          <KartuInfoHorizon
+            key={item.session_id}
+            judul={tl.title}
+            Ikon={Suitcase}
+            kolom={3}
+            fakta={[
+              { label: tl.countLabel, nilai: item.bag_count === 0 ? tl.none : tl.count(item.bag_count), besar: item.bag_count > 0 },
+              { label: tl.droppedAt, nilai: hariHorizon(item.recorded_at, zona, lang), catatan: jamHorizon(item.recorded_at, zona, lang) },
+              ...(item.session_name ? [{ label: tl.place, nilai: item.session_name }] : []),
+            ]}
+          >
+            {item.photo_url ? (
+              <FotoBagasi
+                src={item.photo_url}
+                keterangan={tl.count(item.bag_count)}
+                teks={{ buka: tl.openPhoto, perbesar: tl.enlarge, tutup: tl.close, judul: tl.title }}
+              />
+            ) : null}
+            {item.bag_count > 0 ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{tl.check}</p> : null}
+          </KartuInfoHorizon>
+        ))}
+      </>
+    ) : null;
     // Bantuan di tempat yang sama di setiap halaman perjalanan (U-07), dengan tautan ke kartu darurat di Menu (E-03).
     const kartuBantuanPerjalanan = kontakHorizon ? (
       <KartuBantuanHorizon
@@ -1194,6 +1230,7 @@ export async function DashboardGathering({
           (kartuHotel ?? kartuBusHorizon)
         )}
         {kartuKeretaHorizon}
+        {kartuBagasi}
         {rutePerjalanan.length ? (
           <>
             <DaftarRuteRingkas blocks={rutePerjalanan} hotels={inap.hotels} lang={lang} />

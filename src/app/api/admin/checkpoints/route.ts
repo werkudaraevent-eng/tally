@@ -134,6 +134,16 @@ const LABEL_SELESAI: Record<Penyelesaian, string> = { staff: "Staff scan the par
  */
 async function bentrokSesi(db: ReturnType<typeof getSupabaseServiceClient>, eventId: string, sessionId: number | null, completion: Penyelesaian | undefined, kecuali: number | null) {
   if (!sessionId || !completion) return null;
+  // Meja bagasi (Check-in > Sessions > Record luggage) selalu dipindai panitia:
+  // jumlah dan foto bagasinya diisi petugas, bukan peserta.
+  if (completion !== "staff") {
+    const { data: sesi } = await db.from("attendance_sessions").select("*").eq("event_id", eventId).eq("id", sessionId).maybeSingle();
+    if ((sesi as { records_luggage?: boolean } | null)?.records_luggage === true) {
+      return apiError("VALIDATION_ERROR", 422, {
+        message: "This scan session records luggage, so staff scan the participant there. Choose \"Staff scan the participant's QR\".",
+      });
+    }
+  }
   const { data, error } = await db.from("checkpoints").select(PILIH).eq("event_id", eventId).eq("session_id", sessionId);
   if (error) return galat(error);
   const lain = ((data ?? []) as { id: number; title: string; completion?: unknown }[])
@@ -309,11 +319,14 @@ export async function PATCH(request: Request) {
   const penyelesaian = isi.item_id ? "staff" : completion;
   // Pindah sesi tanpa menyebut pilihannya: yang dibandingkan pilihan tersimpan.
   let caraSekarang = penyelesaian;
-  if (caraSekarang === undefined && isi.session_id) {
+  let sesiSekarang = isi.session_id ?? null;
+  if ((caraSekarang === undefined && isi.session_id) || (caraSekarang && caraSekarang !== "staff" && isi.session_id === undefined)) {
     const { data: lama } = await db.from("checkpoints").select(PILIH).eq("id", id).eq("event_id", eventId).maybeSingle();
-    if (lama) caraSekarang = bacaPenyelesaian((lama as { completion?: unknown }).completion);
+    if (lama && caraSekarang === undefined) caraSekarang = bacaPenyelesaian((lama as { completion?: unknown }).completion);
+    // Ganti cara tanpa menyebut sesinya: sesi tersimpan yang diperiksa (meja bagasi).
+    if (lama && isi.session_id === undefined) sesiSekarang = (lama as { session_id?: number | null }).session_id ?? null;
   }
-  const bentrok = await bentrokSesi(db, eventId, isi.session_id ?? null, caraSekarang, id);
+  const bentrok = await bentrokSesi(db, eventId, sesiSekarang, caraSekarang, id);
   if (bentrok) return bentrok;
   const waktu = await periksaWaktu(db, eventId, agenda_item_ids);
   if ("galat" in waktu) return waktu.galat;

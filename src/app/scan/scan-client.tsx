@@ -409,6 +409,9 @@ export default function ScanClient() {
   // Centang barang yang belum diserahkan. Selama masih ada, hasil berikutnya
   // menunggu (`tertahan`) dan tidak mengganti lembar.
   const centangRef = useRef(0);
+  // Sama untuk bagasi: 1 selama jumlah atau foto tamu ini belum tersimpan.
+  const bagasiRef = useRef(0);
+  const [alasanTahan, setAlasanTahan] = useState<"barang" | "bagasi">("barang");
   const [tertahan, setTertahan] = useState<Hasil | null>(null);
   const tertahanRef = useRef<Hasil | null>(null);
   const hasilRef = useRef<Hasil | null>(null);
@@ -710,7 +713,8 @@ export default function ScanClient() {
    * tangan tamu tidak pernah tercatat.
    */
   const pasangLembar = useCallback((data: Hasil) => {
-    if (centangRef.current > 0 && hasilRef.current) {
+    if ((centangRef.current > 0 || bagasiRef.current > 0) && hasilRef.current) {
+      setAlasanTahan(bagasiRef.current > 0 ? "bagasi" : "barang");
       tertahanRef.current = data;
       setTertahan(data);
       return;
@@ -1003,7 +1007,18 @@ export default function ScanClient() {
   const onCentang = useCallback((jumlah: number) => {
     centangRef.current = jumlah;
     const tunggu = tertahanRef.current;
-    if (jumlah === 0 && tunggu) {
+    if (jumlah === 0 && bagasiRef.current === 0 && tunggu) {
+      tertahanRef.current = null;
+      setTertahan(null);
+      pasangLembar(tunggu);
+    }
+  }, [pasangLembar]);
+
+  /** Laporan isian bagasi. Nol berarti hasil yang tertahan boleh tampil. */
+  const onBagasi = useCallback((jumlah: number) => {
+    bagasiRef.current = jumlah;
+    const tunggu = tertahanRef.current;
+    if (jumlah === 0 && centangRef.current === 0 && tunggu) {
       tertahanRef.current = null;
       setTertahan(null);
       pasangLembar(tunggu);
@@ -1014,6 +1029,7 @@ export default function ScanClient() {
     const tunggu = tertahanRef.current;
     if (!tunggu) return;
     centangRef.current = 0;
+    bagasiRef.current = 0;
     tertahanRef.current = null;
     setTertahan(null);
     pasangLembar(tunggu);
@@ -1028,6 +1044,30 @@ export default function ScanClient() {
     document.addEventListener("visibilitychange", tersembunyi);
     return () => document.removeEventListener("visibilitychange", tersembunyi);
   }, [scanning]);
+
+  // Foto bagasi memakai kamera bawaan ponsel. Kamera pemindai dilepas dulu
+  // (sebagian Android tidak memberi kamera ke dua pemakai sekaligus), lalu
+  // dinyalakan lagi begitu petugas kembali dari kamera, supaya tamu berikutnya
+  // terpindai tanpa mengetuk "Turn on camera" setiap kali.
+  const lanjutKameraRef = useRef(false);
+  const scanningRef = useRef(scanning);
+  useEffect(() => { scanningRef.current = scanning; }, [scanning]);
+  const onKameraFoto = useCallback((buka: boolean) => {
+    if (buka) {
+      lanjutKameraRef.current = scanningRef.current;
+      setScanning(false);
+      return;
+    }
+    if (lanjutKameraRef.current) {
+      lanjutKameraRef.current = false;
+      setScanning(true);
+    }
+  }, []);
+  useEffect(() => {
+    const kembali = () => { if (!document.hidden && lanjutKameraRef.current) { lanjutKameraRef.current = false; setScanning(true); } };
+    document.addEventListener("visibilitychange", kembali);
+    return () => document.removeEventListener("visibilitychange", kembali);
+  }, []);
 
   // Pencarian ditunda 300 ms setelah ketukan terakhir. Nama Indonesia panjang,
   // dan satu permintaan per huruf berarti belasan kueri terbuang untuk satu nama.
@@ -1310,6 +1350,8 @@ export default function ScanClient() {
     tutupOtomatis &&
     hijau &&
     (sesiAktif?.jumlah_barang ?? 0) === 0 &&
+    // Meja bagasi menunggu petugas menghitung dan memotret.
+    !sesiAktif?.bagasi &&
     hitungBatal !== kedip &&
     tertahan === null &&
     cetak.fase !== "jalan" &&
@@ -2027,6 +2069,10 @@ export default function ScanClient() {
         }}
         barang={sessionId !== null && (sesiAktif?.jumlah_barang ?? 0) > 0 ? { sessionId, laneId } : null}
         onCentang={onCentang}
+        bagasi={sessionId !== null && sesiAktif?.bagasi ? { sessionId } : null}
+        onBagasi={onBagasi}
+        onKameraFoto={onKameraFoto}
+        alasanTahan={alasanTahan}
         tutupOtomatis={lembarMenutup}
         onSentuh={() => setHitungBatal(kedip)}
         tertahan={tertahan}
