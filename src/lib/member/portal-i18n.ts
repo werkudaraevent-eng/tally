@@ -88,6 +88,19 @@ export type PortalUiText = {
       /** Label aksesibel tombol kontak kru, mis. "Telepon kru Bus 3". */
       contactLabel: (aksi: string, bus: string) => string;
       seatLine: (gerbong: string | null, kursi: string | null) => string | null;
+      /** Kartu Bagasi: jumlah dan foto yang dicatat petugas di meja bagasi (Record luggage). */
+      luggage: {
+        title: string;
+        count: (jumlah: number) => string;
+        none: string;
+        countLabel: string;
+        droppedAt: string;
+        place: string;
+        check: string;
+        openPhoto: string;
+        enlarge: string;
+        close: string;
+      };
     };
     /**
      * Halaman Outfit (dress code per hari dari Agenda), bagian dari Susunan
@@ -323,6 +336,18 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} kru ${bus}`,
         seatLine: (gerbong, kursi) => [gerbong ? `Gerbong ${gerbong}` : null, kursi ? `kursi ${kursi}` : null].filter(Boolean).join(", ") || null,
+        luggage: {
+          title: "Bagasi",
+          count: (jumlah) => `${jumlah} bagasi`,
+          none: "Tidak menitip bagasi",
+          countLabel: "Jumlah",
+          droppedAt: "Dititipkan",
+          place: "Tempat",
+          check: "Jumlahnya tidak sesuai? Beri tahu panitia di meja bagasi sebelum berangkat.",
+          openPhoto: "Buka foto bagasi layar penuh",
+          enlarge: "Perbesar",
+          close: "Tutup",
+        },
       },
       outfit: {
         note: "Pakaian tiap hari, dari panitia.",
@@ -525,6 +550,18 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} the ${bus} crew`,
         seatLine: (gerbong, kursi) => [gerbong ? `Carriage ${gerbong}` : null, kursi ? `seat ${kursi}` : null].filter(Boolean).join(", ") || null,
+        luggage: {
+          title: "Luggage",
+          count: (jumlah) => `${jumlah} ${jumlah === 1 ? "bag" : "bags"}`,
+          none: "No luggage dropped off",
+          countLabel: "Bags",
+          droppedAt: "Dropped off",
+          place: "Where",
+          check: "Count not right? Tell the luggage desk before you leave.",
+          openPhoto: "Open the luggage photo full screen",
+          enlarge: "Enlarge",
+          close: "Close",
+        },
       },
       outfit: {
         note: "What to wear each day, from the organisers.",

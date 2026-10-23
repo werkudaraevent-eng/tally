@@ -123,6 +123,23 @@ alamat Tally.
 
 Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
 
+## Foto bagasi — pg_cron + pg_net (Supabase)
+
+Dijadwalkan lewat migrasi `202610230002_bagasi.sql`:
+
+- Job name: `tally-bagasi-foto`
+- Jadwal: sekali sehari pukul 02.23 WIB (`23 19 * * *`, UTC)
+- Perintah: bila ada foto bagasi dari acara yang hari terakhirnya
+  (`end_date`, atau `event_date` bila kosong) lebih dari 30 hari lalu, memanggil
+  `POST <tally_site_url>/api/cron/bagasi-foto` dengan rahasia Vault yang sama
+  dengan `tally-pesan`. Route menghapus berkasnya dari bucket privat
+  `luggage-photos` (maks 500 per panggilan) lalu mengosongkan `photo_path`.
+  Jumlah bagasi tetap disimpan. Acara tanpa tanggal tidak disentuh.
+
+Tidak butuh env baru: memakai `CRON_SECRET` yang sudah ada.
+
+Nonaktifkan sementara: `select cron.unschedule('tally-bagasi-foto');`
+
 ## Sync peserta — setel di cron-job.org
 
 ### Prasyarat

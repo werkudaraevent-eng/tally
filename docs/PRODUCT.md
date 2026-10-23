@@ -252,11 +252,12 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 ### Check-in
 - **For:** scanners and admins at the door and at sessions.
 - **CMS (Check-in):**
-  - Sessions: name, open/closed, kit items checked at this session. A session with scans can only be closed, not deleted.
+  - Sessions: name, open/closed, kit items checked at this session, Record luggage (count and photo, default off; shows the session's total bags for loading). A session with scans can only be closed, not deleted.
   - Registration desks (lanes): one per physical desk, open/closed; each desk can drive its own welcome screen.
   - Walk-ins: allow walk-ins (off by default); the form follows the registration form fields.
   - Checkpoints (below).
 - **Scanner screen** `/e/<slug>/scan?sesi=<session>`: camera QR, name search, or a handheld scanner. Results: recorded, already recorded, not found, walk-in created. Shows the seat, kit items to hand out (once per person), and can print a label. With several desks, the phone must pick its desk first.
+- **Luggage desk** (session with Record luggage): after the scan, staff set the number of bags (0 = "No luggage") and take one photo of all of them with the phone camera; the count is saved first and the photo (shrunk on the phone) follows, with Try photo again or Skip photo on a weak signal. The next scan waits until it is saved. A re-scan shows the count, photo, time and who saved it, with Edit. Checkpoints on such a session are always done by staff scan. Photos sit in a private bucket: admins and scanners of the event see them, each participant sees their own (Horizon Perjalanan "Bagasi" card), and they are deleted 30 days after the event ends; counts stay.
 
 ### Checkpoints
 - **For:** participants tick off steps (collect ID card, visit a stand); staff or participants record them.

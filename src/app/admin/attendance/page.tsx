@@ -36,6 +36,10 @@ type Sesi = {
   hadir: number;
   total_scan: number;
   terakhir: string | null;
+  /** Check-in > Sessions > Record luggage. Tidak ada sebelum migrasi 202610230002. */
+  records_luggage?: boolean;
+  /** Total bagasi sesi ini, hanya bila sesinya mencatat bagasi. */
+  bagasi?: { bags: number; people: number; photos: number };
 };
 
 /**
@@ -340,6 +344,30 @@ export default function AttendanceAdminPage() {
               <p className="text-body-medium text-on-surface-variant">Setelah memindai, petugas mencentang barang yang diserahkan. Tiap barang hanya bisa diambil sekali per peserta, di sesi mana pun.</p>
             </>
           )}
+        </DetailSection>
+        {/* Meja titip bagasi: petugas mencatat jumlah dan satu foto setelah
+            memindai. Totalnya untuk memuat truk per batch. */}
+        <DetailSection title="Luggage">
+          <Switch simpan
+            checked={sesiTerpilih.records_luggage === true}
+            disabled={busy || sesiTerpilih.records_luggage === undefined}
+            onChange={(value) => void kirim("PATCH", { id: sesiTerpilih.id, records_luggage: value })}
+            label="Record luggage (count and photo)"
+            description="After scanning, staff enter how many bags the participant hands in and take one photo of them. Participants see their own count and photo in the participant area."
+          />
+          {sesiTerpilih.bagasi ? (
+            <dl className="flex flex-col gap-2">
+              <KeyValue label="Bags">
+                <span className="tabular-nums">{sesiTerpilih.bagasi.bags} from {sesiTerpilih.bagasi.people} {sesiTerpilih.bagasi.people === 1 ? "person" : "people"}</span>
+              </KeyValue>
+              <KeyValue label="Photos">
+                <span className="tabular-nums">{sesiTerpilih.bagasi.photos}</span>
+              </KeyValue>
+            </dl>
+          ) : null}
+          {sesiTerpilih.records_luggage ? (
+            <p className="text-body-medium text-on-surface-variant">Photos are private: only admins and scanners of this event can open them, and each participant sees their own. They are deleted 30 days after the event ends; the counts stay.</p>
+          ) : null}
         </DetailSection>
         <DetailSection title="Layar pemindai">
           <dl className="flex flex-col gap-2">
