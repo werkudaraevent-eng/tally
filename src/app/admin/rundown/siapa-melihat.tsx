@@ -72,11 +72,13 @@ export function ringkasSyarat(syarat: DrafSyarat, info: InfoSiapaMelihat | null)
  * disentuh, syarat rusak tersimpan (kolom kosong) dibaca mati, bukan draf yang
  * belum lengkap. `tombol`: tombol yang menyimpannya (Save item atau Add item).
  */
-export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "Save item", onChange }: {
+export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "Save item", tanggal = null, onChange }: {
   info: InfoSiapaMelihat;
   value: DrafSyarat | null;
   tersimpan?: DrafSyarat | null;
   tombol?: string;
+  /** Tanggal bagian baris ini: Hotel dihitung dari stay yang berlaku hari itu. */
+  tanggal?: string | null;
   onChange: (next: DrafSyarat | null) => void;
 }) {
   const kolom = daftarKolom(info);
@@ -89,7 +91,8 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
   const pakaiHotel = Boolean(value?.some((isi) => isi.field === KOLOM_HOTEL));
 
   // Hitungan peserta yang cocok, dari server dengan aturan yang sama dengan portal.
-  const kunciHitung = value && lengkap && !hilang ? JSON.stringify(value) : null;
+  const tanggalSah = tanggal && /^\d{4}-\d{2}-\d{2}$/.test(tanggal) ? tanggal : null;
+  const kunciHitung = value && lengkap && !hilang ? JSON.stringify({ audience: value, date: tanggalSah }) : null;
   const [hitung, setHitung] = useState<{ kunci: string; matches: number; total: number } | { kunci: string; gagal: true } | null>(null);
   useEffect(() => {
     if (!kunciHitung) return;
@@ -98,7 +101,7 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
       void fetch(eventApiPath("/api/admin/rundown/items/sasaran"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audience: JSON.parse(kunciHitung) }),
+        body: kunciHitung,
         signal: pengendali.signal,
       })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error("hitung"))))

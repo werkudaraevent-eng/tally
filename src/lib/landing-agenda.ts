@@ -136,7 +136,11 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
   const dataPeserta = syarat.size > 0 && penonton?.participantId
     ? await muatDataSasaran(penonton.acara, penonton.participantId, [...syarat.values()].flat(), penonton.tampilKamar)
     : null;
-  const tersembunyi = new Set([...syarat].filter(([, isi]) => !barisUntukPeserta(isi, dataPeserta)).map(([id]) => id));
+  // Tanggal baris = tanggal bagiannya: Hotel cocok dengan stay yang berlaku
+  // hari itu (peserta yang pindah hotel).
+  const tanggalSeksi = new Map(daftarSeksi.map((section) => [section.id, section.event_date && /^\d{4}-\d{2}-\d{2}$/.test(section.event_date) ? section.event_date : null]));
+  const tanggalItem = new Map(daftarItem.map((item) => [item.id, tanggalSeksi.get(item.section_id) ?? null]));
+  const tersembunyi = new Set([...syarat].filter(([id, isi]) => !barisUntukPeserta(isi, dataPeserta, tanggalItem.get(id) ?? null)).map(([id]) => id));
 
   return daftarSeksi
     .map((section) => ({

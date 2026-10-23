@@ -36,8 +36,12 @@ export function bacaSyaratBaris(nilai: unknown): SyaratBaris | null {
   return nilai.map((isi) => bacaSasaranBlok(isi) ?? RUSAK);
 }
 
-/** Peserta ini melihat barisnya? Tanpa syarat: ya. Dengan syarat: hanya bila semua cocok. */
-export function barisUntukPeserta(syarat: SyaratBaris | null, data: DataSasaranPeserta | null): boolean {
+/**
+ * Peserta ini melihat barisnya? Tanpa syarat: ya. Dengan syarat: hanya bila
+ * semua cocok. `tanggal`: hari baris itu, supaya Hotel cocok dengan stay yang
+ * berlaku hari itu (pindah hotel).
+ */
+export function barisUntukPeserta(syarat: SyaratBaris | null, data: DataSasaranPeserta | null, tanggal: string | null = null): boolean {
   if (!syarat) return true;
-  return syarat.every((isi) => blokUntukPeserta(isi, data));
+  return syarat.every((isi) => blokUntukPeserta(isi, data, tanggal));
 }
