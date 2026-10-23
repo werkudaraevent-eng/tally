@@ -15,7 +15,7 @@ assert.deepEqual(bacaSyaratBaris([null, { field: "batch", values: ["Batch 1"] }]
 assert.deepEqual(bacaSyaratBaris([{ field: "batch", values: [" Batch 1 ", "batch 1"] }]), [{ field: "batch", values: ["Batch 1"] }]);
 
 const kolom = [{ key: "batch", options: ["Batch 1", "Batch 2", "Batch 3"] }, { key: "kota", options: ["Jakarta", "Surabaya"] }];
-const data = (jawaban: Record<string, unknown>, hotelId: number | null = null) => ({ jawaban, hotelId, kolom });
+const data = (jawaban: Record<string, unknown>, hotelId: number | null = null) => ({ jawaban, stays: hotelId === null ? [] : [{ hotel_id: hotelId, masuk: null, keluar: null }], offset: "+07:00", kolom });
 
 // Tanpa syarat: semua, juga tanpa data peserta (halaman publik).
 assert.equal(barisUntukPeserta(null, null), true);
@@ -40,5 +40,19 @@ assert.equal(barisUntukPeserta(bacaSyaratBaris([null, { field: "batch", values: 
 // Kolom atau jawaban yang sudah dihapus dari formulir: disembunyikan.
 assert.equal(barisUntukPeserta(bacaSyaratBaris([{ field: "bus", values: ["Bus 3"] }]), data({ bus: "Bus 3" })), false);
 assert.equal(barisUntukPeserta(bacaSyaratBaris([{ field: "batch", values: ["Batch 9"] }]), data({ batch: "Batch 9" })), false);
+
+// Hotel ikut tanggal baris: GRAMM (7) sampai 6 Nov, RAY (8) dari 6 Nov.
+const pindah = {
+  jawaban: { batch: "Batch 2" },
+  stays: [
+    { hotel_id: 7, masuk: null, keluar: "2026-11-06T05:00:00.000Z" },
+    { hotel_id: 8, masuk: "2026-11-06T07:00:00.000Z", keluar: null },
+  ],
+  offset: "+07:00",
+  kolom,
+};
+assert.equal(barisUntukPeserta(b2Gramm, pindah, "2026-11-05"), true);
+assert.equal(barisUntukPeserta(b2Gramm, pindah, "2026-11-07"), false);
+assert.equal(barisUntukPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["8"] }]), pindah, "2026-11-07"), true);
 
 console.log("sasaran-baris ok");

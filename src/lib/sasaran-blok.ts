@@ -11,9 +11,15 @@
  * Beda dengan Agenda yang hanya mengurutkan: di sini blok benar-benar
  * disembunyikan dari peserta yang jawabannya tidak cocok atau kosong.
  *
- * Murni, tanpa impor runtime selain sasaran-bagian, supaya bisa diuji langsung
+ * Hotel ikut tanggal: peserta yang pindah hotel (GRAMM 5-6, RAY 6-8) cocok
+ * dengan hotel yang stay-nya berlaku pada tanggal baris Agenda; hari pindah
+ * cocok dengan keduanya. Blok tanpa tanggal (Rute) cocok dengan hotel mana
+ * pun yang pernah ia tinggali.
+ *
+ * Murni, tanpa impor runtime selain sasaran-bagian dan logistik/stay, supaya bisa diuji langsung
  * oleh Node (sasaran-blok.check.ts).
  */
+import { stayPadaTanggal } from "./logistik/stay.ts";
 import { jawabanPeserta, SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG, type KolomSasaran } from "./sasaran-bagian.ts";
 
 export type SasaranBlok = { field: string; values: string[] };
@@ -58,8 +64,13 @@ export function bacaTautanAgenda(nilai: unknown): number[] {
 export type DataSasaranPeserta = {
   /** Jawaban peserta di kolom pertanyaan (participants.extra). */
   jawaban: Record<string, unknown>;
-  /** Hotel peserta dari Logistics; null bila belum ditempatkan atau kamar tidak ditampilkan ke peserta. */
-  hotelId: number | null;
+  /**
+   * Stay hotel peserta dari Logistics dengan tanggal efektifnya (null = tanpa
+   * batas); kosong bila belum ditempatkan atau kamar tidak ditampilkan ke peserta.
+   */
+  stays: ReadonlyArray<{ hotel_id: number; masuk: string | null; keluar: string | null }>;
+  /** Offset zona acara ("+07:00"), untuk tanggal baris Agenda. */
+  offset: string;
   /** Kolom pertanyaan yang boleh dipakai acara ini, dengan pilihannya (lihat kolomSasaran). */
   kolom: ReadonlyArray<Pick<KolomSasaran, "key" | "options">>;
 };
@@ -69,11 +80,15 @@ export type DataSasaranPeserta = {
  * jawabannya cocok dengan jawaban terpilih yang masih ada di pilihan kolomnya.
  * Jawaban kosong, kolom atau pilihan yang sudah dihapus dari formulir, atau
  * hotel yang tidak diketahui berarti tidak (sama dengan "Nowhere for now" di CMS).
+ * `tanggal` ("2026-11-06", zona acara): tanggal baris Agenda, untuk hotel.
  */
-export function blokUntukPeserta(sasaran: SasaranBlok | null, data: DataSasaranPeserta | null): boolean {
+export function blokUntukPeserta(sasaran: SasaranBlok | null, data: DataSasaranPeserta | null, tanggal: string | null = null): boolean {
   if (!sasaran) return true;
   if (!data) return false;
-  if (sasaran.field === KOLOM_HOTEL) return data.hotelId !== null && sasaran.values.includes(String(data.hotelId));
+  if (sasaran.field === KOLOM_HOTEL) {
+    return data.stays.some((stay) => sasaran.values.includes(String(stay.hotel_id))
+      && (tanggal === null || stayPadaTanggal(stay.masuk, stay.keluar, tanggal, data.offset)));
+  }
   const kolom = data.kolom.find((isi) => isi.key === sasaran.field);
   if (!kolom) return false;
   const jawaban = jawabanPeserta(data.jawaban, sasaran.field);
