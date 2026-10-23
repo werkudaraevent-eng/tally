@@ -20,7 +20,7 @@ export function KartuFotoOutfit({ kelas, warna, foto, kapan, apa, catatan, judul
   catatan: string | null;
   /** Judul bilah atas penampil: label halaman per acara (bawaan "Outfit"). */
   judul: string;
-  teks: { buka: string; lihat: string; tutup: string };
+  teks: { buka: string; lihat: string; perbesar: string; tutup: string };
   children: ReactNode;
 }) {
   const penampil = usePenampilGambar();
@@ -31,17 +31,19 @@ export function KartuFotoOutfit({ kelas, warna, foto, kapan, apa, catatan, judul
         onClick={penampil.buka}
         aria-label={teks.buka}
         aria-haspopup="dialog"
-        className="m3-state relative block w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-[16px] md:w-32 lg:w-80"
+        className="m3-state relative block w-full shrink-0 cursor-zoom-in overflow-hidden rounded-[16px] bg-[#EEF1F6] lg:w-80"
       >
-        {/* Foto dari unggahan admin: ukuran asli tidak diketahui, jadi <img> biasa dipotong 4:5.
-            Hiasan: isi kartu sudah menyebut pakaiannya. */}
+        {/* Foto dari unggahan admin, ukuran asli tidak diketahui. Ponsel dan tablet: rasio
+            asli, utuh (papan dress code tidak terpotong), paling tinggi 560 px. Layar lebar:
+            dipotong 4:5 di kolom 320 px. Hiasan: isi kartu sudah menyebut pakaiannya. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={foto} alt="" loading="lazy" decoding="async" className="aspect-[4/5] w-full bg-[#EEF1F6] object-cover" />
-        <span aria-hidden className="pointer-events-none absolute bottom-1.5 right-1.5 flex size-8 items-center justify-center rounded-full bg-white/90 text-[#1A2333] shadow-[0_1px_3px_rgb(16_24_40/0.18)] lg:bottom-3 lg:right-3 lg:size-10">
-          <ArrowsOut size={18} className="lg:size-5" />
+        <img src={foto} alt="" loading="lazy" decoding="async" className="mx-auto block h-auto max-h-[560px] w-auto max-w-full object-contain lg:aspect-[4/5] lg:max-h-none lg:w-full lg:object-cover" />
+        <span aria-hidden className="pointer-events-none absolute bottom-2.5 right-2.5 flex h-9 items-center gap-1.5 rounded-full bg-white/90 pl-2.5 pr-3 text-[13px] font-semibold text-[#1A2333] shadow-[0_1px_3px_rgb(16_24_40/0.18)] lg:bottom-3 lg:right-3 lg:size-10 lg:justify-center lg:p-0">
+          <ArrowsOut size={18} className="shrink-0 lg:size-5" />
+          <span className="lg:hidden">{teks.perbesar}</span>
         </span>
       </button>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1 lg:pt-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 lg:pt-2">
         {children}
         {/* Layar lebar: tombol teks juga, karena foto besar tidak selalu terbaca sebagai bisa diklik. */}
         <button
