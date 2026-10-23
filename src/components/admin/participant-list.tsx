@@ -22,7 +22,8 @@ import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES, MAX_CUSTOM_FIELDS } from "@/lib/registration-fields";
 import { BATAS_SARINGAN, LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
-import { DEFAULT_TIME_ZONE, type EventTimeZone } from "@/lib/timezone";
+import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
+import { kolomLogistik, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
 import { normalizeSeatLabel } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 
@@ -56,8 +57,8 @@ type Participant = {
   source: AsalPeserta;
   attendance: Record<string, { count: number; first: string }>;
   seats: ParticipantSeat[] | null;
-  /** Kamar dan bus bawaan dari Logistik. Null bila belum ditempatkan di keduanya. */
-  logistik: { kamar: string | null; bus: string | null } | null;
+  /** Hotel, kamar, bus bawaan, tiket kereta dan kit dari Logistik. Null bila belum ada sama sekali. */
+  logistik: LogistikRingkas | null;
 };
 type SesiKehadiran = { id: number; name: string; is_active: boolean };
 /** Jawaban /api/admin/participants/seat-options. Kosong bila tidak ada sesi denah "Set in Tally". */
@@ -81,6 +82,59 @@ const ASAL: Record<AsalPeserta, { label: string; judul: string }> = {
  * yang menang, bukan asal peserta: orang yang diimpor lalu belakangan mengisi
  * form berasal "Self-registered", tapi jamnya adalah jam impor.
  */
+/**
+ * Isi panel Logistics: satu baris per stay (hotel, kamar, tanggal), bus bawaan,
+ * tiket kereta per arah, dan kit yang sudah diambil. Nilainya dari kolom yang
+ * sama dengan tabel, jadi panel dan tabel tidak bisa berbeda.
+ */
+function RincianLogistik({ logistik, bentuk, offset }: { logistik: LogistikRingkas | null; bentuk: BentukLogistik; offset: string }) {
+  const kosong = (teks: string) => <span className="text-on-surface-variant">{teks}</span>;
+  const kolom = new Map(kolomLogistik({ ...bentuk, stays: Math.max(1, logistik?.stays.length ?? 1), kereta: true }).map((k) => [k.key, k]));
+  const nilai = (key: string) => kolom.get(key)?.nilai(logistik, offset, "layar") ?? "";
+  const stays = logistik?.stays ?? [];
+  const tiket = (arah: "outbound" | "return") => {
+    const t = logistik?.kereta?.[arah];
+    if (!t) return null;
+    const isi = (k: string) => nilai(`kereta:${arah}:${k}`);
+    const bagian = [
+      [isi("train_name"), isi("travel_class")].filter(Boolean).join(", "),
+      [isi("origin"), isi("destination")].filter(Boolean).join(" to "),
+      [isi("depart_date"), isi("depart_time")].filter(Boolean).join(" "),
+      [isi("carriage") && `Carriage ${isi("carriage")}`, isi("seat") && `seat ${isi("seat")}`].filter(Boolean).join(", "),
+      isi("booking_code") && `Booking ${isi("booking_code")}`,
+    ].filter(Boolean);
+    return bagian.join(" · ");
+  };
+  const keluar = tiket("outbound");
+  const pulang = tiket("return");
+  const kit = bentuk.kit.map((b) => ({ nama: b.name, isi: nilai(`kit:${b.id}`) })).filter((b) => b.isi);
+  return (
+    <>
+      {stays.length ? stays.map((_, i) => {
+        const n = i + 1;
+        const label = stays.length > 1 ? `Hotel ${n}` : "Hotel";
+        const dari = nilai(`stay:in:${n}`);
+        const sampai = nilai(`stay:out:${n}`);
+        return (
+          <KeyValue key={i} label={label}>
+            <span className="block">{nilai(i === 0 ? "kamar" : `stay:hotel:${n}`)}</span>
+            <span className="block text-on-surface-variant">
+              {`Room ${nilai(`stay:room:${n}`).replace("To follow", "to follow")}`}
+              {dari || sampai ? ` · ${dari || "?"} to ${sampai || "?"}` : ""}
+            </span>
+          </KeyValue>
+        );
+      }) : <KeyValue label="Hotel">{kosong("No hotel yet")}</KeyValue>}
+      <KeyValue label="Default bus">{logistik?.bus ?? kosong("No bus yet")}</KeyValue>
+      {keluar ? <KeyValue label="Outbound train">{keluar}</KeyValue> : null}
+      {pulang ? <KeyValue label="Return train">{pulang}</KeyValue> : null}
+      {bentuk.kit.length ? (
+        <KeyValue label="Kit collected">{kit.length ? kit.map((b) => b.isi === "Collected" ? b.nama : `${b.nama} (${b.isi})`).join(", ") : kosong("Nothing yet")}</KeyValue>
+      ) : null}
+    </>
+  );
+}
+
 function artiMasuk(p: Participant): string {
   if (p.registered_via === "form") return "Registration form submitted";
   if (p.source === "walkin") return "Added at the check-in desk";
@@ -89,6 +143,14 @@ function artiMasuk(p: Participant): string {
 }
 
 const RSVP_TONE: Record<string, "success" | "warning" | "error"> = { confirmed: "success", invited: "warning", declined: "error" };
+
+/** Lebar kolom logistik dari kuncinya (lihat `kolomLogistik`). */
+function lebarLogistik(key: string): number {
+  if (key === "kamar" || key.startsWith("stay:hotel:")) return 200;
+  if (key.startsWith("stay:room:") || key === "bus") return 96;
+  if (key.startsWith("stay:")) return 168;
+  return 136;
+}
 
 const PAGE_SIZE = 25;
 /** Umur maksimum hitungan acara, sesi dan organisasi sebelum dimuat ulang saat mencari. */
@@ -309,6 +371,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [sessions, setSessions] = useState<SesiKehadiran[]>([]);
   const [companies, setCompanies] = useState<FacetPerusahaan[]>([]);
   const [scannerColumns, setScannerColumns] = useState(false);
+  const [bentukLog, setBentukLog] = useState<BentukLogistik>({ stays: 1, kit: [], kereta: false });
   const [filterAsal, setFilterAsal] = useState("");
   const [filterHadir, setFilterHadir] = useState("");
   const [filterRsvp, setFilterRsvp] = useState("");
@@ -400,6 +463,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setSessions((data.sessions ?? []) as SesiKehadiran[]);
       setCompanies((data.companies ?? []) as FacetPerusahaan[]);
       setScannerColumns(Boolean(data.scanner_columns));
+      if (data.logistik_bentuk) setBentukLog(data.logistik_bentuk as BentukLogistik);
       setRemovedCount(data.removed_count ?? 0);
       const stats = { total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null };
       statsTerakhir.current = stats;
@@ -765,6 +829,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     catch { toast.error("Couldn't copy code", "Copy it from the screen."); }
   }
 
+  const offsetZona = useMemo(() => timeZoneOffset(timeZone), [timeZone]);
   const jam = useCallback((iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone }), [timeZone]);
   const tanggalJam = useCallback((iso: string) => new Date(iso).toLocaleString("en-GB", {
     day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone,
@@ -806,8 +871,22 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           : <EmptyCell />,
       },
       { key: "rsvp", label: "RSVP", sort: "rsvp_status", saring: "rsvp", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
-      { key: "kamar", label: "Room", sort: "kamar", saring: "kamar", width: 120, cell: (p) => p.logistik?.kamar ? <span className="block truncate" title={p.logistik.kamar}>{p.logistik.kamar}</span> : <EmptyCell /> },
-      { key: "bus", label: "Bus", sort: "bus", saring: "bus", width: 96, cell: (p) => p.logistik?.bus ?? <EmptyCell /> },
+      // Satu fakta satu kolom: Hotel/Room/check-in/check-out per stay, Bus, tiket kereta per isian, kit per barang.
+      // Hanya "kamar" (Hotel pertama) dan "bus" yang bisa diurutkan dan disaring, sama dengan sebelumnya.
+      ...kolomLogistik(bentukLog).map<Kolom>((k) => {
+        const bisa = k.key === "kamar" || k.key === "bus";
+        return {
+          key: k.key,
+          label: k.label,
+          sort: bisa ? k.key : undefined,
+          saring: bisa ? k.key : undefined,
+          width: lebarLogistik(k.key),
+          cell: (p) => {
+            const teks = k.nilai(p.logistik, offsetZona, "layar");
+            return teks ? <span className="block truncate" title={teks}>{teks}</span> : <EmptyCell />;
+          },
+        };
+      }),
       { key: "seat", label: "Seat", sort: "seat", saring: "seat", width: 168, cell: (p) => p.seats?.length ? <span className="block truncate" title={p.seats.map((s) => `${s.subEventName}: ${s.label}`).join(", ")}>{p.seats.map((s) => s.label).join(", ")}</span> : <EmptyCell /> },
       { key: "source", label: "Source", sort: "source", saring: "source", width: 128, cell: (p) => <span title={ASAL[p.source].judul}>{ASAL[p.source].label}</span> },
       { key: "type", label: "Type", sort: "participant_type", saring: "participant_type", width: 112, cell: (p) => p.participant_type ?? <EmptyCell /> },
@@ -838,7 +917,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       );
     }
     return daftar;
-  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered]);
+  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona]);
 
   // Bawaan harus muat di layar 1280 tanpa gulir mendatar (panel ±960 px):
   // Nama 240 + Organisation 200 + check-in 140 + Registered 152 + RSVP 128.
@@ -1406,8 +1485,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               </DetailSection>
             ) : null}
             <DetailSection title="Logistics" action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Manage in Logistics</ButtonLink>}>
-              <KeyValue label="Room">{p.logistik?.kamar ?? <span className="text-on-surface-variant">No room yet</span>}</KeyValue>
-              <KeyValue label="Default bus">{p.logistik?.bus ?? <span className="text-on-surface-variant">No bus yet</span>}</KeyValue>
+              <RincianLogistik logistik={p.logistik} bentuk={bentukLog} offset={offsetZona} />
             </DetailSection>
             <DetailSection title="Seating">
               {p.seats?.length ? p.seats.map((seat) => <KeyValue key={`${seat.subEventId}-${seat.label}`} label={seat.subEventName}>{seat.label}</KeyValue>) : <p className="text-body-medium text-on-surface-variant">No seat yet.</p>}

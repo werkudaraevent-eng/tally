@@ -3,6 +3,7 @@ import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { kolomImpor, normalizeHeader, type KolomImpor } from "./participants-kolom";
+import type { KolomLogistik, LogistikRingkas } from "./logistik/ringkas";
 
 // Impor dan ekspor peserta, CSV maupun XLSX.
 //
@@ -75,9 +76,9 @@ export function importHeaders(fields: RegistrationField[]): string[] {
  * suntingannya akan diabaikan tidak boleh menghalangi kolom yang tidak.
  * Jawaban berkas ikut di ekspor sebagai penanda ada/tidak, di antara keduanya.
  */
-export function exportHeaders(fields: RegistrationField[], sesi: SesiEkspor[] = []): string[] {
+export function exportHeaders(fields: RegistrationField[], sesi: SesiEkspor[] = [], logistik?: LogistikEkspor): string[] {
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type)).map((field) => field.key);
-  return [...importHeaders(fields), ...berkas, ...READONLY_HEADERS, ...sesi.map(kolomSesi)];
+  return [...importHeaders(fields), ...berkas, ...READONLY_HEADERS, ...sesi.map(kolomSesi), ...(logistik?.kolom ?? []).map((k) => `${AWALAN_LOGISTIK}${k.label}`)];
 }
 
 /** Sesi kehadiran (/scan) acara, urut seperti kolomnya di daftar peserta. */
@@ -91,6 +92,16 @@ export type SesiEkspor = { id: number; name: string };
  * dan importir mengabaikan kolom yang tidak dikenalinya.
  */
 const AWALAN_SESI = "check_in: ";
+
+/**
+ * Kolom Logistik di ujung ekspor, baca-saja: Hotel 1, Room 1, check-in dan
+ * check-out per stay, Bus, tiket kereta per isian, kit per barang. Sama dengan
+ * kolom di daftar peserta (`kolomLogistik`). Penempatan tetap diubah di
+ * Logistics; importir peserta melewati kolom berawalan ini seperti kolom sesi.
+ */
+const AWALAN_LOGISTIK = "logistics: ";
+
+export type LogistikEkspor = { kolom: KolomLogistik[]; data: Map<string, LogistikRingkas> };
 
 function kolomSesi(sesi: SesiEkspor): string {
   return `${AWALAN_SESI}${sesi.name}`;
@@ -165,7 +176,7 @@ export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
   // dinormalkan menjadi check_in_registration, dan pertanyaan form berlabel
   // "Check-in: Registration" akan tertimpa jam check-in saat berkas ekspor
   // diunggah ulang. Hanya ejaan ekspor persis; label buatan panitia tetap dibaca.
-  const columns = headerRow.map((cell) => ((cell ?? "").startsWith(AWALAN_SESI) ? null : kolomImpor(cell ?? "", byLabel)));
+  const columns = headerRow.map((cell) => ((cell ?? "").startsWith(AWALAN_SESI) || (cell ?? "").startsWith(AWALAN_LOGISTIK) ? null : kolomImpor(cell ?? "", byLabel)));
   // Kolom kursi "seat" tidak ikut ke RPC impor: kursi ditulis terpisah oleh
   // route lewat `seat-tally`. Kolom "kursi" milik ekspor SENGAJA tidak dibaca:
   // isinya gabungan kursi dari semua sumber (scanner, sesi lama) dan berkas
@@ -405,6 +416,7 @@ export async function loadParticipantExportRows(
   zone: EventTimeZone = DEFAULT_TIME_ZONE,
   ids?: ReadonlySet<string>,
   sesi: SesiEkspor[] = [],
+  logistik?: LogistikEkspor,
 ) {
   const [data, formDikirim, checkIn] = await Promise.all([
     semuaPeserta(eventId),
@@ -414,6 +426,7 @@ export async function loadParticipantExportRows(
 
   const tambahan = importableFields(fields);
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type));
+  const offset = timeZoneOffset(zone);
 
   return data.filter((row) => !ids || ids.has(row.id)).map((row) => [
     row.qr_code,
@@ -440,6 +453,7 @@ export async function loadParticipantExportRows(
     row.source_removed_at ?? "",
     row.id,
     ...sesi.map((satu) => { const jam = checkIn.get(`${row.id}:${satu.id}`); return jam ? waktuZona(jam, zone) : ""; }),
+    ...(logistik?.kolom ?? []).map((k) => k.nilai(logistik?.data.get(row.id), offset, "berkas")),
   ]);
 }
 
