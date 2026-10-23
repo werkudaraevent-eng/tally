@@ -134,19 +134,37 @@ export function BannerAkibat({ kalimat }: { kalimat: string[] }) {
 
 /* ------------------------------------------------------------ Dialog Stays */
 
-type Sunting = { jenis: "ubah"; hotelId: number } | { jenis: "tambah" } | null;
+type Sunting = { jenis: "ubah"; hotelId: number } | { jenis: "kamar"; hotelId: number } | { jenis: "tambah" } | null;
 
 /**
- * Semua stay satu peserta, dibuka dari kolom Stay di Assignments: ubah malam,
- * lepas satu hotel, atau tambah hotel. Kamar dipilih lewat Assign to hotel
- * atau tab Rooms, bukan di sini: aturan kapasitas dan jenis kelamin milik
- * daftar kamar itu.
+ * Penghuni aktif per kamar (peserta yang dihapus di sumber tidak menempati
+ * tempat, sama dengan `assign_room`). Untuk sisa tempat di pilihan kamar.
  */
-export function DialogStays({ orang, stays, hotels, rooms, offset, busy, kirim, onClose }: {
+export function hitungPenghuni(lodging: Stay[], participants: Array<{ id: string }>): Map<number, number> {
+  const aktif = new Set(participants.map((o) => o.id));
+  const hasil = new Map<number, number>();
+  for (const b of lodging) if (b.room_id !== null && aktif.has(b.participant_id)) hasil.set(b.room_id, (hasil.get(b.room_id) ?? 0) + 1);
+  return hasil;
+}
+
+/**
+ * Semua stay satu peserta, dibuka dari kolom Stay di Assignments atau dari
+ * panel peserta di Daftar peserta: pilih kamar, ubah malam, lepas satu hotel,
+ * atau tambah hotel.
+ *
+ * Kamar dipilih per stay di sini juga, supaya pintu dari Daftar peserta tidak
+ * buntu (di sana tidak ada tab Rooms). Pilihan kamar hanya dari hotel stay itu,
+ * dan `assign_room` mengisi stay yang sudah ada: tanggal dan hotel lain tetap.
+ * Kapasitas dan aturan jenis kelamin tetap diperiksa RPC-nya; daftar di sini
+ * hanya menandai kamar yang sudah penuh.
+ */
+export function DialogStays({ orang, stays, hotels, rooms, penghuni, offset, busy, kirim, onClose }: {
   orang: LogistikPeserta | null;
   stays: Stay[];
   hotels: Hotel[];
   rooms: Kamar[];
+  /** Penghuni aktif per kamar (`hitungPenghuni`). */
+  penghuni: Map<number, number>;
   offset: string;
   busy: boolean;
   kirim: Kirim;
@@ -157,12 +175,13 @@ export function DialogStays({ orang, stays, hotels, rooms, offset, busy, kirim, 
   const [masuk, setMasuk] = useState("");
   const [keluar, setKeluar] = useState("");
   const [lepas, setLepas] = useState<number | null>(null);
+  const [kamarBaru, setKamarBaru] = useState("");
 
   const hotelById = new Map(hotels.map((h) => [h.id, h]));
   const kamarById = new Map(rooms.map((k) => [k.id, k]));
   const bebas = hotels.filter((h) => !stays.some((s) => s.hotel_id === h.id));
 
-  function tutup() { setSunting(null); setLepas(null); setHotelBaru(""); onClose(); }
+  function tutup() { setSunting(null); setLepas(null); setHotelBaru(""); setKamarBaru(""); onClose(); }
   function mulai(baru: Sunting, hotel?: Hotel, stay?: Stay) {
     const t = stay ? tanggalStay(stay, hotel) : null;
     const awal = t ? { masuk: t.masuk ? tanggalZona(t.masuk, offset) : "", keluar: t.keluar ? tanggalZona(t.keluar, offset) : "" } : malamHotel(hotel, offset);
@@ -186,6 +205,15 @@ export function DialogStays({ orang, stays, hotels, rooms, offset, busy, kirim, 
     if (!orang || !idTujuan || galat) return;
     const hasil = await kirim("/api/admin/logistik/penghuni", "POST", { hotel_id: idTujuan, participant_ids: [orang.id], ...(malam ?? {}) });
     if (hasil !== null) setSunting(null);
+  }
+
+  // "" = belum dipilih, "menyusul" = lepas kamar (hotel dan malam tetap), angka = id kamar.
+  async function simpanKamar(stay: Stay) {
+    if (!orang || !kamarBaru) return;
+    const hasil = kamarBaru === "menyusul"
+      ? stay.room_id !== null ? await kirim("/api/admin/logistik/penghuni", "POST", { release_room_id: stay.room_id, participant_ids: [orang.id] }) : {}
+      : await kirim("/api/admin/logistik/penghuni", "POST", { room_id: Number(kamarBaru), participant_ids: [orang.id] });
+    if (hasil !== null) { setSunting(null); setKamarBaru(""); }
   }
 
   async function hapus(hotelId: number) {
@@ -233,6 +261,10 @@ export function DialogStays({ orang, stays, hotels, rooms, offset, busy, kirim, 
               const label = labelMalam(t.masuk, t.keluar, offset);
               const sendiri = stay.check_in_at !== null || stay.check_out_at !== null;
               const diubah = sunting?.jenis === "ubah" && sunting.hotelId === stay.hotel_id;
+              const pilihKamar = sunting?.jenis === "kamar" && sunting.hotelId === stay.hotel_id;
+              const kamarHotel = rooms
+                .filter((k) => k.hotel_id === stay.hotel_id)
+                .sort((a, b) => a.room_number.localeCompare(b.room_number, "id", { numeric: true }));
               return (
                 <li key={stay.hotel_id} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-3 last:border-b-0">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -242,7 +274,32 @@ export function DialogStays({ orang, stays, hotels, rooms, offset, busy, kirim, 
                   <p className="text-body-medium text-on-surface-variant">
                     {label ? (sendiri ? label : `Hotel dates · ${label}`) : "Hotel dates not set yet"}
                   </p>
-                  {diubah ? formMalam : lepas === stay.hotel_id ? (
+                  {pilihKamar ? (
+                    <div className="flex flex-col gap-3">
+                      {kamarHotel.length === 0 ? (
+                        <p className="text-body-medium text-on-surface-variant">This hotel has no rooms yet. Add them in Logistics, Rooms tab.</p>
+                      ) : (
+                        <SelectField label="Room" value={kamarBaru} onChange={(event) => setKamarBaru(event.target.value)}>
+                          <option value="" disabled>Choose a room</option>
+                          {kamar ? <option value="menyusul">Room to follow (keep the hotel)</option> : null}
+                          {kamarHotel.map((k) => {
+                            // Kamar orang ini sendiri tidak dihitung penuh: dia sudah di sana.
+                            const isi = (penghuni.get(k.id) ?? 0) - (k.id === stay.room_id ? 1 : 0);
+                            const penuh = isi >= k.capacity && k.id !== stay.room_id;
+                            return (
+                              <option key={k.id} value={k.id} disabled={penuh || k.id === stay.room_id}>
+                                {[`Room ${k.room_number}`, k.room_type, k.id === stay.room_id ? "current" : penuh ? "full" : `${k.capacity - isi} of ${k.capacity} free`].filter(Boolean).join(" · ")}
+                              </option>
+                            );
+                          })}
+                        </SelectField>
+                      )}
+                      <div className="flex justify-end gap-2">
+                        <Button variant="text" size="sm" disabled={busy} onClick={() => { setSunting(null); setKamarBaru(""); }}>Cancel</Button>
+                        {kamarHotel.length > 0 ? <Button variant="tonal" size="sm" loading={busy} disabled={!kamarBaru} onClick={() => void simpanKamar(stay)}>Save</Button> : null}
+                      </div>
+                    </div>
+                  ) : diubah ? formMalam : lepas === stay.hotel_id ? (
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <span className="mr-auto text-body-medium text-on-surface">Remove this hotel{kamar ? " and free the room" : ""}?</span>
                       <Button variant="text" size="sm" disabled={busy} onClick={() => setLepas(null)}>Cancel</Button>
@@ -250,6 +307,7 @@ export function DialogStays({ orang, stays, hotels, rooms, offset, busy, kirim, 
                     </div>
                   ) : sunting === null ? (
                     <div className="flex flex-wrap gap-2">
+                      <Button variant="text" size="sm" onClick={() => { setLepas(null); setKamarBaru(""); setSunting({ jenis: "kamar", hotelId: stay.hotel_id }); }}>{kamar ? "Change room" : "Choose room"}</Button>
                       <Button variant="text" size="sm" onClick={() => mulai({ jenis: "ubah", hotelId: stay.hotel_id }, hotel, stay)}>Change nights</Button>
                       <Button variant="text" size="sm" icon={<Trash size={16} />} onClick={() => setLepas(stay.hotel_id)}>Remove</Button>
                     </div>
@@ -279,7 +337,6 @@ export function DialogStays({ orang, stays, hotels, rooms, offset, busy, kirim, 
           </Button>
         ) : null}
 
-        <p className="text-body-small text-on-surface-variant">To choose a room, use Assign to hotel or the Rooms tab.</p>
       </div>
     </Dialog>
   );

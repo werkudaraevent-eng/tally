@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowsClockwise, CheckCircle, DownloadSimple, FileArrowUp, Plus, Warning, XCircle } from "@phosphor-icons/react";
+import { ArrowsClockwise, CaretDown, CheckCircle, DownloadSimple, FileArrowUp, Plus, SuitcaseRolling, UsersThree, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { ParticipantList, type ParticipantListHandle, type ParticipantStats } from "@/components/admin/participant-list";
 import { ExportMenu } from "@/components/admin/export-menu";
@@ -10,7 +10,8 @@ import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
-import { Banner, Button, ButtonLink, Dialog, MetaSeparator, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Banner, Button, ButtonLink, Dialog, MetaSeparator, Popover, usePopoverAnchor, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { cx } from "@/lib/m3/cx";
 
 type ImportPreview = {
   dry_run: boolean;
@@ -123,7 +124,7 @@ export default function ParticipantsAdminPage() {
                 onSync={() => void sync()}
               />
             ) : null}
-            <Button simpan variant="outlined" onClick={() => setImportOpen(true)} icon={<FileArrowUp size={16} />}>Import</Button>
+            <MenuImpor onPeserta={() => setImportOpen(true)} onLogistik={() => daftar.current?.imporLogistik()} />
             <ExportMenu
               endpoint={saringanEkspor ? `/api/admin/participants/export?${saringanEkspor}` : "/api/admin/participants/export"}
               label="Export"
@@ -207,5 +208,56 @@ export default function ParticipantsAdminPage() {
       </Dialog>
     </WorkspacePage>
     </div>
+  );
+}
+
+/**
+ * Import: data peserta, atau penempatan Logistik (hotel, kamar, bus, tiket
+ * kereta). Pilihan kedua membuka impor Logistics yang sama persis, dengan
+ * pratinjaunya; berkas peserta tidak membaca kolom logistik, supaya sel kosong
+ * tidak pernah bermakna ganda (biarkan atau hapus).
+ */
+function MenuImpor({ onPeserta, onLogistik }: { onPeserta: () => void; onLogistik: () => void }) {
+  const [pemicu, setPemicu] = useState<HTMLSpanElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
+  const PILIHAN = [
+    { label: "Participant details", detail: "Names, organisation, contacts and form answers.", Icon: UsersThree, pilih: onPeserta },
+    { label: "Hotels, rooms, buses, train tickets", detail: "The Logistics import, with a preview of every change.", Icon: SuitcaseRolling, pilih: onLogistik },
+  ];
+  return (
+    <>
+      <span ref={setPemicu} className="inline-flex">
+        <Button
+          simpan
+          variant="outlined"
+          icon={<FileArrowUp size={16} />}
+          trailingIcon={<CaretDown size={14} className={cx("transition-transform", menu.open && "rotate-180")} />}
+          aria-haspopup="menu"
+          aria-expanded={menu.open}
+          onClick={menu.toggle}
+        >
+          Import
+        </Button>
+      </span>
+      {menu.open ? (
+        <Popover anchor={menu} label="What to import" width={288} className="p-0">
+          {PILIHAN.map(({ label, detail, Icon, pilih }) => (
+            <button
+              key={label}
+              type="button"
+              role="menuitem"
+              onClick={() => { menu.tutup(); pilih(); }}
+              className="flex w-full items-start gap-3 border-b border-outline-variant p-3 text-left last:border-b-0 hover:bg-primary-soft"
+            >
+              <Icon size={18} className="mt-0.5 shrink-0 text-on-surface-variant" />
+              <span className="flex flex-col">
+                <span className="text-body-medium font-medium text-on-surface">{label}</span>
+                <span className="text-body-small text-on-surface-variant">{detail}</span>
+              </span>
+            </button>
+          ))}
+        </Popover>
+      ) : null}
+    </>
   );
 }
