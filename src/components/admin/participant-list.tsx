@@ -2,12 +2,12 @@
 
 import {
   ArrowCounterClockwise, ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
-  Funnel, MagnifyingGlass, Package, Paperclip, PencilSimple, Plus, Trash, UsersThree, X, XCircle,
+  Bed, Bus as IkonBus, Funnel, MagnifyingGlass, Package, Paperclip, PencilSimple, Plus, SuitcaseRolling, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Banner, Button, ButtonLink, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
+  Banner, Button, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
   ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, StatusChip, useColumnPrefs, usePopoverAnchor, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
@@ -24,6 +24,7 @@ import { BATAS_SARINGAN, LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMenta
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { kolomLogistik, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
+import { LogistikDariPeserta, type AksiLogistik } from "@/components/admin/logistik/dari-peserta";
 import { normalizeSeatLabel } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 
@@ -289,6 +290,58 @@ function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xls
   );
 }
 
+/**
+ * Menu Logistics di bilah pilihan: dialog yang sama dengan tab Assignments di
+ * Logistics, untuk peserta yang dicentang di sini. Kamar dipilih di dialog
+ * Assign to hotel (hotel saja atau kamarnya langsung), jadi tidak ada butir
+ * "kamar" terpisah.
+ */
+function MenuLogistik({ onPick }: { onPick: (jenis: "kamar" | "bus" | "lepas-kamar" | "lepas-bus") => void }) {
+  const [pemicu, setPemicu] = useState<HTMLSpanElement | null>(null);
+  const menu = usePopoverAnchor(pemicu);
+  const PILIHAN = [
+    ["kamar", "Assign to hotel or room", Bed],
+    ["bus", "Assign to bus", IkonBus],
+    ["lepas-kamar", "Remove from hotel", null],
+    ["lepas-bus", "Remove from bus", null],
+  ] as const;
+  return (
+    <>
+      <span ref={setPemicu} className="inline-flex">
+        <Button
+          simpan
+          variant="outlined"
+          size="sm"
+          className="target-48"
+          icon={<SuitcaseRolling size={16} />}
+          trailingIcon={<CaretDown size={14} className={cx("transition-transform max-sm:hidden", menu.open && "rotate-180")} />}
+          aria-label="Logistics"
+          aria-haspopup="menu"
+          aria-expanded={menu.open}
+          onClick={menu.toggle}
+        >
+          <span className="max-sm:hidden">Logistics</span>
+        </Button>
+      </span>
+      {menu.open ? (
+        <Popover anchor={menu} label="Logistics for the selected participants" width={240} className="p-0">
+          {PILIHAN.map(([jenis, label, Icon]) => (
+            <button
+              key={jenis}
+              type="button"
+              role="menuitem"
+              onClick={() => { menu.tutup(); onPick(jenis); }}
+              className="flex w-full items-center gap-3 border-b border-outline-variant p-3 text-left text-body-medium font-medium last:border-b-0 hover:bg-primary-soft"
+            >
+              {Icon ? <Icon size={18} className="shrink-0 text-on-surface-variant" /> : <span className="size-[18px] shrink-0" aria-hidden />}{label}
+            </button>
+          ))}
+        </Popover>
+      ) : null}
+    </>
+  );
+}
+
 // Diperiksa server (`pengurut` di participants-saring): kolom RPC, kolom yang
 // diurutkan di server, `checkin:<sesi>`, atau `field:<kunci>`.
 type SortKey = string;
@@ -326,7 +379,7 @@ function inisial(nama: string) {
   return nama.split(/\s+/).filter(Boolean).slice(0, 2).map((kata) => kata[0]?.toUpperCase() ?? "").join("");
 }
 
-export type ParticipantListHandle = { tambah: () => void };
+export type ParticipantListHandle = { tambah: () => void; imporLogistik: () => void };
 export type ParticipantStats = { total: number; activeTotal: number; removedCount: number; lastSyncedAt: string | null };
 
 type Mode = { kind: "view"; id: string } | { kind: "edit"; row: Participant } | { kind: "new" } | null;
@@ -372,6 +425,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [companies, setCompanies] = useState<FacetPerusahaan[]>([]);
   const [scannerColumns, setScannerColumns] = useState(false);
   const [bentukLog, setBentukLog] = useState<BentukLogistik>({ stays: 1, kit: [], kereta: false });
+  // Dialog Logistik yang sedang dibuka dari sini (menu bilah pilihan, panel detail, Import).
+  const [aksiLog, setAksiLog] = useState<AksiLogistik | null>(null);
   const [filterAsal, setFilterAsal] = useState("");
   const [filterHadir, setFilterHadir] = useState("");
   const [filterRsvp, setFilterRsvp] = useState("");
@@ -636,7 +691,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     setMode({ kind: "new" });
   }
 
-  useImperativeHandle(ref, () => ({ tambah: startAdd }));
+  useImperativeHandle(ref, () => ({ tambah: startAdd, imporLogistik: () => setAksiLog({ jenis: "impor" }) }));
 
   function startEdit(participant: Participant) {
     void muatKursi(participant);
@@ -1096,6 +1151,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             <span className="ml-auto flex min-h-12 items-center gap-2">
               <Button simpan variant="outlined" size="sm" className="target-48" aria-label="Send message" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}><span className="max-sm:hidden">Send message</span></Button>
               <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} />
+              <MenuLogistik onPick={(jenis) => setAksiLog({ jenis, ids: [...pilih] })} />
               <Button
                 simpan
                 variant="outlined"
@@ -1484,7 +1540,15 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                 })}
               </DetailSection>
             ) : null}
-            <DetailSection title="Logistics" action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Manage in Logistics</ButtonLink>}>
+            <DetailSection
+              title="Logistics"
+              action={
+                <span className="flex gap-1">
+                  <Button simpan variant="text" size="sm" onClick={() => setAksiLog({ jenis: "stays", ids: [p.id] })}>Edit stays</Button>
+                  <Button simpan variant="text" size="sm" onClick={() => setAksiLog({ jenis: "bus", ids: [p.id] })}>Change bus</Button>
+                </span>
+              }
+            >
               <RincianLogistik logistik={p.logistik} bentuk={bentukLog} offset={offsetZona} />
             </DetailSection>
             <DetailSection title="Seating">
@@ -1564,6 +1628,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         <p className="text-body-medium text-on-surface">{daftarNama}</p>
       </Dialog>
       <ResetCheckInDialog target={resetCheckIn} sessions={sessions} jam={jam} onClose={() => setResetCheckIn(null)} onDone={checkInDireset} />
+      <LogistikDariPeserta
+        aksi={aksiLog}
+        onClose={() => setAksiLog(null)}
+        // Kolom Hotel/Bus dan jumlah slot stay ikut berubah: muat ulang beserta meta.
+        onChanged={() => { if (aksiLog && aksiLog.jenis !== "stays" && aksiLog.jenis !== "impor") setPilih(new Set()); onChanged?.(); }}
+      />
       <Dialog
         open={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}

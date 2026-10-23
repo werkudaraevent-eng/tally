@@ -10,8 +10,8 @@ import { useEventTimeZone } from "@/lib/use-event-timezone";
 import Link from "@/components/event-link";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
-import { KolomCari, type TabProps } from "./bersama";
-import { BannerAkibat, DialogStays, galatMalam, kalimatAkibat, malamHotel, malamKeIso, PilihMalam } from "./stay";
+import { KolomCari, type Kirim, type TabProps } from "./bersama";
+import { BannerAkibat, DialogStays, galatMalam, hitungPenghuni, kalimatAkibat, malamHotel, malamKeIso, PilihMalam } from "./stay";
 
 /**
  * Tab Penempatan: titik mulai Logistik.
@@ -370,6 +370,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         stays={stayDibuka ? inapPeserta.get(stayDibuka) ?? [] : []}
         hotels={data.hotels}
         rooms={data.rooms}
+        penghuni={hitungPenghuni(data.lodging, data.participants)}
         offset={offset}
         busy={busy}
         kirim={kirim}
@@ -387,46 +388,77 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         simpan={async (bus) => selesai(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: bus.id, participant_ids: dipilih.map((o) => o.id) }))}
       />
 
-      <Dialog
-        open={dialog === "lepas-kamar"}
-        onClose={() => setDialog(null)}
-        dismissible={!busy}
-        title={`Remove ${plural(adaInap.length, "person", "people")} from their hotels?`}
-        description="Every hotel and room they have is removed, and their places in rooms become free again. To remove just one hotel or change nights, click their Stay instead."
-        actions={
-          <>
-            <Button variant="outlined" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button>
-            <Button simpan loading={busy} onClick={async () => {
-              // Bertahap per 200: batas route, dan URL ribuan id terlalu panjang.
-              let hasil: unknown = null;
-              for (let i = 0; i < adaInap.length; i += POTONG_LEPAS) {
-                const ids = adaInap.slice(i, i + POTONG_LEPAS).map((o) => `participant_id=${o.id}`).join("&");
-                hasil = await kirim(`/api/admin/logistik/penghuni?${ids}`, "DELETE");
-                if (hasil === null) break;
-              }
-              await selesai(hasil);
-            }}>Remove from hotel</Button>
-          </>
-        }
-      />
+      <DialogLepasKamar open={dialog === "lepas-kamar"} orang={adaInap} busy={busy} kirim={kirim} onClose={() => setDialog(null)} onSelesai={selesai} />
 
-      <Dialog
-        open={dialog === "lepas-bus"}
-        onClose={() => setDialog(null)}
-        dismissible={!busy}
-        title={`Remove ${plural(dipilih.filter((o) => busPeserta.has(o.id)).length, "person", "people")} from their default bus?`}
-        description="They will no longer have a default bus. Replacement buses set for a single trip (Buses tab, Trips section) still apply."
-        actions={
-          <>
-            <Button variant="outlined" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button>
-            <Button simpan loading={busy} onClick={async () => {
-              const ids = dipilih.filter((o) => busPeserta.has(o.id)).map((o) => o.id);
-              await selesai(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: null, participant_ids: ids }));
-            }}>Remove from bus</Button>
-          </>
-        }
-      />
+      <DialogLepasBus open={dialog === "lepas-bus"} orang={dipilih.filter((o) => busPeserta.has(o.id))} busy={busy} kirim={kirim} onClose={() => setDialog(null)} onSelesai={selesai} />
     </>
+  );
+}
+
+/* ----------------------------------------------------- Dialog lepas kamar/bus */
+
+/** Lepas semua hotel (dan kamar) orang-orang ini. Dipakai Assignments dan Daftar peserta. */
+export function DialogLepasKamar({ open, orang, busy, kirim, onClose, onSelesai }: {
+  open: boolean;
+  /** Hanya yang punya stay. */
+  orang: LogistikPeserta[];
+  busy: boolean;
+  kirim: Kirim;
+  onClose: () => void;
+  onSelesai: (hasil: unknown) => unknown;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      dismissible={!busy}
+      title={`Remove ${plural(orang.length, "person", "people")} from their hotels?`}
+      description="Every hotel and room they have is removed, and their places in rooms become free again. To remove just one hotel or change nights, open their stays instead."
+      actions={
+        <>
+          <Button variant="outlined" disabled={busy} onClick={onClose}>Cancel</Button>
+          <Button simpan loading={busy} onClick={async () => {
+            // Bertahap per 200: batas route, dan URL ribuan id terlalu panjang.
+            let hasil: unknown = null;
+            for (let i = 0; i < orang.length; i += POTONG_LEPAS) {
+              const ids = orang.slice(i, i + POTONG_LEPAS).map((o) => `participant_id=${o.id}`).join("&");
+              hasil = await kirim(`/api/admin/logistik/penghuni?${ids}`, "DELETE");
+              if (hasil === null) break;
+            }
+            await onSelesai(hasil);
+          }}>Remove from hotel</Button>
+        </>
+      }
+    />
+  );
+}
+
+/** Lepas bus bawaan orang-orang ini. */
+export function DialogLepasBus({ open, orang, busy, kirim, onClose, onSelesai }: {
+  open: boolean;
+  /** Hanya yang punya bus bawaan. */
+  orang: LogistikPeserta[];
+  busy: boolean;
+  kirim: Kirim;
+  onClose: () => void;
+  onSelesai: (hasil: unknown) => unknown;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      dismissible={!busy}
+      title={`Remove ${plural(orang.length, "person", "people")} from their default bus?`}
+      description="They will no longer have a default bus. Replacement buses set for a single trip (Buses tab, Trips section) still apply."
+      actions={
+        <>
+          <Button variant="outlined" disabled={busy} onClick={onClose}>Cancel</Button>
+          <Button simpan loading={busy} onClick={async () => {
+            await onSelesai(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: null, participant_ids: orang.map((o) => o.id) }));
+          }}>Remove from bus</Button>
+        </>
+      }
+    />
   );
 }
 
@@ -456,7 +488,7 @@ function BarisTujuan({ nama, keterangan, sisa, alasan, checked, onPilih, name }:
   );
 }
 
-function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, stayPeserta, offset, simpan }: {
+export function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, stayPeserta, offset, simpan }: {
   open: boolean;
   orang: LogistikPeserta[];
   data: TabProps["data"];
@@ -646,7 +678,7 @@ function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, stayPeserta
 
 /* -------------------------------------------------------------- Dialog bus */
 
-function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabBus, simpan }: {
+export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabBus, simpan }: {
   open: boolean;
   orang: LogistikPeserta[];
   data: TabProps["data"];
