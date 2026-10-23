@@ -115,8 +115,8 @@ export type PortalUiText = {
       closePhoto: string;
       /** Label waktu isian seharian (tanpa baris agenda dan tanpa waktu). */
       allDay: string;
-      /** Teks tautan strip di Susunan acara (desktop): "Lihat Dresscode". */
-      stripLink: (label: string) => string;
+      /** Aksi di kepala kartu outfit Susunan acara: "Lihat". */
+      see: string;
       /** Label baris Setiap hari (Participant area) di depan baris tiap hari: "Setiap hari · Kaos KSO". */
       everyDay: string;
       /** Label baris hari berikutnya di bawah kartu: "Berikutnya · Min, 8 Nov". */
@@ -333,7 +333,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         enlarge: "Perbesar",
         closePhoto: "Tutup",
         allDay: "Sepanjang hari",
-        stripLink: (label) => `Lihat ${label}`,
+        see: "Lihat",
         everyDay: "Setiap hari",
         next: "Berikutnya",
         row: {
@@ -533,7 +533,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         enlarge: "Enlarge",
         closePhoto: "Close",
         allDay: "All day",
-        stripLink: (label) => `See ${label}`,
+        see: "View",
         everyDay: "Every day",
         next: "Next",
         row: {

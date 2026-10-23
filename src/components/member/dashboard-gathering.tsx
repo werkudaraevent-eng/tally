@@ -89,7 +89,7 @@ import {
   PitaKepalaHorizon,
   SapaanHorizon,
   SegmenBagianHorizon,
-  StripOutfitHorizon,
+  KartuRingkasOutfit,
   TiketKeretaHorizon,
   TombolKontakHorizon,
   type FaktaPass,
@@ -113,8 +113,8 @@ import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
 import { bagianOutfitTanggal, labelOutfit, type OutfitEntry } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
-import { jenisOutfit, outfitTerlihat } from "@/lib/outfit";
-import { bacaOutfitSetiapHari, denganSetiapHari, hariOutfitBerandaSetiapHari, hariTanpaAgenda, teksBarisOutfit } from "@/lib/outfit-setiap-hari";
+import { kapanOutfit, outfitTerlihat } from "@/lib/outfit";
+import { bacaOutfitSetiapHari, denganSetiapHari, hariOutfitBerandaSetiapHari, hariTanpaAgenda } from "@/lib/outfit-setiap-hari";
 import { bagianPertama, pilihanPeserta } from "@/lib/sasaran-bagian";
 import { loadSasaranPeserta } from "@/lib/sasaran-bagian-server";
 
@@ -894,11 +894,14 @@ export async function DashboardGathering({
                 {/* Outfit bagian ini (keputusan Mas 20 Okt, pilihan A): satu strip di
                     atas susunan hari itu, menuju hari yang sama di halaman Outfit. */}
                 {outfitHari.length > 0 ? (
-                  <StripOutfitHorizon
-                    label={labelOutfitHalaman}
-                    isian={outfitHari.map((isian) => ({ kapan: isian.when ?? null, apa: isian.what }))}
+                  <KartuRingkasOutfit
+                    Ikon={CoatHanger}
+                    judul={labelOutfitHalaman}
+                    aksi={tH.outfit.see}
+                    isian={outfitHari.map((isian) => ({ kapan: kapanOutfit(isian, tH.outfit.allDay), apa: isian.what }))}
                     href={keTab("outfit", { hari: String(pilihan + 1) })}
-                    lihat={tH.outfit.stripLink(labelOutfitHalaman)}
+                    tab="outfit"
+                    lampu="jadwal"
                   />
                 ) : null}
                 <ol className="mt-4 flex flex-col gap-2">
@@ -1205,8 +1208,7 @@ export async function DashboardGathering({
     const kartuHari = outfitTampil(pilihan).map((isian, index) => (
       <KartuOutfitHorizon
         key={index}
-        // Isian seharian tanpa `when` tetap berlabel, sejajar dengan isian berjam di hari yang sama.
-        kapan={isian.when ?? (jenisOutfit(isian) === "seharian" ? to.allDay : null)}
+        kapan={kapanOutfit(isian, to.allDay)}
         apa={isian.what}
         catatan={isian.note ?? null}
         foto={isian.photo_url ?? null}
@@ -1306,24 +1308,14 @@ export async function DashboardGathering({
                 <div className="mt-4 grid gap-4 lg:gap-6">{kartuHari}</div>
               )}
               {berikutO && berikutO.item.tanggal ? (
-                <Link
+                // Hari berikutnya: pola kartu yang sama dengan strip Susunan acara, versi redup.
+                <KartuRingkasOutfit
+                  Ikon={CalendarBlank}
+                  judul={gabungMeta([to.next, (({ atas, bawah }) => `${atas}, ${bawah}`)(chipTanggal(berikutO.item.tanggal, lang))])}
+                  isian={outfitTampil(berikutO.indeks).map((isian) => ({ kapan: kapanOutfit(isian, to.allDay), apa: isian.what }))}
                   href={hrefO(berikutO.indeks)}
-                  className={`${GARIS_KARTU} m3-state mt-4 flex min-h-12 items-center gap-3 rounded-[16px] px-4 py-3 text-[14px] leading-5 ${MUTED}`}
-                >
-                  <CalendarBlank size={20} aria-hidden className="shrink-0" />
-                  {/* Hari berikutnya sebagai label, lalu setiap pakaiannya satu per baris, seperti strip Susunan acara. */}
-                  <span className="flex min-w-0 flex-1 flex-col [overflow-wrap:anywhere]">
-                    <span className="text-[13px] font-semibold">
-                      {gabungMeta([to.next, (({ atas, bawah }) => `${atas}, ${bawah}`)(chipTanggal(berikutO.item.tanggal, lang))])}
-                    </span>
-                    {teksBarisOutfit(outfitTampil(berikutO.indeks)).map((teks, index) => (
-                      <span key={index} className="font-semibold text-[#101E38]">
-                        {teks}
-                      </span>
-                    ))}
-                  </span>
-                  <CaretRight size={16} aria-hidden className="shrink-0" />
-                </Link>
+                  redup
+                />
               ) : null}
             </>
           ) : setiapHari ? (

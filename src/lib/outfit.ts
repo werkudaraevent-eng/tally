@@ -118,6 +118,15 @@ export function jenisOutfit(isian: IsianJenis): JenisOutfit {
   return isian.when?.trim() ? "waktu" : "seharian";
 }
 
+/**
+ * Label waktu yang dibaca peserta: `when` apa adanya, atau `semuaHari`
+ * ("Sepanjang hari") untuk isian seharian, supaya tiap outfit di satu hari
+ * berlabel sama rata dengan yang berjam.
+ */
+export function kapanOutfit(isian: IsianJenis, semuaHari: string): string | null {
+  return isian.when?.trim() || (jenisOutfit(isian) === "seharian" ? semuaHari : null);
+}
+
 /** Urutan tersimpan, kecuali isian seharian yang selalu di depan. */
 export function urutOutfit<T extends IsianJenis>(daftar: readonly T[]): T[] {
   const seharian = (isian: T) => jenisOutfit(isian) === "seharian";
