@@ -20,6 +20,7 @@ import { gatheringHorizon, publicEventName, type EventLandingConfig, type EventR
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import { labelOutfit } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
+import { bacaOutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { warnaBilahPeramban } from "@/lib/landing-tokens";
 
@@ -90,13 +91,13 @@ async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | 
   const label = horizon ? teks.horizon.tabs : { ...teks.horizon.tabs, ...teks.tabs };
   const member = memberConfig(event);
   if (tab === "qr" && horizon && member?.show_code !== false) return teks.qrTitle;
-  if (tab === "outfit" && horizon && (await adaOutfit(event.id, lang))) return labelOutfit(member?.outfit_label);
+  if (tab === "outfit" && horizon && (bacaOutfitSetiapHari(member?.outfit_every_day) || (await adaOutfit(event.id, lang)))) return labelOutfit(member?.outfit_label);
   if (tab === "perjalanan" && horizon) return label.perjalanan;
   if (tab === "jadwal" || tab === "info" || tab === "profil") return label[tab];
   return label.beranda;
 }
 
-/** Sama dengan adaOutfit di DashboardGathering: ada outfit di hari Agenda yang terbit. */
+/** Sama dengan adaOutfit di DashboardGathering: ada outfit di hari Agenda yang terbit (Setiap hari diperiksa lebih dulu). */
 async function adaOutfit(eventId: string, lang: LandingLang): Promise<boolean> {
   const [agenda, peta] = await Promise.all([loadAgendaPreview(eventId, lang), loadOutfitBagian(eventId)]);
   return agenda.some((bagian) => bagian.id !== undefined && (peta.get(bagian.id)?.length ?? 0) > 0);
@@ -157,7 +158,7 @@ export default async function AreaPesertaPage({
   if (landing.layout === "modern") {
     return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
   }
-  const agenda = tampilSusunan ? await loadAgendaPreview(event.id) : [];
+  const agenda = tampilSusunan ? await loadAgendaPreview(event.id, "id", { acara: event, participantId: peserta?.id ?? null, tampilKamar: member.show_logistics === true }) : [];
   const lengkapi = await kartuLengkapi(event, peserta?.id);
 
   return (

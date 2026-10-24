@@ -12,12 +12,13 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export type LogistikKamar = {
   hotel: { name: string; address: string | null; map_url: string | null };
-  room_number: string;
+  /** null = hotel sudah, nomor kamar menyusul (migrasi 202610230001). */
+  room_number: string | null;
   room_type: string | null;
   floor: string | null;
   check_in_at: string | null;
   check_out_at: string | null;
-  /** null = panitia menyembunyikan teman sekamar (show_roommates). */
+  /** null = panitia menyembunyikan teman sekamar (show_roommates), atau kamar belum ada. */
   roommates: { name: string; company: string | null }[] | null;
 };
 
@@ -61,7 +62,13 @@ export type LogistikKereta = {
 export type LogistikDetailBus = { code: string; plate: string | null; crew: string | null };
 
 export type LogistikPeserta = {
+  /** Stay yang sedang atau akan berjalan (yang terakhir bila semuanya lewat). */
   lodging: LogistikKamar | null;
+  /**
+   * Semua stay berurutan tanggal (migrasi 202610230002). Lebih dari satu =
+   * peserta pindah hotel. Kosong sebelum migrasinya atau tanpa hotel.
+   */
+  stays: LogistikKamar[];
   transport: { default_bus: string | null; trips: LogistikAgenda[] } | null;
   items: LogistikBarang[];
   trains: LogistikKereta[];
@@ -91,7 +98,7 @@ export async function loadMemberLogistics(
     const hasil = data as Partial<LogistikPeserta>;
     const transport = hasil.transport ?? null;
     const buses = ringan ? [] : await loadBusDetails(eventId, transport, bus);
-    return { lodging: hasil.lodging ?? null, transport, items: hasil.items ?? [], trains, buses };
+    return { lodging: hasil.lodging ?? null, stays: Array.isArray(hasil.stays) ? hasil.stays : [], transport, items: hasil.items ?? [], trains, buses };
   } catch {
     return null;
   }

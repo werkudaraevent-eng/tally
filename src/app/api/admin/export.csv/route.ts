@@ -7,7 +7,7 @@ import {
 } from "@/lib/export-orders";
 
 // Alamat export lama. Dipertahankan karena disebut di
-// SPEC-prima-executive-gathering-2026.md dan bisa sudah tersimpan sebagai bookmark
+// spesifikasi awal PRIMA (sudah dihapus dari repo) dan bisa tersimpan sebagai bookmark
 // panitia; menghapusnya berarti tautan yang pernah bekerja mendadak mati.
 //
 // Isinya kini dibangun modul yang sama dengan /api/admin/export, sehingga kolom

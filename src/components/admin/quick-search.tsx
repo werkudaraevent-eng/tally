@@ -8,6 +8,7 @@ import { grupDari, halamanSistem, navigation, type NavIcon } from "@/components/
 import type { EventPilihan } from "@/components/admin/event-menu";
 import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
 import type { Recent } from "@/components/admin/sidebar-store";
+import { navigasiTerjaga } from "@/lib/jaga-navigasi";
 import { SEPARATOR } from "@/lib/typography";
 
 /**
@@ -264,7 +265,8 @@ export function CommandPalette({
 
   function buka(item: Hasil) {
     onClose();
-    router.push(item.href);
+    // Halaman yang punya suntingan belum disimpan bertanya dulu.
+    navigasiTerjaga(() => router.push(item.href));
   }
 
   function onKeyDown(peristiwa: React.KeyboardEvent) {

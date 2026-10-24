@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { tripPerBarisAgenda } from "@/lib/logistik/server";
+import { segarkanOutfitTanggal } from "@/lib/outfit-server";
 import { ITEM_COLUMNS, SECTION_COLUMNS } from "@/lib/rundown";
 
 // Pengelolaan bagian rundown (tab di halaman publik). Admin saja.
@@ -212,6 +213,15 @@ export async function PATCH(request: Request) {
     action: "rundown_section_update",
     payload: { old: current, new: data },
   } as never);
+  // Nama, tanggal dan terbit membentuk label batch tab bertanggal sama ("Batch
+  // 1"), yang dibuang dari teks dress code bertaut: tanggal lama dan baru
+  // ditulis ulang. Bagian baru (POST) selalu draf, jadi tidak mengubah label.
+  type Label = { name: string; title: string; event_date: string; is_published: boolean };
+  const sebelum = current as unknown as Label;
+  const sesudah = data as unknown as Label;
+  if (sebelum.name !== sesudah.name || sebelum.title !== sesudah.title || sebelum.event_date !== sesudah.event_date || sebelum.is_published !== sesudah.is_published) {
+    await segarkanOutfitTanggal(eventId, auth.user.id, [sebelum.event_date, sesudah.event_date], "section_updated");
+  }
   return Response.json(data);
 }
 
@@ -253,5 +263,7 @@ export async function DELETE(request: Request) {
     action: "rundown_section_delete",
     payload: { old: current, items: items ?? [] },
   } as never);
+  // Tab lain di tanggal itu bisa kehilangan label batchnya: teks dress code bertaut ditulis ulang.
+  await segarkanOutfitTanggal(eventId, auth.user.id, [(current as unknown as { event_date: string }).event_date], "section_deleted");
   return Response.json({ deleted: true, id: parsed.data.id });
 }

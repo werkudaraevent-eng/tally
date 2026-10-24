@@ -60,15 +60,23 @@ export async function loadBadgeRundown(eventId: string): Promise<BadgeRundownHar
 	const daftar = (sections ?? []) as unknown as Array<{ id: number; name: string | null; title: string | null; event_date: string | null }>;
 	if (daftar.length === 0) return [];
 
-	const { data: items } = await client
-		.from("rundown_items")
-		.select("section_id,title,start_time,is_break,sort_order")
-		.in("section_id", daftar.map((section) => section.id))
-		.eq("is_published", true)
-		// Urutan CMS rundown: jam mulai, lalu sort_order untuk butir berjam sama.
-		.order("start_time", { ascending: true })
-		.order("sort_order", { ascending: true })
-		.order("id", { ascending: true });
+	const bacaBaris = (untukSemua: boolean) => {
+		const kueri = client
+			.from("rundown_items")
+			.select("section_id,title,start_time,is_break,sort_order")
+			.in("section_id", daftar.map((section) => section.id))
+			.eq("is_published", true);
+		// Baris bersyarat (Agenda > Who sees it) tidak dicetak: badge tidak bisa ditarik kembali.
+		return (untukSemua ? kueri.is("audience", null) : kueri)
+			// Urutan CMS rundown: jam mulai, lalu sort_order untuk butir berjam sama.
+			.order("start_time", { ascending: true })
+			.order("sort_order", { ascending: true })
+			.order("id", { ascending: true });
+	};
+	const pertama = await bacaBaris(true);
+	// Sebelum migrasi 202610210001 kolomnya belum ada, jadi belum ada baris bersyarat.
+	const belumAda = pertama.error?.code === "42703" || pertama.error?.code === "PGRST204";
+	const items = belumAda ? (await bacaBaris(false)).data : pertama.data;
 	const baris = (items ?? []) as unknown as Array<{ section_id: number; title: string | null; start_time: string | null; is_break: boolean | null }>;
 
 	return daftar.map((section) => ({

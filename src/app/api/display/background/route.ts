@@ -1,6 +1,7 @@
 import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { jenisGambarDariIsi } from "@/lib/jenis-gambar";
 
 const BUCKET = "display-assets";
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -26,21 +27,6 @@ const ALLOWED = new Map<string, string>([
 // latar layar dan mempersulit penelusuran saat panitia mencari berkas salah unggah.
 // `badge`: latar depan dan belakang badge kertas yang dirancang di luar Tally.
 const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote", "landing", "email", "badge"]);
-
-/**
- * Jenis gambar dari isi berkasnya, bukan dari `file.type`.
- *
- * `file.type` ditulis klien. Berkas teks yang dikirim dengan label image/png
- * lolos pemeriksaan lama dan tersimpan di bucket publik sebagai .png. Tiga
- * tanda tangan di bawah adalah satu-satunya format yang diterima di sini.
- */
-function jenisDariIsi(awal: Uint8Array): string | null {
-  const cocok = (offset: number, bytes: number[]) => bytes.every((b, i) => awal[offset + i] === b);
-  if (cocok(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
-  if (cocok(0, [0xff, 0xd8, 0xff])) return "image/jpeg";
-  if (cocok(0, [0x52, 0x49, 0x46, 0x46]) && cocok(8, [0x57, 0x45, 0x42, 0x50])) return "image/webp";
-  return null;
-}
 
 /**
  * Lebar dan tinggi dari kepala berkas (PNG IHDR, JPEG SOFn, WebP VP8/VP8L/VP8X),
@@ -98,7 +84,7 @@ export async function POST(request: Request) {
   const kind = typeof kindRaw === "string" && FOLDERS.has(kindRaw) ? kindRaw : "backgrounds";
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const jenis = jenisDariIsi(buffer.subarray(0, 12));
+  const jenis = jenisGambarDariIsi(buffer.subarray(0, 12));
   if (!jenis) return apiError("VALIDATION_ERROR", 422, { file: "Isi berkas bukan gambar PNG, JPG, atau WebP." });
   // Kepala yang tidak terbaca tetap diterima seperti sebelumnya: yang ditolak
   // hanya gambar yang jelas terlalu besar.

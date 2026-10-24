@@ -764,7 +764,7 @@ export function BlockEditor({
             block={block}
             ubah={ubah}
             alis={alis}
-            judul={teks("heading", "Heading", { optional: true, hint: "Leave empty to use \u201cDari <from> ke <to>\u201d, or \u201cFrom <from> to <to>\u201d in English." })}
+            judul={teks("heading", "Heading", { optional: true, hint: "Leave empty to use \u201cDari <from> ke <to>\u201d, or \u201cFrom <from> to <to>\u201d in English. Horizon\u2019s Travel tab titles each route by its two places instead." })}
             semuaBlok={semuaBlok}
             ubin={ubinRute}
           />

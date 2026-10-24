@@ -1,7 +1,8 @@
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
-import { logistikPeserta } from "@/lib/logistik/server";
+import { bentukLogistik, logistikPeserta } from "@/lib/logistik/server";
+import type { BentukLogistik } from "@/lib/logistik/ringkas";
 import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
 import { BATAS_BACA, TerlaluBanyak, argumenRpc, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
 import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
@@ -155,6 +156,9 @@ export async function GET(request: Request) {
     client.from("participants").select("source_synced_at").eq("event_id", eventId).order("source_synced_at", { ascending: false }).limit(1).maybeSingle(),
     daftarPerusahaan(eventId),
   ]);
+  // Kolom logistik (slot stay, kereta, barang kit). Gagal baca = hanya kolom
+  // Hotel dan Bus seperti dulu; daftar peserta tetap terbuka.
+  const bentuk: BentukLogistik = await bentukLogistik(eventId).catch(() => ({ stays: 1, kit: [], kereta: false }));
 
   if (halaman.error) {
     if (companies.length > 0) return apiError("VALIDATION_ERROR", 422, { message: "The organisation filter isn't available yet: migration 202609290001 hasn't been applied." });
@@ -183,6 +187,7 @@ export async function GET(request: Request) {
     sessions: sesi.data ?? [],
     scanner_columns: (dariScanner.count ?? 0) > 0,
     companies: perusahaan,
+    logistik_bentuk: bentuk,
     // Susunan field tambahan dikirim bersama daftarnya, bukan diambil terpisah
     // dari endpoint pendaftaran: kolom tabel dan isinya harus datang dari satu
     // jawaban, supaya tidak ada satu putaran render dengan kolom yang belum

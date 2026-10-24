@@ -192,8 +192,14 @@ const TENTANG_BAWAAN: TentangBawaan = {
   en: { heading: LANDING_UI.en.aboutHeadingDefault, cards: LANDING_UI.en.aboutCardsDefault },
 };
 
-/** Judul kartu bagian "Sebelum berangkat" untuk acara gathering. */
+/**
+ * Judul kartu bagian "Sebelum berangkat" untuk acara gathering. Gathering
+ * Horizon tanpa kartu "Dress code" (keputusan Mas 20 Okt): pakaiannya diisi
+ * sekali di Agenda > Dress code, jadi tidak ada tempat kedua yang bisa
+ * berbeda isinya. Gathering klasik tidak punya Outfit, jadi kartunya tetap.
+ */
 const INFO_GATHERING = ["Dress code", "Yang perlu dibawa", "Kontak panitia"];
+const KARTU_DRESS_CODE = "Dress code";
 
 /**
  * Preset ditambah, khusus Gathering, blok Kartu poin "Sebelum berangkat"
@@ -214,7 +220,7 @@ export function pakaiPreset(preset: LandingThemePreset, landing: EventLandingCon
     eyebrow: "Info penting",
     heading: "Sebelum berangkat",
     nav_label: "Info penting",
-    items: INFO_GATHERING.map((title) => ({ title, body: "" })),
+    items: INFO_GATHERING.filter((title) => !(preset.features.horizon && title === KARTU_DRESS_CODE)).map((title) => ({ title, body: "" })),
   };
   const sections = susunanDenganPortal(hasil.sections, hasil.blocks);
   // Sebelum FAQ, seperti di rancangan; tanpa FAQ, di ujung.

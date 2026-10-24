@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { pencocokBarisTrip } from "./trip-jadwal.ts";
+import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "./trip-jadwal.ts";
 
 // Jam dinding WIB (+07:00, tanpa DST) dari ISO.
 const wib = (iso: string) => {
@@ -36,5 +36,32 @@ assert.equal(lama(null, batch1), false);
 const tanpaBus = pencocokBarisTrip([{ bus: null, depart_at: "2026-11-06T13:00:00+07:00", rundown_item_id: 1006 }, { bus: null, depart_at: "2026-11-06T14:20:00+07:00" }], wib);
 assert.equal(tanpaBus("2026-11-06", batch1), false);
 assert.equal(tanpaBus("2026-11-06", batch2), false);
+
+// Baris bus di kartu Berikutnya: trip tertaut lebih dulu, lalu jam yang sama.
+const tripBus = [
+  { bus: "Bus 1", depart_at: "2026-11-06T13:00:00+07:00", rundown_item_id: 1006, meeting_point: "Lobi" },
+  { bus: "Bus 3", depart_at: "2026-11-06T14:20:00+07:00", rundown_item_id: null, meeting_point: "Parkir" },
+  { bus: null, depart_at: "2026-11-06T19:00:00+07:00", rundown_item_id: 1020, meeting_point: null },
+];
+assert.equal(tripUntukBaris(tripBus, wib, "2026-11-06", batch1)?.bus, "Bus 1");
+assert.equal(tripUntukBaris(tripBus, wib, "2026-11-06", batch2Sama), null);
+assert.equal(tripUntukBaris(tripBus, wib, "2026-11-06", batch2)?.meeting_point, "Parkir");
+assert.equal(tripUntukBaris(tripBus, wib, "2026-11-07", batch2), null);
+assert.equal(tripUntukBaris(tripBus, wib, null, batch2), null);
+// Perjalanan tanpa bus untuk peserta ini tidak dipakai, walau tertaut.
+assert.equal(tripUntukBaris(tripBus, wib, "2026-11-06", gala), null);
+
+// Tiket kereta berikutnya: sesudah jam berangkatnya lewat, tiket pulang.
+const legs = [
+  { direction: "outbound", depart_date: "2026-11-06", depart_time: "08:20" },
+  { direction: "return", depart_date: "2026-11-08", depart_time: "15:30" },
+];
+assert.equal(legBerikutnya(legs, { tanggal: "2026-11-05", menit: 23 * 60 })?.direction, "outbound");
+assert.equal(legBerikutnya(legs, { tanggal: "2026-11-06", menit: 8 * 60 + 19 })?.direction, "outbound");
+assert.equal(legBerikutnya(legs, { tanggal: "2026-11-06", menit: 8 * 60 + 20 })?.direction, "return");
+assert.equal(legBerikutnya(legs, { tanggal: "2026-11-08", menit: 16 * 60 }), null);
+// Tanpa jam: berlaku sampai akhir harinya. Tanpa tanggal: dilewati.
+assert.equal(legBerikutnya([{ depart_date: "2026-11-08", depart_time: null }], { tanggal: "2026-11-08", menit: 23 * 60 })?.depart_date, "2026-11-08");
+assert.equal(legBerikutnya([{ depart_date: null, depart_time: "08:00" }], { tanggal: "2026-11-01", menit: 0 }), null);
 
 console.log("trip-jadwal: ok");

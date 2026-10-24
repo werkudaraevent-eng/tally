@@ -35,7 +35,7 @@ export async function loadSasaranPeserta(eventId: string, participantId: string)
   return { sasaran, jawaban: Object.fromEntries(Object.entries(extra).filter(([key]) => kunci.has(key))) };
 }
 
-async function loadExtraPeserta(eventId: string, participantId: string): Promise<Record<string, unknown>> {
+export async function loadExtraPeserta(eventId: string, participantId: string): Promise<Record<string, unknown>> {
   try {
     const { data, error } = await getSupabaseServiceClient().from("participants").select("extra").eq("id", participantId).eq("event_id", eventId).maybeSingle();
     if (error || !data) return {};

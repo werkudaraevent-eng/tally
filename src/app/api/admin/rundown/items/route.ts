@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { kolomOutfitBelumAda } from "@/lib/outfit";
+import { segarkanOutfitBaris } from "@/lib/outfit-server";
+import { periksaSyarat, syaratSchema } from "@/lib/sasaran-baris-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { ITEM_COLUMNS, toDbTime } from "@/lib/rundown";
 
@@ -54,6 +57,10 @@ const createSchema = z.object({
   title: z.string().trim().min(1).max(200),
   subtitle: subtitleField,
   is_break: z.boolean().optional(),
+  // Who sees it dari New item. Disimpan dalam INSERT yang sama: baris untuk
+  // sebagian peserta tidak pernah sesaat tampil ke semua. Tidak dikirim (atau
+  // null) = semua, dan sebelum migrasi 202610210001 klien tidak mengirimnya.
+  audience: syaratSchema.optional(),
 });
 
 const updateSchema = z.object({
@@ -108,6 +115,9 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!section) return apiError("RUNDOWN_SECTION_NOT_FOUND", 404);
 
+  const sah = await periksaSyarat(parsed.data.audience ?? null, auth.scope.event);
+  if ("galat" in sah) return sah.galat ? apiError("VALIDATION_ERROR", 422, { message: sah.galat }) : apiError("INTERNAL_ERROR", 500);
+
   // Baris baru masuk ke urutan paling belakang DI DALAM bagiannya. Sengaja bukan
   // urutan global: dua bagian punya daftar sendiri, dan nomor urut yang dibagi
   // bersama membuat baris bagian kedua selalu bernomor jauh lebih besar tanpa
@@ -137,12 +147,13 @@ export async function POST(request: Request) {
       // harus dipublikasikan satu per satu, menyusun rundown 20 butir berarti 20
       // klik tambahan yang tidak memberi kendali apa pun.
       is_published: true,
+      ...(sah.syarat ? { audience: sah.syarat } : {}),
       sort_order: nextOrder,
       updated_by: auth.user.id,
     } as never)
-    .select(ITEM_COLUMNS)
+    .select(sah.syarat ? `${ITEM_COLUMNS},audience` : ITEM_COLUMNS)
     .single();
-  if (error) return apiError("INTERNAL_ERROR", 500);
+  if (error) return kolomOutfitBelumAda(error) && sah.syarat ? apiError("AUDIENCE_NOT_READY", 409) : apiError("INTERNAL_ERROR", 500);
 
   await client.from("audit_logs").insert({
     event_id: eventId,
@@ -150,6 +161,9 @@ export async function POST(request: Request) {
     action: "rundown_item_create",
     payload: { new: data },
   } as never);
+  // Butir publik pertama membuka tab ini bagi peserta, jadi label batch tab
+  // bertanggal sama (dan teks dress code yang memakainya) bisa berubah.
+  await segarkanOutfitBaris(eventId, auth.user.id, data as unknown as { id: number; section_id: number }, "item_created");
   return Response.json(data, { status: 201 });
 }
 
@@ -223,6 +237,16 @@ export async function PATCH(request: Request) {
     action: "rundown_item_update",
     payload: { old: current, new: data },
   } as never);
+
+  // Dress code yang menaut ke baris ini membawa "17.30 Gala Dinner" sebagai
+  // teks tersimpan: ikut diperbarui saat judul atau jam mulainya berubah.
+  // Terbit atau tidaknya baris bisa mengubah tab mana yang dibuka peserta,
+  // jadi label batch tab bertanggal sama juga.
+  const sesudah = data as unknown as { id: number; section_id: number; start_time: string; title: string; is_published: boolean };
+  const sebelum = current as unknown as { start_time: string; title: string; is_published: boolean };
+  if (sesudah.title !== sebelum.title || sesudah.start_time !== sebelum.start_time || sesudah.is_published !== sebelum.is_published) {
+    await segarkanOutfitBaris(eventId, auth.user.id, sesudah, "item_updated");
+  }
   return Response.json(data);
 }
 
@@ -252,5 +276,11 @@ export async function DELETE(request: Request) {
     action: "rundown_item_delete",
     payload: { old: current },
   } as never);
-  return Response.json({ deleted: true, id: parsed.data.id });
+
+  // Barisnya dulu, lalu dress code yang menaut ke baris itu (dialog hapus
+  // menyebutnya). Gagal di langkah kedua tidak menggagalkan permintaan.
+  // `outfit`: isian bagian itu sesudahnya, bila ada yang dihapus.
+  const baris = current as unknown as { id: number; section_id: number };
+  const outfit = (await segarkanOutfitBaris(eventId, auth.user.id, baris, "item_deleted")).get(baris.section_id);
+  return Response.json({ deleted: true, id: parsed.data.id, ...(outfit ? { outfit: { section_id: baris.section_id, entries: outfit } } : {}) });
 }

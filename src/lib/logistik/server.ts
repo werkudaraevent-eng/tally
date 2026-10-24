@@ -1,6 +1,8 @@
 import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { TiketKereta } from "@/lib/logistik/types";
+import { labelStay, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
+import { stayPerPeserta, tanggalStay, type TanggalHotel } from "@/lib/logistik/stay";
 import type { TripTertaut } from "@/lib/logistik/trip-agenda";
 
 /**
@@ -20,8 +22,12 @@ import type { TripTertaut } from "@/lib/logistik/trip-agenda";
  */
 const PESAN_RPC: Record<string, string> = {
   ROOM_NOT_FOUND: "This room no longer exists. Reload the page.",
+  HOTEL_NOT_FOUND: "This hotel no longer exists. Reload the page.",
   PARTICIPANT_NOT_FOUND: "A participant was not found or has been deleted at source. Reload the page.",
-  LODGING_DATES_INVALID: "Hotel check-out must be after hotel check-in.",
+  LODGING_DATES_INVALID: "Check-out must be after check-in.",
+  // Stay lain yang dipotong ke hari pindah akan berakhir sebelum mulai
+  // (mis. check-in 13.00 di hari check-in 14.00 hotel baru).
+  lodging_assignments_dates_check: "These nights would leave another hotel stay ending before it starts. Change or remove that stay first in Stays.",
   ROOM_FULL: "This room is full. Choose another room or raise its capacity.",
   LODGING_GENDER_FIELD_NOT_SET:
     "No gender field chosen yet. Choose one in Room rules, or turn off Same-gender rooms only.",
@@ -141,31 +147,37 @@ export async function tripPerBarisAgenda(eventId: string): Promise<Map<number, T
   return hasil;
 }
 
-export type LogistikRingkas = { kamar: string | null; bus: string | null };
+export type { LogistikRingkas };
+
 
 /**
- * Kamar dan bus bawaan untuk sekumpulan peserta, dipakai kolom Kamar dan Bus
- * di Daftar peserta.
+ * Stay, bus, tiket kereta dan barang kit untuk sekumpulan peserta, dipakai
+ * kolom Logistics dan panel detail di Daftar peserta.
  *
- * Empat kueri kecil, bukan satu embed PostgREST: tabel logistik memakai kunci
- * asing komposit (event_id, id), dan embed di atasnya bergantung pada nama
- * relasi yang dipilih PostgREST sendiri. Daftar peserta memuat paling banyak
- * satu halaman (ratusan baris), jadi `.in()` cukup.
+ * Kueri kecil per tabel, bukan satu embed PostgREST: tabel logistik memakai
+ * kunci asing komposit (event_id, id), dan embed di atasnya bergantung pada
+ * nama relasi yang dipilih PostgREST sendiri. Daftar peserta memuat paling
+ * banyak satu halaman (ratusan baris), jadi `.in()` cukup.
  *
  * Galat ditelan dan menghasilkan peta kosong: kolom ini pelengkap, dan acara
- * di database yang belum punya tabel logistik tetap harus bisa membuka
- * daftar pesertanya.
+ * di database yang belum punya tabel logistik (atau tiket kereta) tetap harus
+ * bisa membuka daftar pesertanya.
  */
 export async function logistikPeserta(eventId: string, ids: string[]): Promise<Map<string, LogistikRingkas>> {
   if (ids.length === 0) return new Map();
   const db = klien();
-  const [inap, angkut] = await Promise.all([
-    db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).in("participant_id", ids),
-    db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids),
+  // Satu halaman daftar bisa 200 peserta x 6 barang kit = 1.200 baris, di atas
+  // potongan 1000 PostgREST: semua dibaca per 1000. Galat tetap ditelan (sel kosong).
+  const aman = <T,>(baca: Promise<T[]>) => baca.catch(() => [] as T[]);
+  const [barisInap, barisAngkut, kereta, ambil] = await Promise.all([
+    aman(bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", ids).order("participant_id").order("id").range(dari, dari + 999))),
+    aman(bacaSemua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids).order("participant_id").order("vehicle_id").range(dari, dari + 999))),
+    aman(bacaSemua<TiketKereta>((dari) => db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
+    aman(bacaSemua<BarisAmbil>((dari) => db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
   ]);
-  const barisInap = (inap.error ? [] : inap.data ?? []) as Array<{ participant_id: string; room_id: number }>;
-  const barisAngkut = (angkut.error ? [] : angkut.data ?? []) as Array<{ participant_id: string; vehicle_id: number | null }>;
-  return susunLogistik(eventId, barisInap, barisAngkut, false);
+  const hasil = await susunLogistik(eventId, barisInap, barisAngkut, false);
+  tambahKeretaKit(hasil, kereta, ambil);
+  return hasil;
 }
 
 /**
@@ -178,21 +190,83 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
  */
 export async function logistikAcara(eventId: string): Promise<Map<string, LogistikRingkas>> {
   const db = klien();
-  const semua = async <T>(baca: (dari: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> => {
-    const hasil: T[] = [];
-    for (let dari = 0; dari < 20000; dari += 1000) {
-      const { data, error } = await baca(dari);
-      if (error || !Array.isArray(data)) throw new Error("LOGISTIK_READ");
-      hasil.push(...(data as T[]));
-      if (data.length < 1000) break;
-    }
-    return hasil;
-  };
   const [barisInap, barisAngkut] = await Promise.all([
-    semua<{ participant_id: string; room_id: number }>((dari) => db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).order("participant_id").order("room_id").range(dari, dari + 999)),
-    semua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("participant_id").order("vehicle_id").range(dari, dari + 999)),
+    bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("participant_id").order("id").range(dari, dari + 999)),
+    bacaSemua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("participant_id").order("vehicle_id").range(dari, dari + 999)),
   ]);
   return susunLogistik(eventId, barisInap, barisAngkut, true);
+}
+
+/**
+ * Seluruh logistik acara untuk ekspor Daftar peserta: `logistikAcara` plus
+ * tiket kereta dan barang kit. Galat baca dilempar, seperti `logistikAcara`:
+ * berkas yang diam-diam kehilangan sebagian hotel lebih buruk daripada gagal.
+ * Tabel tiket kereta yang belum ada dianggap kosong.
+ */
+export async function logistikEkspor(eventId: string): Promise<Map<string, LogistikRingkas>> {
+  const db = klien();
+  const [hasil, kereta, barang] = await Promise.all([
+    logistikAcara(eventId),
+    bacaTiketKereta(eventId),
+    bacaSemua<BarisAmbil>((dari) => db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).order("id").range(dari, dari + 999)),
+  ]);
+  if (kereta === "galat") throw new Error("LOGISTIK_READ");
+  tambahKeretaKit(hasil, kereta ?? [], barang);
+  return hasil;
+}
+
+async function bacaSemua<T>(baca: (dari: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
+  const hasil: T[] = [];
+  for (let dari = 0; dari < 20000; dari += 1000) {
+    const { data, error } = await baca(dari);
+    if (error || !Array.isArray(data)) throw new Error("LOGISTIK_READ");
+    hasil.push(...(data as T[]));
+    if (data.length < 1000) break;
+  }
+  return hasil;
+}
+
+/** `room_id` null = tamu hotel itu, nomor kamar menyusul. Satu baris per stay. */
+type BarisInap = { participant_id: string; hotel_id: number; room_id: number | null; check_in_at: string | null; check_out_at: string | null };
+
+type BarisAmbil = { participant_id: string; item_id: number; size: string | null };
+
+const kosong = (): LogistikRingkas => ({ kamar: null, bus: null, stays: [] });
+
+/** Tiket kereta dan barang kit ke ringkasan yang sudah ada (atau baru). */
+function tambahKeretaKit(hasil: Map<string, LogistikRingkas>, tiket: TiketKereta[], ambil: BarisAmbil[]) {
+  for (const t of tiket) {
+    const r = hasil.get(t.participant_id) ?? kosong();
+    hasil.set(t.participant_id, { ...r, kereta: { ...r.kereta, [t.direction]: t } });
+  }
+  for (const a of ambil) {
+    const r = hasil.get(a.participant_id) ?? kosong();
+    hasil.set(a.participant_id, { ...r, kit: { ...r.kit, [String(a.item_id)]: a.size } });
+  }
+}
+
+/**
+ * Bentuk kolom logistik acara untuk Daftar peserta dan ekspornya: jumlah slot
+ * stay terbanyak satu peserta, barang kit acara, dan ada tiket kereta atau
+ * tidak. Galat dilempar: kolom yang hilang diam-diam dari berkas ekspor lebih
+ * buruk daripada gagal. Tabel tiket yang belum ada = tanpa kolom kereta.
+ */
+export async function bentukLogistik(eventId: string): Promise<BentukLogistik> {
+  const db = klien();
+  const [inap, barang, kereta] = await Promise.all([
+    bacaSemua<{ participant_id: string }>((dari) => db.from("lodging_assignments").select("participant_id").eq("event_id", eventId).order("id").range(dari, dari + 999)),
+    db.from("pickup_items").select("id,name").eq("event_id", eventId).order("sort_order").order("id"),
+    db.from("train_tickets").select("id").eq("event_id", eventId).limit(1),
+  ]);
+  if (barang.error && !tabelBelumAda(barang.error)) throw new Error("LOGISTIK_READ");
+  if (kereta.error && !tabelBelumAda(kereta.error)) throw new Error("LOGISTIK_READ");
+  const per = new Map<string, number>();
+  for (const b of inap) per.set(b.participant_id, (per.get(b.participant_id) ?? 0) + 1);
+  return {
+    stays: Math.max(1, ...per.values()),
+    kit: barang.error ? [] : (barang.data ?? []) as Array<{ id: number; name: string }>,
+    kereta: !kereta.error && (kereta.data ?? []).length > 0,
+  };
 }
 
 /** Id per `.in()`: jauh di bawah batas 1000 baris PostgREST dan batas panjang URL. */
@@ -218,30 +292,39 @@ async function bacaMenurutId<T>(ids: number[], baca: (potong: number[]) => Promi
 
 async function susunLogistik(
   eventId: string,
-  barisInap: Array<{ participant_id: string; room_id: number }>,
+  barisInap: BarisInap[],
   barisAngkut: Array<{ participant_id: string; vehicle_id: number | null }>,
   ketat: boolean,
 ): Promise<Map<string, LogistikRingkas>> {
   const hasil = new Map<string, LogistikRingkas>();
   const db = klien();
-  const idKamar = [...new Set(barisInap.map((b) => b.room_id))];
+  const idKamar = [...new Set(barisInap.map((b) => b.room_id).filter((id): id is number => id !== null))];
   const idBus = [...new Set(barisAngkut.map((b) => b.vehicle_id).filter((id): id is number => id !== null))];
-  const [barisKamar, barisBus] = await Promise.all([
-    bacaMenurutId<{ id: number; room_number: string; hotel_id: number }>(idKamar, (potong) => db.from("lodging_rooms").select("id,room_number,hotel_id").eq("event_id", eventId).in("id", potong), ketat),
+  const idHotel = [...new Set(barisInap.map((b) => b.hotel_id))];
+  const [barisKamar, barisBus, barisHotel] = await Promise.all([
+    bacaMenurutId<{ id: number; room_number: string }>(idKamar, (potong) => db.from("lodging_rooms").select("id,room_number").eq("event_id", eventId).in("id", potong), ketat),
     bacaMenurutId<{ id: number; code: string }>(idBus, (potong) => db.from("transport_vehicles").select("id,code").eq("event_id", eventId).in("id", potong), ketat),
+    bacaMenurutId<TanggalHotel & { name: string }>(idHotel, (potong) => db.from("lodging_hotels").select("id,name,check_in_at,check_out_at").eq("event_id", eventId).in("id", potong), ketat),
   ]);
-  const idHotel = [...new Set(barisKamar.map((k) => k.hotel_id))];
-  const barisHotel = await bacaMenurutId<{ id: number; name: string }>(idHotel, (potong) => db.from("lodging_hotels").select("id,name").eq("event_id", eventId).in("id", potong), ketat);
-  const namaHotel = new Map(barisHotel.map((h) => [h.id, h.name]));
-  // Nama hotel hanya disebut bila acaranya punya lebih dari satu hotel di
-  // halaman ini; "1208" lebih mudah dipindai daripada "Mulia · 1208" berulang.
-  const banyakHotel = idHotel.length > 1;
-  const labelKamar = new Map(barisKamar.map((k) => [k.id, banyakHotel ? `${k.room_number} · ${namaHotel.get(k.hotel_id) ?? ""}` : k.room_number]));
+  const hotelById = new Map(barisHotel.map((h) => [h.id, h]));
+  const nomorKamar = new Map(barisKamar.map((k) => [k.id, k.room_number]));
   const kodeBus = new Map(barisBus.map((b) => [b.id, b.code]));
 
-  for (const b of barisInap) hasil.set(b.participant_id, { kamar: labelKamar.get(b.room_id) ?? null, bus: null });
+  // Pindah hotel: semua stay berurutan tanggal, sama dengan urutan portal.
+  for (const [pid, daftar] of stayPerPeserta(barisInap, hotelById)) {
+    const stays = daftar.map((b) => {
+      const t = tanggalStay(b, hotelById.get(b.hotel_id));
+      return {
+        hotel: hotelById.get(b.hotel_id)?.name ?? "",
+        room: b.room_id !== null ? nomorKamar.get(b.room_id) ?? null : null,
+        check_in_at: t.masuk,
+        check_out_at: t.keluar,
+      };
+    });
+    hasil.set(pid, { kamar: labelStay(stays), bus: null, stays });
+  }
   for (const b of barisAngkut) {
-    const lama = hasil.get(b.participant_id) ?? { kamar: null, bus: null };
+    const lama = hasil.get(b.participant_id) ?? kosong();
     hasil.set(b.participant_id, { ...lama, bus: b.vehicle_id !== null ? kodeBus.get(b.vehicle_id) ?? null : null });
   }
   return hasil;

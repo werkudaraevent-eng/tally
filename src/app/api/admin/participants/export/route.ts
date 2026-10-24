@@ -16,6 +16,15 @@ import {
 } from "@/lib/participants-io";
 import { BATAS_BACA, TerlaluBanyak, idsTersaring } from "@/lib/participants-saring";
 import { normalizeTimeZone } from "@/lib/timezone";
+import { bentukLogistik, logistikEkspor } from "@/lib/logistik/server";
+import { kolomLogistik } from "@/lib/logistik/ringkas";
+import type { LogistikEkspor } from "@/lib/participants-io";
+
+/** Kolom dan isi Logistik untuk ekspor (bukan template). */
+async function logistikUntukEkspor(eventId: string): Promise<LogistikEkspor> {
+  const [bentuk, data] = await Promise.all([bentukLogistik(eventId), logistikEkspor(eventId)]);
+  return { kolom: kolomLogistik(bentuk), data };
+}
 
 /**
  * Unduh seluruh peserta event ini.
@@ -47,13 +56,13 @@ export async function GET(request: Request) {
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
 
   try {
-    const sesi = isTemplate ? [] : await sesiEkspor(auth.scope.event.id);
-    const headers = isTemplate ? importHeaders(fields) : exportHeaders(fields, sesi);
+    const [sesi, logistik] = isTemplate ? [[], undefined] : await Promise.all([sesiEkspor(auth.scope.event.id), logistikUntukEkspor(auth.scope.event.id)]);
+    const headers = isTemplate ? importHeaders(fields) : exportHeaders(fields, sesi, logistik);
     const zona = normalizeTimeZone(auth.scope.event.time_zone);
     // Saringan yang sedang dipakai di daftar ikut ke berkas: yang diunduh adalah
     // yang terlihat. Tanpa saringan, seluruh acara seperti sebelumnya.
     const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona);
-    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi);
+    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi, logistik);
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(body as BodyInit, {
       headers: {
@@ -88,9 +97,9 @@ export async function POST(request: Request) {
 
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
   try {
-    const sesi = await sesiEkspor(auth.scope.event.id);
-    const rows = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids), sesi);
-    const headers = exportHeaders(fields, sesi);
+    const [sesi, logistik] = await Promise.all([sesiEkspor(auth.scope.event.id), logistikUntukEkspor(auth.scope.event.id)]);
+    const rows = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids), sesi, logistik);
+    const headers = exportHeaders(fields, sesi, logistik);
     const isi = body.data.format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
     return new Response(isi as BodyInit, {
       headers: {

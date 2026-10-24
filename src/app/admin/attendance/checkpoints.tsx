@@ -5,9 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { PilihBarisAgenda, useAgendaTrip } from "@/components/admin/logistik/pilih-baris-agenda";
 import { pesanGalatApi } from "@/lib/api-message";
 import { angkaTujuan, kalimatTujuan, rapiTujuan, TUJUAN_POIN_MAX, TUJUAN_TEKS_MAX, type TujuanPoin } from "@/lib/checkpoint/tujuan";
 import { eventApiPath } from "@/lib/event-url";
+import { hariPendek, jamPendek } from "@/lib/logistik/trip-agenda";
+import { TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
 import { cx } from "@/lib/m3/cx";
 
 /**
@@ -28,6 +31,11 @@ import { cx } from "@/lib/m3/cx";
  * Participant area > Participant home seperti kartu lain. Tujuan poin (E-08)
  * berlaku untuk seluruh daftar, jadi tombolnya di bilah atas, di samping
  * sakelar Points, dan editornya memakai panel detail yang sama.
+ *
+ * When (migrasi 202610220001): baris Agenda yang memberi checkpoint tanggal dan
+ * jam, dengan pemilih yang sama dengan Trip bus dan blok Rute. Beberapa baris
+ * untuk tanggal yang beda per batch; peserta melihat baris yang boleh ia lihat
+ * (Agenda > Who sees it).
  */
 
 type Checkpoint = {
@@ -41,6 +49,8 @@ type Checkpoint = {
   points: number | null;
   /** Siapa yang memindai (staff, self, both). */
   completion: Penyelesaian;
+  /** Baris Agenda When; kosong = tanpa tanggal. */
+  agenda_item_ids: number[];
   done: number;
 };
 
@@ -52,6 +62,8 @@ type Muat = {
   goal_ready: boolean;
   /** Kolom scan mandiri sudah ada (migrasi 202610180001). */
   self_scan_ready?: boolean;
+  /** Kolom When sudah ada (migrasi 202610220001). */
+  when_ready?: boolean;
   /** Halaman peserta English menyala: isian English tujuan ikut tampil. */
   en_available: boolean;
   checkpoints: Checkpoint[];
@@ -61,9 +73,9 @@ type Muat = {
   participants: number | null;
 };
 
-type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string; completion: Penyelesaian };
+type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string; completion: Penyelesaian; agenda: number[] };
 
-const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "", completion: "staff" };
+const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "", completion: "staff", agenda: [] };
 
 const PILIHAN_SELESAI: { value: Penyelesaian; title: string; description: string }[] = [
   { value: "staff", title: "Staff scan the participant's QR", description: "Same as before." },
@@ -90,10 +102,11 @@ function keForm(cp: Checkpoint): Form {
     bukti: cp.session_id ? `s:${cp.session_id}` : cp.item_id ? `i:${cp.item_id}` : "",
     points: cp.points == null ? "" : String(cp.points),
     completion: cp.completion ?? "staff",
+    agenda: cp.agenda_item_ids ?? [],
   };
 }
 
-function keIsi(form: Form, poin: boolean) {
+function keIsi(form: Form, poin: boolean, waktu: boolean) {
   const [jenis, nomor] = form.bukti.split(":");
   return {
     title: form.title.trim(),
@@ -106,7 +119,17 @@ function keIsi(form: Form, poin: boolean) {
     completion: jenis === "s" ? form.completion : ("staff" as const),
     // Poin yang mati tidak dihapus: menyalakannya lagi mengembalikan angkanya.
     ...(poin ? { points: form.points.trim() === "" ? null : Math.max(0, Math.min(10000, Math.round(Number(form.points)))) } : {}),
+    // Sebelum migrasi 202610220001 kolomnya tidak dikirim, jadi simpan tetap jalan.
+    ...(waktu ? { agenda_item_ids: form.agenda } : {}),
   };
+}
+
+/** "Mon 2 Nov, 09:00" baris pertama yang masih ada, untuk daftar checkpoint; "+1" bila ada baris lain. */
+function ringkasWaktu(ids: number[], agenda: ReturnType<typeof useAgendaTrip>["agenda"]): string | null {
+  const ada = ids.map((id) => agenda?.peta.baris.get(id)).filter((isi): isi is NonNullable<typeof isi> => Boolean(isi));
+  if (ada.length === 0) return null;
+  const awal = [...ada].sort((a, b) => `${a.bagian.event_date} ${jamPendek(a.baris.start_time)}`.localeCompare(`${b.bagian.event_date} ${jamPendek(b.baris.start_time)}`))[0];
+  return `${hariPendek(awal.bagian.event_date)}, ${jamPendek(awal.baris.start_time)}${ada.length > 1 ? ` +${ada.length - 1}` : ""}`;
 }
 
 /** Tujuan baru langsung terisi total poin yang ditawarkan, seperti di mockup yang disetujui. */
@@ -129,6 +152,8 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const [busy, setBusy] = useState(false);
   const [hapus, setHapus] = useState<Checkpoint | null>(null);
   const toast = useToast();
+  const siapWaktu = data?.when_ready === true;
+  const agendaTrip = useAgendaTrip(siapWaktu);
 
   const load = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/checkpoints"), { cache: "no-store" }).catch(() => null);
@@ -190,7 +215,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
 
   async function simpan() {
     if (!data) return;
-    const isi = keIsi(form, data.settings.points_enabled);
+    const isi = keIsi(form, data.settings.points_enabled, siapWaktu);
     if (pilih === "baru") {
       const hasil = await kirim("POST", isi);
       if (hasil) { toast.success("Checkpoint added", `${isi.title} is now step ${data.checkpoints.length + 1}.`); setPilih(Number(hasil.id)); setDicoba(false); }
@@ -332,7 +357,9 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
                 <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-container-high text-body-small font-semibold tabular-nums text-on-surface-variant">{index + 1}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-on-surface">{cp.title}</span>
-                  <span className="block truncate text-on-surface-variant">{cp.place || <span className="sm:hidden">{bukti.nama}</span>}</span>
+                  <span className="block truncate text-on-surface-variant">
+                    {[ringkasWaktu(cp.agenda_item_ids ?? [], agendaTrip.agenda), cp.place].filter(Boolean).join(" · ") || <span className="sm:hidden">{bukti.nama}</span>}
+                  </span>
                 </span>
                 <span className="w-40 shrink-0 max-sm:hidden">
                   <span className="block text-body-small text-on-surface-variant">{bukti.jenis}</span>
@@ -450,6 +477,31 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
               placeholder="e.g. Registration desk, main lobby"
               onChange={(event) => setForm({ ...form, place: event.target.value })}
             />
+            {data && !siapWaktu ? (
+              <div>
+                <p className="m3-field-label flex items-baseline gap-2 text-label-large font-semibold text-on-surface">When <span className="text-body-small font-normal text-on-surface-variant">optional</span></p>
+                <p className="mt-2 rounded-md bg-surface-container-high px-4 py-2.5 text-body-medium text-on-surface-variant">Picking an agenda row for the date and time needs a database update first (migration 202610220001).</p>
+              </div>
+            ) : (
+              [...form.agenda, ...(form.agenda.length < TAUTAN_AGENDA_MAX ? [null] : [])].map((id, urutan) => (
+                <PilihBarisAgenda
+                  key={id ?? "baru"}
+                  value={id}
+                  agendaTrip={agendaTrip}
+                  dipakai={new Map()}
+                  teks={{
+                    label: urutan === 0 ? "When" : "Another agenda row",
+                    kosong: urutan === 0
+                      ? "Pick the agenda row for this step. Participants see its date and time here, and it follows when the row moves in Agenda."
+                      : "For a date that differs per batch, add that batch's row. Each participant gets the row they can see in Agenda.",
+                    terpilih: urutan === 0 && form.agenda.length <= 1
+                      ? "Participants see this row's date and time on the step. Change it in Agenda and the step follows."
+                      : "Participants who can see this row in Agenda get its date and time.",
+                  }}
+                  onChange={(isi) => setForm({ ...form, agenda: [...new Set(isi === null ? form.agenda.filter((x) => x !== id) : id === null ? [...form.agenda, isi] : form.agenda.map((x) => (x === id ? isi : x)))] })}
+                />
+              ))
+            )}
           </DetailSection>
           <DetailSection title="Done when">
             {tanpaPilihan ? (

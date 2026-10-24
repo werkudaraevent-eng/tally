@@ -14,7 +14,7 @@ Before starting, ask the user when antislop applies: during the work, or after i
 
 Tally is one multi-event platform (Next.js + Supabase) that runs real, live events: public event pages, registration, participant area, check-in and scanners, seating, agenda, logistics, lucky draw, voting, booth and cashier. The project owner is Hanung (call him "Mas"; he writes Bahasa Indonesia, so reply to him in Bahasa Indonesia).
 
-Read `docs/STATUS.md` before you start: it says what is in flight, what waits on whom, and which known Lows are parked per area. `DESIGN.md` is authoritative for palette, type and motion. `STATUS-MULTI-EVENT.md` and `tasks/*.md` are older snapshots, not the current state.
+Read `docs/STATUS.md` before you start: it says what is in flight, what waits on whom, and which known Lows are parked per area. `docs/PRODUCT.md` says what each module does today, who uses it and what the organiser sets in the CMS; read the module you touch, and update it in the same PR when a feature or CMS setting changes. `DESIGN.md` is authoritative for palette, type and motion.
 
 ## Every PR updates docs/STATUS.md
 
@@ -54,6 +54,12 @@ Read `docs/STATUS.md` before you start: it says what is in flight, what waits on
 - Staff auth is the `tally_session` cookie. Participants sign in per event: email + password by default, or email code / two participant fields when the event chooses; imported and walk-in participants get a one-time link.
 - Sends (email blasts, confirmation mail) run in `after()`, never awaited inside a request a desk is waiting on.
 - `not seats cs ...` in PostgREST drops NULL rows; PostgREST < 14 returns `[]` on PATCH + select.
+- Staff access is per event through `user_event_access` (role stored per event); there is no `users.event_id`. A `super_admin` with no access row reaches every event. A failed read of `user_event_access` fails closed (500). `users` and `payment_methods` are global by design.
+- New events start as `draft`. A slug change goes through `event_slug_redirects` so printed QR codes and old links keep working.
+- Never write `where id = 1` in SQL: settings tables are per event, and it silently reads the oldest event.
+- Adding a defaulted parameter to an RPC creates an overload: drop the old signature first, or old callers turn ambiguous (`42725`) and the unscoped version stays callable. `supabase.rpc(... as never)` is not type-checked, so grep `rpc("<name>"` after changing a signature.
+- Replacing a unique constraint breaks every `on conflict` / `onConflict:` that names it; grep both before changing it.
+- `to_jsonb(row) - 'id'` yields an explicit NULL that skips the column default (`23502`).
 
 ## Roles
 
@@ -74,7 +80,7 @@ Read `docs/STATUS.md` before you start: it says what is in flight, what waits on
 - The editor follows the chosen preset: show only fields the layout renders, and every option must show in preview and live.
 - Material 3, Inter, 4/8 grid. Admin is dense: 36 px controls. Public UI wears the event's look, tap targets ≥ 48 px. Primary screen size to check: 1280×588 and 390 wide (also 768-1279).
 - Mockup on a real render before writing UI code, and ground proposals in how well-known apps solve the same problem.
-- Rejected before, don't propose again: big speaker cards, carousels, side sheets, 96 px heroes, purple greys, per-element pixel controls, checkbox event pickers, coloured left-border accents, forced-uppercase titles, a standalone sign-in page (sign-in is a dialog over the event page), centred/narrow desktop layouts that waste space, inconsistent header heights between portal tabs, disabled primary buttons with no reason shown, announcements at the bottom of participant home, a QR button in the portal top bar, start/end time stacked on two lines (write "10:00 - 13:00"), paste fields for hundreds of names (use template import), mixing topics on one portal page (one page per topic), a free-form page builder.
+- Ideas already rejected are listed under "Decided against" in `docs/PRODUCT.md`. Don't propose them again without a new reason.
 
 ## Working with Mas
 

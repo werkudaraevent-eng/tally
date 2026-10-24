@@ -1,0 +1,182 @@
+# Setup Cron
+
+Vercel Hobby plan hanya mengizinkan cron sekali sehari, jadi penjadwalan tidak
+memakai `vercel.json`. Kedua job dibagi berdasarkan karakternya:
+
+| Job | Dijalankan oleh | Alasan |
+| --- | --- | --- |
+| Auto-void order pending | **Supabase `pg_cron`** | Murni operasi database, tidak perlu HTTP. Paling andal. |
+| Sync peserta | **cron-job.org** | Perlu memanggil Scanner API lewat kode Next.js. |
+
+## Auto-void — sudah aktif di Supabase
+
+Tidak ada yang perlu disetel manual. Dijadwalkan lewat migrasi
+`202607280010_pg_cron_auto_void.sql`:
+
+- Job name: `tally-auto-void`
+- Jadwal: tiap 5 menit (`*/5 * * * *`)
+- Perintah: `select public.auto_void_expired_orders();`
+
+Karena berjalan di dalam database, job ini tetap jalan meski Vercel atau
+cron-job.org sedang bermasalah. Tidak butuh `CRON_SECRET`.
+
+Cek status / riwayat eksekusi:
+
+```sql
+-- daftar job
+select jobid, jobname, schedule, active from cron.job;
+
+-- 10 eksekusi terakhir
+select jobid, status, return_message, start_time
+from cron.job_run_details
+order by start_time desc
+limit 10;
+```
+
+Ubah jadwal (mis. jadi tiap 2 menit saat hari-H):
+
+```sql
+select cron.alter_job(
+  (select jobid from cron.job where jobname = 'tally-auto-void'),
+  schedule => '*/2 * * * *'
+);
+```
+
+Nonaktifkan sementara:
+
+```sql
+select cron.unschedule('tally-auto-void');
+```
+
+Endpoint `/api/cron/auto-void` di Vercel **tetap tersedia** sebagai jalur manual
+atau darurat (lihat contoh uji manual di bagian bawah).
+
+## Pesan peserta — pg_cron + pg_net (Supabase)
+
+Dijadwalkan lewat migrasi `202610030003_pesan_peserta.sql`:
+
+- Job name: `tally-pesan`
+- Jadwal: tiap menit (`* * * * *`)
+- Perintah: bila ada kiriman yang antre, jatuh tempo, atau masih mengirim,
+  memanggil `POST <tally_site_url>/api/cron/pesan` lewat `pg_net` dengan
+  `Authorization: Bearer <tally_cron_secret>`. Tanpa antrean, job tidak
+  memanggil apa pun.
+
+Dua rahasia disimpan di Supabase Vault, sekali saja (SQL Editor):
+
+```sql
+select vault.create_secret('https://<alamat-produksi>', 'tally_site_url');
+select vault.create_secret('<nilai CRON_SECRET di Vercel>', 'tally_cron_secret');
+```
+
+"Kirim sekarang" langsung mulai mengirim dari Vercel; job ini jaring pengaman
+(putaran yang terpotong batas waktu) dan pelaksana kiriman terjadwal.
+
+Cek hasil panggilan terakhir:
+
+```sql
+select id, status_code, left(content::text, 200), created
+from net._http_response order by created desc limit 10;
+```
+
+Nonaktifkan sementara: `select cron.unschedule('tally-pesan');`
+
+## Domain klien — pg_cron + pg_net (Supabase)
+
+Dijadwalkan lewat migrasi `202610040001_domain_klien.sql`:
+
+- Job name: `tally-domain`
+- Jadwal: tiap 5 menit (`*/5 * * * *`)
+- Perintah: bila ada domain klien yang menunggu DNS (maks 72 jam) atau sudah
+  aktif, memanggil `POST <tally_site_url>/api/cron/domain` dengan rahasia Vault
+  yang sama dengan `tally-pesan`. Domain menunggu diperiksa tiap panggilan;
+  domain aktif paling cepat tiap 30 menit (2 kegagalan berturut-turut =
+  "Bermasalah", tautan email kembali ke alamat Tally).
+
+Env yang dibutuhkan di Vercel **Production** (fitur menolak bekerja tanpa
+semuanya, dan tidak pernah berjalan di Preview):
+
+| Env | Isi |
+| --- | --- |
+| `TALLY_SITE_URL` | `https://<alamat-produksi>`. Harus sama dengan Vault `tally_site_url`. Membakukan asal kiriman supaya domain klien yang lebih pendek tidak menggesernya. |
+| `VERCEL_API_TOKEN` | Token akses Vercel (Account Settings > Tokens), scope tim proyek ini. Hanya dipakai server untuk menambah, memeriksa, dan menghapus domain proyek ini. |
+| `VERCEL_TEAM_ID` | ID tim Vercel (`team_...`). |
+| `VERCEL_PROJECT_ID` | Diisi otomatis oleh Vercel (system env). Isi manual hanya bila tidak tersedia. |
+
+Urutan memasang (jangan dibalik):
+
+1. Jalankan migrasi `202610040001_domain_klien.sql` lebih dulu. Kode tetap
+   berjalan tanpa migrasi (Pesan peserta tidak membaca kolom baru sampai ada
+   domain klien aktif), tetapi kartu domain baru bisa dipakai setelahnya.
+2. Isi `TALLY_SITE_URL` dengan alamat yang SAMA dengan Vault `tally_site_url`
+   dan alamat produksi yang dipakai sekarang (`https://<alamat-produksi>`).
+   Kiriman yang terjadwal atau sedang mengirim sebelum env ini diisi mencatat
+   asal lama (`https://$VERCEL_PROJECT_PRODUCTION_URL`); pengirim produksi ikut
+   mengambil asal lama itu, jadi tidak ada kiriman yang tertinggal saat
+   peralihan.
+3. Redeploy Production.
+
+Pengalihan host Tally ke domain klien hanya untuk halaman peserta
+(`/e/<slug>`, `/en`, `/id`, `/daftar`, `/masuk`, `/peserta`, `/rundown`,
+`/denah`, `/kode/*`), memakai 307 tanpa cache. Ruang kerja panitia tetap di
+alamat Tally.
+
+Nonaktifkan sementara: `select cron.unschedule('tally-domain');`
+
+## Foto bagasi — pg_cron + pg_net (Supabase)
+
+Dijadwalkan lewat migrasi `202610230003_bagasi.sql`, diganti oleh
+`202610230004_bagasi_rapi.sql`:
+
+- Job name: `tally-bagasi-foto`
+- Jadwal: sekali sehari pukul 02.23 WIB (`23 19 * * *`, UTC)
+- Perintah: bila bucket privat `luggage-photos` masih menyimpan berkas di folder
+  acara (`<event_id>/`) yang hari terakhirnya (`end_date`, atau `event_date`
+  bila kosong) lebih dari 30 hari lalu, atau yang acaranya sudah dihapus,
+  memanggil `POST <tally_site_url>/api/cron/bagasi-foto` dengan rahasia Vault
+  yang sama dengan `tally-pesan`. Route mengosongkan folder itu (maks 500 berkas
+  per panggilan, sisanya besok) lalu mengosongkan `photo_path` baris yang
+  menunjuknya. Yang dibaca bucket, bukan tabel, jadi berkas yatim ikut terhapus.
+  Jumlah bagasi tetap disimpan. Acara tanpa tanggal tidak disentuh.
+
+Tidak butuh env baru: memakai `CRON_SECRET` yang sudah ada.
+
+Nonaktifkan sementara: `select cron.unschedule('tally-bagasi-foto');`
+
+## Sync peserta — setel di cron-job.org
+
+### Prasyarat
+
+- Aplikasi sudah live di domain produksi: `https://<alamat-produksi>`
+  (domain `<proyek>.vercel.app` tetap jalan, tapi pakai domain kustom agar
+  cron tidak ikut mati kalau project di-rename di Vercel).
+- `CRON_SECRET` sudah diisi di Environment Variables Vercel (nilai sama dengan
+  yang dipakai di sini). Ganti `<CRON_SECRET>` di bawah dengan nilai asli Anda.
+
+### Job — Sync peserta dari Event Scanner
+
+- **Title**: Tally sync participants
+- **URL**: `https://<alamat-produksi>/api/cron/sync-participants`
+- **Request method**: `POST` (endpoint juga menerima `GET`)
+- **Schedule**: setiap 15 menit (Every 15 minutes)
+- **Headers**:
+  - Key: `Authorization`
+  - Value: `Bearer <CRON_SECRET>`
+
+## Catatan
+
+- Jika header `Authorization` salah/kosong, endpoint membalas `403 FORBIDDEN`
+  (bukan menjalankan job). Itu berarti proteksi bekerja.
+- Respons sukses auto-void: `{ "voided_count": <n> }`.
+- Respons sukses sync: `{ "source_total", "fetched", "synced", "synced_at" }`.
+- Untuk hari-H, percepat interval auto-void lewat `cron.alter_job` (lihat di
+  atas), bukan lewat cron-job.org.
+- Uji manual endpoint (PowerShell), ganti domain & secret:
+
+  ```powershell
+  # auto-void (jalur manual/darurat)
+  Invoke-WebRequest -Uri 'https://<alamat-produksi>/api/cron/auto-void' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
+
+  # sync peserta
+  Invoke-WebRequest -Uri 'https://<alamat-produksi>/api/cron/sync-participants' -Method Post -Headers @{ Authorization = 'Bearer <CRON_SECRET>' }
+  ```

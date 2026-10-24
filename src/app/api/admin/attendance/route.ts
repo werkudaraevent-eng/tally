@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { totalBagasiSesi } from "@/lib/bagasi/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -22,6 +23,7 @@ const sessionSchema = z.object({
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug hanya boleh huruf kecil, angka, dan tanda hubung."),
   sort_order: z.number().int().min(0).max(999).optional(),
   is_active: z.boolean().optional(),
+  records_luggage: z.boolean().optional(),
 });
 
 const patchSchema = sessionSchema.partial().extend({ id: z.number().int().positive() });
@@ -35,7 +37,8 @@ export async function GET(request: Request) {
   const [sesi, scans] = await Promise.all([
     client
       .from("attendance_sessions")
-      .select("id,name,slug,sort_order,is_active,created_at")
+      // select *: `records_luggage` baru ada setelah migrasi 202610230003.
+      .select("*")
       .eq("event_id", eventId)
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true }),
@@ -67,9 +70,15 @@ export async function GET(request: Request) {
     .eq("event_id", eventId)
     .not("walk_in_at", "is", null);
 
+  // Total bagasi untuk sesi yang mencatatnya (muat truk per batch). Dibaca
+  // hanya bila ada sesi seperti itu, supaya acara lain tidak membayar kuerinya.
+  const daftar = (sesi.data ?? []) as Array<{ id: number; records_luggage?: boolean }>;
+  const bagasi = daftar.some((row) => row.records_luggage === true) ? await totalBagasiSesi(eventId) : null;
+
   return Response.json({
-    sessions: ((sesi.data ?? []) as Array<{ id: number }>).map((row) => ({
+    sessions: daftar.map((row) => ({
       ...row,
+      ...(row.records_luggage === true ? { bagasi: bagasi?.get(row.id) ?? { bags: 0, people: 0, photos: 0 } } : {}),
       hadir: unik.get(row.id)?.size ?? 0,
       total_scan: total.get(row.id) ?? 0,
       terakhir: terakhir.get(row.id) ?? null,
@@ -89,7 +98,7 @@ export async function POST(request: Request) {
   const { data, error } = await getSupabaseServiceClient()
     .from("attendance_sessions")
     .insert({ ...parsed.data, event_id: auth.scope.event.id } as never)
-    .select("id,name,slug,sort_order,is_active")
+    .select("*")
     .single();
 
   // Slug ganda ditolak database lewat indeks unik. Diterjemahkan di sini supaya
@@ -112,6 +121,18 @@ export async function PATCH(request: Request) {
   const { id, ...patch } = parsed.data;
   if (Object.keys(patch).length === 0) return apiError("VALIDATION_ERROR", 422);
 
+  // Meja bagasi selalu dipindai panitia (jumlah dan foto diisi petugas).
+  // Checkpoint yang dipindai sendiri oleh peserta di sesi ini harus diubah dulu.
+  if (patch.records_luggage === true) {
+    const { data: cp } = await getSupabaseServiceClient().from("checkpoints").select("*").eq("event_id", auth.scope.event.id).eq("session_id", id);
+    const mandiri = ((cp ?? []) as Array<{ title: string; completion?: string }>).find((baris) => baris.completion === "self" || baris.completion === "both");
+    if (mandiri) {
+      return apiError("VALIDATION_ERROR", 422, {
+        message: `Checkpoint "${mandiri.title}" lets participants scan this session themselves. Set it to "Staff scan the participant's QR" in Checkpoints first.`,
+      });
+    }
+  }
+
   const { data, error } = await getSupabaseServiceClient()
     .from("attendance_sessions")
     .update({ ...patch, updated_at: new Date().toISOString() } as never)
@@ -119,7 +140,7 @@ export async function PATCH(request: Request) {
     // hanya karena nomornya ditempelkan ke permintaan ini.
     .eq("id", id)
     .eq("event_id", auth.scope.event.id)
-    .select("id,name,slug,sort_order,is_active")
+    .select("*")
     .single();
 
   if (error) {

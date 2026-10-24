@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
 import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
+import { SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
+import { TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
+import { outfitSetiapHariSchema } from "@/lib/outfit-setiap-hari";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
-import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, LANDING_ROUTE_STEPS_MAX, LANDING_ROUTE_STEP_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
 const WARNA_BAGIAN = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -81,6 +84,14 @@ const blockSchema = z.object({
   route_from: routeStop.optional(),
   route_to: routeStop.optional(),
   maps_mode: z.enum(LANDING_ROUTE_MAPS_MODES).optional(),
+  maps_button: z.literal(false).optional(),
+  map_image_url: gambarUrl,
+  // Kolom pertanyaan (a-z0-9_) atau Hotel dari Logistics; lihat src/lib/sasaran-blok.ts.
+  audience: z.object({
+    field: z.string().regex(/^(@hotel|[a-z0-9_]{1,64})$/),
+    values: z.array(z.string().trim().min(1).max(SASARAN_NILAI_PANJANG)).min(1).max(SASARAN_NILAI_MAX),
+  }).refine((isi) => isi.field !== "@hotel" || isi.values.every((nilai) => /^[1-9]\d{0,17}$/.test(nilai)), "Hotel groups use hotel ids").optional(),
+  agenda_item_ids: z.array(z.number().int().positive()).max(TAUTAN_AGENDA_MAX).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
   layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo"]).optional(),
   eyebrow: teks(60),
@@ -99,6 +110,11 @@ const blockSchema = z.object({
     icon: z.string().regex(LANDING_CARD_ICON_POLA).optional(),
     tone: z.enum(LANDING_CARD_TONES).optional(),
     icon_url: ikonUrl,
+    steps: z.array(z.object({
+      text: teks(LANDING_ROUTE_STEP_TEXT_MAX),
+      image_url: gambarPenuh.nullable().optional(),
+      en: z.object({ text: teks(LANDING_ROUTE_STEP_TEXT_MAX) }).optional(),
+    })).max(LANDING_ROUTE_STEPS_MAX).optional(),
     en: itemEnSchema.optional(),
   })).max(16).optional(),
   quote: teks(600),
@@ -224,7 +240,7 @@ const forumSchema = z.object({
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 /** Setelan area peserta (`landing_config.member`), disimpan di /admin/area-peserta. */
-const idBeranda = z.union([z.enum(["quick", "announcements", "next", "checkpoints", "logistics", "roommates", "agenda"]), blockId]);
+const idBeranda = z.union([z.enum(["quick", "announcements", "next", "checkpoints", "logistics", "roommates", "agenda", "outfit", "help"]), blockId]);
 
 export const memberSchema = z.object({
   enabled: z.boolean(),
@@ -254,7 +270,7 @@ export const memberSchema = z.object({
   /** Beranda halaman peserta: id bawaan (MEMBER_HOME_BUILTINS) atau id blok. */
   home: z.object({ order: z.array(idBeranda).max(MAX_BLOCKS + 10).optional(), hidden: z.array(idBeranda).max(MAX_BLOCKS + 10).optional() }).optional(),
   /**
-   * Label menu Outfit portal Horizon. Kosong = bawaan "Outfit" (disimpan null).
+   * Label halaman Outfit portal Horizon. Kosong = bawaan "Outfit" (disimpan null).
    * Tidak dikirim = tidak diubah: transform mengembalikan undefined, jadi
    * kuncinya tidak muncul di hasil parse dan gabungan `member` mempertahankannya.
    */
@@ -264,6 +280,8 @@ export const memberSchema = z.object({
     .max(OUTFIT_LABEL_MAX)
     .nullish()
     .transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
+  /** Dresscode Setiap hari portal Horizon. Tidak dikirim = tidak diubah; kosong = tidak ada (disimpan null). */
+  outfit_every_day: outfitSetiapHariSchema,
   /** Blok peserta yang tampil di Menu sebagai kartu darurat dan bantuan (portal Horizon). Kosong = tidak ada. */
   help_block: blockId.nullable().optional(),
   /**

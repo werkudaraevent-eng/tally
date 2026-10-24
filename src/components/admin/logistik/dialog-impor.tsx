@@ -24,7 +24,7 @@ import { plural } from "@/lib/plural";
 type Hasil = { masuk: number; dibuat: string[]; gagal: Array<{ nama: string; alasan: string }> };
 
 const URAIAN: Record<JenisImpor, string> = {
-  kamar: "One row per person: Hotel, Room, then QR code or Name. Hotels and rooms that do not exist yet are created; fill in Type and Capacity for new rooms.",
+  kamar: "One row per person: Hotel, Room, then QR code or Name. Leave Room empty to place someone in the hotel now and add the room number later. Leave Check-in and Check-out empty to use the hotel's dates. Someone who moves hotels gets one row per hotel, each with Check-in and Check-out. A person with dates in the file keeps only the hotels in the file, so a dated list from one hotel removes their stay at the other. Hotels and rooms that do not exist yet are created; fill in Type and Capacity for new rooms.",
   bus: "One row per person: Bus, then QR code or Name. Buses that do not exist yet are created with no capacity limit.",
   kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
 };
@@ -217,7 +217,22 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             >
               Download template
             </Button>
+            {jenis === "kamar" ? (
+              <Button
+                variant="text"
+                size="sm"
+                icon={<DownloadSimple size={16} />}
+                onClick={() => { window.location.href = eventApiPath("/api/admin/logistik/impor?jenis=kamar&isi=sekarang"); }}
+              >
+                Download current stays
+              </Button>
+            ) : null}
           </div>
+          {jenis === "kamar" ? (
+            <p className="-mt-2 text-body-small text-on-surface-variant">
+              To change many people at once, download the current stays, edit them in Excel, then choose the file here. Each person in the file is updated to match their rows. People not in the file stay as they are, so deleting a row does not remove anyone.
+            </p>
+          ) : null}
 
           {proses === "baca" ? <p className="text-body-medium text-on-surface-variant">Reading file…</p> : null}
           {galat ? <Banner tone="warning" icon={<Warning size={18} />}>{galat}</Banner> : null}
@@ -268,7 +283,7 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
           <tr className="h-9 border-b border-outline-variant">
             <th scope="col" className="hidden w-16 px-4 font-normal sm:table-cell">Row</th>
             <th scope="col" className="px-4 font-normal">Name</th>
-            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Room" : jenis === "bus" ? "Bus" : "Ticket"}</th>
+            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Hotel or room" : jenis === "bus" ? "Bus" : "Ticket"}</th>
             <th scope="col" className="px-4 font-normal">Status</th>
           </tr>
         </thead>

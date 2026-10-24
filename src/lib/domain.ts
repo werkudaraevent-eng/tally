@@ -231,8 +231,11 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
 export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown"];
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
-export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on">, page: "public" | "member"): boolean {
+export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on" | "audience">, page: "public" | "member"): boolean {
   const on = LANDING_BLOCK_MEMBER_TYPES.includes(block.type) ? block.show_on ?? "public" : "public";
+  // Blok untuk satu kelompok (Who sees it) butuh peserta yang masuk: tidak
+  // pernah di halaman publik, juga bila tersimpan sebagai Both.
+  if (page === "public" && block.audience) return false;
   return on === "both" || on === page;
 }
 
@@ -286,6 +289,12 @@ export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "
  */
 export type LandingHighlight = "brand" | "accent" | "ink" | `#${string}`;
 
+/** Blok Rute: satu langkah satu cara, dengan foto patokan opsional (mis. pintu lift). */
+export type LandingRouteStep = { text?: string; image_url?: string | null; en?: { text?: string } };
+/** Batas langkah per cara dan panjang satu langkah. Sama di CMS dan validasi server. */
+export const LANDING_ROUTE_STEPS_MAX = 12;
+export const LANDING_ROUTE_STEP_TEXT_MAX = 120;
+
 export type LandingBlockItem = {
   image_url?: string | null;
   /**
@@ -304,6 +313,11 @@ export type LandingBlockItem = {
   tone?: LandingCardTone;
   /** Rute: gambar ikon sendiri. Diisi = menggantikan ikon dan ubinnya. */
   icon_url?: string | null;
+  /**
+   * Rute: langkah cara ini, masing-masing boleh berfoto. Diisi = menggantikan
+   * `body`; cara lama tanpa `steps` tetap membaca `body` (satu langkah per baris).
+   */
+  steps?: LandingRouteStep[];
   /** Teks English butir ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingItemEn;
 };
@@ -343,13 +357,26 @@ export type LandingBlock = {
   align?: LandingBlockAlign;
   /**
    * Rute: titik berangkat dan tujuan. Butir = cara ke sana (`icon`, `label`
-   * nama, `value` waktu, `body` catatan, `image_url` foto patokan); `body`
-   * blok = langkah, satu per baris.
+   * nama, `value` waktu, `steps` langkah berfoto; cara lama: `body` satu
+   * langkah per baris, `image_url` satu foto patokan). Satu langkah tanpa foto
+   * tampil sebagai catatan pendek. `body` blok = langkah untuk semua cara,
+   * bentuk lama: CMS hanya menampilkannya bila terisi.
    */
   route_from?: LandingRouteStop;
   route_to?: LandingRouteStop;
   /** Rute: kosong = mengemudi. */
   maps_mode?: LandingRouteMapsMode;
+  /** Rute: false = tanpa tombol Google Maps, untuk rute di dalam satu gedung. Kosong = tombol tampil. */
+  maps_button?: false;
+  /** Rute: denah atau peta jalan ke sana, tampil utuh di bawah cara; ketuk untuk layar penuh. */
+  map_image_url?: string | null;
+  /**
+   * Rute: siapa yang melihatnya di halaman peserta (src/lib/sasaran-blok.ts).
+   * Kosong = semua peserta yang masuk. Halaman acara publik tidak terpengaruh.
+   */
+  audience?: { field: string; values: string[] };
+  /** Rute: baris Agenda (rundown_items.id) yang diberi tautan "Cara ke sana" di Horizon. */
+  agenda_item_ids?: number[];
   /** Halaman tempat blok tampil (LANDING_BLOCK_MEMBER_TYPES saja). Kosong = halaman acara. */
   show_on?: LandingBlockShowOn;
   /** Hitung mundur: label asal dan tujuan di gaya Tiket (bawaan "Hari ini" dan nama tempat acara). */
@@ -1210,11 +1237,21 @@ export type LandingMemberConfig = {
    */
   home?: { order?: string[]; hidden?: string[] };
   /**
-   * Label menu Outfit di portal Gathering Horizon (bilah atas, Menu, judul
-   * halaman, baris Beranda). Kosong = "Outfit". Paling panjang 16 huruf.
-   * Disunting di Agenda > Section > Outfit, disimpan lewat Area peserta.
+   * Label halaman Outfit di portal Gathering Horizon (judul halaman, strip di
+   * Susunan acara, baris Beranda; bilah atas dan Menu bila Jadwal
+   * disembunyikan). Kosong = "Outfit". Paling panjang 16 huruf.
+   * Disunting dan disimpan di Participant area (Dress code page > Page name);
+   * Agenda > Dress code hanya menampilkannya.
    */
   outfit_label?: string | null;
+  /**
+   * Dresscode Setiap hari portal Gathering Horizon (keputusan Mas 21 Okt): satu
+   * baris untuk seluruh acara, di depan baris tiap hari, juga tanpa tab Agenda.
+   * Tidak ada atau `what` kosong = tidak ada. Dibaca lewat
+   * bacaOutfitSetiapHari (lib/outfit-setiap-hari.ts), karena portal tidak
+   * memeriksa `member` dengan skema.
+   */
+  outfit_every_day?: { what: string; note?: string; photo_url?: string } | null;
   /**
    * Kartu darurat dan bantuan di Menu portal Gathering Horizon (E-03): satu
    * blok khusus peserta pilihan panitia, tampil di bawah Perjalanan dan
@@ -1234,7 +1271,8 @@ export type LandingMemberConfig = {
   } | null;
 };
 
-export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda";
+/** `outfit` dan `help`: hanya Gathering Horizon (Beranda "Hari ini"). */
+export type MemberHomeId = "quick" | "announcements" | "next" | "checkpoints" | "logistics" | "roommates" | "agenda" | "outfit" | "help";
 
 /**
  * Isi bawaan Beranda halaman peserta, dalam urutan bawaannya per tata letak.
@@ -1248,12 +1286,13 @@ const SUMBER_LOGISTIK: MemberHomeSource = { label: "Logistics", href: "/admin/lo
 const SUMBER_PESAN: MemberHomeSource = { label: "Messages", href: "/admin/pengumuman/lonceng" };
 const SUMBER_CHECKPOINT: MemberHomeSource = { label: "Check-in", href: "/admin/attendance?tab=checkpoint" };
 const SUMBER_HALAMAN: MemberHomeSource = { label: "Event page", href: "/admin/landing" };
+const SUMBER_PENGATURAN: MemberHomeSource = { label: "Event settings", href: "/admin/settings" };
 
 /**
  * `source`: layar tempat isi baris itu disunting. Participant home menautkannya
  * ("Edit in Agenda"), bukan menyalin editornya: satu data, satu tempat.
  */
-export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id: MemberHomeId; label: string; sub: string; source: MemberHomeSource; side?: boolean }[]> = {
+export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern" | "horizon", readonly { id: MemberHomeId; label: string; sub: string; source: MemberHomeSource; side?: boolean }[]> = {
   gathering: [
     { id: "quick", label: "Quick links", sub: "Ticket, map, organisers", source: SUMBER_HALAMAN, side: true },
     { id: "announcements", label: "Announcements", sub: "Latest announcement", source: SUMBER_PESAN },
@@ -1270,6 +1309,16 @@ export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern", readonly { id:
     { id: "agenda", label: "Agenda", sub: "Their sessions", source: SUMBER_AGENDA },
     { id: "logistics", label: "Room, bus and items", sub: "Their room, bus and kit items", source: SUMBER_LOGISTIK, side: true },
     { id: "quick", label: "Quick links", sub: "Voting, feedback, map", source: SUMBER_HALAMAN, side: true },
+  ],
+  // Gathering Horizon (Beranda "Hari ini"); urutannya diatur lib/member/susunan-horizon.ts.
+  horizon: [
+    { id: "announcements", label: "Announcements", sub: "Latest announcement", source: SUMBER_PESAN },
+    { id: "next", label: "Next up", sub: "Now and next sessions", source: SUMBER_AGENDA },
+    { id: "outfit", label: "Today's dress code", sub: "From Agenda > Dress code", source: SUMBER_AGENDA },
+    { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step", source: SUMBER_CHECKPOINT },
+    { id: "logistics", label: "Bus and room", sub: "Travel card before the event, then a trip summary", source: SUMBER_LOGISTIK },
+    { id: "roommates", label: "Roommates", sub: "Who shares their room", source: SUMBER_LOGISTIK },
+    { id: "help", label: "Help card", sub: "Organiser phone and WhatsApp", source: SUMBER_PENGATURAN },
   ],
 };
 
@@ -1901,6 +1950,7 @@ export type ApiErrorCode =
   | "TRIP_AGENDA_NOT_READY"
   | "CHECKPOINT_GOAL_NOT_READY"
   | "CHECKPOINT_SELF_SCAN_NOT_READY"
+  | "CHECKPOINT_WHEN_NOT_READY"
   | "UNDIAN_PRIZE_NOT_FOUND"
   | "UNDIAN_PRIZE_IN_USE"
   | "UNDIAN_NO_ACTIVE_PRIZE"

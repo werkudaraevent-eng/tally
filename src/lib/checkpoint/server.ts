@@ -2,6 +2,9 @@ import { cache } from "react";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { bacaTujuan, tujuanPeserta, type TujuanPeserta, type TujuanPoin } from "@/lib/checkpoint/tujuan";
+import { pilihWaktu, type WaktuLangkah } from "@/lib/checkpoint/waktu";
+import { loadAgendaPreview, type PenontonAgenda } from "@/lib/landing-agenda";
+import { bacaTautanAgenda } from "@/lib/sasaran-blok";
 
 /**
  * Checkpoint peserta (migrasi 202610140002): daftar langkah berurutan yang
@@ -25,6 +28,8 @@ export type BarisCheckpoint = {
   sort_order: number;
   /** Siapa yang memindai (migrasi 202610180001). Sebelum migrasinya: selalu staff. */
   completion: Penyelesaian;
+  /** Baris Agenda yang memberi tanggal dan jam (migrasi 202610220001). Kosong: tanpa tanggal. */
+  agenda_item_ids: number[];
 };
 
 /** staff: panitia memindai QR peserta. self: peserta memindai QR checkpoint. both: keduanya. */
@@ -96,6 +101,7 @@ export const loadDaftarCheckpoint = cache(async (eventId: string): Promise<Baris
       points: (baris.points as number | null) ?? null,
       sort_order: baris.sort_order as number,
       completion: bacaPenyelesaian(baris.completion),
+      agenda_item_ids: bacaTautanAgenda(baris.agenda_item_ids),
     }));
   } catch {
     return null;
@@ -178,6 +184,8 @@ export type LangkahPeserta = {
   self_scan: "self" | "both" | null;
   /** Sesi buktinya (null: barang). Hanya untuk mencocokkan hasil scan mandiri. */
   session_id: number | null;
+  /** Tanggal dan jam dari baris Agenda yang boleh dilihat peserta ini. Null: tanpa tanggal. */
+  when: WaktuLangkah | null;
 };
 
 export type CheckpointPeserta = {
@@ -193,20 +201,42 @@ export type CheckpointPeserta = {
 };
 
 /**
+ * Tanggal dan jam baris Agenda yang boleh dilihat peserta ini, per id baris.
+ * Dibaca lewat loadAgendaPreview, pembaca yang sama dengan Jadwal peserta:
+ * hanya bagian dan baris yang tayang, dan baris bersyarat (Who sees it) hanya
+ * bila syaratnya cocok. Agenda hanya dibaca bila ada checkpoint bertanggal,
+ * jadi acara lain tidak membaca apa pun. Gagal dibaca: tanpa tanggal.
+ */
+async function waktuAgenda(daftar: BarisCheckpoint[], lang: LandingLang, penonton: PenontonAgenda | undefined): Promise<Map<number, WaktuLangkah>> {
+  const peta = new Map<number, WaktuLangkah>();
+  if (!penonton || !daftar.some((cp) => cp.agenda_item_ids.length > 0)) return peta;
+  const agenda = await loadAgendaPreview(penonton.acara.id, lang, penonton).catch(() => []);
+  for (const bagian of agenda) {
+    if (!bagian.tanggal) continue;
+    for (const item of bagian.items) peta.set(item.id, { date: bagian.tanggal, start: item.time, end: item.end });
+  }
+  return peta;
+}
+
+/**
  * Kartu Checkpoint di Dashboard saya. Null bila fitur mati, belum ada
  * checkpoint, atau ada galat: kartunya tidak tampil sama sekali.
+ *
+ * `penonton` (peserta ini dan acaranya) memberi tiap langkah tanggalnya dari
+ * Agenda. Tanpanya (jawaban scan mandiri) langkah tanpa tanggal.
  */
-export async function loadCheckpointPeserta(eventId: string, participantId: string, lang: LandingLang): Promise<CheckpointPeserta | null> {
+export async function loadCheckpointPeserta(eventId: string, participantId: string, lang: LandingLang, penonton?: PenontonAgenda): Promise<CheckpointPeserta | null> {
   try {
     const aktif = await muatAktif(eventId);
     if (!aktif) return null;
     const { setelan, daftar } = aktif;
     const barangIds = daftar.map((cp) => cp.item_id).filter((id): id is number => id !== null);
-    const [selesai, barang] = await Promise.all([
+    const [selesai, barang, terlihat] = await Promise.all([
       selesaiPeserta(eventId, participantId, daftar),
       barangIds.length > 0
         ? getSupabaseServiceClient().from("pickup_items").select("name").eq("event_id", eventId).in("id", barangIds)
         : Promise.resolve({ data: [], error: null }),
+      waktuAgenda(daftar, lang, penonton),
     ]);
     if (!selesai) return null;
     const en = lang === "en";
@@ -220,6 +250,7 @@ export async function loadCheckpointPeserta(eventId: string, participantId: stri
       size: selesai.get(cp.id)?.size ?? null,
       self_scan: cp.session_id !== null ? mandiri.get(cp.session_id) ?? null : null,
       session_id: cp.session_id,
+      when: pilihWaktu(cp.agenda_item_ids, terlihat),
     }));
     const earned = steps.reduce((jumlah, step) => jumlah + (step.done_at ? step.points ?? 0 : 0), 0);
     const total_points = steps.reduce((jumlah, step) => jumlah + (step.points ?? 0), 0);

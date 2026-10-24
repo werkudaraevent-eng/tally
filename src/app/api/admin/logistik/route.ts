@@ -46,8 +46,8 @@ export async function GET(request: Request) {
     semuaBaris<{ id: string; name: string; company: string | null; qr_code: string; extra: Record<string, unknown> | null }>(() =>
       db.from("participants").select("id,name,company,qr_code,extra").eq("event_id", eventId)
         .is("source_removed_at", null).order("name").order("id")),
-    semuaBaris<{ participant_id: string; room_id: number }>(() =>
-      db.from("lodging_assignments").select("participant_id,room_id").eq("event_id", eventId).order("id")),
+    semuaBaris<LogistikData["lodging"][number]>(() =>
+      db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
     semuaBaris<{ trip_id: number | null; vehicle_id: number | null; participant_id: string }>(() =>
       db.from("transport_assignments").select("trip_id,vehicle_id,participant_id").eq("event_id", eventId).order("id")),
   ]);

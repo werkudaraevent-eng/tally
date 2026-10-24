@@ -21,7 +21,14 @@ import { BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type Branding, type BrandingFont 
 
 export type BrandingEditorProps = {
   value: Branding;
-  onChange: (changes: Partial<Branding>) => void;
+  /**
+   * Hasil unggahan juga lewat sini. false = halaman menolaknya (misalnya
+   * formulirnya sudah dibuang selama unggahan berjalan): catatan "Image
+   * uploaded" tidak ditampilkan.
+   */
+  onChange: (changes: Partial<Branding>) => void | boolean;
+  /** Unggahan logo atau gambar sponsor mulai (true) dan selesai (false), untuk penjaga suntingan halaman. */
+  onUploadingChange?: (uploading: boolean) => void;
   /**
    * Pembeda id elemen form bila ada lebih dari satu editor di satu halaman.
    *
@@ -67,6 +74,7 @@ const inputClass =
 export function BrandingEditor({
   value,
   onChange,
+  onUploadingChange,
   idPrefix,
   baseTextColor,
   baseBackgroundColor,
@@ -85,17 +93,21 @@ export function BrandingEditor({
    */
   async function upload(kind: "logo" | "footer", file: File) {
     setUploading(kind);
+    onUploadingChange?.(true);
     const form = new FormData();
     form.append("file", file);
     form.append("kind", kind === "logo" ? "logos" : "footers");
-    const response = await fetch("/api/display/background", { method: "POST", body: form });
-    const data = await response.json().catch(() => null);
+    // Gagal tersambung juga mengakhiri unggahan: tanpa ini tombolnya tertahan
+    // di "Uploading…" dan halaman menganggap unggahannya masih berjalan.
+    const response = await fetch("/api/display/background", { method: "POST", body: form }).catch(() => null);
+    const data = response ? await response.json().catch(() => null) : null;
     setUploading(null);
-    if (!response.ok) {
-      toast.error("Image upload failed", data?.error?.details?.file ?? data?.error?.message ?? "Try again.");
+    onUploadingChange?.(false);
+    if (!response?.ok) {
+      toast.error("Image upload failed", response ? data?.error?.details?.file ?? data?.error?.message ?? "Try again." : "Connection lost. Try again.");
       return;
     }
-    onChange(kind === "logo" ? { logo_url: data.url } : { footer_image_url: data.url });
+    if (onChange(kind === "logo" ? { logo_url: data.url } : { footer_image_url: data.url }) === false) return;
     toast.info("Image uploaded", "Click Save to apply it to the public screen.");
   }
 

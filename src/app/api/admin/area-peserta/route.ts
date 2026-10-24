@@ -10,6 +10,9 @@ import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
 import { landingEnAvailable } from "@/lib/landing-i18n";
 import { KOLOM_MASUK_POLA, pilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain";
+import { kontakPanitia } from "@/lib/kontak-panitia";
+import { loadOutfitBagian } from "@/lib/outfit-server";
+import { tanpaSetiapHariKosong } from "@/lib/outfit-setiap-hari";
 
 /**
  * Setelan area peserta (menu admin "Area peserta").
@@ -104,6 +107,9 @@ export async function GET(request: Request) {
     client.from("participant_accounts").select("id", { count: "exact", head: true }).eq("event_id", eventId),
   ]);
   const layout = landing.layout === "modern" ? (landing.gathering === true ? "gathering" : "modern") : null;
+  const horizon = gatheringHorizon(landing);
+  // Horizon: baris Today's dress code menyebut bila Agenda belum punya dress code.
+  const petaOutfit = horizon && layout ? await loadOutfitBagian(eventId) : null;
   const diSusunan = new Map(normalizeLandingSections(landing.sections, landing.blocks).map((section) => [section.id as string, section.enabled]));
 
   // Blok khusus peserta yang dulu dimatikan di Page sections: kini diatur di
@@ -146,7 +152,16 @@ export async function GET(request: Request) {
     // Baris Checkpoints di Participant home menyebut bila fiturnya mati di Check-in.
     checkpoints_on: layout ? (await loadSetelanCheckpoint(eventId))?.enabled === true : false,
     // Gathering Horizon tidak menampilkan "Today's agenda": barisnya disembunyikan di CMS.
-    horizon: gatheringHorizon(landing),
+    horizon,
+    // Horizon: tanggal acara untuk "Preview on" di pratinjau, dan alasan baris
+    // Today's dress code (belum ada dress code di Agenda) dan Help card (tanpa kontak panitia).
+    ...(horizon
+      ? {
+          dates: { start: auth.scope.event.event_date ?? null, end: auth.scope.event.end_date ?? auth.scope.event.event_date ?? null, start_time: auth.scope.event.start_time ?? null },
+          outfit_days: petaOutfit ? [...petaOutfit.values()].filter((isian) => isian.length > 0).length : 0,
+          organiser_contact: kontakPanitia(landing) !== null,
+        }
+      : {}),
     // Halaman English ada: Emergency and help menampilkan isian English.
     english: landingEnAvailable(landing),
     // Cara masuk: kolom yang boleh dipilih untuk "Participant fields", dan
@@ -168,10 +183,11 @@ export async function GET(request: Request) {
  * admin (`nyalakan`) untuk blok khusus peserta ikut menyalakannya di Page
  * sections, satu-satunya tempat lama yang bisa mematikannya. Hanya mata yang
  * dinyalakan, bukan semua yang tidak tersembunyi: salinan basi tidak
- * menyalakan blok yang baru dimatikan di layar lain.
+ * menyalakan blok yang baru dimatikan di layar lain. Every day yang
+ * dikosongkan dibuang dari simpanan, bukan disimpan null.
  */
 function gabung(landing: EventLandingConfig, patch: Partial<LandingMemberConfig>, nyalakan: string[]): EventLandingConfig {
-  const member = { ...(landing.member ?? {}), ...patch } as LandingMemberConfig;
+  const member = tanpaSetiapHariKosong({ ...(landing.member ?? {}), ...patch } as LandingMemberConfig);
   const tersembunyi = patch.home?.hidden ?? landing.member?.home?.hidden ?? [];
   const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyalakan.filter((id) => !tersembunyi.includes(id)));
   return { ...landing, member, ...(sections !== landing.sections ? { sections } : {}) };
@@ -181,8 +197,8 @@ export async function PATCH(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
 
-  // `enabled` boleh tidak dikirim: Agenda > Section > Outfit hanya mengirim
-  // `outfit_label`, dan gabungan di bawah mempertahankan kunci lainnya.
+  // `enabled` boleh tidak dikirim: Logistics > Buses hanya mengirim setelan
+  // busnya, dan gabungan di bawah mempertahankan kunci lainnya.
   const body = await request.json().catch(() => null);
   const parsed = memberSchema.partial({ enabled: true }).safeParse(body?.member);
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
@@ -191,7 +207,7 @@ export async function PATCH(request: Request) {
 
   // Dua kolom wajib dipilih, dan keduanya masih ada di form, sebelum cara
   // dua kolom bisa disimpan. Tanpanya tidak ada peserta yang bisa masuk.
-  // Hanya bila cara masuk ikut dikirim: simpanan Buses / Outfit tidak boleh
+  // Hanya bila cara masuk ikut dikirim: simpanan Buses tidak boleh
   // gagal karena pertanyaan form yang dipakai kemudian dihapus.
   const akhir = { ...((auth.scope.event.landing_config ?? {}) as EventLandingConfig).member, ...parsed.data };
   const ubahCaraMasuk = parsed.data.sign_in !== undefined || parsed.data.sign_in_fields !== undefined;

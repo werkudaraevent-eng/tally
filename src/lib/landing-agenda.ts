@@ -1,5 +1,7 @@
 import { getSupabaseServiceClient } from "./supabase/service";
 import { formatClock } from "./rundown";
+import { bacaSyaratBaris, barisUntukPeserta, type SyaratBaris } from "./sasaran-baris";
+import { muatDataSasaran } from "./sasaran-blok-server";
 
 /** Jam halaman publik, sama dengan baris jam di hero: "08.00" (Indonesia) atau "08:00" (English). */
 function jamTitik(jam: string, bahasa: "id" | "en"): string {
@@ -43,6 +45,19 @@ export type AgendaPreview = {
 };
 
 /**
+ * Siapa yang membaca agenda. Tanpa penonton (halaman acara publik, pratinjau
+ * admin, badge) baris bersyarat selalu disembunyikan. Peserta yang masuk
+ * melihat baris yang syaratnya cocok dengan datanya; `participantId` null
+ * (akun tanpa peserta, pratinjau tanpa pilihan) berarti tidak ada yang cocok.
+ */
+export type PenontonAgenda = {
+  acara: { id: string; registration_form_config: unknown };
+  participantId: string | null;
+  /** Participant area > show_logistics: hotel peserta hanya dibaca bila kamar ditampilkan. */
+  tampilKamar: boolean;
+};
+
+/**
  * Jumlah hari acara menurut tanggal bagian, bukan jumlah tab: dua bagian di
  * tanggal yang sama (Batch 1 dan Batch 2) tetap satu hari. Bagian tanpa tanggal
  * dihitung satu hari masing-masing.
@@ -66,7 +81,7 @@ function hariPendek(tanggal: string | null, bahasa: "id" | "en"): string | null 
  */
 const MAX_ITEMS = 40;
 
-export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "id"): Promise<AgendaPreview[]> {
+export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "id", penonton?: PenontonAgenda): Promise<AgendaPreview[]> {
   const client = getSupabaseServiceClient();
 
   const { data: sections } = await client
@@ -80,16 +95,23 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
   const daftarSeksi = (sections ?? []) as unknown as Array<{ id: number; name: string | null; title: string | null; event_date: string | null }>;
   if (daftarSeksi.length === 0) return [];
 
-  const { data: items } = await client
-    .from("rundown_items")
-    .select("id,section_id,title,subtitle,title_en,subtitle_en,start_time,end_time,is_break,sort_order")
-    .in("section_id", daftarSeksi.map((section) => section.id))
-    .eq("is_published", true)
-    // Urutan yang sama dengan CMS rundown: jam mulai, lalu sort_order untuk
-    // butir berjam sama (sesi paralel), lalu id sebagai pemutus terakhir.
-    .order("start_time", { ascending: true })
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
+  const bacaBaris = (kolom: string) =>
+    client
+      .from("rundown_items")
+      .select(kolom)
+      .in("section_id", daftarSeksi.map((section) => section.id))
+      .eq("is_published", true)
+      // Urutan yang sama dengan CMS rundown: jam mulai, lalu sort_order untuk
+      // butir berjam sama (sesi paralel), lalu id sebagai pemutus terakhir.
+      .order("start_time", { ascending: true })
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
+  const KOLOM = "id,section_id,title,subtitle,title_en,subtitle_en,start_time,end_time,is_break,sort_order";
+  const pertama = await bacaBaris(`${KOLOM},audience`);
+  // Sebelum migrasi 202610210001 kolom `audience` belum ada (42703): belum ada
+  // baris bersyarat, jadi dibaca ulang tanpa kolom itu.
+  const belumAda = pertama.error?.code === "42703" || pertama.error?.code === "PGRST204";
+  const items = belumAda ? (await bacaBaris(KOLOM)).data : pertama.data;
 
   const daftarItem = (items ?? []) as unknown as Array<{
     id: number;
@@ -101,7 +123,24 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
     start_time: string | null;
     end_time: string | null;
     is_break: boolean | null;
+    audience?: unknown;
   }>;
+
+  // Who sees it per baris. Data peserta hanya dibaca bila ada baris bersyarat,
+  // jadi acara yang tidak memakainya berubah 0 px dan tidak membaca apa pun.
+  const syarat = new Map<number, SyaratBaris>();
+  for (const item of daftarItem) {
+    const isi = bacaSyaratBaris(item.audience);
+    if (isi) syarat.set(item.id, isi);
+  }
+  const dataPeserta = syarat.size > 0 && penonton?.participantId
+    ? await muatDataSasaran(penonton.acara, penonton.participantId, [...syarat.values()].flat(), penonton.tampilKamar)
+    : null;
+  // Tanggal baris = tanggal bagiannya: Hotel cocok dengan stay yang berlaku
+  // hari itu (peserta yang pindah hotel).
+  const tanggalSeksi = new Map(daftarSeksi.map((section) => [section.id, section.event_date && /^\d{4}-\d{2}-\d{2}$/.test(section.event_date) ? section.event_date : null]));
+  const tanggalItem = new Map(daftarItem.map((item) => [item.id, tanggalSeksi.get(item.section_id) ?? null]));
+  const tersembunyi = new Set([...syarat].filter(([id, isi]) => !barisUntukPeserta(isi, dataPeserta, tanggalItem.get(id) ?? null)).map(([id]) => id));
 
   return daftarSeksi
     .map((section) => ({
@@ -112,7 +151,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
       hari: hariPendek(section.event_date, bahasa),
       tanggal: section.event_date && /^\d{4}-\d{2}-\d{2}$/.test(section.event_date) ? section.event_date : null,
       items: daftarItem
-        .filter((item) => item.section_id === section.id)
+        .filter((item) => item.section_id === section.id && !tersembunyi.has(item.id))
         .slice(0, MAX_ITEMS)
         .map((item) => ({
           id: item.id,

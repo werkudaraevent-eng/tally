@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventRow, LandingMemberConfig } from "@/lib/domain";
+import { saringBlokPeserta } from "@/lib/sasaran-blok-server";
 import { logoNavPutih, isLandingBlockId, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName } from "@/lib/domain";
 import { BagianBeranda } from "@/components/member/bagian-beranda";
 import { KartuBlok } from "@/components/member/kartu-blok";
@@ -95,7 +96,8 @@ export async function DashboardModern({
   const halamanAcara = landingPath(event.slug, lang, utama);
   const lainnya: LandingLang = lang === "en" ? "id" : "en";
   const sections = normalizeLandingSections(config.sections, config.blocks);
-  const agenda = await loadAgendaPreview(event.id, lang);
+  // Who sees it per baris Agenda: baris bersyarat hanya untuk peserta yang cocok.
+  const agenda = await loadAgendaPreview(event.id, lang, { acara: asli, participantId: sesi.participant?.id ?? null, tampilKamar: member.show_logistics === true });
   // Pratinjau admin: semua pertanyaannya, supaya kartu terlihat seperti yang diterima peserta.
   const lengkapi = pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, sesi.participant?.id);
   // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
@@ -107,7 +109,8 @@ export async function DashboardModern({
   const hotelIds = inap ? new Set(inap.hotels.map((hotel) => hotel.id)) : undefined;
   // Blok yang admin pilih untuk halaman peserta (Show on), dalam urutan
   // Participant home (bawaannya tepat sebelum susunan acara).
-  const blokPeserta = landingMemberBlocks(config.sections, config.blocks, hotelIds);
+  // Who sees it (src/lib/sasaran-blok.ts): blok bersasaran hanya untuk peserta yang cocok.
+  const blokPeserta = await saringBlokPeserta(landingMemberBlocks(config.sections, config.blocks, hotelIds), event, sesi.participant?.id ?? null, member.show_logistics === true);
   const tokens = landingTokens(config, "modern");
   const warnaTema = { brand: tokens.brand, accent: tokens.accent ?? null };
   const kartuBlok = new Map(
@@ -155,7 +158,7 @@ export async function DashboardModern({
   const [logistik, checkpoint] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
-        diBeranda("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang) : null,
+        diBeranda("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, { acara: asli, participantId: peserta.id, tampilKamar: member.show_logistics === true }) : null,
       ])
     : [null, null];
   const barangCheckpoint = new Set(checkpoint ? checkpoint.item_names : []);

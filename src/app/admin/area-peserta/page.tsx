@@ -1,20 +1,25 @@
 "use client";
 
 import { Info, Warning, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, SelectField, StatusChip, Switch, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { SettingRow } from "@/components/admin/settings-panel";
 import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
 import { KontakDaruratForm } from "./kontak-darurat";
+import { KelompokSetiapHari } from "./setiap-hari";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
-import { type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
+import { TETAP_HORIZON, letakkanHorizon, urutanHorizon } from "@/lib/member/susunan-horizon";
 import type { PilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { rapikanBantuan } from "@/lib/member/kontak-darurat";
+import { OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, labelOutfit } from "@/lib/outfit";
+import { FOTO_OUTFIT_SALAH, fotoOutfitSah, unggahFotoOutfit } from "@/lib/outfit-foto";
+import { bacaOutfitSetiapHari, drafSetiapHari, galatSetiapHari, kirimanSetiapHari, samaSetiapHari, type IsianSetiapHari } from "@/lib/outfit-setiap-hari";
 import { plural } from "@/lib/plural";
 
 /**
@@ -42,6 +47,12 @@ type Muat = {
   checkpoints_on?: boolean;
   /** Gathering Horizon: Participant home tanpa "Today's agenda". */
   horizon?: boolean;
+  /** Horizon: tanggal dan jam mulai acara untuk "Preview on" di pratinjau. */
+  dates?: { start: string | null; end: string | null; start_time?: string | null };
+  /** Horizon: jumlah bagian Agenda yang punya dress code (baris Today's dress code). */
+  outfit_days?: number;
+  /** Horizon: ada telepon atau email panitia di Event settings (baris Help card). */
+  organiser_contact?: boolean;
   /** Halaman English ada: Emergency and help menampilkan isian English. */
   english?: boolean;
   /** Kolom yang boleh dipakai cara masuk Participant fields. */
@@ -126,7 +137,15 @@ export default function AreaPesertaPage() {
   const [slug, setSlug] = useState<string | null>(null);
   const [pesertaPratinjau, setPesertaPratinjau] = useState<PesertaPratinjau | null>(null);
   const [sorot, setSorot] = useState<{ id: string; n: number } | null>(null);
+  // Kartu yang diklik atau diseret di pratinjau: barisnya disorot tanpa menggulir pratinjau.
+  const [pilihKartu, setPilihKartu] = useState<string | null>(null);
   const [tanpaNama, setTanpaNama] = useState<number | null>(null);
+  // Every day: foto yang sedang diunggah, galat unggah atau 422 Save changes,
+  // dan versi kelompoknya (Cancel dan Save memasangnya ulang, jadi Note yang
+  // dibuka tanpa isi kembali menjadi Add note).
+  const [unggahFoto, setUnggahFoto] = useState(false);
+  const [galatSetiap, setGalatSetiap] = useState<string | null>(null);
+  const [versiSetiap, setVersiSetiap] = useState(0);
 
   const load = useCallback(async () => {
     setGalatMuat("");
@@ -142,8 +161,59 @@ export default function AreaPesertaPage() {
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
 
+  // ?fokus= dari Agenda › Dress code ("Edit in Participant area", "Rename in
+  // Participant area"): baris Dress code page jauh di bawah Participant home,
+  // jadi kolomnya dibawa ke layar dan difokus, sekali sesudah dimuat. Ke
+  // tengah, bukan ke atas: bagian atas layar tertutup bilah atas yang menempel.
+  const tautanFokus = useRef(false);
+  useEffect(() => {
+    if (!data || tautanFokus.current) return;
+    tautanFokus.current = true;
+    const fokus = new URLSearchParams(window.location.search).get("fokus");
+    const pilih = fokus === "setiap-hari" ? "[data-setiap-apa]" : fokus === "nama-halaman" ? "[data-nama-halaman]" : null;
+    if (!pilih) return;
+    window.requestAnimationFrame(() => {
+      const kolom = document.querySelector<HTMLElement>(pilih);
+      kolom?.scrollIntoView({ block: "center" });
+      kolom?.focus({ preventScroll: true });
+    });
+  }, [data]);
+
   const set = (patch: Partial<LandingMemberConfig>) => setAnggotaState((current) => current && { ...current, ...patch });
   const berubah = Boolean(data && anggota && JSON.stringify(anggota) !== JSON.stringify(data.member));
+  // Untuk meninggalkan halaman, foto Every day yang masih diunggah dihitung
+  // belum disimpan, seperti di Agenda: hasilnya mendarat di draf halaman ini.
+  const belumDisimpan = berubah || unggahFoto;
+
+  /** Satu kolom Every day. Isian yang sama persis dengan yang tersimpan kembali ke nilai tersimpan, bukan perubahan. */
+  const ubahSetiapHari = (ubah: Partial<IsianSetiapHari>) => {
+    setGalatSetiap(null);
+    setAnggotaState((current) => current && { ...current, outfit_every_day: drafSetiapHari(current.outfit_every_day, ubah, data?.member.outfit_every_day) });
+  };
+
+  function gagalFoto(pesan: string) {
+    setGalatSetiap(pesan);
+    toast.error("Photo not uploaded", pesan);
+  }
+
+  /** Foto Every day lewat endpoint unggah foto Agenda (lib/outfit-foto.ts); masuk draf sampai Save changes. */
+  async function unggahFotoSetiapHari(file: File) {
+    setGalatSetiap(null);
+    // Diperiksa di sini dulu: berkas yang salah tidak perlu diunggah untuk ditolak.
+    if (!fotoOutfitSah(file)) {
+      gagalFoto(FOTO_OUTFIT_SALAH);
+      return;
+    }
+    setUnggahFoto(true);
+    const hasil = await unggahFotoOutfit(file);
+    setUnggahFoto(false);
+    if ("galat" in hasil) {
+      gagalFoto(hasil.galat);
+      return;
+    }
+    ubahSetiapHari({ photo_url: hasil.url });
+    toast.info("Photo uploaded", "Select Save changes to show it to participants.");
+  }
 
   async function save() {
     if (!anggota) return;
@@ -160,13 +230,18 @@ export default function AreaPesertaPage() {
       return;
     }
     setSimpan(true);
-    // Label Outfit disunting di Agenda > Section > Outfit. Tidak dikirim dari
-    // sini, jadi salinan lama di layar ini tidak menimpa label yang baru disimpan.
     const setelan: Partial<LandingMemberConfig> = { ...anggota, feedback_url: umpanBalik, help: bantuan.help };
     // Kontak darurat hanya dikirim bila diubah di layar ini, supaya tab lain
     // yang basi tidak menghapus kontak yang baru disimpan di tab ini.
     if (JSON.stringify(anggota.help ?? null) === JSON.stringify(data?.member.help ?? null)) delete setelan.help;
-    delete setelan.outfit_label;
+    // Nama halaman Dress code: satu-satunya penulisnya layar ini (Agenda hanya
+    // menampilkannya). Sama dengan kontak, hanya dikirim bila diubah di sini.
+    if ((anggota.outfit_label ?? "").trim() === (data?.member.outfit_label ?? "").trim()) delete setelan.outfit_label;
+    else setelan.outfit_label = anggota.outfit_label?.trim() || null;
+    // Every day: juga hanya ditulis layar ini, dan hanya dikirim bila diubah di
+    // sini. What to wear kosong dikirim sebagai null: server tidak menyimpan apa pun.
+    if (samaSetiapHari(anggota.outfit_every_day, data?.member.outfit_every_day)) delete setelan.outfit_every_day;
+    else setelan.outfit_every_day = kirimanSetiapHari(anggota.outfit_every_day);
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
     delete setelan.show_bus_crew;
@@ -180,16 +255,47 @@ export default function AreaPesertaPage() {
     setSimpan(false);
     if (!response) { toast.error("Connection failed", "Reload to see the current state."); return; }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { toast.error("Couldn't save", pesanGalatApi(body) ?? "Try again."); return; }
+    if (!response.ok) {
+      // Every day yang ditolak (422) juga disebut di kelompoknya, di dekat kolomnya.
+      setGalatSetiap(galatSetiapHari(body));
+      toast.error("Couldn't save", pesanGalatApi(body) ?? "Try again.");
+      return;
+    }
     const tersimpan = (body as { member: LandingMemberConfig }).member;
     setData((current) => current && { ...current, member: tersimpan });
     setAnggotaState(tersimpan);
+    setGalatSetiap(null);
+    setVersiSetiap((versi) => versi + 1);
     toast.success("Saved", tersimpan.enabled ? "The Event page uses the new settings right away." : "Participant area closed. The Sign in button no longer shows on the Event page.");
   }
 
   const counts = data?.counts ?? null;
   // Modern dan Gathering: pratinjau di kiri, setelan di kanan, seperti Event page.
   const berpratinjau = Boolean(data?.layout && slug);
+
+  // Gathering Horizon: seret kartu di pratinjau ponsel, dengan urutan dan aturan
+  // tempat tetap yang sama dengan daftar Participant home (susunan-horizon.ts).
+  const susunanHorizon = data?.horizon && data.layout === "gathering" && anggota ? urutanHorizon(anggota.home, data.blocks.map((block) => block.id)) : null;
+  const seretPratinjau =
+    susunanHorizon && data
+      ? {
+          gerak: susunanHorizon.filter((id) => !TETAP_HORIZON.has(id)),
+          // Teman sekamar tidak punya kartu sendiri: barisnya di kartu perjalanan.
+          kartu: susunanHorizon.filter((id) => id !== "roommates"),
+          urutan: susunanHorizon,
+          label: Object.fromEntries(
+            susunanHorizon.map((id) => {
+              const bawaan = MEMBER_HOME_BUILTINS.horizon.find((item) => item.id === id);
+              const blok = data.blocks.find((block) => block.id === id);
+              return [id, bawaan?.label ?? blok?.heading ?? (blok ? LANDING_BLOCK_LABELS[blok.type] : id)];
+            }),
+          ),
+        }
+      : null;
+  const cariBaris = (id: string) => {
+    setPilihKartu(id);
+    window.requestAnimationFrame(() => document.getElementById(`baris-beranda-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+  };
 
   return (
     <div lang="en" className="contents">
@@ -230,7 +336,24 @@ export default function AreaPesertaPage() {
           // Layar pendek (1280x588): halaman bergulir utuh, jadi pratinjau menempel
           // di bawah bilah atas agar tetap terlihat saat menyunting bagian bawah.
           <div className="flex min-h-[70vh] min-w-0 flex-1 flex-col *:flex-1 lg:min-h-0 lg:short:sticky lg:short:top-[calc(var(--workspace-top,58px)+16px)] lg:short:h-[calc(100dvh-var(--workspace-top,58px)-32px)] lg:short:self-start">
-            <PratinjauPeserta slug={slug} peserta={pesertaPratinjau} onPeserta={setPesertaPratinjau} member={anggota} sorot={sorot} reloadKey={0} />
+            <PratinjauPeserta
+              slug={slug}
+              peserta={pesertaPratinjau}
+              onPeserta={setPesertaPratinjau}
+              member={anggota}
+              sorot={sorot}
+              reloadKey={0}
+              tanggal={data.horizon ? (data.dates ?? null) : null}
+              seret={seretPratinjau}
+              onPindah={(id, sebelum) => {
+                if (!susunanHorizon) return;
+                // Seret yang tidak memindah apa pun tidak mengubah draf (dan tidak mengubah simpanan lama).
+                const baru = letakkanHorizon(susunanHorizon, id, sebelum);
+                if (baru.join() !== susunanHorizon.join()) set({ home: { ...anggota.home, order: baru } });
+                cariBaris(id);
+              }}
+              onPilihKartu={cariBaris}
+            />
           </div>
         ) : null}
         <Pane aria-label="Participant area settings" className={berpratinjau ? "lg:w-[460px] lg:shrink-0" : undefined}>
@@ -259,7 +382,15 @@ export default function AreaPesertaPage() {
                   </div>
                 </SettingRow>
                 {data.layout ? (
-                  <SettingRow stacked={berpratinjau} title="Participant home" description="What participants see first after signing in, and in what order. Click a row to find it in the preview.">
+                  <SettingRow
+                    stacked={berpratinjau}
+                    title="Participant home"
+                    description={
+                      seretPratinjau
+                        ? "What participants see first after signing in, and in what order. Drag a row here or a card in the preview; click a row to find its card."
+                        : "What participants see first after signing in, and in what order. Click a row to find it in the preview."
+                    }
+                  >
                     <SusunanBeranda
                       layout={data.layout}
                       member={anggota}
@@ -267,11 +398,72 @@ export default function AreaPesertaPage() {
                       checkpointsOn={data.checkpoints_on === true}
                       horizon={data.horizon === true}
                       jumlahBlok={data.blocks_count ?? data.blocks.length}
-                      adaPerubahan={berubah}
+                      adaPerubahan={belumDisimpan}
                       set={set}
-                      dipilih={sorot?.id ?? null}
-                      onPilih={(id) => setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }))}
+                      dipilih={pilihKartu ?? sorot?.id ?? null}
+                      onPilih={(id) => {
+                        setPilihKartu(null);
+                        setSorot((current) => ({ id, n: (current?.n ?? 0) + 1 }));
+                      }}
+                      // Every day (draf, seperti pratinjau) juga mengisi kartunya, tanpa tab Agenda sekalipun.
+                      outfitAda={data.outfit_days === undefined ? undefined : data.outfit_days > 0 || bacaOutfitSetiapHari(anggota.outfit_every_day) !== null}
+                      outfitDari={
+                        data.outfit_days === undefined || bacaOutfitSetiapHari(anggota.outfit_every_day) === null
+                          ? "agenda"
+                          : data.outfit_days > 0
+                            ? "keduanya"
+                            : "setiap"
+                      }
+                      kontakAda={data.organiser_contact}
                     />
+                  </SettingRow>
+                ) : null}
+                {seretPratinjau ? (
+                  <SettingRow
+                    stacked={berpratinjau}
+                    title="Dress code page"
+                    description="A page under each day of the participant Schedule, and Today’s dress code on Participant home. With Agenda off for participants, it is a tab on wide screens and a Menu row on phones."
+                  >
+                    {/* Every day dan nama halaman untuk seluruh acara, jadi di sini, bukan per tab di Agenda. */}
+                    <div className="flex min-w-0 flex-col gap-4">
+                      <KelompokSetiapHari
+                        key={versiSetiap}
+                        nilai={anggota.outfit_every_day}
+                        onUbah={ubahSetiapHari}
+                        labelHalaman={labelOutfit(anggota.outfit_label)}
+                        tautanAgenda={
+                          <Link
+                            href="/admin/rundown"
+                            className={TAUTAN}
+                            onClick={(event) => {
+                              if (!belumDisimpan) return;
+                              event.preventDefault();
+                              toast.error("Save or cancel your changes first", "Leaving Participant area now would lose them.");
+                            }}
+                          >
+                            Agenda › Dress code
+                          </Link>
+                        }
+                        unggah={unggahFoto}
+                        menyimpan={simpan}
+                        galat={galatSetiap}
+                        onUnggah={(file) => void unggahFotoSetiapHari(file)}
+                      />
+                      <TextField
+                        label="Page name"
+                        optional
+                        maxLength={OUTFIT_LABEL_MAX}
+                        counter
+                        hint={`For the whole event. Left empty, participants see “${OUTFIT_LABEL_BAWAAN}”.`}
+                        value={anggota.outfit_label ?? ""}
+                        onChange={(event) => {
+                          const nilai = event.target.value;
+                          // Dikosongkan saat yang tersimpan juga kosong: kembali ke nilai tersimpan, bukan perubahan.
+                          set({ outfit_label: nilai.trim() || data.member.outfit_label?.trim() ? nilai : data.member.outfit_label });
+                        }}
+                        data-nama-halaman=""
+                      />
+                    </div>
                   </SettingRow>
                 ) : null}
                 {data.horizon === true ? (
@@ -333,9 +525,23 @@ export default function AreaPesertaPage() {
               </ul>
             </SettingRow>
           </PaneBody>
-          <PaneFooter note={berubah ? "Unsaved changes" : null}>
-            {berubah ? <Button variant="outlined" size="sm" disabled={simpan} onClick={() => setAnggotaState(data.member)}>Cancel</Button> : null}
-            <Button simpan size="sm" loading={simpan} disabled={!berubah} onClick={() => void save()}>Save changes</Button>
+          <PaneFooter note={belumDisimpan ? "Unsaved changes" : null}>
+            {/* Menunggu foto Every day selesai diunggah: tersimpan bersama, bukan mendarat sesudahnya sebagai suntingan baru. */}
+            {berubah ? (
+              <Button
+                variant="outlined"
+                size="sm"
+                disabled={simpan || unggahFoto}
+                onClick={() => {
+                  setAnggotaState(data.member);
+                  setGalatSetiap(null);
+                  setVersiSetiap((versi) => versi + 1);
+                }}
+              >
+                Cancel
+              </Button>
+            ) : null}
+            <Button simpan size="sm" loading={simpan} disabled={!berubah || unggahFoto} onClick={() => void save()}>Save changes</Button>
           </PaneFooter>
         </Pane>
         </div>

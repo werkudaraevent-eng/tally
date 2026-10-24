@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, Flag, QrCode } from "@phosphor-icons/react/dist/ssr";
 import type { ReactNode } from "react";
 import type { CheckpointPeserta, LangkahPeserta } from "@/lib/checkpoint/server";
+import { tanggalDiZona, teksSelesai, teksWaktu } from "@/lib/checkpoint/waktu";
 import type { LandingLang } from "@/lib/landing-i18n";
 import type { EventTimeZone } from "@/lib/timezone";
 import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
@@ -19,6 +20,8 @@ import { PindaiCheckpoint } from "@/components/member/pindai-checkpoint";
  * Layar lebar menampilkan semua langkah. Ponsel hanya langkah berikutnya dan
  * "Lihat semua N checkpoint", supaya rundown tidak terdorong jauh ke bawah.
  * Urutan hanya petunjuk: langkah yang dilompati tetap bisa selesai belakangan.
+ * Langkah bertanggal (When, dari Agenda) menulis tanggal dan jamnya di atas
+ * tempat; langkah tanpa tanggal tampil seperti dulu.
  */
 
 const TEKS = {
@@ -137,13 +140,17 @@ export function KartuCheckpoint({
   const total = data.steps.length;
   const berikut = data.steps.find((step) => !step.done_at) ?? null;
   const [dapat, sisaPoin] = t.poin(data.earned, data.total_points);
+  const hariIni = tanggalDiZona(new Date(), zona);
 
   const baris = (step: LangkahPeserta, index: number, pertama: boolean): ReactNode => {
     const selesai = Boolean(step.done_at);
     const iniBerikut = step.id === berikut?.id;
+    // Langkah bertanggal yang selesai di hari lain menyebut tanggalnya juga.
+    const jamSelesai = selesai ? (step.when ? teksSelesai(step.done_at!, zona, hariIni, lang) : jam(step.done_at!, zona, lang)) : "";
     const sub = selesai
-      ? [t.selesaiJam(jam(step.done_at!, zona, lang)), step.size ? t.ukuran(step.size) : null].filter(Boolean).join(" · ")
+      ? [t.selesaiJam(jamSelesai), step.size ? t.ukuran(step.size) : null].filter(Boolean).join(" · ")
       : step.place;
+    const kapan = !selesai && step.when ? teksWaktu(step.when, hariIni, lang, false).teks : null;
     return (
       <li
         key={step.id}
@@ -165,6 +172,7 @@ export function KartuCheckpoint({
               <span className={`ml-2 inline-flex min-h-6 items-center rounded-md px-2 align-[2px] text-[12px] font-semibold ${g.tandaBerikut}`}>{t.tandaBerikut}</span>
             ) : null}
           </p>
+          {kapan ? <p className="mt-0.5 text-[13px] font-medium [overflow-wrap:anywhere]">{kapan}</p> : null}
           {sub ? <p className={`mt-0.5 text-[13px] [overflow-wrap:anywhere] ${g.redup}`}>{sub}</p> : null}
         </div>
         {step.points !== null ? (

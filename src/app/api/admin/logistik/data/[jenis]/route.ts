@@ -63,14 +63,13 @@ const JENIS: Record<string, Jenis> = {
       check_out_at: waktu,
       sort_order: urutan,
     }),
+    // Tamu hotel ini, berkamar maupun yang kamarnya menyusul.
     tahanHapus: async (eventId, id) => {
-      const { data } = await klien().from("lodging_rooms").select("id").eq("event_id", eventId).eq("hotel_id", id);
-      const kamar = ((data ?? []) as Array<{ id: number }>).map((baris) => baris.id);
-      if (kamar.length === 0) return null;
-      const { count } = await klien().from("lodging_assignments").select("id", { head: true, count: "exact" })
-        .eq("event_id", eventId).in("room_id", kamar);
+      const { count, error } = await klien().from("lodging_assignments").select("id", { head: true, count: "exact" })
+        .eq("event_id", eventId).eq("hotel_id", id);
+      if (error) return "Could not check this hotel's guests. Reload the page and try again.";
       return (count ?? 0) > 0
-        ? `This hotel still has ${plural(count ?? 0, "occupant")}. Move or remove them first, then delete the hotel.`
+        ? `This hotel still has ${plural(count ?? 0, "guest")}. Move or remove them first, then delete the hotel.`
         : null;
     },
   },

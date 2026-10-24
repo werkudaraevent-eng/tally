@@ -1,19 +1,16 @@
 "use client";
 
 import { Plus, UploadSimple } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, MetaSeparator, Pane, SegmentedButton, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
-import { Galat, Kerangka, type Kirim } from "@/components/admin/logistik/bersama";
+import { Galat, Kerangka } from "@/components/admin/logistik/bersama";
 import { DialogImpor } from "@/components/admin/logistik/dialog-impor";
 import { TabBarang } from "@/components/admin/logistik/tab-barang";
 import { TabAgenda, TabBus } from "@/components/admin/logistik/tab-bus";
 import { TabKamar } from "@/components/admin/logistik/tab-kamar";
 import { TabKereta } from "@/components/admin/logistik/tab-kereta";
 import { TabPenempatan } from "@/components/admin/logistik/tab-penempatan";
-import { useToast } from "@/components/toast";
-import { pesanGalatApi } from "@/lib/api-message";
-import { eventApiPath } from "@/lib/event-url";
-import type { LogistikData } from "@/lib/logistik/types";
+import { useLogistik } from "@/components/admin/logistik/use-logistik";
 import { plural } from "@/lib/plural";
 
 /**
@@ -33,31 +30,13 @@ import { plural } from "@/lib/plural";
  * dan setiap perubahan memuat ulang datanya.
  */
 
-/**
- * Penanda muat terakhir. Fungsinya dipanggil di awal setiap muat dan memberi
- * pemeriksa yang tetap true selama belum ada muat lain yang dimulai sesudahnya.
- *
- * Hook sendiri, bukan ref langsung di `muat`: `kirim` memanggil `muat` dan ikut
- * di `tabProps` yang dibaca saat render, dan React Compiler menolak ref yang
- * terbawa sampai ke sana.
- */
-function useMuatTerakhir() {
-  const terakhir = useRef(0);
-  return useCallback(() => {
-    const nomor = ++terakhir.current;
-    return () => nomor === terakhir.current;
-  }, []);
-}
-
 type Bagian = "penempatan" | "kamar" | "bus" | "kereta" | "barang";
 type BagianBus = "bus" | "agenda";
 /** Dialog "baru" yang dibuka dari kepala halaman. */
 type Baru = "kamar" | "bus" | "agenda" | "barang" | "kereta";
 
 export default function LogistikPage() {
-  const [data, setData] = useState<LogistikData | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { data, error, busy, muat, kirim } = useLogistik();
   const [bagian, setBagian] = useState<Bagian>("penempatan");
   const [bagianBus, setBagianBus] = useState<BagianBus>("bus");
   const [baru, setBaru] = useState<Baru | null>(null);
@@ -66,9 +45,9 @@ export default function LogistikPage() {
   // Trip yang langsung terpilih di Buses > Trips (?tab=bus&trip=). Dilepas begitu
   // panitia pindah tab, supaya kembali ke Trips tidak memilihnya lagi.
   const [tripAwal, setTripAwal] = useState<number | null>(null);
-  const toast = useToast();
 
-  // ?tab=barang dari Check-in > Checkpoints membuka Kit items langsung, dan
+  // ?tab=barang dari Check-in > Checkpoints membuka Kit items langsung,
+  // ?tab=kamar dan ?tab=bus dari dialog Logistik di Daftar peserta, dan
   // ?tab=bus&trip=<id> dari Agenda ("Edit in Logistics") membuka Buses > Trips
   // dengan trip itu terpilih. Dibaca sesudah mount supaya render server dan
   // klien sama.
@@ -76,7 +55,7 @@ export default function LogistikPage() {
     const timer = window.setTimeout(() => {
       const query = new URLSearchParams(window.location.search);
       const tab = query.get("tab");
-      if (tab !== "barang" && tab !== "bus") return;
+      if (tab !== "barang" && tab !== "bus" && tab !== "kamar") return;
       setBagian(tab);
       const trip = Number(query.get("trip"));
       if (tab === "bus" && Number.isInteger(trip) && trip > 0) {
@@ -88,23 +67,6 @@ export default function LogistikPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
-
-  // Hanya jawaban muat yang terakhir dimulai yang dipakai. Muat ulang karena
-  // fokus jendela bisa masih berjalan saat simpanan memuat ulang sesudah
-  // menulis, dan jawaban lamanya tidak boleh menimpa yang baru.
-  const mulaiMuat = useMuatTerakhir();
-  const muat = useCallback(async () => {
-    const masihTerakhir = mulaiMuat();
-    const response = await fetch(eventApiPath("/api/admin/logistik"), { cache: "no-store" }).catch(() => null);
-    const isi = response?.ok ? ((await response.json().catch(() => null)) as LogistikData | null) : null;
-    if (!masihTerakhir()) return;
-    if (!isi) {
-      setError("Logistics data could not be loaded. Check your connection, then reload the page.");
-      return;
-    }
-    setData(isi);
-    setError("");
-  }, [mulaiMuat]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void muat(), 0);
@@ -127,36 +89,15 @@ export default function LogistikPage() {
     return () => { window.removeEventListener("focus", onFocus); window.clearTimeout(timer); };
   }, [adaTautanAgenda, busy, muat]);
 
-  const kirim: Kirim = useCallback(async (path, method, body) => {
-    setBusy(true);
-    const response = await fetch(eventApiPath(path), {
-      method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    }).catch(() => null);
-    if (!response) {
-      setBusy(false);
-      toast.error("Connection failed", "Reload the page to see the current state.");
-      return null;
-    }
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setBusy(false);
-      toast.error("Could not save", pesanGalatApi(json) ?? "Try again.");
-      return null;
-    }
-    // Dimuat ulang sebelum tombolnya hidup lagi: angka isi kamar dan bus yang
-    // tertinggal satu langkah mengundang klik kedua ke kamar yang sudah penuh.
-    await muat();
-    setBusy(false);
-    return json;
-  }, [muat, toast]);
-
   // Hanya peserta aktif yang dihitung, sama dengan `assign_room` dan
   // `transport_effective`: penempatan milik peserta yang dihapus di sumber
   // tetap tersimpan, tetapi tidak menempati tempat.
   const aktif = new Set(data?.participants.map((orang) => orang.id));
-  const tanpaKamar = data ? data.participants.length - new Set(data.lodging.map((b) => b.participant_id).filter((id) => aktif.has(id))).size : 0;
+  const inapAktif = data ? data.lodging.filter((b) => aktif.has(b.participant_id)) : [];
+  const tanpaHotel = data ? data.participants.length - new Set(inapAktif.map((b) => b.participant_id)).size : 0;
+  // Hotel sudah, nomor kamar menyusul (orang, bukan stay: yang pindah hotel
+  // bisa menunggu kamar di dua hotel).
+  const menungguKamar = new Set(inapAktif.filter((b) => b.room_id === null).map((b) => b.participant_id)).size;
   const tanpaBus = data
     ? data.participants.length - new Set(data.transport.filter((b) => b.trip_id === null && b.vehicle_id !== null).map((b) => b.participant_id).filter((id) => aktif.has(id))).size
     : 0;
@@ -186,10 +127,14 @@ export default function LogistikPage() {
         meta={data ? (
           <>
             <span className="tabular-nums">{plural(data.participants.length, "active participant")}</span>
-            {data.rooms.length > 0 ? (
+            {data.rooms.length > 0 || data.lodging.length > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{tanpaKamar === 0 ? "Everyone has a room" : `${tanpaKamar.toLocaleString("en-GB")} without a room`}</span>
+                <span className="tabular-nums">
+                  {tanpaHotel + menungguKamar === 0 ? "Everyone has a room"
+                    : [tanpaHotel > 0 ? `${tanpaHotel.toLocaleString("en-GB")} without a hotel` : null,
+                      menungguKamar > 0 ? `${menungguKamar.toLocaleString("en-GB")} waiting for a room` : null].filter(Boolean).join(", ")}
+                </span>
               </>
             ) : null}
             {data.vehicles.length > 0 ? (
