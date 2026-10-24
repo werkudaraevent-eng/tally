@@ -437,9 +437,9 @@ export function ResultSheet({
                 utama paling atas; di layar lebar rata kanan, utama paling kanan. */}
             <div
               data-nada={tampilan.nada}
-              className="hasil-nada sticky bottom-0 flex flex-col-reverse gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:px-6 sm:pb-6 max-sm:[&_button]:w-full"
+              className="hasil-nada sticky bottom-0 flex flex-col-reverse gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:px-6 sm:pb-6 max-sm:[&_button]:w-full [&_.m3-btn]:min-h-14"
             >
-              {adaOrang && bisaCetak ? (
+              {adaOrang && bisaCetak && !labelUtama ? (
                 <Button
                   variant={labelUtama ? "filled" : "outlined"}
                   size="lg"
@@ -463,9 +463,24 @@ export function ResultSheet({
                   {tutupOtomatis ? (
                     <span aria-hidden className="scan-hitung pointer-events-none absolute inset-0 bg-current opacity-15" style={{ animationDuration: `${TUTUP_OTOMATIS_MS}ms` }} />
                   ) : null}
-                  <span className="relative">Scan next</span>
+                  <span className="relative">{status === "ditolak" ? "Close" : "Scan next"}</span>
                 </Button>
               )}
+
+              {/* Cetak ulang setelah printer gagal adalah aksi utama: setelah
+                  Tutup, jadi paling atas di ponsel dan paling kanan di layar lebar. */}
+              {adaOrang && bisaCetak && labelUtama ? (
+                <Button
+                  variant={labelUtama ? "filled" : "outlined"}
+                  size="lg"
+                  shape="pill"
+                  loading={cetak.fase === "jalan"}
+                  onClick={onCetak}
+                  icon={labelUntukPerangkatIni ? <Printer size={20} aria-hidden /> : <DownloadSimple size={20} aria-hidden />}
+                >
+                  {teksLabel}
+                </Button>
+              ) : null}
 
               {status === "not_found" && bolehWalkIn ? (
                 <Button variant={cariNama ? "outlined" : "filled"} size="lg" shape="pill" onClick={onWalkIn} icon={<UserPlus size={20} weight="bold" aria-hidden />}>

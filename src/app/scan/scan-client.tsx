@@ -1428,6 +1428,24 @@ export default function ScanClient() {
   const judulMeja = `${sesiAktif?.name ?? "Choose a check-in point"}${jalurAktif ? ` · ${jalurAktif.name}` : ""}`;
 
   /**
+   * Angka hadir di atas bingkai kamera (ponsel). Tampil juga saat kamera mati,
+   * karena di ponsel strip angka hanya ada di Find name.
+   */
+  const pilHadir = (
+    <div className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-full bg-black/70 px-4 text-white backdrop-blur-md lg:hidden">
+      <p className="shrink-0 text-label-large tabular-nums">
+        {angka(hadir ?? 0)}
+        <span className="font-normal text-white/75">{terdaftar !== null ? ` of ${angka(terdaftar)}` : ""} checked in</span>
+      </p>
+      {terdaftar ? (
+        <div aria-hidden className="h-1 min-w-6 flex-1 overflow-hidden rounded-full bg-white/25">
+          <div className="h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${persen}%` }} />
+        </div>
+      ) : null}
+    </div>
+  );
+
+  /**
    * Strip hadir di ponsel: angka seluruh meja dan tamu terakhir, selalu di atas
    * panggung. "dari … · … belum" ada di baris kedua, bukan di kalimat panjang:
    * yang dilirik petugas di tengah antrean adalah angka besarnya.
@@ -1626,7 +1644,7 @@ export default function ScanClient() {
                         >
                           <i /><i /><i /><i />
                         </div>
-                        <p className="relative max-w-full truncate text-center text-body-large font-semibold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
+                        <p className="relative line-clamp-2 max-w-full text-center text-body-large [overflow-wrap:anywhere] font-semibold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
                           {membaca ?? "Hold the badge QR inside the frame"}
                         </p>
                       </div>
@@ -1635,17 +1653,7 @@ export default function ScanClient() {
                       {/* Atas: angka hadir (ponsel; di layar lebar angkanya di
                           panel kanan) dan sakelar suara dan senter. */}
                       <div className="absolute inset-x-4 top-3 flex items-start justify-between gap-2 lg:inset-x-3">
-                        <div className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-full bg-black/70 px-4 text-white backdrop-blur-md lg:hidden">
-                          <p className="shrink-0 text-label-large tabular-nums">
-                            {angka(hadir ?? 0)}
-                            <span className="font-normal text-white/75">{terdaftar !== null ? ` of ${angka(terdaftar)}` : ""} checked in</span>
-                          </p>
-                          {terdaftar ? (
-                            <div aria-hidden className="h-1 min-w-6 flex-1 overflow-hidden rounded-full bg-white/25">
-                              <div className="h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${persen}%` }} />
-                            </div>
-                          ) : null}
-                        </div>
+                        {pilHadir}
                         <span className="hidden flex-1 lg:block" />
                         <div className="flex shrink-0 gap-2">
                           <IconButton
@@ -1682,7 +1690,7 @@ export default function ScanClient() {
                               <Check size={18} weight="bold" />
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-label-large">{terakhirHadir.nama}</span>
+                              <span className="line-clamp-3 text-label-large [overflow-wrap:anywhere]">{terakhirHadir.nama}</span>
                               <span className="block text-body-small text-white/75">Last check-in · {jam(terakhirHadir.waktu)}</span>
                             </span>
                             <span className="sr-only">Open history</span>
@@ -1702,6 +1710,7 @@ export default function ScanClient() {
                     // bidik yang sama sudah terlihat, supaya tata letaknya tidak
                     // melompat saat kamera menyala.
                     <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-8 text-center">
+                      <div className="absolute inset-x-4 top-3 flex lg:hidden">{pilHadir}</div>
                       <div aria-hidden className="bidik relative flex aspect-square h-[min(40%,12rem)] min-h-28 items-center justify-center rounded-3xl text-white/60 [box-shadow:none]">
                         <i /><i /><i /><i />
                         <QrCode size={48} className="text-white/80" />
