@@ -897,12 +897,12 @@ function KepalaKartuPerjalanan({ Ikon, judul, meta, nadaMeta = "redup" }: { Ikon
  * dengan gerbong dan kursi sebesar fakta pass, lalu kode booking. Hanya tampil
  * bila peserta punya tiket (train_tickets).
  */
-export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string }; leg: LegKereta[] }) {
+export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string; jumlah: (n: number) => string; selesai: string }; leg: LegKereta[] }) {
   const pergi = leg.filter((item) => !item.lipat).length;
   return (
     // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
     <section id="kereta" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6 lg:scroll-mt-32`} style={{ color: TINTA }}>
-      <KepalaKartuPerjalanan Ikon={Train} judul={judul} meta={pergi > 0 ? `${pergi} tiket` : "Selesai"} nadaMeta={pergi > 0 ? "redup" : "hijau"} />
+      <KepalaKartuPerjalanan Ikon={Train} judul={judul} meta={pergi > 0 ? label.jumlah(pergi) : label.selesai} nadaMeta={pergi > 0 ? "redup" : "hijau"} />
       <div className="flex flex-col xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
       {leg.map((item, index) => {
         const kursi = [item.gerbong ? `${label.gerbong} ${item.gerbong}` : null, item.kursi ? `${label.kursi} ${item.kursi}` : null].filter(Boolean).join(` ${SEPARATOR} `);
@@ -965,50 +965,35 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
   );
 }
 
-export type FaktaInfo = { label: string; nilai: string; catatan?: string | null; besar?: boolean };
 
-/** Kartu putih halaman Perjalanan: judul kecil berikon, kepala opsional, lalu fakta. */
+/** Kartu putih halaman Perjalanan: kepala berikon dengan keterangan di kanan, lalu isi sebagai kalimat ringkas. */
 export function KartuInfoHorizon({
   judul,
   Ikon,
   nama,
   alamat,
   tautan,
-  fakta,
-  kolom,
   id,
-  status,
   meta,
   baris,
   children,
 }: {
   judul: string;
   Ikon: typeof Train;
-  /** Opsi B: keterangan di kanan kepala (tanggal, jumlah, keadaan). */
+  /** Keterangan di kanan kepala (tanggal, jumlah, keadaan). */
   meta?: { teks: string; nada?: "redup" | "hijau" } | null;
-  /** Opsi B: isi sebagai kalimat ringkas, bukan kisi label/nilai. */
+  /** Isi sebagai kalimat ringkas, bukan kisi label/nilai. */
   baris?: string[];
   /** Tujuan chip lompat di Perjalanan. */
   id?: string;
-  /** Satu label keadaan di bawah judul kartu, misalnya "Sudah kamu terima". */
-  status?: string | null;
   nama?: string | null;
   alamat?: string | null;
   tautan?: { href: string; label: string } | null;
-  fakta: FaktaInfo[];
-  /** Kolom fakta di layar lebar (ponsel selalu dua). */
-  kolom: 3 | 4;
   children?: ReactNode;
 }) {
   return (
     <section id={id} aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6`} style={{ color: TINTA }}>
       <KepalaKartuPerjalanan Ikon={Ikon} judul={judul} meta={meta?.teks} nadaMeta={meta?.nada} />
-      {status ? (
-        // Hijau yang sama dengan pratinjau yang Mas setujui; 4,9:1 di atas latarnya.
-        <p className="-mt-1 inline-flex items-center self-start rounded-full px-3 py-1 text-[14px] font-semibold leading-5" style={{ background: "#E7F4EC", color: "#1E7B45" }}>
-          {status}
-        </p>
-      ) : null}
       <div className="flex flex-col gap-3">
         {nama ? (
           <div className="flex flex-col gap-1">
@@ -1036,23 +1021,6 @@ export function KartuInfoHorizon({
         ) : null}
         {children}
       </div>
-      {fakta.length > 0 ? (
-        <dl className={`grid grid-cols-2 gap-5 ${kolom === 4 ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
-          {fakta.map((item) => (
-            <div key={item.label} className="flex min-w-0 flex-col gap-1">
-              <dt className="text-[0.75rem]" style={{ color: LABEL }}>
-                {item.label}
-              </dt>
-              <dd className={`${item.besar ? "text-[20px] font-extrabold md:text-[24px]" : "text-[16px] font-semibold"} leading-[1.3] [overflow-wrap:anywhere]`}>{item.nilai}</dd>
-              {item.catatan ? (
-                <dd className="text-[14px] leading-5" style={{ color: REDUP }}>
-                  {item.catatan}
-                </dd>
-              ) : null}
-            </div>
-          ))}
-        </dl>
-      ) : null}
     </section>
   );
 }
