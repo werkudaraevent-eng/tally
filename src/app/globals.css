@@ -2238,6 +2238,92 @@ html:hover {
 	.scan-hitung { display: none; }
 }
 
+/* Lembar hasil pemindai: latar warna status yang pekat (result-sheet.tsx).
+ *
+ * Tombol M3 membawa warnanya sendiri dari peran `primary`, dan biru di atas
+ * hijau atau merah tidak punya jaminan kontras. Wadah ini menukar perannya,
+ * bukan menulis ulang tombolnya: `primary` menjadi `on-status`, `on-primary`
+ * menjadi warna status. Tombol berisi menjadi tombol terang bertulisan warna
+ * status, tombol bergaris menjadi garis terang tanpa isi, dan tombol yang masuk
+ * lewat portal (Serahkan barang, Simpan bagasi, Hand over) ikut berubah tanpa
+ * tahu apa-apa. Pola yang sama dengan `--cincin-fokus` di bidang navy Horizon.
+ *
+ * Isian netral (daftar barang, bagasi, kabar printer) TIDAK berada di dalam
+ * wadah ini; mereka duduk di kartu `bg-panel` dengan peran aslinya. */
+.hasil-nada {
+	--nada: var(--md-sys-color-success);
+	--nada-on: var(--md-sys-color-on-success);
+	--md-sys-color-primary: var(--nada-on);
+	--md-sys-color-on-primary: var(--nada);
+	--md-sys-color-primary-dim: color-mix(in srgb, var(--nada-on) 88%, var(--nada));
+	--md-sys-color-primary-soft: color-mix(in srgb, var(--nada-on) 14%, transparent);
+	--md-sys-color-on-primary-soft: var(--nada-on);
+	--md-sys-color-secondary-container: color-mix(in srgb, var(--nada-on) 22%, transparent);
+	--md-sys-color-outline-variant: color-mix(in srgb, var(--nada-on) 70%, transparent);
+	--md-sys-color-surface-container-lowest: transparent;
+	--cincin-fokus: var(--nada-on);
+	background: var(--nada);
+	color: var(--nada-on);
+}
+/* Semua tombol di bilah aksi lembar berbentuk pil, termasuk yang masuk lewat
+ * portal dengan bentuk bawaannya, supaya barisnya terbaca satu keluarga. */
+.hasil-nada .m3-btn {
+	border-radius: 9999px;
+}
+.hasil-nada[data-nada="warning"] {
+	--nada: var(--md-sys-color-warning);
+	--nada-on: var(--md-sys-color-on-warning);
+}
+.hasil-nada[data-nada="error"] {
+	--nada: var(--md-sys-color-error);
+	--nada-on: var(--md-sys-color-on-error);
+}
+/* Bilah atas dan navigasi bawah di layar pindai ponsel: gelap, menyatu dengan
+ * gambar kamera, di tema apa pun (semua aplikasi kamera begitu). Nilainya peran
+ * tema gelap dari m3-theme.css. Bukan `data-theme="dark"`, karena di layar
+ * lebar bilah yang sama harus tetap mengikuti tema. */
+@media (width < 64rem) {
+	.gelap-ponsel {
+		color-scheme: dark;
+		--md-sys-color-on-surface: #ffffff;
+		--md-sys-color-on-surface-variant: #ababab;
+		--md-sys-color-outline: #757575;
+		--md-sys-color-outline-variant: #484848;
+		--md-sys-color-surface-container: #191919;
+		--md-sys-color-surface-container-lowest: #191919;
+		--md-sys-color-secondary-container: #1d3a6b;
+		--md-sys-color-on-secondary-container: #d8e2ff;
+		--md-sys-color-primary-soft: #1d3a6b;
+		--md-sys-color-on-primary-soft: #d8e2ff;
+		--md-sys-color-primary: #8ab4ff;
+		--md-sys-color-on-primary: #002a64;
+		--cincin-fokus: #8ab4ff;
+	}
+}
+.hasil-ikon {
+	background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* Jendela bidik pemindai (scan-client.tsx): empat sudut putih tebal dan
+ * gambar kamera digelapkan di luar bingkai, seperti pemindai Google Lens dan
+ * aplikasi boarding maskapai. Gelapnya satu bayangan raksasa milik bingkai itu
+ * sendiri, jadi tidak ada topeng SVG yang harus mengikuti ukurannya. */
+.bidik {
+	box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45);
+}
+.bidik > i {
+	position: absolute;
+	width: 22%;
+	height: 22%;
+	border-color: currentColor;
+	border-style: solid;
+	border-width: 0;
+}
+.bidik > i:nth-child(1) { top: 0; left: 0; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 24px; }
+.bidik > i:nth-child(2) { top: 0; right: 0; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 24px; }
+.bidik > i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 24px; }
+.bidik > i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 24px; }
+
 /* Pemindai memakai satu huruf (Inter) dan jarak huruf normal di seluruh
  * layarnya, sama seperti ruang kerja admin (`.press`). Tanpa ini, setiap peran
  * M3 membawa jarak hurufnya sendiri (0,1 sampai 0,5 px) dan teks sepanjang

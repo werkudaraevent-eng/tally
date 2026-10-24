@@ -6,6 +6,7 @@ import {
   ArrowsClockwise,
   BookOpenText,
   CaretDown,
+  Check,
   CircleNotch,
   ClockCounterClockwise,
   DotsThreeVertical,
@@ -36,6 +37,7 @@ import {
   Switch,
   Tabs,
   TextField,
+  useScrolledPastTop,
 } from "@/components/m3";
 import { SearchResultsSkeleton } from "@/components/search-loading";
 import type { RegistrationField } from "@/lib/domain";
@@ -1411,6 +1413,18 @@ export default function ScanClient() {
     </div>
   );
 
+  /**
+   * Layar pindai di ponsel: jendela bidik selebar dan setinggi layar, bilah atas
+   * dan navigasi bawah gelap, seperti kamera Google Lens dan pemindai boarding
+   * maskapai. Sebelumnya kamera adalah kartu membulat di bawah kartu angka, di
+   * kanvas abu terang: terbaca seperti gambar di dalam formulir, dan yang
+   * dipakai setiap lima detik justru terdorong ke bawah. Angka hadir pindah ke
+   * satu baris di atas gambar kamera, tamu terakhir ke satu baris di bawahnya.
+   * Layar lebar (lg) tetap kolom kamera + panel angka.
+   */
+  const imersif = mode === "qr" && !tampilQr;
+  const { sentinel: penandaAtas, scrolled: tergulir } = useScrolledPastTop();
+
   const judulMeja = `${sesiAktif?.name ?? "Choose a check-in point"}${jalurAktif ? ` · ${jalurAktif.name}` : ""}`;
 
   /**
@@ -1483,7 +1497,8 @@ export default function ScanClient() {
   };
 
   return (
-    <div lang="en" className="scan-teks warna-pemindai min-h-dvh bg-surface pb-24 text-on-surface lg:pb-12">
+    <div lang="en" className={`scan-teks warna-pemindai min-h-dvh bg-surface text-on-surface lg:pb-12 ${imersif ? "pb-[calc(5rem+env(safe-area-inset-bottom))] max-lg:bg-black" : "pb-24"}`}>
+      <div ref={penandaAtas} aria-hidden className="h-0" />
       {/* -------------------------------------------------------------------
           Bilah atas.
 
@@ -1493,7 +1508,13 @@ export default function ScanClient() {
           ada di menu ⋮: tombol Keluar yang menonjol di pojok atas dulu adalah
           tombol paling besar di layar kerja.
           ------------------------------------------------------------------- */}
-      <header className="sticky top-0 z-30 border-b border-outline-variant bg-surface">
+      {/* Diam = tidak terlihat (DESIGN.md, Top app bar): garis rambut hanya
+          muncul saat ada yang tergulir di bawahnya. */}
+      <header
+        className={`sticky top-0 z-30 border-b bg-surface transition-colors ${tergulir ? "border-outline-variant" : "border-transparent"} ${
+          imersif ? "gelap-ponsel max-lg:border-transparent max-lg:bg-black max-lg:text-white" : ""
+        }`}
+      >
         <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-2 px-4 sm:px-6 lg:px-8">
           <button
             type="button"
@@ -1502,23 +1523,27 @@ export default function ScanClient() {
             className="m3-state -ml-2 flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-xl px-2 text-left lg:flex-none"
           >
             <span className="min-w-0">
-              <span className="block truncate text-title-large font-semibold">{judulMeja}</span>
-              <span className="block truncate text-body-small text-on-surface-variant">{eventName || "Loading…"}</span>
+              <span className="block truncate text-title-large font-semibold max-lg:text-title-medium">{judulMeja}</span>
+              <span className={`block truncate text-body-small text-on-surface-variant ${imersif ? "max-lg:text-white/75" : ""}`}>{eventName || "Loading…"}</span>
             </span>
-            <CaretDown size={20} className="shrink-0 text-on-surface-variant" aria-hidden />
+            <CaretDown size={20} className={`shrink-0 text-on-surface-variant ${imersif ? "max-lg:text-white/75" : ""}`} aria-hidden />
             <span className="sr-only">Change check-in point or desk</span>
           </button>
           <span className="hidden flex-1 lg:block" />
           {offline ? <ChipOffline /> : null}
-          <IconButton label="Scanner menu" onClick={() => setMenuTerbuka(true)}>
+          <IconButton label="Scanner menu" onClick={() => setMenuTerbuka(true)} className={imersif ? "max-lg:!text-white" : undefined}>
             <DotsThreeVertical size={24} weight="bold" />
           </IconButton>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1280px] px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6">
+      <main
+        className={`mx-auto w-full max-w-[1280px] px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6 ${
+          imersif ? "max-lg:flex max-lg:h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] max-lg:flex-col max-lg:px-0 max-lg:pt-0" : ""
+        }`}
+      >
         {pesan ? (
-          <p role="alert" className="mb-3 flex items-start gap-2 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft">
+          <p role="alert" className={`mb-3 flex items-start gap-2 rounded-lg bg-error-soft p-3 text-body-medium text-on-error-soft ${imersif ? "max-lg:mx-4 max-lg:mt-2" : ""}`}>
             <WarningCircle size={20} weight="fill" className="mt-0.5 shrink-0" />
             {pesan}
           </p>
@@ -1526,9 +1551,9 @@ export default function ScanClient() {
 
         {/* `minmax(0,1fr)` juga di ponsel, bukan kolom `auto`: nama tamu yang
             panjang tidak boleh melebarkan seluruh halaman. */}
-        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 space-y-3">
-            {mode !== "riwayat" && !tampilQr ? stripHadir : null}
+        <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_360px] ${imersif ? "max-lg:min-h-0 max-lg:flex-1 max-lg:grid-rows-[minmax(0,1fr)] max-lg:items-stretch" : ""}`}>
+          <div className={`min-w-0 space-y-3 ${imersif ? "max-lg:flex max-lg:min-h-0 max-lg:flex-col max-lg:space-y-0" : ""}`}>
+            {mode === "cari" ? stripHadir : null}
 
             {/* Di layar lebar tab tetap di atas panggung; di ponsel perannya
                 diambil navigasi bawah, yang terjangkau jempol. */}
@@ -1548,6 +1573,7 @@ export default function ScanClient() {
 
             {mode === "qr" && mandiri === "both" && sessionId !== null ? (
               // Seperti aplikasi kasir QRIS: memindai pembeli, atau menampilkan kode.
+              <div className={imersif ? "gelap-ponsel max-lg:px-4 max-lg:pb-3 max-lg:pt-1" : undefined}>
               <SegmentedButton<"pindai" | "tampil">
                 label="Checkpoint mode"
                 size="lg"
@@ -1564,6 +1590,7 @@ export default function ScanClient() {
                   { value: "tampil", label: "Show QR", icon: <QrCode size={20} aria-hidden /> },
                 ]}
               />
+              </div>
             ) : null}
 
             {tampilQr && sessionId !== null ? (
@@ -1571,10 +1598,11 @@ export default function ScanClient() {
                 <TampilQrCheckpoint key={sessionId} sesiId={sessionId} terdaftar={terdaftar} />
               </div>
             ) : mode === "qr" ? (
-              <div role="tabpanel" id="mode-panel-qr" aria-label="Scan QR">
-                {/* 4:5 di ponsel, setinggi sisa layar di antara strip hadir dan
-                    navigasi bawah. Tablet dan layar lebar tetap 4:3 dan 16:9. */}
-                <div className="relative aspect-[4/5] max-h-[calc(100dvh-16rem)] min-h-72 w-full overflow-hidden rounded-3xl bg-scrim sm:aspect-[4/3] lg:aspect-video lg:max-h-[70dvh]">
+              <div role="tabpanel" id="mode-panel-qr" aria-label="Scan QR" className="max-lg:min-h-0 max-lg:flex-1">
+                {/* Ponsel: memenuhi sisa layar di antara bilah atas dan navigasi
+                    bawah, tanpa sudut dan tanpa margin. Layar lebar tetap kartu
+                    16:9 di kolom kiri, di samping panel angka. */}
+                <div className="relative h-full min-h-72 w-full overflow-hidden bg-black lg:aspect-video lg:h-auto lg:max-h-[70dvh] lg:rounded-3xl">
                   {scanning ? (
                     <>
                       <video
@@ -1588,33 +1616,43 @@ export default function ScanClient() {
                       {/* Bingkai bidik. QR yang dipegang di luar tengah bingkai
                           tetap terbaca, tetapi tamu mengarahkan badge-nya ke
                           tempat yang ditunjukkan layar, dan yang di tengah
-                          adalah yang paling tajam di hampir semua lensa ponsel. */}
-                      <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          adalah yang paling tajam di hampir semua lensa ponsel.
+                          Sudutnya berubah warna saat kode terbaca. */}
+                      <div aria-hidden className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 px-6">
                         <div
-                          className={`aspect-square h-[62%] max-h-72 min-h-32 rounded-3xl transition-colors ${
-                            membaca ? "border-4 border-primary-fixed-dim bg-white/10" : "border-[3px] border-white/80"
+                          className={`bidik relative aspect-square h-[min(62%,18rem)] min-h-32 rounded-3xl transition-colors ${
+                            membaca ? "bg-white/10 text-primary-fixed-dim" : "text-white"
                           }`}
-                        />
-                      </div>
-
-                      {/* Kabar di atas gambar kamera, tempat mata petugas berada
-                          saat mengarahkan ponsel. Tamu terakhir sudah ada di strip
-                          hadir, jadi pil ini cukup siap atau menyimpan. */}
-                      <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-                        <p role="status" className={`flex min-h-9 min-w-0 items-center gap-2 rounded-full px-3 py-1 text-label-large ${pil.nada}`}>
-                          {membaca ? (
-                            <CircleNotch size={16} weight="bold" className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
-                          ) : (
-                            <span aria-hidden className="size-2 shrink-0 rounded-full bg-[#4ade80]" />
-                          )}
-                          <span className="truncate">{pil.teks}</span>
+                        >
+                          <i /><i /><i /><i />
+                        </div>
+                        <p className="relative max-w-full truncate text-center text-body-large font-semibold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
+                          {membaca ?? "Hold the badge QR inside the frame"}
                         </p>
+                      </div>
+                      <p role="status" className="sr-only">{pil.teks}</p>
+
+                      {/* Atas: angka hadir (ponsel; di layar lebar angkanya di
+                          panel kanan) dan sakelar suara dan senter. */}
+                      <div className="absolute inset-x-4 top-3 flex items-start justify-between gap-2 lg:inset-x-3">
+                        <div className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-full bg-black/70 px-4 text-white backdrop-blur-md lg:hidden">
+                          <p className="shrink-0 text-label-large tabular-nums">
+                            {angka(hadir ?? 0)}
+                            <span className="font-normal text-white/75">{terdaftar !== null ? ` of ${angka(terdaftar)}` : ""} checked in</span>
+                          </p>
+                          {terdaftar ? (
+                            <div aria-hidden className="h-1 min-w-6 flex-1 overflow-hidden rounded-full bg-white/25">
+                              <div className="h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${persen}%` }} />
+                            </div>
+                          ) : null}
+                        </div>
+                        <span className="hidden flex-1 lg:block" />
                         <div className="flex shrink-0 gap-2">
                           <IconButton
                             label="Sound"
                             selected={suara}
                             onClick={gantiSuara}
-                            className="!rounded-full !bg-black/60 !text-white"
+                            className="!size-12 !rounded-full !bg-black/70 !text-white"
                           >
                             {suara ? <SpeakerHigh size={22} weight="fill" /> : <SpeakerSlash size={22} weight="fill" />}
                           </IconButton>
@@ -1623,7 +1661,7 @@ export default function ScanClient() {
                               label="Torch"
                               selected={senter.nyala}
                               onClick={() => void gantiSenter()}
-                              className={senter.nyala ? "!rounded-full" : "!rounded-full !bg-black/60 !text-white"}
+                              className={senter.nyala ? "!size-12 !rounded-full" : "!size-12 !rounded-full !bg-black/70 !text-white"}
                             >
                               <Flashlight size={22} weight="fill" />
                             </IconButton>
@@ -1631,13 +1669,28 @@ export default function ScanClient() {
                         </div>
                       </div>
 
-                      <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
-                        {membaca ? (
-                          <p aria-hidden className="rounded-full bg-black/60 px-4 py-1.5 text-title-medium text-white">{membaca}</p>
+                      {/* Bawah: tamu terakhir (ponsel; mengetuknya membuka
+                          Riwayat) dan tombol mematikan kamera. */}
+                      <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-2 lg:inset-x-3 lg:bottom-3">
+                        {terakhirHadir ? (
+                          <button
+                            type="button"
+                            onClick={() => gantiMode("riwayat")}
+                            className="m3-state flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl bg-black/70 py-2 pl-3 pr-4 text-left text-white backdrop-blur-md lg:hidden"
+                          >
+                            <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success text-on-success">
+                              <Check size={18} weight="bold" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-label-large">{terakhirHadir.nama}</span>
+                              <span className="block text-body-small text-white/75">Last check-in · {jam(terakhirHadir.waktu)}</span>
+                            </span>
+                            <span className="sr-only">Open history</span>
+                          </button>
                         ) : (
-                          <p aria-hidden className="rounded-full bg-black/60 px-4 py-2 text-label-large text-white">Point the badge QR at the frame</p>
+                          <span className="flex-1" />
                         )}
-                        <IconButton label="Turn off camera" onClick={() => setScanning(false)} className="!rounded-full !bg-black/60 !text-white">
+                        <IconButton label="Turn off camera" onClick={() => setScanning(false)} className="!size-14 !rounded-full !bg-black/70 !text-white">
                           <VideoCameraSlash size={22} weight="fill" />
                         </IconButton>
                       </div>
@@ -1645,14 +1698,17 @@ export default function ScanClient() {
                   ) : (
                     // Tombolnya di dalam bingkai kamera: itulah tempat yang
                     // sedang dipandang petugas, dan setelah dinyalakan sekali
-                    // kamera tetap menyala untuk tamu-tamu berikutnya.
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-5 px-8 text-center">
-                      <span aria-hidden className="flex size-20 items-center justify-center rounded-full bg-white/10 text-white">
-                        <QrCode size={40} />
-                      </span>
+                    // kamera tetap menyala untuk tamu-tamu berikutnya. Bingkai
+                    // bidik yang sama sudah terlihat, supaya tata letaknya tidak
+                    // melompat saat kamera menyala.
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-8 text-center">
+                      <div aria-hidden className="bidik relative flex aspect-square h-[min(40%,12rem)] min-h-28 items-center justify-center rounded-3xl text-white/60 [box-shadow:none]">
+                        <i /><i /><i /><i />
+                        <QrCode size={48} className="text-white/80" />
+                      </div>
                       <div>
                         <p className="text-title-large font-semibold text-white">Camera is off</p>
-                        <p className="mt-1 text-body-medium text-white/70">Turn it on once. It stays on for the next participants.</p>
+                        <p className="mt-1 text-body-medium text-white/75">Turn it on once. It stays on for the next participants.</p>
                       </div>
                       <Button
                         size="xl"
@@ -1818,7 +1874,12 @@ export default function ScanClient() {
         </div>
       </main>
 
-      <nav aria-label="Scanner mode" className="fixed inset-x-0 bottom-0 z-30 flex h-20 border-t border-outline-variant bg-surface-container pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <nav
+        aria-label="Scanner mode"
+        className={`fixed inset-x-0 bottom-0 z-30 flex h-[calc(5rem+env(safe-area-inset-bottom))] bg-surface-container pb-[env(safe-area-inset-bottom)] lg:hidden ${
+          imersif ? "gelap-ponsel" : "border-t border-outline-variant"
+        }`}
+      >
         {navBawah("qr", "Scan", <QrCode size={24} weight={mode === "qr" ? "fill" : "regular"} aria-hidden />)}
         {navBawah("cari", "Find name", <MagnifyingGlass size={24} weight={mode === "cari" ? "bold" : "regular"} aria-hidden />)}
         {navBawah("riwayat", "History", <ClockCounterClockwise size={24} weight={mode === "riwayat" ? "bold" : "regular"} aria-hidden />)}
@@ -2082,6 +2143,7 @@ export default function ScanClient() {
         onSentuh={() => setHitungBatal(kedip)}
         tertahan={tertahan}
         onLewati={lewatiBarang}
+        onCari={() => { tutupLembar(); gantiMode("cari"); }}
       />
 
       <DialogGantiStasiun meja={meja} jobId={gantiJob} nama={hasil?.participant?.name ?? ""} onClose={() => setGantiJob(null)} />
