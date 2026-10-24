@@ -99,6 +99,10 @@ export type PortalUiText = {
         droppedAt: string;
         place: string;
         check: string;
+        /** Sesudah diserahkan di meja ambil (migrasi 202610240001). */
+        received: string;
+        pickedUpAt: string;
+        checkAfter: string;
         openPhoto: string;
         enlarge: string;
         close: string;
@@ -347,6 +351,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           droppedAt: "Dititipkan",
           place: "Tempat",
           check: "Jumlahnya tidak sesuai? Beri tahu panitia di meja bagasi sebelum berangkat.",
+          received: "Sudah kamu terima",
+          pickedUpAt: "Diambil",
+          checkAfter: "Ada yang kurang? Segera beri tahu panitia.",
           openPhoto: "Buka foto bagasi layar penuh",
           enlarge: "Perbesar",
           close: "Tutup",
@@ -562,6 +569,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           droppedAt: "Dropped off",
           place: "Where",
           check: "Count not right? Tell the luggage desk before you leave.",
+          received: "Back with you",
+          pickedUpAt: "Picked up",
+          checkAfter: "Something missing? Tell the committee straight away.",
           openPhoto: "Open the luggage photo full screen",
           enlarge: "Enlarge",
           close: "Close",

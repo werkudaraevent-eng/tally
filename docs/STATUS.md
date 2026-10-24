@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-23.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-24.
 
 ## How to update this file
 
@@ -21,12 +21,13 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Outfit summary card on Susunan acara and the Outfit page "Next" row: header row (icon, label, View), one block per outfit with the time label (approved by Mas 23 Oct): branch `feat/strip-outfit-jadwal`, visible on KSO, merge timing with Mas.
-- Luggage follow-up (QA Lows of #260): explicit `service_role` grant, post-check covering update/delete, photo type read from the file content, photos stored flat per event and a daily sweep of the whole bucket so orphaned photos (old photo not deleted, participant/session/event deleted) also go 30 days after the event or at once when the event is gone. Branch `fix/bagasi-rapi`, needs migration `202610230004_bagasi_rapi` run by Mas after review; code merges after his post-check (until then new photo uploads would fail the old path check; counts still save). Not visible.
+- Luggage pick-up desk (approved by Mas 24 Oct): Check-in > Sessions > Luggage becomes Off / Drop-off / Pick-up. A Pick-up session shows, after the scan, every drop-off of that participant from any drop-off desk (photo, count, when, where, who) with "Hand over N bags"; each drop-off is handed over once (re-scan shows who and when), staff can undo their own handover, and the participant's Bagasi card reads "Sudah kamu terima" with the pick-up time. Branch `feat/ambil-bagasi`, needs migration `202610240001_ambil_bagasi` run by Mas; code merges after his post-check (until then Pick-up cannot be chosen; drop-off and the portal keep working). Visible on KSO, merge before 1 Nov rehearsal with Mas's timing OK.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
 
+- #262 Luggage follow-up (merged 23 Oct; migration `202610230004_bagasi_rapi` run by Mas, post-check all true): explicit `service_role` grant, photo type read from the file content, photos stored flat per event, and a daily sweep of the whole bucket so orphaned photos also go 30 days after the event. Not visible.
 - #260 Luggage at the luggage-drop desk (merged 23 Oct; approved by Mas 23 Oct; migration `202610230003_bagasi` run by Mas, post-check all true): Check-in > Sessions > Record luggage (default off); after the scan, staff enter the number of bags and take one photo (count saved first, photo after, retry or skip on a weak signal), re-scan shows the record with Edit; participants see their own count and photo on a Horizon Perjalanan card; photos in a private bucket, deleted 30 days after the event by a daily job.
 - #256 Outfit photo on phone and tablet (merged 23 Oct; approved by Mas 23 Oct): below desktop the outfit card stacks with the example photo full width at its own ratio (no crop) and an Enlarge pill; the time label is a tonal label with a clock or calendar icon, and untimed entries read "All day". Desktop keeps the 320 px 4:5 photo. No SQL.
 - #253 Horizon route cards (merged 22 Oct; approved by Mas 22 Oct): in Perjalanan each Directions block is its own ticket-style card (from and to in large type with the way icon between, a tear line, the ways as chips, Detail). Detail shows the journey on one line from origin through numbered steps with photos to destination, a tab per way, "Untuk semua cara" for block-level steps, and the map image and Google Maps button beside it on desktop. Other layouts 0 px. No SQL.
@@ -82,6 +83,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Waiting on Mas (owner)
 
+- Run migration `202610240001_ambil_bagasi` (luggage pick-up desk) and send the post-check; then set the KSO pick-up session to Luggage: Pick-up and try it on a scanner phone before the 1 Nov rehearsal.
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
 - "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Show first for (was Who it's for) on each Batch section. For rows that only one batch should see (meeting point, train), merge the batch tabs of a day and set Who sees it on each row once the Who sees it PR is merged.

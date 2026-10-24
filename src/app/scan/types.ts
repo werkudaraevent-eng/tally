@@ -21,6 +21,8 @@ export type Sesi = {
   self_scan?: "self" | "both";
   /** Check-in > Sessions > Record luggage: lembar hasil meminta jumlah dan foto bagasi. */
   bagasi?: true;
+  /** Check-in > Sessions > Luggage: Pick-up: lembar hasil menampilkan titipan peserta untuk diserahkan. */
+  ambil_bagasi?: true;
 };
 
 /** Satu baris daftar centang barang, dari `pickup_checklist`. */
@@ -151,6 +153,20 @@ export type StatusCetak = { fase: "diam" | "jalan" | "selesai" | "galat"; teks?:
 
 /** Data peserta yang cukup untuk dicetak. Alias, supaya pemanggil tidak perlu tahu asalnya. */
 export type DataLabel = LabelData;
+
+/** Satu titipan di meja ambil (`/api/attendance/luggage/handover`). */
+export type TitipanBagasi = {
+  id: number;
+  session_id: number;
+  session_name: string;
+  bag_count: number;
+  photo_url: string | null;
+  recorded_at: string;
+  by: string | null;
+  handed_over_at: string | null;
+  handed_over_by: string | null;
+  mine: boolean;
+};
 
 /** Catatan bagasi di layar pemindai (`/api/attendance/luggage`). `photo_url`: signed URL berumur pendek. */
 export type CatatanBagasi = {

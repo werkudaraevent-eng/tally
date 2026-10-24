@@ -75,6 +75,78 @@ export async function sesiBagasi(eventId: string, sessionId: number): Promise<{ 
   return { id: sesi.id, name: sesi.name };
 }
 
+/** Sesi milik acara ini yang dibuka dan menjadi meja AMBIL bagasi, atau null. */
+export async function sesiAmbilBagasi(eventId: string, sessionId: number): Promise<{ id: number; name: string } | null> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("attendance_sessions")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("id", sessionId)
+    .maybeSingle();
+  const sesi = data as { id: number; name: string; is_active: boolean; luggage_pickup?: boolean } | null;
+  if (error || !sesi || !sesi.is_active || sesi.luggage_pickup !== true) return null;
+  return { id: sesi.id, name: sesi.name };
+}
+
+/** Satu catatan titip seperti yang dilihat petugas meja ambil. */
+export type TitipanBagasi = {
+  id: number;
+  session_id: number;
+  /** Nama meja titipnya ("Titip bagasi Gambir"). */
+  session_name: string;
+  bag_count: number;
+  photo_url: string | null;
+  recorded_at: string;
+  /** Petugas yang mencatat di meja titip. */
+  by: string | null;
+  /** Null = masih dititipkan. */
+  handed_over_at: string | null;
+  handed_over_by: string | null;
+  /** Diserahkan oleh petugas yang sedang membuka layar ini (boleh Undo). */
+  mine: boolean;
+};
+
+/**
+ * Semua catatan titip satu peserta di acara ini, dari meja titip MANA PUN,
+ * untuk meja ambil. Penyambungnya pesertanya, bukan sesinya: empat batch
+ * dengan meja titip berbeda tetap terbaca di satu meja ambil tanpa setelan
+ * pasangan sesi. Saklar meja titip yang sudah dimatikan tidak menyembunyikan
+ * bagasinya di sini: koper yang masih di rak tetap harus bisa diserahkan.
+ */
+export async function titipanPeserta(eventId: string, participantId: string, petugasId: string): Promise<TitipanBagasi[]> {
+  const db = getSupabaseServiceClient();
+  const { data, error } = await db
+    .from("luggage_drops")
+    .select(`id,${KOLOM},handed_over_at,handed_over_by`)
+    .eq("event_id", eventId)
+    .eq("participant_id", participantId)
+    .order("recorded_at", { ascending: true });
+  if (error) throw new Error("LUGGAGE_READ");
+  const baris = (data ?? []) as Array<BarisBagasi & { id: number; handed_over_at: string | null; handed_over_by: string | null }>;
+  if (baris.length === 0) return [];
+  const idPetugas = [...new Set(baris.flatMap((item) => [item.recorded_by, item.handed_over_by]).filter((id): id is string => Boolean(id)))];
+  const [sesi, petugas] = await Promise.all([
+    db.from("attendance_sessions").select("id,name").eq("event_id", eventId).in("id", [...new Set(baris.map((item) => item.session_id))]),
+    idPetugas.length > 0 ? db.from("users").select("id,username").in("id", idPetugas) : Promise.resolve({ data: [] }),
+  ]);
+  const namaSesi = new Map(((sesi.data ?? []) as Array<{ id: number; name: string }>).map((item) => [item.id, item.name]));
+  const namaPetugas = new Map(((petugas.data ?? []) as Array<{ id: string; username: string }>).map((item) => [item.id, item.username]));
+  return Promise.all(
+    baris.map(async (item) => ({
+      id: item.id,
+      session_id: item.session_id,
+      session_name: namaSesi.get(item.session_id) ?? "",
+      bag_count: item.bag_count,
+      photo_url: await tautan(item.photo_path, UMUR_TAUTAN_STAF),
+      recorded_at: item.recorded_at,
+      by: item.recorded_by ? namaPetugas.get(item.recorded_by) ?? null : null,
+      handed_over_at: item.handed_over_at,
+      handed_over_by: item.handed_over_by ? namaPetugas.get(item.handed_over_by) ?? null : null,
+      mine: item.handed_over_by === petugasId,
+    })),
+  );
+}
+
 /** Catatan satu peserta di satu sesi, untuk layar pemindai (dengan nama petugas). */
 export async function catatanBagasiStaf(eventId: string, sessionId: number, participantId: string): Promise<CatatanBagasi | null> {
   const db = getSupabaseServiceClient();
@@ -109,16 +181,21 @@ export async function catatanBagasiStaf(eventId: string, sessionId: number, part
  * kartunya. Galat ditelan (kartu tidak tampil), karena portal tidak boleh gagal
  * dimuat hanya karena kartu pelengkap ini.
  */
-export async function bagasiPeserta(eventId: string, participantId: string, denganFoto = true): Promise<(CatatanBagasi & { session_name: string })[]> {
+export async function bagasiPeserta(
+  eventId: string,
+  participantId: string,
+  denganFoto = true,
+): Promise<(CatatanBagasi & { session_name: string; handed_over_at: string | null })[]> {
   const db = getSupabaseServiceClient();
+  // select *: handed_over_at baru ada setelah migrasi 202610240001.
   const { data, error } = await db
     .from("luggage_drops")
-    .select(KOLOM)
+    .select("*")
     .eq("event_id", eventId)
     .eq("participant_id", participantId)
     .order("recorded_at", { ascending: true });
   if (error || !data || data.length === 0) return [];
-  const baris = data as BarisBagasi[];
+  const baris = data as Array<BarisBagasi & { handed_over_at?: string | null }>;
   const { data: sesi } = await db
     .from("attendance_sessions")
     .select("id,name,records_luggage")
@@ -140,6 +217,7 @@ export async function bagasiPeserta(eventId: string, participantId: string, deng
       photo_url: denganFoto ? await tautan(item.photo_path, UMUR_TAUTAN_PESERTA) : null,
       recorded_at: item.recorded_at,
       updated_at: item.updated_at,
+      handed_over_at: item.handed_over_at ?? null,
     })),
   );
 }
@@ -168,4 +246,40 @@ export async function totalBagasiSesi(eventId: string): Promise<Map<number, { ba
     if (data.length < 1000) break;
   }
   return total;
+}
+
+/**
+ * Kemajuan meja ambil untuk detail sesi di admin, se-ACARA (semua meja titip):
+ * berapa orang dan koper sudah diserahkan, berapa masih di rak. Catatan "No
+ * luggage" (0 koper) tidak dihitung. Orang dengan dua titipan terhitung
+ * menunggu selama salah satunya belum diserahkan.
+ */
+export async function totalAmbilBagasi(eventId: string): Promise<{ handedPeople: number; handedBags: number; waitingPeople: number; waitingBags: number }> {
+  const db = getSupabaseServiceClient();
+  const menunggu = new Set<string>();
+  const sudah = new Set<string>();
+  let handedBags = 0;
+  let waitingBags = 0;
+  for (let dari = 0; dari < 20000; dari += 1000) {
+    const { data, error } = await db
+      .from("luggage_drops")
+      .select("id,participant_id,bag_count,handed_over_at")
+      .eq("event_id", eventId)
+      .gt("bag_count", 0)
+      .order("id", { ascending: true })
+      .range(dari, dari + 999);
+    if (error || !data) break;
+    for (const baris of data as Array<{ participant_id: string; bag_count: number; handed_over_at: string | null }>) {
+      if (baris.handed_over_at) {
+        handedBags += baris.bag_count;
+        sudah.add(baris.participant_id);
+      } else {
+        waitingBags += baris.bag_count;
+        menunggu.add(baris.participant_id);
+      }
+    }
+    if (data.length < 1000) break;
+  }
+  for (const id of menunggu) sudah.delete(id);
+  return { handedPeople: sudah.size, handedBags, waitingPeople: menunggu.size, waitingBags };
 }

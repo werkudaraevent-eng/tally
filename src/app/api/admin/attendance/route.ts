@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { totalBagasiSesi } from "@/lib/bagasi/server";
+import { totalAmbilBagasi, totalBagasiSesi } from "@/lib/bagasi/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -24,6 +24,8 @@ const sessionSchema = z.object({
   sort_order: z.number().int().min(0).max(999).optional(),
   is_active: z.boolean().optional(),
   records_luggage: z.boolean().optional(),
+  /** Luggage: Pick-up (migrasi 202610240001). Tidak boleh bersamaan dengan records_luggage. */
+  luggage_pickup: z.boolean().optional(),
 });
 
 const patchSchema = sessionSchema.partial().extend({ id: z.number().int().positive() });
@@ -72,13 +74,18 @@ export async function GET(request: Request) {
 
   // Total bagasi untuk sesi yang mencatatnya (muat truk per batch). Dibaca
   // hanya bila ada sesi seperti itu, supaya acara lain tidak membayar kuerinya.
-  const daftar = (sesi.data ?? []) as Array<{ id: number; records_luggage?: boolean }>;
-  const bagasi = daftar.some((row) => row.records_luggage === true) ? await totalBagasiSesi(eventId) : null;
+  const daftar = (sesi.data ?? []) as Array<{ id: number; records_luggage?: boolean; luggage_pickup?: boolean }>;
+  const [bagasi, ambil] = await Promise.all([
+    daftar.some((row) => row.records_luggage === true) ? totalBagasiSesi(eventId) : null,
+    // Meja ambil: kemajuan se-acara (semua meja titip), sama untuk tiap meja ambil.
+    daftar.some((row) => row.luggage_pickup === true) ? totalAmbilBagasi(eventId) : null,
+  ]);
 
   return Response.json({
     sessions: daftar.map((row) => ({
       ...row,
       ...(row.records_luggage === true ? { bagasi: bagasi?.get(row.id) ?? { bags: 0, people: 0, photos: 0 } } : {}),
+      ...(row.luggage_pickup === true && ambil ? { ambil_bagasi: ambil } : {}),
       hadir: unik.get(row.id)?.size ?? 0,
       total_scan: total.get(row.id) ?? 0,
       terakhir: terakhir.get(row.id) ?? null,
@@ -121,9 +128,14 @@ export async function PATCH(request: Request) {
   const { id, ...patch } = parsed.data;
   if (Object.keys(patch).length === 0) return apiError("VALIDATION_ERROR", 422);
 
-  // Meja bagasi selalu dipindai panitia (jumlah dan foto diisi petugas).
-  // Checkpoint yang dipindai sendiri oleh peserta di sesi ini harus diubah dulu.
-  if (patch.records_luggage === true) {
+  if (patch.records_luggage === true && patch.luggage_pickup === true) {
+    return apiError("VALIDATION_ERROR", 422, { message: "A session either takes luggage in or hands it back, not both." });
+  }
+
+  // Meja bagasi selalu dipindai panitia (jumlah dan foto diisi petugas, atau
+  // koper diserahkan petugas). Checkpoint yang dipindai sendiri oleh peserta
+  // di sesi ini harus diubah dulu.
+  if (patch.records_luggage === true || patch.luggage_pickup === true) {
     const { data: cp } = await getSupabaseServiceClient().from("checkpoints").select("*").eq("event_id", auth.scope.event.id).eq("session_id", id);
     const mandiri = ((cp ?? []) as Array<{ title: string; completion?: string }>).find((baris) => baris.completion === "self" || baris.completion === "both");
     if (mandiri) {
