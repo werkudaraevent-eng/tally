@@ -845,11 +845,35 @@ export type LegKereta = {
   gerbong: string | null;
   kursi: string | null;
   kode: string | null;
+  /** Stasiun dan jam terpisah untuk bentuk tiket; tanpa keduanya kartu memakai `judul`. */
+  dari?: string | null;
+  ke?: string | null;
+  berangkat?: string | null;
+  tiba?: string | null;
   /** Berkas kalender leg ini (E-07): pengingatnya berbunyi walau tanpa sinyal. */
   kalender?: { href: string; label: string } | null;
   /** Leg yang sudah tiba: dilipat jadi satu baris, mis. "Berangkat · Kam, 5 Nov · selesai". */
   lipat?: { label: string; catatan: string | null } | null;
 };
+
+/**
+ * Kepala setiap kartu Perjalanan: ubin ikon 40 px dan nama jenisnya sebesar
+ * judul. Jenis kartu (Hotel, Bus, Kereta, Bagasi) dibaca lebih dulu daripada
+ * isinya, pola Google Wallet dan TripIt; satu warna aksen untuk semua jenis,
+ * jadi bedanya dari ikon, nama, dan bentuk kartu, bukan dari warna.
+ */
+function KepalaKartuPerjalanan({ Ikon, judul }: { Ikon: typeof Train; judul: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-[12px]" style={{ background: "#E9EEFA", color: BIRU }}>
+        <Ikon size={22} weight="bold" />
+      </span>
+      <h2 className="text-[18px] font-bold leading-6" style={{ color: TINTA }}>
+        {judul}
+      </h2>
+    </div>
+  );
+}
 
 /**
  * Kartu "Tiket kereta" di bawah pass: satu blok per arah (berangkat, pulang)
@@ -860,66 +884,93 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
   return (
     // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
     <section id="kereta" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32`} style={{ color: TINTA }}>
-      <div className="flex items-center gap-2">
-        <Train size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
-        <h2 className="text-[0.8125rem] font-semibold" style={{ color: LABEL }}>
-          {judul}
-        </h2>
-      </div>
-      <div className="flex flex-col gap-5 xl:grid xl:grid-cols-2 xl:gap-10">
-      {leg.map((item, index) => {
-        const tepi = index > 0 ? "border-t border-dashed pt-5 xl:border-l xl:border-t-0 xl:pl-10 xl:pt-0" : "";
+      <KepalaKartuPerjalanan Ikon={Train} judul={judul} />
+      <div className="flex flex-col gap-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
+      {leg.map((item) => {
         const isian = [
           [label.gerbong, item.gerbong],
           [label.kursi, item.kursi],
         ].filter((pasangan): pasangan is [string, string] => Boolean(pasangan[1]));
+        const bentukTiket = Boolean(item.dari && item.ke);
+        // Satu tiket per arah, bentuknya tiket kereta sungguhan: jam dan stasiun
+        // di atas, sobekan, lalu gerbong, kursi, dan kode booking.
         const blok = (
-          <div key={item.kunci} className={`flex flex-col gap-3 ${item.lipat ? "" : tepi}`} style={{ borderColor: "#C9D1DE" }}>
-            <p className="text-[0.8125rem] font-semibold" style={{ color: BIRU }}>
-              {item.arah}
-            </p>
-            <div className="flex flex-col gap-1">
-              <p className="text-[20px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[24px]">{item.judul}</p>
-              {item.baris || item.jam ? (
-                <p className="text-[14px] leading-[1.5]" style={{ color: REDUP }}>
+          <div key={item.kunci} className="flex flex-col rounded-[16px]" style={{ background: "#F4F6FA" }}>
+            <div className="flex flex-col gap-3 px-4 pb-4 pt-4 md:px-5">
+              <p className="text-[0.8125rem] font-semibold" style={{ color: BIRU }}>
+                {item.arah}
+              </p>
+              {bentukTiket ? (
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
+                  <p className="flex min-w-0 flex-col">
+                    {item.berangkat ? <span className="text-[24px] font-extrabold leading-8 tabular-nums md:text-[28px] md:leading-9">{item.berangkat}</span> : null}
+                    <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.dari}</span>
+                  </p>
+                  <span aria-hidden className="flex w-14 items-center pt-3 sm:w-24 md:pt-4" style={{ color: "#9AA7BD" }}>
+                    <span className="size-1.5 shrink-0 rounded-full bg-current" />
+                    <span className="flex-1 border-t-2 border-dashed border-current" />
+                    <span className="mx-1 grid size-7 shrink-0 place-items-center rounded-full bg-white" style={{ color: BIRU }}>
+                      <Train size={16} weight="bold" />
+                    </span>
+                    <span className="flex-1 border-t-2 border-dashed border-current" />
+                    <span className="size-1.5 shrink-0 rounded-full bg-current" />
+                  </span>
+                  <p className="flex min-w-0 flex-col text-right">
+                    {item.tiba ? <span className="text-[24px] font-extrabold leading-8 tabular-nums md:text-[28px] md:leading-9">{item.tiba}</span> : null}
+                    <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.ke}</span>
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[20px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[24px]">{item.judul}</p>
+              )}
+              {item.baris || (!bentukTiket && item.jam) ? (
+                <p className="text-[14px] leading-5" style={{ color: REDUP }}>
                   {item.baris}
-                  {item.baris && item.jam ? ` ${SEPARATOR} ` : null}
-                  {/* Jam berangkat–tiba tidak dipisah di tanda pisah saat baris panjang. */}
-                  {item.jam ? <span className="whitespace-nowrap">{item.jam}</span> : null}
+                  {item.baris && !bentukTiket && item.jam ? ` ${SEPARATOR} ` : null}
+                  {!bentukTiket && item.jam ? <span className="whitespace-nowrap">{item.jam}</span> : null}
                 </p>
               ) : null}
             </div>
-            {isian.length > 0 ? (
-              <dl className="grid grid-cols-2 gap-3">
-                {isian.map(([dt, dd]) => (
-                  <div key={dt} className="flex min-w-0 flex-col gap-1">
-                    <dt className="text-[0.75rem]" style={{ color: LABEL }}>
-                      {dt}
-                    </dt>
-                    <dd className="text-[26px] font-extrabold leading-[1.26] tabular-nums [overflow-wrap:anywhere]">{dd}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-            {item.kode ? (
-              <p className="flex items-baseline justify-between gap-3 rounded-[12px] px-4 py-3 text-[13px]" style={{ background: "#F1F3F8", color: REDUP }}>
-                {label.kode}
-                <span className="whitespace-nowrap text-[16px] font-bold tracking-[1.5px] tabular-nums" style={{ color: TINTA }}>
-                  {item.kode}
+            {isian.length > 0 || item.kode ? (
+              <>
+                {/* Sobekan tiket: garis putus-putus dengan dua lubang setengah lingkaran di tepi. */}
+                <span aria-hidden className="relative mx-4 block h-0 border-t-2 border-dashed md:mx-5" style={{ borderColor: "#D5DBE6" }}>
+                  <span className="absolute -left-[26px] -top-[11px] size-5 rounded-full bg-white md:-left-[30px]" />
+                  <span className="absolute -right-[26px] -top-[11px] size-5 rounded-full bg-white md:-right-[30px]" />
                 </span>
-              </p>
+                <dl className="grid grid-cols-[repeat(auto-fit,minmax(72px,1fr))] gap-3 px-4 pb-4 pt-4 md:px-5">
+                  {isian.map(([dt, dd]) => (
+                    <div key={dt} className="flex min-w-0 flex-col gap-1">
+                      <dt className="text-[0.75rem]" style={{ color: LABEL }}>
+                        {dt}
+                      </dt>
+                      <dd className="text-[22px] font-extrabold leading-7 tabular-nums [overflow-wrap:anywhere]">{dd}</dd>
+                    </div>
+                  ))}
+                  {item.kode ? (
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <dt className="whitespace-nowrap text-[0.75rem]" style={{ color: LABEL }}>
+                        {label.kode}
+                      </dt>
+                      <dd className="text-[16px] font-bold leading-7 tracking-[1.5px] tabular-nums [overflow-wrap:anywhere]">{item.kode}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </>
             ) : null}
             {item.kalender ? (
-              <a href={item.kalender.href} className={`${PIL_KONTAK} self-start`} style={GAYA_PIL_KONTAK}>
-                <CalendarPlus size={18} weight="bold" aria-hidden />
-                {item.kalender.label}
-              </a>
+              <div className="px-4 pb-4 md:px-5">
+                <a href={item.kalender.href} className={PIL_KONTAK} style={GAYA_PIL_KONTAK}>
+                  <CalendarPlus size={18} weight="bold" aria-hidden />
+                  {item.kalender.label}
+                </a>
+              </div>
             ) : null}
           </div>
         );
         // Leg yang sudah tiba dilipat jadi satu baris; ketuk untuk membuka tiketnya lagi.
         return item.lipat ? (
-          <div key={item.kunci} className={tepi} style={{ borderColor: "#C9D1DE" }}>
+          <div key={item.kunci}>
             <LipatanHorizon dalam label={item.lipat.label} judul={item.judul} catatan={item.lipat.catatan}>
               {blok}
             </LipatanHorizon>
@@ -964,12 +1015,7 @@ export function KartuInfoHorizon({
 }) {
   return (
     <section id={id} aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7`} style={{ color: TINTA }}>
-      <div className="flex items-center gap-2">
-        <Ikon size={18} weight="bold" aria-hidden style={{ color: BIRU }} />
-        <h2 className="text-[0.8125rem] font-semibold" style={{ color: LABEL }}>
-          {judul}
-        </h2>
-      </div>
+      <KepalaKartuPerjalanan Ikon={Ikon} judul={judul} />
       {status ? (
         // Hijau yang sama dengan pratinjau yang Mas setujui; 4,9:1 di atas latarnya.
         <p className="-mt-1 inline-flex items-center self-start rounded-full px-3 py-1 text-[14px] font-semibold leading-5" style={{ background: "#E7F4EC", color: "#1E7B45" }}>

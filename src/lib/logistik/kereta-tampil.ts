@@ -20,8 +20,12 @@ export function tanggalLeg(iso: string | null, lang: Bahasa): string | null {
 
 /** "08.20–15.10" (id) atau "08:20–15:10" (en). Satu jam saja bila yang lain kosong. */
 export function jamLeg(tiket: Pick<LogistikKereta, "depart_time" | "arrive_time">, lang: Bahasa): string | null {
-  const tulis = (jam: string | null) => (jam ? (lang === "en" ? jam : jam.replace(":", ".")) : null);
-  return [tulis(tiket.depart_time), tulis(tiket.arrive_time)].filter(Boolean).join("–") || null;
+  return [jamTiket(tiket.depart_time, lang), jamTiket(tiket.arrive_time, lang)].filter(Boolean).join("–") || null;
+}
+
+/** Satu jam tiket seperti ditulis di bahasa itu: "08.20" (id), "08:20" (en). */
+export function jamTiket(jam: string | null, lang: Bahasa): string | null {
+  return jam ? (lang === "en" ? jam : jam.replace(":", ".")) : null;
 }
 
 /** "Gambir → Yogyakarta", atau null bila keduanya kosong. */

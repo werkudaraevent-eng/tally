@@ -102,7 +102,7 @@ import {
   type TabHorizon,
 } from "@/components/member/portal-horizon";
 import { LompatPerjalanan } from "@/components/member/lompat-perjalanan";
-import { jamLeg, legSelesai, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
+import { jamLeg, jamTiket, legSelesai, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
 import { faseBeranda } from "@/lib/member/fase-beranda";
@@ -656,6 +656,10 @@ export async function DashboardGathering({
       judul: rute ?? tiket.train_name,
       baris: gabungMeta([rute ? tiket.train_name : null, tiket.travel_class]) || null,
       jam: jamLeg(tiket, lang),
+      dari: tiket.origin?.trim() || null,
+      ke: tiket.destination?.trim() || null,
+      berangkat: jamTiket(tiket.depart_time, lang),
+      tiba: jamTiket(tiket.arrive_time, lang),
       gerbong: tiket.carriage,
       kursi: tiket.seat,
       kode: tiket.booking_code,
@@ -1181,7 +1185,10 @@ export async function DashboardGathering({
           judul={tv.busTitle}
           Ikon={Bus}
           kolom={3}
-          fakta={busUtama ? [{ label: adaBusLain ? tv.mainBus : tv.onlyBus, nilai: busUtama, besar: true }, ...(detailUtama?.plate ? [{ label: tv.plate, nilai: detailUtama.plate }] : [])] : []}
+          // Nama bus jadi kepala isi kartu, tanpa label "Bus" kedua di bawah kepala "Bus".
+          nama={busUtama || null}
+          alamat={busUtama ? gabungMeta([adaBusLain ? tv.mainBus : null, detailUtama?.plate ? `${tv.plate} ${detailUtama.plate}` : null]) || null : null}
+          fakta={[]}
         >
           <PerjalananBusHorizon
             judul={tv.trips}
