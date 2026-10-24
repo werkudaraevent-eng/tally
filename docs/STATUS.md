@@ -15,7 +15,6 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Horizon portal on one card scale (the rest of the portal after #272): Beranda, Checkpoint, Pengumuman, Butuh bantuan, Outfit, Menu, folded rows and organiser blocks; plus #272 QA fixes. PR open, waiting on Mas's look and merge time (before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -23,6 +22,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
+
+- #273 Horizon portal on one card scale (merged 24 Oct, QA GO, other presets 0 px): Beranda, Checkpoint, Pengumuman, Butuh bantuan, Darurat, Outfit, Menu, folded rows and navy cards share the card header, type scale, spacing, 16 px radius and 16/24 padding; organiser blocks take the radius and padding only. Also the #272 QA fixes (translated train arrow label, bus head counts trips still to come, hotel head shows nights, no duplicate "Dititipkan").
 
 - #272 Horizon Perjalanan cards (merged 24 Oct at Mas's "merge now", QA post-hoc GO): one card shape (icon and type left, note right, divider; sentence lines; one grey strip for room or seat) and one type scale, written in DESIGN.md "Kartu di portal Horizon".
 

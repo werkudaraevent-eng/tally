@@ -653,9 +653,11 @@ dari halaman yang sama.
 Diputuskan Oktober 2026 dari halaman Perjalanan (pola Trip.com "All bookings"):
 yang membuat kartu terasa berantakan bukan warna, tetapi terlalu banyak ukuran
 huruf dan jarak yang acak. Aturan ini berlaku untuk setiap kartu putih di
-portal Horizon: Beranda, Susunan acara, Outfit, Perjalanan, Pengumuman, dan
-Menu, juga blok panitia (lewat variabel `--kartu-sudut` dan `--kartu-pad`, jadi
-dasbor lain tidak berubah).
+portal Horizon: Beranda, Outfit, Perjalanan, Pengumuman, dan Menu. Baris
+Susunan acara sudah 16/14 dan memakai bentuknya sendiri. Blok panitia hanya
+ikut sudut dan padding-nya (lewat variabel `--kartu-sudut` dan `--kartu-pad`,
+jadi dasbor lain tidak berubah); ukuran hurufnya tetap milik blok, karena blok
+yang sama dipakai preset lain.
 
 - **Kepala kartu.** Ikon 22 px + jenis kartu (16/24, 600) di kiri, satu
   keterangan di kanan (14/20, 500: tanggal, jumlah, atau keadaan), garis tipis di
