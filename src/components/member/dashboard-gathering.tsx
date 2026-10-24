@@ -1218,9 +1218,12 @@ export async function DashboardGathering({
             judul={tl.title}
             Ikon={Suitcase}
             kolom={3}
+            status={item.handed_over_at ? tl.received : null}
             fakta={[
               { label: tl.countLabel, nilai: item.bag_count === 0 ? tl.none : tl.count(item.bag_count), besar: item.bag_count > 0 },
               { label: tl.droppedAt, nilai: hariHorizon(item.recorded_at, zona, lang), catatan: jamHorizon(item.recorded_at, zona, lang) },
+              // Diserahkan di meja ambil (Luggage: Pick-up): jamnya di samping jam titip.
+              ...(item.handed_over_at ? [{ label: tl.pickedUpAt, nilai: hariHorizon(item.handed_over_at, zona, lang), catatan: jamHorizon(item.handed_over_at, zona, lang) }] : []),
               ...(item.session_name ? [{ label: tl.place, nilai: item.session_name }] : []),
             ]}
           >
@@ -1231,7 +1234,7 @@ export async function DashboardGathering({
                 teks={{ buka: tl.openPhoto, perbesar: tl.enlarge, tutup: tl.close, judul: tl.title }}
               />
             ) : null}
-            {item.bag_count > 0 ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{tl.check}</p> : null}
+            {item.bag_count > 0 ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{item.handed_over_at ? tl.checkAfter : tl.check}</p> : null}
           </KartuInfoHorizon>
         ))}
       </>

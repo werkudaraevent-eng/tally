@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-23.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-24.
 
 ## How to update this file
 
@@ -21,13 +21,14 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Outfit summary card on Susunan acara and the Outfit page "Next" row: header row (icon, label, View), one block per outfit with the time label (approved by Mas 23 Oct): branch `feat/strip-outfit-jadwal`, visible on KSO, merge timing with Mas.
-- Luggage follow-up (QA Lows of #260): explicit `service_role` grant, post-check covering update/delete, photo type read from the file content, photos stored flat per event and a daily sweep of the whole bucket so orphaned photos (old photo not deleted, participant/session/event deleted) also go 30 days after the event or at once when the event is gone. Branch `fix/bagasi-rapi`, needs migration `202610230004_bagasi_rapi` run by Mas after review; code merges after his post-check (until then new photo uploads would fail the old path check; counts still save). Not visible.
-- Shorter Horizon Perjalanan page (approved by Mas 23 Oct): sticky "jump to" chips under the header when the participant has 3+ travel cards (Hotel, Bus, Kereta, Bagasi, Rute), and finished items fold into one tappable row (hotel stays after check-out, bus trips already departed, train legs already arrived; times in the event zone). Branch `feat/perjalanan-ringkas`, no SQL; visible on KSO, merge timing with Mas. Bagasi folds after pick-up once the luggage pick-up desk (#267) has merged.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
 
+- #268 Shorter Horizon Perjalanan page (merged 24 Oct, together with #267 at Mas's choice): sticky jump chips (Hotel, Bus, Kereta, Bagasi, Rute) under the header when the participant has 3+ travel cards; finished items fold into one tappable row (hotel stays after check-out, bus trips already departed, train legs already arrived). From 1280 all stays stack beside the bus card. No SQL.
+- #267 Luggage pick-up desk (merged 24 Oct; approved by Mas 23 Oct; migration `202610240001_ambil_bagasi` run by Mas, post-check all true): Check-in > Sessions > Luggage is Off / Drop-off / Pick-up; a Pick-up session shows every drop-off of the scanned participant with "Hand over N bags", each handed over once, own handovers can be undone; the participant's Bagasi card reads "Sudah kamu terima" with the pick-up time.
+- #262 Luggage follow-up (merged 23 Oct; migration `202610230004_bagasi_rapi` run by Mas, post-check all true): explicit `service_role` grant, photo type read from the file content, photos stored flat per event, and a daily sweep of the whole bucket so orphaned photos also go 30 days after the event. Not visible.
 - #260 Luggage at the luggage-drop desk (merged 23 Oct; approved by Mas 23 Oct; migration `202610230003_bagasi` run by Mas, post-check all true): Check-in > Sessions > Record luggage (default off); after the scan, staff enter the number of bags and take one photo (count saved first, photo after, retry or skip on a weak signal), re-scan shows the record with Edit; participants see their own count and photo on a Horizon Perjalanan card; photos in a private bucket, deleted 30 days after the event by a daily job.
 - #256 Outfit photo on phone and tablet (merged 23 Oct; approved by Mas 23 Oct): below desktop the outfit card stacks with the example photo full width at its own ratio (no crop) and an Enlarge pill; the time label is a tonal label with a clock or calendar icon, and untimed entries read "All day". Desktop keeps the 320 px 4:5 photo. No SQL.
 - #253 Horizon route cards (merged 22 Oct; approved by Mas 22 Oct): in Perjalanan each Directions block is its own ticket-style card (from and to in large type with the way icon between, a tear line, the ways as chips, Detail). Detail shows the journey on one line from origin through numbered steps with photos to destination, a tab per way, "Untuk semua cara" for block-level steps, and the map image and Google Maps button beside it on desktop. Other layouts 0 px. No SQL.
@@ -83,6 +84,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Waiting on Mas (owner)
 
+- Run migration `202610240001_ambil_bagasi` (luggage pick-up desk) and send the post-check; then set the KSO pick-up session to Luggage: Pick-up and try it on a scanner phone before the 1 Nov rehearsal.
 - SQL cleanup from #119 (pending registration rows) to run.
 - Event content and settings in the CMS for upcoming events (tracked with him directly).
 - "Your batch" (#223): for KSO, add Batch from Participant list > Columns > Add a column in Registration before the import (the import template includes staff-only columns), then set Show first for (was Who it's for) on each Batch section. For rows that only one batch should see (meeting point, train), merge the batch tabs of a day and set Who sees it on each row once the Who sees it PR is merged.
@@ -124,6 +126,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #152 residual: two edits to one participant's seats in different sessions can lose one update (also on main; needs an atomic RPC).
 
 ### Scanner
+- #267 luggage pick-up: the admin totals read up to 20,000 drop-offs and re-read them on every 30 s refresh; on a re-scan the headline repeats the "Already handed over" banner; Undo has no time limit; the portal luggage read uses `select("*")` (go back to an explicit column list).
 - #60 N1: a reply lost to the 8 s timeout shows the orange "already scanned" sheet for a guest who just checked in.
 - #60 N2/N3: hand-scanner reads also get the 2.5 s same-code hold, and re-opening a sheet restarts the bar but not its close timer.
 - #60 L1-L6: the handover confirmation is replaced at once, ticks are lost on close, `aria-controls` points at nothing, the assertive live region is too wide, the code field is below the fold at 1280x588, and the title is cut off at 360-375 px.
@@ -157,6 +160,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #202: the Agenda tab strip at 1280 px has no cue that more tabs are off-screen, and the Bus chip and note refresh on load and save only, so a trip changed in Logistics in another tab shows after a reload.
 
 ### Horizon portal
+- #268 Perjalanan chips: at 1440x900 the header is 102 px, so hash links and the no-JS sticky bar are about 30 px off (share one header-height value); from 1280 Hotel and Bus sit side by side, so tapping Hotel lights Bus. Bagasi does not fold yet after pick-up (#267 `handed_over_at`).
 - #198 L2/L3/L5: at 1280x588 the "Perbesar QR" pill sits on the fold, at 390 the contact row is lower than before (below Data diri), and a rejected registration gets the same gold status chip as "Terdaftar".
 - #105 L5 (remaining): on the QR page opened by reload or a shared link, Escape and Tutup push history entries. The QR opened inside the portal is a layer that closes with Back and returns focus.
 - #166 L1/L3/L5/L6: items are keyed by label, the bus label is a single word, Bus and Kamar sit on different rows at 768/1024, and `justify-between` spreads the second row.

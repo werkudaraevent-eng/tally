@@ -7,6 +7,7 @@ import {
   Button, ButtonLink, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, MetaSeparator, Pane, PaneBody,
   PaneFooter, StatusChip, StatusDot, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
+import { useTerkunci } from "@/components/admin/page-context";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
@@ -40,7 +41,22 @@ type Sesi = {
   records_luggage?: boolean;
   /** Total bagasi sesi ini, hanya bila sesinya mencatat bagasi. */
   bagasi?: { bags: number; people: number; photos: number };
+  /** Luggage: Pick-up. Tidak ada sebelum migrasi 202610240001. */
+  luggage_pickup?: boolean;
+  /** Kemajuan meja ambil se-acara, hanya bila sesinya meja ambil. */
+  ambil_bagasi?: { handedPeople: number; handedBags: number; waitingPeople: number; waitingBags: number };
 };
+
+type ModeBagasi = "off" | "dropoff" | "pickup";
+
+const MODE_BAGASI: Array<{ value: ModeBagasi; label: string; detail: string }> = [
+  { value: "off", label: "Off", detail: "Scanning here does not touch luggage." },
+  { value: "dropoff", label: "Drop-off", detail: "Staff enter how many bags the participant hands in and take one photo of them." },
+  { value: "pickup", label: "Pick-up", detail: "Staff see the bags and photo from every drop-off desk, then record the handover." },
+];
+
+const orang = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
+const koper = (n: number) => `${n} ${n === 1 ? "bag" : "bags"}`;
 
 /**
  * Jalur registrasi: satu MEJA, bukan satu tahap acara.
@@ -85,6 +101,8 @@ export default function AttendanceAdminPage() {
   const [slug, setSlug] = useState("");
   const [namaJalur, setNamaJalur] = useState("");
   const [busy, setBusy] = useState(false);
+  // Pilihan bagasi menyimpan langsung, seperti sakelar `simpan`: nonaktif di acara terkunci.
+  const terkunci = useTerkunci(true);
   const [error, setError] = useState("");
   const [errorJalur, setErrorJalur] = useState("");
   // Pemuatan pertama sudah selesai (berhasil atau gagal). Sebelum itu daftar
@@ -345,28 +363,73 @@ export default function AttendanceAdminPage() {
             </>
           )}
         </DetailSection>
-        {/* Meja titip bagasi: petugas mencatat jumlah dan satu foto setelah
-            memindai. Totalnya untuk memuat truk per batch. */}
+        {/* Meja bagasi: Drop-off mencatat jumlah dan satu foto setelah memindai
+            (totalnya untuk memuat truk per batch); Pick-up menyerahkannya
+            kembali, dari meja titip mana pun. Satu sesi hanya salah satunya. */}
         <DetailSection title="Luggage">
-          <Switch simpan
-            checked={sesiTerpilih.records_luggage === true}
-            disabled={busy || sesiTerpilih.records_luggage === undefined}
-            onChange={(value) => void kirim("PATCH", { id: sesiTerpilih.id, records_luggage: value })}
-            label="Record luggage (count and photo)"
-            description="After scanning, staff enter how many bags the participant hands in and take one photo of them. Participants see their own count and photo in the participant area."
-          />
+          <fieldset className="flex flex-col gap-2">
+            <legend className="sr-only">Luggage at this session</legend>
+            {MODE_BAGASI.map((mode) => {
+              const sekarang: ModeBagasi = sesiTerpilih.luggage_pickup ? "pickup" : sesiTerpilih.records_luggage ? "dropoff" : "off";
+              const on = sekarang === mode.value;
+              // Sebelum migrasinya, kolomnya tidak ada: pilihan itu tidak bisa disimpan.
+              const belumAda = sesiTerpilih.records_luggage === undefined || (mode.value === "pickup" && sesiTerpilih.luggage_pickup === undefined);
+              return (
+                <label
+                  key={mode.value}
+                  className={cx(
+                    "flex gap-3 rounded-lg p-3 text-body-medium",
+                    on ? "border-2 border-primary" : "border border-outline",
+                    busy || terkunci || belumAda ? "cursor-default opacity-60" : "cursor-pointer",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`luggage-mode-${sesiTerpilih.id}`}
+                    value={mode.value}
+                    checked={on}
+                    disabled={busy || terkunci || belumAda}
+                    onChange={() =>
+                      void kirim("PATCH", {
+                        id: sesiTerpilih.id,
+                        records_luggage: mode.value === "dropoff",
+                        ...(sesiTerpilih.luggage_pickup === undefined ? {} : { luggage_pickup: mode.value === "pickup" }),
+                      })
+                    }
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
+                  />
+                  <span>
+                    <span className="block font-medium">{mode.label}</span>
+                    <span className="block text-on-surface-variant">{mode.detail}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
           {sesiTerpilih.bagasi ? (
             <dl className="flex flex-col gap-2">
               <KeyValue label="Bags">
-                <span className="tabular-nums">{sesiTerpilih.bagasi.bags} from {sesiTerpilih.bagasi.people} {sesiTerpilih.bagasi.people === 1 ? "person" : "people"}</span>
+                <span className="tabular-nums">{sesiTerpilih.bagasi.bags} from {orang(sesiTerpilih.bagasi.people)}</span>
               </KeyValue>
               <KeyValue label="Photos">
                 <span className="tabular-nums">{sesiTerpilih.bagasi.photos}</span>
               </KeyValue>
             </dl>
           ) : null}
+          {sesiTerpilih.ambil_bagasi ? (
+            <dl className="flex flex-col gap-2">
+              <KeyValue label="Handed over">
+                <span className="tabular-nums">{orang(sesiTerpilih.ambil_bagasi.handedPeople)} · {koper(sesiTerpilih.ambil_bagasi.handedBags)}</span>
+              </KeyValue>
+              <KeyValue label="Still waiting">
+                <span className="tabular-nums">{orang(sesiTerpilih.ambil_bagasi.waitingPeople)} · {koper(sesiTerpilih.ambil_bagasi.waitingBags)}</span>
+              </KeyValue>
+            </dl>
+          ) : null}
           {sesiTerpilih.records_luggage ? (
             <p className="text-body-medium text-on-surface-variant">Photos are private: only admins and scanners of this event can open them, and each participant sees their own. They are deleted 30 days after the event ends; the counts stay.</p>
+          ) : sesiTerpilih.luggage_pickup ? (
+            <p className="text-body-medium text-on-surface-variant">Counts cover every drop-off desk in this event. Each drop-off can be handed over once; staff can undo their own handover.</p>
           ) : null}
         </DetailSection>
         <DetailSection title="Layar pemindai">
