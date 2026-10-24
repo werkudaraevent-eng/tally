@@ -1259,11 +1259,14 @@ export async function DashboardGathering({
     isi = !adaPerjalanan ? (
       <p className={`${KARTU} max-w-[720px] text-body-large ${MUTED}`}>{tv.empty}</p>
     ) : (
-      <div className="flex flex-col gap-4 md:gap-6">
+      // Dengan chip, kepala tiap bagian berhenti di bawah bilah atas + baris chip
+      // (64 + 56 px), juga saat dibuka lewat #hotel dan sejenisnya.
+      <div className={`flex flex-col gap-4 md:gap-6 ${bagianLompat.length >= 3 ? "[&_#bagasi]:scroll-mt-32 [&_#bus]:scroll-mt-32 [&_#hotel]:scroll-mt-32 [&_#kereta]:scroll-mt-32 [&_#rute]:scroll-mt-32" : ""}`}>
         {bagianLompat.length >= 3 ? <LompatPerjalanan aria={tv.jump.aria} bagian={bagianLompat} latar={LATAR_PORTAL_HORIZON} /> : null}
         {kartuHotel && kartuBusHorizon ? (
           <div className="flex flex-col gap-4 md:gap-6 xl:grid xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:items-start">
-            {kartuHotel}
+            {/* Semua stay satu kolom (yang terlipat di atas), bus di kolom kanan. */}
+            <div className="flex flex-col gap-4 md:gap-6">{kartuHotel}</div>
             {kartuBusHorizon}
           </div>
         ) : (

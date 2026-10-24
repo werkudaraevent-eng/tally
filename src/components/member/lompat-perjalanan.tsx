@@ -15,12 +15,13 @@ import { useEffect, useRef, useState } from "react";
  */
 export function LompatPerjalanan({ aria, bagian, latar }: { aria: string; bagian: Array<{ id: string; label: string }>; latar: string }) {
   const bilah = useRef<HTMLElement>(null);
-  const [atas, setAtas] = useState(0);
+  // Tanpa JS (atau sebelum diukur) bilah menempel di 64 px, tinggi bilah atas portal.
+  const [atas, setAtas] = useState<number | null>(null);
   const [aktif, setAktif] = useState(bagian[0]?.id ?? "");
 
   useEffect(() => {
     const kepala = document.querySelector("header");
-    const ukur = () => setAtas(kepala ? Math.round(kepala.getBoundingClientRect().height) : 0);
+    const ukur = () => setAtas(kepala ? Math.round(kepala.getBoundingClientRect().height) : 64);
     ukur();
     const pengamat = kepala ? new ResizeObserver(ukur) : null;
     if (kepala) pengamat?.observe(kepala);
@@ -32,7 +33,7 @@ export function LompatPerjalanan({ aria, bagian, latar }: { aria: string; bagian
     let jadwal = 0;
     const hitung = () => {
       jadwal = 0;
-      const batas = atas + (bilah.current?.offsetHeight ?? 0) + 16;
+      const batas = (atas ?? 64) + (bilah.current?.offsetHeight ?? 0) + 16;
       let sekarang = bagian[0]?.id ?? "";
       for (const { id } of bagian) {
         const el = document.getElementById(id);
@@ -61,9 +62,12 @@ export function LompatPerjalanan({ aria, bagian, latar }: { aria: string; bagian
   function lompat(id: string) {
     const el = document.getElementById(id);
     if (!el) return;
-    const jarak = atas + (bilah.current?.offsetHeight ?? 0) + 8;
+    const jarak = (atas ?? 64) + (bilah.current?.offsetHeight ?? 0) + 8;
     const kurangGerak = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - jarak, behavior: kurangGerak ? "auto" : "smooth" });
+    // Fokus ikut pindah ke bagian itu, supaya Tab berikutnya mulai dari sana.
+    if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+    el.focus({ preventScroll: true });
     setAktif(id);
   }
 
@@ -71,8 +75,8 @@ export function LompatPerjalanan({ aria, bagian, latar }: { aria: string; bagian
     <nav
       ref={bilah}
       aria-label={aria}
-      className="sticky z-20 -mx-6 px-6 py-1 shadow-[0_1px_0_rgb(16_30_56/0.08)] md:-mx-16 md:px-16"
-      style={{ top: atas, background: latar }}
+      className="sticky top-16 z-20 -mx-6 px-6 py-1 shadow-[0_1px_0_rgb(16_30_56/0.08)] md:-mx-16 md:px-16"
+      style={{ ...(atas !== null ? { top: atas } : {}), background: latar }}
     >
       <ul className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {bagian.map(({ id, label }) => {
