@@ -22,6 +22,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
 - Outfit summary card on Susunan acara and the Outfit page "Next" row: header row (icon, label, View), one block per outfit with the time label (approved by Mas 23 Oct): branch `feat/strip-outfit-jadwal`, visible on KSO, merge timing with Mas.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
+- Scanner redesign (approved by Mas 24 Oct): branch `feat/scanner-modern`. Phone Scan tab is a full-screen dark viewfinder with corner brackets, count on one line, last check-in above the nav; result sheet is solid success/warning/error with full-width pill buttons ("Scan next" carries the auto-close countdown, Unknown code offers Find name); desktop keeps the centred sheet. No SQL. Visible on KSO: merge by 30 Oct with Mas's timing OK so the 1 Nov rehearsal uses it.
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
