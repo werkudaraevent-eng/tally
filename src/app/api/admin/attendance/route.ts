@@ -159,6 +159,11 @@ export async function PATCH(request: Request) {
     if (String(error.code) === "23505") {
       return apiError("VALIDATION_ERROR", 422, { slug: "Slug ini sudah dipakai sesi lain di acara yang sama." });
     }
+    // Satu saklar dikirim sendirian ke sesi yang saklar lainnya menyala: CHECK
+    // database yang menolak, tetap dijawab sebagai salah isi, bukan 500.
+    if (String(error.code) === "23514" && String(error.message ?? "").includes("attendance_sessions_luggage_mode_check")) {
+      return apiError("VALIDATION_ERROR", 422, { message: "A session either takes luggage in or hands it back, not both." });
+    }
     return apiError("INTERNAL_ERROR", 500);
   }
   return Response.json(data);
