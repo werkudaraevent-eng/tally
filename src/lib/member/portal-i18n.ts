@@ -67,8 +67,9 @@ export type PortalUiText = {
       empty: string;
       backToMenu: string;
       hotelTitle: string;
-      /** Kepala kartu hotel pertama; tanggal check-in tampil di kanan kepala. */
+      /** Kepala kartu hotel pertama; jumlah malam tampil di kanan kepala. */
       hotelCard: string;
+      nights: (jumlah: number) => string;
       /** Kepala kartu hotel berikutnya bagi peserta yang pindah hotel. */
       moveTitle: string;
       floor: string;
@@ -165,7 +166,7 @@ export type PortalUiText = {
     hotel: string;
     /** Kartu tiket kereta (tabel train_tickets). */
     /** count dan done: di kanan kepala kartu Tiket kereta. */
-    train: { title: string; outbound: string; return: string; carriage: string; seat: string; booking: string; count: (jumlah: number) => string; done: string };
+    train: { title: string; outbound: string; return: string; carriage: string; seat: string; booking: string; count: (jumlah: number) => string; done: string; to: string };
     bus: string;
     room: string;
     roommate: (jumlah: number) => string;
@@ -338,6 +339,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         backToMenu: "Menu",
         hotelTitle: "Hotel & kamar",
         hotelCard: "Hotel",
+        nights: (jumlah) => `${jumlah} malam`,
         moveTitle: "Pindah hotel",
         floor: "Lantai",
         roomType: "Tipe kamar",
@@ -404,7 +406,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       participant: "Peserta",
       hotel: "Hotel",
-      train: { title: "Tiket kereta", outbound: "Berangkat", return: "Pulang", carriage: "Gerbong", seat: "Kursi", booking: "Kode booking", count: (jumlah) => `${jumlah} tiket`, done: "Selesai" },
+      train: { title: "Tiket kereta", outbound: "Berangkat", return: "Pulang", carriage: "Gerbong", seat: "Kursi", booking: "Kode booking", count: (jumlah) => `${jumlah} tiket`, done: "Selesai", to: "ke" },
       bus: "Bus",
       room: "Kamar",
       roommate: (jumlah) => (jumlah > 1 ? "Teman-teman sekamar" : "Teman sekamar"),
@@ -562,6 +564,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         backToMenu: "Menu",
         hotelTitle: "Hotel & room",
         hotelCard: "Hotel",
+        nights: (jumlah) => `${jumlah} ${jumlah === 1 ? "night" : "nights"}`,
         moveTitle: "Moving hotels",
         floor: "Floor",
         roomType: "Room type",
@@ -628,7 +631,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       participant: "Participant",
       hotel: "Hotel",
-      train: { title: "Train tickets", outbound: "Outbound", return: "Return", carriage: "Carriage", seat: "Seat", booking: "Booking code", count: (jumlah) => `${jumlah} ${jumlah === 1 ? "ticket" : "tickets"}`, done: "Done" },
+      train: { title: "Train tickets", outbound: "Outbound", return: "Return", carriage: "Carriage", seat: "Seat", booking: "Booking code", count: (jumlah) => `${jumlah} ${jumlah === 1 ? "ticket" : "tickets"}`, done: "Done", to: "to" },
       bus: "Bus",
       room: "Room",
       roommate: (jumlah) => (jumlah > 1 ? "Roommates" : "Roommate"),

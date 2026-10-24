@@ -18,8 +18,9 @@ import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
  * (#agenda) tidak ditampilkan: bagian itu ada di halaman acara, bukan di sini.
  */
 
-// `--kartu-garis`: garis kartu portal Horizon (GARIS_KARTU); dasbor lain tidak menyetelnya, jadi 0 px.
-const KARTU = "rounded-[20px] bg-white p-5 text-[#1A2333] shadow-[0_1px_2px_rgb(16_24_40/0.06)] ring-[length:var(--kartu-garis,0px)] ring-[rgb(16_30_56/0.12)] sm:p-6";
+// `--kartu-garis`, `--kartu-sudut`, `--kartu-pad(-lebar)`: kartu portal Horizon (DESIGN.md "Kartu di portal
+// Horizon"); dasbor lain tidak menyetelnya, jadi tetap 0 px garis, sudut 20, padding 20/24.
+const KARTU = "rounded-[var(--kartu-sudut,20px)] bg-white p-[var(--kartu-pad,20px)] text-[#1A2333] shadow-[0_1px_2px_rgb(16_24_40/0.06)] ring-[length:var(--kartu-garis,0px)] ring-[rgb(16_30_56/0.12)] sm:p-[var(--kartu-pad-lebar,24px)]";
 const MUTED = "text-[#5F6B7F]";
 const GARIS = "border-[#E6E9EE]";
 const ALIS = "text-[12px] font-bold uppercase leading-4 tracking-[0.08em] text-[var(--alis,var(--reg-primary))]";

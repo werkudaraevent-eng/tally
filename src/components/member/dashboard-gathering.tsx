@@ -1097,7 +1097,8 @@ export async function DashboardGathering({
               key={urut}
               id={urut === 0 && !selesai ? "hotel" : undefined}
               judul={urut > 0 ? tv.moveTitle : tv.hotelCard}
-              meta={stay.check_in_at ? { teks: hariHorizon(stay.check_in_at, zona, lang) } : null}
+              // Tanggal dan jamnya sudah di baris check-in; kepala cukup jumlah malam (pola Booking.com).
+              meta={stay.check_in_at && stay.check_out_at ? { teks: tv.nights(Math.max(1, Math.round((new Date(stay.check_out_at).getTime() - new Date(stay.check_in_at).getTime()) / 86_400_000))) } : null}
               Ikon={Bed}
               nama={h?.name?.trim() || null}
               alamat={h?.address?.trim() || null}
@@ -1180,12 +1181,14 @@ export async function DashboardGathering({
     });
     // Perjalanan yang sudah berangkat dilipat jadi satu baris di atas daftar.
     const lewatBus = perjalananBusHorizon.map((trip) => Boolean(trip.depart_at && new Date(trip.depart_at).getTime() <= sekarang.getTime()));
+    const busBerikut = lewatBus.filter((lewat) => !lewat).length;
     const kartuBusHorizon =
       busUtama || perjalananBusHorizon.length > 0 ? (
         <KartuInfoHorizon
           id="bus"
           judul={tv.busTitle}
-          meta={perjalananBusHorizon.length ? { teks: tv.tripCount(perjalananBusHorizon.length) } : null}
+          // Sama dengan kartu kereta: hanya yang belum lewat dihitung, "Selesai" bila semuanya sudah.
+          meta={perjalananBusHorizon.length ? (busBerikut > 0 ? { teks: tv.tripCount(busBerikut) } : { teks: tH.train.done, nada: "hijau" }) : null}
           Ikon={Bus}
           // Nama bus jadi kepala isi kartu, tanpa label "Bus" kedua di bawah kepala "Bus".
           nama={busUtama || null}
@@ -1212,7 +1215,7 @@ export async function DashboardGathering({
         : denganKalender;
     });
     const kartuKeretaHorizon =
-      legKereta.length > 0 ? <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking, jumlah: tH.train.count, selesai: tH.train.done }} leg={legDenganKalender} /> : null;
+      legKereta.length > 0 ? <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking, jumlah: tH.train.count, selesai: tH.train.done, ke: tH.train.to }} leg={legDenganKalender} /> : null;
     // Bagasi (Record luggage): satu kartu per meja bagasi tempat peserta dipindai.
     // Pola kartu klaim titip koper hotel dan "bags checked" di aplikasi maskapai:
     // jumlah besar, kapan dan di mana, foto, lalu ajakan memeriksa sebelum pergi.
@@ -1228,7 +1231,8 @@ export async function DashboardGathering({
             meta={{ teks: item.handed_over_at ? tl.received : tl.stored, nada: item.handed_over_at ? "hijau" : "redup" }}
             nama={item.bag_count === 0 ? tl.none : tl.count(item.bag_count)}
             baris={[
-              gabungMeta([`${tl.droppedAt} ${hariHorizon(item.recorded_at, zona, lang)} ${jamHorizon(item.recorded_at, zona, lang)}`, item.session_name || null]),
+              // Sebelum diambil kepala kartu sudah berbunyi "Dititipkan": barisnya cukup kapan dan di mana.
+              gabungMeta([`${item.handed_over_at ? `${tl.droppedAt} ` : ""}${hariHorizon(item.recorded_at, zona, lang)} ${jamHorizon(item.recorded_at, zona, lang)}`, item.session_name || null]),
               item.handed_over_at ? `${tl.pickedUpAt} ${hariHorizon(item.handed_over_at, zona, lang)} ${jamHorizon(item.handed_over_at, zona, lang)}` : "",
             ].filter(Boolean)}
           >
@@ -2198,7 +2202,7 @@ function gayaPortal(config: EventLandingConfig, horizon: boolean): CSSProperties
     const emas = [config.button_color, tokensTema.accent].find((nilai) => /^#[0-9a-f]{6}$/i.test(nilai ?? "")) ?? HORIZON_GOLD_DEFAULT;
     // Teks emas di atas navy (label dan sorot kartu checkpoint) memakai sorot yang
     // diukur kontrasnya, sama dengan halaman acara; emas yang sudah terbaca tidak berubah.
-    Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff", sorotHorizon(emas, tokensTema.accent, tokensTema.brand)), { backgroundColor: LATAR_PORTAL_HORIZON, "--kartu-garis": "1px" });
+    Object.assign(gaya, gayaHorizon(tokensTema.brand, emas, kontras(emas, "#101E38") >= 4.5 ? "#101E38" : "#ffffff", sorotHorizon(emas, tokensTema.accent, tokensTema.brand)), { backgroundColor: LATAR_PORTAL_HORIZON, "--kartu-garis": "1px", "--kartu-sudut": "16px", "--kartu-pad": "16px", "--kartu-pad-lebar": "24px" });
   }
   return gaya;
 }

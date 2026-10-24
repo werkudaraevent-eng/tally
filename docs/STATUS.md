@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Horizon Perjalanan cards in one shape (Trip.com-style header with a right-hand note, sentence lines, one grey strip for room or seat) on one type scale and spacing rhythm, now written in DESIGN.md "Kartu di portal Horizon": PR open, design OK from Mas 24 Oct, waiting on QA and Mas's merge time (before 3 Nov).
+- Horizon portal on one card scale (the rest of the portal after #272): Beranda, Checkpoint, Pengumuman, Butuh bantuan, Outfit, Menu, folded rows and organiser blocks; plus #272 QA fixes. PR open, waiting on Mas's look and merge time (before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -23,6 +23,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
+
+- #272 Horizon Perjalanan cards (merged 24 Oct at Mas's "merge now", QA post-hoc GO): one card shape (icon and type left, note right, divider; sentence lines; one grey strip for room or seat) and one type scale, written in DESIGN.md "Kartu di portal Horizon".
 
 - #271 Scanner guide follow-up: section 8 "Meja ambil bagasi" for the pick-up desk (#267) with four screenshots, and every scanner screenshot retaken on the redesigned scanner (#270) with a sample event, sample names and a drawn badge as the camera image. No code change.
 - #269 Admin System guide (merged 24 Oct): `/panduan/sistem` rewritten by task in working order, Logistics first (hotel first and room later, hotel changes, rooming-list import, Stays), then buses/trains/kit, Logistics from the Participant list, what participants see, check-in and luggage desks, checkpoints; numbered steps and admin screenshots with sample names. Help page only.
@@ -175,7 +177,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #202: the Agenda tab strip at 1280 px has no cue that more tabs are off-screen, and the Bus chip and note refresh on load and save only, so a trip changed in Logistics in another tab shows after a reload.
 
 ### Horizon portal
-- Portal type scale: only the Perjalanan cards follow DESIGN.md "Kartu di portal Horizon" so far. Beranda, Acara, Outfit, Pengumuman, Menu and the shared "Butuh bantuan?" card still use about 20 different sizes (13, 15, 17, 19, 21 px and others); next PR, with a before/after first.
+- Portal card scale: Susunan acara rows (white, shadow instead of the card outline) and Directions cards in Perjalanan keep their own look; the QR page and the sign-in page are not cards and were not touched.
 - #268 Perjalanan chips: at 1440x900 the header is 102 px, so hash links and the no-JS sticky bar are about 30 px off (share one header-height value); from 1280 Hotel and Bus sit side by side, so tapping Hotel lights Bus. Bagasi does not fold yet after pick-up (#267 `handed_over_at`).
 - #198 L2/L3/L5: at 1280x588 the "Perbesar QR" pill sits on the fold, at 390 the contact row is lower than before (below Data diri), and a rejected registration gets the same gold status chip as "Terdaftar".
 - #105 L5 (remaining): on the QR page opened by reload or a shared link, Escape and Tutup push history entries. The QR opened inside the portal is a layer that closes with Back and returns focus.

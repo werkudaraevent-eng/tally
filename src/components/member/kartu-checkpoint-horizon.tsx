@@ -6,7 +6,7 @@ import type { EventTimeZone } from "@/lib/timezone";
 import { SEPARATOR, gabungMeta } from "@/lib/typography";
 import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
 import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
-import { GARIS_KARTU } from "@/components/member/portal-horizon";
+import { KARTU_HZ, KELAS_ALIS, KELAS_JUDUL_ISI, KELAS_KET, KepalaKartuHorizon, PAD_KARTU } from "@/components/member/portal-horizon";
 import { PindaiCheckpoint } from "@/components/member/pindai-checkpoint";
 
 /**
@@ -114,19 +114,19 @@ export function KartuCheckpointHorizon({
           {selesai ? <Check size={14} weight="bold" /> : index + 1}
         </span>
         <div className="min-w-0 pt-0.5">
-          <p className={`text-[15px] leading-5 [overflow-wrap:anywhere] ${ini ? "font-semibold" : "font-medium"}`} style={selesai ? { color: REDUP } : undefined}>
+          <p className={`text-[14px] leading-5 [overflow-wrap:anywhere] ${ini ? "font-semibold" : "font-medium"}`} style={selesai ? { color: REDUP } : undefined}>
             <span className="sr-only">{`${index + 1}. ${selesai ? t.sudah : t.belum}: `}</span>
             {step.title}
           </p>
-          {kapan ? <p className="mt-0.5 text-[13px] leading-[18px] [overflow-wrap:anywhere]">{kapan}</p> : null}
+          {kapan ? <p className={`mt-1 ${KELAS_ALIS}`}>{kapan}</p> : null}
           {sub ? (
-            <p className="mt-0.5 text-[13px] leading-[18px] [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+            <p className={`mt-1 ${KELAS_ALIS} font-normal`} style={{ color: REDUP }}>
               {sub}
             </p>
           ) : null}
         </div>
         {step.points !== null ? (
-          <span className="pt-0.5 text-[13px] font-semibold tabular-nums" style={{ color: REDUP }}>
+          <span className={`pt-0.5 ${KELAS_ALIS} tabular-nums`} style={{ color: REDUP }}>
             <span className="sr-only">{t.poinSr(step.points)}</span>
             <span aria-hidden>{`+${step.points}`}</span>
           </span>
@@ -136,7 +136,7 @@ export function KartuCheckpointHorizon({
       </li>
     );
   };
-  const daftar = <ol className="mt-4 border-t border-[#E6E9EE] pt-4">{data.steps.map((step, urutan) => baris(step, urutan === data.steps.length - 1))}</ol>;
+  const daftar = <ol className="mt-3 border-t border-[#E6E8EC] pt-4">{data.steps.map((step, urutan) => baris(step, urutan === data.steps.length - 1))}</ol>;
 
   // Cara menyelesaikan langkah berikutnya, menurut siapa yang memindai. Tanpa
   // tombol emas: QR kehadiran ada di bilah bawah; di desktop di sobekan kartu
@@ -148,66 +148,62 @@ export function KartuCheckpointHorizon({
         slug={slug}
         lang={lang}
         qrHref={sisa.self_scan === "both" ? qrHref : null}
-        className="m3-state -mx-2 mt-1 inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[15px] font-semibold text-[#274FC0]"
+        className="m3-state -mx-2 -mb-3.5 mt-[-2px] inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold leading-5 text-[#274FC0]"
       />
-      {sisa.self_scan === "both" ? <p className="text-[14px] leading-5">{t.jugaTunjukkan}</p> : null}
+      {sisa.self_scan === "both" ? <p className={`mt-3 ${KELAS_KET}`}>{t.jugaTunjukkan}</p> : null}
     </>
   ) : (
-    <p className="mt-2 text-[14px] leading-5">{t.tunjukkan}</p>
+    <p className={`mt-3 ${KELAS_KET}`}>{t.tunjukkan}</p>
   );
 
   // Tujuan poin hanya selama masih bisa dikejar, atau sebagai hasil bila semua selesai.
   const tujuan = data.goal && (sisa || !berikut) ? (
     // Ponsel: satu baris di bawah langkahnya; dari 768 px kotak emas pucat, di samping langkahnya mulai 1280 px.
-    <div className="flex items-start gap-2.5 md:rounded-[16px] md:bg-[var(--chip-aksen)] md:px-4 md:py-3.5">
+    <div className="flex items-start gap-2 md:rounded-[12px] md:bg-[var(--chip-aksen)] md:px-3 md:py-2">
       <Target size={18} weight="bold" aria-hidden className="mt-px shrink-0 text-[var(--on-chip-aksen)]" />
       <BarisTujuanPoin tujuan={data.goal} className="text-[14px] leading-5" tebalKelas="font-semibold text-[var(--on-chip-aksen)]" sisaKelas="text-[var(--on-chip-aksen)]" />
     </div>
   ) : null;
 
   return (
-    <section aria-labelledby="checkpoint-judul" className={`${GARIS_KARTU} rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7`} style={{ color: TINTA }}>
-      <div className="flex items-center gap-3">
-        <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#EEF1F6]">
-          <Flag size={22} />
-        </span>
-        {/* Judul dan angka kemajuan dalam satu kotak yang boleh turun baris di layar sempit. */}
-        <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <h2 id="checkpoint-judul" className="text-[17px] font-semibold leading-6">
-            {t.judul}
-          </h2>
-          <p className="text-[14px] tabular-nums" style={{ color: REDUP }}>
+    <section aria-labelledby="checkpoint-judul" className={`${KARTU_HZ} ${PAD_KARTU}`} style={{ color: TINTA }}>
+      <KepalaKartuHorizon
+        Ikon={Flag}
+        judul={t.judul}
+        idJudul="checkpoint-judul"
+        meta={
+          <>
             <span className="sr-only">{t.kemajuan(data.done, total)}</span>
             <span aria-hidden>{`${data.done}/${total}`}</span>
             {data.points ? <span>{` ${SEPARATOR} ${t.poin(data.earned, data.total_points)}`}</span> : null}
-          </p>
-        </div>
-      </div>
-      <div aria-hidden className="mt-4 flex gap-1.5">
+          </>
+        }
+      />
+      <div aria-hidden className="mt-4 flex gap-1">
         {data.steps.map((step) => (
-          <i key={step.id} className={`h-1.5 flex-1 rounded-full ${step.done_at ? "bg-[var(--hz-emas)]" : "bg-[#E6E9EE]"}`} />
+          <i key={step.id} className={`h-1 flex-1 rounded-full ${step.done_at ? "bg-[var(--hz-emas)]" : "bg-[#E6E9EE]"}`} />
         ))}
       </div>
       {sisa || !berikut || tujuan ? (
-      <div className={`mt-5 flex flex-col gap-4 ${tujuan ? "xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,300px)] xl:items-start xl:gap-6" : ""}`}>
+      <div className={`mt-4 flex flex-col gap-3 ${tujuan ? "xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,300px)] xl:items-start xl:gap-6" : ""}`}>
         <div className="min-w-0">
           {sisa ? (
             <>
-              <p className="text-[13px] leading-[18px]" style={{ color: LABEL }}>
+              <p className={KELAS_ALIS} style={{ color: LABEL }}>
                 {t.berikut}
               </p>
-              <p className="mt-1 text-[17px] font-semibold leading-6 [overflow-wrap:anywhere]">{sisa.title}</p>
+              <p className={`mt-1 ${KELAS_JUDUL_ISI}`}>{sisa.title}</p>
               {sisa.when ? <BarisKapan teks={teksWaktu(sisa.when, hariIni, lang, true)} hariIni={t.hariIni} /> : null}
               {sisa.place ? (
-                <p className="mt-1 flex items-start gap-1.5 text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
-                  <MapPin size={18} aria-hidden className="shrink-0" />
+                <p className={`mt-1 flex items-start gap-1.5 ${KELAS_KET}`} style={{ color: REDUP }}>
+                  <MapPin size={16} aria-hidden className="mt-0.5 shrink-0" />
                   {sisa.place}
                 </p>
               ) : null}
               {aksi}
             </>
           ) : !berikut ? (
-            <p className="text-[17px] font-semibold leading-6">{t.semuaSelesai}</p>
+            <p className={KELAS_JUDUL_ISI}>{t.semuaSelesai}</p>
           ) : null}
         </div>
         {tujuan}
@@ -219,7 +215,7 @@ export function KartuCheckpointHorizon({
         lengkap={daftar}
         bukaLabel={t.lihatSemua(total)}
         tutupLabel={t.sembunyikan}
-        tombolKelas="m3-state -mx-2 mt-2 inline-flex min-h-12 items-center gap-1.5 rounded-md px-2 text-[14px] font-semibold text-[#274FC0]"
+        tombolKelas="m3-state -mx-2 -mb-3.5 mt-[-2px] inline-flex min-h-12 items-center gap-1 rounded-md px-2 text-[14px] font-semibold leading-5 text-[#274FC0]"
       />
     </section>
   );
@@ -229,7 +225,7 @@ export function KartuCheckpointHorizon({
 function BarisKapan({ teks, hariIni }: { teks: ReturnType<typeof teksWaktu>; hariIni: string }) {
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] font-medium leading-5 [overflow-wrap:anywhere]">
-      <CalendarBlank size={18} aria-hidden className="shrink-0" style={{ color: REDUP }} />
+      <CalendarBlank size={16} aria-hidden className="shrink-0" style={{ color: REDUP }} />
       {teks.relatif === "hari-ini" ? (
         <span className="rounded-full bg-[var(--chip-aksen)] px-2 text-[12px] font-semibold leading-5 text-[var(--on-chip-aksen)]">{hariIni}</span>
       ) : null}
