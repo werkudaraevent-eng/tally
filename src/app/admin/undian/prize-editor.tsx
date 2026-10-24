@@ -5,10 +5,11 @@ import { Button, DetailSection, IconButton, Pane, PaneBody, PaneFooter, PaneHead
 import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
-  ANIMATIONS, EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL, ruleBrokenMessage,
-  type ExcludeScope, type SpinMode, type UndianAnimation, type UndianPrize, type WeightMode, type WeightVar,
+  EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL, ruleBrokenMessage,
+  type ExcludeScope, type SpinMode, type UndianPrize, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
+import { AnimationPicker, type StageLook } from "./animation-picker";
 import { BonusRules } from "./bonus-rules";
 import { Field, INPUT, NumberField, PaneError, UploadButton } from "./form";
 import type { EntryGroup, Preview } from "./types";
@@ -28,7 +29,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "");
  */
 export function PrizeEditor({
   draft, isNew, legacyFormula, groups, preview, previewFailed, saving, uploading, error,
-  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions,
+  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, stage,
 }: {
   draft: Draft; isNew: boolean; legacyFormula: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
   saving: boolean; uploading: boolean; error: string;
@@ -37,8 +38,8 @@ export function PrizeEditor({
   /** Tidak ada untuk hadiah baru. */
   onDelete?: () => void;
   onRetrySessions?: () => void;
+  stage: StageLook;
 }) {
-  const animasi = ANIMATIONS.find((item) => item.value === draft.animation);
   const modeBerhenti = SPIN_MODES.find((item) => item.value === draft.spin_mode);
 
   return (
@@ -84,11 +85,11 @@ export function PrizeEditor({
           </DetailSection>
 
           <DetailSection title="Draw settings">
-            <Field label="Animation" htmlFor="prize-animation" hint={animasi?.hint}>
-              <select id="prize-animation" value={draft.animation} onChange={(event) => onChange({ animation: event.target.value as UndianAnimation })} className={INPUT}>
-                {ANIMATIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </select>
-            </Field>
+            <AnimationPicker
+              value={draft.animation} onChange={(value) => onChange({ animation: value })}
+              spinMode={draft.spin_mode} spinSeconds={draft.spin_seconds} winnersPerDraw={draft.winners_per_draw}
+              sampleNames={(preview?.sample ?? []).map((row) => row.name)} stage={stage}
+            />
 
             {/* Pilihan berhenti hanya berarti bila ADA animasi. Mode `instant`
                 menampilkan pemenang seketika, jadi tidak ada apa pun untuk
