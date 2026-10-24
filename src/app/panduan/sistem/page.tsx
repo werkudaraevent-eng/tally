@@ -320,33 +320,27 @@ const BAGIAN: Bagian[] = [
   {
     id: "checkin",
     judul: "7. Check-in and scanners",
-    ringkas: "Check-in sessions are the scan points: the entrance, each session, kit hand-out, the luggage desk.",
+    ringkas: "Check-in sessions are the scan points: the entrance, each session, kit hand-out, the luggage desks.",
     isi: [
       {
         judul: "Set up the scan points",
         langkah: [
-          "Check-in → Sessions → add a session per scan point (Registration, Luggage drop, Gala dinner). Each one has its own scanner address, /scan?sesi=<session>.",
-          "Turn on kit items for the session that hands them out, and Record luggage for the luggage desk.",
+          "Check-in → Sessions → add a session per scan point (Registration, Luggage drop, Luggage pick-up, Gala dinner). Each one has its own scanner address, /scan?sesi=<session>.",
+          "Turn on kit items for the session that hands them out, and set Luggage on the luggage desks (Drop-off or Pick-up).",
           "With more than one physical desk, add the desks so each phone picks its own; each desk can drive its own welcome screen.",
           "Walk-ins: allow them only if the desk may register people on the spot.",
           "Give each scanner phone a Scanner staff account with access to this event.",
         ],
       },
       {
-        judul: "Luggage desk",
+        judul: "Luggage desks",
         poin: [
-          "Check-in → Sessions → the luggage session → Record luggage (count and photo). After each scan, staff enter the number of bags and take one photo; the count is saved first, so a weak signal never loses it.",
-          "The session shows the total bags and people, for loading the truck per batch.",
-          "Participants see their own count and photo in Perjalanan (Bagasi card). Photos are private and are deleted 30 days after the event ends; the counts stay.",
-          "Test it on a scanner phone before the rehearsal: scan, count, photo, save, then re-scan to see the record.",
+          "Check-in → Sessions → the session → Luggage: Off (default), Drop-off or Pick-up.",
+          "Drop-off: after each scan, staff enter the number of bags and take one photo of them. The count is saved first, so a weak signal never loses it.",
+          "Pick-up: after each scan, staff see the bags and photo from every drop-off desk, then press Hand over. Each drop-off is handed over once; staff can undo their own handover.",
+          "Participants see their own count and photo in Perjalanan (Bagasi card), and the pick-up time once collected. Photos are private and are deleted 30 days after the event ends; the counts stay.",
+          "Test both desks on a scanner phone before the rehearsal: drop off, re-scan to see the record, then pick up.",
         ],
-        gambar: g(
-          "checkin-bagasi.jpg",
-          "Session panel with the Luggage section: Record luggage (count and photo) switched on, Bags and Photos totals",
-          "Record luggage is per session and off by default.",
-          659,
-          405,
-        ),
       },
       {
         judul: "Scanner crew and rehearsals",
