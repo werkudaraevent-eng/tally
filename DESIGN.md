@@ -648,6 +648,42 @@ dari halaman yang sama.
 - Akun peserta terpisah dari akun panitia (`participant_accounts`,
   `participant_sessions`); tidak ada jalur dari sesi peserta ke layar admin.
 
+#### Kartu di portal Horizon: skala dan irama
+
+Diputuskan Oktober 2026 dari halaman Perjalanan (pola Trip.com "All bookings"):
+yang membuat kartu terasa berantakan bukan warna, tetapi terlalu banyak ukuran
+huruf dan jarak yang acak. Aturan ini berlaku untuk setiap kartu di portal
+Horizon. Halaman yang belum ikut dicatat di `docs/STATUS.md`.
+
+- **Kepala kartu.** Ikon 22 px + jenis kartu (16/24, 600) di kiri, satu
+  keterangan di kanan (14/20, 500: tanggal, jumlah, atau keadaan), garis tipis di
+  bawahnya. Jarak 16 px di atas dan di bawah garis. Jenis kartu dibedakan oleh
+  ikon dan namanya, tidak oleh warna.
+- **Lima ukuran saja di isi kartu:**
+
+  | Peran | Ukuran / tinggi baris | Bobot | Contoh |
+  | --- | --- | --- | --- |
+  | Judul isi | 18/24 | 700 | Nama hotel, nama bus, rute kereta, jam bus |
+  | Kepala, nilai kunci | 16/24 | 600 | "Bus", "Kamar 1208 · Lantai 12", nama agenda |
+  | Keterangan | 14/20 | 400 | Alamat, check-in, titik kumpul |
+  | Tautan | 14/20 | 600 | "Buka peta", "Simpan ke kalender" |
+  | Alis | 12/16 | 600 | "Berangkat · Kam, 5 Nov", tanggal di daftar bus |
+
+  18/24 sengaja di antara `title-medium` dan `title-large`: 22 px terlalu keras
+  di layar 390 bila ada tiga kartu berderet. Angka besar (hitung mundur, QR) tetap
+  peran Display dan tidak dipakai di dalam kartu isi.
+- **Tiga jarak saja:** 4 px antar-baris satu kelompok, 12 px antar-kelompok,
+  16 px antar-bagian kartu (dan padding kartu: 16 ponsel, 24 tablet ke atas;
+  sudut 16 px).
+- **Kalimat, bukan kisi label/nilai.** "Check-in Kam, 5 Nov · 14.00", bukan
+  label "Check-in" di atas nilai. Satu fakta kunci per kartu boleh masuk strip
+  abu (`LATAR_STRIP`, 12 px sudut) supaya mudah ditemukan saat di lobi.
+- **Tautan tidak menambah jarak.** Area ketuk tetap 48 px, tetapi kelebihannya
+  ditarik balik (`-my-3.5`), jadi barisnya berjarak seperti teks biasa.
+- Kelasnya ada di `portal-horizon.tsx` (`KELAS_JUDUL_ISI`, `KELAS_KET`,
+  `KELAS_ALIS`, `KELAS_TAUTAN`, `KELAS_STRIP`). Kartu baru memakainya, bukan
+  ukuran sendiri.
+
 ### Papan peringkat
 
 Lanskap 1920×1080. Kanvas gelap tetap, teks terang, angka besar, hierarki

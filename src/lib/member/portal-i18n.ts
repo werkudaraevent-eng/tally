@@ -67,8 +67,10 @@ export type PortalUiText = {
       empty: string;
       backToMenu: string;
       hotelTitle: string;
-      /** Judul kartu hotel berikutnya bagi peserta yang pindah hotel, mis. "Pindah hotel · Jum, 6 Nov". */
-      moveTitle: (hari: string) => string;
+      /** Kepala kartu hotel pertama; tanggal check-in tampil di kanan kepala. */
+      hotelCard: string;
+      /** Kepala kartu hotel berikutnya bagi peserta yang pindah hotel. */
+      moveTitle: string;
       floor: string;
       roomType: string;
       checkIn: string;
@@ -77,7 +79,8 @@ export type PortalUiText = {
       meetingPoint: string;
       /** Label bus di kartu Bus (judul kartunya sudah "Bus"). "Bus utama" hanya bila ada perjalanan dengan bus lain (U-33). */
       mainBus: string;
-      onlyBus: string;
+      /** Di kanan kepala kartu Bus, mis. "4 perjalanan". */
+      tripCount: (jumlah: number) => string;
       plate: string;
       crew: string;
       trips: string;
@@ -107,6 +110,8 @@ export type PortalUiText = {
         check: string;
         /** Sesudah diserahkan di meja ambil (migrasi 202610240001). */
         received: string;
+        /** Di kanan kepala kartu sebelum diambil. */
+        stored: string;
         pickedUpAt: string;
         checkAfter: string;
         openPhoto: string;
@@ -159,7 +164,8 @@ export type PortalUiText = {
     participant: string;
     hotel: string;
     /** Kartu tiket kereta (tabel train_tickets). */
-    train: { title: string; outbound: string; return: string; carriage: string; seat: string; booking: string };
+    /** count dan done: di kanan kepala kartu Tiket kereta. */
+    train: { title: string; outbound: string; return: string; carriage: string; seat: string; booking: string; count: (jumlah: number) => string; done: string };
     bus: string;
     room: string;
     roommate: (jumlah: number) => string;
@@ -331,7 +337,8 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         empty: "Info perjalanan belum dibagikan panitia.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & kamar",
-        moveTitle: (hari) => `Pindah hotel · ${hari}`,
+        hotelCard: "Hotel",
+        moveTitle: "Pindah hotel",
         floor: "Lantai",
         roomType: "Tipe kamar",
         checkIn: "Check-in",
@@ -339,7 +346,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         busTitle: "Bus",
         meetingPoint: "Titik kumpul",
         mainBus: "Bus utama",
-        onlyBus: "Bus",
+        tripCount: (jumlah) => `${jumlah} perjalanan`,
         plate: "Pelat nomor",
         crew: "Kru bus",
         trips: "Perjalanan bus",
@@ -362,6 +369,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           place: "Tempat",
           check: "Jumlahnya tidak sesuai? Beri tahu panitia di meja bagasi sebelum berangkat.",
           received: "Sudah kamu terima",
+          stored: "Dititipkan",
           pickedUpAt: "Diambil",
           checkAfter: "Ada yang kurang? Segera beri tahu panitia.",
           openPhoto: "Buka foto bagasi layar penuh",
@@ -396,7 +404,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       participant: "Peserta",
       hotel: "Hotel",
-      train: { title: "Tiket kereta", outbound: "Berangkat", return: "Pulang", carriage: "Gerbong", seat: "Kursi", booking: "Kode booking" },
+      train: { title: "Tiket kereta", outbound: "Berangkat", return: "Pulang", carriage: "Gerbong", seat: "Kursi", booking: "Kode booking", count: (jumlah) => `${jumlah} tiket`, done: "Selesai" },
       bus: "Bus",
       room: "Kamar",
       roommate: (jumlah) => (jumlah > 1 ? "Teman-teman sekamar" : "Teman sekamar"),
@@ -553,7 +561,8 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         empty: "The organisers haven't shared travel details yet.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & room",
-        moveTitle: (hari) => `Moving hotels · ${hari}`,
+        hotelCard: "Hotel",
+        moveTitle: "Moving hotels",
         floor: "Floor",
         roomType: "Room type",
         checkIn: "Check-in",
@@ -561,7 +570,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         busTitle: "Bus",
         meetingPoint: "Meeting point",
         mainBus: "Main bus",
-        onlyBus: "Bus",
+        tripCount: (jumlah) => `${jumlah} ${jumlah === 1 ? "trip" : "trips"}`,
         plate: "Plate number",
         crew: "Bus crew",
         trips: "Bus trips",
@@ -584,6 +593,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           place: "Where",
           check: "Count not right? Tell the luggage desk before you leave.",
           received: "Back with you",
+          stored: "Dropped off",
           pickedUpAt: "Picked up",
           checkAfter: "Something missing? Tell the committee straight away.",
           openPhoto: "Open the luggage photo full screen",
@@ -618,7 +628,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       participant: "Participant",
       hotel: "Hotel",
-      train: { title: "Train tickets", outbound: "Outbound", return: "Return", carriage: "Carriage", seat: "Seat", booking: "Booking code" },
+      train: { title: "Train tickets", outbound: "Outbound", return: "Return", carriage: "Carriage", seat: "Seat", booking: "Booking code", count: (jumlah) => `${jumlah} ${jumlah === 1 ? "ticket" : "tickets"}`, done: "Done" },
       bus: "Bus",
       room: "Room",
       roommate: (jumlah) => (jumlah > 1 ? "Roommates" : "Roommate"),
