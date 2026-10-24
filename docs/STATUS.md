@@ -17,13 +17,14 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
-- Scanner guide: a section for the luggage pick-up desk (#267), and the screenshots retaken after the scanner redesign (#270); one follow-up PR after #270.
-- Admin System guide (`/panduan/sistem`, from the admin sidebar) rewritten by task (Logistics first, then Check-in, luggage and Checkpoints) with admin screenshots: PR #269, approved by Mas 24 Oct. Help page only.
 - Build with AI: proposal written, waiting on Mas's "lanjut".
 - Admin language phase 4a (remaining Indonesian strings on admin screens, including the Check-in page): not started.
 
 ## Recently merged (for context; details in the PRs)
 
+- Scanner guide follow-up (this PR): section 8 "Meja ambil bagasi" for the pick-up desk (#267) with four screenshots, and every scanner screenshot retaken on the redesigned scanner (#270) with a sample event, sample names and a drawn badge as the camera image. No code change.
+- #269 Admin System guide (merged 24 Oct): `/panduan/sistem` rewritten by task in working order, Logistics first (hotel first and room later, hotel changes, rooming-list import, Stays), then buses/trains/kit, Logistics from the Participant list, what participants see, check-in and luggage desks, checkpoints; numbered steps and admin screenshots with sample names. Help page only.
+- #266 Docs and Scanner guide for #249-#265 (merged 24 Oct): Scanner guide section "Meja titip bagasi"; STATUS, PRODUCT, GLOSSARY, cron and CLAUDE.md caught up with hotel stays, luggage and Logistics from Participants.
 - #270 Scanner redesign (merged 24 Oct, timing OK from Mas): phone Scan tab is a full-screen dark viewfinder with corner brackets, the count on one line (also with the camera off) and the last check-in above the nav (tap opens History); the result sheet is solid success/warning/error with full-width pill buttons ("Scan next" carries the auto-close countdown, Unknown code offers Find name); desktop keeps the centred sheet. Logic unchanged, no SQL. Scanner guide shots 03-08 and 14 retaken.
 - #268 Shorter Horizon Perjalanan page (merged 24 Oct, together with #267 at Mas's choice): sticky jump chips (Hotel, Bus, Kereta, Bagasi, Rute) under the header when the participant has 3+ travel cards; finished items fold into one tappable row (hotel stays after check-out, bus trips already departed, train legs already arrived). From 1280 all stays stack beside the bus card. No SQL.
 - #267 Luggage pick-up desk (merged 24 Oct; approved by Mas 23 Oct; migration `202610240001_ambil_bagasi` run by Mas, post-check all true): Check-in > Sessions > Luggage is Off / Drop-off / Pick-up; a Pick-up session shows every drop-off of the scanned participant with "Hand over N bags", each handed over once, own handovers can be undone; the participant's Bagasi card reads "Sudah kamu terima" with the pick-up time.
@@ -136,7 +137,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #152 residual: two edits to one participant's seats in different sessions can lose one update (also on main; needs an atomic RPC).
 
 ### Scanner
-- #270 L-4 to L-8: `.gelap-ponsel` copies dark-theme hex values instead of tokens; focus lands on the page body after auto-close; camera denied shows the frame and hint with no retry; guide shots 05/06 come from a luggage session without the luggage card; at 360x640 a 3-line last check-in name partly covers the camera hint.
+- #270 L-4 to L-6 and L-8: `.gelap-ponsel` copies dark-theme hex values instead of tokens; focus lands on the page body after auto-close; camera denied shows the frame and hint with no retry; at 360x640 a 3-line last check-in name partly covers the camera hint.
 - #267 luggage pick-up: the admin totals read up to 20,000 drop-offs and re-read them on every 30 s refresh; on a re-scan the headline repeats the "Already handed over" banner; Undo has no time limit; the portal luggage read uses `select("*")` (go back to an explicit column list).
 - #60 N1: a reply lost to the 8 s timeout shows the orange "already scanned" sheet for a guest who just checked in.
 - #60 N2/N3: hand-scanner reads also get the 2.5 s same-code hold, and re-opening a sheet restarts the bar but not its close timer.

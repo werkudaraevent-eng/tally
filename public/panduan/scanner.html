@@ -95,7 +95,7 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
   </header>
 
   <nav class="chips" aria-label="Bagian panduan">
-    <a href="#mulai">Mulai</a><a href="#meja">Sesi &amp; meja</a><a href="#scan">Scan QR</a><a href="#hasil">Arti warna</a><a href="#cari">Find name</a><a href="#walkin">Walk-in</a><a href="#riwayat">Riwayat</a><a href="#bagasi">Bagasi</a><a href="#masalah">Kalau ada masalah</a>
+    <a href="#mulai">Mulai</a><a href="#meja">Sesi &amp; meja</a><a href="#scan">Scan QR</a><a href="#hasil">Arti warna</a><a href="#cari">Find name</a><a href="#walkin">Walk-in</a><a href="#riwayat">Riwayat</a><a href="#bagasi">Titip bagasi</a><a href="#ambil">Ambil bagasi</a><a href="#masalah">Kalau ada masalah</a>
   </nav>
 
   <section id="mulai">
@@ -219,7 +219,7 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
       <li>Pastikan judul atas menunjukkan sesi bagasi (ganti lewat judul itu kalau belum), lalu pindai QR peserta seperti biasa.</li>
       <li>Hitung bagasi yang dititipkan (koper, tas, kardus), lalu atur angka <span class="ui">How many bags?</span> dengan tombol <span class="ui">−</span> dan <span class="ui">+</span>. Peserta tidak menitipkan apa pun? Biarkan 0; tombol simpan berubah menjadi <span class="ui">No luggage</span>.</li>
       <li>Tekan <span class="ui">Take photo</span>. Kamera HP terbuka. Ambil satu foto berisi semua bagasi orang itu, dengan label bagasinya terlihat kalau ada. Foto kurang jelas? Tekan <span class="ui">Retake</span>.</li>
-      <li>Tekan tombol biru di bawah, misalnya <span class="ui">Save · 2 bags</span>. Setelah muncul <span class="ui kalimat">Saved. Scan the next participant.</span>, lanjut ke peserta berikutnya.</li>
+      <li>Tekan tombol putih di bawah, misalnya <span class="ui">Save · 2 bags</span>. Setelah muncul <span class="ui kalimat">Saved. Scan the next participant.</span>, lanjut ke peserta berikutnya.</li>
     </ol>
     <div class="pair">
       <figure><img src="/panduan/scanner/15-bagasi-jumlah.jpg" alt="Lembar hasil dengan isian How many bags? berisi 2 dan tombol Take photo" loading="lazy"><figcaption>Hitung, lalu Take photo</figcaption></figure>
@@ -227,7 +227,7 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
     </div>
     <figure><img src="/panduan/scanner/17-bagasi-tersimpan.jpg" alt="Catatan 2 bags dengan foto dan tulisan Saved. Scan the next participant." loading="lazy"><figcaption>Tersimpan: jumlah, foto, jam, dan nama akun petugas</figcaption></figure>
     <h3>Sinyal lemah saat mengirim foto</h3>
-    <p>Jumlah bagasi selalu disimpan lebih dulu, baru fotonya menyusul. Kalau fotonya gagal terkirim, muncul tulisan oranye <span class="ui kalimat">The count is saved, but the photo did not upload.</span> Jumlahnya sudah aman. Tekan <span class="ui">Try photo again</span>, atau <span class="ui">Skip photo</span> kalau antrean panjang; catatannya tetap tersimpan, hanya tanpa foto (<span class="ui">no photo</span>).</p>
+    <p>Jumlah bagasi selalu disimpan lebih dulu, baru fotonya menyusul. Kalau fotonya gagal terkirim, muncul kotak <span class="ui kalimat">The count is saved, but the photo did not upload.</span> Jumlahnya sudah aman. Tekan <span class="ui">Try photo again</span>, atau <span class="ui">Skip photo</span> kalau antrean panjang; catatannya tetap tersimpan, hanya tanpa foto (<span class="ui">no photo</span>).</p>
     <figure><img src="/panduan/scanner/18-bagasi-foto-gagal.jpg" alt="Tulisan oranye The count is saved, but the photo did not upload, dengan tombol Skip photo dan Try photo again" loading="lazy"><figcaption>Foto gagal: jumlah tetap tersimpan</figcaption></figure>
     <h3>Memindai ulang dan mengubah catatan</h3>
     <p>Peserta yang sudah tercatat menampilkan catatannya: jumlah, foto, jam, dan siapa yang menyimpan. Ketuk fotonya untuk membukanya ukuran penuh di tab baru. Ada bagasi yang tertinggal atau salah hitung? Tekan <span class="ui">Edit</span>, ubah angkanya atau ambil foto baru, lalu simpan lagi.</p>
@@ -239,8 +239,34 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
     </ul>
   </section>
 
+  <section id="ambil">
+    <h2><span class="no">8</span>Meja ambil bagasi</h2>
+    <p>Hanya di sesi yang admin atur <span class="ui">Luggage: Pick-up</span>, misalnya <span class="ui">Ambil bagasi</span>. QR peserta adalah tiket pengambilannya: setelah dipindai, lembar hasil menampilkan semua bagasi yang ia titipkan di meja titip mana pun di acara ini, lengkap dengan fotonya. Meja ambil tidak perlu dipasangkan dengan meja titip.</p>
+    <ol class="steps">
+      <li>Pastikan judul atas menunjukkan sesi ambil bagasi, lalu pindai QR peserta seperti biasa.</li>
+      <li>Lihat jumlah dan foto di bagian <span class="ui">Luggage to hand over</span>. Ambil koper di rak yang cocok dengan foto itu (warna, bentuk, label bagasi). Ketuk foto untuk melihatnya ukuran penuh.</li>
+      <li>Hitung bersama peserta, lalu tekan tombol putih <span class="ui">Hand over 2 bags</span> (angkanya mengikuti catatan). Semua bagasi satu titipan diserahkan sekaligus.</li>
+      <li>Setelah muncul <span class="ui">Handed over</span> dan <span class="ui kalimat">Saved. Scan the next participant.</span>, lanjut ke peserta berikutnya.</li>
+    </ol>
+    <div class="pair">
+      <figure><img src="/panduan/scanner/20-ambil-cocokkan.jpg" alt="Lembar hasil dengan bagian Luggage to hand over: foto dua koper, 2 bags, dan tombol Hand over 2 bags" loading="lazy"><figcaption>Cocokkan koper dengan foto</figcaption></figure>
+      <figure><img src="/panduan/scanner/21-ambil-diserahkan.jpg" alt="Tulisan Handed over dengan jam, nama akun petugas, dan tombol Undo" loading="lazy"><figcaption>Handed over: jam dan nama petugas tercatat</figcaption></figure>
+    </div>
+    <h3>Sudah diambil, atau tidak ada titipan</h3>
+    <p>Peserta yang bagasinya sudah diserahkan menampilkan kotak <span class="ui kalimat">Already handed over at … by ….</span> Jangan serahkan lagi. Kalau peserta bilang ada koper yang belum ia terima, panggil koordinator. Peserta yang tidak pernah dipindai di meja titip menampilkan <span class="ui">No luggage recorded</span>: tanyakan di mana ia menitipkan bagasinya.</p>
+    <div class="pair">
+      <figure><img src="/panduan/scanner/22-ambil-sudah.jpg" alt="Kotak Already handed over at 07:40 by scanner-ambil2 di atas foto koper" loading="lazy"><figcaption>Sudah diserahkan: jangan serahkan lagi</figcaption></figure>
+      <figure><img src="/panduan/scanner/23-ambil-tidak-ada.jpg" alt="Tulisan No luggage recorded" loading="lazy"><figcaption>Tidak ada titipan</figcaption></figure>
+    </div>
+    <ul>
+      <li>Salah tekan <span class="ui">Hand over</span>? Tekan <span class="ui">Undo</span> di lembar yang sama. Undo hanya ada untuk penyerahan yang Anda buat sendiri.</li>
+      <li>Selama tombol <span class="ui">Hand over</span> belum ditekan, peserta berikutnya yang terpindai menunggu dengan tulisan <span class="ui kalimat">… is scanned and waiting. Hand over the luggage of … first.</span>, sama seperti di meja titip.</li>
+      <li>Setelah diserahkan, kartu <span class="ui">Bagasi</span> peserta di halaman Perjalanan berubah menjadi <span class="ui">Sudah kamu terima</span> dengan jamnya.</li>
+    </ul>
+  </section>
+
   <section id="masalah">
-    <h2><span class="no">8</span>Kalau ada masalah</h2>
+    <h2><span class="no">9</span>Kalau ada masalah</h2>
     <figure><img src="/panduan/scanner/08-tidak-tersimpan.jpg" alt="Lembar merah Not saved dan tanda Offline" loading="lazy"><figcaption>Not saved dan tanda Offline di atas</figcaption></figure>
     <div class="fix">
       <div><strong><span class="ui">Not saved</span> / tanda <span class="ui">Offline</span></strong><p>Koneksi putus, peserta belum tercatat. Tekan <span class="ui">Retry</span>. Tanda Offline hilang sendiri setelah pindaian berikutnya berhasil.</p></div>
