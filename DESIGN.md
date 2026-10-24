@@ -652,8 +652,10 @@ dari halaman yang sama.
 
 Diputuskan Oktober 2026 dari halaman Perjalanan (pola Trip.com "All bookings"):
 yang membuat kartu terasa berantakan bukan warna, tetapi terlalu banyak ukuran
-huruf dan jarak yang acak. Aturan ini berlaku untuk setiap kartu di portal
-Horizon. Halaman yang belum ikut dicatat di `docs/STATUS.md`.
+huruf dan jarak yang acak. Aturan ini berlaku untuk setiap kartu putih di
+portal Horizon: Beranda, Susunan acara, Outfit, Perjalanan, Pengumuman, dan
+Menu, juga blok panitia (lewat variabel `--kartu-sudut` dan `--kartu-pad`, jadi
+dasbor lain tidak berubah).
 
 - **Kepala kartu.** Ikon 22 px + jenis kartu (16/24, 600) di kiri, satu
   keterangan di kanan (14/20, 500: tanggal, jumlah, atau keadaan), garis tipis di
@@ -670,11 +672,17 @@ Horizon. Halaman yang belum ikut dicatat di `docs/STATUS.md`.
   | Alis | 12/16 | 600 | "Berangkat · Kam, 5 Nov", tanggal di daftar bus |
 
   18/24 sengaja di antara `title-medium` dan `title-large`: 22 px terlalu keras
-  di layar 390 bila ada tiga kartu berderet. Angka besar (hitung mundur, QR) tetap
-  peran Display dan tidak dipakai di dalam kartu isi.
+  di layar 390 bila ada tiga kartu berderet. Dua pengecualian yang disengaja:
+  judul kartu sorotan "Berikutnya" di Beranda 22/28 (satu per halaman, yang
+  pertama dibaca), dan kartu tiket navy (pass perjalanan, kartu identitas di
+  Menu) yang memakai angka besar seperti boarding pass. Keduanya tetap bersudut
+  16 px.
 - **Tiga jarak saja:** 4 px antar-baris satu kelompok, 12 px antar-kelompok,
   16 px antar-bagian kartu (dan padding kartu: 16 ponsel, 24 tablet ke atas;
   sudut 16 px).
+- **Kepala kartu di semua kartu putih**, termasuk Checkpoint, Dresscode,
+  Perjalananmu, Pengumuman ("Pengumuman" di kiri, waktunya di kanan), Butuh
+  bantuan, Data diri, dan Darurat (satu-satunya kepala merah). Tanpa ubin ikon.
 - **Kalimat, bukan kisi label/nilai.** "Check-in Kam, 5 Nov · 14.00", bukan
   label "Check-in" di atas nilai. Satu fakta kunci per kartu boleh masuk strip
   abu (`LATAR_STRIP`, 12 px sudut) supaya mudah ditemukan saat di lobi.
