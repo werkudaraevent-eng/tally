@@ -688,6 +688,13 @@ dasbor lain tidak berubah).
   abu (`LATAR_STRIP`, 12 px sudut) supaya mudah ditemukan saat di lobi.
 - **Tautan tidak menambah jarak.** Area ketuk tetap 48 px, tetapi kelebihannya
   ditarik balik (`-my-3.5`), jadi barisnya berjarak seperti teks biasa.
+- **Halaman Profil seperti halaman akun** (Trip.com Account, Grab, Google
+  Account): identitas di latar halaman (avatar 56, nama 22/28, status chip
+  netral), QR kehadiran sebagai satu kartu ringkas yang seluruhnya bisa
+  diketuk, lalu kelompok berjudul (16/24 di latar halaman) berisi daftar baris
+  berikon 22 polos tanpa ubin; Data diri sebagai baris label dan nilai, Keluar
+  sebagai baris merah terakhir. Avatar di kepala portal membuka halaman ini, dan
+  judulnya "Profil" di ponsel maupun desktop.
 - Kelasnya ada di `portal-horizon.tsx` (`KELAS_JUDUL_ISI`, `KELAS_KET`,
   `KELAS_ALIS`, `KELAS_TAUTAN`, `KELAS_STRIP`). Kartu baru memakainya, bukan
   ukuran sendiri.

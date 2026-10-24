@@ -1485,7 +1485,7 @@ export async function DashboardGathering({
     const statusLabel = sesi.status === "approved" ? p.status.approved : sesi.status === "rejected" ? p.status.rejected : p.status.pending;
     const instansi = peserta ? [peserta.title, peserta.company].filter(Boolean).join(" · ") : "";
     const tautanTelepon = telepon ? telHref(telepon) : null;
-    judulHorizon = { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabsShort.profil, catatan: tp.note };
+    judulHorizon = { alis: nama, judul: tH.tabs.profil, catatan: tp.note };
     // Hubungi panitia dengan Telepon dan WhatsApp (U-07), juga untuk "Ada data yang salah?".
     const kontakProfil = kontakHorizon ? (
       <div className="flex flex-col gap-3">
@@ -2033,7 +2033,7 @@ export async function DashboardGathering({
       perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona), jenis: "kartu" },
       outfit: { alis: outfitDiAcara ? t.schedule : nama, judul: labelOutfitHalaman, judulPonsel: labelOutfitHalaman, catatan: tH.outfit.note, jenis: outfitDiAcara ? "jadwal" : "kartu" },
       info: { alis: nama, judul: tH.tabs.info, judulPonsel: tH.tabs.info, catatan: t.infoNote, jenis: "kartu" },
-      profil: { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabsShort.profil, catatan: tH.profile.note, jenis: "kartu" },
+      profil: { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabs.profil, catatan: tH.profile.note, jenis: "kartu" },
     };
     // Lapisan QR (U-02): bukan di pratinjau admin, supaya peramban panitia tidak
     // menyimpan QR peserta atau memasang service worker portal.
