@@ -129,7 +129,8 @@ export function KartuSekarangHorizon({
       </div>
       {tautan ? (
         <div className={`border-t ${GARIS} px-4 py-3.5 md:px-6`}>
-          <TautanKartu href={tautan.href} label={tautan.label} tab={tautan.tab} />
+          {/* Kaki kartu setinggi tautannya (48 px): cincin fokus ke dalam supaya tidak terpotong tepi kartu. */}
+          <TautanKartu href={tautan.href} label={tautan.label} tab={tautan.tab} className="focus-visible:!outline-offset-[-2px]" />
         </div>
       ) : null}
     </section>
