@@ -225,7 +225,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Trains: direction, train, class, stations, date, times, carriage, seat, booking code.
   - Kit items: name, size taken from a field, note for participants. Which check-in points hand them out is set in Check-in.
   - Import from Excel for rooms, buses, train tickets (templates, preview first).
-- **Shows at:** participant area when "Room and bus" is on (off by default): room, roommates, bus per trip, trains (with a calendar file), kit items. Horizon puts them in Perjalanan.
+- **Shows at:** participant area when "Room and bus" is on (off by default): room, roommates, bus per trip, trains (with a calendar file), kit items. Horizon puts them in Perjalanan. With three or more travel cards, a row of chips (Hotel, Bus, Kereta, Bagasi, Rute) sticks under the header and jumps to each card; finished items fold into one row that opens on tap: a hotel stay after its check-out, bus trips already departed, a train leg already arrived (event time zone; preview time applies).
 - **Rule:** capacity and gender are re-checked by the database; only active participants count.
 
 ### Messages

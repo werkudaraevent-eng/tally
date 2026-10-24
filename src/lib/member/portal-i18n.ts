@@ -90,6 +90,12 @@ export type PortalUiText = {
       /** Label aksesibel tombol kontak kru, mis. "Telepon kru Bus 3". */
       contactLabel: (aksi: string, bus: string) => string;
       seatLine: (gerbong: string | null, kursi: string | null) => string | null;
+      /** Chip lompat di atas Perjalanan (3 bagian atau lebih). */
+      jump: { aria: string; hotel: string; bus: string; train: string; luggage: string; routes: string };
+      /** Yang sudah lewat dilipat jadi satu baris. */
+      done: string;
+      stayDone: (dari: string, sampai: string) => string;
+      tripsDone: (jumlah: number) => string;
       /** Kartu Bagasi: jumlah dan foto yang dicatat petugas di meja bagasi (Record luggage). */
       luggage: {
         title: string;
@@ -339,6 +345,10 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} kru ${bus}`,
         seatLine: (gerbong, kursi) => [gerbong ? `Gerbong ${gerbong}` : null, kursi ? `kursi ${kursi}` : null].filter(Boolean).join(", ") || null,
+        jump: { aria: "Lompat ke bagian", hotel: "Hotel", bus: "Bus", train: "Kereta", luggage: "Bagasi", routes: "Rute" },
+        done: "selesai",
+        stayDone: (dari, sampai) => `Selesai · ${dari} – ${sampai}`,
+        tripsDone: (jumlah) => `${jumlah} perjalanan selesai`,
         luggage: {
           title: "Bagasi",
           count: (jumlah) => `${jumlah} bagasi`,
@@ -554,6 +564,10 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         whatsapp: "WhatsApp",
         contactLabel: (aksi, bus) => `${aksi} the ${bus} crew`,
         seatLine: (gerbong, kursi) => [gerbong ? `Carriage ${gerbong}` : null, kursi ? `seat ${kursi}` : null].filter(Boolean).join(", ") || null,
+        jump: { aria: "Jump to section", hotel: "Hotel", bus: "Bus", train: "Train", luggage: "Luggage", routes: "Directions" },
+        done: "done",
+        stayDone: (dari, sampai) => `Done · ${dari} – ${sampai}`,
+        tripsDone: (jumlah) => `${jumlah} ${jumlah === 1 ? "trip" : "trips"} done`,
         luggage: {
           title: "Luggage",
           count: (jumlah) => `${jumlah} ${jumlah === 1 ? "bag" : "bags"}`,
