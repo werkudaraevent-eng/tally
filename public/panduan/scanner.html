@@ -44,6 +44,9 @@ h1 { font-size: 30px; line-height: 1.15; font-weight: 800; margin: 6px 0 10px; t
 .lead { color: var(--muted); margin: 0; }
 nav.chips { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; margin-inline: -16px; padding-inline: 16px; border-bottom: 1px solid var(--line); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
 nav.chips::-webkit-scrollbar { display: none; }
+/* Fade on the right edge: the chip row scrolls sideways on a phone, and a cut-off chip alone does not say so. */
+nav.chips { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+nav.chips a:last-child { margin-right: 40px; }
 nav.chips a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; margin-right: 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-weight: 600; font-size: 14px; }
 nav.chips a:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 section { padding-top: 28px; scroll-margin-top: 64px; }
@@ -57,6 +60,8 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 ul { padding-left: 20px; margin: 8px 0; }
 li { margin: 4px 0; }
 .ui { font-family: var(--font-ui); font-size: .86em; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+/* Whole on-screen sentences may wrap; a nowrap sentence runs off a phone screen. */
+.ui.kalimat { white-space: normal; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 figure { margin: 16px auto; max-width: 300px; }
 figure img { display: block; width: 100%; height: auto; border-radius: 22px; border: 1px solid var(--line); box-shadow: 0 6px 20px rgb(0 0 0 / .12); }
 figcaption { font-size: 13px; color: var(--muted); text-align: center; margin-top: 8px; }
@@ -86,11 +91,11 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
   <header class="top">
     <p class="eyebrow">Tally · layar /scan</p>
     <h1>Panduan Tim Scanner</h1>
-    <p class="lead">Cara menyiapkan HP di meja registrasi, memindai badge, mencari nama, mendaftarkan tamu walk-in, dan mengecek riwayat. Tulisan di layar scanner berbahasa Inggris, jadi nama tombol di panduan ini ditulis persis seperti di layar.</p>
+    <p class="lead">Cara menyiapkan HP di meja registrasi, memindai badge, mencari nama, mendaftarkan tamu walk-in, mencatat bagasi titipan, dan mengecek riwayat. Tulisan di layar scanner berbahasa Inggris, jadi nama tombol di panduan ini ditulis persis seperti di layar.</p>
   </header>
 
   <nav class="chips" aria-label="Bagian panduan">
-    <a href="#mulai">Mulai</a><a href="#meja">Sesi &amp; meja</a><a href="#scan">Scan QR</a><a href="#hasil">Arti warna</a><a href="#cari">Find name</a><a href="#walkin">Walk-in</a><a href="#riwayat">Riwayat</a><a href="#masalah">Kalau ada masalah</a>
+    <a href="#mulai">Mulai</a><a href="#meja">Sesi &amp; meja</a><a href="#scan">Scan QR</a><a href="#hasil">Arti warna</a><a href="#cari">Find name</a><a href="#walkin">Walk-in</a><a href="#riwayat">Riwayat</a><a href="#bagasi">Bagasi</a><a href="#masalah">Kalau ada masalah</a>
   </nav>
 
   <section id="mulai">
@@ -200,15 +205,42 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
     <p>Ketuk <span class="ui">History</span> di menu bawah untuk melihat <span class="ui">Scans on this phone</span>: 20 pindaian terakhir dari HP ini, lengkap dengan jamnya.</p>
     <figure><img src="/panduan/scanner/14-riwayat.jpg" alt="Daftar Scans on this phone" loading="lazy"><figcaption>Status di kanan tiap nama</figcaption></figure>
     <ul>
-      <li><span class="ui">checked in</span> berhasil, <span class="ui">new</span> walk-in baru, <span class="ui">repeat</span> pindaian ulang, <span class="ui">failed</span> kode tidak dikenal.</li>
+      <li><span class="ui">checked in</span> berhasil (termasuk walk-in yang baru didaftarkan), <span class="ui">repeat</span> pindaian ulang, <span class="ui">failed</span> kode tidak dikenal.</li>
       <li>Riwayat hanya berisi pindaian dari HP ini sejak layar dibuka. Kalau halaman dimuat ulang, daftarnya kosong lagi, tetapi datanya tetap aman di server.</li>
       <li>Ragu apakah seseorang sudah hadir? Cari namanya di <span class="ui">Find name</span>. Orang yang sudah hadir bertuliskan <span class="ui">Checked in</span> beserta jamnya, dari meja mana pun.</li>
       <li>Angka besar di atas riwayat menghitung orang dari semua meja, bukan jumlah pindaian. Kotak itu juga menulis berapa yang belum hadir.</li>
     </ul>
   </section>
 
+  <section id="bagasi">
+    <h2><span class="no">7</span>Meja titip bagasi</h2>
+    <p>Hanya di sesi yang admin atur <span class="ui">Luggage: Drop-off</span>, misalnya <span class="ui">Titip bagasi</span>. Setelah peserta dipindai, lembar hasil meminta jumlah bagasi dan satu foto. Di sesi lain bagian ini tidak muncul.</p>
+    <ol class="steps">
+      <li>Pastikan judul atas menunjukkan sesi bagasi (ganti lewat judul itu kalau belum), lalu pindai QR peserta seperti biasa.</li>
+      <li>Hitung bagasi yang dititipkan (koper, tas, kardus), lalu atur angka <span class="ui">How many bags?</span> dengan tombol <span class="ui">−</span> dan <span class="ui">+</span>. Peserta tidak menitipkan apa pun? Biarkan 0; tombol simpan berubah menjadi <span class="ui">No luggage</span>.</li>
+      <li>Tekan <span class="ui">Take photo</span>. Kamera HP terbuka. Ambil satu foto berisi semua bagasi orang itu, dengan label bagasinya terlihat kalau ada. Foto kurang jelas? Tekan <span class="ui">Retake</span>.</li>
+      <li>Tekan tombol biru di bawah, misalnya <span class="ui">Save · 2 bags</span>. Setelah muncul <span class="ui kalimat">Saved. Scan the next participant.</span>, lanjut ke peserta berikutnya.</li>
+    </ol>
+    <div class="pair">
+      <figure><img src="/panduan/scanner/15-bagasi-jumlah.jpg" alt="Lembar hasil dengan isian How many bags? berisi 2 dan tombol Take photo" loading="lazy"><figcaption>Hitung, lalu Take photo</figcaption></figure>
+      <figure><img src="/panduan/scanner/16-bagasi-foto.jpg" alt="Foto bagasi sudah ditambahkan, tombol Save · 2 bags" loading="lazy"><figcaption>Photo added: tekan Save</figcaption></figure>
+    </div>
+    <figure><img src="/panduan/scanner/17-bagasi-tersimpan.jpg" alt="Catatan 2 bags dengan foto dan tulisan Saved. Scan the next participant." loading="lazy"><figcaption>Tersimpan: jumlah, foto, jam, dan nama akun petugas</figcaption></figure>
+    <h3>Sinyal lemah saat mengirim foto</h3>
+    <p>Jumlah bagasi selalu disimpan lebih dulu, baru fotonya menyusul. Kalau fotonya gagal terkirim, muncul tulisan oranye <span class="ui kalimat">The count is saved, but the photo did not upload.</span> Jumlahnya sudah aman. Tekan <span class="ui">Try photo again</span>, atau <span class="ui">Skip photo</span> kalau antrean panjang; catatannya tetap tersimpan, hanya tanpa foto (<span class="ui">no photo</span>).</p>
+    <figure><img src="/panduan/scanner/18-bagasi-foto-gagal.jpg" alt="Tulisan oranye The count is saved, but the photo did not upload, dengan tombol Skip photo dan Try photo again" loading="lazy"><figcaption>Foto gagal: jumlah tetap tersimpan</figcaption></figure>
+    <h3>Memindai ulang dan mengubah catatan</h3>
+    <p>Peserta yang sudah tercatat menampilkan catatannya: jumlah, foto, jam, dan siapa yang menyimpan. Ketuk fotonya untuk membukanya ukuran penuh di tab baru. Ada bagasi yang tertinggal atau salah hitung? Tekan <span class="ui">Edit</span>, ubah angkanya atau ambil foto baru, lalu simpan lagi.</p>
+    <figure><img src="/panduan/scanner/19-bagasi-scan-ulang.jpg" alt="Catatan bagasi yang sudah ada dengan tombol Edit" loading="lazy"><figcaption>Sudah tercatat: Edit untuk mengubah</figcaption></figure>
+    <ul>
+      <li>Lembar di meja bagasi tidak menutup sendiri. Kalau peserta berikutnya terpindai sebelum Anda menyimpan, muncul tulisan oranye <span class="ui kalimat">… is scanned and waiting. Save the luggage of … first.</span> Simpan dulu bagasi orang yang sedang terbuka; peserta berikutnya tampil sendiri setelahnya. <span class="ui">Skip</span> melompat ke peserta berikutnya <b>tanpa</b> menyimpan bagasi orang yang sedang terbuka.</li>
+      <li>Peserta bisa melihat jumlah dan foto bagasinya sendiri di Dashboard saya, kartu <span class="ui">Bagasi</span> di halaman Perjalanan. Foto hanya bisa dibuka petugas acara ini dan pemiliknya, dan dihapus 30 hari setelah acara selesai. Jumlahnya tetap tersimpan.</li>
+      <li>Total bagasi sesi ini (untuk memuat truk) ada di admin, Check-in › Sessions › sesi bagasi.</li>
+    </ul>
+  </section>
+
   <section id="masalah">
-    <h2><span class="no">7</span>Kalau ada masalah</h2>
+    <h2><span class="no">8</span>Kalau ada masalah</h2>
     <figure><img src="/panduan/scanner/08-tidak-tersimpan.jpg" alt="Lembar merah Not saved dan tanda Offline" loading="lazy"><figcaption>Not saved dan tanda Offline di atas</figcaption></figure>
     <div class="fix">
       <div><strong><span class="ui">Not saved</span> / tanda <span class="ui">Offline</span></strong><p>Koneksi putus, peserta belum tercatat. Tekan <span class="ui">Retry</span>. Tanda Offline hilang sendiri setelah pindaian berikutnya berhasil.</p></div>

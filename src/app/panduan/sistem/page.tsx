@@ -25,33 +25,69 @@ export const metadata = { title: "System guide — Tally" };
 
 export const dynamic = "force-dynamic";
 
+/** Satu gambar layar asli dengan data contoh. Tidak ada data peserta sungguhan: halaman ini terbuka tanpa login. */
+type Gambar = { src: string; alt: string; keterangan: string; lebar: number; tinggi: number };
+
+type Blok = {
+  judul: string;
+  /** Langkah bernomor, untuk tugas yang dikerjakan berurutan. */
+  langkah?: string[];
+  poin?: string[];
+  gambar?: Gambar;
+};
+
 type Bagian = {
   id: string;
   judul: string;
   ringkas: string;
-  isi: { judul: string; poin: string[] }[];
+  isi: Blok[];
 };
 
+const g = (nama: string, alt: string, keterangan: string, lebar: number, tinggi: number): Gambar => ({
+  src: `/panduan/sistem/${nama}`,
+  alt,
+  keterangan,
+  lebar,
+  tinggi,
+});
+
+/*
+ * Disusun per TUGAS ("taruh peserta di hotel sebelum nomor kamar ada"), bukan
+ * per menu, seperti pusat bantuan Eventbrite dan Whova: orang membuka panduan
+ * dengan satu pertanyaan, dan judul tugas menjawabnya lebih cepat daripada
+ * nama modul. Nama tombol ditulis persis seperti di layar.
+ *
+ * Gambar diambil dari layar admin asli dengan backend palsu (nama contoh).
+ * Saat layar yang digambar berubah, ambil ulang gambarnya di PR yang sama.
+ */
 const BAGIAN: Bagian[] = [
   {
-    id: "peta",
-    judul: "1. System map",
+    id: "mulai",
+    judul: "1. Before you start",
     ringkas: "What Tally contains, and who sees what.",
     isi: [
       {
         judul: "Three kinds of screen",
         poin: [
           "Staff workspace: at /e/<slug>/admin/…, sign-in required. Every module in the sidebar lives here.",
-          "Public pages: participants open them on their own phones without signing in. The event page, registration form, agenda, seating plan and participant code page.",
-          "Stage screens: shown on the projector. Leaderboard, lucky draw and live voting.",
+          "Participant pages: the event page, registration form, agenda, seating plan and the participant area (“Dashboard saya”), opened on participants' own phones.",
+          "Event-day screens: the scanner (/scan) on staff phones, and the stage screens (welcome screen, lucky draw, live voting, leaderboard) on a projector.",
         ],
       },
       {
         judul: "One event, one workspace",
         poin: [
-          "Each event has its own workspace. Booth, participant and order data never mix between events.",
-          "Switch events with the event name in the top bar. It is a menu, and picking another event takes you to the same page in that event.",
-          "The event's public address uses its slug: /e/<slug>. That is the address printed on invitations and QR codes.",
+          "Each event has its own workspace, staff access and data. Nothing mixes between events.",
+          "Switch events with the event name at the top of the sidebar. Picking another event opens the same page in that event.",
+          "Ctrl K (Quick search) finds any page or setting by name, in English or Indonesian.",
+        ],
+      },
+      {
+        judul: "Roles",
+        poin: [
+          "Admin: sets up and runs the events they hold. Super admin: every event, plus users, access, audit trail and danger zone.",
+          "Scanner staff: the /scan screen only. Booth staff and Cashier: their sales screens. Viewer: the client's read-only live list.",
+          "Every role except Super admin needs access to each event, given in Users & roles.",
         ],
       },
     ],
@@ -59,179 +95,385 @@ const BAGIAN: Bagian[] = [
   {
     id: "persiapan",
     judul: "2. Setup, in order",
-    ringkas: "This order is not a preference: each step needs the result of the one before it.",
+    ringkas: "Each step needs the result of the one before it.",
     isi: [
       {
-        judul: "a. Settings → Event tab",
+        judul: "a. Event settings",
         poin: [
-          "Choose the time zone FIRST. It decides what every time means across the system: orders, audit, agenda, leaderboard. Changing it after orders exist makes recorded times read differently.",
-          "Hand-over mode: items are handed over at the booth straight away, or after the cashier confirms payment. This changes the booth staff's steps and their printed guide.",
-          "Cashier confirmation: on means orders wait for the cashier to mark them paid; off means orders are paid at the booth.",
+          "Choose the time zone FIRST (WIB, WITA or WIT). Every time in the system means that zone: agenda, check-in, orders. Changing it later makes recorded times read differently.",
+          "Organiser contact, email sender name and reply-to. The organiser phone shows on the participant area's help card.",
         ],
       },
       {
         judul: "b. Users & roles",
         poin: [
-          "Create an account for each role: Booth staff (serves at a booth), Cashier, Scanner staff, Admin, Super admin.",
-          "One booth account per physical booth, not one account shared in turns. Order history follows the signed-in account.",
-          "An admin can reset a PIN at any time. An old PIN is never shown again after it is created.",
+          "Create an account per person and role, then give it access to this event. Staff sign in with a username and a 6-digit PIN.",
+          "An admin can reset a PIN at any time. An old PIN is never shown again.",
         ],
       },
       {
-        judul: "c. Booths & items",
+        judul: "c. Participants",
         poin: [
-          "Booths tab: booth code (printed and stuck on the booth), name, active status, and whether the booth takes orders.",
-          "Special items tab: items with a special price, a quota per participant, a minimum spend, and whether their value counts towards the leaderboard.",
-          "A new booth gets one built-in discount item. Set its details in the Special items tab.",
+          "Participant list: import an Excel file (template in Import), add people by hand, or sync from the external scanner system (Event settings → Integrations).",
+          "Import matches people on QR code, so re-importing a file updates them instead of adding them twice. Empty cells never erase data.",
+          "Columns you only need internally (Batch, Gender, Department) are staff-only questions: Registration → Edit form → turn off “Ask on the registration form”. They are then columns and filters, and conditions in Agenda and Directions.",
+          "Registration and invited guests: turn registration on when people register through the form; invited guests get a personal link.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "hotel",
+    judul: "3. Hotels and rooms",
+    ringkas:
+      "Logistics → Assignments places people, Rooms holds the hotels and rooms. Hotels often send the rooming list late, so place people in a hotel first and add room numbers when the list arrives.",
+    isi: [
+      {
+        judul: "Add hotels and rooms",
+        langkah: [
+          "Logistics → Rooms → Add hotel: name, address, map link, check-in and check-out time.",
+          "Add room under each hotel: room number, type, capacity, floor. You can skip this step and let the rooming-list import create the rooms.",
+          "Room rules (on the Rooms tab): pick the Gender field and turn on Same-gender rooms only, or allow mixed rooms. Until one is chosen, people can still be placed in a hotel, but not in a room.",
+        ],
+        gambar: g(
+          "logistik-kamar.jpg",
+          "Rooms tab with Hotel Melati and Hotel Kenanga, each with a To follow row and rooms 1208, 1210 and 1212",
+          "Rooms: each hotel shows how many people are waiting for a room, and a To follow row lists them.",
+          1100,
+          689,
+        ),
+      },
+      {
+        judul: "Place people in a hotel before you have room numbers",
+        langkah: [
+          "Logistics → Assignments. Use the Stay filter → No hotel to see who still needs one.",
+          "Tick the people, then press Assign to hotel.",
+          "Under the hotel, choose Hotel only, room later. Leave Nights on All nights.",
+          "Press Assign. The Stay column shows the hotel with “Room to follow”.",
+        ],
+        poin: [
+          "Participants already see the hotel name, address and dates, with “Nomor kamar menyusul”, once Room and bus is on (section 6).",
+          "Agenda rows and Directions blocks limited to a hotel (Who sees it → Hotel) already reach these people.",
+        ],
+        gambar: g(
+          "logistik-hotel-dulu.jpg",
+          "Assign 1 person to a hotel dialog with Hotel only, room later selected and the rooms of Hotel Melati listed",
+          "Assign to hotel: Hotel only, room later sits above each hotel's rooms.",
+          864,
+          1080,
+        ),
+      },
+      {
+        judul: "Add room numbers when the hotel sends the rooming list",
+        langkah: [
+          "Logistics → Import from Excel → Hotel rooms → Download template.",
+          "One row per person: Hotel, Room, then QR code (best) or Name. Rooms that don't exist yet are created; fill in Type and Capacity for them.",
+          "Choose the file. The preview lists every change before anything is saved; press Save.",
+        ],
+        poin: [
+          "For a few people, open Rooms, find the hotel's To follow row and add them to a room by hand.",
+          "Removing someone from a room keeps them in the hotel with their dates.",
+        ],
+        gambar: g(
+          "logistik-impor.jpg",
+          "Import rooms from Excel dialog with Download template and Download current stays",
+          "Import from Excel: the help text says what each column does.",
+          1000,
+          607,
+        ),
+      },
+      {
+        judul: "Someone changes hotel during the event",
+        langkah: [
+          "Tick the people who move, then Assign to hotel and choose the second hotel (Hotel only is fine).",
+          "Under Nights choose Only some nights and enter their Check-in and Check-out at the second hotel.",
+          "Read the sentence under the dates: it says what happens to their other hotel. Press Assign.",
+          "The Stay column now shows both, for example “1208 · Hotel Melati 5–6 Nov → Hotel Kenanga (Room to follow) 6–8 Nov”.",
+        ],
+        poin: [
+          "Click a person's Stay cell to open their Stays: Choose room or Change room, Change nights, Remove, and Add another hotel.",
+          "All nights replaces every other hotel the person has. Use it only for people who stay in one hotel.",
+          "Many people at once: Import from Excel → Download current stays, edit the file (one row per hotel, with Check-in and Check-out), and import it back. People in the file are set to match it; people not in the file are unchanged.",
+          "A dated rooming list from one hotel removes those people's stay at the other hotel. The preview warns about it.",
+          "Participants see one hotel card per stay; later ones read “Pindah hotel · Jum, 6 Nov”. Agenda rows limited by hotel follow the row's date, so on the move day both hotels see them.",
+        ],
+        gambar: g(
+          "logistik-beberapa-malam.jpg",
+          "Assign to hotel dialog with Only some nights selected and Check-in 06/11/2026, Check-out 08/11/2026",
+          "Only some nights keeps the person's other hotel for the other nights.",
+          864,
+          1080,
+        ),
+      },
+      {
+        judul: "Change one person's stays",
+        poin: [
+          "Assignments → click the Stay cell, or Participant list → the person → Logistics → Edit stays.",
+          "Each hotel shows its room (or Room to follow) and its nights. Choose room lists free places per room; full rooms can't be picked.",
+        ],
+        gambar: g(
+          "logistik-stays.jpg",
+          "Stays dialog for Budi Santoso: Hotel Melati room 1208 Thu 5 to Fri 6 Nov, Hotel Kenanga room to follow Fri 6 to Sun 8 Nov",
+          "Stays: one row per hotel, in date order.",
+          768,
+          603,
+        ),
+      },
+      {
+        judul: "Check who still needs something",
+        poin: [
+          "The line under the Logistics title counts people without a hotel and people waiting for a room.",
+          "Stay filter: No hotel, Room to follow, Has a room, Moves hotel. Bus filter: No bus, Has a bus.",
+        ],
+        gambar: g(
+          "logistik-penempatan.jpg",
+          "Logistics Assignments tab: 11 active participants, 6 without a hotel, 3 waiting for a room, with a Stay column",
+          "Assignments: the Stay column shows each person's hotels, rooms and nights.",
+          1100,
+          511,
+        ),
+      },
+    ],
+  },
+  {
+    id: "transport",
+    judul: "4. Buses, trains and kit",
+    ringkas: "The other Logistics tabs. Each one has its own Excel import with a preview.",
+    isi: [
+      {
+        judul: "Buses and trips",
+        poin: [
+          "Buses → Add bus: name, capacity, plate and crew contact. Choose what participants see: bus name only, plate, crew, or plate and crew.",
+          "Put people on their default bus: Assignments → tick → Assign to bus.",
+          "Add trip for each departure (meeting point, from, to, time). Link it to an Agenda row so the departure moves when the row's time changes, and the participant schedule shows the bus on that row. A trip can use other buses than the default ones.",
         ],
       },
       {
-        judul: "d. Participants",
+        judul: "Train tickets",
         poin: [
-          "Participant list: pull from the Event Scanner API, import a file, or add people by hand, depending on the participant source chosen for the event.",
-          "Registration: turn it on when participants register themselves through the form. Build the questions on the same page, then review incoming registrants.",
-          "Invited guests: on the Invited guests tab of Registration, add people one by one or import an Excel file, then send each one a personal registration link.",
-          "Participant codes are issued straight away for events that approve registrations automatically. For moderated events, the code is issued once staff press Approve.",
+          "Trains → Add train ticket, or Import from Excel → Train tickets, matched by QR code: outbound or return, train, class, stations, date, times, carriage, seat, booking code.",
+          "Participants see their own tickets in Perjalanan, with an Add to calendar file.",
+        ],
+      },
+      {
+        judul: "Kit items",
+        poin: [
+          "Kit items → Add kit item: name, optional size taken from a participant field, a note for participants.",
+          "Choose the check-in point that hands it out on the Check-in page. The scanner then shows a checklist after each scan, and each item can be collected once per person.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "dari-peserta",
+    judul: "5. Logistics from the Participant list",
+    ringkas: "The same Logistics dialogs, without leaving the list you are already filtering.",
+    isi: [
+      {
+        judul: "Assign or remove many people at once",
+        langkah: [
+          "Filter the Participant list (for example Batch is Batch 2), then tick the people.",
+          "In the bar that appears, open Logistics: Assign to hotel or room, Assign to bus, Remove from hotel, Remove from bus.",
+          "The Logistics dialog opens; capacity and room rules are checked the same way as on the Logistics page.",
+        ],
+        gambar: g(
+          "peserta-menu-logistik.jpg",
+          "Participant list selection bar with the Logistics menu open: Assign to hotel or room, Assign to bus, Remove from hotel, Remove from bus",
+          "Participant list → tick people → Logistics.",
+          1280,
+          300,
+        ),
+      },
+      {
+        judul: "One person, columns and export",
+        poin: [
+          "Click a person: the Logistics section lists every stay, the bus, both trains and the kit collected, with Edit stays and Change bus.",
+          "Columns → Hotel, Room, Hotel check-in, Hotel check-out (numbered Hotel 1, Hotel 2 when someone moves), Bus, each train field, one column per kit item. They are hidden until you choose them.",
+          "Export includes them as read-only “logistics: …” columns. The participant import skips those columns, so an exported file can be re-imported safely.",
+          "Import asks what you are importing: Participant details, or Hotels, rooms, buses, train tickets (the Logistics import).",
+        ],
+      },
+    ],
+  },
+  {
+    id: "peserta-lihat",
+    judul: "6. What participants see",
+    ringkas: "Nothing from Logistics reaches participants until you turn it on.",
+    isi: [
+      {
+        judul: "Turn it on",
+        poin: [
+          "Participant area → What shows → Room and bus (off by default). On Gathering Horizon, hotel, bus, trains and luggage then appear in Perjalanan; other layouts show them on the participant home.",
+          "Participants see only their own hotel, room, roommates, buses, trains and kit, never anyone else's (roommates' names only).",
+        ],
+      },
+      {
+        judul: "Show a row or a route only to some people",
+        poin: [
+          "Agenda → Edit item → Who sees it: Everyone, or Some participants with up to 3 conditions (a dropdown or choice field such as Batch, or Hotel). Other participants, the public page and badges never get the row.",
+          "Event page → Directions block → Who sees it works the same way for routes (for example lobby to ballroom, only for one hotel's guests).",
+          "Agenda → section → Show first for only sorts: a participant's own batch section comes first, nothing is hidden.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "checkin",
+    judul: "7. Check-in and scanners",
+    ringkas: "Check-in sessions are the scan points: the entrance, each session, kit hand-out, the luggage desks.",
+    isi: [
+      {
+        judul: "Set up the scan points",
+        langkah: [
+          "Check-in → Sessions → add a session per scan point (Registration, Luggage drop, Luggage pick-up, Gala dinner). Each one has its own scanner address, /scan?sesi=<session>.",
+          "Turn on kit items for the session that hands them out, and set Luggage on the luggage desks (Drop-off or Pick-up).",
+          "With more than one physical desk, add the desks so each phone picks its own; each desk can drive its own welcome screen.",
+          "Walk-ins: allow them only if the desk may register people on the spot.",
+          "Give each scanner phone a Scanner staff account with access to this event.",
+        ],
+      },
+      {
+        judul: "Luggage desks",
+        poin: [
+          "Check-in → Sessions → the session → Luggage: Off (default), Drop-off or Pick-up.",
+          "Drop-off: after each scan, staff enter the number of bags and take one photo of them. The count is saved first, so a weak signal never loses it.",
+          "Pick-up: after each scan, staff see the bags and photo from every drop-off desk, then press Hand over. Each drop-off is handed over once; staff can undo their own handover.",
+          "Participants see their own count and photo in Perjalanan (Bagasi card), and the pick-up time once collected. Photos are private and are deleted 30 days after the event ends; the counts stay.",
+          "Test both desks on a scanner phone before the rehearsal: drop off, re-scan to see the record, then pick up.",
+        ],
+      },
+      {
+        judul: "Scanner crew and rehearsals",
+        poin: [
+          "The scanner has its own guide in Indonesian: on /scan, ⋮ → Scanner guide. Share it with the crew before the event.",
+          "After a rehearsal, reset test scans per person: Participant list → the person → Check-in → reset one point or Reset all. A copy goes to the audit trail.",
+          "A session with scans can only be closed, not deleted.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "checkpoint",
+    judul: "8. Checkpoints",
+    ringkas: "Steps participants tick off (collect the badge, collect train tickets, hand in luggage), shown as a card in the participant area.",
+    isi: [
+      {
+        judul: "Set them up",
+        langkah: [
+          "Check-in → Checkpoints → turn on Show in participant area.",
+          "Add a checkpoint: title, where, and what records it (a scan at a session, or a kit item collected).",
+          "How it gets done: Staff (default), Participants (they scan a checkpoint QR from their phone) or Both.",
+          "When (optional): link one or more Agenda rows. Each participant sees the date of the earliest linked row they can see, so Batch 1 and Batch 2 can get different dates.",
+          "Points and a points goal are optional; a lucky draw prize can require the goal.",
+        ],
+        poin: [
+          "Order is shown, not enforced: the desk never turns anyone away for a skipped step.",
         ],
       },
     ],
   },
   {
     id: "publik",
-    judul: "3. Public pages",
-    ringkas: "What participants see before the event day, on their own phones.",
+    judul: "9. Event page and agenda",
+    ringkas: "What participants see before the event, on their own phones.",
     isi: [
       {
         judul: "Event page",
         poin: [
-          "Content of /e/<slug>: banner, date, venue, description, key figures, agenda, FAQ, sponsors and staff contacts.",
-          "A section that is turned on but has no content does NOT appear on the public page. There is no heading left hanging over an empty space.",
-          "Brand colours are set here, and the registration page follows them. A switch lets the form use different colours when it must.",
-          "The preview in the editor loads the real public page. It shows the SAVED version, so press Save first.",
+          "Start from a preset (Conference, Forum, Gathering, Gathering Horizon), then change texts, colours and sections. A section turned on but empty is not shown.",
+          "Blocks (Modern layout) choose where they show: event page, participant area, or both.",
+          "The editor preview shows the SAVED version, so press Save first.",
         ],
       },
       {
         judul: "Agenda",
         poin: [
-          "The programme, item by item. Three places share it: the event page, the public agenda screen, and the “now on” marker.",
-          "Fill it in once here. There is no need to retype it on the event page.",
+          "Fill it in once: the event page, the /rundown screen, the participant schedule, bus trips and checkpoints all read it.",
+          "New sections start as drafts; publish them when they are ready.",
+          "Dress code (Gathering Horizon): Agenda → Dress code per day, and Participant area → Dress code page for the every-day line.",
         ],
       },
       {
         judul: "Seating plan",
-        poin: [
-          "A map of tables and seats that participants open at /denah to find where they sit.",
-          "Seat assignments can come from sub-events in the Scanner API, or be set by hand.",
-        ],
+        poin: ["A map of tables and seats that participants open at /denah to find where they sit. Seats come from the external scanner system or are set by hand."],
       },
     ],
   },
   {
     id: "panggung",
-    judul: "4. Stage screens",
-    ringkas: "Three screens that come alive while the MC holds the microphone. Open them in a separate window, then send it to the projector.",
+    judul: "10. Stage screens",
+    ringkas: "Open them in a separate window before the MC starts, then send it to the projector.",
     isi: [
-      {
-        judul: "Leaderboard",
-        poin: [
-          "Shows participants' spending ranking on the projector. Title, colours, logo and layout are set in this module.",
-          "Staged reveal: ranks open one at a time on the MC's cue instead of all at once. Its controls are on a separate page in the same module.",
-          "Exclusions: take certain names off the board, such as staff who also made purchases.",
-          "Amounts can be hidden. The figures are then never sent to the screen at all, not merely covered up.",
-        ],
-      },
       {
         judul: "Lucky draw",
         poin: [
-          "Prize list, participant eligibility rules, screen title, stage effects and background colour.",
-          "The operator panel is used during the event: choose a prize, run the draw, then CONFIRM the winner. A draw does not finish on its own. Without confirmation, the result is not recorded.",
-          "Draw readiness at the top of the module tells you what is still missing before the draw can run.",
+          "Prizes & rules: prizes, who may win (conditions such as checked in, checkpoint points, form answers), win-again rules and stage look.",
+          "Operator panel: choose a prize, draw, then CONFIRM the winner. Without confirmation the result is not recorded. Rehearsal mode records nothing.",
+          "Readiness at the top says what is still missing before a draw can run.",
         ],
       },
       {
-        judul: "Live voting",
+        judul: "Live voting and welcome screen",
         poin: [
-          "Questions and their options, opened and closed by staff while the event runs.",
-          "The stage screen shows results that move as votes come in. Results can be exported per question.",
-          "Votes can be cleared if a test run was recorded by mistake.",
-        ],
-      },
-    ],
-  },
-  {
-    id: "hari-h",
-    judul: "5. Event day",
-    ringkas: "The usual order, from the moment participants arrive until the event ends.",
-    isi: [
-      {
-        judul: "Check-in desk",
-        poin: [
-          "Participants show their participant code (number or QR) from the email, their code page, or a saved image.",
-          "Staff can always see the code in the Registration module, so a participant who lost their code can still be served.",
+          "Live voting: questions opened and closed by staff; results move on the stage screen as votes come in.",
+          "Welcome screen: a TV at the entrance greets each guest by name when they are scanned.",
         ],
       },
       {
-        judul: "Booth",
+        judul: "Leaderboard (booth events)",
         poin: [
-          "Booth staff use the /booth screen: scan the participant's QR, choose items, enter the amount, save.",
-          "The full steps are in the printed operator guide. Print it and leave it at the booth desk.",
-        ],
-      },
-      {
-        judul: "Stage",
-        poin: [
-          "Open the stage screens in a separate window before the event starts, not once the MC is already speaking.",
-          "The leaderboard updates within a few seconds every time its settings are saved. There is no need to reload the projector screen.",
+          "Spending ranking from booth orders, with a staged reveal and exclusions. Amounts can be hidden; they are then never sent to the screen.",
         ],
       },
     ],
   },
   {
     id: "sesudah",
-    judul: "6. After the event",
+    judul: "11. After the event",
     ringkas: "Closing the books and keeping the record.",
     isi: [
       {
-        judul: "Orders & reports",
+        judul: "Exports, orders and audit",
         poin: [
-          "Orders: every order, with filters for status and booth, and search by sticker number.",
-          "Reports: revenue summary, per booth, and reconciliation figures to check against the cash.",
-        ],
-      },
-      {
-        judul: "Audit trail",
-        poin: [
-          "Under Settings → Audit trail tab, for Super admins only.",
-          "Records who changed what and when: settings, special items, booths, accounts, and data resets.",
+          "Participant list → Export: follows your filters, with check-in per session and the logistics columns.",
+          "Orders and Reports (booth events): every order, revenue per booth, reconciliation against the cash.",
+          "Audit trail (Super admin, Event settings): who changed what and when.",
         ],
       },
     ],
   },
   {
     id: "masalah",
-    judul: "7. Common problems",
+    judul: "12. Common problems",
     ringkas: "",
     isi: [
       {
-        judul: "A section that is turned on does not appear on the public page",
-        poin: ["Sections without content are not shown. Add the content first, then press Save."],
-      },
-      {
-        judul: "A participant did not get the code email",
+        judul: "A participant does not see their hotel or bus",
         poin: [
-          "Sending email needs an email provider key set on the server. Without it, the review screen says so plainly instead of showing “send failed”.",
-          "Staff can still read the code out from the Registration module, and participants have a code page link they can open at any time.",
+          "Check Participant area → Room and bus is on.",
+          "Check the person has a stay on Logistics → Assignments (Stay filter → No hotel).",
         ],
       },
       {
-        judul: "The time on screen differs from the time in the room",
-        poin: ["Check the time zone in Settings → Event. The whole system uses that zone, not the zone of a staff laptop."],
+        judul: "Assign to hotel shows no rooms",
+        poin: [
+          "Room rules are incomplete: choose the Gender field or allow mixed rooms on the Rooms tab. Hotel only, room later still works meanwhile.",
+          "Rooms without enough space for everyone selected are hidden; tick “Also show rooms without enough space”, or select fewer people.",
+        ],
       },
       {
-        judul: "Leaderboard figures look wrong",
+        judul: "An agenda row is missing for some participants",
+        poin: ["Open the row → Who sees it. “Matches N of M participants” says how many see it; a red “Nobody sees this row” means a chosen answer or field was deleted."],
+      },
+      {
+        judul: "The time on screen differs from the time in the room",
+        poin: ["Check the time zone in Event settings. The whole system uses that zone, not the zone of a staff laptop."],
+      },
+      {
+        judul: "A participant did not get an email",
         poin: [
-          "Check which special items count towards the leaderboard. There is a switch per item.",
-          "Check the participant exclusions list in the Leaderboard module.",
+          "Messages → the blast → the per-recipient report says whether it was sent, and why not.",
+          "Participants can always sign in from the event page; staff can resend a sign-in link from Messages.",
         ],
       },
     ],
@@ -255,8 +497,8 @@ export default async function PanduanSistemPage({
         <p className="ed-label border-b border-outline-variant pb-4 text-on-surface-variant">System guide</p>
         <h1 className="mt-6 text-display-small font-bold tracking-tight">How to use Tally</h1>
         <p className="mt-4 max-w-[68ch] text-body-large leading-8 text-on-surface-variant">
-          Every module, in working order: what to set up first, what to use while the event runs, and what to
-          wrap up afterwards.
+          Organised by task, in working order: what to set up first, how to place people in hotels and on buses,
+          what to use while the event runs, and what to wrap up afterwards.
           {event ? <> You opened this guide from the <span className="font-semibold text-on-surface">{event.name}</span> workspace.</> : null}
         </p>
 
@@ -307,14 +549,45 @@ export default async function PanduanSistemPage({
               {bagian.isi.map((blok) => (
                 <div key={blok.judul} className="border border-outline-variant bg-panel p-5">
                   <h3 className="text-title-medium font-semibold">{blok.judul}</h3>
-                  <ul className="mt-3 space-y-2">
-                    {blok.poin.map((poin) => (
-                      <li key={poin} className="flex gap-3 text-body-medium leading-6 text-on-surface-variant">
-                        <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
-                        <span>{poin}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {blok.langkah ? (
+                    <ol className="mt-3 space-y-2">
+                      {blok.langkah.map((langkah, i) => (
+                        <li key={langkah} className="flex gap-3 text-body-medium leading-6 text-on-surface">
+                          <span aria-hidden className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-label-medium font-semibold text-on-primary">
+                            {i + 1}
+                          </span>
+                          <span>{langkah}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {blok.poin ? (
+                    <ul className="mt-3 space-y-2">
+                      {blok.poin.map((poin) => (
+                        <li key={poin} className="flex gap-3 text-body-medium leading-6 text-on-surface-variant">
+                          <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
+                          <span>{poin}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {blok.gambar ? (
+                    <figure className="mt-4">
+                      {/* Gambar layar admin: dibuka di tab baru untuk dilihat ukuran penuh di ponsel. */}
+                      <a href={blok.gambar.src} target="_blank" rel="noreferrer" className="block">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- gambar statis di public/, sudah dikecilkan */}
+                        <img
+                          src={blok.gambar.src}
+                          alt={blok.gambar.alt}
+                          width={blok.gambar.lebar}
+                          height={blok.gambar.tinggi}
+                          loading="lazy"
+                          className="h-auto w-full max-w-[640px] rounded-md border border-outline-variant"
+                        />
+                      </a>
+                      <figcaption className="mt-2 text-body-small text-on-surface-variant">{blok.gambar.keterangan}</figcaption>
+                    </figure>
+                  ) : null}
                 </div>
               ))}
             </div>

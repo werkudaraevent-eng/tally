@@ -1,11 +1,12 @@
 # Setup Cron
 
 Vercel Hobby plan hanya mengizinkan cron sekali sehari, jadi penjadwalan tidak
-memakai `vercel.json`. Kedua job dibagi berdasarkan karakternya:
+memakai `vercel.json`. Job dibagi berdasarkan karakternya:
 
 | Job | Dijalankan oleh | Alasan |
 | --- | --- | --- |
-| Auto-void order pending | **Supabase `pg_cron`** | Murni operasi database, tidak perlu HTTP. Paling andal. |
+| Auto-void order pending (`tally-auto-void`) | **Supabase `pg_cron`** | Murni operasi database, tidak perlu HTTP. Paling andal. |
+| Pesan peserta (`tally-pesan`), domain klien (`tally-domain`), foto bagasi (`tally-bagasi-foto`) | **Supabase `pg_cron` + `pg_net`** | Database memeriksa dulu apakah ada pekerjaan, lalu memanggil route Next.js dengan rahasia dari Vault. |
 | Sync peserta | **cron-job.org** | Perlu memanggil Scanner API lewat kode Next.js. |
 
 ## Auto-void — sudah aktif di Supabase

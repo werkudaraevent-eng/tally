@@ -1730,8 +1730,8 @@ html:hover {
  * dari peran `body-medium` di @layer base, jadi menghapusnya tidak mengubah
  * apa pun kecuali membiarkan pengecualian bekerja. */
 
-/* Jalan keluar untuk kolom yang jarak hurufnya memang punya alasan: PIN enam
- * digit, kode peserta, nomor order. Ramp di atas menyetel `letter-spacing` per
+/* Jalan keluar untuk teks yang jarak hurufnya memang punya alasan. Satu-satunya
+ * pemakai sekarang: label "Tally" di halaman masuk staf. Ramp di atas menyetel `letter-spacing` per
  * peran dan karena tidak berlapis ia mengalahkan `tracking-*` dari utilitas,
  * jadi pengecualian harus ditulis dengan kekhususan yang sama dan ditaruh
  * SESUDAHNYA. Hanya itu yang membuatnya menang.
