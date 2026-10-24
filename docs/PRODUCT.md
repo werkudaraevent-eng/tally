@@ -81,7 +81,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 
 | Feature | Today | Priority | Reference |
 | --- | --- | --- | --- |
-| Hotel rooms, buses, trains, kit items | Yes | | |
+| Hotels (rooms later, hotel changes mid-event), buses, trains, kit items, luggage drop | Yes | | |
 | Flight tickets | No | P2 | Airline app boarding pass |
 | Seating plan and seat assignment | Yes | | Cvent seating |
 | Choose parallel sessions, with capacity | No | P2 | Cvent session selection, Sched |
@@ -197,9 +197,11 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **CMS (Participant list):**
   - Add, import (CSV/XLSX with templates; preview first, then apply), export (follows filters), client view link.
   - Import matches on QR code; new rows get a code; duplicate email/phone is rejected; empty cells never erase data.
-  - Columns and filters: registration, RSVP, room, bus, seat, source, type, check-in, lucky draw, plus every form question.
-  - Bulk: send message (opens a draft blast), export, delete.
-  - Detail panel: check-in per session with reset, logistics, seat, lucky-draw exclusion, contact, answers.
+  - Columns and filters: registration, RSVP, hotel, bus, seat, source, type, check-in, lucky draw, plus every form question. Logistics columns (hidden until chosen in Columns): Hotel, Room, Hotel check-in and Hotel check-out per stay (numbered Hotel 1, Hotel 2 only when someone moves hotels), each outbound and return train field, one column per kit item.
+  - Export follows the filters and adds the Logistics columns read-only (`logistics: Hotel 1`, ...) after the session columns; the importer skips them.
+  - Bulk: send message (opens a draft blast), export, delete, and a Logistics menu (Assign to hotel or room, Assign to bus, Remove from hotel, Remove from bus) that opens the same dialogs as the Logistics page.
+  - Import asks what to import: Participant details, or Hotels, rooms, buses, train tickets (the Logistics import).
+  - Detail panel: check-in per session with reset, logistics (every stay with room and dates, bus, trains, kit collected; Edit stays and Change bus), seat, lucky-draw exclusion, contact, answers.
   - Sources: manual, external scanner system, public form, or both. The external sync is set in Event settings → Integrations (switch, slug, key, sync now, auto interval); a scheduled job also syncs every active or draft event that uses it. People removed at the source are kept and labelled.
 - **Reset check-in:** one session or all; previews what changes; winners already drawn stay; copied to the audit trail first.
 
@@ -218,14 +220,16 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 ### Logistics
 - **For:** admins assign; participants see their own; scanners hand out kit.
 - **CMS (Logistics):**
-  - Assignments: put many participants in a room or on a default bus.
-  - Rooms: hotels (name, address, map, check-in/out), rooms (number, capacity, type, floor, staff note), gender field and same-gender rooms rule.
+  - Assignments: put many participants in a hotel or a room, or on a default bus. "Hotel only, room later" places people in a hotel before the rooming list arrives; room rules apply only to rooms. Nights: All nights (replaces the person's other hotels) or Only some nights (keeps their other hotels for the other nights; a sentence says what happens before Assign). Filters: No hotel, Room to follow, Has a room, Moves hotel. The Stay column lists each person's stays ("GRAMM Hotel 5–6 Nov → Hotel Tentrem (Room to follow) 6–8 Nov"); its Stays panel changes nights, picks or changes the room, removes a stay or adds another hotel.
+  - Stays: a participant has at most one stay per hotel, each with its own nights (empty dates follow the room, then the hotel). Nights never overlap; a new stay trims the other one.
+  - Rooms: hotels (name, address, map, check-in/out), rooms (number, capacity, type, floor, staff note), gender field and same-gender rooms rule. Each hotel shows "N waiting for a room" with a To follow row; Remove from room keeps the hotel and the dates. A hotel with guests can't be deleted.
   - Buses: name, capacity, plate, crew contact, default passengers; show plate / crew contact to participants (both off by default).
   - Trips: name, departure, from, to, meeting point, default or per-trip buses; can follow an agenda item's time.
   - Trains: direction, train, class, stations, date, times, carriage, seat, booking code.
   - Kit items: name, size taken from a field, note for participants. Which check-in points hand them out is set in Check-in.
-  - Import from Excel for rooms, buses, train tickets (templates, preview first).
-- **Shows at:** participant area when "Room and bus" is on (off by default): room, roommates, bus per trip, trains (with a calendar file), kit items. Horizon puts them in Perjalanan. With three or more travel cards, a row of chips (Hotel, Bus, Kereta, Bagasi, Rute) sticks under the header and jumps to each card; finished items fold into one row that opens on tap: a hotel stay after its check-out, bus trips already departed, a train leg already arrived (event time zone; preview time applies).
+  - Import from Excel for rooms, buses, train tickets (templates, preview first). Rooms: an empty Room column places the person hotel only, and a later rooming list fills the room by QR code; Check-in and Check-out columns (empty = the hotel's dates) give one row per hotel for people who move. Download current stays exports every stay to edit and import back; people in the file are set to match it, others are unchanged.
+  - The same actions are on the Participant list (selection Logistics menu, detail panel, Import).
+- **Shows at:** participant area when "Room and bus" is on (off by default): hotel (with "Nomor kamar menyusul" until a room is set), room, roommates, bus per trip, trains (with a calendar file), kit items. Horizon puts them in Perjalanan with one hotel card per stay ("Pindah hotel · Jum, 6 Nov" on later ones). With three or more travel cards, a row of chips (Hotel, Bus, Kereta, Bagasi, Rute) sticks under the header and jumps to each card; finished items fold into one row that opens on tap: a hotel stay after its check-out, bus trips already departed, a train leg already arrived (event time zone; preview time applies). Modern and Classic show the current or next hotel. Who sees it by hotel (Agenda rows, Directions blocks) reads the stay: Agenda rows match the hotel of that row's date (both hotels on the move day), Directions blocks match any of the person's hotels.
 - **Rule:** capacity and gender are re-checked by the database; only active participants count.
 
 ### Messages
@@ -245,7 +249,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Dress code page (Horizon): Every day, one dress code for the whole event (what to wear, optional note and photo; empty means none), shown first on every day, also without Agenda tabs, except on a tab with its own Whole day line; and Page name for the whole event (empty reads "Outfit"). A day's or an agenda item's dress code is set in Agenda > Dress code.
   - Emergency and help (Horizon): card title, note, up to 8 contacts with call, WhatsApp and map buttons.
   - What shows: QR code (on), seat, agenda, room and bus (off), live voting, feedback link.
-- **Horizon portal tabs:** Beranda, Acara, Perjalanan, Pengumuman, Profil/Menu, and a QR button in the bottom bar. The QR can be saved for offline use. Outfit is part of Acara: a strip on each Schedule day with outfits opens the Outfit page (back to Susunan acara, Acara stays lit), and both follow the participant's batch. With the Schedule hidden for participants, Outfit is a desktop tab and a Menu row instead.
+- **Horizon portal tabs:** Beranda, Acara, Perjalanan, Pengumuman, Profil/Menu, and a QR button in the bottom bar. The QR can be saved for offline use. Outfit is part of Acara: a strip on each Schedule day with outfits opens the Outfit page (back to Susunan acara, Acara stays lit), and both follow the participant's batch; an outfit photo opens full screen with its time, outfit and note as caption. With the Schedule hidden for participants, Outfit is a desktop tab and a Menu row instead.
 - **Horizon Home ("Hari ini"):** "Halo, {Nama}" under today's date and the event phase (before, during or after, from the event dates). Below 1024 px the cards follow Participant home; by default Announcements, Now and next (with the bus of a Logistics trip linked to the row), the day's outfit (the next date's before the event), Checkpoints, travel (the full pass before the event; during it a Perjalananmu summary of hotel, roommates and the next train), organiser blocks, and Contact the organisers. Now and next stays first (only Announcements may go above it) and Contact the organisers last; the outfit and Contact the organisers can be hidden. From 1024 px a main column (Now and next, Checkpoints, travel, blocks, help) and a sticky side column with Announcements, the outfit and, from the start of the event, the QR kehadiran card. After the event: announcements, checkpoint progress, blocks and help.
 - **Shows at:** `/e/<slug>/peserta` (and `/en/peserta`), sign-in `/e/<slug>/masuk`, update details `/e/<slug>/lengkapi`, event calendar `/e/<slug>/kalender.ics`.
 
@@ -256,13 +260,14 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Registration desks (lanes): one per physical desk, open/closed; each desk can drive its own welcome screen.
   - Walk-ins: allow walk-ins (off by default); the form follows the registration form fields.
   - Checkpoints (below).
-- **Scanner screen** `/e/<slug>/scan?sesi=<session>`: camera QR, name search, or a handheld scanner. Results: recorded, already recorded, not found, walk-in created. Shows the seat, kit items to hand out (once per person), and can print a label. With several desks, the phone must pick its desk first.
+- **Scanner screen** `/e/<slug>/scan?sesi=<session>`: camera QR, name search, or a handheld scanner. Results: recorded, already recorded, not found, walk-in created. Shows the seat, kit items to hand out (once per person), and can print a label. With several desks, the phone must pick its desk first. The ⋮ menu opens the Scanner guide (`/panduan/scanner.html`, Indonesian with the English button names).
 - **Luggage pick-up desk** (session with Luggage: Pick-up): after the scan, the sheet shows every drop-off of that participant in the event, from any drop-off desk (no pairing to set up): a large photo to match the bags against, the count, when and where it was dropped and who recorded it. "Hand over N bags" records the time and staff; the next scan waits until it is pressed or the sheet is closed. A re-scan says who handed it over and when, with no second handover; staff can Undo their own handover. Someone with no drop-off gets "No luggage recorded". The participant's Bagasi card then reads "Sudah kamu terima" with the pick-up time. All bags of one drop-off go back together (no partial pick-up).
 - **Luggage drop-off desk** (session with Luggage: Drop-off): after the scan, staff set the number of bags (0 = "No luggage") and take one photo of all of them with the phone camera; the count is saved first and the photo (shrunk on the phone) follows, with Try photo again or Skip photo on a weak signal. The next scan waits until it is saved. A re-scan shows the count, photo, time and who saved it, with Edit. Checkpoints on such a session are always done by staff scan. Photos sit in a private bucket: admins and scanners of the event see them, each participant sees their own (Horizon Perjalanan "Bagasi" card), and they are deleted 30 days after the event ends; counts stay.
 
 ### Checkpoints
 - **For:** participants tick off steps (collect ID card, visit a stand); staff or participants record them.
-- **CMS (Check-in → Checkpoints):** show in participant area, points, points goal and what it's for; per checkpoint a title, where, recorded by (a session scan or a kit hand-out), how it gets done (staff scan, participant scans the checkpoint QR, or both), points, English text, order.
+- **CMS (Check-in → Checkpoints):** show in participant area, points, points goal and what it's for; per checkpoint a title, where, recorded by (a session scan or a kit hand-out), how it gets done (staff scan, participant scans the checkpoint QR, or both), When (optional: one or more Agenda rows, one per batch when the dates differ), points, English text, order.
+- **Date on the card:** each participant sees the date and time of the earliest linked Agenda row they can see (Who sees it), with "Hari ini" and "Besok" on Horizon; a checkpoint without When has no date.
 - **Shows at:** participant home card; the checkpoint QR screen `/e/<slug>/checkpoint-qr` (signed-in staff); the participant self-scan page `/e/<slug>/pindai`. Points and goals feed lucky-draw conditions. The desk never turns anyone away for a skipped step.
 
 ### Badges & labels

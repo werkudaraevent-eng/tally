@@ -19,6 +19,7 @@ Read `docs/STATUS.md` before you start: it says what is in flight, what waits on
 ## Every PR updates docs/STATUS.md
 
 - Each PR changes `docs/STATUS.md` in the same PR: move the item between "In flight" and done, add the Lows you park, remove the ones you fix, change "Waiting on".
+- A PR that changes what staff see on `/scan` also updates the Scanner guide (`public/panduan/scanner.html`, opened from ⋮ > Scanner guide) and its screenshots in `public/panduan/scanner/`: real scanner renders with fake data only, never real participants (the page is public).
 - History lives in `git log` and PR descriptions. Do not keep a hand-written changelog: a second copy drifts. Write PR descriptions so they stand alone (Before / After / How, what was tested).
 - Never put credentials, project refs, internal URLs, people's emails or unfixed security weaknesses in this repo (it is public). Write only "open security items are tracked privately with the project owner".
 
