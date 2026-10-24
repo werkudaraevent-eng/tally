@@ -130,18 +130,19 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
     <h2><span class="no">2</span>Scan QR</h2>
     <ol class="steps">
       <li>Di tab <span class="ui">Scan</span> (menu bawah), tekan <span class="ui">Turn on camera</span>. Izinkan kamera kalau browser bertanya.</li>
-      <li>Arahkan QR di badge atau HP peserta ke dalam kotak putih. Tidak perlu menekan apa pun, kamera membaca sendiri.</li>
-      <li>Saat terbaca, tulisan di kiri atas berubah jadi <span class="ui">Read, saving…</span>, lalu lembar hasil muncul dari bawah dengan bunyi.</li>
+      <li>Kamera memenuhi layar. Arahkan QR di badge atau HP peserta ke dalam bingkai bersudut putih. Tidak perlu menekan apa pun, kamera membaca sendiri.</li>
+      <li>Saat terbaca, sudut bingkai berubah biru dan tulisan di bawah bingkai menunjukkan kodenya, lalu lembar hasil berwarna penuh muncul dari bawah dengan bunyi.</li>
       <li>Baca nama di lembar hasil, cocokkan dengan orangnya, lalu lanjut ke peserta berikutnya.</li>
     </ol>
     <div class="pair">
       <figure><img src="/panduan/scanner/03-kamera-mati.jpg" alt="Layar Scan dengan kamera mati dan tombol Turn on camera" loading="lazy"><figcaption>Nyalakan kamera sekali</figcaption></figure>
-      <figure><img src="/panduan/scanner/04-kamera-nyala.jpg" alt="Kamera menyala dengan kotak bidik dan tulisan Ready to scan" loading="lazy"><figcaption>Ready to scan: arahkan QR ke kotak</figcaption></figure>
+      <figure><img src="/panduan/scanner/04-kamera-nyala.jpg" alt="Kamera menyala memenuhi layar dengan bingkai bidik" loading="lazy"><figcaption>Arahkan QR ke dalam bingkai</figcaption></figure>
     </div>
     <ul>
       <li>Kamera tetap menyala untuk peserta berikutnya. Kamera mati sendiri kalau Anda pindah tab atau HP dikunci; tekan <span class="ui">Turn on camera</span> lagi.</li>
-      <li>Kotak <span class="ui">All desks</span> di atas menunjukkan berapa orang sudah hadir di sesi ini dari semua meja, dan berapa yang belum. Angkanya diperbarui tiap 30 detik.</li>
-      <li>Ikon speaker di pojok kanan atas kamera mematikan atau menyalakan bunyi. Di iPhone, bunyi tidak keluar selama tombol silent aktif.</li>
+      <li>Baris di atas kamera (misalnya <span class="ui">128 of 412 checked in</span>) menunjukkan berapa orang sudah hadir di sesi ini dari semua meja. Angkanya diperbarui tiap 30 detik. Rinciannya ada di tab <span class="ui">History</span>.</li>
+      <li>Nama peserta terakhir yang tercatat tampil di bawah kamera. Ketuk untuk membuka <span class="ui">History</span>.</li>
+      <li>Ikon speaker di kanan atas kamera mematikan atau menyalakan bunyi. Di iPhone, bunyi tidak keluar selama tombol silent aktif.</li>
       <li>Ruangan gelap? Kalau HP punya senter, tombol senter muncul di sebelah ikon speaker.</li>
       <li>Pakai scanner genggam (USB/Bluetooth)? Cukup buka tab <span class="ui">Scan</span> lalu tembak badge. Kamera tidak perlu dinyalakan.</li>
     </ul>
@@ -150,16 +151,16 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
   <section id="hasil">
     <h2><span class="no">3</span>Arti warna lembar hasil</h2>
     <div>
-      <div class="result"><span class="dot ok"></span><div><strong>Hijau · <span class="ui">Checked in</span></strong><p>Berhasil. Kalau peserta punya kursi, nomornya tampil besar (misalnya <span class="ui">Row C · Seat 12</span>). Bacakan ke peserta. Lembar hijau menutup sendiri setelah 3 detik; sentuh lembarnya kalau ingin tetap terbuka.</p></div></div>
-      <div class="result"><span class="dot warn"></span><div><strong>Oranye · <span class="ui">Already scanned</span></strong><p>Peserta ini sudah pernah dipindai di sesi ini (jam pertama tertulis). Peserta tetap boleh masuk dan angka hadir tidak bertambah. Tekan <span class="ui">Close</span>.</p></div></div>
-      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Unknown code</span></strong><p>QR bukan milik peserta acara ini, atau pendaftarannya dibatalkan. Cari namanya di <span class="ui">Find name</span>. Kalau tidak ada dan acara menerima walk-in, tekan <span class="ui">Register walk-in</span>.</p></div></div>
+      <div class="result"><span class="dot ok"></span><div><strong>Hijau · <span class="ui">Checked in</span></strong><p>Berhasil. Kalau peserta punya kursi, nomornya tampil besar (misalnya <span class="ui">Row C · Seat 12</span>). Bacakan ke peserta. Lembar hijau menutup sendiri setelah 3 detik (isian di tombol <span class="ui">Scan next</span> menyusut sebagai hitung mundur); sentuh lembarnya kalau ingin tetap terbuka, atau tekan <span class="ui">Scan next</span> untuk langsung lanjut.</p></div></div>
+      <div class="result"><span class="dot warn"></span><div><strong>Oranye · <span class="ui">Already scanned</span></strong><p>Peserta ini sudah pernah dipindai di sesi ini (jam pertama tertulis). Peserta tetap boleh masuk dan angka hadir tidak bertambah. Tekan <span class="ui">Scan next</span>.</p></div></div>
+      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Unknown code</span></strong><p>QR bukan milik peserta acara ini, atau pendaftarannya dibatalkan. Tekan <span class="ui">Find name</span> di lembar itu untuk langsung mencari namanya. Kalau tidak ada dan acara menerima walk-in, tekan <span class="ui">Register walk-in</span>.</p></div></div>
       <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Not saved</span></strong><p>Koneksi putus, peserta <b>belum</b> tercatat. Tekan <span class="ui">Retry</span> atau pindai ulang. Lihat bagian <a href="#masalah">Kalau ada masalah</a>.</p></div></div>
     </div>
     <div class="pair">
-      <figure><img src="/panduan/scanner/05-hasil-hijau.jpg" alt="Lembar hijau Checked in dengan nomor kursi" loading="lazy"><figcaption>Checked in + kursi</figcaption></figure>
+      <figure><img src="/panduan/scanner/05-hasil-hijau.jpg" alt="Lembar hijau Checked in dengan tombol Scan next" loading="lazy"><figcaption>Checked in</figcaption></figure>
       <figure><img src="/panduan/scanner/06-hasil-oranye.jpg" alt="Lembar oranye Already scanned" loading="lazy"><figcaption>Already scanned</figcaption></figure>
     </div>
-    <figure><img src="/panduan/scanner/07-hasil-merah.jpg" alt="Lembar merah Unknown code dengan tombol Register walk-in" loading="lazy"><figcaption>Unknown code: cari nama dulu, baru walk-in</figcaption></figure>
+    <figure><img src="/panduan/scanner/07-hasil-merah.jpg" alt="Lembar merah Unknown code dengan tombol Find name" loading="lazy"><figcaption>Unknown code: cari nama dulu, baru walk-in</figcaption></figure>
   </section>
 
   <section id="cari">
@@ -184,7 +185,7 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
     <p class="note"><b>Selalu cari namanya dulu.</b> Tombol walk-in sengaja hanya muncul setelah pencarian tidak menemukan apa pun, supaya satu orang tidak terdaftar dua kali karena ejaan nama yang berbeda.</p>
     <ol class="steps">
       <li>Di <span class="ui">Find name</span>, ketik nama tamu. Kalau muncul <span class="ui">No matching participants</span>, coba sekali lagi dengan sebagian nama atau instansinya.</li>
-      <li>Tetap tidak ada? Tekan <span class="ui">Register as walk-in</span>. Nama yang Anda ketik sudah terisi di formulir. (Dari lembar merah <span class="ui">Unknown code</span>, tombolnya bernama <span class="ui">Register walk-in</span>.)</li>
+      <li>Tetap tidak ada? Tekan <span class="ui">Register as walk-in</span>. Nama yang Anda ketik sudah terisi di formulir. (Dari lembar merah <span class="ui">Unknown code</span>, tombolnya bernama <span class="ui">Register walk-in</span>, di bawah <span class="ui">Find name</span>.)</li>
       <li>Isi formulir <span class="ui">Walk-in guest</span>. Kolom tanpa tulisan <span class="ui">optional</span> wajib diisi. Isinya mengikuti formulir pendaftaran acara, jadi bisa ada pertanyaan tambahan.</li>
       <li>Tekan <span class="ui">Save and check in</span>. Tamu langsung tercatat hadir di sesi yang dipilih dan kode pesertanya dibuat otomatis.</li>
     </ol>
@@ -207,7 +208,7 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
       <li><span class="ui">checked in</span> berhasil (termasuk walk-in yang baru didaftarkan), <span class="ui">repeat</span> pindaian ulang, <span class="ui">failed</span> kode tidak dikenal.</li>
       <li>Riwayat hanya berisi pindaian dari HP ini sejak layar dibuka. Kalau halaman dimuat ulang, daftarnya kosong lagi, tetapi datanya tetap aman di server.</li>
       <li>Ragu apakah seseorang sudah hadir? Cari namanya di <span class="ui">Find name</span>. Orang yang sudah hadir bertuliskan <span class="ui">Checked in</span> beserta jamnya, dari meja mana pun.</li>
-      <li>Angka besar di atas riwayat menghitung orang dari semua meja, bukan jumlah pindaian.</li>
+      <li>Angka besar di atas riwayat menghitung orang dari semua meja, bukan jumlah pindaian. Kotak itu juga menulis berapa yang belum hadir.</li>
     </ul>
   </section>
 

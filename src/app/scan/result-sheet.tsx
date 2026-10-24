@@ -7,6 +7,7 @@ import {
   CloudSlash,
   DownloadSimple,
   Flag,
+  MagnifyingGlass,
   Prohibit,
   Printer,
   SignIn,
@@ -52,8 +53,11 @@ import type { CatatanCheckpoint, Hasil, StatusCetak, StatusHasil } from "./types
  * Kehadiran SUDAH tersimpan saat lembar hijau muncul. Versi sebelumnya memberi
  * tombol label warna penuh, dan itu terbaca sebagai langkah wajib ("tetap harus
  * pencet simpan?"). Sekarang tombol berisi warna hanya untuk aksi yang memang
- * harus dikerjakan: Serahkan barang, Ulangi, Login lagi, Daftarkan walk-in, atau
- * Cetak lagi setelah printer gagal. Label biasa cukup tombol teks.
+ * harus dikerjakan: Serahkan barang, Ulangi, Login lagi, Find name, Daftarkan
+ * walk-in, atau Cetak lagi setelah printer gagal. Label biasa cukup tombol
+ * bergaris. Bila tidak ada yang harus dikerjakan, tombol utamanya "Scan next":
+ * kata kerja langkah berikutnya, bukan "Simpan", jadi tidak terbaca sebagai
+ * kewajiban, dan hitung mundur tutup otomatis terlihat menyusut di dalamnya.
  *
  * Lapisan gelap, kunci fokus, Escape, dan pengembalian fokus datang dari
  * `Dialog`, bukan ditulis ulang di sini. Yang khas layar ini hanya isinya.
@@ -63,60 +67,34 @@ import type { CatatanCheckpoint, Hasil, StatusCetak, StatusHasil } from "./types
 export const TUTUP_OTOMATIS_MS = 3000;
 
 /**
- * Warna status, dipakai sebagai LATAR seluruh bagian atas lembar.
+ * Warna status, dipakai sebagai LATAR SELURUH lembar, pekat.
  *
- * Blok statusnya memakai peran `*-container` beserta pasangannya
- * `on-*-container`, yang dibangkitkan generator tema dengan jarak kontras yang
- * dijamin. Ikonnya memakai warna induk yang lebih pekat supaya ada satu titik
- * paling terang untuk dilirik.
+ * Versi sebelumnya memakai `*-container` (hijau, oranye, merah muda pastel)
+ * dengan bilah aksi abu di bawahnya. Dari satu meter yang terbaca hanya "ada
+ * kotak hijau muda", dan dua nada atas-bawah itu pola dialog Material 2. Pemindai
+ * kelas global (Eventbrite Organizer, Cvent OnArrival, gerbang boarding maskapai)
+ * mengubah seluruh layar menjadi satu warna pekat: petugas tahu hasilnya sebelum
+ * membaca satu huruf. Peran induk `success`/`warning`/`error` dengan pasangan
+ * `on-*` mencapai 6,4:1 sampai 6,8:1 di tema terang.
  *
  * Walk-in ikut HIJAU, bukan biru: ia sama-sama keberhasilan. Merah dipakai dua
  * keadaan (kode tidak dikenal, belum tercatat); keduanya dibedakan ikon, judul,
  * dan aksinya, tidak hanya warna.
  */
-const TAMPILAN: Record<StatusHasil, { judul: string; blok: string; ikon: string; Icon: typeof CheckCircle }> = {
-  recorded: {
-    judul: "Checked in",
-    blok: "bg-success-container text-on-success-container",
-    ikon: "bg-success text-on-success",
-    Icon: CheckCircle,
-  },
-  created: {
-    judul: "Walk-in registered",
-    blok: "bg-success-container text-on-success-container",
-    ikon: "bg-success text-on-success",
-    Icon: UserPlus,
-  },
-  duplicate: {
-    judul: "Already scanned",
-    blok: "bg-warning-container text-on-warning-container",
-    ikon: "bg-warning text-on-warning",
-    Icon: Clock,
-  },
-  not_found: {
-    judul: "Unknown code",
-    blok: "bg-error-container text-on-error-container",
-    ikon: "bg-error text-on-error",
-    Icon: XCircle,
-  },
-  gagal: {
-    judul: "Not saved",
-    blok: "bg-error-container text-on-error-container",
-    ikon: "bg-error text-on-error",
-    Icon: CloudSlash,
-  },
-  login: {
-    judul: "Signed out",
-    blok: "bg-warning-container text-on-warning-container",
-    ikon: "bg-warning text-on-warning",
-    Icon: SignIn,
-  },
-  ditolak: {
-    judul: "Not checked in",
-    blok: "bg-error-container text-on-error-container",
-    ikon: "bg-error text-on-error",
-    Icon: Prohibit,
-  },
+type Nada = "success" | "warning" | "error";
+const LEMBAR: Record<Nada, string> = {
+  success: "!bg-success !text-on-success",
+  warning: "!bg-warning !text-on-warning",
+  error: "!bg-error !text-on-error",
+};
+const TAMPILAN: Record<StatusHasil, { judul: string; nada: Nada; Icon: typeof CheckCircle }> = {
+  recorded: { judul: "Checked in", nada: "success", Icon: CheckCircle },
+  created: { judul: "Walk-in registered", nada: "success", Icon: UserPlus },
+  duplicate: { judul: "Already scanned", nada: "warning", Icon: Clock },
+  not_found: { judul: "Unknown code", nada: "error", Icon: XCircle },
+  gagal: { judul: "Not saved", nada: "error", Icon: CloudSlash },
+  login: { judul: "Signed out", nada: "warning", Icon: SignIn },
+  ditolak: { judul: "Not checked in", nada: "error", Icon: Prohibit },
 };
 
 /** Kenapa email Sign-in link walk-in tidak dikirim (prepareWalkinLink). */
@@ -170,6 +148,8 @@ type Props = {
    */
   tertahan: Hasil | null;
   onLewati: () => void;
+  /** Kode tidak dikenal: pindah ke Find name. Tanpa ini tombolnya tidak ada. */
+  onCari?: () => void;
   /** Yang belum selesai untuk tamu ini: menentukan kalimat tamu tertahan. */
   alasanTahan?: "barang" | "bagasi" | "ambil";
 };
@@ -197,6 +177,7 @@ export function ResultSheet({
   onSentuh,
   tertahan,
   onLewati,
+  onCari,
   alasanTahan = "barang",
 }: Props) {
   const status = hasil?.status;
@@ -237,6 +218,16 @@ export function ResultSheet({
   // karena Serahkan barang sudah menjadi aksi utamanya.
   const labelUtama = cetak.fase === "galat" && !adaBarang;
 
+  // Aksi lain yang lebih penting daripada menutup. Tanpa itu, menutup adalah
+  // satu-satunya langkah, dan ia tampil sebagai tombol utama "Scan next".
+  const cariNama = status === "not_found" && Boolean(onCari);
+  const adaAksiLain =
+    cariNama || (status === "not_found" && bolehWalkIn) || status === "gagal" || status === "login" || adaBarang || adaBagasi || adaAmbil || labelUtama;
+  // Kartu terang di dalam lembar: semua yang punya warnanya sendiri (daftar
+  // barang, isian bagasi, kabar printer, tamu tertahan) duduk di permukaan
+  // netral, karena warnanya tidak dijamin terbaca di atas latar status.
+  const adaKartu = Boolean(tertahan) || (adaOrang && (cetak.fase !== "diam" || Boolean(cetakMeja))) || adaBarang || adaBagasi || adaAmbil;
+
   return (
     <Dialog
       open={Boolean(hasil && tampilan)}
@@ -244,6 +235,11 @@ export function ResultSheet({
       bare
       size="xl"
       title={tampilan?.judul ?? "Scan result"}
+      // Di ponsel lembar menempel di tepi bawah selebar layar, seperti bottom
+      // sheet M3, bukan kartu yang melayang 16 px dari tepi. Di layar lebar ia
+      // tetap di tengah: dua versi panel tanpa modal sudah ditolak pemakainya
+      // (lihat catatan di atas).
+      className={`${tampilan ? LEMBAR[tampilan.nada] : ""} max-sm:-mx-4 max-sm:-mb-4 max-sm:w-[calc(100%+2rem)] max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-[28px] sm:rounded-[28px]`}
     >
       {hasil && tampilan ? (
         // `aria-live` menempel di wadah yang TIDAK ikut dipasang ulang. Memasang
@@ -268,51 +264,44 @@ export function ResultSheet({
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ ...standard.spatial.default, opacity: standard.effects.default }}
-            className="w-full rounded-2xl"
+            className="w-full"
           >
-            {/* Blok status. Seluruhnya berwarna, karena inilah yang harus
-                terbaca dari sudut mata sebelum satu huruf pun sempat dibaca. */}
-            <div className={`relative overflow-hidden rounded-t-2xl p-4 sm:p-5 ${tampilan.blok}`}>
-              {/* Kisi, bukan baris flex. Di ponsel sempit (di bawah 400 px,
-                  termasuk 360 px yang paling umum di Android) nama turun ke
-                  baris sendiri selebar lembar, di bawah ikon. Nama adalah bahan
-                  memastikan orangnya benar, jadi tidak pernah dipotong menjadi
-                  "Siti Rahmawati...": tiga baris masih muat, dan ukurannya turun
-                  satu langkah sebelum lebarnya habis. */}
-              <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_3rem] items-start gap-x-4 max-[400px]:grid-cols-[2.5rem_minmax(0,1fr)_3rem] max-[400px]:gap-x-3 [@media(max-height:700px)]:grid-cols-[2.5rem_minmax(0,1fr)_3rem]">
-                <span className={`row-span-3 flex size-14 shrink-0 items-center justify-center rounded-full max-[400px]:row-span-1 max-[400px]:size-10 [@media(max-height:700px)]:size-10 ${tampilan.ikon}`}>
-                  <tampilan.Icon size={30} weight="fill" aria-hidden className="max-[400px]:size-6" />
+            {/* Blok status: ikon dan kata status lebih dulu (itu yang dilirik),
+                lalu nama besar (itu yang dibaca untuk memastikan orangnya). */}
+            <div data-nada={tampilan.nada} className="hasil-nada px-4 pb-2 pt-5 sm:px-6 sm:pt-6">
+              <div className="flex items-center gap-3">
+                <span className="hasil-ikon flex size-14 shrink-0 items-center justify-center rounded-full [@media(max-height:700px)]:size-10">
+                  <tampilan.Icon size={32} weight="bold" aria-hidden className="[@media(max-height:700px)]:size-6" />
                 </span>
-
-                {/* `opacity`, bukan peran warna kedua: di atas permukaan
-                    berwarna tidak ada peran "on-container-variant". */}
-                <p className="col-start-2 row-start-1 text-label-large opacity-80 max-[400px]:self-center">{tampilan.judul}</p>
-
+                <p className="min-w-0 flex-1 text-title-large font-semibold">{tampilan.judul}</p>
                 <button
                   type="button"
                   onClick={onTutup}
                   aria-label="Close result"
-                  className="m3-state col-start-3 row-span-2 row-start-1 -mr-1 -mt-1 flex size-12 max-[400px]:row-span-1 shrink-0 items-center justify-center rounded-full text-current opacity-80 max-[400px]:-my-1"
+                  className="m3-state -mr-2 flex size-12 shrink-0 items-center justify-center self-start rounded-full text-current opacity-90"
                 >
-                  <X size={20} />
+                  <X size={22} />
                 </button>
-
-                <p className="col-start-2 row-start-2 line-clamp-3 text-headline-small font-semibold [overflow-wrap:anywhere] max-[400px]:col-span-3 max-[400px]:col-start-1 max-[400px]:mt-2 max-[400px]:text-title-large">
-                  {peserta ? peserta.name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Code ${hasil.qr}` : "Code ?"}
-                </p>
-                {peserta ? (
-                  <p className="col-start-2 row-start-3 line-clamp-2 text-body-medium opacity-80 max-[400px]:col-span-3 max-[400px]:col-start-1">
-                    {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "No organisation"}
-                  </p>
-                ) : null}
               </div>
+
+              {/* Nama tidak pernah dipotong menjadi "Siti Rahmawati...": ia
+                  bahan memastikan orangnya benar. Tiga baris masih muat, dan
+                  ukurannya turun satu langkah di ponsel sempit. */}
+              <p className="mt-4 line-clamp-3 text-headline-medium font-semibold [overflow-wrap:anywhere] max-[400px]:text-headline-small [@media(max-height:700px)]:mt-3 [@media(max-height:700px)]:text-headline-small">
+                {peserta ? peserta.name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Code ${hasil.qr}` : "Code ?"}
+              </p>
+              {peserta ? (
+                <p className="mt-1 line-clamp-2 text-body-large opacity-90">
+                  {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "No organisation"}
+                </p>
+              ) : null}
 
               {/* Kode REG tidak ditampilkan: petugas tidak memakainya, dan tempat
                   ini dipakai kursi. Kursinya ditulis lengkap, bukan "A8": petugas
                   membacakannya kepada tamu, dan "Row A · Seat 8" tidak bisa salah
                   dengar. Acara tanpa kursi tidak mendapat baris ini sama sekali. */}
               {hasil.kursi && hasil.kursi.length > 0 && hadir ? (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {hasil.kursi.map((seat, index) => (
                     <p
                       key={`${index}-${seat.tulisan}`}
@@ -353,7 +342,7 @@ export function ResultSheet({
               ) : null}
 
               {status === "not_found" ? (
-                <p className="mt-2 text-body-medium opacity-90">
+                <p className="mt-3 text-body-medium opacity-90">
                   This code is not a participant of this event, or their registration was cancelled.{" "}
                   {bolehWalkIn
                     ? "Search for the name first. If it is not there, register them as a walk-in."
@@ -362,73 +351,22 @@ export function ResultSheet({
               ) : null}
 
               {status === "gagal" || status === "login" || status === "ditolak" ? (
-                <p className="mt-2 text-body-medium opacity-90">{hasil.pesan}</p>
+                <p className="mt-3 text-body-medium opacity-90">{hasil.pesan}</p>
               ) : null}
 
               {/* Kalimat tetap, bukan "menutup dalam 2 detik": isi wadah ini
                   dibacakan ulang pembaca layar setiap kali berubah, dan angka yang
-                  berdetak akan dibacakan setiap detik. Bilahnya hiasan semata. */}
+                  berdetak akan dibacakan setiap detik. Hitung mundurnya terlihat
+                  sebagai isian yang menyusut di tombol Scan next. */}
               {tutupOtomatis ? (
-                <>
-                  <p className="mt-3 text-body-medium opacity-80">Scan the next participant. This closes automatically.</p>
-                  <div aria-hidden className="absolute inset-x-0 bottom-0 h-1 bg-black/10">
-                    <div className="scan-hitung h-full bg-current opacity-60" style={{ animationDuration: `${TUTUP_OTOMATIS_MS}ms` }} />
-                  </div>
-                </>
+                <p className="mt-3 text-body-medium opacity-90">Scan the next participant. This closes automatically.</p>
               ) : null}
             </div>
 
-            {/* Bagian aksi di permukaan NETRAL, bukan di atas blok berwarna.
-                Tombol M3 membawa warnanya sendiri, dan warna itu tidak punya
-                jaminan kontras terhadap latar hijau atau oranye. */}
-            <div className="rounded-b-2xl bg-surface-container-high text-on-surface">
-              {adaBarang && barang && peserta ? (
-                <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-                  {/* Dipasang ulang per tamu lewat `key` supaya centang tamu
-                      sebelumnya tidak terbawa ke tamu berikutnya. */}
-                  <ItemChecklist
-                    key={`${kedip}-${peserta.id}`}
-                    sessionId={barang.sessionId}
-                    laneId={barang.laneId}
-                    participantId={peserta.id}
-                    onCentang={onCentang}
-                    tempatTombol={tempatSerahkan}
-                  />
-                </div>
-              ) : null}
-
-              {adaBagasi && bagasi && peserta ? (
-                <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-                  {/* Dipasang ulang per tamu, sama seperti daftar barang. */}
-                  <LuggageForm
-                    key={`${kedip}-${peserta.id}`}
-                    sessionId={bagasi.sessionId}
-                    participantId={peserta.id}
-                    onTertunda={onBagasi}
-                    onKamera={onKameraFoto}
-                    tempatTombol={tempatBagasi}
-                  />
-                </div>
-              ) : null}
-
-              {adaAmbil && ambilBagasi && peserta ? (
-                <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-                  <LuggageHandover
-                    key={`${kedip}-${peserta.id}`}
-                    sessionId={ambilBagasi.sessionId}
-                    participantId={peserta.id}
-                    onTertunda={onBagasi}
-                    tempatTombol={tempatBagasi}
-                  />
-                </div>
-              ) : null}
-
-              {/* Bilah aksi menempel di bawah panel. Di ponsel pendek, atau saat
-                  daftar barang panjang, panelnya bergulir dan tombolnya tetap
-                  terlihat. */}
-              <div className="sticky bottom-0 rounded-b-2xl bg-surface-container-high px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+            {adaKartu ? (
+              <div className="mx-4 mt-3 space-y-4 rounded-2xl bg-panel p-4 text-on-surface sm:mx-6">
                 {tertahan ? (
-                  <div role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-body-medium text-on-warning-soft">
+                  <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-body-medium text-on-warning-soft">
                     <span className="min-w-0 flex-1">
                       {tertahan.participant?.name ?? `Code ${tertahan.qr ?? "?"}`} is scanned and waiting. {alasanTahan === "bagasi" ? "Save the luggage of" : alasanTahan === "ambil" ? "Hand over the luggage of" : "Hand out items to"}{" "}
                       {peserta?.name ?? "this participant"} first.
@@ -440,65 +378,140 @@ export function ResultSheet({
                 {/* Kegagalan printer muncul DI SINI, bukan di panel sebelah. Label
                     yang tidak keluar adalah kabar tentang tamu yang sedang berdiri
                     di depan petugas. */}
-                {adaOrang && cetak.fase !== "diam" ? (
-                  <p
-                    role="status"
-                    className={`mb-2 flex items-center gap-2 text-body-medium ${cetak.fase === "galat" ? "text-error" : "text-on-surface-variant"}`}
-                  >
-                    <Printer size={18} weight={cetak.fase === "selesai" ? "fill" : "regular"} aria-hidden />
-                    {cetak.teks}
-                  </p>
+                {adaOrang && (cetak.fase !== "diam" || cetakMeja) ? (
+                  <div className="[&>p:last-child]:mb-0">
+                    {cetak.fase !== "diam" ? (
+                      <p
+                        role="status"
+                        className={`mb-2 flex items-center gap-2 text-body-medium ${cetak.fase === "galat" ? "text-error" : "text-on-surface-variant"}`}
+                      >
+                        <Printer size={18} weight={cetak.fase === "selesai" ? "fill" : "regular"} aria-hidden />
+                        {cetak.teks}
+                      </p>
+                    ) : null}
+                    {cetakMeja}
+                  </div>
                 ) : null}
 
-                {adaOrang ? cetakMeja : null}
+                {/* Dipasang ulang per tamu lewat `key` supaya centang dan isian
+                    tamu sebelumnya tidak terbawa ke tamu berikutnya. */}
+                {adaBarang && barang && peserta ? (
+                  <ItemChecklist
+                    key={`${kedip}-${peserta.id}`}
+                    sessionId={barang.sessionId}
+                    laneId={barang.laneId}
+                    participantId={peserta.id}
+                    onCentang={onCentang}
+                    tempatTombol={tempatSerahkan}
+                  />
+                ) : null}
 
-                {/* Rata kanan, aksi utama paling kanan: pola baris aksi dialog M3. Semua
-                    tombol di baris ini setinggi 48 px, supaya barisnya rata. */}
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {adaOrang && bisaCetak ? (
-                    <Button
-                      variant={labelUtama ? "filled" : "text"}
-                      size="md"
-                      loading={cetak.fase === "jalan"}
-                      onClick={onCetak}
-                      icon={labelUntukPerangkatIni ? <Printer size={20} aria-hidden /> : <DownloadSimple size={20} aria-hidden />}
-                    >
-                      {teksLabel}
-                    </Button>
-                  ) : null}
+                {adaBagasi && bagasi && peserta ? (
+                  <LuggageForm
+                    key={`${kedip}-${peserta.id}`}
+                    sessionId={bagasi.sessionId}
+                    participantId={peserta.id}
+                    onTertunda={onBagasi}
+                    onKamera={onKameraFoto}
+                    tempatTombol={tempatBagasi}
+                  />
+                ) : null}
 
-                  {adaOrang ? aksiMeja : null}
-
-                  <Button variant="text" size="md" onClick={onTutup}>
-                    Close
-                  </Button>
-
-                  {status === "not_found" && bolehWalkIn ? (
-                    <Button variant="filled" size="md" onClick={onWalkIn} icon={<UserPlus size={20} weight="bold" aria-hidden />}>
-                      Register walk-in
-                    </Button>
-                  ) : null}
-
-                  {status === "gagal" ? (
-                    <Button variant="filled" size="md" onClick={onUlangi}>
-                      Retry
-                    </Button>
-                  ) : null}
-
-                  {status === "login" ? (
-                    // Halaman penuh, bukan klien: sesi baru harus membawa kuki baru.
-                    <Button variant="filled" size="md" onClick={() => window.location.assign("/login")} icon={<SignIn size={20} aria-hidden />}>
-                      Sign in again
-                    </Button>
-                  ) : null}
-
-                  {/* Serahkan barang masuk ke sini dari daftar barang, paling
-                      kanan sebagai aksi utama. `contents` supaya tombolnya ikut
-                      menjadi anggota baris ini. */}
-                  {adaBarang ? <div ref={setTempatSerahkan} className="contents" /> : null}
-                  {adaBagasi || adaAmbil ? <div ref={setTempatBagasi} className="contents" /> : null}
-                </div>
+                {adaAmbil && ambilBagasi && peserta ? (
+                  <LuggageHandover
+                    key={`${kedip}-${peserta.id}`}
+                    sessionId={ambilBagasi.sessionId}
+                    participantId={peserta.id}
+                    onTertunda={onBagasi}
+                    tempatTombol={tempatBagasi}
+                  />
+                ) : null}
               </div>
+            ) : null}
+
+            {/* Bilah aksi menempel di bawah lembar, di atas latar status yang
+                sama. `hasil-nada` menukar peran primary menjadi on-status, jadi
+                tombol M3 biasa (termasuk yang masuk lewat portal dari daftar
+                barang dan bagasi) menjadi tombol terang di atas warna status
+                tanpa ditulis ulang. Di ponsel tombolnya selebar lembar dan aksi
+                utama paling atas; di layar lebar rata kanan, utama paling kanan. */}
+            <div
+              data-nada={tampilan.nada}
+              className="hasil-nada sticky bottom-0 flex flex-col-reverse gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:px-6 sm:pb-6 max-sm:[&_button]:w-full [&_.m3-btn]:min-h-14"
+            >
+              {adaOrang && bisaCetak && !labelUtama ? (
+                <Button
+                  variant={labelUtama ? "filled" : "outlined"}
+                  size="lg"
+                  shape="pill"
+                  loading={cetak.fase === "jalan"}
+                  onClick={onCetak}
+                  icon={labelUntukPerangkatIni ? <Printer size={20} aria-hidden /> : <DownloadSimple size={20} aria-hidden />}
+                >
+                  {teksLabel}
+                </Button>
+              ) : null}
+
+              {adaOrang ? aksiMeja : null}
+
+              {adaAksiLain ? (
+                <Button variant="outlined" size="lg" shape="pill" onClick={onTutup}>
+                  Close
+                </Button>
+              ) : (
+                <Button variant="filled" size="lg" shape="pill" onClick={onTutup} className="relative overflow-hidden sm:min-w-48">
+                  {tutupOtomatis ? (
+                    <span aria-hidden className="scan-hitung pointer-events-none absolute inset-0 bg-current opacity-15" style={{ animationDuration: `${TUTUP_OTOMATIS_MS}ms` }} />
+                  ) : null}
+                  <span className="relative">{status === "ditolak" ? "Close" : "Scan next"}</span>
+                </Button>
+              )}
+
+              {/* Cetak ulang setelah printer gagal adalah aksi utama: setelah
+                  Tutup, jadi paling atas di ponsel dan paling kanan di layar lebar. */}
+              {adaOrang && bisaCetak && labelUtama ? (
+                <Button
+                  variant={labelUtama ? "filled" : "outlined"}
+                  size="lg"
+                  shape="pill"
+                  loading={cetak.fase === "jalan"}
+                  onClick={onCetak}
+                  icon={labelUntukPerangkatIni ? <Printer size={20} aria-hidden /> : <DownloadSimple size={20} aria-hidden />}
+                >
+                  {teksLabel}
+                </Button>
+              ) : null}
+
+              {status === "not_found" && bolehWalkIn ? (
+                <Button variant={cariNama ? "outlined" : "filled"} size="lg" shape="pill" onClick={onWalkIn} icon={<UserPlus size={20} weight="bold" aria-hidden />}>
+                  Register walk-in
+                </Button>
+              ) : null}
+
+              {cariNama ? (
+                <Button variant="filled" size="lg" shape="pill" onClick={onCari} icon={<MagnifyingGlass size={20} weight="bold" aria-hidden />}>
+                  Find name
+                </Button>
+              ) : null}
+
+              {status === "gagal" ? (
+                <Button variant="filled" size="lg" shape="pill" onClick={onUlangi}>
+                  Retry
+                </Button>
+              ) : null}
+
+              {status === "login" ? (
+                // Halaman penuh, bukan klien: sesi baru harus membawa kuki baru.
+                <Button variant="filled" size="lg" shape="pill" onClick={() => window.location.assign("/login")} icon={<SignIn size={20} aria-hidden />}>
+                  Sign in again
+                </Button>
+              ) : null}
+
+              {/* Serahkan barang dan tombol bagasi masuk ke sini lewat portal,
+                  paling kanan (atau paling atas di ponsel) sebagai aksi utama.
+                  `contents` supaya tombolnya ikut menjadi anggota baris ini. */}
+              {adaBarang ? <div ref={setTempatSerahkan} className="contents" /> : null}
+              {adaBagasi || adaAmbil ? <div ref={setTempatBagasi} className="contents" /> : null}
             </div>
           </motion.section>
         </div>

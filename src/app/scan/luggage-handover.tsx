@@ -131,7 +131,7 @@ export function LuggageHandover({
     ) : null;
 
   return (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="mb-2 flex items-center gap-2 text-title-small font-semibold">
         <Suitcase size={18} aria-hidden />
         Luggage to hand over

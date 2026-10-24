@@ -137,7 +137,7 @@ export function ItemChecklist({
   );
 
   return (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="mb-2 flex items-center gap-2 text-title-small font-semibold">
         <Package size={18} aria-hidden />
         Kit items to hand out
