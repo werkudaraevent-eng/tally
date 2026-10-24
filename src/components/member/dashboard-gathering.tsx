@@ -80,6 +80,7 @@ import {
   KartuBantuanHorizon,
   KartuDaruratHorizon,
   KartuInfoHorizon,
+  LATAR_STRIP,
   KartuOutfitHorizon,
   KartuPengumumanHorizon,
   KepalaHorizon,
@@ -1109,8 +1110,8 @@ export async function DashboardGathering({
               ].filter(Boolean)}
               fakta={[]}
             >
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[12px] px-3 py-2" style={{ background: "#F1F3F8" }}>
-                <p className="text-[16px] font-bold leading-6">{gabungMeta([stay.room_number ? `${tH.room} ${stay.room_number}` : tH.roomPending, stay.floor ? `${tv.floor} ${stay.floor}` : null])}</p>
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[12px] px-3 py-2" style={{ background: LATAR_STRIP }}>
+                <p className="text-[16px] font-semibold leading-6">{gabungMeta([stay.room_number ? `${tH.room} ${stay.room_number}` : tH.roomPending, stay.floor ? `${tv.floor} ${stay.floor}` : null])}</p>
                 {stay.room_type ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{stay.room_type}</p> : null}
               </div>
             </KartuInfoHorizon>
