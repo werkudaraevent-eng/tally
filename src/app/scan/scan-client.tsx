@@ -411,7 +411,9 @@ export default function ScanClient() {
   const centangRef = useRef(0);
   // Sama untuk bagasi: 1 selama jumlah atau foto tamu ini belum tersimpan.
   const bagasiRef = useRef(0);
-  const [alasanTahan, setAlasanTahan] = useState<"barang" | "bagasi">("barang");
+  const [alasanTahan, setAlasanTahan] = useState<"barang" | "bagasi" | "ambil">("barang");
+  // Sesi aktif adalah meja ambil bagasi: kalimat tamu tertahan berbunyi "Hand over".
+  const sesiAmbilRef = useRef(false);
   const [tertahan, setTertahan] = useState<Hasil | null>(null);
   const tertahanRef = useRef<Hasil | null>(null);
   const hasilRef = useRef<Hasil | null>(null);
@@ -714,7 +716,7 @@ export default function ScanClient() {
    */
   const pasangLembar = useCallback((data: Hasil) => {
     if ((centangRef.current > 0 || bagasiRef.current > 0) && hasilRef.current) {
-      setAlasanTahan(bagasiRef.current > 0 ? "bagasi" : "barang");
+      setAlasanTahan(bagasiRef.current > 0 ? (sesiAmbilRef.current ? "ambil" : "bagasi") : "barang");
       tertahanRef.current = data;
       setTertahan(data);
       return;
@@ -1280,6 +1282,7 @@ export default function ScanClient() {
   }
 
   const sesiAktif = sessions.find((sesi) => sesi.id === sessionId);
+  useEffect(() => { sesiAmbilRef.current = sesiAktif?.ambil_bagasi === true; }, [sesiAktif]);
   const hadir = sessionId === null ? null : hadirTerbaru[sessionId] ?? sesiAktif?.hadir ?? null;
   const perluJalur = lanes.length > 0 && laneId === null;
   const jalurAktif = lanes.find((jalur) => jalur.id === laneId);
@@ -1350,8 +1353,9 @@ export default function ScanClient() {
     tutupOtomatis &&
     hijau &&
     (sesiAktif?.jumlah_barang ?? 0) === 0 &&
-    // Meja bagasi menunggu petugas menghitung dan memotret.
+    // Meja bagasi menunggu petugas menghitung dan memotret, atau mencocokkan dan menyerahkan.
     !sesiAktif?.bagasi &&
+    !sesiAktif?.ambil_bagasi &&
     hitungBatal !== kedip &&
     tertahan === null &&
     cetak.fase !== "jalan" &&
@@ -2070,6 +2074,7 @@ export default function ScanClient() {
         barang={sessionId !== null && (sesiAktif?.jumlah_barang ?? 0) > 0 ? { sessionId, laneId } : null}
         onCentang={onCentang}
         bagasi={sessionId !== null && sesiAktif?.bagasi ? { sessionId } : null}
+        ambilBagasi={sessionId !== null && sesiAktif?.ambil_bagasi ? { sessionId } : null}
         onBagasi={onBagasi}
         onKameraFoto={onKameraFoto}
         alasanTahan={alasanTahan}

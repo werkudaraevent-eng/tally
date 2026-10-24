@@ -138,9 +138,10 @@ async function bentrokSesi(db: ReturnType<typeof getSupabaseServiceClient>, even
   // jumlah dan foto bagasinya diisi petugas, bukan peserta.
   if (completion !== "staff") {
     const { data: sesi } = await db.from("attendance_sessions").select("*").eq("event_id", eventId).eq("id", sessionId).maybeSingle();
-    if ((sesi as { records_luggage?: boolean } | null)?.records_luggage === true) {
+    const meja = sesi as { records_luggage?: boolean; luggage_pickup?: boolean } | null;
+    if (meja?.records_luggage === true || meja?.luggage_pickup === true) {
       return apiError("VALIDATION_ERROR", 422, {
-        message: "This scan session records luggage, so staff scan the participant there. Choose \"Staff scan the participant's QR\".",
+        message: "This scan session takes in or hands back luggage, so staff scan the participant there. Choose \"Staff scan the participant's QR\".",
       });
     }
   }

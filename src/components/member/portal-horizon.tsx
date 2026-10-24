@@ -931,10 +931,13 @@ export function KartuInfoHorizon({
   tautan,
   fakta,
   kolom,
+  status,
   children,
 }: {
   judul: string;
   Ikon: typeof Train;
+  /** Satu label keadaan di bawah judul kartu, misalnya "Sudah kamu terima". */
+  status?: string | null;
   nama?: string | null;
   alamat?: string | null;
   tautan?: { href: string; label: string } | null;
@@ -951,6 +954,12 @@ export function KartuInfoHorizon({
           {judul}
         </h2>
       </div>
+      {status ? (
+        // Hijau yang sama dengan pratinjau yang Mas setujui; 4,9:1 di atas latarnya.
+        <p className="-mt-1 inline-flex items-center self-start rounded-full px-3 py-1 text-[14px] font-semibold leading-5" style={{ background: "#E7F4EC", color: "#1E7B45" }}>
+          {status}
+        </p>
+      ) : null}
       {nama ? (
         <div className="flex flex-col gap-1.5">
           <p className="text-[22px] font-extrabold leading-[1.2] [overflow-wrap:anywhere] md:text-[28px]">{nama}</p>

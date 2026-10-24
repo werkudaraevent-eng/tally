@@ -63,7 +63,7 @@ export async function GET(request: Request) {
 
   // Orang unik per sesi dan jumlah terdaftar, sebagai hitungan. Dulu dihitung
   // dari baris attendance_scans di sini, yang terpotong di 1.000 baris.
-  const daftarSesi = (sesi.data ?? []) as Array<{ id: number; name: string; slug: string; sort_order: number; records_luggage?: boolean }>;
+  const daftarSesi = (sesi.data ?? []) as Array<{ id: number; name: string; slug: string; sort_order: number; records_luggage?: boolean; luggage_pickup?: boolean }>;
   const angka = await hitungKehadiran(eventId, daftarSesi.map((row) => row.id)).catch(() => null);
 
   // Setelan walk-in ikut di jawaban yang sama, bukan endpoint kedua, dengan
@@ -94,11 +94,13 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
-    sessions: daftarSesi.map(({ records_luggage, ...row }) => ({
+    sessions: daftarSesi.map(({ records_luggage, luggage_pickup, ...row }) => ({
       ...pilihKolom(row),
       // Check-in > Sessions > Record luggage: lembar hasil meminta jumlah bagasi
       // dan foto. Sesi lain tidak mendapat kunci ini, jadi layarnya tidak berubah.
       ...(records_luggage === true ? { bagasi: true } : {}),
+      // Luggage: Pick-up (migrasi 202610240001): lembar hasil menampilkan titipan peserta untuk diserahkan.
+      ...(luggage_pickup === true ? { ambil_bagasi: true } : {}),
       hadir: angka?.hadir[row.id] ?? null,
       jumlah_barang: jumlahBarang.get(row.id) ?? 0,
       ...(mandiri.has(row.id) ? { self_scan: mandiri.get(row.id) } : {}),
