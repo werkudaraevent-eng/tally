@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, User, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, User, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
@@ -862,15 +862,18 @@ export type LegKereta = {
  * isinya, pola Google Wallet dan TripIt; satu warna aksen untuk semua jenis,
  * jadi bedanya dari ikon, nama, dan bentuk kartu, bukan dari warna.
  */
-function KepalaKartuPerjalanan({ Ikon, judul }: { Ikon: typeof Train; judul: string }) {
+function KepalaKartuPerjalanan({ Ikon, judul, meta, nadaMeta = "redup" }: { Ikon: typeof Train; judul: string; meta?: string | null; nadaMeta?: "redup" | "hijau" }) {
   return (
-    <div className="flex items-center gap-3">
-      <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-[12px]" style={{ background: "#E9EEFA", color: BIRU }}>
-        <Ikon size={22} weight="bold" />
-      </span>
-      <h2 className="text-[18px] font-bold leading-6" style={{ color: TINTA }}>
+    <div className="-mx-4 flex min-h-12 items-center gap-3 border-b px-4 pb-3 md:-mx-6 md:px-6" style={{ borderColor: "#E6E8EC" }}>
+      <Ikon size={22} weight="bold" aria-hidden className="shrink-0" style={{ color: TINTA }} />
+      <h2 className="min-w-0 flex-1 text-[16px] font-semibold leading-6" style={{ color: TINTA }}>
         {judul}
       </h2>
+      {meta ? (
+        <p className="shrink-0 text-[14px] font-semibold leading-5" style={{ color: nadaMeta === "hijau" ? "#1E7B45" : REDUP }}>
+          {meta}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -881,102 +884,64 @@ function KepalaKartuPerjalanan({ Ikon, judul }: { Ikon: typeof Train; judul: str
  * bila peserta punya tiket (train_tickets).
  */
 export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string }; leg: LegKereta[] }) {
+  const pergi = leg.filter((item) => !item.lipat).length;
   return (
     // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
-    <section id="kereta" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7 lg:scroll-mt-32`} style={{ color: TINTA }}>
-      <KepalaKartuPerjalanan Ikon={Train} judul={judul} />
-      <div className="flex flex-col gap-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
-      {leg.map((item) => {
-        const isian = [
-          [label.gerbong, item.gerbong],
-          [label.kursi, item.kursi],
-        ].filter((pasangan): pasangan is [string, string] => Boolean(pasangan[1]));
-        const bentukTiket = Boolean(item.dari && item.ke);
-        // Satu tiket per arah, bentuknya tiket kereta sungguhan: jam dan stasiun
-        // di atas, sobekan, lalu gerbong, kursi, dan kode booking.
+    <section id="kereta" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6 lg:scroll-mt-32`} style={{ color: TINTA }}>
+      <KepalaKartuPerjalanan Ikon={Train} judul={judul} meta={pergi > 0 ? `${pergi} tiket` : "Selesai"} nadaMeta={pergi > 0 ? "redup" : "hijau"} />
+      <div className="flex flex-col xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
+      {leg.map((item, index) => {
+        const kursi = [item.gerbong ? `${label.gerbong} ${item.gerbong}` : null, item.kursi ? `${label.kursi} ${item.kursi}` : null].filter(Boolean).join(` ${SEPARATOR} `);
         const blok = (
-          <div key={item.kunci} className="flex flex-col rounded-[16px]" style={{ background: "#F4F6FA" }}>
-            <div className="flex flex-col gap-3 px-4 pb-4 pt-4 md:px-5">
-              <p className="text-[0.8125rem] font-semibold" style={{ color: BIRU }}>
-                {item.arah}
-              </p>
-              {bentukTiket ? (
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
-                  <p className="flex min-w-0 flex-col">
-                    {item.berangkat ? <span className="text-[24px] font-extrabold leading-8 tabular-nums md:text-[28px] md:leading-9">{item.berangkat}</span> : null}
-                    <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.dari}</span>
-                  </p>
-                  <span aria-hidden className="flex w-14 items-center pt-3 sm:w-24 md:pt-4" style={{ color: "#9AA7BD" }}>
-                    <span className="size-1.5 shrink-0 rounded-full bg-current" />
-                    <span className="flex-1 border-t-2 border-dashed border-current" />
-                    <span className="mx-1 grid size-7 shrink-0 place-items-center rounded-full bg-white" style={{ color: BIRU }}>
-                      <Train size={16} weight="bold" />
-                    </span>
-                    <span className="flex-1 border-t-2 border-dashed border-current" />
-                    <span className="size-1.5 shrink-0 rounded-full bg-current" />
-                  </span>
-                  <p className="flex min-w-0 flex-col text-right">
-                    {item.tiba ? <span className="text-[24px] font-extrabold leading-8 tabular-nums md:text-[28px] md:leading-9">{item.tiba}</span> : null}
-                    <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.ke}</span>
-                  </p>
-                </div>
+          <div key={item.kunci} className="flex flex-col gap-2">
+            <p className="text-[12px] font-semibold leading-4" style={{ color: BIRU }}>
+              {item.arah}
+            </p>
+            <p className="flex flex-wrap items-center gap-x-2 text-[18px] font-bold leading-6 [overflow-wrap:anywhere]">
+              {item.dari && item.ke ? (
+                <>
+                  {item.dari}
+                  <ArrowRight size={18} weight="bold" aria-label="ke" style={{ color: REDUP }} />
+                  {item.ke}
+                </>
               ) : (
-                <p className="text-[20px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[24px]">{item.judul}</p>
+                item.judul
               )}
-              {item.baris || (!bentukTiket && item.jam) ? (
-                <p className="text-[14px] leading-5" style={{ color: REDUP }}>
-                  {item.baris}
-                  {item.baris && !bentukTiket && item.jam ? ` ${SEPARATOR} ` : null}
-                  {!bentukTiket && item.jam ? <span className="whitespace-nowrap">{item.jam}</span> : null}
-                </p>
-              ) : null}
-            </div>
-            {isian.length > 0 || item.kode ? (
-              <>
-                {/* Sobekan tiket: garis putus-putus dengan dua lubang setengah lingkaran di tepi. */}
-                <span aria-hidden className="relative mx-4 block h-0 border-t-2 border-dashed md:mx-5" style={{ borderColor: "#D5DBE6" }}>
-                  <span className="absolute -left-[26px] -top-[11px] size-5 rounded-full bg-white md:-left-[30px]" />
-                  <span className="absolute -right-[26px] -top-[11px] size-5 rounded-full bg-white md:-right-[30px]" />
-                </span>
-                <dl className="grid grid-cols-[repeat(auto-fit,minmax(72px,1fr))] gap-3 px-4 pb-4 pt-4 md:px-5">
-                  {isian.map(([dt, dd]) => (
-                    <div key={dt} className="flex min-w-0 flex-col gap-1">
-                      <dt className="text-[0.75rem]" style={{ color: LABEL }}>
-                        {dt}
-                      </dt>
-                      <dd className="text-[22px] font-extrabold leading-7 tabular-nums [overflow-wrap:anywhere]">{dd}</dd>
-                    </div>
-                  ))}
-                  {item.kode ? (
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <dt className="whitespace-nowrap text-[0.75rem]" style={{ color: LABEL }}>
-                        {label.kode}
-                      </dt>
-                      <dd className="text-[16px] font-bold leading-7 tracking-[1.5px] tabular-nums [overflow-wrap:anywhere]">{item.kode}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </>
+            </p>
+            <p className="text-[14px] leading-5" style={{ color: REDUP }}>
+              {item.jam ? <span className="whitespace-nowrap font-semibold" style={{ color: TINTA }}>{item.jam}</span> : null}
+              {item.jam && item.baris ? ` ${SEPARATOR} ` : null}
+              {item.baris}
+            </p>
+            {kursi || item.kode ? (
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[12px] px-3 py-2" style={{ background: "#F1F3F8" }}>
+                {kursi ? <p className="text-[16px] font-bold leading-6">{kursi}</p> : null}
+                {item.kode ? (
+                  <p className="text-[14px] leading-5" style={{ color: REDUP }}>
+                    {label.kode} <span className="font-bold tracking-[1px]" style={{ color: TINTA }}>{item.kode}</span>
+                  </p>
+                ) : null}
+              </div>
             ) : null}
             {item.kalender ? (
-              <div className="px-4 pb-4 md:px-5">
-                <a href={item.kalender.href} className={PIL_KONTAK} style={GAYA_PIL_KONTAK}>
-                  <CalendarPlus size={18} weight="bold" aria-hidden />
-                  {item.kalender.label}
-                </a>
-              </div>
+              <a href={item.kalender.href} className="-my-1 inline-flex min-h-12 items-center gap-2 self-start text-[14px] font-semibold" style={{ color: BIRU }}>
+                <CalendarPlus size={18} weight="bold" aria-hidden />
+                {item.kalender.label}
+              </a>
             ) : null}
           </div>
         );
-        // Leg yang sudah tiba dilipat jadi satu baris; ketuk untuk membuka tiketnya lagi.
-        return item.lipat ? (
-          <div key={item.kunci}>
-            <LipatanHorizon dalam label={item.lipat.label} judul={item.judul} catatan={item.lipat.catatan}>
-              {blok}
-            </LipatanHorizon>
+        const tepi = index > 0 ? "mt-4 border-t pt-4 xl:mt-0 xl:border-t-0 xl:pt-0" : "";
+        return (
+          <div key={item.kunci} className={tepi} style={{ borderColor: "#E6E8EC" }}>
+            {item.lipat ? (
+              <LipatanHorizon dalam label={item.lipat.label} judul={item.judul} catatan={item.lipat.catatan}>
+                {blok}
+              </LipatanHorizon>
+            ) : (
+              blok
+            )}
           </div>
-        ) : (
-          blok
         );
       })}
       </div>
@@ -997,10 +962,16 @@ export function KartuInfoHorizon({
   kolom,
   id,
   status,
+  meta,
+  baris,
   children,
 }: {
   judul: string;
   Ikon: typeof Train;
+  /** Opsi B: keterangan di kanan kepala (tanggal, jumlah, keadaan). */
+  meta?: { teks: string; nada?: "redup" | "hijau" } | null;
+  /** Opsi B: isi sebagai kalimat ringkas, bukan kisi label/nilai. */
+  baris?: string[];
   /** Tujuan chip lompat di Perjalanan. */
   id?: string;
   /** Satu label keadaan di bawah judul kartu, misalnya "Sudah kamu terima". */
@@ -1014,8 +985,8 @@ export function KartuInfoHorizon({
   children?: ReactNode;
 }) {
   return (
-    <section id={id} aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-5 rounded-[20px] bg-white p-5 md:rounded-[24px] md:p-7`} style={{ color: TINTA }}>
-      <KepalaKartuPerjalanan Ikon={Ikon} judul={judul} />
+    <section id={id} aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6`} style={{ color: TINTA }}>
+      <KepalaKartuPerjalanan Ikon={Ikon} judul={judul} meta={meta?.teks} nadaMeta={meta?.nada} />
       {status ? (
         // Hijau yang sama dengan pratinjau yang Mas setujui; 4,9:1 di atas latarnya.
         <p className="-mt-1 inline-flex items-center self-start rounded-full px-3 py-1 text-[14px] font-semibold leading-5" style={{ background: "#E7F4EC", color: "#1E7B45" }}>
@@ -1024,7 +995,7 @@ export function KartuInfoHorizon({
       ) : null}
       {nama ? (
         <div className="flex flex-col gap-1.5">
-          <p className="text-[22px] font-extrabold leading-[1.2] [overflow-wrap:anywhere] md:text-[28px]">{nama}</p>
+          <p className="text-[18px] font-bold leading-6 [overflow-wrap:anywhere] md:text-[20px] md:leading-7">{nama}</p>
           {alamat ? (
             <p className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
               {alamat}
@@ -1036,6 +1007,15 @@ export function KartuInfoHorizon({
             </a>
           ) : null}
         </div>
+      ) : null}
+      {baris && baris.length > 0 ? (
+        <ul className="flex flex-col gap-1">
+          {baris.map((teks) => (
+            <li key={teks} className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+              {teks}
+            </li>
+          ))}
+        </ul>
       ) : null}
       {fakta.length > 0 ? (
         <dl className={`grid grid-cols-2 gap-5 ${kolom === 4 ? "md:grid-cols-4" : "md:grid-cols-3"}`}>

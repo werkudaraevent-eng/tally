@@ -1095,22 +1095,25 @@ export async function DashboardGathering({
             <KartuInfoHorizon
               key={urut}
               id={urut === 0 && !selesai ? "hotel" : undefined}
-              judul={urut > 0 && stay.check_in_at ? tv.moveTitle(hariHorizon(stay.check_in_at, zona, lang)) : tv.hotelTitle}
+              judul={urut > 0 ? "Pindah hotel" : "Hotel"}
+              meta={stay.check_in_at ? { teks: hariHorizon(stay.check_in_at, zona, lang) } : null}
               Ikon={Bed}
               nama={h?.name?.trim() || null}
               alamat={h?.address?.trim() || null}
               tautan={{ href: petaStay, label: labelTautanPeta(petaStay, lang) }}
               kolom={4}
-              fakta={[
-                { label: tH.room, nilai: stay.room_number ?? tH.roomPending, besar: stay.room_number !== null },
-                ...(temanStay && temanStay.length > 0 ? [{ label: tH.roommate(temanStay.length), nilai: temanStay.map((orang) => orang.name).join(", ") }] : []),
-                ...(stay.floor ? [{ label: tv.floor, nilai: stay.floor }] : []),
-                ...(stay.room_type ? [{ label: tv.roomType, nilai: stay.room_type }] : []),
-                // Tanggal sebagai nilai, jam di bawahnya: kolom ponsel sempit tidak memotong "Kam, 5 Nov · 14.00".
-                ...(stay.check_in_at ? [{ label: tv.checkIn, nilai: hariHorizon(stay.check_in_at, zona, lang), catatan: jamHorizon(stay.check_in_at, zona, lang) }] : []),
-                ...(stay.check_out_at ? [{ label: tv.checkOut, nilai: hariHorizon(stay.check_out_at, zona, lang), catatan: jamHorizon(stay.check_out_at, zona, lang) }] : []),
-              ]}
-            />
+              baris={[
+                stay.check_in_at ? `${tv.checkIn} ${hariHorizon(stay.check_in_at, zona, lang)} · ${jamHorizon(stay.check_in_at, zona, lang)}` : "",
+                stay.check_out_at ? `${tv.checkOut} ${hariHorizon(stay.check_out_at, zona, lang)} · ${jamHorizon(stay.check_out_at, zona, lang)}` : "",
+                temanStay && temanStay.length > 0 ? `${tH.roommate(temanStay.length)}: ${temanStay.map((orang) => orang.name).join(", ")}` : "",
+              ].filter(Boolean)}
+              fakta={[]}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[12px] px-3 py-2" style={{ background: "#F1F3F8" }}>
+                <p className="text-[16px] font-bold leading-6">{gabungMeta([stay.room_number ? `${tH.room} ${stay.room_number}` : tH.roomPending, stay.floor ? `${tv.floor} ${stay.floor}` : null])}</p>
+                {stay.room_type ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{stay.room_type}</p> : null}
+              </div>
+            </KartuInfoHorizon>
           );
           return selesai && stay.check_out_at ? (
             <LipatanHorizon
@@ -1183,6 +1186,7 @@ export async function DashboardGathering({
         <KartuInfoHorizon
           id="bus"
           judul={tv.busTitle}
+          meta={perjalananBusHorizon.length ? { teks: `${perjalananBusHorizon.length} perjalanan` } : null}
           Ikon={Bus}
           kolom={3}
           // Nama bus jadi kepala isi kartu, tanpa label "Bus" kedua di bawah kepala "Bus".
@@ -1225,14 +1229,13 @@ export async function DashboardGathering({
             judul={tl.title}
             Ikon={Suitcase}
             kolom={3}
-            status={item.handed_over_at ? tl.received : null}
-            fakta={[
-              { label: tl.countLabel, nilai: item.bag_count === 0 ? tl.none : tl.count(item.bag_count), besar: item.bag_count > 0 },
-              { label: tl.droppedAt, nilai: hariHorizon(item.recorded_at, zona, lang), catatan: jamHorizon(item.recorded_at, zona, lang) },
-              // Diserahkan di meja ambil (Luggage: Pick-up): jamnya di samping jam titip.
-              ...(item.handed_over_at ? [{ label: tl.pickedUpAt, nilai: hariHorizon(item.handed_over_at, zona, lang), catatan: jamHorizon(item.handed_over_at, zona, lang) }] : []),
-              ...(item.session_name ? [{ label: tl.place, nilai: item.session_name }] : []),
-            ]}
+            meta={{ teks: item.handed_over_at ? tl.received : "Dititipkan", nada: item.handed_over_at ? "hijau" : "redup" }}
+            nama={item.bag_count === 0 ? tl.none : tl.count(item.bag_count)}
+            baris={[
+              gabungMeta([`${tl.droppedAt} ${hariHorizon(item.recorded_at, zona, lang)} ${jamHorizon(item.recorded_at, zona, lang)}`, item.session_name || null]),
+              item.handed_over_at ? `${tl.pickedUpAt} ${hariHorizon(item.handed_over_at, zona, lang)} ${jamHorizon(item.handed_over_at, zona, lang)}` : "",
+            ].filter(Boolean)}
+            fakta={[]}
           >
             {item.photo_url ? (
               <FotoBagasi
