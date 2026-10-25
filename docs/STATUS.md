@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -178,9 +179,9 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #202: the Agenda tab strip at 1280 px has no cue that more tabs are off-screen, and the Bus chip and note refresh on load and save only, so a trip changed in Logistics in another tab shows after a reload.
 
 ### Horizon portal
+- #273 Low: the bus card "Selesai" head (every trip already left) was checked in code only, not on a render.
 - Portal card scale: Susunan acara rows (white, shadow instead of the card outline) and Directions cards in Perjalanan keep their own look; the QR page and the sign-in page are not cards and were not touched.
 - #268 Perjalanan chips: at 1440x900 the header is 102 px, so hash links and the no-JS sticky bar are about 30 px off (share one header-height value); from 1280 Hotel and Bus sit side by side, so tapping Hotel lights Bus. Bagasi does not fold yet after pick-up (#267 `handed_over_at`).
-- #198 L2/L3/L5: at 1280x588 the "Perbesar QR" pill sits on the fold, at 390 the contact row is lower than before (below Data diri), and a rejected registration gets the same gold status chip as "Terdaftar".
 - #105 L5 (remaining): on the QR page opened by reload or a shared link, Escape and Tutup push history entries. The QR opened inside the portal is a layer that closes with Back and returns focus.
 - #166 L1/L3/L5/L6: items are keyed by label, the bus label is a single word, Bus and Kamar sit on different rows at 768/1024, and `justify-between` spreads the second row.
 - #171: the last day's entries sit under the fold until the list sticks, and the Jadwal wrapper is full width below lg (L3).

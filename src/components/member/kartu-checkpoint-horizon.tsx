@@ -166,7 +166,7 @@ export function KartuCheckpointHorizon({
   ) : null;
 
   return (
-    <section aria-labelledby="checkpoint-judul" className={`${KARTU_HZ} ${PAD_KARTU}`} style={{ color: TINTA }}>
+    <section id="checkpoint" aria-labelledby="checkpoint-judul" className={`${KARTU_HZ} ${PAD_KARTU} scroll-mt-24 lg:scroll-mt-32`} style={{ color: TINTA }}>
       <KepalaKartuHorizon
         Ikon={Flag}
         judul={t.judul}

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, User, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
@@ -1337,38 +1337,52 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3, jud
   );
 }
 
-/** `tab`: tujuan di portal (penanda pindah tab); `luar`: tautan tel:/mailto: atau situs lain. */
-export type BarisProfil = { href: string; judul: string; isi: string | null; Ikon: typeof Train; luar?: boolean; tab?: string };
+/**
+ * Baris daftar akun. `tab`: tujuan di portal (penanda pindah tab); `luar`:
+ * tautan tel:/mailto: atau situs lain; `tabBaru`: dibuka di tab baru (WhatsApp);
+ * `nada`: warna lingkaran ikon (hijau WhatsApp).
+ */
+export type BarisProfil = { href: string; judul: string; isi: string | null; Ikon: typeof Train; luar?: boolean; tab?: string; tabBaru?: boolean; nada?: "hijau" };
 
-function DaftarProfil({ baris, rapat = false }: { baris: BarisProfil[]; rapat?: boolean }) {
+const BARIS_PROFIL = "m3-state -mx-3 flex min-h-14 items-center gap-4 rounded-[12px] px-3 py-2";
+
+/** Lingkaran ikon 40 px di baris daftar akun (pola halaman Account Trip.com). */
+function IkonBulat({ Ikon, nada }: { Ikon: typeof Train; nada?: "hijau" | "merah" }) {
+  const warna = nada === "hijau" ? "bg-[#E7F4EC] text-[#1E7B45]" : nada === "merah" ? "bg-[#FCEBEA] text-[#B42318]" : "bg-[#EEF1F6] text-[#101E38]";
   return (
-    <ul className={rapat ? "" : "-mx-2 -mb-2 md:-mx-3 md:-mb-3"}>
-      {baris.map(({ href, judul, isi, Ikon, luar, tab }) => {
+    <span aria-hidden className={`flex size-10 shrink-0 items-center justify-center rounded-full ${warna}`}>
+      <Ikon size={20} />
+    </span>
+  );
+}
+
+/** Daftar datar tanpa kartu di latar halaman: ikon bulat, judul, keterangan, panah. */
+function DaftarProfil({ baris }: { baris: BarisProfil[] }) {
+  return (
+    <ul className="flex flex-col">
+      {baris.map(({ href, judul, isi, Ikon, luar, tab, tabBaru, nada }) => {
         const dalam = (
           <>
-            <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF1F6]">
-              <Ikon size={20} />
-            </span>
+            <IkonBulat Ikon={Ikon} nada={nada} />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className={KELAS_NILAI}>{judul}</span>
+              <span className="text-[16px] leading-6">{judul}</span>
               {isi ? (
                 <span className="truncate text-[14px] leading-5" style={{ color: REDUP }}>
                   {isi}
                 </span>
               ) : null}
             </span>
-            <CaretRight size={18} aria-hidden className="shrink-0" style={{ color: LABEL }} />
+            <CaretRight size={20} aria-hidden className="shrink-0" style={{ color: LABEL }} />
           </>
         );
-        const kelas = "m3-state flex min-h-14 items-center gap-3 rounded-[12px] px-2 py-2 md:px-3";
         return (
-          <li key={judul} className="border-[#E6E8EC] [&+&]:border-t">
+          <li key={judul}>
             {luar ? (
-              <a href={href} className={kelas}>
+              <a href={href} className={BARIS_PROFIL} {...(tabBaru ? { target: "_blank", rel: "noreferrer noopener" } : {})}>
                 {dalam}
               </a>
             ) : (
-              <Link href={href} className={kelas}>
+              <Link href={href} className={BARIS_PROFIL}>
                 {dalam}
                 {tab ? <PenandaTab tab={tab} /> : null}
               </Link>
@@ -1380,133 +1394,172 @@ function DaftarProfil({ baris, rapat = false }: { baris: BarisProfil[]; rapat?: 
   );
 }
 
-const KARTU_PROFIL = `${KARTU_HZ} flex flex-col gap-4 ${PAD_KARTU}`;
+/** Judul kelompok daftar ("Bantuan"), seperti "Perks" di Trip.com. */
+function JudulKelompok({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <h2 id={id} className="pb-1 pt-3 text-[16px] font-semibold leading-6 lg:pt-0" style={{ color: TINTA }}>
+      {children}
+    </h2>
+  );
+}
+
+/** Ubin ringkas di pita navy Profil: checkpoint, kamar, bus. */
+export type UbinProfil = { href: string; Ikon: typeof Train; judul: string; isi: string; tab?: string };
 
 /**
- * Halaman Profil Horizon (pola halaman akun Luma/Eventbrite dan Airbnb/Google
- * Account): kartu tiket navy berisi identitas dan QR, data diri sebagai label
- * dan nilai, lalu bantuan dan pengaturan dalam satu kartu. Layar lebar dua
- * kolom; ponsel satu tumpukan dengan Menu (Perjalanan, Outfit bila Jadwal disembunyikan) di bawah tiket,
- * karena di ponsel halaman ini adalah tab "Menu".
+ * Kepala halaman Profil Horizon (pola halaman Account Trip.com; keputusan Mas
+ * 25 Okt, versi C): avatar, nama, dan "Lihat data diri" langsung di pita navy,
+ * lalu ubin ringkas yang hanya muncul bila datanya ada. Tanpa judul "Profil".
+ */
+export function IdentitasProfilHorizon({ inisial, nama, data, ubin }: { inisial: string; nama: string; data: { href: string; label: string }; ubin: UbinProfil[] }) {
+  return (
+    <div className="flex flex-col gap-4 pb-2 md:pb-0">
+      <div className="flex items-center gap-4">
+        <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--hz-emas)] text-[18px] font-extrabold text-[var(--hz-on-emas)] shadow-[0_0_0_2px_var(--hz-navy),0_0_0_4px_var(--hz-emas)]">
+          {inisial}
+        </span>
+        <div className="flex min-w-0 flex-col">
+          <h1 className="text-[22px] font-bold leading-7 [overflow-wrap:anywhere]">{nama}</h1>
+          <Link href={data.href} className="m3-state -mx-1 -my-2 inline-flex min-h-12 w-fit items-center gap-1 rounded-md px-1 text-[14px] leading-5 text-white/85">
+            {data.label}
+            <CaretRight size={16} aria-hidden />
+          </Link>
+        </div>
+      </div>
+      {ubin.length > 0 ? (
+        // Bergulir ke samping di ponsel bila tidak muat, seperti ubin Diamond di Trip.com.
+        <ul className="-mx-6 flex gap-2 overflow-x-auto px-6 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
+          {ubin.map(({ href, Ikon, judul, isi, tab }) => (
+            <li key={href} className="flex shrink-0">
+              <Link href={href} className="m3-state flex w-[148px] flex-col gap-1 rounded-[12px] bg-white/[0.08] p-3 [--m3-state-color:#fff] md:w-[176px]">
+                <Ikon size={22} aria-hidden className="text-[var(--hz-emas)]" />
+                <span className="truncate text-[16px] font-semibold leading-6">{judul}</span>
+                <span className="line-clamp-2 text-[12px] leading-4 text-white/75">{isi}</span>
+                {tab ? <PenandaTab tab={tab} /> : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Isi halaman Profil Horizon di bawah pita navy: kartu QR satu baris yang
+ * menumpang di tepi pita (seperti kartu Trip Coins; kodenya tidak pernah patah),
+ * lalu daftar datar berikon bulat, kelompok Bantuan, dan Keluar di paling bawah.
+ * Layar lebar dua kolom: akun di kiri, bantuan di kanan.
  */
 export function ProfilHorizon({
   sisipan,
-  kartu,
-  menu,
-  darurat = null,
-  data,
+  qr,
+  akun,
   bantuan,
+  darurat = null,
   keluar,
 }: {
   sisipan: ReactNode;
-  kartu: {
-    inisial: string;
-    nama: string;
-    catatan: string | null;
-    status: string;
-    qr: { href: string; label: string; kode: string; petunjuk: string; perbesar: string; gambar: ReactNode } | null;
-  };
-  menu: { judul: string; baris: BarisProfil[] };
-  /** Kartu darurat dan bantuan dari panitia (E-03), tepat di bawah Perjalanan. */
+  qr: { href: string; label: string; kode: string; tampilkan: string; gambar: ReactNode } | null;
+  akun: BarisProfil[];
+  /** Kontak panitia sebagai baris (WhatsApp, Telepon, atau Email). */
+  bantuan: { judul: string; baris: BarisProfil[] };
+  /** Kartu darurat dan bantuan dari panitia (E-03): tetap terbuka, tidak di balik ketukan. */
   darurat?: ReactNode;
-  data: { judul: string; fakta: { label: string; nilai: string }[]; salah: { teks: string; tautan: { href: string; label: string } } | null };
-  /** `kontak`: Hubungi panitia dengan tombol Telepon dan WhatsApp (U-07), di atas baris lain. */
-  bantuan: { judul: string; kontak?: ReactNode; baris: BarisProfil[] };
   /** `lingkup`: alamat portal yang salinan QR luringnya dihapus sebelum keluar. */
   keluar: { action: string; label: string; lingkup: string[] };
 }) {
+  const adaBantuan = bantuan.baris.length > 0 || Boolean(darurat);
   return (
-    <div className="flex flex-col gap-4 pb-6 md:gap-6">
+    // Pembungkus isi naik 12/24 px ke pita; kartu QR naik lagi 20/8 px, jadi menumpang 32 px.
+    // Tanpa QR, isi turun kembali ke bawah pita.
+    <div className={`flex flex-col gap-4 pb-6 ${qr ? "" : "mt-3 md:mt-6"}`}>
+      {qr ? (
+        <PemicuQr id="pemicu-qr-profil" href={qr.href} className={`${KARTU_HZ} m3-state relative -mt-5 flex items-center gap-4 p-4 text-[#101E38] md:-mt-2 lg:max-w-[480px]`}>
+          <span className="size-12 shrink-0 rounded-[8px] bg-white p-0.5 ring-1 ring-[#E6E9EE]">{qr.gambar}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            {/* Kode dari impor bisa panjang: tidak pernah dipotong (dibacakan petugas), patah bila perlu. */}
+            <span className="text-[18px] font-bold leading-6 tracking-[0.5px] [overflow-wrap:anywhere]">{qr.kode}</span>
+            <span className="truncate text-[12px] leading-4" style={{ color: REDUP }}>
+              {qr.label}
+            </span>
+          </span>
+          {/* Ponsel: panah saja, supaya kode mendapat lebar penuh; labelnya tetap dibaca pembaca layar. */}
+          <span className="inline-flex shrink-0 items-center gap-0.5 text-[14px] font-semibold leading-5">
+            <span className="sr-only md:not-sr-only">{qr.tampilkan}</span>
+            <CaretRight size={20} aria-hidden className="md:size-4" />
+          </span>
+        </PemicuQr>
+      ) : null}
       {sisipan}
-      <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-8">
-        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-          <section aria-label={kartu.qr?.label ?? kartu.nama} className={`overflow-hidden rounded-[16px] bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
-            <div className="flex items-center gap-4 p-5 md:gap-5 md:p-[30px]">
-              <span aria-hidden className="flex size-[52px] shrink-0 items-center justify-center rounded-full bg-[var(--hz-emas)] text-[19px] font-extrabold text-[var(--hz-on-emas)] md:size-[72px] md:text-[26px]">
-                {kartu.inisial}
-              </span>
-              <div className="flex min-w-0 flex-col items-start">
-                <p className="text-[21px] font-extrabold leading-[1.2] [overflow-wrap:anywhere] md:text-[28px]">{kartu.nama}</p>
-                {kartu.catatan ? (
-                  <p className="text-[14px] leading-5 [overflow-wrap:anywhere] md:text-[15px]" style={{ color: REDUP_NAVY }}>
-                    {kartu.catatan}
-                  </p>
-                ) : null}
-                <p className="mt-2.5 inline-flex min-h-7 items-center gap-1.5 rounded-full bg-white/10 px-3 text-[0.8125rem] font-semibold text-[var(--hz-emas)]">
-                  {kartu.status}
-                </p>
-              </div>
-            </div>
-            {kartu.qr ? (
-              <PemicuQr
-                id="pemicu-qr-profil"
-                href={kartu.qr.href}
-                className="m3-state flex items-center gap-4 border-t border-dashed border-[#405272] px-5 pb-5 pt-[18px] focus-visible:outline-offset-[-4px] md:gap-6 md:px-[30px] md:pb-[30px] md:pt-[26px]"
-              >
-                <span className="size-[92px] shrink-0 rounded-[14px] bg-white p-2 md:size-[136px] md:rounded-[20px] md:p-2.5">{kartu.qr.gambar}</span>
-                <span className="flex min-w-0 flex-col items-start">
-                  <span className="text-[0.8125rem] font-semibold text-[var(--hz-emas)]">{kartu.qr.label}</span>
-                  <span className="mt-1 text-[20px] font-extrabold tracking-[0.5px] [overflow-wrap:anywhere] md:text-[24px]">{kartu.qr.kode}</span>
-                  <span className="mt-0.5 text-[14px] leading-5" style={{ color: REDUP_NAVY }}>
-                    {kartu.qr.petunjuk}
-                  </span>
-                  <span className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[var(--hz-emas)] px-4 text-[14px] font-bold text-[var(--hz-on-emas)]">
-                    <ArrowsOut size={16} weight="bold" aria-hidden />
-                    {kartu.qr.perbesar}
-                  </span>
-                </span>
-              </PemicuQr>
-            ) : null}
-          </section>
-          {/* Layar lebar: Outfit (bila Jadwal disembunyikan) sudah ada di bilah atas. Tablet memakai bilah bawah, jadi menunya tetap di sini. */}
-          {menu.baris.length > 0 ? (
-            <section aria-label={menu.judul} className={`${KARTU_HZ} p-2 lg:hidden`} style={{ color: TINTA }}>
-              <DaftarProfil baris={menu.baris} rapat />
+      <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-16" style={{ color: TINTA }}>
+        <section aria-label={akun[0]?.judul} className="min-w-0">
+          <DaftarProfil baris={akun} />
+        </section>
+        <div className="flex min-w-0 flex-col gap-2 border-t border-[#E6E8EC] pt-2 lg:border-t-0 lg:pt-0">
+          {adaBantuan ? (
+            <section aria-labelledby="profil-bantuan" className="flex flex-col gap-2">
+              <JudulKelompok id="profil-bantuan">{bantuan.judul}</JudulKelompok>
+              {bantuan.baris.length > 0 ? <DaftarProfil baris={bantuan.baris} /> : null}
+              {darurat}
             </section>
           ) : null}
-          {darurat}
-        </div>
-        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-          <section aria-label={data.judul} className={KARTU_PROFIL} style={{ color: TINTA }}>
-            <KepalaKartuHorizon Ikon={User} judul={data.judul} />
-            <dl className="grid gap-3 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-4">
-              {data.fakta.map((item) => (
-                <div key={item.label} className="flex min-w-0 flex-col gap-1">
-                  <dt className={KELAS_ALIS} style={{ color: LABEL }}>
-                    {item.label}
-                  </dt>
-                  <dd className={KELAS_NILAI}>{item.nilai}</dd>
-                </div>
-              ))}
-            </dl>
-            {data.salah ? (
-              <p className="flex flex-wrap items-center gap-x-1 border-t border-[#E6E8EC] pt-2 text-[14px] leading-5" style={{ color: REDUP }}>
-                {data.salah.teks}
-                <a href={data.salah.tautan.href} className="inline-flex min-h-12 items-center font-semibold underline-offset-2 hover:underline" style={{ color: BIRU }}>
-                  {data.salah.tautan.label}
-                </a>
-              </p>
-            ) : null}
-          </section>
-          {bantuan.kontak || bantuan.baris.length > 0 ? (
-            <section aria-label={bantuan.judul} className={KARTU_PROFIL} style={{ color: TINTA }}>
-              <KepalaKartuHorizon Ikon={Lifebuoy} judul={bantuan.judul} />
-              {bantuan.kontak}
-              {bantuan.baris.length > 0 ? (
-                <div className={bantuan.kontak ? "border-t border-[#E6E8EC] pt-2" : ""}>
-                  <DaftarProfil baris={bantuan.baris} />
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-          <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
-            <button type="submit" className="m3-state inline-flex min-h-12 items-center gap-2 rounded-full border border-[#F1C9C5] bg-white px-6 text-[14px] font-bold text-[#B42318] [--m3-state-color:#B42318]">
-              <SignOut size={18} aria-hidden />
-              {keluar.label}
-            </button>
-          </FormKeluar>
+          {/* Keluar: baris terakhir, merah, seperti "Sign out" di halaman akun aplikasi. */}
+          <div className={adaBantuan ? "mt-2 border-t border-[#E6E8EC] pt-2" : ""}>
+            <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
+              <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
+                <IkonBulat Ikon={SignOut} nada="merah" />
+                {keluar.label}
+              </button>
+            </FormKeluar>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+/**
+ * Halaman Data diri (dibuka dari "Lihat data diri", seperti "Manage my account"
+ * di Trip.com): baris label dan nilai, lalu cara menghubungi panitia bila ada
+ * yang salah. Peserta tidak mengubah datanya sendiri.
+ */
+export function DataDiriHorizon({
+  fakta,
+  bantuan,
+}: {
+  fakta: { label: string; nilai: string }[];
+  /** `kontak`: tombol Telepon dan WhatsApp; tanpa itu cukup tautan telepon. */
+  bantuan: { teks: string; kontak: ReactNode; tautan: { href: string; label: string } | null } | null;
+}) {
+  return (
+    <div className="flex w-full max-w-[640px] flex-col gap-4 pb-6" style={{ color: TINTA }}>
+      <div className={`${KARTU_HZ} overflow-hidden`}>
+        <dl>
+          {fakta.map((item) => (
+            <div key={item.label} className="flex min-h-14 flex-col justify-center gap-1 border-[#E6E8EC] px-4 py-3 md:px-6 [&+&]:border-t">
+              <dt className={KELAS_ALIS} style={{ color: LABEL }}>
+                {item.label}
+              </dt>
+              <dd className="text-[16px] leading-6 [overflow-wrap:anywhere]">{item.nilai}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      {bantuan ? (
+        <div className={`${KARTU_HZ} flex flex-col gap-3 ${PAD_KARTU}`}>
+          <p className={KELAS_KET} style={{ color: REDUP }}>
+            {bantuan.teks}
+          </p>
+          {bantuan.tautan ? (
+            <a href={bantuan.tautan.href} className={`${KELAS_TAUTAN} underline-offset-2 hover:underline`} style={{ color: BIRU }}>
+              {bantuan.tautan.label}
+            </a>
+          ) : null}
+          {bantuan.kontak}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+

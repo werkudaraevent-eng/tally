@@ -690,6 +690,21 @@ yang sama dipakai preset lain.
   abu (`LATAR_STRIP`, 12 px sudut) supaya mudah ditemukan saat di lobi.
 - **Tautan tidak menambah jarak.** Area ketuk tetap 48 px, tetapi kelebihannya
   ditarik balik (`-my-3.5`), jadi barisnya berjarak seperti teks biasa.
+- **Halaman Profil seperti halaman akun** (Trip.com Account, Grab, Google
+  Account; versi C, disetujui Mas 25 Okt). Tanpa judul halaman: avatar 56,
+  nama 22/28, dan "Lihat data diri ›" langsung di pita navy, lalu ubin ringkas
+  148 px (176 di desktop; ikon emas, nilai 16/24, keterangan 12/16) untuk
+  checkpoint, kamar, dan bus. Setiap ubin hanya muncul bila datanya ada, dan
+  status pendaftaran bukan ubin. Kartu QR satu baris menumpang 32 px di tepi
+  pita (QR 48, kode 18/24, panah di kanan; label "Tampilkan" dari 768 px).
+  Kode tidak pernah dipotong: kode pendek tetap satu baris, kode panjang dari
+  impor patah ke baris berikutnya. Di
+  bawahnya daftar datar tanpa kartu di latar halaman: lingkaran ikon 40
+  (`#EEF1F6`, hijau untuk WhatsApp, merah untuk Keluar), judul 16/24,
+  keterangan 14/20, panah, baris 56. Kelompok dipisah garis dan berjudul 16/24
+  ("Bantuan"). Kartu darurat tetap terbuka di kelompok Bantuan, tidak di balik
+  ketukan. Data diri punya halaman sendiri (`?tab=profil&lihat=data`) dengan
+  baris label dan nilai. Avatar di kepala portal membuka halaman ini.
 - Kelasnya ada di `portal-horizon.tsx` (`KELAS_JUDUL_ISI`, `KELAS_KET`,
   `KELAS_ALIS`, `KELAS_TAUTAN`, `KELAS_STRIP`). Kartu baru memakainya, bukan
   ukuran sendiri.
