@@ -11,6 +11,7 @@ import {
   CheckCircle,
   CoatHanger,
   EnvelopeSimple,
+  Flag,
   Globe,
   House,
   Hourglass,
@@ -22,6 +23,7 @@ import {
   Suitcase,
   Ticket,
   User,
+  WhatsappLogo,
   Users,
   X,
   XCircle,
@@ -90,6 +92,9 @@ import {
   NavBawahHorizon,
   PassHorizon,
   ProfilHorizon,
+  IdentitasProfilHorizon,
+  DataDiriHorizon,
+  type UbinProfil,
   PerjalananBusHorizon,
   PitaKepalaHorizon,
   SapaanHorizon,
@@ -178,6 +183,7 @@ export async function DashboardGathering({
   tab: tabDiminta,
   hari,
   dari = null,
+  lihat = null,
   pratinjau = false,
   waktuPratinjau = null,
 }: {
@@ -192,6 +198,8 @@ export async function DashboardGathering({
   hari: number | null;
   /** Tab asal QR layar penuh (`?dari=`): tombol tutup dan Escape kembali ke sana. */
   dari?: "jadwal" | "perjalanan" | "outfit" | "info" | "profil" | null;
+  /** Halaman di dalam Profil Horizon (`?lihat=`): "data" = Data diri. */
+  lihat?: "data" | null;
   /** Pratinjau di Participant area: tiap isi Beranda diberi penanda untuk digulir ke sana. */
   pratinjau?: boolean;
   /** Pratinjau saja: saat yang dipilih di "Preview on" (ms epoch); tanpa itu, saat ini. */
@@ -354,7 +362,7 @@ export async function DashboardGathering({
   const [logistik, checkpoint, checkpointQr, bagasi] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
-        tab === "beranda" && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, penonton) : null,
+        (tab === "beranda" || (horizon && tab === "profil")) && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, penonton) : null,
         // Petunjuk layar QR menyebut checkpoint hanya bila fiturnya menyala.
         horizon && tampilKode ? loadCheckpointQr(event.id) : null,
         // Bagasi yang dicatat di meja bagasi (Check-in > Sessions > Record
@@ -1480,95 +1488,116 @@ export async function DashboardGathering({
       </div>
     );
   } else if (horizon) {
-    // Profil Horizon: header sama dengan tab lain, lalu kartu tiket, data diri, dan bantuan.
+    // Profil Horizon (versi C, keputusan Mas 25 Okt): identitas di pita navy
+    // tanpa judul halaman, lalu kartu QR, daftar akun, dan Bantuan. Data diri
+    // punya halaman sendiri (`?lihat=data`), seperti "Manage my account" di Trip.com.
     const tp = tH.profile;
-    const statusLabel = sesi.status === "approved" ? p.status.approved : sesi.status === "rejected" ? p.status.rejected : p.status.pending;
-    const instansi = peserta ? [peserta.title, peserta.company].filter(Boolean).join(" · ") : "";
     const tautanTelepon = telepon ? telHref(telepon) : null;
-    judulHorizon = { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabsShort.profil, catatan: tp.note };
-    // Hubungi panitia dengan Telepon dan WhatsApp (U-07), juga untuk "Ada data yang salah?".
-    const kontakProfil = kontakHorizon ? (
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <p className="text-[16px] font-semibold leading-6">{tH.helpCard.title}</p>
-          <p className="text-[14px] leading-5 text-[#526078]">{tH.helpCard.noteProfile}</p>
-        </div>
-        <TombolKontakHorizon kontak={kontakHorizon} label={labelKontak} />
-      </div>
-    ) : null;
-    // Kartu darurat (E-03): kontak dari Participant area dengan tombol Telepon,
-    // WhatsApp (ponsel), dan Peta. Cadangannya blok lama: tiap butir menjadi baris
-    // yang bisa diketuk lewat tautannya atau nomor ponsel di teksnya (pola kontak kru bus).
-    const kartuDarurat = pakaiKontak ? (
-      <KartuDaruratHorizon
-        judul={judulDarurat}
-        isi={bantuan?.note?.trim() || null}
-        label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
-        baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta } }))}
-      />
-    ) : blokDarurat ? (
-      <KartuDaruratHorizon
-        judul={judulDarurat}
-        isi={blokDarurat.body?.trim() || null}
-        baris={(blokDarurat.items ?? [])
-          .filter((item) => item.title?.trim() || item.body?.trim())
-          .map((item) => {
-            const judulButir = item.title?.trim() || item.body?.trim() || "";
-            const tautan = item.href?.trim() && /^https?:\/\//i.test(item.href.trim()) ? item.href.trim() : null;
-            const nomor = tautan ? null : nomorKru([item.title, item.body].filter(Boolean).join(" "));
-            return { judul: judulButir, isi: item.title?.trim() ? item.body?.trim() || null : null, href: tautan ?? (nomor ? `tel:${nomor.tel}` : null), luar: Boolean(tautan) };
-          })}
-      />
-    ) : null;
-    isi = (
-      <ProfilHorizon
-        sisipan={pitaEmail || statusPendaftaran ? <div className="flex flex-col gap-4">{pitaEmail}{statusPendaftaran}</div> : null}
-        kartu={{
-          inisial,
-          nama: sesi.name,
-          catatan: instansi || null,
-          status: statusLabel,
-          // Satu nama untuk QR di seluruh portal: "QR kehadiran"; tombolnya "Tampilkan QR" (U-20).
-          qr:
-            tampilKode && peserta
-              ? { href: keTab("qr", { dari: "profil" }), label: t.qrTitle, kode: peserta.qr_code, petunjuk: tp.ticketHint, perbesar: tp.enlarge, gambar: <QrMini code={peserta.qr_code} alt="" /> }
-              : null,
-        }}
-        menu={{
-          judul: tp.menu,
-          // Perjalanan punya tab sendiri di bilah bawah, jadi tidak diulang di Menu.
-          // Outfit di bawah Susunan acara (keputusan Mas 20 Okt); di Menu hanya
-          // bila Jadwal disembunyikan.
-          baris: [...(adaOutfit && !outfitDiAcara ? [{ href: keTab("outfit"), judul: labelOutfitHalaman, isi: tH.outfit.menuRow, Ikon: CoatHanger, tab: "outfit" }] : [])],
-        }}
-        darurat={kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
-        data={{
-          judul: tp.details,
-          fakta: [
-            { label: tp.name, nilai: sesi.name },
-            ...((peserta?.email?.trim() || sesi.email) ? [{ label: tp.email, nilai: peserta?.email?.trim() || sesi.email }] : []),
-            ...(peserta?.company ? [{ label: tp.company, nilai: peserta.company }] : []),
-            ...(peserta?.title ? [{ label: tp.jobTitle, nilai: peserta.title }] : []),
-          ],
-          // Dengan kartu Hubungi panitia, "Ada data yang salah?" ditulis di sana.
-          salah: !kontakProfil && tautanTelepon ? { teks: tp.wrong, tautan: { href: tautanTelepon, label: tp.contact } } : null,
-        }}
-        bantuan={{
-          judul: tp.help,
-          kontak: kontakProfil,
-          baris: [
+    const fakta = [
+      { label: tp.name, nilai: sesi.name },
+      ...((peserta?.email?.trim() || sesi.email) ? [{ label: tp.email, nilai: peserta?.email?.trim() || sesi.email }] : []),
+      ...(peserta?.company ? [{ label: tp.company, nilai: peserta.company }] : []),
+      ...(peserta?.title ? [{ label: tp.jobTitle, nilai: peserta.title }] : []),
+    ];
+    if (lihat === "data") {
+      judulHorizon = { alis: nama, judul: tp.details, catatan: "", kembali: { href: keTab("profil"), label: tp.back, semua: true, tab: "profil" } };
+      isi = (
+        <DataDiriHorizon
+          fakta={fakta}
+          bantuan={
+            kontakHorizon
+              ? { teks: tH.helpCard.noteProfile, kontak: <TombolKontakHorizon kontak={kontakHorizon} label={labelKontak} />, tautan: null }
+              : tautanTelepon
+                ? { teks: tp.wrong, kontak: null, tautan: { href: tautanTelepon, label: tp.contact } }
+                : null
+          }
+        />
+      );
+    } else {
+      // Ubin hanya bila datanya ada: checkpoint (bila tampil di Beranda), kamar, bus.
+      const ubin: UbinProfil[] = [
+        ...(checkpoint && checkpoint.steps.length > 0 && diBeranda("checkpoints")
+          ? [{ href: `${keTab("beranda")}#checkpoint`, Ikon: Flag, judul: `${checkpoint.done}/${checkpoint.steps.length}`, isi: tp.checkpoints, tab: "beranda" }]
+          : []),
+        ...(kamar
+          ? [{
+              href: `${keTab("perjalanan")}#hotel`,
+              Ikon: Bed,
+              judul: kamar.room_number ? tp.room(kamar.room_number) : kamar.hotel?.name?.trim() || tH.travel.hotelCard,
+              isi: kamar.room_number ? kamar.hotel?.name?.trim() || tH.travel.hotelCard : tH.roomPending,
+              tab: "perjalanan",
+            }]
+          : []),
+        ...(namaBus
+          ? [{
+              href: `${keTab("perjalanan")}#bus`,
+              Ikon: Bus,
+              judul: namaBus,
+              isi: perjalananBus?.depart_at ? `${hariHorizon(perjalananBus.depart_at, zona, lang)} · ${jamHorizon(perjalananBus.depart_at, zona, lang)}` : tH.travel.busTitle,
+              tab: "perjalanan",
+            }]
+          : []),
+      ];
+      kepala = <IdentitasProfilHorizon inisial={inisial} nama={sesi.name} data={{ href: keTab("profil", { lihat: "data" }), label: tp.seeDetails }} ubin={ubin} />;
+      // Kartu darurat (E-03): kontak dari Participant area dengan tombol Telepon,
+      // WhatsApp (ponsel), dan Peta. Cadangannya blok lama: tiap butir menjadi baris
+      // yang bisa diketuk lewat tautannya atau nomor ponsel di teksnya (pola kontak kru bus).
+      const kartuDarurat = pakaiKontak ? (
+        <KartuDaruratHorizon
+          judul={judulDarurat}
+          isi={bantuan?.note?.trim() || null}
+          label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
+          baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta } }))}
+        />
+      ) : blokDarurat ? (
+        <KartuDaruratHorizon
+          judul={judulDarurat}
+          isi={blokDarurat.body?.trim() || null}
+          baris={(blokDarurat.items ?? [])
+            .filter((item) => item.title?.trim() || item.body?.trim())
+            .map((item) => {
+              const judulButir = item.title?.trim() || item.body?.trim() || "";
+              const tautan = item.href?.trim() && /^https?:\/\//i.test(item.href.trim()) ? item.href.trim() : null;
+              const nomor = tautan ? null : nomorKru([item.title, item.body].filter(Boolean).join(" "));
+              return { judul: judulButir, isi: item.title?.trim() ? item.body?.trim() || null : null, href: tautan ?? (nomor ? `tel:${nomor.tel}` : null), luar: Boolean(tautan) };
+            })}
+        />
+      ) : null;
+      const namaKontak = config.contact_name?.trim() || null;
+      isi = (
+        <ProfilHorizon
+          sisipan={pitaEmail || statusPendaftaran ? <div className="flex flex-col gap-4">{pitaEmail}{statusPendaftaran}</div> : null}
+          // Satu nama untuk QR di seluruh portal: "QR kehadiran" (U-20).
+          qr={tampilKode && peserta ? { href: keTab("qr", { dari: "profil" }), label: t.qrTitle, kode: peserta.qr_code, tampilkan: tp.show, gambar: <QrMini code={peserta.qr_code} alt="" /> } : null}
+          akun={[
+            { href: keTab("profil", { lihat: "data" }), judul: tp.details, isi: tp.detailsRow(Boolean(peserta?.company)), Ikon: User },
+            // Perjalanan punya tab sendiri di bilah bawah, jadi tidak diulang di sini.
+            // Outfit di bawah Susunan acara (keputusan Mas 20 Okt); di sini hanya
+            // bila Jadwal disembunyikan.
+            ...(adaOutfit && !outfitDiAcara ? [{ href: keTab("outfit"), judul: labelOutfitHalaman, isi: tH.outfit.menuRow, Ikon: CoatHanger, tab: "outfit" }] : []),
             ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: tp.language, isi: t.languageRow, Ikon: Globe }] : []),
             { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
-          ],
-        }}
-        keluar={{
-          action: `/e/${encodeURIComponent(event.slug)}/api/peserta/keluar`,
-          label: t.signOut,
-          // Salinan QR luring kedua bahasa portal dihapus sebelum keluar.
-          lingkup: lingkupQr,
-        }}
-      />
-    );
+          ]}
+          bantuan={{
+            judul: tp.helpTitle,
+            baris: kontakHorizon
+              ? [
+                  ...(kontakHorizon.wa ? [{ href: kontakHorizon.wa, judul: tp.whatsappRow, isi: namaKontak, Ikon: WhatsappLogo, luar: true, tabBaru: true, nada: "hijau" as const }] : []),
+                  ...(kontakHorizon.tel ? [{ href: `tel:${kontakHorizon.tel}`, judul: tp.callRow, isi: telepon, Ikon: Phone, luar: true }] : []),
+                  ...(!kontakHorizon.tel && kontakHorizon.email ? [{ href: `mailto:${kontakHorizon.email}`, judul: tp.emailRow, isi: kontakHorizon.email, Ikon: EnvelopeSimple, luar: true }] : []),
+                ]
+              : [],
+          }}
+          darurat={kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
+          keluar={{
+            action: `/e/${encodeURIComponent(event.slug)}/api/peserta/keluar`,
+            label: t.signOut,
+            // Salinan QR luring kedua bahasa portal dihapus sebelum keluar.
+            lingkup: lingkupQr,
+          }}
+        />
+      );
+    }
   } else {
     const statusLabel = sesi.status === "approved" ? p.status.approved : sesi.status === "rejected" ? p.status.rejected : p.status.pending;
     judulHorizon = { alis: statusLabel, judul: sesi.name, catatan: peserta ? [peserta.title, peserta.company].filter(Boolean).join(" · ") : "" };
@@ -2033,7 +2062,7 @@ export async function DashboardGathering({
       perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona), jenis: "kartu" },
       outfit: { alis: outfitDiAcara ? t.schedule : nama, judul: labelOutfitHalaman, judulPonsel: labelOutfitHalaman, catatan: tH.outfit.note, jenis: outfitDiAcara ? "jadwal" : "kartu" },
       info: { alis: nama, judul: tH.tabs.info, judulPonsel: tH.tabs.info, catatan: t.infoNote, jenis: "kartu" },
-      profil: { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabsShort.profil, catatan: tH.profile.note, jenis: "kartu" },
+      profil: { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabs.profil, catatan: tH.profile.note, jenis: "kartu" },
     };
     // Lapisan QR (U-02): bukan di pratinjau admin, supaya peramban panitia tidak
     // menyimpan QR peserta atau memasang service worker portal.

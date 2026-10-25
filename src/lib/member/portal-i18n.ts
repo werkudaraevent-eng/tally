@@ -277,6 +277,19 @@ export type PortalUiText = {
       help: string;
       language: string;
       menu: string;
+      /** Tautan di bawah nama ke halaman Data diri. */
+      seeDetails: string;
+      /** Keterangan baris Data diri; `instansi`: peserta punya instansi. */
+      detailsRow: (instansi: boolean) => string;
+      back: string;
+      /** Ujung kanan kartu QR satu baris. */
+      show: string;
+      helpTitle: string;
+      checkpoints: string;
+      room: (nomor: string) => string;
+      whatsappRow: string;
+      callRow: string;
+      emailRow: string;
     };
   };
 };
@@ -504,6 +517,16 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         help: "Bantuan dan pengaturan",
         language: "Bahasa",
         menu: "Menu",
+        seeDetails: "Lihat data diri",
+        detailsRow: (instansi) => (instansi ? "Nama, email, instansi" : "Nama dan email"),
+        back: "Profil",
+        show: "Tampilkan",
+        helpTitle: "Bantuan",
+        checkpoints: "Checkpoint selesai",
+        room: (nomor) => `Kamar ${nomor}`,
+        whatsappRow: "WhatsApp panitia",
+        callRow: "Telepon panitia",
+        emailRow: "Email panitia",
       },
     },
   },
@@ -728,6 +751,16 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         help: "Help and settings",
         language: "Language",
         menu: "Menu",
+        seeDetails: "View your details",
+        detailsRow: (instansi) => (instansi ? "Name, email, organisation" : "Name and email"),
+        back: "Profile",
+        show: "Show",
+        helpTitle: "Help",
+        checkpoints: "Checkpoints done",
+        room: (nomor) => `Room ${nomor}`,
+        whatsappRow: "WhatsApp the organisers",
+        callRow: "Call the organisers",
+        emailRow: "Email the organisers",
       },
     },
   },

@@ -71,7 +71,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const landing = (event?.landing_config ?? {}) as EventLandingConfig;
   const lang: LandingLang = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : landingDefaultLang(landing);
   if (!event) return { title: LANDING_UI[lang].myDashboard, robots };
-  return { title: `${await judulTabPortal(event, lang, kueri.tab)} · ${publicEventName(event)}`, robots };
+  return { title: `${await judulTabPortal(event, lang, kueri.tab, kueri.lihat)} · ${publicEventName(event)}`, robots };
 }
 
 /**
@@ -83,7 +83,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
  * tanpa outfit, QR yang disembunyikan) berjudul Beranda juga. Sesi tidak dibaca
  * di sini supaya QR di gerbang tidak menunggu kueri tambahan.
  */
-async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | string[] | undefined): Promise<string> {
+async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | string[] | undefined, lihat?: string | string[]): Promise<string> {
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   const teks = PORTAL_UI[lang];
   if (landing.layout !== "modern" || landing.gathering !== true) return LANDING_UI[lang].myDashboard;
@@ -93,6 +93,7 @@ async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | 
   if (tab === "qr" && horizon && member?.show_code !== false) return teks.qrTitle;
   if (tab === "outfit" && horizon && (bacaOutfitSetiapHari(member?.outfit_every_day) || (await adaOutfit(event.id, lang)))) return labelOutfit(member?.outfit_label);
   if (tab === "perjalanan" && horizon) return label.perjalanan;
+  if (tab === "profil" && horizon && lihat === "data") return teks.horizon.profile.details;
   if (tab === "jadwal" || tab === "info" || tab === "profil") return label[tab];
   return label.beranda;
 }
@@ -153,7 +154,8 @@ export default async function AreaPesertaPage({
     // QR layar penuh dibuka dari tab lain: tutup kembali ke tab (dan hari) asalnya.
     const dari =
       kueri.dari === "jadwal" || kueri.dari === "perjalanan" || kueri.dari === "outfit" || kueri.dari === "info" || kueri.dari === "profil" ? kueri.dari : null;
-    return <DashboardGathering event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} tab={tab} hari={hari} dari={dari} />;
+    const lihat = tab === "profil" && kueri.lihat === "data" ? "data" : null;
+    return <DashboardGathering event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} tab={tab} hari={hari} dari={dari} lihat={lihat} />;
   }
   if (landing.layout === "modern") {
     return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
