@@ -1430,11 +1430,11 @@ export function IdentitasProfilHorizon({ inisial, nama, data, ubin }: { inisial:
         // Bergulir ke samping di ponsel bila tidak muat, seperti ubin Diamond di Trip.com.
         <ul className="-mx-6 flex gap-2 overflow-x-auto px-6 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
           {ubin.map(({ href, Ikon, judul, isi, tab }) => (
-            <li key={href} className="shrink-0">
+            <li key={href} className="flex shrink-0">
               <Link href={href} className="m3-state flex w-[148px] flex-col gap-1 rounded-[12px] bg-white/[0.08] p-3 [--m3-state-color:#fff] md:w-[176px]">
                 <Ikon size={22} aria-hidden className="text-[var(--hz-emas)]" />
                 <span className="truncate text-[16px] font-semibold leading-6">{judul}</span>
-                <span className="truncate text-[12px] leading-4 text-white/75">{isi}</span>
+                <span className="line-clamp-2 text-[12px] leading-4 text-white/75">{isi}</span>
                 {tab ? <PenandaTab tab={tab} /> : null}
               </Link>
             </li>
@@ -1478,14 +1478,16 @@ export function ProfilHorizon({
         <PemicuQr id="pemicu-qr-profil" href={qr.href} className={`${KARTU_HZ} m3-state relative -mt-5 flex items-center gap-4 p-4 text-[#101E38] md:-mt-2 lg:max-w-[480px]`}>
           <span className="size-12 shrink-0 rounded-[8px] bg-white p-0.5 ring-1 ring-[#E6E9EE]">{qr.gambar}</span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="whitespace-nowrap text-[18px] font-bold leading-6 tracking-[0.5px]">{qr.kode}</span>
+            {/* Kode dari impor bisa panjang: tidak pernah dipotong (dibacakan petugas), patah bila perlu. */}
+            <span className="text-[18px] font-bold leading-6 tracking-[0.5px] [overflow-wrap:anywhere]">{qr.kode}</span>
             <span className="truncate text-[12px] leading-4" style={{ color: REDUP }}>
               {qr.label}
             </span>
           </span>
+          {/* Ponsel: panah saja, supaya kode mendapat lebar penuh; labelnya tetap dibaca pembaca layar. */}
           <span className="inline-flex shrink-0 items-center gap-0.5 text-[14px] font-semibold leading-5">
-            {qr.tampilkan}
-            <CaretRight size={16} aria-hidden />
+            <span className="sr-only md:not-sr-only">{qr.tampilkan}</span>
+            <CaretRight size={20} aria-hidden className="md:size-4" />
           </span>
         </PemicuQr>
       ) : null}
@@ -1548,15 +1550,12 @@ export function DataDiriHorizon({
         <div className={`${KARTU_HZ} flex flex-col gap-3 ${PAD_KARTU}`}>
           <p className={KELAS_KET} style={{ color: REDUP }}>
             {bantuan.teks}
-            {bantuan.tautan ? (
-              <>
-                {" "}
-                <a href={bantuan.tautan.href} className="font-semibold underline-offset-2 hover:underline" style={{ color: BIRU }}>
-                  {bantuan.tautan.label}
-                </a>
-              </>
-            ) : null}
           </p>
+          {bantuan.tautan ? (
+            <a href={bantuan.tautan.href} className={`${KELAS_TAUTAN} underline-offset-2 hover:underline`} style={{ color: BIRU }}>
+              {bantuan.tautan.label}
+            </a>
+          ) : null}
           {bantuan.kontak}
         </div>
       ) : null}

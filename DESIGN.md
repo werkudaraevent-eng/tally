@@ -696,7 +696,9 @@ yang sama dipakai preset lain.
   148 px (176 di desktop; ikon emas, nilai 16/24, keterangan 12/16) untuk
   checkpoint, kamar, dan bus. Setiap ubin hanya muncul bila datanya ada, dan
   status pendaftaran bukan ubin. Kartu QR satu baris menumpang 32 px di tepi
-  pita (QR 48, kode 18/24 tidak pernah patah, "Tampilkan ›" di kanan). Di
+  pita (QR 48, kode 18/24, panah di kanan; label "Tampilkan" dari 768 px).
+  Kode tidak pernah dipotong: kode pendek tetap satu baris, kode panjang dari
+  impor patah ke baris berikutnya. Di
   bawahnya daftar datar tanpa kartu di latar halaman: lingkaran ikon 40
   (`#EEF1F6`, hijau untuk WhatsApp, merah untuk Keluar), judul 16/24,
   keterangan 14/20, panah, baris 56. Kelompok dipisah garis dan berjudul 16/24
