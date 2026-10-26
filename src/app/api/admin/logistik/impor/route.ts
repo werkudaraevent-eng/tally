@@ -51,12 +51,14 @@ export async function GET(request: Request) {
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(NAMA_TEMPLAT[jenis].sheet);
-  sheet.addRow(TEMPLAT[jenis].judul);
+  // Stay sekarang membawa judulnya sendiri: jumlah kolom Hotel N mengikuti orang dengan stay terbanyak.
+  const [judul, ...badan] = sekarang ? isi : [TEMPLAT[jenis].judul, ...isi];
+  sheet.addRow(judul);
   sheet.getRow(1).font = { bold: true };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
   // Teks, bukan sel tanggal/angka: Excel tidak mengubah 05/11/2026 menjadi
   // tanggal Amerika dan QR code berawalan nol tetap utuh.
-  for (const baris of isi) sheet.addRow(baris).eachCell((sel) => { sel.numFmt = "@"; });
+  for (const baris of badan) sheet.addRow(baris).eachCell((sel) => { sel.numFmt = "@"; });
   sheet.columns.forEach((kolom) => { kolom.width = 18; });
   const buffer = await workbook.xlsx.writeBuffer();
   return new Response(buffer, {

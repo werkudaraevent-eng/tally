@@ -125,7 +125,7 @@ assert.equal(kamarEn.galat, null);
 // Indonesia lama tetap dikenali (lihat tes pertama di atas).
 const templatKamar = rencanaKamar([TEMPLAT.kamar.judul, ...TEMPLAT.kamar.contoh], { ...acara, hotels: [] });
 assert.equal(templatKamar.galat, null);
-assert.equal(templatKamar.kamarBaru.length, 3);
+assert.equal(templatKamar.kamarBaru.length, 2);
 const templatBus = rencanaBus([TEMPLAT.bus.judul, ...TEMPLAT.bus.contoh], acara);
 assert.equal(templatBus.galat, null);
 assert.equal(templatBus.baris.length, 2);
@@ -250,15 +250,78 @@ const unduhan = barisStaySekarang({
   lodging: duaHotel.lodging.map((l) => ({ ...l, check_in_at: l.check_in_at ?? null, check_out_at: l.check_out_at ?? null })),
   offset: "+07:00",
 });
+// Satu baris per orang, kolom Hotel N; orang dengan satu stay tanpa tanggal sendiri tanpa tanggal.
 assert.deepEqual(unduhan, [
-  ["Mulia", "1208", "Twin", "2", "05/11/2026", "06/11/2026", "Q-3", "Citra Lestari"],
-  ["Royal", "214", "", "2", "", "", "Q-1", "Andi Pratama"],
-  ["Royal", "214", "", "2", "06/11/2026", "08/11/2026", "Q-3", "Citra Lestari"],
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["Q-3", "Citra Lestari", "Mulia", "1208", "05/11/2026", "06/11/2026", "Royal", "214", "06/11/2026", "08/11/2026"],
+  ["Q-1", "Andi Pratama", "Royal", "214", "", "", "", "", "", ""],
 ]);
-const balik = rencanaKamar([TEMPLAT.kamar.judul, ...unduhan], duaHotel);
+const balik = rencanaKamar(unduhan, duaHotel);
 assert.equal(balik.galat, null);
 assert.deepEqual(balik.baris.map((b) => b.status), ["tetap", "tetap", "tetap"]);
 assert.deepEqual(balik.lepas, []);
 assert.deepEqual(balik.penempatan, []);
+
+// Berkas lebar dari Mas (satu baris per orang): Andi pindah Mulia 5-6 lalu Royal 6-8.
+const lebar = rencanaKamar([
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["", "Andi Pratama", "Mulia", "", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+  // Hotel 2 kosong: satu hotel, tanpa tanggal = ikut hotel.
+  ["", "Budi Santoso", "Royal", "To follow", "", "", "", "", "", ""],
+  // Dua hotel tanpa tanggal ditolak dengan pesan untuk satu baris.
+  ["", "Dewi", "Mulia", "", "", "", "Royal", "", "", ""],
+  // Malam bertabrakan dalam satu baris.
+  ["", "Citra Lestari", "Mulia", "", "05/11/2026", "07/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+], duaHotel);
+assert.equal(lebar.galat, null);
+const andiLebar = lebar.penempatan.filter((p) => p.participant_ids.includes("a"));
+assert.deepEqual(andiLebar.map((p) => `${p.hotel}:${p.malam?.masuk}>${p.malam?.keluar}`), ["Mulia:2026-11-05>2026-11-06", "Royal:2026-11-06>2026-11-08"]);
+// Nomor baris tetap baris Excel aslinya, juga untuk Hotel 2.
+assert.deepEqual(lebar.baris.filter((b) => b.nama === "Andi Pratama").map((b) => b.baris), [2, 2]);
+// "To follow" dari ekspor Daftar peserta = kamar menyusul, bukan kamar bernomor "To follow".
+assert.deepEqual(lebar.kamarBaru, []);
+assert.ok(lebar.baris.find((b) => b.nama === "Budi Santoso")?.tujuan.includes("room to follow"));
+assert.ok(lebar.baris.some((b) => b.nama === "Dewi" && b.alasan === "Fill in Check-in and Check-out for each hotel of someone who moves hotels"));
+// Hotel 1 Dewi ikut ditolak: tidak ada yang tersimpan setengah.
+assert.deepEqual(lebar.baris.filter((b) => b.nama === "Dewi").map((b) => b.status), ["tolak", "tolak"]);
+assert.ok(!lebar.penempatan.some((p) => p.participant_ids.includes("d")));
+assert.ok(lebar.baris.some((b) => b.nama === "Citra Lestari" && b.alasan === "Nights of the hotels in this row overlap"));
+
+// Kamar Hotel 1 penuh: seluruh baris ditolak, Royal Andi tidak dilepas, dan
+// Hotel 2 tidak tersimpan sendirian.
+const penuh = rencanaKamar([
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["", "Andi Pratama", "Mulia", "1208", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+  ["", "Budi Santoso", "Mulia", "", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+], { ...duaHotel, settings: { gender_field_key: "jk", enforce_same_gender: false }, rooms: [{ id: 10, hotel_id: 1, room_number: "1208", capacity: 1 }, duaHotel.rooms[1]] });
+assert.deepEqual(penuh.baris.filter((b) => b.nama === "Andi Pratama").map((b) => `${b.status}:${b.alasan}`), ["tolak:Room full (capacity 1)", "tolak:Another hotel in this row was rejected"]);
+assert.ok(!penuh.penempatan.some((p) => p.participant_ids.includes("a")));
+assert.ok(!penuh.lepas.some((l) => l.participant_id === "a"));
+assert.deepEqual(penuh.penempatan.filter((p) => p.participant_ids.includes("b")).map((p) => p.hotel).sort(), ["Mulia", "Royal"]);
+// Jenis kelamin berbeda: sama, seluruh baris ditolak.
+const beda = rencanaKamar([
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["", "Andi Pratama", "Mulia", "1208", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+], duaHotel);
+assert.deepEqual(beda.baris.map((b) => b.status), ["tolak", "tolak"]);
+assert.equal(beda.baris[0].alasan, "Gender differs from the occupants of this room");
+assert.deepEqual(beda.penempatan, []);
+assert.deepEqual(beda.lepas, []);
+// Orang yang ditolak tidak mengambil tempat: orang berikutnya di kamar itu masuk.
+const giliran = rencanaKamar([
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["", "Andi Pratama", "Royal", "214", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+  ["", "Budi Santoso", "Royal", "214", "05/11/2026", "06/11/2026", "", "", "", ""],
+], { ...duaHotel, lodging: [], rooms: [duaHotel.rooms[0], { id: 20, hotel_id: 2, room_number: "214", capacity: 1 }] });
+assert.deepEqual(giliran.baris.filter((b) => b.nama === "Andi Pratama").map((b) => b.alasan).sort(), ["Another hotel in this row was rejected", "Same hotel twice in this row"]);
+assert.equal(giliran.baris.find((b) => b.nama === "Budi Santoso")?.status, "masuk");
+
+// Judul ekspor Daftar peserta ("Hotel check-in 1") juga terbaca.
+const ekspor = rencanaKamar([
+  ["Name", "Organisation", "Hotel 1", "Room 1", "Hotel check-in 1", "Hotel check-out 1", "Hotel 2", "Room 2", "Hotel check-in 2", "Hotel check-out 2", "Bus"],
+  ["Andi Pratama", "QA", "Mulia", "To follow", "05/11/2026", "06/11/2026", "Royal", "To follow", "06/11/2026", "08/11/2026", "Bus 1"],
+], duaHotel);
+assert.equal(ekspor.galat, null);
+assert.deepEqual(ekspor.baris.map((b) => b.status), ["masuk", "pindah"]);
 
 console.log("impor.check: ok");

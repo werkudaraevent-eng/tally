@@ -21,6 +21,9 @@ import { plural } from "@/lib/plural";
  * yang memotong stay lain yang bertabrakan; tanpa malam ("All nights") semua
  * stay diganti satu stay. Dengan kamar, kamarnya diisi sesudah stay-nya ada,
  * jadi `assign_room` mengisi stay itu dan tidak menghapus hotel lain.
+ * `trim: false`: tanpa memotong stay lain. Dialog beberapa hotel melepas hotel
+ * yang tidak dipilih lebih dulu dan sudah menolak malam yang bertabrakan;
+ * memotong di sana bisa menghapus stay (dan kamarnya) yang ditulis sesudahnya.
  *
  * `release_room_id`: lepas kamar, hotel dan malamnya tetap (Rooms > hapus
  * penghuni).
@@ -28,6 +31,7 @@ import { plural } from "@/lib/plural";
 const malam = {
   check_in_at: z.string().datetime({ offset: true }).optional(),
   check_out_at: z.string().datetime({ offset: true }).optional(),
+  trim: z.literal(false).optional(),
 };
 const adaMalam = (isi: { check_in_at?: string; check_out_at?: string }) => (isi.check_in_at === undefined) === (isi.check_out_at === undefined);
 const tempatkan = z.union([
@@ -73,6 +77,7 @@ export async function POST(request: Request) {
           p_check_in_at: isi.check_in_at,
           p_check_out_at: isi.check_out_at,
           p_actor: auth.user.id,
+          ...(isi.trim === false ? { p_trim: false } : {}),
         } as never)
       : await klien().rpc("assign_hotel" as never, {
           p_event_id: eventId,
