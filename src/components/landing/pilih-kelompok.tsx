@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type KeyboardEvent } from "react";
 import { barisCocok, labelTerjawab, pilihanSah, type PilihanKelompok } from "@/lib/agenda-kelompok";
 import type { AgendaItem } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -82,9 +82,31 @@ export function PilihKelompok({ pilihan, lang, nada }: { pilihan: ReadonlyArray<
           else next[grup] = nilai;
           tulis(next);
         };
+        const nilaiSemua = [undefined, ...daftar];
+        // Pola radiogroup WAI-ARIA: satu tab stop (pilihan aktif), panah berpindah
+        // dan langsung memilih, Home/End ke ujung (QA #283 L1).
+        const pindah = (event: KeyboardEvent<HTMLDivElement>) => {
+          const kini = Math.max(0, nilaiSemua.indexOf(dipilih));
+          let ke: number | null = null;
+          if (event.key === "ArrowRight" || event.key === "ArrowDown") ke = (kini + 1) % nilaiSemua.length;
+          if (event.key === "ArrowLeft" || event.key === "ArrowUp") ke = (kini - 1 + nilaiSemua.length) % nilaiSemua.length;
+          if (event.key === "Home") ke = 0;
+          if (event.key === "End") ke = nilaiSemua.length - 1;
+          if (ke === null) return;
+          event.preventDefault();
+          pilih(nilaiSemua[ke]);
+          (event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[ke])?.focus();
+        };
         return (
-          <div key={grup} role="radiogroup" aria-label={t.agendaGroupPick} className="flex flex-wrap gap-x-2">
-            {[undefined, ...daftar].map((nilai) => {
+          <div
+            key={grup}
+            role="radiogroup"
+            // Dua pertanyaan berlabel: nama grup dibedakan dengan jawabannya, karena nama pertanyaan tidak dikirim (QA #283 L2).
+            aria-label={pilihan.length > 1 ? `${t.agendaGroupPick}: ${daftar.join(", ")}` : t.agendaGroupPick}
+            onKeyDown={pindah}
+            className="flex flex-wrap gap-x-2"
+          >
+            {nilaiSemua.map((nilai) => {
               const on = dipilih === nilai;
               return (
                 <button
@@ -92,6 +114,7 @@ export function PilihKelompok({ pilihan, lang, nada }: { pilihan: ReadonlyArray<
                   type="button"
                   role="radio"
                   aria-checked={on}
+                  tabIndex={on ? 0 : -1}
                   onClick={() => pilih(nilai)}
                   className="group flex min-h-12 items-center"
                 >
