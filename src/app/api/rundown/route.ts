@@ -74,25 +74,21 @@ export async function GET(request: Request) {
   const requested = parsed.data.sesi;
   const section = (requested ? sections.find((row) => row.slug === requested) : null) ?? sections[0];
 
-  const bacaBaris = (untukSemua: boolean) => {
-    const kueri = client
-      .from("rundown_items")
-      .select(ITEM_COLUMNS)
-      .eq("event_id", eventId)
-      .eq("section_id", section.id)
-      .eq("is_published", true);
-    // Baris bersyarat (Agenda > Who sees it) hanya untuk peserta yang masuk,
-    // tidak pernah di layar publik ini.
-    return (untukSemua ? kueri.is("audience", null) : kueri)
-      // Jam mulai dulu, sama dengan CMS rundown; sort_order hanya memisahkan
-      // butir berjam sama.
-      .order("start_time", { ascending: true })
-      .order("sort_order", { ascending: true })
-      .order("id", { ascending: true });
-  };
-  let { data: itemRows, error: itemError } = await bacaBaris(true);
-  // Sebelum migrasi 202610210001 kolomnya belum ada, jadi belum ada baris bersyarat.
-  if (itemError && kolomBelumAda(itemError.code)) ({ data: itemRows, error: itemError } = await bacaBaris(false));
+  // Semua baris terbit hari ini, termasuk yang punya Who sees it: syarat itu
+  // hanya berlaku sesudah masuk (keputusan Hanung 2026-10-26). Hari yang tidak
+  // boleh terbaca publik dimatikan lewat Show before sign-in di atas. Kolom
+  // `audience` sendiri tidak ikut dikirim (ITEM_COLUMNS).
+  const { data: itemRows, error: itemError } = await client
+    .from("rundown_items")
+    .select(ITEM_COLUMNS)
+    .eq("event_id", eventId)
+    .eq("section_id", section.id)
+    .eq("is_published", true)
+    // Jam mulai dulu, sama dengan CMS rundown; sort_order hanya memisahkan
+    // butir berjam sama.
+    .order("start_time", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
   if (itemError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
   return Response.json({

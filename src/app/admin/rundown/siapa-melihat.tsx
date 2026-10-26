@@ -129,7 +129,7 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
   return (
     <Kelompok
       title="Who sees it"
-      note={info.available && kolom.length > 0 ? `Limit this row to some participants. Everyone else doesn't see it, and it is never on the public page, the rundown screen or badges. Saved with ${tombol}.` : undefined}
+      note={info.available && kolom.length > 0 ? `Limit this row to some participants after they sign in. Other participants and badges don't get it. Before sign-in, the event page and /rundown show every row of a day that has Show before sign-in on. Saved with ${tombol}.` : undefined}
     >
       {!info.available ? (
         <p className="text-body-medium text-on-surface-variant">Who sees it needs a database update first (migration 202610210001).</p>

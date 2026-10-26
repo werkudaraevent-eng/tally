@@ -1075,10 +1075,6 @@ export default function RundownAdminPage() {
 
   // Dari `sections` yang tersimpan: sakelar yang belum disimpan belum mengubah halaman publik.
   const publishedCount = sections.filter((row) => row.is_published).length;
-  // Bagian aktif punya baris terbit, dan semuanya bersyarat: tidak ada yang
-  // tampil sebelum masuk. Dari baris dan syarat tersimpan, sama dengan halaman acara.
-  const barisTerbit = active ? items.filter((item) => item.section_id === active.id && item.is_published && item.title?.trim()) : [];
-  const hanyaBersyarat = Boolean(syaratInfo?.available) && barisTerbit.length > 0 && barisTerbit.every((item) => Boolean(syaratSaved[item.id]));
   // Menghapus bagian ikut menghapus barisnya: trip bus yang tertaut ke baris
   // itu disebut di dialog hapus, sama dengan dialog hapus satu baris.
   const tripBagian = kalimatHapus(activeItems.flatMap((item) => item.bus_trips ?? []).map((trip) => trip.name));
@@ -1687,13 +1683,6 @@ export default function RundownAdminPage() {
                 ? `Visitors who have not signed in see this day on the event page and at /rundown?sesi=${active.slug}.`
                 : "Only participants who have signed in see this day. The event page and /rundown leave it out."}
           />
-        ) : null}
-        {publikAda && active.is_published && publikAktif(active.id) && hanyaBersyarat ? (
-          // Baris bersyarat (Who sees it) tidak pernah tampil sebelum masuk, jadi
-          // hari ini tetap hilang dari halaman acara meski sakelarnya menyala.
-          <Banner tone="warning" icon={<Warning size={18} />}>
-            Every item here has a Who sees it rule, so the event page leaves this day out and /rundown shows it empty. Add one item for Everyone, for example a summary of the day.
-          </Banner>
         ) : null}
       </Kelompok>
       {sasaranInfo?.horizon ? <KelompokSasaran info={sasaranInfo} value={sasaranAktif} onChange={setSasaranAktif} /> : null}

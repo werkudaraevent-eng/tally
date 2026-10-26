@@ -153,7 +153,13 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
   // hari itu (peserta yang pindah hotel).
   const tanggalSeksi = new Map(daftarSeksi.map((section) => [section.id, section.event_date && /^\d{4}-\d{2}-\d{2}$/.test(section.event_date) ? section.event_date : null]));
   const tanggalItem = new Map(daftarItem.map((item) => [item.id, tanggalSeksi.get(item.section_id) ?? null]));
-  const tersembunyi = new Set([...syarat].filter(([id, isi]) => !barisUntukPeserta(isi, dataPeserta, tanggalItem.get(id) ?? null)).map(([id]) => id));
+  // Tanpa penonton = halaman acara sebelum masuk: Who sees it hanya berlaku
+  // sesudah masuk (keputusan Hanung 2026-10-26, pola agenda publik Whova/Sched),
+  // jadi hari yang tampil sebelum masuk menampilkan semua barisnya. Penonton
+  // tanpa peserta (akun pendaftar) tetap gagal tertutup.
+  const tersembunyi = !penonton
+    ? new Set<number>()
+    : new Set([...syarat].filter(([id, isi]) => !barisUntukPeserta(isi, dataPeserta, tanggalItem.get(id) ?? null)).map(([id]) => id));
 
   return daftarSeksi
     .map((section) => ({
