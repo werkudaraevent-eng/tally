@@ -712,8 +712,9 @@ yang sama dipakai preset lain.
   kereta, perjalanan bus yang dinaikinya), tidak pernah dipersempit, jadi data
   yang baru sebagian tidak membuatnya salah. Bila berbeda, tanggal acara ikut
   ditulis kecil: "5–8 November 2026 · Acara 6–8 Nov". Peserta dengan dua hotel
-  atau lebih melihat semua hotelnya di bawah satu label Hotel, satu baris per
-  hotel: nama (18 ponsel, 16 desktop, 700) lalu keterangan 14/20 "5–6 Nov ·
+  atau lebih melihat semua hotelnya di bawah satu label Hotel (di ponsel hanya
+  bila kartunya tidak sedang menampilkan tiket kereta; tiga fakta kereta
+  didahulukan dan hotelnya ada di Perjalanan), satu baris per hotel: nama (18 ponsel, 16 desktop, 700) lalu keterangan 14/20 "5–6 Nov ·
   Nomor kamar menyusul"; fakta Kamar yang besar tidak dipakai karena kamarnya
   sudah di tiap baris. Peserta satu hotel di tanggal acara tidak berubah.
   Tanpa setelan CMS: semuanya dari Logistics. Kartu lain yang menulis tanggal
