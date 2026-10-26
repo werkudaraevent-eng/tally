@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { standard } from "@/lib/m3/motion";
 import { BrandLogo } from "@/components/brand-header-footer";
+import { LabelUntuk } from "@/components/landing/label-untuk";
 import { fontStack, normalizeBranding, scaleClamp } from "@/lib/branding";
 import { activeItemId, DEFAULT_HEADER, formatClock, formatEventDate, groupSubtitleLines, itemStatus, subtitleLines, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
@@ -426,6 +427,7 @@ function RundownRow({ item, eventDate, now, zone, isActive }: {
       <div className="min-w-0 space-y-1">
         <p className={`text-body-large font-semibold leading-6 ${dimmed && status !== "current" ? "text-on-surface-variant" : "text-on-surface"}`}>
           {item.title}
+          <LabelUntuk teks={item.untuk} className="text-on-surface-variant" />
         </p>
         {/* Satu baris keterangan tetap dirender sebagai paragraf, bukan daftar
             berbutir: butir tunggal terlihat seperti daftar yang isinya hilang. */}

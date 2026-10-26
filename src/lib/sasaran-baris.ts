@@ -15,7 +15,8 @@
  * Murni, tanpa impor runtime selain sasaran-blok, supaya bisa diuji langsung
  * oleh Node (sasaran-baris.check.ts).
  */
-import { bacaSasaranBlok, blokUntukPeserta, type DataSasaranPeserta, type SasaranBlok } from "./sasaran-blok.ts";
+import type { KolomSasaran } from "./sasaran-bagian.ts";
+import { bacaSasaranBlok, blokUntukPeserta, KOLOM_HOTEL, samaJawaban, type DataSasaranPeserta, type SasaranBlok } from "./sasaran-blok.ts";
 
 export type SyaratBaris = SasaranBlok[];
 
@@ -44,4 +45,48 @@ export function bacaSyaratBaris(nilai: unknown): SyaratBaris | null {
 export function barisUntukPeserta(syarat: SyaratBaris | null, data: DataSasaranPeserta | null, tanggal: string | null = null): boolean {
   if (!syarat) return true;
   return syarat.every((isi) => blokUntukPeserta(isi, data, tanggal));
+}
+
+/**
+ * Label kelompok baris bersyarat di halaman acara sebelum masuk, mis.
+ * "Batch 1" atau "Batch 1 / Batch 2". Di sana Who sees it tidak menyaring, jadi
+ * dua baris berjudul sama untuk dua batch perlu penanda (label track di agenda
+ * publik Sched dan Whova).
+ *
+ * Hanya jawaban, tidak pernah kunci atau nama kolom, dan hanya dari kolom yang
+ * panitia izinkan (Registration > Edit form > "Show answers in the public
+ * agenda", `agenda_label`). Kolom khusus staf bisa berisi jawaban yang tidak
+ * untuk umum, jadi tanpa izin itu, dan untuk Hotel dari Logistics, barisnya
+ * tampil tanpa label. Satu syarat tanpa izin membuat seluruh label kosong:
+ * label sebagian akan terbaca seolah itu syarat lengkapnya.
+ */
+export function labelAgendaPublik(syarat: SyaratBaris | null, kolom: ReadonlyArray<Pick<KolomSasaran, "key" | "options" | "label_agenda">>): string | null {
+  if (!syarat || syarat.length === 0) return null;
+  const bagian: string[] = [];
+  for (const isi of syarat) {
+    const pilihan = kolom.find((k) => k.key === isi.field);
+    if (!pilihan || !pilihan.label_agenda) return null;
+    // Teks pilihan apa adanya di formulir; jawaban yang sudah dihapus dari pilihan tidak ditulis.
+    const jawaban = isi.values.map((nilai) => pilihan.options.find((opsi) => samaJawaban(opsi, nilai))).filter((opsi): opsi is string => Boolean(opsi));
+    if (jawaban.length === 0) return null;
+    bagian.push(jawaban.join(" / "));
+  }
+  return bagian.join(" · ");
+}
+
+/**
+ * Syarat yang tidak bisa cocok dengan siapa pun: bentuknya rusak (kolom kosong,
+ * tanpa jawaban), kolomnya sudah dihapus, atau tidak satu pun jawabannya masih
+ * ada di pilihan kolom. Sesudah masuk baris itu tidak tampil ke siapa pun, jadi
+ * halaman acara sebelum masuk juga menyembunyikannya. Hotel tidak diperiksa di
+ * sini: id hotel tidak bisa rusak tanpa ketahuan (bacaSasaranBlok).
+ */
+export function syaratTanpaPeserta(syarat: SyaratBaris | null, kolom: ReadonlyArray<Pick<KolomSasaran, "key" | "options">>): boolean {
+  if (!syarat) return false;
+  return syarat.some((isi) => {
+    if (!isi.field || isi.values.length === 0) return true;
+    if (isi.field === KOLOM_HOTEL) return false;
+    const pilihan = kolom.find((k) => k.key === isi.field);
+    return !pilihan || !isi.values.some((nilai) => pilihan.options.some((opsi) => samaJawaban(opsi, nilai)));
+  });
 }

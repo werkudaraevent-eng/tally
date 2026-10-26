@@ -48,7 +48,7 @@ assert.equal(pilihanPeserta([null, null], { batch: "Batch 2" }).kelompok, null);
 assert.deepEqual(
   kolomSasaran({
     fields: [
-      { key: "batch", label: "Batch", type: "select", options: ["Batch 1", " Batch 2 ", ""], on_form: false },
+      { key: "batch", label: "Batch", type: "select", options: ["Batch 1", " Batch 2 ", ""], on_form: false, agenda_label: true },
       { key: "kota", label: "Kota", type: "text" },
       { key: "ukuran", label: "", type: "radio", options: [] },
       { key: "Bad Key", label: "X", type: "select", options: ["A"] },
@@ -56,8 +56,8 @@ assert.deepEqual(
     ],
   }),
   [
-    { key: "batch", label: "Batch", options: ["Batch 1", "Batch 2"], staff: true },
-    { key: "menu", label: "Menu", options: ["Ayam"], staff: false },
+    { key: "batch", label: "Batch", options: ["Batch 1", "Batch 2"], staff: true, label_agenda: true },
+    { key: "menu", label: "Menu", options: ["Ayam"], staff: false, label_agenda: false },
   ],
 );
 assert.deepEqual(kolomSasaran(null), []);

@@ -1725,6 +1725,14 @@ export type RegistrationField = {
    */
   on_form?: boolean;
   /**
+   * "Show answers in the public agenda": baris Agenda yang Who sees it-nya
+   * memakai pertanyaan ini mendapat label jawabannya ("Batch 1") di halaman
+   * acara sebelum masuk. Hanya select dan radio. Kosong = tanpa label, jadi
+   * jawaban kolom khusus staf tidak pernah tampil tanpa izin panitia. Lihat
+   * labelAgendaPublik di src/lib/sasaran-baris.ts.
+   */
+  agenda_label?: boolean;
+  /**
    * Hanya di draf Edit form, tidak pernah disimpan: kunci pertanyaan baru ini
    * masih mengikuti teksnya (kunciIkutLabel di src/lib/kolom-staf.ts). Hilang
    * begitu Data key diketik sendiri, dan dibuang sebelum disimpan.

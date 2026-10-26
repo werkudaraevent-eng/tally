@@ -7,6 +7,7 @@ import type { AgendaItem } from "@/lib/landing-agenda";
 import { kelompokPeran, sisaKeterangan } from "@/lib/landing-agenda-pembicara";
 import { pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { TeksKaya } from "@/components/landing/teks-kaya";
+import { LabelUntuk } from "@/components/landing/label-untuk";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
 /**
@@ -51,6 +52,7 @@ export function JamHariHorizon({
                 <span className={`shrink-0 tabular-nums ${item.jeda ? "text-[#CDD7EA]/70" : ""}`}>{item.time}</span>
                 <div className="min-w-0 [overflow-wrap:anywhere]">
                   <span className={item.jeda ? "text-[#CDD7EA]/70" : undefined}>{item.title}</span>
+                  <LabelUntuk teks={item.untuk} className="text-[#CDD7EA]" />
                   {keterangan ? (
                     <TeksKaya teks={keterangan} warna={null} className="mb-1 whitespace-pre-line text-[13px] leading-[1.6] text-[#CDD7EA]" />
                   ) : null}

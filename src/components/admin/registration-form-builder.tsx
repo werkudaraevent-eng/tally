@@ -452,6 +452,16 @@ export function RegistrationFormBuilder({ config, onChange, disabled, areaPesert
                         description="Participants fill it in or change it later, from their dashboard or from an Update details link email, without a password. The Client view shows it only if you add it there."
                       />
                     ) : null}
+
+                    {field.type === "select" || field.type === "radio" ? (
+                      <Switch
+                        checked={field.agenda_label === true}
+                        onChange={(value) => patchField(index, { agenda_label: value || undefined })}
+                        disabled={disabled}
+                        label="Show answers in the public agenda"
+                        description="Agenda rows limited to this question with Who sees it get a small label with the answer, for example “Batch 1”, on the event page before sign-in. Leave off if visitors shouldn't see these answers."
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </li>

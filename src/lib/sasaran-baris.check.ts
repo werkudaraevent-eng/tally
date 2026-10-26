@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaSyaratBaris, barisUntukPeserta, SYARAT_MAX } from "./sasaran-baris.ts";
+import { bacaSyaratBaris, barisUntukPeserta, labelAgendaPublik, SYARAT_MAX, syaratTanpaPeserta } from "./sasaran-baris.ts";
 import { KOLOM_HOTEL } from "./sasaran-blok.ts";
 
 const RUSAK = { field: "", values: [] };
@@ -56,3 +56,31 @@ assert.equal(barisUntukPeserta(b2Gramm, pindah, "2026-11-07"), false);
 assert.equal(barisUntukPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["8"] }]), pindah, "2026-11-07"), true);
 
 console.log("sasaran-baris ok");
+
+// Label di halaman acara sebelum masuk: hanya kolom yang diizinkan, hanya jawaban.
+{
+  const kolomLabel = [
+    { key: "batch", options: ["Batch 1", "Batch 2"], label_agenda: true },
+    { key: "vip", options: ["VIP", "Reguler"], label_agenda: false },
+  ];
+  assert.equal(labelAgendaPublik(null, kolomLabel), null);
+  assert.equal(labelAgendaPublik(bacaSyaratBaris([{ field: "batch", values: ["batch 1"] }]), kolomLabel), "Batch 1");
+  assert.equal(labelAgendaPublik(bacaSyaratBaris([{ field: "batch", values: ["Batch 1", "Batch 2"] }]), kolomLabel), "Batch 1 / Batch 2");
+  // Kolom tanpa izin (mis. khusus staf): tanpa label, juga bila syarat lain diizinkan.
+  assert.equal(labelAgendaPublik(bacaSyaratBaris([{ field: "vip", values: ["VIP"] }]), kolomLabel), null);
+  assert.equal(labelAgendaPublik(bacaSyaratBaris([{ field: "batch", values: ["Batch 1"] }, { field: "vip", values: ["VIP"] }]), kolomLabel), null);
+  // Hotel tidak pernah menjadi label; jawaban yang sudah dihapus tidak ditulis.
+  assert.equal(labelAgendaPublik(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["7"] }]), kolomLabel), null);
+  assert.equal(labelAgendaPublik(bacaSyaratBaris([{ field: "batch", values: ["Batch 9", "Batch 2"] }]), kolomLabel), "Batch 2");
+  assert.equal(labelAgendaPublik(bacaSyaratBaris([{ field: "hilang", values: ["X"] }]), kolomLabel), null);
+
+  // Syarat yang tidak cocok dengan siapa pun tetap tersembunyi sebelum masuk.
+  assert.equal(syaratTanpaPeserta(null, kolomLabel), false);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([]), kolomLabel), true);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "batch", values: [] }]), kolomLabel), true);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "hilang", values: ["X"] }]), kolomLabel), true);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "batch", values: ["Batch 9"] }]), kolomLabel), true);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "batch", values: ["Batch 9", "Batch 2"] }]), kolomLabel), false);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["7"] }]), kolomLabel), false);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "vip", values: ["VIP"] }]), kolomLabel), false);
+}

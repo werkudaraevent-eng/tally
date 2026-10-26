@@ -8,6 +8,7 @@ import { SpeakerTabs } from "@/components/landing/modern/speaker-tabs";
 import type { ForumLabels } from "./labels";
 import { BAYANGAN_KARTU, H_BAGIAN, H_KARTU, H_PANEL, TEKS_BESAR, TEKS_MENU, WADAH } from "./styles";
 import { TeksKaya } from "@/components/landing/teks-kaya";
+import { LabelUntuk } from "@/components/landing/label-untuk";
 
 /** Gambar penuh bidang. Semua gambar Forum dari CMS, jadi tidak ada ukuran pasti. */
 export function Foto({ src, className = "", alt = "" }: { src: string; className?: string; alt?: string }) {
@@ -114,7 +115,10 @@ export function PanelSusunan({
                         <td className={`hidden py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-3 align-top tabular-nums sm:table-cell ${warnaJam}`}>{jam}</td>
                         <td className="py-[clamp(10px,0.94vw,18px)] pl-[clamp(12px,2.29vw,44px)] pr-[clamp(12px,2.29vw,44px)] align-top sm:pl-0">
                           {jam ? <span className={`mb-1 block tabular-nums sm:hidden ${warnaJam}`}>{jam}</span> : null}
-                          <span className={`block ${jeda ? `font-normal ${redup}` : "font-semibold"}`}>{item.title}</span>
+                          <span className={`block ${jeda ? `font-normal ${redup}` : "font-semibold"}`}>
+                            {item.title}
+                            <LabelUntuk teks={item.untuk} className={`font-medium ${redup}`} />
+                          </span>
                           {item.subtitle ? <TeksKaya as="span" teks={item.subtitle} className={`mt-1 block whitespace-pre-line text-[max(14px,0.85em)] font-normal ${redup}`} /> : null}
                           {orang.length > 0 ? <DeretPembicara orang={orang} lang={lang} namaTampil /> : null}
                         </td>
