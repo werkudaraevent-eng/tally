@@ -140,7 +140,7 @@ export function AgendaTabs({
         // Pilihan dan daftar satu kolom, supaya keduanya tetap di samping tab di layar lebar.
         <div className={`flex flex-col gap-3 ${lebar(multi ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12")}`}>
           <div className="print:hidden">
-            <PilihKelompok pilihan={blok.pilihan} lang="id" nada="terang" />
+            <PilihKelompok pilihan={blok.pilihan} items={blok.items} lang="id" nada="terang" />
           </div>
           {daftarBaris}
         </div>

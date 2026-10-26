@@ -52,7 +52,7 @@ export function JamHariHorizon({
     <div className="flex min-w-0 flex-col">
       {berkelompok && pilihan ? (
         <div className="mb-3 print:hidden">
-          <PilihKelompok pilihan={pilihan} lang={lang} nada="gelap" />
+          <PilihKelompok pilihan={pilihan} items={semuaAsli} lang={lang} nada="gelap" />
         </div>
       ) : null}
       {isi.length > 0 ? (

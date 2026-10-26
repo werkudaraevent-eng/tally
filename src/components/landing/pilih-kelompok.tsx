@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore, type KeyboardEvent } from "react";
-import { barisCocok, labelTerjawab, pilihanSah, type PilihanKelompok } from "@/lib/agenda-kelompok";
+import { barisCocok, barisPilihan, labelTerjawab, pilihanSah, type PilihanKelompok } from "@/lib/agenda-kelompok";
 import type { AgendaItem } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
@@ -49,7 +49,13 @@ export function usePilihanKelompok(pilihan: ReadonlyArray<ReadonlyArray<string>>
     baca,
     () => KOSONG,
   );
-  return pilihan?.length ? pilihanSah(mentah, pilihan) : KOSONG;
+  if (!pilihan?.length) return KOSONG;
+  // Pertanyaan yang digabung (barisPilihan) menerima setiap jawaban gabungannya:
+  // "Batch 3" untuk pertanyaan kepulangan yang hanya memakai Batch 1 tetap
+  // berlaku, jadi baris kepulangan Batch 1 hilang untuk tamu Batch 3.
+  const sah: string[][] = pilihan.map((daftar) => [...daftar]);
+  for (const baris of barisPilihan(pilihan)) for (const g of baris.grup) sah[g] = baris.daftar;
+  return pilihanSah(mentah, sah);
 }
 
 /** Baris yang tampil untuk pilihan ini, dengan label yang sudah terjawab dibuang. */
@@ -64,9 +70,24 @@ export const hariBerkelompok = (items: AgendaItem[]) => items.some((item) => ite
 /**
  * Tombol pilihan. `nada` mengikuti latar preset: "gelap" untuk Horizon (navy),
  * "terang" untuk preset bertema M3. Tinggi 40 px dengan area ketuk 48 px.
+ * Hanya pertanyaan yang dipakai baris hari itu (`items`) yang tampil, dan
+ * pertanyaan dengan jawaban kembar digabung jadi satu baris (barisPilihan).
  */
-export function PilihKelompok({ pilihan, lang, nada }: { pilihan: ReadonlyArray<ReadonlyArray<string>>; lang: LandingLang; nada: "gelap" | "terang" }) {
+export function PilihKelompok({
+  pilihan,
+  items,
+  lang,
+  nada,
+}: {
+  pilihan: ReadonlyArray<ReadonlyArray<string>>;
+  /** Baris hari ini (belum disaring), untuk memilih pertanyaan yang tampil. */
+  items?: ReadonlyArray<AgendaItem>;
+  lang: LandingLang;
+  nada: "gelap" | "terang";
+}) {
   const aktif = usePilihanKelompok(pilihan);
+  const dipakai = items ? new Set(items.flatMap((item) => item.kelompok?.map((k) => k.grup) ?? [])) : null;
+  const baris = barisPilihan(pilihan, dipakai);
   const t = LANDING_UI[lang];
   const kelas = (on: boolean) =>
     nada === "gelap"
@@ -74,12 +95,15 @@ export function PilihKelompok({ pilihan, lang, nada }: { pilihan: ReadonlyArray<
       : `border ${on ? "border-transparent bg-[var(--reg-primary)] text-[var(--reg-on-primary)]" : "border-[var(--reg-outline-variant)] text-[var(--reg-on-surface)]"}`;
   return (
     <div className="flex flex-col gap-2">
-      {pilihan.map((daftar, grup) => {
-        const dipilih = aktif[grup];
+      {baris.map(({ grup, daftar }) => {
+        const dipilih = aktif[grup[0]];
+        // Pertanyaan kembar diisi bersama, juga yang tidak tampil hari ini, supaya hari lain ikut.
         const pilih = (nilai: string | undefined) => {
           const next = { ...aktif };
-          if (nilai === undefined) delete next[grup];
-          else next[grup] = nilai;
+          for (const g of grup) {
+            if (nilai === undefined) delete next[g];
+            else next[g] = nilai;
+          }
           tulis(next);
         };
         const nilaiSemua = [undefined, ...daftar];
@@ -99,10 +123,10 @@ export function PilihKelompok({ pilihan, lang, nada }: { pilihan: ReadonlyArray<
         };
         return (
           <div
-            key={grup}
+            key={grup.join("-")}
             role="radiogroup"
             // Dua pertanyaan berlabel: nama grup dibedakan dengan jawabannya, karena nama pertanyaan tidak dikirim (QA #283 L2).
-            aria-label={pilihan.length > 1 ? `${t.agendaGroupPick}: ${daftar.join(", ")}` : t.agendaGroupPick}
+            aria-label={baris.length > 1 ? `${t.agendaGroupPick}: ${daftar.join(", ")}` : t.agendaGroupPick}
             onKeyDown={pindah}
             className="flex flex-wrap gap-x-2"
           >

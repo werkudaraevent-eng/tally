@@ -43,3 +43,32 @@ export function pilihanSah(pilihan: PilihanKelompok, daftar: ReadonlyArray<Reado
   }
   return hasil;
 }
+
+/** Satu baris tombol pilihan: kelompok yang berbagi jawaban digabung jadi satu. */
+export type BarisPilihan = { grup: number[]; daftar: string[] };
+
+/**
+ * Baris tombol yang tampil di satu hari. Pertanyaan berlabel yang berbagi
+ * jawaban ("Batch keberangkatan" dan "Batch kepulangan", keduanya memakai
+ * "Batch 1") menjadi satu baris tombol berisi gabungan jawabannya: memilih
+ * "Batch 1" mengisi keduanya. Nama pertanyaan tidak dikirim ke halaman publik,
+ * jadi dua baris "Semua · Batch 1 · Batch 2" yang kembar tidak bisa dibedakan
+ * tamu. `dipakai` (kelompok yang muncul di baris hari itu) menyembunyikan
+ * pertanyaan yang tidak dipakai hari itu; kosong/null = tampilkan semua.
+ */
+export function barisPilihan(pilihan: ReadonlyArray<ReadonlyArray<string>>, dipakai?: ReadonlySet<number> | null): BarisPilihan[] {
+  const hasil: BarisPilihan[] = [];
+  pilihan.forEach((daftar, grup) => {
+    const sama = hasil.filter((baris) => daftar.some((nilai) => baris.daftar.includes(nilai)));
+    const gabung: BarisPilihan = { grup: [...sama.flatMap((b) => b.grup), grup], daftar: [...sama.flatMap((b) => b.daftar)] };
+    for (const nilai of daftar) if (!gabung.daftar.includes(nilai)) gabung.daftar.push(nilai);
+    const pertama = sama.length > 0 ? hasil.indexOf(sama[0]) : hasil.length;
+    for (const b of sama) hasil.splice(hasil.indexOf(b), 1);
+    hasil.splice(Math.min(pertama, hasil.length), 0, gabung);
+    gabung.grup.sort((x, y) => x - y);
+  });
+  // Urutan pilihan satu pertanyaan dipakai apa adanya; gabungan dua pertanyaan diurutkan alami ("Batch 2" sebelum "Batch 10").
+  for (const baris of hasil) if (baris.grup.length > 1) baris.daftar.sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+  if (!dipakai || dipakai.size === 0) return hasil;
+  return hasil.filter((baris) => baris.grup.some((g) => dipakai.has(g)));
+}

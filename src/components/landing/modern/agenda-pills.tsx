@@ -120,7 +120,7 @@ export function AgendaPills({
 
       {berkelompok && blok?.pilihan ? (
         <div className="mt-4 print:hidden">
-          <PilihKelompok pilihan={blok.pilihan} lang={lang} nada="terang" />
+          <PilihKelompok pilihan={blok.pilihan} items={blok.items} lang={lang} nada="terang" />
         </div>
       ) : null}
 
