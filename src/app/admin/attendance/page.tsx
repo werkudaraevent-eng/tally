@@ -115,6 +115,11 @@ export default function AttendanceAdminPage() {
   const [jalurBaru, setJalurBaru] = useState(false);
   const [hapusSesi, setHapusSesi] = useState<Sesi | null>(null);
   const [hapusMeja, setHapusMeja] = useState<Jalur | null>(null);
+  // Ganti nama sesi atau meja: slug sengaja tidak ikut berubah, supaya tautan
+  // /scan?sesi= dan /sapa?jalur= yang sudah dibagikan ke petugas tetap membuka
+  // sesi atau meja yang sama.
+  const [ubahNama, setUbahNama] = useState<{ jenis: "sesi" | "meja"; id: number; name: string; slug: string } | null>(null);
+  const [namaUbah, setNamaUbah] = useState("");
   const toast = useToast();
   const { zone, abbr } = useEventTimeZone();
   // `?tab=checkpoint`: tautan "Edit in Check-in" dari Participant home.
@@ -263,6 +268,22 @@ export default function AttendanceAdminPage() {
     setPilihSesi(null);
     toast.success("Sesi dihapus", `${sesi.name} dibuang.`);
     void load();
+  }
+
+  function bukaUbahNama(jenis: "sesi" | "meja", baris: Sesi | Jalur) {
+    setUbahNama({ jenis, id: baris.id, name: baris.name, slug: baris.slug });
+    setNamaUbah(baris.name);
+  }
+  function tutupUbahNama() { setUbahNama(null); setNamaUbah(""); }
+
+  async function simpanNama() {
+    if (!ubahNama) return;
+    const payload = { id: ubahNama.id, name: namaUbah.trim() };
+    const ok = ubahNama.jenis === "sesi" ? await kirim("PATCH", payload) : await kirimJalur("PATCH", payload);
+    if (ok) {
+      tutupUbahNama();
+      toast.success(ubahNama.jenis === "sesi" ? "Session renamed" : "Desk renamed", "Scanner phones show the new name after they reload.");
+    }
   }
 
   function tutupSesiBaru() { setSesiBaru(false); setNama(""); setSlug(""); }
@@ -445,10 +466,13 @@ export default function AttendanceAdminPage() {
           sisanya: catatan hadir ikut terhapus bersama sesinya, dan itu
           satu-satunya bukti seseorang datang. */}
       {sesiTerpilih.total_scan > 0 ? (
-        <PaneFooter note="Sudah ada catatan kehadiran, jadi sesi ini hanya bisa ditutup, tidak dihapus." />
+        <PaneFooter note="Sudah ada catatan kehadiran, jadi sesi ini hanya bisa ditutup, tidak dihapus.">
+          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>
+        </PaneFooter>
       ) : (
         <PaneFooter note="Belum ada catatan kehadiran">
           <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Hapus sesi</Button>
+          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>
         </PaneFooter>
       )}
     </Pane>
@@ -515,10 +539,13 @@ export default function AttendanceAdminPage() {
           tetapi kolom mejanya dikosongkan, dan laporan "meja mana yang antre
           paling panjang jam sembilan" kehilangan datanya tanpa satu pun jejak. */}
       {jalurTerpilih.total_scan > 0 ? (
-        <PaneFooter note="Sudah dipakai memindai, jadi meja ini hanya bisa ditutup, tidak dihapus." />
+        <PaneFooter note="Sudah dipakai memindai, jadi meja ini hanya bisa ditutup, tidak dihapus.">
+          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>
+        </PaneFooter>
       ) : (
         <PaneFooter note="Belum dipakai memindai">
           <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Hapus meja</Button>
+          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>
         </PaneFooter>
       )}
     </Pane>
@@ -654,6 +681,39 @@ export default function AttendanceAdminPage() {
             value={slug}
             onChange={(event) => setSlug(slugify(event.target.value))}
           />
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={ubahNama !== null}
+        onClose={tutupUbahNama}
+        dismissible={!busy}
+        title={ubahNama?.jenis === "meja" ? "Edit desk" : "Edit session"}
+        actions={
+          <>
+            <Button variant="outlined" disabled={busy} onClick={tutupUbahNama}>Cancel</Button>
+            <Button simpan type="submit" form="form-ubah-nama" loading={busy} disabled={!namaUbah.trim() || namaUbah.trim() === ubahNama?.name}>Save</Button>
+          </>
+        }
+      >
+        <form id="form-ubah-nama" className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); if (namaUbah.trim() && namaUbah.trim() !== ubahNama?.name) void simpanNama(); }}>
+          <TextField
+            label={ubahNama?.jenis === "meja" ? "Desk name" : "Session name"}
+            hint={ubahNama?.jenis === "meja"
+              ? "Staff see this name when they pick their desk on the scanner, and the desk TV shows it."
+              : "Staff see this name on the scanner. Existing check-ins move to the new name."}
+            value={namaUbah}
+            // Batas yang sama dengan server: sesi 80, meja 60.
+            maxLength={ubahNama?.jenis === "meja" ? 60 : 80}
+            autoFocus
+            onChange={(event) => setNamaUbah(event.target.value)}
+          />
+          <dl className="flex flex-col gap-2">
+            <KeyValue label={ubahNama?.jenis === "meja" ? "Desk TV address" : "Scanner address"}>
+              <span className="select-all">{ubahNama?.jenis === "meja" ? `/sapa?jalur=${ubahNama.slug}` : `/scan?sesi=${ubahNama?.slug ?? ""}`}</span>
+            </KeyValue>
+          </dl>
+          <p className="text-body-medium text-on-surface-variant">The address does not change, so links and QR codes already given to staff keep working.</p>
         </form>
       </Dialog>
 

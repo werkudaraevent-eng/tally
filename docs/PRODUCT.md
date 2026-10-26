@@ -257,8 +257,8 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 ### Check-in
 - **For:** scanners and admins at the door and at sessions.
 - **CMS (Check-in):**
-  - Sessions: name, open/closed, kit items checked at this session, Luggage: Off (default), Drop-off (count and photo; shows the session's total bags for loading) or Pick-up (hand the bags back; shows how many people and bags are handed over and still waiting across all drop-off desks). A session with scans can only be closed, not deleted.
-  - Registration desks (lanes): one per physical desk, open/closed; each desk can drive its own welcome screen.
+  - Sessions: name, open/closed, kit items checked at this session, Luggage: Off (default), Drop-off (count and photo; shows the session's total bags for loading) or Pick-up (hand the bags back; shows how many people and bags are handed over and still waiting across all drop-off desks). A session with scans can only be closed, not deleted. Edit renames a session; its scanner address (`?sesi=`) never changes, so links and QR codes already given to staff keep working.
+  - Registration desks (lanes): one per physical desk, open/closed; each desk can drive its own welcome screen. Edit renames a desk; its `?jalur=` address stays the same.
   - Walk-ins: allow walk-ins (off by default); the form follows the registration form fields.
   - Checkpoints (below).
 - **Scanner screen** `/e/<slug>/scan?sesi=<session>`: camera QR, name search, or a handheld scanner. Results: recorded, already recorded, not found, walk-in created. Shows the seat, kit items to hand out (once per person), and can print a label. With several desks, the phone must pick its desk first. The ⋮ menu opens the Scanner guide (`/panduan/scanner.html`, Indonesian with the English button names; it covers the luggage drop-off and pick-up desks).
