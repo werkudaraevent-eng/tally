@@ -705,6 +705,19 @@ yang sama dipakai preset lain.
   ("Bantuan"). Kartu darurat tetap terbuka di kelompok Bantuan, tidak di balik
   ketukan. Data diri punya halaman sendiri (`?tab=profil&lihat=data`) dengan
   baris label dan nilai. Avatar di kepala portal membuka halaman ini.
+- **Kartu perjalanan navy di Beranda mengikuti perjalanan orangnya, bukan
+  acaranya** (disetujui Mas 26 Okt; pola kartu trip aplikasi maskapai dan
+  itinerary multi-stay Booking.com/Trip.com). Tanggalnya = tanggal acara yang
+  dilebarkan oleh data peserta sendiri (check-in/out hotel, tanggal tiket
+  kereta, perjalanan bus yang dinaikinya), tidak pernah dipersempit, jadi data
+  yang baru sebagian tidak membuatnya salah. Bila berbeda, tanggal acara ikut
+  ditulis kecil: "5–8 November 2026 · Acara 6–8 Nov". Peserta dengan dua hotel
+  atau lebih melihat semua hotelnya di bawah satu label Hotel, satu baris per
+  hotel: nama (18 ponsel, 16 desktop, 700) lalu keterangan 14/20 "5–6 Nov ·
+  Nomor kamar menyusul"; fakta Kamar yang besar tidak dipakai karena kamarnya
+  sudah di tiap baris. Peserta satu hotel di tanggal acara tidak berubah.
+  Tanpa setelan CMS: semuanya dari Logistics. Kartu lain yang menulis tanggal
+  atau hotel untuk satu peserta memakai aturan yang sama.
 - Kelasnya ada di `portal-horizon.tsx` (`KELAS_JUDUL_ISI`, `KELAS_KET`,
   `KELAS_ALIS`, `KELAS_TAUTAN`, `KELAS_STRIP`). Kartu baru memakainya, bukan
   ukuran sendiri.
