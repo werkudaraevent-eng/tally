@@ -913,7 +913,7 @@ export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabB
   const isiTrips = trips.filter((t) => t.tripId && t.kendaraan).map((t) => ({ tripId: Number(t.tripId), vehicleId: t.kendaraan === "tanpa" ? null : Number(t.kendaraan) }));
   const utamaKirim = utama !== null && utama !== utamaAwal ? utama : null;
   const adaUbahan = utamaKirim !== null || isiTrips.length > 0 || kembali.length > 0;
-  const siap = adaUbahan && tripLengkap && !(pilihan?.alasan);
+  const siap = adaUbahan && tripLengkap && !(utamaKirim !== null && pilihan?.alasan);
 
   const namaTrip = (id: number) => tripById.get(id)?.name || "a trip";
   const akibat = kembali.map((id) => {
