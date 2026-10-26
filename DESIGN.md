@@ -643,6 +643,27 @@ tipografi yang membawa halaman, bukan kartu, bayangan, atau gerak.
   teks `on-primary`; teks putih hanya di atas gambar yang dibayangi hitam. Huruf
   judul bawaannya Source Sans 3 (pilihan keenam `heading_font`).
 
+#### Susunan acara publik: kolom jam, bukan potongan
+
+Diputuskan 26 Oktober 2026 dari agenda Horizon di desktop (pola agenda publik
+Sched dan Eventbrite). Yang membuatnya terasa amatir: tanggal ditulis dua kali,
+angka urutan 64 px menjadi elemen terbesar, kolom tengah kosong, dan jadwal
+dijepit di kolom 360 px dengan hanya tiga acara yang melompat jam.
+
+- Jadwal adalah isi utama: daftar jam selebar isi (8/12 di layar lebar), kolom
+  jam tetap dengan angka tabular, judul acara 16 px semibold, keterangan 14 px,
+  garis tipis antarbaris. Hari ditulis di kolom kiri (4/12) yang menempel saat
+  digulir; di ponsel keduanya bertumpuk.
+- Tanggal ditulis sekali. Bila judul bagian sudah memuat tanggal, baris tanggal
+  dilewati (`judulMemuatTanggal`).
+- Urutan hari cukup label kecil ("HARI 01"), bukan angka hias besar.
+- Hari panjang memotong secara berurutan (enam acara pertama, lalu "Lihat semua
+  N acara"), tidak pernah mengambil acara dari tengah atau akhir.
+- Pilihan kelompok ("Semua · Batch 1") ada tepat di atas daftar jam.
+
+Berlaku sekarang di Horizon. Agenda preset lain mengikuti aturan ini di PR
+terpisah bila dirombak.
+
 ### Area peserta
 
 `/e/<slug>/masuk` dan `/e/<slug>/peserta`, dinyalakan di CMS Halaman acara, tab
