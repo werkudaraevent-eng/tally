@@ -543,8 +543,13 @@ export default function RundownAdminPage() {
     const simpanSasaran = sasaranBerubah(section.id);
     if (simpanSasaran && !sasaranLengkap(section.id)) return;
     const simpanPublik = publikBerubah(section.id);
+    // Menyempit dulu (pola Who sees it baris): Show before sign-in yang dimatikan
+    // disimpan SEBELUM bagian diterbitkan, jadi hari itu tidak sempat publik
+    // walau satu permintaan gagal. Menyalakannya disimpan sesudahnya.
+    const publikDulu = simpanPublik && publikDrafts[section.id] === false;
     const dikirim = suntingBagian?.id === section.id ? suntingBagian.isi : null;
     setSavingSection(true); setError(""); setGalatPanel(null);
+    if (publikDulu && !(await savePublik(section))) { setSavingSection(false); return; }
     const response = await fetch("/api/admin/rundown/sections", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -571,7 +576,7 @@ export default function RundownAdminPage() {
     }
     // Gagal menyimpan Who it's for sudah menampilkan pesannya sendiri; drafnya tetap ada.
     const sasaranOk = simpanSasaran ? await saveSasaran(section) : true;
-    const publikOk = simpanPublik ? await savePublik(section) : true;
+    const publikOk = simpanPublik && !publikDulu ? await savePublik(section) : true;
     // Muat ulang dulu, baru lapisan suntingan dibuang: tanggal bagian menggeser
     // jam bus lewat pemicu, dan catatan bus membaca tanggal tersimpan bersama
     // trip yang dimuat. Gagal memuat = bagian ini saja diperbarui. Kolom yang
@@ -1669,23 +1674,25 @@ export default function RundownAdminPage() {
           checked={active.is_published}
           onChange={(checked) => updateSection(active.id, { is_published: checked })}
           label="Published"
-          description="Participants see this section in their portal. Off hides it everywhere."
+          description="Participants see this section. Off hides it everywhere."
         />
         {publikAda ? (
           <Switch
             checked={publikAktif(active.id)}
             onChange={(checked) => setPublikDrafts((current) => ({ ...current, [active.id]: checked }))}
             label="Show before sign-in"
-            description={publikAktif(active.id)
-              ? `Visitors who have not signed in see this day on the event page and at /rundown?sesi=${active.slug}.`
-              : "Only participants who have signed in see this day. The event page and /rundown leave it out."}
+            description={!active.is_published
+              ? "Applies once Published is on."
+              : publikAktif(active.id)
+                ? `Visitors who have not signed in see this day on the event page and at /rundown?sesi=${active.slug}.`
+                : "Only participants who have signed in see this day. The event page and /rundown leave it out."}
           />
         ) : null}
         {publikAda && active.is_published && publikAktif(active.id) && hanyaBersyarat ? (
           // Baris bersyarat (Who sees it) tidak pernah tampil sebelum masuk, jadi
           // hari ini tetap hilang dari halaman acara meski sakelarnya menyala.
           <Banner tone="warning" icon={<Warning size={18} />}>
-            Every item here has a Who sees it rule, so this day still won&apos;t show before sign-in. Add one item for Everyone, for example a summary of the day.
+            Every item here has a Who sees it rule, so the event page leaves this day out and /rundown shows it empty. Add one item for Everyone, for example a summary of the day.
           </Banner>
         ) : null}
       </Kelompok>
@@ -2024,7 +2031,7 @@ export default function RundownAdminPage() {
         dismissible={!deletingSection}
         tone="danger"
         title={`Delete section ${confirmSection?.name ?? ""}?`}
-        description={`${confirmSection?.is_published ? "This section is on the public page now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}${jumlahDcBagian === 0 ? "" : jumlahDcBagian === 1 ? "Its dress code is deleted too. " : "Its dress codes are deleted too. "}${tripBagian ? `${tripBagian} ` : ""}A copy is kept in the audit log.`}
+        description={`${confirmSection?.is_published ? "This section is published now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}${jumlahDcBagian === 0 ? "" : jumlahDcBagian === 1 ? "Its dress code is deleted too. " : "Its dress codes are deleted too. "}${tripBagian ? `${tripBagian} ` : ""}A copy is kept in the audit log.`}
         actions={
           <>
             <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Cancel</Button>

@@ -359,7 +359,7 @@ function MenuUntuk({ anchor, id, label, baris, dipakai, tawarSeharian, terpilih,
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-start gap-2">
             <span className="line-clamp-2 min-w-0 flex-1">{isi.item.title.trim()}</span>
-            {!isi.item.is_published ? <StatusChip tone="warning" title="Not shown on the public page">Hidden</StatusChip> : null}
+            {!isi.item.is_published ? <StatusChip tone="warning" title="Not published: hidden everywhere">Hidden</StatusChip> : null}
           </span>
           {!dipilih && dipakai.has(isi.item.id) ? <span className="block truncate text-body-small text-on-surface-variant">Has a dress code</span> : null}
         </span>
@@ -494,7 +494,7 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, setiapHari, baris, dip
           : "That item is not on this tab any more. Pick another from For, or remove this line."
         : !item.is_published
           ? tautanTersimpan
-            ? `${item.title.trim()} is hidden on the public page, but participants still see this dress code.`
+            ? `${item.title.trim()} is unpublished, but participants still see this dress code.`
             : `${item.title.trim()} is hidden, so it cannot be picked. Pick another from For, or remove this line.`
           : null;
   // Format strip peserta: "kapan · apa", atau apa saja untuk seharian. Baris

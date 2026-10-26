@@ -15,7 +15,6 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Agenda "Show before sign-in" per section (hide a day from the event page and /rundown, portal unchanged) and "Published" rename: PR open; migration 202610260001 run by Mas 26 Oct (post-check all true); waiting on QA and his merge time (before 3 Nov).
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
@@ -25,6 +24,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #276 Agenda "Show before sign-in" per section (merged 26 Oct, QA GO, migration 202610260001 run by Mas, 0 px with every switch on): off hides that day from the event page and /rundown, the portal keeps it; section and item "Show on public page" renamed "Published". Follow-up PR: narrowing save order, wording leftovers, switch hint while unpublished.
 - #273 Horizon portal on one card scale (merged 24 Oct, QA GO, other presets 0 px): Beranda, Checkpoint, Pengumuman, Butuh bantuan, Darurat, Outfit, Menu, folded rows and navy cards share the card header, type scale, spacing, 16 px radius and 16/24 padding; organiser blocks take the radius and padding only. Also the #272 QA fixes (translated train arrow label, bus head counts trips still to come, hotel head shows nights, no duplicate "Dititipkan").
 
 - #272 Horizon Perjalanan cards (merged 24 Oct at Mas's "merge now", QA post-hoc GO): one card shape (icon and type left, note right, divider; sentence lines; one grey strip for room or seat) and one type scale, written in DESIGN.md "Kartu di portal Horizon".
