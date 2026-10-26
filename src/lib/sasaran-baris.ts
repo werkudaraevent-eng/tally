@@ -78,14 +78,19 @@ export function labelAgendaPublik(syarat: SyaratBaris | null, kolom: ReadonlyArr
  * Syarat yang tidak bisa cocok dengan siapa pun: bentuknya rusak (kolom kosong,
  * tanpa jawaban), kolomnya sudah dihapus, atau tidak satu pun jawabannya masih
  * ada di pilihan kolom. Sesudah masuk baris itu tidak tampil ke siapa pun, jadi
- * halaman acara sebelum masuk juga menyembunyikannya. Hotel tidak diperiksa di
- * sini: id hotel tidak bisa rusak tanpa ketahuan (bacaSasaranBlok).
+ * halaman acara sebelum masuk juga menyembunyikannya. Hotel: tidak satu pun
+ * hotel terpilih masih ada di Logistics (`hotel`, id sebagai teks). Tanpa
+ * `hotel` (tidak dibaca) syarat Hotel tidak diperiksa.
  */
-export function syaratTanpaPeserta(syarat: SyaratBaris | null, kolom: ReadonlyArray<Pick<KolomSasaran, "key" | "options">>): boolean {
+export function syaratTanpaPeserta(
+  syarat: SyaratBaris | null,
+  kolom: ReadonlyArray<Pick<KolomSasaran, "key" | "options">>,
+  hotel: ReadonlySet<string> | null = null,
+): boolean {
   if (!syarat) return false;
   return syarat.some((isi) => {
     if (!isi.field || isi.values.length === 0) return true;
-    if (isi.field === KOLOM_HOTEL) return false;
+    if (isi.field === KOLOM_HOTEL) return hotel !== null && !isi.values.some((id) => hotel.has(id));
     const pilihan = kolom.find((k) => k.key === isi.field);
     return !pilihan || !isi.values.some((nilai) => pilihan.options.some((opsi) => samaJawaban(opsi, nilai)));
   });

@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Agenda Who sees it applies only after sign-in: the event page agenda and /rundown show every row of a day with Show before sign-in on (Mas, 26 Oct); rows per group get an answer label ("Batch 1") when the question has Show answers in the public agenda on, and rows that can match nobody stay hidden. KSO: Mas turns that switch on for Batch. PR #281 open, no SQL; waiting on full-matrix QA and Mas's merge time (before 3 Nov).
+- Agenda public label follow-up: a Hotel rule whose hotels were all deleted now stays hidden before sign-in, and "Show answers in the public agenda" is dropped on save from questions that aren't dropdown or single-choice. PR open, no SQL; waiting on QA delta and Mas's merge time.
 - "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").
 - Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 merged 26 Oct. No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
@@ -27,6 +27,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #281 Agenda Who sees it applies only after sign-in (merged 26 Oct, QA GO, no SQL): the event page and /rundown show every row of a day with Show before sign-in on; limited rows get an answer label ("Batch 1") when the question has Show answers in the public agenda on (Registration > Edit form, default off); rows that can match nobody stay hidden. KSO: Mas turns that switch on for Batch.
 - #276 Agenda "Show before sign-in" per section (merged 26 Oct, QA GO, migration 202610260001 run by Mas, 0 px with every switch on): off hides that day from the event page and /rundown, the portal keeps it; section and item "Show on public page" renamed "Published". Follow-up PR: narrowing save order, wording leftovers, switch hint while unpublished.
 - #273 Horizon portal on one card scale (merged 24 Oct, QA GO, other presets 0 px): Beranda, Checkpoint, Pengumuman, Butuh bantuan, Darurat, Outfit, Menu, folded rows and navy cards share the card header, type scale, spacing, 16 px radius and 16/24 padding; organiser blocks take the radius and padding only. Also the #272 QA fixes (translated train arrow label, bus head counts trips still to come, hotel head shows nights, no duplicate "Dititipkan").
 
@@ -127,6 +128,7 @@ Every item (finding, recommendation, what is left, decisions and code pointers) 
 
 ## Parked Lows and open findings
 
+- #281 Lows: a signed-in participant who opens the public event page sees every batch's rows there (by design; the portal stays filtered); turning Show answers in the public agenda on labels every existing row of that question at once, with no preview of which rows change.
 Known issues that QA left open on purpose, by area. Fix one only when it is cheap and user-visible, or when you are already in that code; remove it here in the same PR. The full write-ups are in each PR's QA report (kept with the project owner).
 
 ### Seating
