@@ -235,6 +235,8 @@ export type PortalUiText = {
       trainNext: (pulang: boolean) => string;
       /** Fakta kartu perjalanan sebelum berangkat: jam kereta berangkat. */
       departs: string;
+      /** Kartu perjalanan: tanggal acara di samping tanggal perjalanan peserta bila berbeda ("Acara 6–8 Nov"). */
+      eventDates: (tanggal: string) => string;
       /** Kartu pengumuman: label di samping waktunya, dan tautan ke tab Pengumuman. */
       announcement: string;
       allAnnouncements: string;
@@ -479,6 +481,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         roommates: (nama, jumlah) => `${jumlah > 1 ? "teman-teman sekamar" : "teman sekamar"} ${nama}`,
         trainNext: (pulang) => (pulang ? "Kereta pulang" : "Kereta berangkat"),
         departs: "Berangkat",
+        eventDates: (tanggal) => `Acara ${tanggal}`,
         announcement: "Pengumuman",
         allAnnouncements: "Semua pengumuman",
       },
@@ -714,6 +717,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         roommates: (nama, jumlah) => `${jumlah > 1 ? "roommates" : "roommate"} ${nama}`,
         trainNext: (pulang) => (pulang ? "Return train" : "Outbound train"),
         departs: "Departs",
+        eventDates: (tanggal) => `Event ${tanggal}`,
         announcement: "Announcement",
         allAnnouncements: "All announcements",
       },

@@ -49,7 +49,7 @@ import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { bantuanBahasa, barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
-import { agendaBerikutnya, loadMemberLogistics, type LogistikPeserta } from "@/lib/logistik/peserta";
+import { agendaBerikutnya, loadMemberLogistics, type LogistikKamar, type LogistikPeserta } from "@/lib/logistik/peserta";
 import { bagasiPeserta } from "@/lib/bagasi/server";
 import { FotoBagasi } from "@/components/member/foto-bagasi";
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
@@ -111,6 +111,7 @@ import { LompatPerjalanan } from "@/components/member/lompat-perjalanan";
 import { jamLeg, jamTiket, legSelesai, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
+import { rentangPerjalanan } from "@/lib/member/rentang-perjalanan";
 import { faseBeranda } from "@/lib/member/fase-beranda";
 import { KartuOutfitBerandaHorizon, KartuPerjalananmuHorizon, KartuQrSampingHorizon, KartuSekarangHorizon } from "@/components/member/beranda-horizon";
 import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
@@ -1850,26 +1851,68 @@ export async function DashboardGathering({
             ...(legPass.seat ? [{ label: tH.train.seat, nilai: legPass.seat, ponsel: true, pendek: true }] : []),
           ]
         : [];
+      // Peserta yang pindah hotel (GRAMM 5-6 lalu RAY 6-8): semua hotelnya di kartu,
+      // masing-masing dengan tanggal dan kamarnya, seperti itinerary multi-stay
+      // Booking.com. Kamar dan teman sekamar ada di baris tiap hotel dan di Perjalanan.
+      const stayPass = tampilLogistik && logistik && logistik.stays.length > 1 ? logistik.stays : null;
+      const tanggalStay = (stay: LogistikKamar) =>
+        stay.check_in_at && stay.check_out_at
+          ? formatEventDateRingkas({ event_date: dinding(stay.check_in_at).tanggal, end_date: dinding(stay.check_out_at).tanggal, start_time: null, end_time: null, time_zone: zona }, lang, true, false)
+          : null;
+      const faktaHotel = (ponsel: boolean): FaktaPass[] =>
+        stayPass
+          ? [
+              {
+                label: tH.hotel,
+                nilai: stayPass.map((stay) => stay.hotel?.name?.trim() || tH.hotel).join(", "),
+                ponsel,
+                lebar: true,
+                daftar: stayPass.map((stay) => ({
+                  judul: stay.hotel?.name?.trim() || tH.hotel,
+                  catatan: gabungMeta([tanggalStay(stay), stay.room_number ? tH.roomNo(stay.room_number) : t.roomPending]) || null,
+                })),
+              },
+            ]
+          : kamar?.hotel?.name?.trim()
+            ? [{ label: tH.hotel, nilai: kamar.hotel.name.trim(), ponsel, lebar: true }]
+            : [];
       const fakta: FaktaPass[] =
         faktaKereta.length > 0
           ? [
               ...faktaKereta,
-              ...(kamar?.hotel?.name?.trim() ? [{ label: tH.hotel, nilai: kamar.hotel.name.trim(), ponsel: false, lebar: true }] : []),
+              ...faktaHotel(false),
               ...(namaBus ? [{ label: tH.bus, nilai: namaBus, ponsel: false, pendek: true }] : []),
             ]
           : [
               { label: tH.participant, nilai: sesi.name, ponsel: false },
-              ...(tampilLogistik && kamar?.hotel?.name?.trim() ? [{ label: tH.hotel, nilai: kamar.hotel.name.trim(), ponsel: true, lebar: true }] : []),
+              ...(tampilLogistik ? faktaHotel(true) : []),
               ...(tampilLogistik && namaBus ? [{ label: tH.bus, nilai: namaBus, ponsel: true, pendek: true }] : []),
-              ...(tampilLogistik && kamar ? [{ label: tH.room, nilai: kamar.room_number ?? tH.roomPending, ponsel: true, pendek: true }] : []),
-              ...(tampilTeman ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
+              ...(tampilLogistik && kamar && !stayPass ? [{ label: tH.room, nilai: kamar.room_number ?? tH.roomPending, ponsel: true, pendek: true }] : []),
+              ...(tampilTeman && !stayPass ? [{ label: tH.roommate(teman.length), nilai: teman.map((orang) => orang.name).join(", "), ponsel: false }] : []),
             ];
+      // Tanggal kartu = perjalanan peserta sendiri: tanggal acara dilebarkan oleh
+      // stay, tiket kereta, dan perjalanan bus yang dinaikinya. Bila berbeda,
+      // tanggal acara ikut ditulis kecil ("5–8 Nov 2026 · Acara 6–8 Nov").
+      const rentang = rentangPerjalanan(
+        { mulai: event.event_date ?? null, selesai: event.end_date ?? null },
+        tampilLogistik && logistik
+          ? [
+              ...logistik.stays.flatMap((stay) => [stay.check_in_at, stay.check_out_at]),
+              ...(kamar ? [kamar.check_in_at, kamar.check_out_at] : []),
+              ...(logistik.transport?.trips ?? []).flatMap((trip) => (trip.bus ? [trip.depart_at] : [])),
+            ]
+              .flatMap((iso) => (iso ? [dinding(iso).tanggal] : []))
+              .concat(logistik.trains.flatMap((leg) => (leg.depart_date ? [leg.depart_date] : [])))
+          : [],
+      );
+      const jadwalPass = rentang?.berbeda ? { event_date: rentang.mulai, end_date: rentang.selesai, start_time: null, end_time: null, time_zone: zona } : event;
+      const catatanAcara = rentang?.berbeda ? tH.home.eventDates(formatEventDateRingkas(event, lang, true, false) ?? "") : null;
       const kartuPass = sebelum ? (
         <PassHorizon
           kv={latarKv?.src ?? null}
           label={gabungMeta([LANDING_UI[lang].horizon.pass, pilihanKu.kelompok])}
-          tanggalPendek={formatEventDateRingkas(event, lang)}
-          tanggalPanjang={formatEventDateRingkas(event, lang, false)}
+          tanggalPendek={gabungMeta([formatEventDateRingkas(jadwalPass, lang), catatanAcara]) || null}
+          tanggalPanjang={gabungMeta([formatEventDateRingkas(jadwalPass, lang, false), catatanAcara]) || null}
           dari={config.pass_from?.trim() || null}
           ke={config.pass_to?.trim() || venue || nama}
           fakta={fakta}

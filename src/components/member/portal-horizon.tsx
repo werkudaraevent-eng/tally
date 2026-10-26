@@ -339,7 +339,36 @@ export function SapaanHorizon({
  * `pendek`: nilai singkat (bus, nomor kamar) yang tidak boleh dipatahkan di
  * tengah kata, mis. "1208" menjadi "12/08" saat baris desktop sempit.
  */
-export type FaktaPass = { label: string; nilai: string; ponsel: boolean; lebar?: boolean; pendek?: boolean };
+export type FaktaPass = {
+  label: string;
+  nilai: string;
+  ponsel: boolean;
+  lebar?: boolean;
+  pendek?: boolean;
+  /**
+   * Beberapa nilai di bawah satu label, mis. dua hotel peserta yang pindah
+   * hotel: nama tebal dan keterangan redup (tanggal, kamar) per baris.
+   */
+  daftar?: { judul: string; catatan: string | null }[];
+};
+
+/** Isi fakta `daftar`: satu baris per nilai, nama lalu keterangannya. */
+function DaftarFakta({ daftar, besar }: { daftar: NonNullable<FaktaPass["daftar"]>; besar: string }) {
+  return (
+    <ul className="flex flex-col gap-3">
+      {daftar.map((isi, urut) => (
+        <li key={urut} className="flex flex-col gap-1">
+          <span className={`${besar} font-bold leading-[1.26] [overflow-wrap:anywhere]`}>{isi.judul}</span>
+          {isi.catatan ? (
+            <span className="text-[14px] font-normal leading-5" style={{ color: REDUP_NAVY }}>
+              {isi.catatan}
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** Kartu "Personal journey pass": KV, rute, dan fakta peserta. */
 export function PassHorizon({
@@ -432,7 +461,13 @@ export function PassHorizon({
                     <dt className="text-[0.75rem]" style={{ color: REDUP_NAVY }}>
                       {item.label}
                     </dt>
-                    <dd className={`text-[16px] font-bold ${item.pendek ? "[overflow-wrap:break-word]" : "[overflow-wrap:anywhere]"}`}>{item.nilai}</dd>
+                    {item.daftar ? (
+                      <dd>
+                        <DaftarFakta daftar={item.daftar} besar="text-[16px]" />
+                      </dd>
+                    ) : (
+                      <dd className={`text-[16px] font-bold ${item.pendek ? "[overflow-wrap:break-word]" : "[overflow-wrap:anywhere]"}`}>{item.nilai}</dd>
+                    )}
                   </div>
                 ))}
               </dl>
@@ -444,7 +479,13 @@ export function PassHorizon({
                     <dt className="text-[0.75rem]" style={{ color: REDUP_NAVY }}>
                       {item.label}
                     </dt>
-                    <dd className={`${item.lebar || tigaPendek ? "text-[18px] font-bold" : "text-[26px] font-extrabold"} leading-[1.26] ${tigaPendek ? "whitespace-nowrap" : "[overflow-wrap:anywhere]"}`}>{item.nilai}</dd>
+                    {item.daftar ? (
+                      <dd>
+                        <DaftarFakta daftar={item.daftar} besar="text-[18px]" />
+                      </dd>
+                    ) : (
+                      <dd className={`${item.lebar || tigaPendek ? "text-[18px] font-bold" : "text-[26px] font-extrabold"} leading-[1.26] ${tigaPendek ? "whitespace-nowrap" : "[overflow-wrap:anywhere]"}`}>{item.nilai}</dd>
+                    )}
                   </div>
                 ))}
               </dl>
