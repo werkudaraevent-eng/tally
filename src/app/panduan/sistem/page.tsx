@@ -313,6 +313,7 @@ const BAGIAN: Bagian[] = [
           "Agenda → Edit item → Who sees it: Everyone, or Some participants with up to 3 conditions (a dropdown or choice field such as Batch, or Hotel). Other participants, the public page and badges never get the row.",
           "Event page → Directions block → Who sees it works the same way for routes (for example lobby to ballroom, only for one hotel's guests).",
           "Agenda → section → Show first for only sorts: a participant's own batch section comes first, nothing is hidden.",
+          "Agenda → section → Show before sign-in: switch it off for a day that only signed-in participants should see (for example a departure day). The event page and /rundown then leave that day out; the portal still shows it.",
         ],
       },
     ],

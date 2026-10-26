@@ -1945,6 +1945,8 @@ export type ApiErrorCode =
   | "OUTFIT_NOT_READY"
   // Sasaran bagian Agenda disimpan sebelum migrasi 202610180002 dijalankan.
   | "AUDIENCE_NOT_READY"
+  // Show before sign-in bagian Agenda disimpan sebelum migrasi 202610260001 dijalankan.
+  | "PUBLIC_DAY_NOT_READY"
   // Trip bus ditautkan ke baris Agenda sebelum migrasi 202610170002 dijalankan.
   // Trip tanpa tautan tetap tersimpan seperti biasa.
   | "TRIP_AGENDA_NOT_READY"

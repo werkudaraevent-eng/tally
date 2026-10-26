@@ -209,7 +209,7 @@ export function adaTautan(daftar: unknown): boolean {
 
 /**
  * Isian yang boleh dilihat peserta pada satu hari, dari baris yang tampil
- * untuknya (`barisTampil`: baris hari itu sesudah Show on public page dan Who
+ * untuknya (`barisTampil`: baris hari itu sesudah Published dan Who
  * sees it). Isian yang ditautkan ke baris lain disembunyikan, karena teks
  * waktunya membawa jam dan judul baris itu. `item_id` dibuang: halaman tidak
  * memakainya.

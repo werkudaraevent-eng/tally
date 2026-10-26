@@ -100,7 +100,10 @@ async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | 
 
 /** Sama dengan adaOutfit di DashboardGathering: ada outfit di hari Agenda yang terbit (Setiap hari diperiksa lebih dulu). */
 async function adaOutfit(eventId: string, lang: LandingLang): Promise<boolean> {
-  const [agenda, peta] = await Promise.all([loadAgendaPreview(eventId, lang), loadOutfitBagian(eventId)]);
+  // Penonton tanpa peserta: hari yang hanya untuk portal (Show before sign-in
+  // off) tetap dihitung, baris bersyarat tidak (sama dengan sebelum masuk).
+  const penonton = { acara: { id: eventId, registration_form_config: null }, participantId: null, tampilKamar: false };
+  const [agenda, peta] = await Promise.all([loadAgendaPreview(eventId, lang, penonton), loadOutfitBagian(eventId)]);
   return agenda.some((bagian) => bagian.id !== undefined && (peta.get(bagian.id)?.length ?? 0) > 0);
 }
 

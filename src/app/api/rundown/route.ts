@@ -31,19 +31,22 @@ export async function GET(request: Request) {
   // browser tamu. Halaman ini publik, jadi ia tidak bisa membaca /api/settings
   // yang butuh login; polanya mengikuti /api/seat-map yang sudah membaca
   // event_settings dengan cara sama.
-  const [sectionResult, settingsResult, headerResult] = await Promise.all([
-    client
-      .from("rundown_sections")
-      .select(SECTION_COLUMNS)
-      .eq("event_id", eventId)
-      .eq("is_published", true)
-      .order("sort_order", { ascending: true })
-      .order("id", { ascending: true }),
+  // Hanya bagian yang Show before sign-in-nya menyala: layar ini publik.
+  // Sebelum migrasi 202610260001 kolomnya belum ada, jadi semua bagian terbit
+  // dibaca seperti dulu.
+  const bacaBagian = (sebelumMasuk: boolean) => {
+    const kueri = client.from("rundown_sections").select(SECTION_COLUMNS).eq("event_id", eventId).eq("is_published", true);
+    return (sebelumMasuk ? kueri.eq("show_before_sign_in", true) : kueri).order("sort_order", { ascending: true }).order("id", { ascending: true });
+  };
+  const [sectionAwal, settingsResult, headerResult] = await Promise.all([
+    bacaBagian(true),
     client.from("event_settings").select("time_zone").eq("event_id", eventId).maybeSingle(),
     // Header dibaca sekali dan berlaku untuk seluruh tab, jadi ia tidak ikut
     // berubah saat tamu berpindah agenda.
     client.from("rundown_settings").select(HEADER_COLUMNS).eq("event_id", eventId).maybeSingle(),
   ]);
+  const kolomBelumAda = (kode?: string) => kode === "42703" || kode === "PGRST204";
+  const sectionResult = kolomBelumAda(sectionAwal.error?.code) ? await bacaBagian(false) : sectionAwal;
   const { data: sectionRows, error: sectionError } = sectionResult;
   if (sectionError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
@@ -89,7 +92,7 @@ export async function GET(request: Request) {
   };
   let { data: itemRows, error: itemError } = await bacaBaris(true);
   // Sebelum migrasi 202610210001 kolomnya belum ada, jadi belum ada baris bersyarat.
-  if (itemError && (itemError.code === "42703" || itemError.code === "PGRST204")) ({ data: itemRows, error: itemError } = await bacaBaris(false));
+  if (itemError && kolomBelumAda(itemError.code)) ({ data: itemRows, error: itemError } = await bacaBaris(false));
   if (itemError) return apiErrorPeserta("INTERNAL_ERROR", 500);
 
   return Response.json({

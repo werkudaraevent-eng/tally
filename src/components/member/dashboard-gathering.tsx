@@ -328,7 +328,7 @@ export async function DashboardGathering({
   const agendaNav = tampilSusunan ? agenda : await loadAgendaPreview(event.id, lang, penonton);
   // Hari Outfit = hari tab Jadwal (bagian yang diterbitkan dan berisi), juga bila Jadwal disembunyikan.
   // Dress code yang ditautkan ke baris hanya tampil bila baris itu tampil untuk
-  // peserta ini: baris yang disembunyikan (Show on public page mati, atau Who
+  // peserta ini: baris yang disembunyikan (Published mati, atau Who
   // sees it tidak cocok) tidak boleh bocor lewat teks waktunya. `item_id` tidak
   // ikut ke halaman.
   const hariOutfit = petaOutfit
