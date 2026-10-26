@@ -144,3 +144,8 @@ assert.deepEqual(kolomDariTautan("batch, kota,batch,hilang", [kaos, batch, kota]
 assert.deepEqual(kolomDariTautan(null, [batch]), []);
 
 console.log("kolom-staf.check: ok");
+
+// "Show answers in the public agenda" hanya tersimpan di dropdown/radio yang menyalakannya.
+assert.equal(rapikanPertanyaan({ ...batch, agenda_label: true }).agenda_label, true);
+assert.equal("agenda_label" in rapikanPertanyaan({ ...batch, agenda_label: false }), false);
+assert.equal("agenda_label" in rapikanPertanyaan({ ...kota, agenda_label: true }), false);

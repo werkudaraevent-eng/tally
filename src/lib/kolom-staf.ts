@@ -73,11 +73,16 @@ export function kelompokJawaban<T extends Penanda & Pick<RegistrationField, "par
  * dimatikan lalu dinyalakan lagi tersimpan persis seperti sebelumnya. Tidak
  * ditanyakan: `required` ikut false, supaya pembaca mana pun yang belum
  * mengenal `on_form` tetap tidak mewajibkannya. Penanda draf `kunci_otomatis`
- * selalu dibuang.
+ * selalu dibuang, dan `agenda_label` dibuang kecuali menyala di dropdown/radio.
  */
 export function rapikanPertanyaan<T extends RegistrationField>(field: T): T {
-  const { kunci_otomatis: _draf, ...tanpaDraf } = field;
+  const { kunci_otomatis: _draf, ...semuaIsi } = field;
   void _draf;
+  // "Show answers in the public agenda" hanya untuk dropdown dan pilihan tunggal:
+  // draf yang pindah jenis tetap membawanya, jadi dibuang saat disimpan.
+  const { agenda_label: _label, ...tanpaLabel } = semuaIsi;
+  void _label;
+  const tanpaDraf = (field.type === "select" || field.type === "radio") && semuaIsi.agenda_label === true ? semuaIsi : tanpaLabel;
   if (!ditanyakan(tanpaDraf)) return { ...tanpaDraf, on_form: false, required: false } as T;
   const { on_form: _dibuang, ...sisa } = tanpaDraf;
   void _dibuang;

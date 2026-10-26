@@ -82,5 +82,9 @@ console.log("sasaran-baris ok");
   assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "batch", values: ["Batch 9"] }]), kolomLabel), true);
   assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "batch", values: ["Batch 9", "Batch 2"] }]), kolomLabel), false);
   assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["7"] }]), kolomLabel), false);
+  // Hotel yang sudah dihapus dari Logistics: tidak cocok dengan siapa pun.
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["7"] }]), kolomLabel, new Set(["8"])), true);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["7", "8"] }]), kolomLabel, new Set(["8"])), false);
+  assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["7"] }]), kolomLabel, new Set()), true);
   assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "vip", values: ["VIP"] }]), kolomLabel), false);
 }
