@@ -221,7 +221,7 @@ export function PilihBarisAgenda({ value, onChange, agendaTrip, dipakai, teks }:
         {agenda && tanggalGanda(agenda.bagian, lokasi.bagian.event_date) ? <>In the <span className="font-medium text-on-surface">{lokasi.bagian.name.trim()}</span> tab. </> : null}
         {lokasi.baris.is_published && lokasi.bagian.is_published
           ? "Participants see a link to their bus on this row in their schedule."
-          : "Participants see the link once this row is shown on the public page."}
+          : "Participants see the link once this row and its Agenda tab are published."}
       </>
     ) : memuat ? "Participants see a link to their bus on this row in their schedule." : agenda ? "Pick another row, or Not linked." : "The saved link is kept.";
 
@@ -246,7 +246,7 @@ export function PilihBarisAgenda({ value, onChange, agendaTrip, dipakai, teks }:
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 items-start gap-2">
               <span className="line-clamp-2 min-w-0 flex-1">{item.title.trim()}</span>
-              {!item.is_published ? <StatusChip tone="warning" title="Not shown on the public page">Hidden</StatusChip> : null}
+              {!item.is_published ? <StatusChip tone="warning" title="Not published: hidden everywhere">Hidden</StatusChip> : null}
             </span>
             {/* Baris kedua, bukan "· used by" sebaris: judul dan nama trip tidak muat satu baris di panel 400 px. */}
             {pemakai.length ? <span className="block truncate text-body-small text-on-surface-variant">Used by {pemakai.join(", ")}</span> : null}
