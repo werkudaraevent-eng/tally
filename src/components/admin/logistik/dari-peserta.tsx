@@ -123,7 +123,7 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
         keTabKamar={() => keLogistik("kamar")}
         stayPeserta={stayPeserta}
         offset={offset}
-        simpan={async (daftar, lepasHotel) => (await simpanPenempatan(kirimCatat, orang.map((o) => o.id), daftar, lepasHotel)) !== null}
+        simpan={async (daftar, lepasHotel, langkah) => (await simpanPenempatan(kirimCatat, orang.map((o) => o.id), daftar, lepasHotel, langkah)) !== null}
       />
       <DialogBus
         open={aksi.jenis === "bus"}

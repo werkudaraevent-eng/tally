@@ -287,6 +287,35 @@ assert.deepEqual(lebar.baris.filter((b) => b.nama === "Dewi").map((b) => b.statu
 assert.ok(!lebar.penempatan.some((p) => p.participant_ids.includes("d")));
 assert.ok(lebar.baris.some((b) => b.nama === "Citra Lestari" && b.alasan === "Nights of the hotels in this row overlap"));
 
+// Kamar Hotel 1 penuh: seluruh baris ditolak, Royal Andi tidak dilepas, dan
+// Hotel 2 tidak tersimpan sendirian.
+const penuh = rencanaKamar([
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["", "Andi Pratama", "Mulia", "1208", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+  ["", "Budi Santoso", "Mulia", "", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+], { ...duaHotel, settings: { gender_field_key: "jk", enforce_same_gender: false }, rooms: [{ id: 10, hotel_id: 1, room_number: "1208", capacity: 1 }, duaHotel.rooms[1]] });
+assert.deepEqual(penuh.baris.filter((b) => b.nama === "Andi Pratama").map((b) => `${b.status}:${b.alasan}`), ["tolak:Room full (capacity 1)", "tolak:Another hotel in this row was rejected"]);
+assert.ok(!penuh.penempatan.some((p) => p.participant_ids.includes("a")));
+assert.ok(!penuh.lepas.some((l) => l.participant_id === "a"));
+assert.deepEqual(penuh.penempatan.filter((p) => p.participant_ids.includes("b")).map((p) => p.hotel).sort(), ["Mulia", "Royal"]);
+// Jenis kelamin berbeda: sama, seluruh baris ditolak.
+const beda = rencanaKamar([
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["", "Andi Pratama", "Mulia", "1208", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+], duaHotel);
+assert.deepEqual(beda.baris.map((b) => b.status), ["tolak", "tolak"]);
+assert.equal(beda.baris[0].alasan, "Gender differs from the occupants of this room");
+assert.deepEqual(beda.penempatan, []);
+assert.deepEqual(beda.lepas, []);
+// Orang yang ditolak tidak mengambil tempat: orang berikutnya di kamar itu masuk.
+const giliran = rencanaKamar([
+  ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  ["", "Andi Pratama", "Royal", "214", "05/11/2026", "06/11/2026", "Royal", "", "06/11/2026", "08/11/2026"],
+  ["", "Budi Santoso", "Royal", "214", "05/11/2026", "06/11/2026", "", "", "", ""],
+], { ...duaHotel, lodging: [], rooms: [duaHotel.rooms[0], { id: 20, hotel_id: 2, room_number: "214", capacity: 1 }] });
+assert.deepEqual(giliran.baris.filter((b) => b.nama === "Andi Pratama").map((b) => b.alasan).sort(), ["Another hotel in this row was rejected", "Same hotel twice in this row"]);
+assert.equal(giliran.baris.find((b) => b.nama === "Budi Santoso")?.status, "masuk");
+
 // Judul ekspor Daftar peserta ("Hotel check-in 1") juga terbaca.
 const ekspor = rencanaKamar([
   ["Name", "Organisation", "Hotel 1", "Room 1", "Hotel check-in 1", "Hotel check-out 1", "Hotel 2", "Room 2", "Hotel check-in 2", "Hotel check-out 2", "Bus"],
