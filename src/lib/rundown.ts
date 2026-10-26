@@ -80,6 +80,8 @@ export type RundownItem = {
   is_break: boolean;
   is_published: boolean;
   sort_order: number;
+  /** Hanya dari /api/rundown: label kelompok baris bersyarat ("Batch 1"), lihat agenda-publik-server.ts. */
+  untuk?: string | null;
 };
 
 export const SECTION_COLUMNS =

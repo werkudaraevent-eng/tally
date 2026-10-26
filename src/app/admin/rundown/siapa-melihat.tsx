@@ -7,7 +7,7 @@ import Link from "@/components/event-link";
 import { Button, FilterChip, IconButton, SegmentedButton, SelectMenu } from "@/components/m3";
 import { eventApiPath } from "@/lib/event-url";
 import type { KolomSasaran } from "@/lib/sasaran-bagian";
-import { SYARAT_MAX } from "@/lib/sasaran-baris";
+import { labelAgendaPublik, SYARAT_MAX } from "@/lib/sasaran-baris";
 import { KOLOM_HOTEL, samaJawaban } from "@/lib/sasaran-blok";
 
 /**
@@ -30,6 +30,8 @@ export type InfoSiapaMelihat = {
 export type DrafSyarat = Array<{ field: string; values: string[] }>;
 
 export const syaratLengkap = (draf: DrafSyarat | null) => !draf || draf.every((isi) => isi.field && isi.values.length > 0);
+
+const TAUTAN = "inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline";
 
 type Kolom = { key: string; label: string; menu: string; options: Array<{ value: string; label: string }> };
 
@@ -82,7 +84,6 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
   onChange: (next: DrafSyarat | null) => void;
 }) {
   const kolom = daftarKolom(info);
-  const TAUTAN = "inline-flex items-center gap-1 self-start rounded-sm text-body-medium font-medium text-primary hover:underline";
   const lengkap = syaratLengkap(value);
   // Kolom atau jawaban tersimpan yang sudah dihapus: baris tersembunyi dari semua.
   // Syarat yang sedang diisi (kolom belum dipilih) belum lengkap, bukan mati.
@@ -221,8 +222,37 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
               )}
             </p>
           ) : null}
+          {value && lengkap && !hilang ? <LabelHalamanAcara syarat={value} info={info} /> : null}
         </>
       )}
     </Kelompok>
+  );
+}
+
+/**
+ * Label baris ini di halaman acara sebelum masuk (labelAgendaPublik). Tanpa
+ * label, panitia diberi tahu sakelar mana yang menyalakannya, di tempatnya.
+ */
+function LabelHalamanAcara({ syarat, info }: { syarat: DrafSyarat; info: InfoSiapaMelihat }) {
+  const label = labelAgendaPublik(syarat, info.fields);
+  if (label) {
+    return <p className="text-body-small text-on-surface-variant">Before sign-in, the event page labels this row <span className="font-semibold text-on-surface">{label}</span>.</p>;
+  }
+  const hotel = syarat.some((isi) => isi.field === KOLOM_HOTEL);
+  const tanpaIzin = info.fields.filter((k) => !k.label_agenda && syarat.some((isi) => isi.field === k.key));
+  return (
+    <p className="text-body-small text-on-surface-variant">
+      Before sign-in, the event page shows this row without a label.{" "}
+      {hotel ? (
+        "Hotel conditions never get a label."
+      ) : tanpaIzin.length > 0 ? (
+        <>
+          To label it, turn on Show answers in the public agenda for {tanpaIzin.map((k) => k.label).join(" and ")}.{" "}
+          <Link href="/admin/registrasi" target="_blank" rel="noreferrer" className={TAUTAN}>
+            Edit in Registration <ArrowSquareOut size={14} aria-hidden /><span className="sr-only">(new tab)</span>
+          </Link>
+        </>
+      ) : null}
+    </p>
   );
 }

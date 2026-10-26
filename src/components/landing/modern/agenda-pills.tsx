@@ -8,6 +8,7 @@ import type { AgendaPreview } from "@/lib/landing-agenda";
 import { barisJeda, pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
+import { LabelUntuk } from "@/components/landing/label-untuk";
 
 /**
  * Susunan acara tata letak Modern: tab pil per bagian rundown di atas daftar
@@ -154,6 +155,7 @@ export function AgendaPills({
                   }`}
                 >
                   {item.title}
+                  <LabelUntuk teks={item.untuk} className="font-medium text-[var(--reg-on-surface-variant)]" />
                 </p>
                 {daftar ? (
                   <DaftarPembicara item={item.subtitle} orang={orang} foto={tampilPembicara === "photos"} lang={lang} />

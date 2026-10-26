@@ -246,12 +246,12 @@ export function agendaSelanjutnya(
   const { bagian, item } = berikut;
   const jam = item.time ? `${item.time} ${zona}`.trim() : null;
   if (bagian.tanggal === hariIni) {
-    return { judul: item.title, keterangan: [jam, teksPolos(item.subtitle).trim() || null].filter(Boolean).join(" · ") || null };
+    return { judul: item.title, keterangan: [jam, item.untuk, teksPolos(item.subtitle).trim() || null].filter(Boolean).join(" · ") || null };
   }
   const hari = bagian.tanggal
     ? new Date(`${bagian.tanggal}T00:00:00Z`).toLocaleDateString(lang === "en" ? "en-GB" : "id-ID", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
     : null;
-  return { judul: item.title, keterangan: [hari, jam].filter(Boolean).join(" · ") || null };
+  return { judul: item.title, keterangan: [hari, jam, item.untuk].filter(Boolean).join(" · ") || null };
 }
 
 /**

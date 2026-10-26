@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "./supabase/service";
 import { formatClock } from "./rundown";
+import { barisPublikBersyarat } from "./agenda-publik-server";
 import { bacaSyaratBaris, barisUntukPeserta, type SyaratBaris } from "./sasaran-baris";
 import { muatDataSasaran } from "./sasaran-blok-server";
 
@@ -31,7 +32,20 @@ function jamTitik(jam: string, bahasa: "id" | "en"): string {
  * `jeda` menandai baris jeda rundown (makan siang, rehat): pembicara yang
  * memilih baris itu lewat `session_refs` tidak ditampilkan di sana.
  */
-export type AgendaItem = { id: number; time: string; end: string | null; title: string; subtitle: string | null; key: string; jeda: boolean };
+export type AgendaItem = {
+  id: number;
+  time: string;
+  end: string | null;
+  title: string;
+  subtitle: string | null;
+  key: string;
+  jeda: boolean;
+  /**
+   * Halaman acara sebelum masuk saja: label kelompok baris bersyarat ("Batch 1"),
+   * dari labelAgendaPublik. Kosong untuk baris tanpa syarat dan untuk portal.
+   */
+  untuk?: string | null;
+};
 
 export type AgendaPreview = {
   /** Id baris `rundown_sections` (outfit per hari di portal Horizon). */
@@ -160,6 +174,10 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
   const tersembunyi = !penonton
     ? new Set<number>()
     : new Set([...syarat].filter(([id, isi]) => !barisUntukPeserta(isi, dataPeserta, tanggalItem.get(id) ?? null)).map(([id]) => id));
+  // Sebelum masuk: label kelompok, dan baris yang tidak cocok dengan siapa pun tetap tersembunyi.
+  const publik = !penonton ? await barisPublikBersyarat(eventId, syarat) : null;
+  for (const id of publik?.tersembunyi ?? []) tersembunyi.add(id);
+  const label = publik?.label ?? new Map<number, string>();
 
   return daftarSeksi
     .map((section) => ({
@@ -183,6 +201,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
           subtitle: item.subtitle?.trim() ? (bahasa === "en" && item.subtitle_en?.trim()) || item.subtitle.trim() : null,
           key: item.title ?? "",
           jeda: Boolean(item.is_break),
+          untuk: label.get(item.id) ?? null,
         }))
         // Baris tanpa judul adalah pemisah visual di layar rundown. Di ringkasan
         // ia hanya menjadi baris kosong yang terbaca sebagai data yang hilang.

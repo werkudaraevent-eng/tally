@@ -2,6 +2,8 @@ import { z } from "zod";
 import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { barisPublikBersyarat } from "@/lib/agenda-publik-server";
+import { bacaSyaratBaris, type SyaratBaris } from "@/lib/sasaran-baris";
 import { DEFAULT_HEADER, HEADER_COLUMNS, ITEM_COLUMNS, SECTION_COLUMNS, type RundownHeader, type RundownItem, type RundownSection } from "@/lib/rundown";
 import { normalizeTimeZone } from "@/lib/timezone";
 
@@ -76,20 +78,39 @@ export async function GET(request: Request) {
 
   // Semua baris terbit hari ini, termasuk yang punya Who sees it: syarat itu
   // hanya berlaku sesudah masuk (keputusan Hanung 2026-10-26). Hari yang tidak
-  // boleh terbaca publik dimatikan lewat Show before sign-in di atas. Kolom
-  // `audience` sendiri tidak ikut dikirim (ITEM_COLUMNS).
-  const { data: itemRows, error: itemError } = await client
-    .from("rundown_items")
-    .select(ITEM_COLUMNS)
-    .eq("event_id", eventId)
-    .eq("section_id", section.id)
-    .eq("is_published", true)
-    // Jam mulai dulu, sama dengan CMS rundown; sort_order hanya memisahkan
-    // butir berjam sama.
-    .order("start_time", { ascending: true })
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
+  // boleh terbaca publik dimatikan lewat Show before sign-in di atas. Baris
+  // bersyarat mendapat label kelompoknya, dan yang tidak cocok dengan siapa pun
+  // tetap tersembunyi (barisPublikBersyarat). Kolom `audience` sendiri tidak
+  // pernah ikut dikirim.
+  const bacaBaris = (kolom: string) =>
+    client
+      .from("rundown_items")
+      .select(kolom)
+      .eq("event_id", eventId)
+      .eq("section_id", section.id)
+      .eq("is_published", true)
+      // Jam mulai dulu, sama dengan CMS rundown; sort_order hanya memisahkan
+      // butir berjam sama.
+      .order("start_time", { ascending: true })
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
+  const itemAwal = await bacaBaris(`${ITEM_COLUMNS},audience`);
+  // Sebelum migrasi 202610210001 kolom `audience` belum ada: belum ada baris bersyarat.
+  const { data: itemRows, error: itemError } = kolomBelumAda(itemAwal.error?.code) ? await bacaBaris(ITEM_COLUMNS) : itemAwal;
   if (itemError) return apiErrorPeserta("INTERNAL_ERROR", 500);
+  const baris = (itemRows ?? []) as unknown as Array<RundownItem & { audience?: unknown }>;
+  const syarat = new Map<number, SyaratBaris>();
+  for (const item of baris) {
+    const isi = bacaSyaratBaris(item.audience);
+    if (isi) syarat.set(item.id, isi);
+  }
+  const { tersembunyi, label } = await barisPublikBersyarat(eventId, syarat);
+  const items: RundownItem[] = baris
+    .filter((item) => !tersembunyi.has(item.id))
+    .map(({ audience: _audience, ...item }) => {
+      void _audience;
+      return label.has(item.id) ? { ...item, untuk: label.get(item.id) } : item;
+    });
 
   return Response.json({
     published: true,
@@ -97,7 +118,7 @@ export async function GET(request: Request) {
     // seluruh barisnya membuat muatan tumbuh sia-sia setiap kali tab ditambah.
     sections: sections.map((row) => ({ slug: row.slug, name: row.name })),
     section,
-    items: (itemRows ?? []) as unknown as RundownItem[],
+    items,
     time_zone: timeZone,
     header,
   });

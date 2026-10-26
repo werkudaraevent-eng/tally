@@ -115,7 +115,7 @@ function formulirPublik(config: RegistrationFormConfig): string {
  */
 export function hanyaDiLuarFormulir(sebelum: RegistrationFormConfig, sesudah: RegistrationFormConfig): boolean {
   const semua = (config: RegistrationFormConfig) => JSON.stringify(
-    (config.fields ?? []).map((field) => [...isiPertanyaan(field), ditanyakan(field), field.participant_update === true]),
+    (config.fields ?? []).map((field) => [...isiPertanyaan(field), ditanyakan(field), field.participant_update === true, field.agenda_label === true]),
   );
   return formulirPublik(sebelum) === formulirPublik(sesudah) && semua(sebelum) !== semua(sesudah);
 }

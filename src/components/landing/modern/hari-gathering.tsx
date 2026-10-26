@@ -3,6 +3,7 @@ import { CaretDown } from "@phosphor-icons/react/dist/ssr";
 import type { AgendaItem, AgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { HEAD, MUTED } from "./styles";
+import { LabelUntuk } from "@/components/landing/label-untuk";
 
 /** Nomor hari bergiliran warna tombol, warna merek, dan aksen (rancangan pen.dev). */
 const WARNA_NOMOR = ["text-[var(--alis)]", "text-[var(--primer-teks)]", "text-[var(--aksen-teks)]"];
@@ -69,7 +70,10 @@ export function HariGathering({
                   {tampil.map((item) => (
                     <li key={item.id} className="flex gap-3 text-[14px] leading-6">
                       <span className="w-11 shrink-0 font-bold tabular-nums">{item.time}</span>
-                      <span className={`min-w-0 ${MUTED}`}>{item.title}</span>
+                      <span className={`min-w-0 ${MUTED}`}>
+                        {item.title}
+                        <LabelUntuk teks={item.untuk} />
+                      </span>
                     </li>
                   ))}
                 </ul>

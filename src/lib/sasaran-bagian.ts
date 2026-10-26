@@ -99,7 +99,14 @@ export function bagianPertama(indeksHari: readonly number[], pilihan: Pick<Pilih
   return indeksHari.find((indeks) => pilihan.milik.has(indeks)) ?? indeksHari.find((indeks) => !pilihan.bukanMilik.has(indeks)) ?? indeksHari[0];
 }
 
-export type KolomSasaran = { key: string; label: string; options: string[]; staff: boolean };
+export type KolomSasaran = {
+  key: string;
+  label: string;
+  options: string[];
+  staff: boolean;
+  /** Registration > Edit form > "Show answers in the public agenda" (labelAgendaPublik di sasaran-baris.ts). */
+  label_agenda: boolean;
+};
 
 /**
  * Kolom peserta yang bisa menjadi sasaran: pertanyaan dropdown atau radio
@@ -116,7 +123,7 @@ export function kolomSasaran(config: unknown): KolomSasaran[] {
     if (typeof field.key !== "string" || !/^[a-z0-9_]{1,64}$/.test(field.key)) continue;
     const options = Array.isArray(field.options) ? (field.options as unknown[]).filter((isi): isi is string => typeof isi === "string" && isi.trim() !== "").map((isi) => isi.trim()) : [];
     if (options.length === 0) continue;
-    hasil.push({ key: field.key, label: typeof field.label === "string" && field.label.trim() ? field.label.trim() : field.key, options, staff: field.on_form === false });
+    hasil.push({ key: field.key, label: typeof field.label === "string" && field.label.trim() ? field.label.trim() : field.key, options, staff: field.on_form === false, label_agenda: field.agenda_label === true });
   }
   return hasil;
 }

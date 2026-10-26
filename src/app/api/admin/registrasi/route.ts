@@ -58,6 +58,8 @@ const fieldSchema = z.object({
   participant_update: z.boolean().optional(),
   // "Ask on the registration form". Kosong = ditanyakan (lib/kolom-staf.ts).
   on_form: z.boolean().optional(),
+  // "Show answers in the public agenda" (labelAgendaPublik di lib/sasaran-baris.ts).
+  agenda_label: z.boolean().optional(),
 });
 
 /**

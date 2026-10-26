@@ -4,6 +4,7 @@ import { useId, useRef, useState, type KeyboardEvent } from "react";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { TeksKaya } from "@/components/landing/teks-kaya";
+import { LabelUntuk } from "@/components/landing/label-untuk";
 
 /**
  * Susunan acara per bagian rundown (mis. "Pagi" dan "Malam").
@@ -116,7 +117,10 @@ export function AgendaTabs({
               {item.end ? <span className="hidden sm:inline"> hingga {item.end}</span> : null}
             </span>
             <div className="min-w-0">
-              <p className="text-title-medium font-semibold text-balance">{item.title}</p>
+              <p className="text-title-medium font-semibold text-balance">
+                {item.title}
+                <LabelUntuk teks={item.untuk} className="text-[var(--reg-on-surface-variant)]" />
+              </p>
               {item.subtitle ? (
                 <TeksKaya teks={item.subtitle} warna={warnaTanda} className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]" />
               ) : null}
