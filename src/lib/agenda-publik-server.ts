@@ -48,18 +48,21 @@ export async function barisPublikBersyarat(eventId: string, syarat: ReadonlyMap<
       continue;
     }
     const teks = labelAgendaPublik(isi, kolom);
-    if (!teks) continue;
-    label.set(id, teks);
-    // Label ada = setiap syarat memakai kolom berizin dengan jawaban yang masih ada.
-    const per = isi.map((s) => {
-      const opsi = kolom.find((k) => k.key === s.field)?.options ?? [];
-      const nilai = opsi.filter((o) => s.values.some((v) => samaJawaban(o, v)));
+    if (teks) label.set(id, teks);
+    // Kelompok dari setiap syarat berlabel, juga bila syarat lain (Hotel, kolom
+    // tanpa label) membuat baris tanpa label: baris "Batch 2 + Hotel GRAMM"
+    // tetap hilang saat tamu memilih Batch 1 (QA #283 L3).
+    const per = isi.flatMap((s) => {
+      const k = kolom.find((kol) => kol.key === s.field);
+      if (!k?.label_agenda) return [];
+      const nilai = k.options.filter((o) => s.values.some((v) => samaJawaban(o, v)));
+      if (nilai.length === 0) return [];
       const set = terpakai.get(s.field) ?? new Set<string>();
       for (const n of nilai) set.add(n);
       terpakai.set(s.field, set);
-      return { key: s.field, nilai };
+      return [{ key: s.field, nilai }];
     });
-    jawabanBaris.set(id, per);
+    if (per.length > 0) jawabanBaris.set(id, per);
   }
   const urutan = kolom.filter((k) => terpakai.has(k.key));
   const pilihan = urutan.map((k) => k.options.filter((o) => terpakai.get(k.key)!.has(o)));

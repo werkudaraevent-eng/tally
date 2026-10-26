@@ -628,7 +628,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       scheduleNote: "Susunan acara lengkap",
       scheduleAll: (n) => `Lihat semua ${n} acara`,
       scheduleDetails: "Lihat detail",
-      scheduleLess: "Ringkas",
+      scheduleLess: "Tampilkan lebih sedikit",
     },
     aboutHeadingDefault: "Bukan sekadar kumpul, ini waktunya kita recharge bareng.",
     navAbout: "Tentang",

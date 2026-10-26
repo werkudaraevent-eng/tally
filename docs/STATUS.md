@@ -15,8 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Agenda batch picker on the event page ("Semua · Batch 1 · Batch 2", Horizon/Modern/Editorial) and the answer-label switch moved from Registration to Agenda › Who sees it ("Show <question> answers on the event page"). Mas asked 26 Oct; no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov).
-- Horizon event-page agenda re-laid out (day column left, wide time list right, date once, no 64 px number, first six rows then "See all"); Mas OK 26 Oct, rule in DESIGN.md. Stacked on the batch picker PR, merges after it, before 3 Nov. Other presets unchanged.
+- Agenda batch picker Lows follow-up (#283 QA L1-L3): picker gets arrow keys and one Tab stop, two labelled questions get distinct group names, and a row ruled by a labelled question plus Hotel (e.g. Batch 2 + Hotel GRAMM) now hides when a visitor picks another batch. "Ringkas" reads "Tampilkan lebih sedikit". Two labelled questions that share answers (departure and return Batch) now share one picker instead of two identical rows (Mas, 26 Oct), and a day shows only the questions its rows use. PR open, waiting on QA delta.
 - "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").
 - Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 merged 26 Oct. No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
@@ -28,6 +27,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #284 Horizon event-page agenda re-laid out (merged 26 Oct, QA GO): day column left (sticky), wide time list right, date once, no 64 px number, first six rows then "Lihat semua"; rule in DESIGN.md.
+- #283 Agenda batch picker (merged 26 Oct, QA GO): "Semua · Batch 1 · …" above labelled days (Horizon/Modern/Editorial), remembered per device; the label switch lives in Agenda › Who sees it, named after the question.
 - #282 Agenda public rows follow-up (merged 26 Oct, QA GO): a Hotel rule whose hotels were all deleted stays hidden before sign-in; the label flag is kept only on dropdown and single-choice questions.
 - #281 Agenda Who sees it applies only after sign-in (merged 26 Oct, QA GO, no SQL): the event page and /rundown show every row of a day with Show before sign-in on; limited rows get an answer label ("Batch 1") when the question has Show answers in the public agenda on (now switched in Agenda › Who sees it, default off); rows that can match nobody stay hidden. KSO: Mas turns that switch on for Batch.
 - #276 Agenda "Show before sign-in" per section (merged 26 Oct, QA GO, migration 202610260001 run by Mas, 0 px with every switch on): off hides that day from the event page and /rundown, the portal keeps it; section and item "Show on public page" renamed "Published". Follow-up PR: narrowing save order, wording leftovers, switch hint while unpublished.
@@ -131,6 +132,7 @@ Every item (finding, recommendation, what is left, decisions and code pointers) 
 ## Parked Lows and open findings
 
 - #281 Lows: a signed-in participant who opens the public event page sees every batch's rows there (by design; the portal stays filtered); turning Show answers in the public agenda on labels every existing row of that question at once, with no preview of which rows change.
+- #284 Low: the Horizon agenda shows the section date in the left column, so a mis-dated section (wrong date in Agenda) is now more visible; fix the data in Agenda.
 Known issues that QA left open on purpose, by area. Fix one only when it is cheap and user-visible, or when you are already in that code; remove it here in the same PR. The full write-ups are in each PR's QA report (kept with the project owner).
 
 ### Seating
