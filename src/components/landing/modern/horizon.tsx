@@ -7,9 +7,9 @@ import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { kontras } from "@/lib/landing-hitung-mundur";
 import { CINCIN_NAVY, CINCIN_TERANG } from "./cincin-horizon";
 import { pecahJudul, tanpaBintang } from "@/lib/landing-tagline";
-import { jamPenting } from "./hari-gathering";
 import { Muncul } from "./horizon-gerak";
 import { JamHariHorizon } from "./horizon-jadwal";
+import { judulMemuatTanggal } from "@/lib/judul-hari";
 
 /**
  * Gathering Horizon: rancangan V5 "Beyond Everyday" Hanung (pen.dev,
@@ -320,23 +320,21 @@ export function CeritaHorizon({
   );
 }
 
-/** "2026-11-06" menjadi "Jumat, 6 Nov" (layar lebar) atau "6 November" (ponsel). */
-function labelHari(tanggal: string | null, lang: LandingLang, panjang: boolean): string | null {
+/** "2026-11-06" menjadi "Jumat, 6 November" (Indonesia) atau "Friday 6 November" (English). */
+function labelHari(tanggal: string | null, lang: LandingLang): string | null {
   if (!tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) return null;
   const locale = lang === "en" ? "en-GB" : "id-ID";
   const d = new Date(`${tanggal}T00:00:00Z`);
-  return panjang
-    ? d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }).replace(/\.$/, "")
-    : d.toLocaleDateString(locale, { day: "numeric", month: "long", timeZone: "UTC" });
+  return d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 }
 
 /**
  * Susunan acara (frame "03 • Journey chapters"): judul besar di atas navy,
- * satu baris per hari rundown dengan nomor emas, nama hari, judul bagian,
- * cerita singkat (`program_notes`, sama dengan Gathering), dan tiga jam
- * penting. "Lihat semua" membuka seluruh acara hari itu di daftar yang sama
- * (gaya sama, tanpa panel atau tab baru), karena tamu tetap harus bisa
- * menemukan acara yang tidak masuk tiga jam penting.
+ * lalu satu blok per hari rundown. Layar lebar: kolom kiri (4/12, menempel saat
+ * digulir) berisi "Hari 01", judul bagian, tanggal (sekali saja, lihat
+ * judulMemuatTanggal) dan cerita singkat (`program_notes`); kolom kanan (8/12)
+ * berisi jadwal hari itu sebagai daftar jam selebar kolom, seperti agenda
+ * publik Sched dan situs konferensi. Ponsel: keduanya bertumpuk.
  */
 export function PerjalananHorizon({
   judul,
@@ -374,35 +372,31 @@ export function PerjalananHorizon({
         </Muncul>
         <ol className="flex flex-col gap-7 md:gap-0">
           {agenda.map((bagian, index) => {
-            const { tampil } = jamPenting(bagian.items);
             const nomor = String(index + 1).padStart(2, "0");
-            const hariPanjang = labelHari(bagian.tanggal, lang, true);
-            const hariPendek = labelHari(bagian.tanggal, lang, false);
+            const judulHari = bagian.sectionTitle?.trim() || t.day(index + 1);
+            // Tanggal ditulis sekali: dilewati bila judul bagian sudah menyebutnya.
+            const tanggalHari = judulMemuatTanggal(judulHari, bagian.tanggal) ? null : labelHari(bagian.tanggal, lang);
             const isiCerita = cerita[index]?.trim();
             return (
               // Indeks, bukan judul: dua bagian rundown boleh berjudul sama.
-              <Muncul as="li" key={index} jeda={Math.min(index, 4) * 0.06} className="flex flex-col gap-3 border-t pt-5 md:flex-row md:gap-9 md:py-8" style={{ borderColor: GARIS_NAVY }}>
-                <span aria-hidden className="hidden w-[84px] shrink-0 text-[64px] font-extrabold leading-[1.26] tabular-nums text-[var(--hz-sorot,var(--hz-emas))] md:block">
-                  {nomor}
-                </span>
-                <p className="text-[12px] font-bold uppercase leading-[1.26] text-[var(--hz-sorot,var(--hz-emas))] md:hidden">
-                  <span aria-hidden>{nomor}</span>
-                  {hariPendek ? <><span aria-hidden>{" / "}</span>{hariPendek}</> : null}
-                </p>
-                <div className="flex min-w-0 flex-1 flex-col gap-3 md:gap-[14px]">
-                  {hariPanjang ? (
-                    <p className="hidden text-[11px] uppercase leading-[1.26] tracking-[1.2px] md:block" style={{ color: REDUP_NAVY }}>
-                      {hariPanjang}
+              <Muncul as="li" key={index} jeda={Math.min(index, 4) * 0.06} className="grid gap-5 border-t pt-6 md:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] md:gap-12 md:py-10 lg:gap-16" style={{ borderColor: GARIS_NAVY }}>
+                <div className="flex min-w-0 flex-col gap-2 md:sticky md:top-24 md:self-start">
+                  <p className="text-[12px] font-bold uppercase leading-4 tracking-[1.2px] tabular-nums text-[var(--hz-sorot,var(--hz-emas))]">
+                    {t.day(index + 1).replace(/\d+$/, nomor)}
+                  </p>
+                  <h3 className="text-balance text-[24px] font-extrabold leading-8 [overflow-wrap:anywhere] md:text-[28px] md:leading-9">{judulHari}</h3>
+                  {tanggalHari ? (
+                    <p className="text-[14px] leading-5" style={{ color: REDUP_NAVY }}>
+                      {tanggalHari}
                     </p>
                   ) : null}
-                  <h3 className="text-balance text-[23px] font-extrabold leading-[1.26] [overflow-wrap:anywhere] md:text-[30px]">{bagian.sectionTitle?.trim() || t.day(index + 1)}</h3>
                   {isiCerita ? (
-                    <p className="hidden whitespace-pre-line text-[16px] leading-[1.65] md:block" style={{ color: REDUP_NAVY }}>
+                    <p className="mt-2 hidden whitespace-pre-line text-[15px] leading-6 md:block" style={{ color: REDUP_NAVY }}>
                       {isiCerita}
                     </p>
                   ) : null}
                 </div>
-                <JamHariHorizon penting={tampil} semua={bagian.items} speakers={speakers} lang={lang} pilihan={bagian.pilihan} />
+                <JamHariHorizon semua={bagian.items} speakers={speakers} lang={lang} pilihan={bagian.pilihan} />
               </Muncul>
             );
           })}

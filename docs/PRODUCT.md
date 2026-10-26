@@ -154,7 +154,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **CMS (Event page):**
   - What `/e/<slug>` shows: the event page, or the registration form only.
   - Start from a preset: Conference, Forum, Gathering, Gathering Horizon. A preset writes values; the card then shows "In use" or "In use · Edited".
-  - Layout: Editorial (default), Modern, Forum (three pages: home, `/program`, `/info`). Gathering and Horizon are styles on Modern, not separate layouts.
+  - Layout: Editorial (default), Modern, Forum (three pages: home, `/program`, `/info`). Gathering and Horizon are styles on Modern, not separate layouts. The Horizon event-page agenda shows one block per day: the day label, title, date (once) and story on the left, the day's times as a wide list on the right (the first six in order, then "Lihat semua").
   - Theme: brand colour (plus accent/secondary/button colours per layout), separate form colour, heading and body fonts, corners, link-preview image.
   - Language: English version (off by default, Modern only) and main language. Forum has its own label language.
   - Built-in sections, each switchable and orderable: About, Key figures, Agenda, Speakers, Venue, FAQ, Sponsors & partners, Staff contacts. The hero always comes first.
