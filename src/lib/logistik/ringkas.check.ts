@@ -5,7 +5,7 @@ const WIB = "+07:00";
 
 // Satu stay: tanpa nomor slot, kunci lama "kamar" dan "bus" tetap ada.
 const satu = kolomLogistik({ stays: 1, kit: [], kereta: false });
-assert.deepEqual(satu.map((k) => k.label), ["Hotel", "Room", "Hotel check-in", "Hotel check-out", "Bus"]);
+assert.deepEqual(satu.map((k) => k.label), ["Hotel", "Room", "Hotel check-in", "Hotel check-out", "Vehicle"]);
 assert.deepEqual(satu.map((k) => k.key), ["kamar", "stay:room:1", "stay:in:1", "stay:out:1", "bus"]);
 
 // Dua stay: satu kolom per fakta per hotel, bukan satu kolom gabungan.
@@ -13,7 +13,7 @@ const dua = kolomLogistik({ stays: 2, kit: [{ id: 7, name: "T-shirt" }, { id: 8,
 const label = dua.map((k) => k.label);
 assert.deepEqual(label.slice(0, 9), [
   "Hotel 1", "Room 1", "Hotel check-in 1", "Hotel check-out 1",
-  "Hotel 2", "Room 2", "Hotel check-in 2", "Hotel check-out 2", "Bus",
+  "Hotel 2", "Room 2", "Hotel check-in 2", "Hotel check-out 2", "Vehicle",
 ]);
 assert.equal(dua[0].key, "kamar");
 assert.equal(dua[4].key, "stay:hotel:2");

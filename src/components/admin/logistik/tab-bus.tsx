@@ -83,13 +83,13 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
   const lebihDi = (bus: Bus) => data.overview.filter((baris) => baris.vehicle_id === bus.id && baris.over_capacity).length;
 
   const daftar = (
-    <Pane aria-label="Buses">
+    <Pane aria-label="Vehicles">
       {atas ? (
         <PaneHeader className="flex flex-wrap items-center gap-2 px-3 py-2.5">
           {atas}
           {/* Sama dengan Room rules di tab Rooms: disetel sekali, cukup terlihat. */}
           <Button variant="text" size="sm" className="ml-auto" icon={<Eye size={16} />} onClick={() => setTampilan(true)}>
-            {!tampil.logistics ? "Participants don't see buses yet" : tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see bus name only"}
+            {!tampil.logistics ? "Participants don't see vehicles yet" : tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see vehicle name only"}
           </Button>
         </PaneHeader>
       ) : null}
@@ -98,12 +98,12 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           <EmptyState
             plain
             icon={<IkonBus size={40} />}
-            title="No buses yet"
-            description="Start with Add bus at the top right. Give each bus the name participants will see, such as Bus 1, then assign its default passengers."
+            title="No vehicles yet"
+            description="Start with Add vehicle at the top right. Give each vehicle the name participants will see, such as Bus 1, then assign its default passengers."
           />
         ) : (
           <>
-            <KepalaKolom kolom={[["Bus", "min-w-0 flex-1"], ["Plate", "w-28 max-sm:hidden"], ["Default passengers", "w-36 text-right"]]} />
+            <KepalaKolom kolom={[["Vehicle", "min-w-0 flex-1"], ["Plate", "w-28 max-sm:hidden"], ["Default passengers", "w-36 text-right"]]} />
             {data.vehicles.map((bus) => {
               const isi = penumpang.get(bus.id)?.length ?? 0;
               const lebih = (bus.capacity !== null && isi > bus.capacity) || lebihDi(bus) > 0;
@@ -129,7 +129,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         )}
       </PaneBody>
       {data.vehicles.length > 0 ? (
-        <PaneFooter note={tanpaBus === 0 ? "Every participant has a default bus." : `${tanpaBus.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} have no default bus.`} />
+        <PaneFooter note={tanpaBus === 0 ? "Every participant has a default vehicle." : `${tanpaBus.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} have no default vehicle.`} />
       ) : null}
     </Pane>
   );
@@ -153,7 +153,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
       <PaneBody>
         <DetailSection title="On each trip">
           {data.trips.length === 0 ? (
-            <p className="text-body-medium text-on-surface-variant">No trips yet. Create them under Trips so participants can see their bus schedule.</p>
+            <p className="text-body-medium text-on-surface-variant">No trips yet. Create them under Trips so participants can see their vehicle schedule.</p>
           ) : (
             <ul className="flex flex-col">
               {data.trips.map((agenda) => {
@@ -173,7 +173,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         {bus.crew_contact ? (
           <DetailSection title="Crew">
             <p className="whitespace-pre-line text-body-medium text-on-surface">{bus.crew_contact}</p>
-            <p className="text-body-small text-on-surface-variant">{!tampil.crew ? "Not shown to participants." : tampil.logistics ? "Shown to this bus's passengers in their Participant area." : "Not shown yet: Room and bus is off in the Participant area."}</p>
+            <p className="text-body-small text-on-surface-variant">{!tampil.crew ? "Not shown to participants." : tampil.logistics ? "Shown to this vehicle's passengers in their Participant area." : "Not shown yet: Room and vehicle is off in the Participant area."}</p>
           </DetailSection>
         ) : null}
         <DetailSection title="Default passengers">
@@ -198,7 +198,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           )}
         </DetailSection>
       </PaneBody>
-      <PaneFooter note={sisa === undefined ? undefined : sisa > 0 ? `${plural(sisa, "seat")} left` : "Bus full"}>
+      <PaneFooter note={sisa === undefined ? undefined : sisa > 0 ? `${plural(sisa, "seat")} left` : "Vehicle full"}>
         {isiBus.length === 0 ? (
           <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus(bus)}>Delete</Button>
         ) : null}
@@ -217,13 +217,13 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           open={tambah}
           onClose={() => setTambah(false)}
           title={`Add passengers to ${bus.code}`}
-          description="The default bus applies on every trip that uses default buses. Changes for a single trip are set under Trips."
+          description="The default vehicle applies on every trip that uses default vehicles. Changes for a single trip are set under Trips."
           peserta={data.participants}
           utama={(orang) => !bawaan.has(orang.id)}
-          labelUtama="Participants without a default bus."
+          labelUtama="Participants without a default vehicle."
           keterangan={(orang) => {
             const lama = bawaan.get(orang.id);
-            return lama !== undefined ? `Now on ${busById.get(lama)?.code ?? "another bus"}` : null;
+            return lama !== undefined ? `Now on ${busById.get(lama)?.code ?? "another vehicle"}` : null;
           }}
           alasanTolak={(orang) => (bawaan.get(orang.id) === bus.id ? `Already on ${bus.code}` : null)}
           batas={sisa !== undefined ? Math.max(sisa, 0) : undefined}
@@ -259,7 +259,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         dismissible={!busy}
         tone="danger"
         title={`Delete ${hapus?.code ?? ""}?`}
-        description="This bus has no default passengers. If a trip still uses it as a replacement, it cannot be deleted. This cannot be undone."
+        description="This vehicle has no default passengers. If a trip still uses it as a replacement, it cannot be deleted. This cannot be undone."
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Cancel</Button>
@@ -267,7 +267,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
               const target = hapus;
               setHapus(null);
               if (target && await kirim(`/api/admin/logistik/data/bus?id=${target.id}`, "DELETE")) setPilih(null);
-            }}>Delete bus</Button>
+            }}>Delete vehicle</Button>
           </>
         }
       />
@@ -308,17 +308,17 @@ function FormBus({ bus, busy, onClose, simpan }: {
       open={bus !== null}
       onClose={tutup}
       dismissible={!busy}
-      title={lama ? `Edit ${lama.code}` : "New bus"}
+      title={lama ? `Edit ${lama.code}` : "New vehicle"}
       icon={<IkonBus size={20} />}
       actions={
         <>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
-          <Button simpan type="submit" form="form-bus" loading={busy} disabled={!sah}>{lama ? "Save bus" : "Add bus"}</Button>
+          <Button simpan type="submit" form="form-bus" loading={busy} disabled={!sah}>{lama ? "Save vehicle" : "Add vehicle"}</Button>
         </>
       }
     >
       <form id="form-bus" className="grid grid-cols-2 gap-4" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
-        <TextField label="Bus name" placeholder="e.g. Bus 1" hint="Participants see this name." autoFocus value={nilai.code} onChange={(event) => ubah("code", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Vehicle name" placeholder="e.g. Bus 1, Hiace 2 or Elf 3" hint="Put the type in the name. Participants see it as written." autoFocus value={nilai.code} onChange={(event) => ubah("code", event.target.value)} className="max-sm:col-span-2" />
         <TextField label="Capacity" optional type="number" inputMode="numeric" min={1} max={200} value={nilai.capacity} error={galatKapasitas} hint="Leave empty for no limit." onChange={(event) => ubah("capacity", event.target.value)} className="max-sm:col-span-2" />
         <TextField label="Plate number" optional value={nilai.plate_number} onChange={(event) => ubah("plate_number", event.target.value)} className="col-span-2" />
         <TextField label="Crew contact" optional placeholder="Name and phone number" hint="Staff only." value={nilai.crew_contact} onChange={(event) => ubah("crew_contact", event.target.value)} className="col-span-2" />
@@ -361,18 +361,18 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
   };
 
   const daftar = (
-    <Pane aria-label="Bus trips">
+    <Pane aria-label="Vehicle trips">
       {atas ? <PaneHeader className="px-3 py-2.5">{atas}</PaneHeader> : null}
       {data.trips.length > 0 && data.vehicles.length === 0 ? (
-        <PaneHeader className="text-body-medium text-on-surface-variant">No buses yet. Add them under Buses before assigning participants.</PaneHeader>
+        <PaneHeader className="text-body-medium text-on-surface-variant">No vehicles yet. Add them under Vehicles before assigning participants.</PaneHeader>
       ) : null}
       <PaneBody>
         {data.trips.length === 0 ? (
           <EmptyState
             plain
             icon={<CalendarDots size={40} />}
-            title="No bus trips yet"
-            description="A trip is one journey, such as Hotel to venue or Gala dinner. Create one with Add trip at the top right; participants see their bus for each trip."
+            title="No vehicle trips yet"
+            description="A trip is one journey, such as Hotel to venue or Gala dinner. Create one with Add trip at the top right; participants see their vehicle for each trip."
           />
         ) : (
           <>
@@ -395,7 +395,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
                       <span className="text-on-surface">{agenda.name}</span>
                       {agenda.rundown_item_id !== null ? <StatusChip tone="neutral" title={keteranganChip(agenda)}>Agenda</StatusChip> : null}
                       {!agenda.follows_default ? <StatusChip tone="neutral">Own list</StatusChip> : null}
-                      {lebih ? <StatusChip dot tone="error">Bus over capacity</StatusChip> : null}
+                      {lebih ? <StatusChip dot tone="error">Vehicle over capacity</StatusChip> : null}
                     </span>
                     {agenda.origin || agenda.destination ? (
                       <span className="block truncate text-on-surface-variant">{[agenda.origin, agenda.destination].filter(Boolean).join(" to ")}</span>
@@ -437,7 +437,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
           {lebih.length > 0 ? (
             <div className="px-5 pt-4">
               <Banner tone="error" icon={<Warning size={18} />}>
-                {lebih.map((baris) => busById.get(baris.vehicle_id)?.code).join(", ")} over capacity on this trip. Move some passengers to another bus.
+                {lebih.map((baris) => busById.get(baris.vehicle_id)?.code).join(", ")} over capacity on this trip. Move some passengers to another vehicle.
               </Banner>
             </div>
           ) : null}
@@ -454,7 +454,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
               ) : null}
             >
               {agenda.rundown_item_id === null ? (
-                <p className="text-body-medium text-on-surface-variant">Not linked. Pick a row under Edit so participants see their bus on it in their schedule.</p>
+                <p className="text-body-medium text-on-surface-variant">Not linked. Pick a row under Edit so participants see their vehicle on it in their schedule.</p>
               ) : (
                 // Satu wadah untuk semua keadaan tautan: fokus dari Reload tetap
                 // di sini saat tombolnya hilang bersama pesan gagalnya.
@@ -484,15 +484,15 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
               checked={agenda.follows_default}
               disabled={busy}
               onChange={(nilai) => void kirim("/api/admin/logistik/data/agenda", "PATCH", { id: agenda.id, follows_default: nilai })}
-              label="Use default buses"
+              label="Use default vehicles"
               description={agenda.follows_default
-                ? "Participants ride their default bus, except those changed below."
-                : "Own list: only participants assigned below ride a bus on this trip."}
+                ? "Participants ride their default vehicle, except those changed below."
+                : "Own list: only participants assigned below ride a vehicle on this trip."}
             />
           </DetailSection>
-          <DetailSection title="Bus load">
+          <DetailSection title="Vehicle load">
             {data.vehicles.length === 0 ? (
-              <p className="text-body-medium text-on-surface-variant">No buses yet. Add them under Buses.</p>
+              <p className="text-body-medium text-on-surface-variant">No vehicles yet. Add them under Vehicles.</p>
             ) : (
               <ul className="flex flex-col">
                 {isi.map((baris) => {
@@ -512,21 +512,21 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
           <DetailSection title={agenda.follows_default ? "Changed on this trip" : "Passengers on this trip"}>
             {daftarGanti.length === 0 ? (
               <p className="text-body-medium text-on-surface-variant">
-                {agenda.follows_default ? "None. Every participant rides their default bus." : "None yet. Assign participants with the button below."}
+                {agenda.follows_default ? "None. Every participant rides their default vehicle." : "None yet. Assign participants with the button below."}
               </p>
             ) : (
               <ul className="flex flex-col">
                 {daftarGanti.slice(0, 300).map(({ orang, busId }) => {
                   const asal = bawaan.get(orang.id);
-                  const ket = busId === null ? "No bus" : busById.get(busId)?.code ?? "Another bus";
+                  const ket = busId === null ? "No vehicle" : busById.get(busId)?.code ?? "Another vehicle";
                   return (
                     <BarisOrang
                       key={orang.id}
                       orang={orang}
-                      keterangan={agenda.follows_default && asal !== undefined ? `${ket}, usually ${busById.get(asal)?.code ?? "another bus"}` : ket}
+                      keterangan={agenda.follows_default && asal !== undefined ? `${ket}, usually ${busById.get(asal)?.code ?? "another vehicle"}` : ket}
                       aksi={
                         <IconButton simpan size="sm" disabled={busy}
-                          label={agenda.follows_default ? `Return ${orang.name} to their default bus` : `Remove ${orang.name} from this trip`}
+                          label={agenda.follows_default ? `Return ${orang.name} to their default vehicle` : `Remove ${orang.name} from this trip`}
                           onClick={() => void kirim("/api/admin/logistik/penumpang", "DELETE", { trip_id: agenda.id, participant_ids: [orang.id] })}>
                           {agenda.follows_default ? <ArrowCounterClockwise size={16} /> : <SignOut size={16} />}
                         </IconButton>
@@ -549,7 +549,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
           <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus(agenda)}>Delete</Button>
           <Button variant="outlined" size="sm" onClick={() => setUbah(agenda)}>Edit</Button>
           <Button simpan size="sm" disabled={busy || data.vehicles.length === 0} onClick={() => { setTujuan(String(data.vehicles[0]?.id ?? "")); setGanti(true); }}>
-            {agenda.follows_default ? "Change participants' bus" : "Assign participants"}
+            {agenda.follows_default ? "Change participants' vehicle" : "Assign participants"}
           </Button>
         </PaneFooter>
       </Pane>
@@ -566,23 +566,23 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
         <PilihPeserta
           open={ganti}
           onClose={() => setGanti(false)}
-          title={agenda.follows_default ? `Change bus on ${agenda.name}` : `Assign participants to ${agenda.name}`}
-          description="Applies to this trip only. Participants' default bus does not change."
+          title={agenda.follows_default ? `Change vehicle on ${agenda.name}` : `Assign participants to ${agenda.name}`}
+          description="Applies to this trip only. Participants' default vehicle does not change."
           peserta={data.participants}
           utama={(orang) => !(pengganti.get(agenda.id)?.has(orang.id))}
           labelUtama={agenda.follows_default ? "Participants not yet changed on this trip." : "Participants not yet assigned on this trip."}
           keterangan={(orang) => {
             const sekarang = busDi(agenda, orang.id);
-            return sekarang === null ? "Now: no bus" : `Now on ${busById.get(sekarang)?.code ?? "another bus"}`;
+            return sekarang === null ? "Now: no vehicle" : `Now on ${busById.get(sekarang)?.code ?? "another vehicle"}`;
           }}
           alasanTolak={(orang) => (pengganti.get(agenda.id)?.has(orang.id) && busDi(agenda, orang.id) === busTujuan ? "Already here" : null)}
           tombol="Save assignments"
           busy={busy}
           onSubmit={async (ids) => Boolean(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: agenda.id, vehicle_id: busTujuan, participant_ids: ids }))}
         >
-          <SelectField label="Bus" value={tujuan} onChange={(event) => setTujuan(event.target.value)}>
+          <SelectField label="Vehicle" value={tujuan} onChange={(event) => setTujuan(event.target.value)}>
             {data.vehicles.map((bus) => <option key={bus.id} value={bus.id}>{bus.code}</option>)}
-            <option value="none">No bus on this trip</option>
+            <option value="none">No vehicle on this trip</option>
           </SelectField>
         </PilihPeserta>
       ) : null}
@@ -608,7 +608,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
         dismissible={!busy}
         tone="danger"
         title={`Delete trip ${hapus?.name ?? ""}?`}
-        description={`This also deletes ${plural(hapus ? pengganti.get(hapus.id)?.size ?? 0 : 0, "assignment")} made for this trip only. Participants' default bus does not change. This cannot be undone.`}
+        description={`This also deletes ${plural(hapus ? pengganti.get(hapus.id)?.size ?? 0 : 0, "assignment")} made for this trip only. Participants' default vehicle does not change. This cannot be undone.`}
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setHapus(null)}>Cancel</Button>
@@ -741,7 +741,7 @@ function FormAgenda({ agenda, trips, siapTautan, agendaTrip, busy, zone, onClose
       dismissible={!busy}
       title={lama ? `Edit ${lama.name}` : "New trip"}
       icon={<CalendarDots size={20} />}
-      description="The name, time and meeting point appear in the participant area with the bus name."
+      description="The name, time and meeting point appear in the participant area with the vehicle name."
       // Dengan kolom Agenda row dialog ini melewati 90dvh di 1280x588: judul dan
       // tombol tetap, hanya isinya yang bergulir.
       scrollBody
@@ -798,7 +798,7 @@ function FormAgenda({ agenda, trips, siapTautan, agendaTrip, busy, zone, onClose
             className="col-span-2"
             checked={nilai.follows_default}
             onChange={(follows) => setDraf({ ...nilai, follows_default: follows })}
-            label="Use default buses"
+            label="Use default vehicles"
             description="Turn off for a journey with its own passenger list, such as a return to two different destinations."
           />
         ) : null}
@@ -832,7 +832,7 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
       onClose={tutup}
       dismissible={!busy}
       title="What participants see"
-      description="Participants always see their bus name, such as Bus 3, on their bus card. These apply to every bus in this event, and only to the buses each participant rides."
+      description="Participants always see their vehicle name, such as Bus 3, on their vehicle card. These apply to every vehicle in this event, and only to the vehicles each participant rides."
       actions={
         <>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
@@ -843,7 +843,7 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
       <div className="flex flex-col gap-4">
         {!logistik ? (
           <p className="rounded-sm bg-surface-container-low px-3 py-2 text-body-small text-on-surface-variant">
-            Participants don&apos;t see their bus yet, because Room and bus is off. Turn it on in{" "}
+            Participants don&apos;t see their vehicle yet, because Room and vehicle is off. Turn it on in{" "}
             <Link href="/admin/area-peserta" className="rounded-sm font-medium text-primary hover:underline">Participant area</Link>.
           </p>
         ) : null}
@@ -851,7 +851,7 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
           checked={nilai.plate}
           onChange={(plate) => setDraf({ ...nilai, plate })}
           label="Plate number"
-          description="Helps participants find their bus in the car park."
+          description="Helps participants find their vehicle in the car park."
         />
         <Switch
           checked={nilai.crew}

@@ -222,7 +222,7 @@ function MenuImpor({ onPeserta, onLogistik }: { onPeserta: () => void; onLogisti
   const menu = usePopoverAnchor(pemicu);
   const PILIHAN = [
     { label: "Participant details", detail: "Names, organisation, contacts and form answers.", Icon: UsersThree, pilih: onPeserta },
-    { label: "Hotels, rooms, buses, train tickets", detail: "The Logistics import, with a preview of every change.", Icon: SuitcaseRolling, pilih: onLogistik },
+    { label: "Hotels, rooms, vehicles, train tickets", detail: "The Logistics import, with a preview of every change.", Icon: SuitcaseRolling, pilih: onLogistik },
   ];
   return (
     <>

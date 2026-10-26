@@ -87,7 +87,7 @@ const ALIAS = {
   keluar: ["check-out", "check out", "checkout", "check-out date", "tanggal keluar", "tanggal check-out", "hotel check-out", "hotel check out"],
   kode: ["kode qr", "qr", "qr code", "kode", "kode peserta", "participant code", "code"],
   nama: ["nama", "nama peserta", "nama tamu", "name", "guest", "guest name", "peserta", "tamu", "participant", "participant name", "full name"],
-  bus: ["bus", "nama bus", "kendaraan", "armada", "bus name", "vehicle"],
+  bus: ["vehicle", "bus", "nama bus", "kendaraan", "nama kendaraan", "armada", "bus name", "vehicle name", "default vehicle", "default bus"],
   arah: ["direction", "arah", "leg", "pergi/pulang", "berangkat/pulang", "outbound/return"],
   kereta: ["train", "kereta", "nama kereta", "kereta api", "train name", "nama ka", "ka"],
   kelas: ["class", "kelas", "travel class"],
@@ -116,10 +116,10 @@ export const TEMPLAT: Record<JenisImpor, { judul: string[]; contoh: string[][] }
     ],
   },
   bus: {
-    judul: ["QR code", "Name", "Bus"],
+    judul: ["QR code", "Name", "Vehicle"],
     contoh: [
       ["", "Budi Santoso", "Bus 1"],
-      ["", "Siti Rahayu", "Bus 2"],
+      ["", "Siti Rahayu", "Hiace 1"],
     ],
   },
   kereta: {
@@ -597,7 +597,7 @@ export function barisStaySekarang(data: StaySekarang): string[][] {
 export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
   const judul = bacaJudul(sel);
   if (!judul || judul.kolom.bus === undefined || (judul.kolom.nama === undefined && judul.kolom.kode === undefined)) {
-    return kosong("bus", "Bus and Name (or QR code) columns not found in the header row. Download the template for an example.");
+    return kosong("bus", "Vehicle and Name (or QR code) columns not found in the header row. Download the template for an example.");
   }
   const { kolom, mulai } = judul;
   const isi = sel.slice(mulai);
@@ -621,7 +621,7 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
     if (!bus && !kode && !nama) return;
     const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: bus, status: "tolak", alasan, participant_id: null }); };
     if (!kode && !nama) return tolak("Name and QR code are empty");
-    if (!bus) return tolak("Bus name is empty");
+    if (!bus) return tolak("Vehicle name is empty");
     const hasil = cocokkan(kode, nama);
     if ("alasan" in hasil) return tolak(hasil.alasan);
     const pertama = sudah.get(hasil.id);
@@ -639,7 +639,7 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
       kode: kode || null,
       tujuan: grup.kode,
       status: tetap ? "tetap" : lama !== undefined ? "pindah" : "masuk",
-      alasan: tetap ? "Already on this bus" : lama !== undefined ? `Moving from ${kodeBusById.get(lama) ?? "another bus"}` : null,
+      alasan: tetap ? "Already on this vehicle" : lama !== undefined ? `Moving from ${kodeBusById.get(lama) ?? "another vehicle"}` : null,
       participant_id: hasil.id,
     };
     baris.push(b);
@@ -657,7 +657,7 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
     const masuk: string[] = [];
     for (const b of grup.orang) {
       if (b.status === "tetap") continue;
-      if (kapasitas !== null && terisi >= kapasitas) { b.status = "tolak"; b.alasan = `Bus full (capacity ${kapasitas})`; continue; }
+      if (kapasitas !== null && terisi >= kapasitas) { b.status = "tolak"; b.alasan = `Vehicle full (capacity ${kapasitas})`; continue; }
       terisi += 1;
       masuk.push(b.participant_id!);
     }

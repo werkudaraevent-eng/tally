@@ -25,11 +25,11 @@ type Hasil = { masuk: number; dibuat: string[]; gagal: Array<{ nama: string; ala
 
 const URAIAN: Record<JenisImpor, string> = {
   kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
-  bus: "One row per person: Bus, then QR code or Name. Buses that do not exist yet are created with no capacity limit.",
+  bus: "One row per person: Vehicle, then QR code or Name. Vehicles that do not exist yet are created with no capacity limit.",
   kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
 };
 
-const JUDUL: Record<JenisImpor, string> = { kamar: "Import hotel stays from Excel", bus: "Import buses from Excel", kereta: "Import train tickets from Excel" };
+const JUDUL: Record<JenisImpor, string> = { kamar: "Import hotel stays from Excel", bus: "Import vehicles from Excel", kereta: "Import train tickets from Excel" };
 
 const STATUS: Record<StatusBaris, { label: string; tone: "success" | "warning" | "neutral" | "error" }> = {
   masuk: { label: "Added", tone: "success" },
@@ -131,7 +131,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     ? [
         rencana.hotelBaru.length > 0 ? plural(rencana.hotelBaru.length, "hotel") : null,
         rencana.kamarBaru.length > 0 ? plural(rencana.kamarBaru.length, "room") : null,
-        rencana.busBaru.length > 0 ? plural(rencana.busBaru.length, "bus", "buses") : null,
+        rencana.busBaru.length > 0 ? plural(rencana.busBaru.length, "vehicle") : null,
       ].filter(Boolean)
     : [];
   const tampil = (rencana?.baris ?? []).filter((b) => !hanyaTolak || b.status === "tolak");
@@ -184,7 +184,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             label="File contents"
             value={jenis}
             onChange={(nilai) => { setJenis(nilai); if (berkas) void baca(berkas, nilai); }}
-            options={[{ value: "kamar", label: "Hotel stays" }, { value: "bus", label: "Buses" }, { value: "kereta", label: "Train tickets" }]}
+            options={[{ value: "kamar", label: "Hotel stays" }, { value: "bus", label: "Vehicles" }, { value: "kereta", label: "Train tickets" }]}
             className="self-start"
           />
 
@@ -320,7 +320,7 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
           <tr className="h-9 border-b border-outline-variant">
             <th scope="col" className="hidden w-16 px-4 font-normal sm:table-cell">Row</th>
             <th scope="col" className="px-4 font-normal">Name</th>
-            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Hotel or room" : jenis === "bus" ? "Bus" : "Ticket"}</th>
+            <th scope="col" className="hidden px-4 font-normal sm:table-cell">{jenis === "kamar" ? "Hotel or room" : jenis === "bus" ? "Vehicle" : "Ticket"}</th>
             <th scope="col" className="px-4 font-normal">Status</th>
           </tr>
         </thead>
@@ -332,7 +332,7 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
               <td className="px-4 py-2 text-on-surface sm:whitespace-nowrap">
                 {b.nama || <span className="text-on-surface-variant">{b.kode}</span>}
                 {/* Di layar sempit kolom tujuan digabung ke sini, supaya Keterangan tetap terlihat tanpa menggeser tabel. */}
-                <span className="block text-on-surface-variant sm:hidden">{b.tujuan || (jenis === "kereta" ? "No ticket" : "No room or bus")}</span>
+                <span className="block text-on-surface-variant sm:hidden">{b.tujuan || (jenis === "kereta" ? "No ticket" : "No room or vehicle")}</span>
               </td>
               <td className="hidden whitespace-nowrap px-4 py-2 text-on-surface sm:table-cell">{b.tujuan || <span className="text-on-surface-variant">Empty</span>}</td>
               <td className="px-4 py-2 sm:min-w-48">

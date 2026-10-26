@@ -507,7 +507,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const kosongPortal =
     pratinjau && gaya && !member && config.portal_section !== false ? (
       <div data-bagian="portal" className={`${SHELL} py-10`}>
-        <KotakKosong slug={event.slug} judul="Portal peserta" chip="Participant area closed" teks="Ticket, room and bus tiles show here once the Participant area is open." aksi={{ label: "Open Participant area", href: "/admin/area-peserta" }} />
+        <KotakKosong slug={event.slug} judul="Portal peserta" chip="Participant area closed" teks="Ticket, room and vehicle tiles show here once the Participant area is open." aksi={{ label: "Open Participant area", href: "/admin/area-peserta" }} />
       </div>
     ) : null;
 

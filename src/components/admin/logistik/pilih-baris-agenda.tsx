@@ -215,15 +215,15 @@ export function PilihBarisAgenda({ value, onChange, agendaTrip, dipakai, teks }:
   // Batch 2 di hari yang sama): tanpa itu dua baris bisa berbunyi sama. Selama
   // memuat, "Loading agenda…" cukup di pemicu; di bawahnya petunjuk biasa.
   const pesan: ReactNode = teks && (value === null || lokasi) ? (value === null ? teks.kosong : teks.terpilih) : value === null
-    ? "Pick the row this bus is for. Participants then see a link to their bus on it in their schedule."
+    ? "Pick the row this vehicle is for. Participants then see a link to their vehicle on it in their schedule."
     : lokasi ? (
       <>
         {agenda && tanggalGanda(agenda.bagian, lokasi.bagian.event_date) ? <>In the <span className="font-medium text-on-surface">{lokasi.bagian.name.trim()}</span> tab. </> : null}
         {lokasi.baris.is_published && lokasi.bagian.is_published
-          ? "Participants see a link to their bus on this row in their schedule."
+          ? "Participants see a link to their vehicle on this row in their schedule."
           : "Participants see the link once this row and its Agenda tab are published."}
       </>
-    ) : memuat ? "Participants see a link to their bus on this row in their schedule." : agenda ? "Pick another row, or Not linked." : "The saved link is kept.";
+    ) : memuat ? "Participants see a link to their vehicle on this row in their schedule." : agenda ? "Pick another row, or Not linked." : "The saved link is kept.";
 
   function opsiBaris(item: BarisAgenda) {
     const indeks = pilihan.indexOf(item.id);

@@ -87,7 +87,7 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
             plain
             icon={<Train size={40} />}
             title="No train tickets yet"
-            description="Use Import from Excel at the top right for the whole list (one row per person per direction), or Add ticket for one person. Participants see their tickets once Room and bus is on in the Participant area."
+            description="Use Import from Excel at the top right for the whole list (one row per person per direction), or Add ticket for one person. Participants see their tickets once Room and vehicle is on in the Participant area."
           />
         ) : tampil.length === 0 ? (
           <p className="px-4 py-6 text-center text-body-medium text-on-surface-variant">No tickets match that search.</p>

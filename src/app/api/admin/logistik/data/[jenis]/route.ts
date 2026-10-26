@@ -102,12 +102,12 @@ const JENIS: Record<string, Jenis> = {
       crew_contact: teks(200),
       sort_order: urutan,
     }),
-    ganda: "This bus name is already in use. Choose another name, such as Bus 4.",
+    ganda: "This vehicle name is already in use. Choose another name, such as Bus 4.",
     tahanHapus: async (eventId, id) => {
       const { count } = await klien().from("transport_assignments").select("id", { head: true, count: "exact" })
         .eq("event_id", eventId).eq("vehicle_id", id);
       return (count ?? 0) > 0
-        ? `This bus is still used by ${plural(count ?? 0, "assignment")} (as a default bus or a replacement on a trip). Move its passengers first, then delete the bus.`
+        ? `This vehicle is still used by ${plural(count ?? 0, "assignment")} (as a default vehicle or a replacement on a trip). Move its passengers first, then delete the vehicle.`
         : null;
     },
   },

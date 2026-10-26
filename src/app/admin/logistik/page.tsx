@@ -106,15 +106,15 @@ export default function LogistikPage() {
   // Agenda baru di bagian Agenda.
   const aktifBaru: Baru | null = bagian === "penempatan" || (bagian === "kereta" && !data?.trains_ready) ? null : bagian === "bus" ? bagianBus : bagian;
   const tabProps = data ? { data, kirim, busy, baru: baru !== null && baru === aktifBaru, tutupBaru: () => setBaru(null) } : null;
-  const LABEL_BARU: Record<Baru, string> = { kamar: "Add room", bus: "Add bus", agenda: "Add trip", barang: "Add kit item", kereta: "Add ticket" };
+  const LABEL_BARU: Record<Baru, string> = { kamar: "Add room", bus: "Add vehicle", agenda: "Add trip", barang: "Add kit item", kereta: "Add ticket" };
 
   const pilihBus = (
     <SegmentedButton<BagianBus>
-      label="Bus section"
+      label="Vehicle section"
       value={bagianBus}
       onChange={(nilai) => { setBagianBus(nilai); setBaru(null); setTripAwal(null); }}
       options={[
-        { value: "bus", label: "Buses", badge: data?.vehicles.length || undefined },
+        { value: "bus", label: "Vehicles", badge: data?.vehicles.length || undefined },
         { value: "agenda", label: "Trips", badge: data?.trips.length || undefined },
       ]}
     />
@@ -140,7 +140,7 @@ export default function LogistikPage() {
             {data.vehicles.length > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{tanpaBus === 0 ? "Everyone has a bus" : `${tanpaBus.toLocaleString("en-GB")} without a bus`}</span>
+                <span className="tabular-nums">{tanpaBus === 0 ? "Everyone has a vehicle" : `${tanpaBus.toLocaleString("en-GB")} without a vehicle`}</span>
               </>
             ) : null}
           </>
@@ -172,7 +172,7 @@ export default function LogistikPage() {
         options={[
           { value: "penempatan", label: "Assignments" },
           { value: "kamar", label: "Rooms", badge: data?.rooms.length || undefined },
-          { value: "bus", label: "Buses", badge: data?.vehicles.length || undefined },
+          { value: "bus", label: "Vehicles", badge: data?.vehicles.length || undefined },
           { value: "kereta", label: "Trains", badge: data?.trains.length || undefined },
           { value: "barang", label: "Kit items", badge: data?.items.length || undefined },
         ]}

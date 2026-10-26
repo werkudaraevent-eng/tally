@@ -79,7 +79,7 @@ export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaring
     { key: "qr_code", label: "QR code", jenis: "teks", grup: "kolom" },
     { key: "seat", label: "Seat", jenis: "teks", grup: "kolom" },
     { key: "kamar", label: "Hotel", jenis: "teks", grup: "kolom" },
-    { key: "bus", label: "Bus", jenis: "pilihan", grup: "kolom" },
+    { key: "bus", label: "Vehicle", jenis: "pilihan", grup: "kolom" },
     { key: "source", label: "Source", jenis: "pilihan", grup: "kolom" },
     { key: "undian", label: "Lucky draw", jenis: "pilihan", grup: "kolom" },
     ...fields.map<KolomSaringan>((field) => ({ key: `field:${field.key}`, label: field.label, jenis: jenisPertanyaan(field.type), grup: GRUP_JAWABAN[asalJawaban(field)] })),

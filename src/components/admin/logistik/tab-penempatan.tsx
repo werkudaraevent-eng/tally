@@ -4,7 +4,7 @@ import { Bed, Plus, Bus as IkonBus, CaretLeft, CaretRight, MagnifyingGlass, User
 import { useMemo, useState } from "react";
 import { Banner, Button, ChipMenu, Dialog, EmptyState, IconButton, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, SelectField, StatusChip, TextField, EMPTY_VALUE } from "@/components/m3";
 import { labelRentang, stayPerPeserta, tanggalStay, type Stay } from "@/lib/logistik/stay";
-import { kunciGender, type Bus, type Hotel, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
+import { kunciGender, type Hotel, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
 import { timeZoneOffset } from "@/lib/timezone";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import Link from "@/components/event-link";
@@ -171,12 +171,12 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         </Button>
       ) : null}
       <Button variant="tonal" size="sm" icon={<Bed size={16} />} onClick={() => setDialog("kamar")}>Assign to hotel</Button>
-      <Button variant="tonal" size="sm" icon={<IkonBus size={16} />} onClick={() => setDialog("bus")}>Assign to bus</Button>
+      <Button variant="tonal" size="sm" icon={<IkonBus size={16} />} onClick={() => setDialog("bus")}>Assign to vehicle</Button>
       {adaInap.length > 0 ? (
         <Button variant="text" size="sm" onClick={() => setDialog("lepas-kamar")}>Remove from hotel</Button>
       ) : null}
       {dipilih.some((orang) => busPeserta.has(orang.id)) ? (
-        <Button variant="text" size="sm" onClick={() => setDialog("lepas-bus")}>Remove from bus</Button>
+        <Button variant="text" size="sm" onClick={() => setDialog("lepas-bus")}>Remove from vehicle</Button>
       ) : null}
       <Button variant="text" size="sm" className="ml-auto" icon={<X size={16} />} onClick={() => setPilih(new Set())}>Clear selection</Button>
     </PaneHeader>
@@ -196,11 +196,11 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         summary={(pilihan) => pilihan[0]?.label ?? "Stay"}
       />
       <ChipMenu
-        label="Bus"
-        options={[{ value: "belum", label: "No bus", count: belumBus }, { value: "sudah", label: "Has a bus" }]}
+        label="Vehicle"
+        options={[{ value: "belum", label: "No vehicle", count: belumBus }, { value: "sudah", label: "Has a vehicle" }]}
         selected={saringBus}
         onChange={setSaringBus}
-        summary={(pilihan) => pilihan[0]?.label ?? "Bus"}
+        summary={(pilihan) => pilihan[0]?.label ?? "Vehicle"}
       />
       <ChipMenu
         label="Organisation"
@@ -226,7 +226,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         {toolbar}
         <PaneBody className="overflow-x-auto">
           {data.participants.length === 0 ? (
-            <EmptyState plain icon={<Users size={40} />} title="No active participants yet" description="Registered participants appear here, ready to be assigned to rooms and buses." />
+            <EmptyState plain icon={<Users size={40} />} title="No active participants yet" description="Registered participants appear here, ready to be assigned to rooms and vehicles." />
           ) : tampil.length === 0 ? (
             <EmptyState
               plain
@@ -253,7 +253,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                   <th scope="col" className={th}>Organisation</th>
                   {kunciField ? <th scope="col" className={th}>Gender</th> : null}
                   <th scope="col" className={th}>Stay</th>
-                  <th scope="col" className={th}>Bus</th>
+                  <th scope="col" className={th}>Vehicle</th>
                 </tr>
               </thead>
               <tbody>
@@ -383,7 +383,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
         busy={busy}
         onClose={() => setDialog(null)}
         keTabBus={() => { setDialog(null); keTab("bus"); }}
-        simpan={async (bus) => selesai(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: bus.id, participant_ids: dipilih.map((o) => o.id) }))}
+        simpan={async (utama, trips, kembali, langkah) => selesai(await simpanKendaraan(kirim, dipilih.map((o) => o.id), utama, trips, kembali, langkah))}
       />
 
       <DialogLepasKamar open={dialog === "lepas-kamar"} orang={adaInap} busy={busy} kirim={kirim} onClose={() => setDialog(null)} onSelesai={selesai} />
@@ -446,14 +446,14 @@ export function DialogLepasBus({ open, orang, busy, kirim, onClose, onSelesai }:
       open={open}
       onClose={onClose}
       dismissible={!busy}
-      title={`Remove ${plural(orang.length, "person", "people")} from their default bus?`}
-      description="They will no longer have a default bus. Replacement buses set for a single trip (Buses tab, Trips section) still apply."
+      title={`Remove ${plural(orang.length, "person", "people")} from their default vehicle?`}
+      description="They will no longer have a default vehicle. Replacement vehicles set for a single trip (Vehicles tab, Trips section) still apply."
       actions={
         <>
           <Button variant="outlined" disabled={busy} onClick={onClose}>Cancel</Button>
           <Button simpan loading={busy} onClick={async () => {
             await onSelesai(await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: null, participant_ids: orang.map((o) => o.id) }));
-          }}>Remove from bus</Button>
+          }}>Remove from vehicle</Button>
         </>
       }
     />
@@ -770,8 +770,49 @@ export function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, stay
   );
 }
 
-/* -------------------------------------------------------------- Dialog bus */
+/* --------------------------------------------------------- Dialog kendaraan */
 
+/** Satu perjalanan yang naik kendaraan lain di dialog. `kendaraan` "" = belum dipilih, "tanpa" = tidak ikut kendaraan. */
+type IsianTrip = { kunci: number; tripId: string; kendaraan: string };
+
+/** Satu langkah simpan kendaraan yang sudah berhasil. */
+export type LangkahKendaraan = { jenis: "trip"; tripId: number } | { jenis: "utama" } | { jenis: "kembali"; tripId: number };
+
+/**
+ * Menulis hasil dialog Assign to vehicle untuk orang-orang ini. Urutannya
+ * menjaga pemeriksaan kapasitas `assign_bus`: perjalanan khusus lebih dulu
+ * (mereka keluar dari kendaraan utama di perjalanan itu), lalu kendaraan
+ * utama, lalu perjalanan khusus yang dihapus kembali ke kendaraan utama.
+ * Tidak satu transaksi: `langkah` mencatat yang sudah tersimpan, dan mengulang
+ * aman karena setiap langkah menulis keadaan akhir, bukan selisih.
+ */
+export async function simpanKendaraan(kirim: Kirim, ids: string[], utama: number | null, trips: Array<{ tripId: number; vehicleId: number | null }>, kembali: number[], langkah?: (l: LangkahKendaraan) => void): Promise<unknown> {
+  let hasil: unknown = true;
+  for (const t of trips) {
+    hasil = await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: t.tripId, vehicle_id: t.vehicleId, participant_ids: ids });
+    if (hasil === null) return null;
+    langkah?.({ jenis: "trip", tripId: t.tripId });
+  }
+  if (utama !== null) {
+    hasil = await kirim("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: utama, participant_ids: ids });
+    if (hasil === null) return null;
+    langkah?.({ jenis: "utama" });
+  }
+  for (const tripId of kembali) {
+    hasil = await kirim("/api/admin/logistik/penumpang", "DELETE", { trip_id: tripId, participant_ids: ids });
+    if (hasil === null) return null;
+    langkah?.({ jenis: "kembali", tripId });
+  }
+  return hasil;
+}
+
+/**
+ * Assign to vehicle: kendaraan utama dan, bila perlu, kendaraan lain di
+ * beberapa perjalanan, dalam satu dialog seperti Assign to hotel. Daftar
+ * perjalanan di sini MENGGANTI perjalanan khusus yang mereka punya: yang
+ * dimiliki semua orang terpilih sudah terisi, yang tidak ada di daftar
+ * dikembalikan ke kendaraan utama (dan disebut di bawah sebelum disimpan).
+ */
 export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabBus, simpan }: {
   open: boolean;
   orang: LogistikPeserta[];
@@ -780,14 +821,50 @@ export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabB
   busy: boolean;
   onClose: () => void;
   keTabBus: () => void;
-  simpan: (bus: Bus) => Promise<boolean>;
+  simpan: (utama: number | null, trips: Array<{ tripId: number; vehicleId: number | null }>, kembali: number[], langkah: (l: LangkahKendaraan) => void) => Promise<boolean>;
 }) {
-  const [tujuan, setTujuan] = useState<number | null>(null);
-  function tutup() { setTujuan(null); onClose(); }
-
   const n = orang.length;
   const ids = new Set(orang.map((o) => o.id));
   const aktif = new Set(data.participants.map((o) => o.id));
+  const tripById = new Map(data.trips.map((t) => [t.id, t]));
+  const busById = new Map(data.vehicles.map((b) => [b.id, b]));
+
+  // Perjalanan khusus orang terpilih: trip -> (peserta -> kendaraan atau null).
+  const khusus = new Map<number, Map<string, number | null>>();
+  for (const a of data.transport) {
+    if (a.trip_id === null || !ids.has(a.participant_id) || !tripById.has(a.trip_id)) continue;
+    const m = khusus.get(a.trip_id) ?? new Map<string, number | null>();
+    m.set(a.participant_id, a.vehicle_id);
+    khusus.set(a.trip_id, m);
+  }
+
+  const awal = (): { utama: number | null; trips: IsianTrip[] } => {
+    const daftarUtama = orang.map((o) => busPeserta.get(o.id) ?? null);
+    const utama = daftarUtama.length > 0 && daftarUtama.every((v) => v !== null && v === daftarUtama[0]) ? daftarUtama[0] : null;
+    // Perjalanan yang sama persis untuk semua orang terpilih: sudah terisi.
+    const trips: IsianTrip[] = [];
+    for (const t of data.trips) {
+      const m = khusus.get(t.id);
+      if (!m || m.size !== n) continue;
+      const nilai = [...m.values()];
+      if (nilai.every((v) => v === nilai[0])) trips.push({ kunci: trips.length + 1, tripId: String(t.id), kendaraan: nilai[0] === null ? "tanpa" : String(nilai[0]) });
+    }
+    return { utama, trips };
+  };
+  const [utama, setUtama] = useState<number | null>(() => awal().utama);
+  // Kendaraan bawaan yang sudah dimiliki semua orang terpilih: tidak dikirim ulang bila tidak diganti.
+  const [utamaAwal, setUtamaAwal] = useState<number | null>(() => awal().utama);
+  const [trips, setTrips] = useState<IsianTrip[]>(() => awal().trips);
+  const [sebagian, setSebagian] = useState<LangkahKendaraan[]>([]);
+  // Dialog tetap terpasang saat tertutup: isian disegarkan setiap dibuka.
+  const [kunciBuka, setKunciBuka] = useState(open);
+  if (open !== kunciBuka) {
+    setKunciBuka(open);
+    if (open) { const a = awal(); setUtama(a.utama); setUtamaAwal(a.utama); setTrips(a.trips); setSebagian([]); }
+  }
+  function tutup() { setSebagian([]); onClose(); }
+
+  // Isi kendaraan utama tanpa orang terpilih: memindahkan mereka membebaskan tempatnya.
   const isiBawaan = new Map<number, number>();
   for (const [pid, busId] of busPeserta) {
     if (!aktif.has(pid) || ids.has(pid)) continue;
@@ -799,43 +876,165 @@ export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabB
     const alasan = sisa === null ? null : sisa <= 0 ? "Full" : sisa < n ? `${sisa} left` : null;
     return { bus, isi, sisa, alasan };
   });
-  const pilihan = baris.find((b) => b.bus.id === tujuan);
+  const pilihan = baris.find((b) => b.bus.id === utama);
+
+  // Isi tiap kendaraan di satu perjalanan tanpa orang terpilih, dari kendaraan
+  // efektif tiap peserta (pengganti, atau kendaraan utama bila perjalanannya
+  // mengikuti kendaraan utama), sama dengan transport_effective.
+  const isiTrip = useMemo(() => {
+    const ganti = new Map<string, number | null>();
+    for (const a of data.transport) if (a.trip_id !== null) ganti.set(`${a.trip_id}:${a.participant_id}`, a.vehicle_id);
+    const hasil = new Map<number, Map<number, number>>();
+    for (const t of data.trips) {
+      const m = new Map<number, number>();
+      for (const o of data.participants) {
+        if (ids.has(o.id)) continue;
+        const k = `${t.id}:${o.id}`;
+        const v = ganti.has(k) ? ganti.get(k)! : t.follows_default ? busPeserta.get(o.id) ?? null : null;
+        if (v !== null) m.set(v, (m.get(v) ?? 0) + 1);
+      }
+      hasil.set(t.id, m);
+    }
+    return hasil;
+    // `ids` dibangun ulang tiap render dari `orang` yang sama.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, orang, busPeserta]);
+  const alasanTrip = (tripId: number, busId: number) => {
+    const bus = busById.get(busId);
+    if (!bus || bus.capacity === null) return null;
+    const sisa = bus.capacity - (isiTrip.get(tripId)?.get(busId) ?? 0);
+    return sisa <= 0 ? "full" : sisa < n ? `${sisa} left` : null;
+  };
+
+  const ubahTrip = (kunci: number, isi: Partial<IsianTrip>) => setTrips((lama) => lama.map((t) => (t.kunci === kunci ? { ...t, ...isi } : t)));
+  const dipilihTrip = new Set(trips.map((t) => Number(t.tripId)).filter(Boolean));
+  const tripLengkap = trips.every((t) => t.tripId && t.kendaraan && (t.kendaraan === "tanpa" || !alasanTrip(Number(t.tripId), Number(t.kendaraan))));
+  const kembali = [...khusus.keys()].filter((id) => !dipilihTrip.has(id));
+  const isiTrips = trips.filter((t) => t.tripId && t.kendaraan).map((t) => ({ tripId: Number(t.tripId), vehicleId: t.kendaraan === "tanpa" ? null : Number(t.kendaraan) }));
+  const utamaKirim = utama !== null && utama !== utamaAwal ? utama : null;
+  const adaUbahan = utamaKirim !== null || isiTrips.length > 0 || kembali.length > 0;
+  const siap = adaUbahan && tripLengkap && !(utamaKirim !== null && pilihan?.alasan);
+
+  const namaTrip = (id: number) => tripById.get(id)?.name || "a trip";
+  const akibat = kembali.map((id) => {
+    const jumlah = khusus.get(id)?.size ?? 0;
+    const ikut = tripById.get(id)?.follows_default;
+    return `${plural(jumlah, "person", "people")} ${jumlah === 1 ? "has" : "have"} a different vehicle on ${namaTrip(id)}. It will be removed, so ${ikut ? "they ride their default vehicle there" : "they are not on that trip's list"}.`;
+  });
+  const tanpaUtama = utama === null ? orang.filter((o) => !busPeserta.has(o.id)).length : 0;
+  const daftarSendiri = data.trips.filter((t) => !t.follows_default && !dipilihTrip.has(t.id));
+
+  const rencana: LangkahKendaraan[] = [
+    ...isiTrips.map((t): LangkahKendaraan => ({ jenis: "trip", tripId: t.tripId })),
+    ...(utamaKirim !== null ? [{ jenis: "utama" } as LangkahKendaraan] : []),
+    ...kembali.map((tripId): LangkahKendaraan => ({ jenis: "kembali", tripId })),
+  ];
+  const samaLangkah = (a: LangkahKendaraan, b: LangkahKendaraan) => a.jenis === b.jenis && (a.jenis === "utama" || (b.jenis !== "utama" && a.tripId === b.tripId));
+  const belumTersimpan = rencana.filter((l) => !sebagian.some((x) => samaLangkah(x, l)));
+  const langkahNama = (l: LangkahKendaraan) => (l.jenis === "utama" ? "the default vehicle" : l.jenis === "trip" ? namaTrip(l.tripId) : `back to default on ${namaTrip(l.tripId)}`);
+  async function tetapkan() {
+    const selesai: LangkahKendaraan[] = [];
+    setSebagian([]);
+    if (await simpan(utamaKirim, isiTrips, kembali, (l) => selesai.push(l))) tutup();
+    else setSebagian(selesai);
+  }
+
+  const kunciBerikut = Math.max(0, ...trips.map((t) => t.kunci)) + 1;
+  const bisaTambah = trips.length < data.trips.length && data.vehicles.length > 0;
 
   return (
     <Dialog
       open={open}
       onClose={tutup}
       dismissible={!busy}
-      size="md"
+      size={data.trips.length > 0 ? "lg" : "md"}
       icon={<IkonBus size={20} />}
-      title={`Assign ${plural(n, "person", "people")} to a bus`}
-      description="This becomes their default bus on every trip. Exceptions for a single trip are set on the Buses tab, Trips section."
+      title={`Assign ${plural(n, "person", "people")} to a vehicle`}
+      description={`${n === 1 ? orang[0]?.name : `${orang.slice(0, 3).map((o) => o.name).join(", ")}${n > 3 ? `, and ${n - 3} more` : ""}`}. Choose the vehicle they ride on every trip. Add a trip only where they ride something else.`}
       actions={
         <>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
-          <Button simpan loading={busy} disabled={!pilihan || Boolean(pilihan.alasan)} onClick={async () => { if (pilihan && await simpan(pilihan.bus)) tutup(); }}>
-            {pilihan ? `Assign to ${pilihan.bus.code}` : "Assign"}
+          <Button simpan loading={busy} disabled={!siap} onClick={() => void tetapkan()}>
+            {pilihan && trips.length === 0 && kembali.length === 0 ? `Assign to ${pilihan.bus.code}` : "Assign"}
           </Button>
         </>
       }
     >
       {data.vehicles.length === 0 ? (
-        <EmptyState plain icon={<IkonBus size={40} />} title="No buses yet" description="Add buses on the Buses tab first." action={<Button variant="outlined" size="sm" onClick={keTabBus}>Open Buses tab</Button>} />
+        <EmptyState plain icon={<IkonBus size={40} />} title="No vehicles yet" description="Add vehicles on the Vehicles tab first." action={<Button variant="outlined" size="sm" onClick={keTabBus}>Open Vehicles tab</Button>} />
       ) : (
-        <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant" aria-label="Destination bus">
-          {baris.map((b) => (
-            <BarisTujuan
-              key={b.bus.id}
-              name="bus-tujuan"
-              nama={b.bus.code}
-              keterangan={b.bus.plate_number}
-              sisa={b.sisa === null ? plural(b.isi, "passenger") : plural(b.sisa, "free seat")}
-              alasan={b.alasan}
-              checked={tujuan === b.bus.id}
-              onPilih={() => setTujuan(b.bus.id)}
-            />
-          ))}
-        </ul>
+        <div className="flex flex-col gap-3">
+          {sebagian.length > 0 ? (
+            <Banner tone="warning" icon={<Warning size={18} />}>
+              {`Only part of this was saved: ${sebagian.map(langkahNama).join(", ")}. Not saved yet: ${belumTersimpan.map(langkahNama).join(", ")}. Press Assign again to finish. It is safe to repeat.`}
+            </Banner>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            <p className="text-title-small font-semibold text-on-surface">Default vehicle</p>
+            <ul className={cx("flex flex-col overflow-y-auto rounded-md border border-outline-variant", data.trips.length > 0 ? "max-h-[30dvh]" : "max-h-[44dvh]")} aria-label="Default vehicle">
+              {baris.map((b) => (
+                <BarisTujuan
+                  key={b.bus.id}
+                  name="bus-tujuan"
+                  nama={b.bus.code}
+                  keterangan={b.bus.plate_number}
+                  sisa={b.sisa === null ? plural(b.isi, "passenger") : plural(b.sisa, "free seat")}
+                  alasan={b.alasan}
+                  checked={utama === b.bus.id}
+                  onPilih={() => setUtama(b.bus.id)}
+                />
+              ))}
+            </ul>
+            {utama === null && n - tanpaUtama > 0 ? (
+              <p className="text-body-small text-on-surface-variant">Leave it empty to keep the default vehicle they have now.</p>
+            ) : null}
+          </div>
+
+          {data.trips.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-title-small font-semibold text-on-surface">Different vehicle on some trips</p>
+              {trips.length > 0 ? (
+                <ol className="flex flex-col rounded-md border border-outline-variant" aria-label="Trips with a different vehicle">
+                  {trips.map((t) => {
+                    const tripId = Number(t.tripId);
+                    return (
+                      <li key={t.kunci} className="grid items-end gap-3 border-b border-outline-variant px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <SelectField label="Trip" value={t.tripId} onChange={(event) => ubahTrip(t.kunci, { tripId: event.target.value, kendaraan: "" })}>
+                          <option value="" disabled>Choose a trip</option>
+                          {data.trips.map((trip) => (
+                            <option key={trip.id} value={trip.id} disabled={trips.some((x) => x.kunci !== t.kunci && x.tripId === String(trip.id))}>
+                              {trip.follows_default ? trip.name : `${trip.name} · own list`}
+                            </option>
+                          ))}
+                        </SelectField>
+                        <SelectField label="Vehicle" value={t.kendaraan} disabled={!t.tripId} onChange={(event) => ubahTrip(t.kunci, { kendaraan: event.target.value })}>
+                          <option value="" disabled>Choose a vehicle</option>
+                          {data.vehicles.map((bus) => {
+                            const alasan = t.tripId ? alasanTrip(tripId, bus.id) : null;
+                            return <option key={bus.id} value={bus.id} disabled={Boolean(alasan)}>{alasan ? `${bus.code} · ${alasan}` : bus.code}</option>;
+                          })}
+                          <option value="tanpa">No vehicle on this trip</option>
+                        </SelectField>
+                        <Button variant="text" className="justify-self-start" disabled={busy} onClick={() => setTrips((lama) => lama.filter((x) => x.kunci !== t.kunci))}>Remove</Button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : null}
+              {bisaTambah ? (
+                <Button variant="text" className="self-start" icon={<Plus size={16} />} disabled={busy} onClick={() => setTrips((lama) => [...lama, { kunci: kunciBerikut, tripId: "", kendaraan: "" }])}>
+                  Add a trip
+                </Button>
+              ) : null}
+              {daftarSendiri.length > 0 ? (
+                <p className="text-body-small text-on-surface-variant">
+                  {`${daftarSendiri.map((t) => t.name).join(", ")} ${daftarSendiri.length === 1 ? "uses its" : "use their"} own list, so the default vehicle does not apply there. Add ${daftarSendiri.length === 1 ? "it" : "them"} here to put these people on it.`}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          <BannerAkibat kalimat={akibat} />
+        </div>
       )}
     </Dialog>
   );

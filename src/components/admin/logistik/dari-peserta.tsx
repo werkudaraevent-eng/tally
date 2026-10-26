@@ -11,7 +11,7 @@ import { plural } from "@/lib/plural";
 import type { Kirim } from "./bersama";
 import { DialogImpor } from "./dialog-impor";
 import { DialogStays, hitungPenghuni } from "./stay";
-import { DialogBus, DialogKamar, DialogLepasBus, DialogLepasKamar, simpanPenempatan } from "./tab-penempatan";
+import { DialogBus, DialogKamar, DialogLepasBus, DialogLepasKamar, simpanKendaraan, simpanPenempatan } from "./tab-penempatan";
 import { useLogistik } from "./use-logistik";
 
 /**
@@ -96,12 +96,12 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
       // Tidak ada yang bisa diubah: jangan buka dialog kosong.
       toast.warning(
         ids.length === 1 ? "This participant was deleted at source" : "All selected participants were deleted at source",
-        "Deleted participants cannot be placed in hotels or buses.",
+        "Deleted participants cannot be placed in hotels or vehicles.",
       );
       onClose();
       return;
     }
-    toast.info(`${plural(lewat, "participant")} skipped`, "Participants deleted at source cannot be placed in hotels or buses.");
+    toast.info(`${plural(lewat, "participant")} skipped`, "Participants deleted at source cannot be placed in hotels or vehicles.");
   }, [siap, lewat, aksi, orang.length, ids.length, toast, onClose]);
 
   const keLogistik = (tab: "kamar" | "bus") => { tutup(); router.push(withEventPrefix(`/admin/logistik?tab=${tab}`, window.location.pathname)); };
@@ -133,7 +133,7 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
         busy={busy}
         onClose={tutup}
         keTabBus={() => keLogistik("bus")}
-        simpan={async (bus) => (await kirimCatat("/api/admin/logistik/penumpang", "POST", { trip_id: null, vehicle_id: bus.id, participant_ids: orang.map((o) => o.id) })) !== null}
+        simpan={async (utama, trips, kembali, langkah) => (await simpanKendaraan(kirimCatat, orang.map((o) => o.id), utama, trips, kembali, langkah)) !== null}
       />
       <DialogStays
         orang={aksi.jenis === "stays" ? orang[0] ?? null : null}

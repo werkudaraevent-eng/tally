@@ -15,7 +15,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 QA GO, waiting on Mas's merge time (before 3 Nov). No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
+- "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").
+- Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 merged 26 Oct. No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.

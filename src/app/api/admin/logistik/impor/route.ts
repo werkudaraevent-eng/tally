@@ -34,7 +34,7 @@ const jenisDari = (nilai: unknown): JenisImpor | null => (nilai === "kamar" || n
 
 const NAMA_TEMPLAT: Record<JenisImpor, { sheet: string; berkas: string }> = {
   kamar: { sheet: "Rooming list", berkas: "room" },
-  bus: { sheet: "Bus", berkas: "bus" },
+  bus: { sheet: "Vehicle", berkas: "bus" },
   kereta: { sheet: "Trains", berkas: "train" },
 };
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   const jenis = jenisDari(form?.get("jenis"));
   const file = form?.get("file");
-  if (!form || !jenis) return apiError("VALIDATION_ERROR", 422, { message: "Choose what to import: rooms, buses or trains." });
+  if (!form || !jenis) return apiError("VALIDATION_ERROR", 422, { message: "Choose what to import: rooms, vehicles or trains." });
   if (!(file instanceof File) || file.size === 0) return apiError("VALIDATION_ERROR", 422, { message: "Choose an Excel or CSV file first." });
   if (file.size > BATAS_BERKAS) return apiError("VALIDATION_ERROR", 422, { message: "The file can be at most 10 MB." });
 
@@ -282,9 +282,9 @@ async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara
     const { data, error } = await db.from("transport_vehicles")
       .insert(rencana.busBaru.map((code, i) => ({ event_id: eventId, code, sort_order: acara.vehicles.length + i })) as never)
       .select("id,code");
-    if (error) return { galat: error.code === "23505" ? "Someone else has just created a bus from this file. Reload the page, then import again." : "New buses could not be created." };
+    if (error) return { galat: error.code === "23505" ? "Someone else has just created a vehicle from this file. Reload the page, then import again." : "New vehicles could not be created." };
     for (const bus of (data ?? []) as Array<{ id: number; code: string }>) busId.set(kunci(bus.code), bus.id);
-    dibuat.push(plural(rencana.busBaru.length, "bus", "buses"));
+    dibuat.push(plural(rencana.busBaru.length, "vehicle"));
   }
 
   const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));

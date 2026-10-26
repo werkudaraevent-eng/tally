@@ -152,7 +152,7 @@ const BAGIAN: Bagian[] = [
           "Press Assign. The Stay column shows the hotel with “Room to follow”.",
         ],
         poin: [
-          "Participants already see the hotel name, address and dates, with “Nomor kamar menyusul”, once Room and bus is on (section 6).",
+          "Participants already see the hotel name, address and dates, with “Nomor kamar menyusul”, once Room and vehicle is on (section 6).",
           "Agenda rows and Directions blocks limited to a hotel (Who sees it → Hotel) already reach these people.",
         ],
         gambar: g(
@@ -223,7 +223,7 @@ const BAGIAN: Bagian[] = [
         judul: "Check who still needs something",
         poin: [
           "The line under the Logistics title counts people without a hotel and people waiting for a room.",
-          "Stay filter: No hotel, Room to follow, Has a room, Moves hotel. Bus filter: No bus, Has a bus.",
+          "Stay filter: No hotel, Room to follow, Has a room, Moves hotel. Vehicle filter: No vehicle, Has a vehicle.",
         ],
         gambar: g(
           "logistik-penempatan.jpg",
@@ -237,15 +237,15 @@ const BAGIAN: Bagian[] = [
   },
   {
     id: "transport",
-    judul: "4. Buses, trains and kit",
+    judul: "4. Vehicles, trains and kit",
     ringkas: "The other Logistics tabs. Each one has its own Excel import with a preview.",
     isi: [
       {
-        judul: "Buses and trips",
+        judul: "Vehicles and trips",
         poin: [
-          "Buses → Add bus: name, capacity, plate and crew contact. Choose what participants see: bus name only, plate, crew, or plate and crew.",
-          "Put people on their default bus: Assignments → tick → Assign to bus.",
-          "Add trip for each departure (meeting point, from, to, time). Link it to an Agenda row so the departure moves when the row's time changes, and the participant schedule shows the bus on that row. A trip can use other buses than the default ones.",
+          "Vehicles → Add vehicle: name, capacity, plate and crew contact. Put the type in the name, such as Bus 1, Hiace 2 or Elf 3: participants see it as written. Choose what participants see: vehicle name only, plate, crew, or plate and crew.",
+          "Add trip for each departure (meeting point, from, to, time). Link it to an Agenda row so the departure moves when the row's time changes, and the participant schedule shows the vehicle on that row.",
+          "Assignments → tick → Assign to vehicle: choose their default vehicle, then Add a trip for each trip where they ride something else, or No vehicle on this trip. One dialog, like Assign to hotel. A trip that uses its own list only carries the people added to it here or under Trips.",
         ],
       },
       {
@@ -273,12 +273,12 @@ const BAGIAN: Bagian[] = [
         judul: "Assign or remove many people at once",
         langkah: [
           "Filter the Participant list (for example Batch is Batch 2), then tick the people.",
-          "In the bar that appears, open Logistics: Assign to hotel or room, Assign to bus, Remove from hotel, Remove from bus.",
+          "In the bar that appears, open Logistics: Assign to hotel or room, Assign to vehicle, Remove from hotel, Remove from vehicle.",
           "The Logistics dialog opens; capacity and room rules are checked the same way as on the Logistics page.",
         ],
         gambar: g(
           "peserta-menu-logistik.jpg",
-          "Participant list selection bar with the Logistics menu open: Assign to hotel or room, Assign to bus, Remove from hotel, Remove from bus",
+          "Participant list selection bar with the Logistics menu open: Assign to hotel or room, Assign to vehicle, Remove from hotel, Remove from vehicle",
           "Participant list → tick people → Logistics.",
           1280,
           300,
@@ -287,10 +287,10 @@ const BAGIAN: Bagian[] = [
       {
         judul: "One person, columns and export",
         poin: [
-          "Click a person: the Logistics section lists every stay, the bus, both trains and the kit collected, with Edit stays and Change bus.",
-          "Columns → Hotel, Room, Hotel check-in, Hotel check-out (numbered Hotel 1, Hotel 2 when someone moves), Bus, each train field, one column per kit item. They are hidden until you choose them.",
+          "Click a person: the Logistics section lists every stay, the vehicle, both trains and the kit collected, with Edit stays and Change vehicle.",
+          "Columns → Hotel, Room, Hotel check-in, Hotel check-out (numbered Hotel 1, Hotel 2 when someone moves), Vehicle, each train field, one column per kit item. They are hidden until you choose them.",
           "Export includes them as read-only “logistics: …” columns. The participant import skips those columns, so an exported file can be re-imported safely.",
-          "Import asks what you are importing: Participant details, or Hotels, rooms, buses, train tickets (the Logistics import).",
+          "Import asks what you are importing: Participant details, or Hotels, rooms, vehicles, train tickets (the Logistics import).",
         ],
       },
     ],
@@ -303,8 +303,8 @@ const BAGIAN: Bagian[] = [
       {
         judul: "Turn it on",
         poin: [
-          "Participant area → What shows → Room and bus (off by default). On Gathering Horizon, hotel, bus, trains and luggage then appear in Perjalanan; other layouts show them on the participant home.",
-          "Participants see only their own hotel, room, roommates, buses, trains and kit, never anyone else's (roommates' names only).",
+          "Participant area → What shows → Room and vehicle (off by default). On Gathering Horizon, hotel, vehicle, trains and luggage then appear in Perjalanan; other layouts show them on the participant home.",
+          "Participants see only their own hotel, room, roommates, vehicles, trains and kit, never anyone else's (roommates' names only).",
         ],
       },
       {
@@ -389,7 +389,7 @@ const BAGIAN: Bagian[] = [
       {
         judul: "Agenda",
         poin: [
-          "Fill it in once: the event page, the /rundown screen, the participant schedule, bus trips and checkpoints all read it.",
+          "Fill it in once: the event page, the /rundown screen, the participant schedule, vehicle trips and checkpoints all read it.",
           "New sections start as drafts; publish them when they are ready.",
           "Dress code (Gathering Horizon): Agenda → Dress code per day, and Participant area → Dress code page for the every-day line.",
         ],
@@ -449,9 +449,9 @@ const BAGIAN: Bagian[] = [
     ringkas: "",
     isi: [
       {
-        judul: "A participant does not see their hotel or bus",
+        judul: "A participant does not see their hotel or vehicle",
         poin: [
-          "Check Participant area → Room and bus is on.",
+          "Check Participant area → Room and vehicle is on.",
           "Check the person has a stay on Logistics → Assignments (Stay filter → No hotel).",
         ],
       },
@@ -498,7 +498,7 @@ export default async function PanduanSistemPage({
         <p className="ed-label border-b border-outline-variant pb-4 text-on-surface-variant">System guide</p>
         <h1 className="mt-6 text-display-small font-bold tracking-tight">How to use Tally</h1>
         <p className="mt-4 max-w-[68ch] text-body-large leading-8 text-on-surface-variant">
-          Organised by task, in working order: what to set up first, how to place people in hotels and on buses,
+          Organised by task, in working order: what to set up first, how to place people in hotels and in vehicles,
           what to use while the event runs, and what to wrap up afterwards.
           {event ? <> You opened this guide from the <span className="font-semibold text-on-surface">{event.name}</span> workspace.</> : null}
         </p>

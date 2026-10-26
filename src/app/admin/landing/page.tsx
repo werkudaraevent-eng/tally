@@ -1174,7 +1174,7 @@ export default function LandingCmsPage() {
             <div className="min-w-0 flex-1">
               <dt className="text-body-medium font-semibold text-on-surface">Tiles</dt>
               <dd className="mt-0.5 text-body-medium text-on-surface-variant">
-                {landing.member?.show_logistics ? "Bus and Room, because Room and bus is on in the Participant area." : "Entry ticket and Announcements. Turn on Room and bus in the Participant area to show Bus and Room instead."}
+                {landing.member?.show_logistics ? "Vehicle and Room, because Room and vehicle is on in the Participant area." : "Entry ticket and Announcements. Turn on Room and vehicle in the Participant area to show Vehicle and Room instead."}
               </dd>
             </div>
             {tautanSumberPortal("/admin/area-peserta", "Participant area")}
@@ -1197,7 +1197,7 @@ export default function LandingCmsPage() {
         This section appears automatically while the Participant area is open. Drag its row to choose where it sits; by default it is just above the footer. {horizon ? "" : "Its text is fixed, "}
         {horizon
           ? "Its text can be changed below, and the journey pass card beside it uses the From and To fields, the event dates, and the hero image."
-          : "and its tiles follow the Participant area: entry ticket, room and bus, and announcements."}{" "}
+          : "and its tiles follow the Participant area: entry ticket, room and vehicle, and announcements."}{" "}
         The top bar gets a link to it, &ldquo;Perjalanan&rdquo; (&ldquo;Your trip&rdquo; in English).
       </p>
       {tautanSumberPortal("/admin/area-peserta", "Open Participant area")}

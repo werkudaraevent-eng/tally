@@ -102,7 +102,7 @@ assert.match(rencanaKamar([["Kamar", "Nama"]], { ...acara, hotels: [...acara.hot
 // Bus: kapasitas 1, bus baru dibuat.
 const bus = rencanaBus([["Nama", "Bus"], ["Andi Pratama", "bus 1"], ["Budi Santoso", "Bus 1"], ["Citra Lestari", "Bus 7"], ["Tidak Ada", "Bus 1"]], acara);
 assert.deepEqual(bus.baris.map((b) => b.status), ["masuk", "tolak", "masuk", "tolak"]);
-assert.equal(bus.baris[1].alasan, "Bus full (capacity 1)");
+assert.equal(bus.baris[1].alasan, "Vehicle full (capacity 1)");
 assert.equal(bus.baris[3].alasan, "Name not found in the Participant list");
 assert.deepEqual(bus.busBaru, ["Bus 7"]);
 assert.deepEqual(bus.penempatan, [{ hotel: null, tujuan: "Bus 1", malam: null, participant_ids: ["a"] }, { hotel: null, tujuan: "Bus 7", malam: null, participant_ids: ["c"] }]);
@@ -132,6 +132,12 @@ assert.equal(templatBus.baris.length, 2);
 const lamaBus = rencanaBus([["Kode QR", "Nama", "Bus"], ["Q-1", "", "Bus 1"]], acara);
 assert.equal(lamaBus.galat, null);
 assert.equal(lamaBus.baris[0]?.status, "masuk");
+// Header "Default vehicle" (ekspor Daftar peserta lama dan baru) dan "Kendaraan" juga dikenali.
+for (const judul of ["Default vehicle", "Kendaraan", "Nama kendaraan"]) {
+  const k = rencanaBus([["QR code", "Name", judul], ["Q-1", "", "Bus 1"]], acara);
+  assert.equal(k.galat, null, judul);
+  assert.equal(k.baris[0]?.status, "masuk", judul);
+}
 
 
 // ------------------------------------------------------------------ Kereta
