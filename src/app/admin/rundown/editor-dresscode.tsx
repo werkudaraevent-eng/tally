@@ -148,8 +148,8 @@ export function bannerDresscode({ tab, tabs, terlihat, bersasaran, jumlahIsian }
  */
 export function keteranganTersimpan({ jumlah, terbit, terlihat, siapa, tanggal, setiapHari = false }: { jumlah: number; terbit: boolean; terlihat: boolean; siapa: string[]; tanggal: string; setiapHari?: boolean }): string {
   if (jumlah === 0) return setiapHari ? "This tab now shows only the every-day dress code." : "This tab has no dress code now.";
-  if (!terbit) return "Participants see it once Show on public page is on for this tab.";
-  if (!terlihat) return "Participants see it once this tab has an item on the public page.";
+  if (!terbit) return "Participants see it once Published is on for this tab.";
+  if (!terlihat) return "Participants see it once this tab has a published item.";
   return siapa.length ? `${daftarNama(siapa)} participants see it on ${hariPendek(tanggal)}.` : `Participants see it on ${hariPendek(tanggal)}.`;
 }
 
@@ -721,9 +721,9 @@ export function EditorDresscode({
     <Banner tone="warning" icon={<Warning size={18} />}>
       <p>
         {banner.jenis === "draf"
-          ? "Participants can’t see this tab yet. Turn on Show on public page in Section."
+          ? "Participants can’t see this tab yet. Turn on Published in Section."
           : banner.jenis === "tanpaButir"
-            ? "Participants can’t see this tab yet. Show at least one of its items on the public page."
+            ? "Participants can’t see this tab yet. Publish at least one of its items."
             : `${banner.jumlah === 2 ? "Both" : `All ${banner.jumlah}`} ${banner.tanggal} tabs are set to Everyone, so every participant sees ${banner.tab}’s dress code. Set Who it’s for on each tab.`}
       </p>
       {banner.jenis !== "tanpaButir" ? <button type="button" onClick={onBukaBagian} className={cx("mt-1", TAUTAN)}>Open Section</button> : null}

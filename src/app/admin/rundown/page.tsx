@@ -232,6 +232,11 @@ export default function RundownAdminPage() {
   const [sasaranInfo, setSasaranInfo] = useState<SasaranInfo | null>(null);
   const [sasaranSaved, setSasaranSaved] = useState<Record<number, SasaranBagian | null>>({});
   const [sasaranDrafts, setSasaranDrafts] = useState<Record<number, SasaranBagian | null>>({});
+  // Show before sign-in per bagian, pola yang sama: tidak ada di peta draf =
+  // belum disentuh. null = migrasinya belum ada (sakelar tidak tampil).
+  const [publikAda, setPublikAda] = useState<boolean | null>(null);
+  const [publikSaved, setPublikSaved] = useState<Record<number, boolean>>({});
+  const [publikDrafts, setPublikDrafts] = useState<Record<number, boolean>>({});
   // Siapa yang melihat tiap baris (Edit item > Who sees it), pola yang sama:
   // null = semua; tidak ada di peta draf = belum disentuh. Hanya baris bersyarat yang tersimpan di peta.
   const [syaratInfo, setSyaratInfo] = useState<InfoSiapaMelihat | null>(null);
@@ -298,6 +303,15 @@ export default function RundownAdminPage() {
     setSasaranSaved(Object.fromEntries(data.sections.map((row) => [row.id, bacaSasaran(row.audience)])));
   }
 
+  async function loadPublik() {
+    // Gagal dimuat = sakelar Show before sign-in tidak tampil; sisa halaman tetap berjalan.
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/publik"), { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    const data = (await response.json()) as { available: boolean; sections: Array<{ id: number; show_before_sign_in: boolean }> };
+    setPublikAda(data.available);
+    setPublikSaved(Object.fromEntries(data.sections.map((row) => [row.id, row.show_before_sign_in])));
+  }
+
   async function loadSyarat() {
     // Gagal dimuat = kelompok Who sees it tidak tampil; sisa halaman tetap berjalan.
     const response = await fetch(eventApiPath("/api/admin/rundown/items/sasaran"), { cache: "no-store" }).catch(() => null);
@@ -329,6 +343,7 @@ export default function RundownAdminPage() {
       void load();
       void loadOutfit();
       void loadSasaran();
+      void loadPublik();
       void loadSyarat();
     }, 0);
     return () => window.clearTimeout(timer);
@@ -527,6 +542,7 @@ export default function RundownAdminPage() {
     // belum lengkap tidak lagi memblokir Save section. Who it's for tetap di sini.
     const simpanSasaran = sasaranBerubah(section.id);
     if (simpanSasaran && !sasaranLengkap(section.id)) return;
+    const simpanPublik = publikBerubah(section.id);
     const dikirim = suntingBagian?.id === section.id ? suntingBagian.isi : null;
     setSavingSection(true); setError(""); setGalatPanel(null);
     const response = await fetch("/api/admin/rundown/sections", {
@@ -555,6 +571,7 @@ export default function RundownAdminPage() {
     }
     // Gagal menyimpan Who it's for sudah menampilkan pesannya sendiri; drafnya tetap ada.
     const sasaranOk = simpanSasaran ? await saveSasaran(section) : true;
+    const publikOk = simpanPublik ? await savePublik(section) : true;
     // Muat ulang dulu, baru lapisan suntingan dibuang: tanggal bagian menggeser
     // jam bus lewat pemicu, dan catatan bus membaca tanggal tersimpan bersama
     // trip yang dimuat. Gagal memuat = bagian ini saja diperbarui. Kolom yang
@@ -562,7 +579,10 @@ export default function RundownAdminPage() {
     if (!(await load())) setSections((kini) => kini.map((row) => (row.id === section.id ? { ...row, ...(data as RundownSection) } : row)));
     if (dikirim) setSuntingBagian((kini) => (kini?.id === section.id ? lapisanSisa(kini, dikirim) : kini));
     setSavingSection(false);
-    if (sasaranOk) toast.success("Section saved", section.is_published ? "This section is shown on the public page." : "This section is not public yet.");
+    if (sasaranOk && publikOk) {
+      const sebelumMasuk = publikAktif(section.id);
+      toast.success("Section saved", !section.is_published ? "This section is a draft. Nobody sees it yet." : sebelumMasuk ? "Shown on the event page and in the participant portal." : "Shown only to participants who have signed in.");
+    }
   }
 
   async function deleteSection(section: RundownSection) {
@@ -652,7 +672,7 @@ export default function RundownAdminPage() {
     setSavingItem(item.id); setError(""); setGalatPanel(null);
     // Urutan dua permintaan dipilih supaya gagal di tengah tidak pernah membuka
     // baris ke lebih banyak peserta: syarat yang mempersempit disimpan DULU
-    // (baru sesudahnya Show on public page), Everyone disimpan TERAKHIR (sesudah
+    // (baru sesudahnya Published), Everyone disimpan TERAKHIR (sesudah
     // baris mungkin disembunyikan). Gagal = berhenti, sisanya tetap draf.
     const keSemua = simpanSyarat && !syaratDrafts[item.id];
     if (simpanSyarat && !keSemua && !(await saveSyarat(item.id))) {
@@ -1018,8 +1038,42 @@ export default function RundownAdminPage() {
     return true;
   }
 
+  // ---- Show before sign-in ---------------------------------------------------------
+  /** Nilai draf bila ada, lalu yang tersimpan. Bagian baru = tampil (bawaan kolom). */
+  function publikAktif(sectionId: number): boolean {
+    return sectionId in publikDrafts ? publikDrafts[sectionId] : publikSaved[sectionId] ?? true;
+  }
+
+  function publikBerubah(sectionId: number) {
+    if (!publikAda || !(sectionId in publikDrafts)) return false;
+    return publikDrafts[sectionId] !== (publikSaved[sectionId] ?? true);
+  }
+
+  async function savePublik(section: RundownSection): Promise<boolean> {
+    const dikirim = publikDrafts[section.id];
+    const response = await fetch(eventApiPath("/api/admin/rundown/sections/publik"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: section.id, show_before_sign_in: dikirim }),
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok) {
+      if (response?.status === 409 && (data as { error?: { code?: string } }).error?.code === "PUBLIC_DAY_NOT_READY") setPublikAda(false);
+      gagalPanel("Show before sign-in not saved", response ? failureMessage(data, "Show before sign-in not saved.") : PUTUS);
+      return false;
+    }
+    setPublikSaved((current) => ({ ...current, [section.id]: (data as { show_before_sign_in?: boolean }).show_before_sign_in !== false }));
+    // Draf yang diganti selama permintaan berjalan belum tersimpan: tetap ada.
+    setPublikDrafts((current) => (current[section.id] === dikirim ? tanpa(current, section.id) : current));
+    return true;
+  }
+
   // Dari `sections` yang tersimpan: sakelar yang belum disimpan belum mengubah halaman publik.
   const publishedCount = sections.filter((row) => row.is_published).length;
+  // Bagian aktif punya baris terbit, dan semuanya bersyarat: tidak ada yang
+  // tampil sebelum masuk. Dari baris dan syarat tersimpan, sama dengan halaman acara.
+  const barisTerbit = active ? items.filter((item) => item.section_id === active.id && item.is_published && item.title?.trim()) : [];
+  const hanyaBersyarat = Boolean(syaratInfo?.available) && barisTerbit.length > 0 && barisTerbit.every((item) => Boolean(syaratSaved[item.id]));
   // Menghapus bagian ikut menghapus barisnya: trip bus yang tertaut ke baris
   // itu disebut di dialog hapus, sama dengan dialog hapus satu baris.
   const tripBagian = kalimatHapus(activeItems.flatMap((item) => item.bus_trips ?? []).map((trip) => trip.name));
@@ -1050,7 +1104,7 @@ export default function RundownAdminPage() {
     }
     if (form.jenis === "bagian") {
       const asli = sections.find((row) => row.id === form.id);
-      return Boolean(asli && suntingBagian?.id === form.id && adaBeda(asli, suntingBagian.isi)) || sasaranBerubah(form.id);
+      return Boolean(asli && suntingBagian?.id === form.id && adaBeda(asli, suntingBagian.isi)) || sasaranBerubah(form.id) || publikBerubah(form.id);
     }
     if (form.jenis === "dresscode") return dcBerubah(form.bagian) || uploadingOutfit?.bagian === form.bagian;
     return Boolean(suntingHeader && adaBeda(header, suntingHeader)) || uploadingBackground || uploadingBranding;
@@ -1073,6 +1127,7 @@ export default function RundownAdminPage() {
   function buangBagian(id: number) {
     setSuntingBagian((kini) => (kini?.id === id ? null : kini));
     setSasaranDrafts((kini) => tanpa(kini, id));
+    setPublikDrafts((kini) => tanpa(kini, id));
   }
 
   /** Kartu Dress code satu bagian dan foto yang sedang diunggah untuknya. */
@@ -1475,7 +1530,7 @@ export default function RundownAdminPage() {
       <Switch
         checked={selectedItem.is_published}
         onChange={(checked) => updateItem(selectedItem.id, { is_published: checked })}
-        label="Show on public page"
+        label="Published"
         description="Off hides this row everywhere, participant pages and its dress code line included."
       />
       {syaratInfo ? (
@@ -1606,12 +1661,33 @@ export default function RundownAdminPage() {
             ? "The public page highlights the current item, marks the next one, dims finished items and scrolls to the current item automatically. The date above must be correct."
             : "The schedule shows as a plain list, with no highlight and no automatic scrolling. Use this until the event date arrives."}
         />
+      </Kelompok>
+      <Kelompok title="Visibility">
+        {/* is_published menyembunyikan bagian di mana pun, portal peserta juga:
+            namanya dulu "Show on public page" dan tertukar dengan sakelar di bawahnya. */}
         <Switch
           checked={active.is_published}
           onChange={(checked) => updateSection(active.id, { is_published: checked })}
-          label="Show on public page"
-          description={`/rundown?sesi=${active.slug}`}
+          label="Published"
+          description="Participants see this section in their portal. Off hides it everywhere."
         />
+        {publikAda ? (
+          <Switch
+            checked={publikAktif(active.id)}
+            onChange={(checked) => setPublikDrafts((current) => ({ ...current, [active.id]: checked }))}
+            label="Show before sign-in"
+            description={publikAktif(active.id)
+              ? `Visitors who have not signed in see this day on the event page and at /rundown?sesi=${active.slug}.`
+              : "Only participants who have signed in see this day. The event page and /rundown leave it out."}
+          />
+        ) : null}
+        {publikAda && active.is_published && publikAktif(active.id) && hanyaBersyarat ? (
+          // Baris bersyarat (Who sees it) tidak pernah tampil sebelum masuk, jadi
+          // hari ini tetap hilang dari halaman acara meski sakelarnya menyala.
+          <Banner tone="warning" icon={<Warning size={18} />}>
+            Every item here has a Who sees it rule, so this day still won&apos;t show before sign-in. Add one item for Everyone, for example a summary of the day.
+          </Banner>
+        ) : null}
       </Kelompok>
       {sasaranInfo?.horizon ? <KelompokSasaran info={sasaranInfo} value={sasaranAktif} onChange={setSasaranAktif} /> : null}
       <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
@@ -1852,8 +1928,8 @@ export default function RundownAdminPage() {
           <>
             <span>
               {publishedCount === 0
-                ? "No sections are public yet, so the public page still shows a holding message"
-                : `${publishedCount} of ${plural(sections.length, "section")} public`}
+                ? "No sections are published yet, so the public page still shows a holding message"
+                : `${publishedCount} of ${plural(sections.length, "section")} published`}
             </span>
             <MetaSeparator />
             <span>The current-item highlight uses the section date and item times</span>

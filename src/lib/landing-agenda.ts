@@ -81,18 +81,32 @@ function hariPendek(tanggal: string | null, bahasa: "id" | "en"): string | null 
  */
 const MAX_ITEMS = 40;
 
+/** Kolom yang belum ada karena migrasinya belum dijalankan (42703 / PGRST204). */
+function kolomBelumAda(error: { code?: string } | null | undefined): boolean {
+  return error?.code === "42703" || error?.code === "PGRST204";
+}
+
 export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "id", penonton?: PenontonAgenda): Promise<AgendaPreview[]> {
   const client = getSupabaseServiceClient();
 
-  const { data: sections } = await client
-    .from("rundown_sections")
-    .select("id,name,title,event_date,sort_order")
-    .eq("event_id", eventId)
-    .eq("is_published", true)
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
+  const bacaSeksi = (kolom: string) =>
+    client
+      .from("rundown_sections")
+      .select(kolom)
+      .eq("event_id", eventId)
+      .eq("is_published", true)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
+  const KOLOM_SEKSI = "id,name,title,event_date,sort_order";
+  const seksiPertama = await bacaSeksi(`${KOLOM_SEKSI},show_before_sign_in`);
+  // Sebelum migrasi 202610260001 kolom `show_before_sign_in` belum ada: semua
+  // bagian masih tampil sebelum masuk, jadi dibaca ulang tanpa kolom itu.
+  const sections = kolomBelumAda(seksiPertama.error) ? (await bacaSeksi(KOLOM_SEKSI)).data : seksiPertama.data;
 
-  const daftarSeksi = (sections ?? []) as unknown as Array<{ id: number; name: string | null; title: string | null; event_date: string | null }>;
+  // Tanpa penonton = pengunjung yang belum masuk (halaman acara): hari yang
+  // Show before sign-in-nya dimatikan hanya untuk portal peserta.
+  const daftarSeksi = ((sections ?? []) as unknown as Array<{ id: number; name: string | null; title: string | null; event_date: string | null; show_before_sign_in?: boolean | null }>)
+    .filter((section) => penonton || section.show_before_sign_in !== false);
   if (daftarSeksi.length === 0) return [];
 
   const bacaBaris = (kolom: string) =>
@@ -110,8 +124,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
   const pertama = await bacaBaris(`${KOLOM},audience`);
   // Sebelum migrasi 202610210001 kolom `audience` belum ada (42703): belum ada
   // baris bersyarat, jadi dibaca ulang tanpa kolom itu.
-  const belumAda = pertama.error?.code === "42703" || pertama.error?.code === "PGRST204";
-  const items = belumAda ? (await bacaBaris(KOLOM)).data : pertama.data;
+  const items = kolomBelumAda(pertama.error) ? (await bacaBaris(KOLOM)).data : pertama.data;
 
   const daftarItem = (items ?? []) as unknown as Array<{
     id: number;
