@@ -495,8 +495,8 @@ export default function AreaPesertaPage() {
                     <Switch
                       checked={anggota.show_logistics === true}
                       onChange={(value) => set({ show_logistics: value })}
-                      label="Room and bus"
-                      description="From Logistics: room, roommate, bus, train tickets and kit items. Turn this on once allocations are final."
+                      label="Room and vehicle"
+                      description="From Logistics: room, roommate, vehicle, train tickets and kit items. Turn this on once allocations are final."
                     />
                     {data.layout !== "gathering" ? (
                       <>

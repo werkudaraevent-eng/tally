@@ -153,7 +153,7 @@ function PilihPeserta({ peserta, onPilih }: { peserta: PesertaPratinjau | null; 
       </button>
       <Popover anchor={anchor} label="Preview as" role="dialog" id={id} align="start" width={320}>
         <div className="flex flex-col gap-1 p-1">
-          <p className="px-2 pt-1 text-body-small text-on-surface-variant">Preview as. Bus, room and roommates differ per participant.</p>
+          <p className="px-2 pt-1 text-body-small text-on-surface-variant">Preview as. Vehicle, room and roommates differ per participant.</p>
           <label className="flex h-9 items-center gap-2 rounded-md border border-outline px-2 focus-within:border-primary">
             <MagnifyingGlass size={16} aria-hidden className="shrink-0 text-on-surface-variant" />
             <input

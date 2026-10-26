@@ -97,7 +97,7 @@ export function kolomLogistik(bentuk: BentukLogistik): KolomLogistik[] {
       { key: `stay:out:${i + 1}`, label: `Hotel check-out${n}`, nilai: (r, offset, b) => tanggal(stay(r)?.check_out_at ?? null, offset, b) },
     );
   }
-  kolom.push({ key: "bus", label: "Bus", nilai: (r) => r?.bus ?? "" });
+  kolom.push({ key: "bus", label: "Vehicle", nilai: (r) => r?.bus ?? "" });
   if (bentuk.kereta) {
     for (const arah of ["outbound", "return"] as const) {
       for (const [isian, label] of ISIAN_TIKET) {

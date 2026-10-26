@@ -1353,7 +1353,7 @@ export default function RundownAdminPage() {
                           {item.is_break ? <StatusChip>Break</StatusChip> : null}
                           {item.is_published ? null : <StatusChip tone="warning">Hidden</StatusChip>}
                           {item.bus_trips?.length ? (
-                            <StatusChip title={item.bus_trips.length === 1 ? "Bus trip linked in Logistics" : `${item.bus_trips.length} bus trips linked in Logistics`}>Bus</StatusChip>
+                            <StatusChip title={item.bus_trips.length === 1 ? "Vehicle trip linked in Logistics" : `${item.bus_trips.length} vehicle trips linked in Logistics`}>Vehicle</StatusChip>
                           ) : null}
                         </span>
                         {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
@@ -2117,7 +2117,7 @@ function CatatanBus({ item, trips, jamTersimpan, tanggalTersimpan, zone }: {
         ) : (
           // Dua trip atau lebih (berangkat dan pulang): tiap nama membuka tripnya.
           <p>
-            {plural(trips.length, "bus trip")} move with this item:{" "}
+            {plural(trips.length, "vehicle trip")} move with this item:{" "}
             {trips.map((trip, urutan) => {
               const isi = waktu(trip);
               return (

@@ -111,7 +111,7 @@ export const navigation: NavGroup[] = [
       // pendaftar masuk, dan pemberitahuannya dikirim lewat Pesan peserta.
       // Selalu tampil: hotel, bus, dan barang diisi di halaman ini sendiri,
       // jadi menu yang menunggu data pertama tidak akan pernah muncul.
-      { href: "/admin/logistik", label: "Logistics", icon: SuitcaseRolling, description: "Hotel rooms, buses for each agenda item, and kit items handed out to participants.", alias: ["logistik", "hotel", "kamar", "bus"] },
+      { href: "/admin/logistik", label: "Logistics", icon: SuitcaseRolling, description: "Hotel rooms, vehicles for each agenda item, and kit items handed out to participants.", alias: ["logistik", "hotel", "kamar", "bus"] },
       // Satu baris untuk dua tab: Kiriman (email ke kotak masuk peserta) dan
       // Pengumuman (lonceng dan Dashboard saya). Alamatnya tetap
       // /admin/pengumuman supaya Terakhir dibuka dan Ctrl K lama tetap sampai.

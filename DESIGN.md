@@ -565,6 +565,16 @@ penyaring padat. Mobile melipat penyaring ke dalam laci. Sediakan keadaan kosong
 memuat, dan galat; jaga keterbacaan tabel tanpa menaruh setiap baris di dalam
 kartunya sendiri.
 
+**Dialog penempatan Logistik: satu dialog, tujuan utama dulu, pengecualian di
+bawahnya** (disetujui Mas 26 Okt). Assign to hotel (hotel, lalu "Add another
+hotel" untuk yang pindah) dan Assign to vehicle (kendaraan bawaan, lalu "Add a
+trip" untuk perjalanan yang naik kendaraan lain atau tanpa kendaraan) bekerja
+sama: daftar di dialog mengganti yang dimiliki orang terpilih, yang sama untuk
+semua orang sudah terisi, dan kalimat di bawah menyebut apa yang akan dilepas
+sebelum Assign. Panitia tidak perlu pindah tab untuk pengecualian. Nama benda
+memakai istilah umum ("Vehicles", bukan "Buses"), dan jenisnya ditulis di nama
+yang diketik panitia ("Hiace 2"), bukan kolom Jenis terpisah.
+
 ### Layar sapa
 
 TV atau proyektor di dekat pintu masuk, **melintang atau berdiri** — orientasinya
@@ -667,11 +677,11 @@ yang sama dipakai preset lain.
 
   | Peran | Ukuran / tinggi baris | Bobot | Contoh |
   | --- | --- | --- | --- |
-  | Judul isi | 18/24 | 700 | Nama hotel, nama bus, rute kereta, jam bus |
-  | Kepala, nilai kunci | 16/24 | 600 | "Bus", "Kamar 1208 · Lantai 12", nama agenda |
+  | Judul isi | 18/24 | 700 | Nama hotel, nama kendaraan, rute kereta, jam berangkat |
+  | Kepala, nilai kunci | 16/24 | 600 | "Kendaraan", "Kamar 1208 · Lantai 12", nama agenda |
   | Keterangan | 14/20 | 400 | Alamat, check-in, titik kumpul |
   | Tautan | 14/20 | 600 | "Buka peta", "Simpan ke kalender" |
-  | Alis | 12/16 | 600 | "Berangkat · Kam, 5 Nov", tanggal di daftar bus |
+  | Alis | 12/16 | 600 | "Berangkat · Kam, 5 Nov", tanggal di daftar perjalanan |
 
   18/24 sengaja di antara `title-medium` dan `title-large`: 22 px terlalu keras
   di layar 390 bila ada tiga kartu berderet. Dua pengecualian yang disengaja:

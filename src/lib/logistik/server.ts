@@ -35,7 +35,7 @@ const PESAN_RPC: Record<string, string> = {
     "This participant has no gender answer yet. Fill it in on the Participant list, then assign them again.",
   ROOM_GENDER_MISMATCH: "This participant's gender differs from the occupants of this room.",
   TRIP_NOT_FOUND: "This trip no longer exists. Reload the page.",
-  VEHICLE_NOT_FOUND: "This bus no longer exists. Reload the page.",
+  VEHICLE_NOT_FOUND: "This vehicle no longer exists. Reload the page.",
   SESSION_NOT_FOUND: "Sesi tidak ditemukan di acara ini.",
   SESSION_CLOSED: "Sesi ini sudah ditutup. Pilih sesi lain.",
   ITEM_NOT_IN_SESSION: "Barang ini tidak diperiksa di sesi ini. Muat ulang layar pemindai.",
@@ -57,7 +57,7 @@ export function pesanRpc(error: { message?: string; details?: string | null }): 
   const pesan = String(error.message ?? "");
   if (pesan.includes("VEHICLE_FULL")) {
     // error.details dari SQL berbahasa Indonesia; tidak ditempel ke kalimat English.
-    return "Bus over capacity. Choose another bus or raise its capacity.";
+    return "Vehicle over capacity. Choose another vehicle or raise its capacity.";
   }
   const kode = Object.keys(PESAN_RPC).find((nama) => pesan.includes(nama));
   return kode ? PESAN_RPC[kode] : null;

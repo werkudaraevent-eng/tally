@@ -64,7 +64,7 @@ function geser(order: string[], dari: number, ke: number) {
 }
 
 /** Keterangan tempat tetap Horizon (lib/member/susunan-horizon.ts). */
-const TEMPAT_TETAP: Record<string, string> = { next: "Fixed at the top", roommates: "Stays with Bus and room", help: "Fixed at the bottom" };
+const TEMPAT_TETAP: Record<string, string> = { next: "Fixed at the top", roommates: "Stays with Vehicle and room", help: "Fixed at the bottom" };
 
 export function SusunanBeranda({
   layout,
@@ -126,7 +126,7 @@ export function SusunanBeranda({
   const logistikMati = member.show_logistics !== true;
   const alasanMati = (id: string): string | null => {
     if (id === "agenda" && member.show_schedule === false) return "Agenda is off below";
-    if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Room and bus is off below";
+    if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Room and vehicle is off below";
     if (id === "roommates" && member.show_roommates === false) return "Roommates are off in Logistics";
     if (id === "checkpoints" && !checkpointsOn) return "Off in Check-in";
     if (id === "outfit" && outfitAda === false) return "No dress code yet in Agenda or Every day";
@@ -323,8 +323,8 @@ export function SusunanBeranda({
         {diHorizon
           ? "Drag a row here, or a card in the Phone preview. Next up stays at the top, where only Announcements can go above it, and the Help card stays at the bottom. Phones show this order; from 1024 px wide, Announcements and Today's dress code move to the side column. "
           : gathering
-          ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Bus and room, Roommates and Quick links stay in the side column, in that order. "
-          : "Drag to reorder. The ticket, Room, bus and items and Quick links stay in the side column, in this order, which phones show first. "}
+          ? "Drag to reorder. Phones show this order from top to bottom; on wide screens Vehicle and room, Roommates and Quick links stay in the side column, in that order. "
+          : "Drag to reorder. The ticket, Room, vehicle and items and Quick links stay in the side column, in this order, which phones show first. "}
         Automatic rows fill themselves from your event data: edit them where their link points.
       </p>
       <div className="flex flex-col items-start gap-1.5">

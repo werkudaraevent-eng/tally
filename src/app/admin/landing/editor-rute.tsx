@@ -420,7 +420,7 @@ function DiHalamanPeserta({ block, ubah, hotels, hotelGagal }: { block: LandingB
     ? "Couldn\u2019t load hotels from Logistics, so this hotel group can\u2019t be shown here. It still applies on the participant page. Reload to try again."
     : hilang
     ? "Nowhere for now: the chosen field or answer no longer exists. Choose again or pick Everyone."
-    : `${pindah ? "In Travel, as a row under the hotel, bus and train cards" : "On Home"}, for ${siapa}.${horizon && lokasi.length ? ` ${lokasi.length === 1 ? "The linked agenda row shows" : "The linked agenda rows show"} \u201cCara ke sana\u201d in the schedule.` : ""}${pindah && sasaran?.field !== KOLOM_HOTEL ? " Participants without a hotel, bus or train see it on Home." : ""}`);
+    : `${pindah ? "In Travel, as a row under the hotel, vehicle and train cards" : "On Home"}, for ${siapa}.${horizon && lokasi.length ? ` ${lokasi.length === 1 ? "The linked agenda row shows" : "The linked agenda rows show"} \u201cCara ke sana\u201d in the schedule.` : ""}${pindah && sasaran?.field !== KOLOM_HOTEL ? " Participants without a hotel, vehicle or train see it on Home." : ""}`);
   if ((block.show_on ?? "public") === "public") return null;
   return (
     <section aria-labelledby={`${block.id}-peserta`} className="flex flex-col gap-4 rounded-lg border border-outline-variant p-3">

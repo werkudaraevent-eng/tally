@@ -56,7 +56,7 @@ export function KartuBerikutnya({ agenda, zona, now, className = "" }: { agenda:
       </h2>
       {agenda.differs_from_default ? (
         <p className="mt-3">
-          <span className={LENCANA_BEDA}>Bus berbeda dari biasanya</span>
+          <span className={LENCANA_BEDA}>Kendaraan berbeda dari biasanya</span>
         </p>
       ) : null}
     </section>
@@ -157,14 +157,14 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
     <section aria-labelledby="bus-judul" className={KARTU}>
       <p className={`${LABEL_BAGIAN} ${MUTED} inline-flex items-center gap-1.5`}>
         <Bus size={16} aria-hidden />
-        Bus
+        Kendaraan
       </p>
       <h2 id="bus-judul" className={JUDUL_KARTU}>
-        {bus?.default_bus ?? (bus ? "Lihat per agenda" : "Bus sedang disiapkan")}
+        {bus?.default_bus ?? (bus ? "Lihat per agenda" : "Kendaraan sedang disiapkan")}
       </h2>
       {bus ? (
         <>
-          {bus.default_bus ? <p className={`mt-1 text-body-medium ${MUTED}`}>Bus selama acara, kecuali tertulis lain di bawah.</p> : null}
+          {bus.default_bus ? <p className={`mt-1 text-body-medium ${MUTED}`}>Kendaraan selama acara, kecuali tertulis lain di bawah.</p> : null}
           {bus.trips.length > 0 ? (
             <ul className="mt-4 border-t border-[var(--reg-outline-variant)]">
               {bus.trips.map((trip) => (
@@ -180,7 +180,7 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
                       trip.differs_from_default && trip.bus ? "bg-[#fff4dc] text-[#7a4f00]" : "bg-[var(--reg-surface)]"
                     }`}
                   >
-                    {trip.bus ?? "Tanpa bus"}
+                    {trip.bus ?? "Tanpa kendaraan"}
                   </span>
                 </li>
               ))}
@@ -189,7 +189,7 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
           {logistik.buses.length > 0 ? <DetailBus buses={logistik.buses} /> : null}
         </>
       ) : (
-        <Disiapkan>Nomor bus dan titik kumpul muncul di sini begitu panitia selesai mengaturnya.</Disiapkan>
+        <Disiapkan>Kendaraan dan titik kumpul muncul di sini begitu panitia selesai mengaturnya.</Disiapkan>
       )}
     </section>
   );

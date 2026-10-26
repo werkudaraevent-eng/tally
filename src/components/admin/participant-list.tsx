@@ -126,7 +126,7 @@ function RincianLogistik({ logistik, bentuk, offset }: { logistik: LogistikRingk
           </KeyValue>
         );
       }) : <KeyValue label="Hotel">{kosong("No hotel yet")}</KeyValue>}
-      <KeyValue label="Default bus">{logistik?.bus ?? kosong("No bus yet")}</KeyValue>
+      <KeyValue label="Default vehicle">{logistik?.bus ?? kosong("No vehicle yet")}</KeyValue>
       {keluar ? <KeyValue label="Outbound train">{keluar}</KeyValue> : null}
       {pulang ? <KeyValue label="Return train">{pulang}</KeyValue> : null}
       {bentuk.kit.length ? (
@@ -301,9 +301,9 @@ function MenuLogistik({ onPick }: { onPick: (jenis: "kamar" | "bus" | "lepas-kam
   const menu = usePopoverAnchor(pemicu);
   const PILIHAN = [
     ["kamar", "Assign to hotel or room", Bed],
-    ["bus", "Assign to bus", IkonBus],
+    ["bus", "Assign to vehicle", IkonBus],
     ["lepas-kamar", "Remove from hotel", null],
-    ["lepas-bus", "Remove from bus", null],
+    ["lepas-bus", "Remove from vehicle", null],
   ] as const;
   return (
     <>
@@ -1545,7 +1545,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               action={
                 <span className="flex gap-1">
                   <Button simpan variant="text" size="sm" onClick={() => setAksiLog({ jenis: "stays", ids: [p.id] })}>Edit stays</Button>
-                  <Button simpan variant="text" size="sm" onClick={() => setAksiLog({ jenis: "bus", ids: [p.id] })}>Change bus</Button>
+                  <Button simpan variant="text" size="sm" onClick={() => setAksiLog({ jenis: "bus", ids: [p.id] })}>Change vehicle</Button>
                 </span>
               }
             >
