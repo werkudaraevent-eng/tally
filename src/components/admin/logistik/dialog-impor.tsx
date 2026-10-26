@@ -24,12 +24,12 @@ import { plural } from "@/lib/plural";
 type Hasil = { masuk: number; dibuat: string[]; gagal: Array<{ nama: string; alasan: string }> };
 
 const URAIAN: Record<JenisImpor, string> = {
-  kamar: "One row per person: Hotel, Room, then QR code or Name. Leave Room empty to place someone in the hotel now and add the room number later. Leave Check-in and Check-out empty to use the hotel's dates. Someone who moves hotels gets one row per hotel, each with Check-in and Check-out. A person with dates in the file keeps only the hotels in the file, so a dated list from one hotel removes their stay at the other. Hotels and rooms that do not exist yet are created; fill in Type and Capacity for new rooms.",
+  kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
   bus: "One row per person: Bus, then QR code or Name. Buses that do not exist yet are created with no capacity limit.",
   kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
 };
 
-const JUDUL: Record<JenisImpor, string> = { kamar: "Import rooms from Excel", bus: "Import buses from Excel", kereta: "Import train tickets from Excel" };
+const JUDUL: Record<JenisImpor, string> = { kamar: "Import hotel stays from Excel", bus: "Import buses from Excel", kereta: "Import train tickets from Excel" };
 
 const STATUS: Record<StatusBaris, { label: string; tone: "success" | "warning" | "neutral" | "error" }> = {
   masuk: { label: "Added", tone: "success" },
@@ -184,10 +184,11 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             label="File contents"
             value={jenis}
             onChange={(nilai) => { setJenis(nilai); if (berkas) void baca(berkas, nilai); }}
-            options={[{ value: "kamar", label: "Hotel rooms" }, { value: "bus", label: "Buses" }, { value: "kereta", label: "Train tickets" }]}
+            options={[{ value: "kamar", label: "Hotel stays" }, { value: "bus", label: "Buses" }, { value: "kereta", label: "Train tickets" }]}
             className="self-start"
           />
 
+          {jenis === "kamar" && !rencana ? <ContohStay /> : null}
           <div className="flex flex-wrap items-center gap-2">
             <label className={cx(
               "inline-flex h-9 min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-outline px-3 text-body-medium hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
@@ -230,7 +231,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
           </div>
           {jenis === "kamar" ? (
             <p className="-mt-2 text-body-small text-on-surface-variant">
-              To change many people at once, download the current stays, edit them in Excel, then choose the file here. Each person in the file is updated to match their rows. People not in the file stay as they are, so deleting a row does not remove anyone.
+              To change many people at once: Download current stays, edit it in Excel, then choose the file here. You see every change before anything is saved.
             </p>
           ) : null}
 
@@ -275,6 +276,42 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   );
 }
 
+/** Contoh berkas satu baris per orang, sama dengan templat. Nilai kosong ditampilkan "–". */
+const CONTOH_STAY = {
+  judul: ["QR code", "Name", "Hotel 1", "Room 1", "Check-in 1", "Check-out 1", "Hotel 2", "Room 2", "Check-in 2", "Check-out 2"],
+  baris: [
+    ["", "Rina Hapsari", "Sample Hotel", "1210", "05/11/2026", "06/11/2026", "Second Hotel", "", "06/11/2026", "08/11/2026"],
+    ["", "Dewi Lestari", "Sample Hotel", "", "", "", "", "", "", ""],
+  ],
+};
+
+function ContohStay() {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+        <table className="w-full border-collapse text-left text-body-medium">
+          <caption className="sr-only">Example file</caption>
+          <thead className="text-on-surface-variant">
+            <tr className="h-9 border-b border-outline-variant">
+              {CONTOH_STAY.judul.map((j) => <th key={j} scope="col" className="whitespace-nowrap px-3 font-normal">{j}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {CONTOH_STAY.baris.map((baris) => (
+              <tr key={baris[1]} className="h-9 border-b border-outline-variant last:border-b-0">
+                {baris.map((isi, i) => <td key={i} className={cx("whitespace-nowrap px-3", isi ? "text-on-surface" : "text-on-surface-variant")}>{isi || "–"}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-body-small text-on-surface-variant">
+        Each person in the file gets exactly the hotels in their row. People who are not in the file are not changed, so you can import one batch at a time.
+      </p>
+    </div>
+  );
+}
+
 function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImpor }) {
   return (
     <div className="max-h-[44dvh] overflow-auto rounded-md border border-outline-variant bg-surface-container-lowest">
@@ -288,8 +325,9 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
           </tr>
         </thead>
         <tbody>
-          {baris.slice(0, BATAS_TAMPIL).map((b) => (
-            <tr key={b.baris} className="border-b border-outline-variant align-top last:border-b-0">
+          {/* Satu baris Excel bisa menjadi dua (Hotel 1 dan Hotel 2), jadi kuncinya urutan, bukan nomor baris. */}
+          {baris.slice(0, BATAS_TAMPIL).map((b, i) => (
+            <tr key={`${b.baris}-${i}`} className="border-b border-outline-variant align-top last:border-b-0">
               <td className="hidden px-4 py-2 tabular-nums text-on-surface-variant sm:table-cell">{b.baris}</td>
               <td className="px-4 py-2 text-on-surface sm:whitespace-nowrap">
                 {b.nama || <span className="text-on-surface-variant">{b.kode}</span>}

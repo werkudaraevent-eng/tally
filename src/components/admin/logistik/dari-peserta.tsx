@@ -11,7 +11,7 @@ import { plural } from "@/lib/plural";
 import type { Kirim } from "./bersama";
 import { DialogImpor } from "./dialog-impor";
 import { DialogStays, hitungPenghuni } from "./stay";
-import { DialogBus, DialogKamar, DialogLepasBus, DialogLepasKamar } from "./tab-penempatan";
+import { DialogBus, DialogKamar, DialogLepasBus, DialogLepasKamar, simpanPenempatan } from "./tab-penempatan";
 import { useLogistik } from "./use-logistik";
 
 /**
@@ -123,12 +123,7 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
         keTabKamar={() => keLogistik("kamar")}
         stayPeserta={stayPeserta}
         offset={offset}
-        simpan={async (tujuan, malam) => {
-          const hasil = await kirimCatat("/api/admin/logistik/penghuni", "POST", tujuan.jenis === "kamar"
-            ? { room_id: tujuan.kamar.id, participant_ids: orang.map((o) => o.id), ...(malam ?? {}) }
-            : { hotel_id: tujuan.hotel.id, participant_ids: orang.map((o) => o.id), ...(malam ?? {}) });
-          return hasil !== null;
-        }}
+        simpan={async (daftar, lepasHotel) => (await simpanPenempatan(kirimCatat, orang.map((o) => o.id), daftar, lepasHotel)) !== null}
       />
       <DialogBus
         open={aksi.jenis === "bus"}

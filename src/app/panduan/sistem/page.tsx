@@ -148,7 +148,7 @@ const BAGIAN: Bagian[] = [
         langkah: [
           "Logistics → Assignments. Use the Stay filter → No hotel to see who still needs one.",
           "Tick the people, then press Assign to hotel.",
-          "Under the hotel, choose Hotel only, room later. Leave Nights on All nights.",
+          "Choose the hotel and leave Room on Room later. Leave the dates as they are: they are the hotel's dates.",
           "Press Assign. The Stay column shows the hotel with “Room to follow”.",
         ],
         poin: [
@@ -166,8 +166,8 @@ const BAGIAN: Bagian[] = [
       {
         judul: "Add room numbers when the hotel sends the rooming list",
         langkah: [
-          "Logistics → Import from Excel → Hotel rooms → Download template.",
-          "One row per person: Hotel, Room, then QR code (best) or Name. Rooms that don't exist yet are created; fill in Type and Capacity for them.",
+          "Logistics → Import from Excel → Hotel stays → Download template.",
+          "One row per person: QR code (best) or Name, then Hotel 1, Room 1, Check-in 1, Check-out 1. These are the same columns as the participant export. Rooms that don't exist yet are created.",
           "Choose the file. The preview lists every change before anything is saved; press Save.",
         ],
         poin: [
@@ -176,7 +176,7 @@ const BAGIAN: Bagian[] = [
         ],
         gambar: g(
           "logistik-impor.jpg",
-          "Import rooms from Excel dialog with Download template and Download current stays",
+          "Import hotel stays from Excel dialog with Download template and Download current stays",
           "Import from Excel: the help text says what each column does.",
           1000,
           607,
@@ -185,15 +185,15 @@ const BAGIAN: Bagian[] = [
       {
         judul: "Someone changes hotel during the event",
         langkah: [
-          "Tick the people who move, then Assign to hotel and choose the second hotel (Hotel only is fine).",
-          "Under Nights choose Only some nights and enter their Check-in and Check-out at the second hotel.",
-          "Read the sentence under the dates: it says what happens to their other hotel. Press Assign.",
+          "Tick the people who move, then Assign to hotel. Choose the first hotel and its Check-in and Check-out.",
+          "Press Add another hotel, choose the second hotel and enter its dates. It starts on the day they leave the first hotel.",
+          "Read the sentences under the hotels: they say which other hotels are removed and who keeps a room. Press Assign.",
           "The Stay column now shows both, for example “1208 · Hotel Melati 5–6 Nov → Hotel Kenanga (Room to follow) 6–8 Nov”.",
         ],
         poin: [
           "Click a person's Stay cell to open their Stays: Choose room or Change room, Change nights, Remove, and Add another hotel.",
-          "All nights replaces every other hotel the person has. Use it only for people who stay in one hotel.",
-          "Many people at once: Import from Excel → Download current stays, edit the file (one row per hotel, with Check-in and Check-out), and import it back. People in the file are set to match it; people not in the file are unchanged.",
+          "The hotels you choose replace every other hotel these people have. People who already have a room at one of the chosen hotels keep it.",
+          "Many people at once: Import from Excel → Download current stays, fill Hotel 2 with its Check-in and Check-out (and the dates of Hotel 1), and import it back. Each person in the file gets exactly the hotels in their row; people not in the file are unchanged.",
           "A dated rooming list from one hotel removes those people's stay at the other hotel. The preview warns about it.",
           "Participants see one hotel card per stay; later ones read “Pindah hotel · Jum, 6 Nov”. Agenda rows limited by hotel follow the row's date, so on the move day both hotels see them.",
         ],
