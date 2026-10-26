@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type { RegistrationField, RegistrationFormConfig } from "./domain.ts";
 import {
   asalJawaban, ditanyakan, hanyaDiLuarFormulir, kelompokJawaban, kolomBaruDiLuarFormulir, kolomDariTautan, kunciBaru, kunciDariLabel,
-  kunciIkutLabel, kunciPensiun, kunciTerpakai, pertanyaanFormulir, rapikanPertanyaan, tambahPertanyaan, tautanDaftarPeserta, wajibDiisi,
+  kunciIkutLabel, kunciPensiun, kunciTerpakai, pertanyaanFormulir, pertahankanLabelAgenda, rapikanPertanyaan, tambahPertanyaan, tautanDaftarPeserta, wajibDiisi,
 } from "./kolom-staf.ts";
 
 const kaos: RegistrationField = { key: "ukuran_kaos", label: "Ukuran kaos", type: "select", required: true, options: ["S", "M"] };
@@ -143,9 +143,18 @@ assert.equal(tautanDaftarPeserta([]), "/admin/participants");
 assert.deepEqual(kolomDariTautan("batch, kota,batch,hilang", [kaos, batch, kota]), ["field:batch", "field:kota"]);
 assert.deepEqual(kolomDariTautan(null, [batch]), []);
 
-console.log("kolom-staf.check: ok");
 
 // "Show answers in the public agenda" hanya tersimpan di dropdown/radio yang menyalakannya.
 assert.equal(rapikanPertanyaan({ ...batch, agenda_label: true }).agenda_label, true);
 assert.equal("agenda_label" in rapikanPertanyaan({ ...batch, agenda_label: false }), false);
 assert.equal("agenda_label" in rapikanPertanyaan({ ...kota, agenda_label: true }), false);
+
+// agenda_label milik Agenda: Registration mengambilnya dari yang tersimpan.
+{
+  const tersimpan = { fields: [{ ...batch, agenda_label: true }] };
+  assert.equal(pertahankanLabelAgenda(batch, tersimpan).agenda_label, true);
+  assert.equal("agenda_label" in pertahankanLabelAgenda({ ...batch, agenda_label: true }, { fields: [batch] }), false);
+  assert.equal("agenda_label" in pertahankanLabelAgenda({ ...batch, type: "text" }, tersimpan), false);
+  assert.equal("agenda_label" in pertahankanLabelAgenda(batch, null), false);
+}
+console.log("kolom-staf.check: ok");

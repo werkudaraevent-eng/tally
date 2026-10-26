@@ -310,7 +310,7 @@ const BAGIAN: Bagian[] = [
       {
         judul: "Show a row or a route only to some people",
         poin: [
-          "Agenda → Edit item → Who sees it: Everyone, or Some participants with up to 3 conditions (a dropdown or choice field such as Batch, or Hotel). After sign-in, other participants and badges never get the row. Before sign-in, the event page shows every row of a day whose Show before sign-in is on, so switch that day off if a row must stay private. Rows per group show a small label such as “Batch 1” there when the question has Show answers in the public agenda on (Registration → Edit form).",
+          "Agenda → Edit item → Who sees it: Everyone, or Some participants with up to 3 conditions (a dropdown or choice field such as Batch, or Hotel). After sign-in, other participants and badges never get the row. Before sign-in, the event page shows every row of a day whose Show before sign-in is on, so switch that day off if a row must stay private. Turn on “Show Batch answers on the event page” (named after your question) under the conditions to label those rows “Batch 1” there and give visitors a Semua · Batch 1 · Batch 2 picker above the schedule.",
           "Event page → Directions block → Who sees it works the same way for routes (for example lobby to ballroom, only for one hotel's guests).",
           "Agenda → section → Show first for only sorts: a participant's own batch section comes first, nothing is hidden.",
           "Agenda → section → Show before sign-in: switch it off for a day that only signed-in participants should see (for example a departure day). The event page and /rundown then leave that day out; the portal still shows it.",
