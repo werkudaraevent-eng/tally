@@ -131,7 +131,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     ? [
         rencana.hotelBaru.length > 0 ? plural(rencana.hotelBaru.length, "hotel") : null,
         rencana.kamarBaru.length > 0 ? plural(rencana.kamarBaru.length, "room") : null,
-        rencana.busBaru.length > 0 ? plural(rencana.busBaru.length, "bus", "buses") : null,
+        rencana.busBaru.length > 0 ? plural(rencana.busBaru.length, "vehicle") : null,
       ].filter(Boolean)
     : [];
   const tampil = (rencana?.baris ?? []).filter((b) => !hanyaTolak || b.status === "tolak");

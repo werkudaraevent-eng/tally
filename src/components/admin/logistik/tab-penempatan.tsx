@@ -852,13 +852,15 @@ export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabB
     return { utama, trips };
   };
   const [utama, setUtama] = useState<number | null>(() => awal().utama);
+  // Kendaraan bawaan yang sudah dimiliki semua orang terpilih: tidak dikirim ulang bila tidak diganti.
+  const [utamaAwal, setUtamaAwal] = useState<number | null>(() => awal().utama);
   const [trips, setTrips] = useState<IsianTrip[]>(() => awal().trips);
   const [sebagian, setSebagian] = useState<LangkahKendaraan[]>([]);
   // Dialog tetap terpasang saat tertutup: isian disegarkan setiap dibuka.
   const [kunciBuka, setKunciBuka] = useState(open);
   if (open !== kunciBuka) {
     setKunciBuka(open);
-    if (open) { const a = awal(); setUtama(a.utama); setTrips(a.trips); setSebagian([]); }
+    if (open) { const a = awal(); setUtama(a.utama); setUtamaAwal(a.utama); setTrips(a.trips); setSebagian([]); }
   }
   function tutup() { setSebagian([]); onClose(); }
 
@@ -909,7 +911,8 @@ export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabB
   const tripLengkap = trips.every((t) => t.tripId && t.kendaraan && (t.kendaraan === "tanpa" || !alasanTrip(Number(t.tripId), Number(t.kendaraan))));
   const kembali = [...khusus.keys()].filter((id) => !dipilihTrip.has(id));
   const isiTrips = trips.filter((t) => t.tripId && t.kendaraan).map((t) => ({ tripId: Number(t.tripId), vehicleId: t.kendaraan === "tanpa" ? null : Number(t.kendaraan) }));
-  const adaUbahan = utama !== null || isiTrips.length > 0 || kembali.length > 0;
+  const utamaKirim = utama !== null && utama !== utamaAwal ? utama : null;
+  const adaUbahan = utamaKirim !== null || isiTrips.length > 0 || kembali.length > 0;
   const siap = adaUbahan && tripLengkap && !(pilihan?.alasan);
 
   const namaTrip = (id: number) => tripById.get(id)?.name || "a trip";
@@ -921,11 +924,18 @@ export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabB
   const tanpaUtama = utama === null ? orang.filter((o) => !busPeserta.has(o.id)).length : 0;
   const daftarSendiri = data.trips.filter((t) => !t.follows_default && !dipilihTrip.has(t.id));
 
+  const rencana: LangkahKendaraan[] = [
+    ...isiTrips.map((t): LangkahKendaraan => ({ jenis: "trip", tripId: t.tripId })),
+    ...(utamaKirim !== null ? [{ jenis: "utama" } as LangkahKendaraan] : []),
+    ...kembali.map((tripId): LangkahKendaraan => ({ jenis: "kembali", tripId })),
+  ];
+  const samaLangkah = (a: LangkahKendaraan, b: LangkahKendaraan) => a.jenis === b.jenis && (a.jenis === "utama" || (b.jenis !== "utama" && a.tripId === b.tripId));
+  const belumTersimpan = rencana.filter((l) => !sebagian.some((x) => samaLangkah(x, l)));
   const langkahNama = (l: LangkahKendaraan) => (l.jenis === "utama" ? "the default vehicle" : l.jenis === "trip" ? namaTrip(l.tripId) : `back to default on ${namaTrip(l.tripId)}`);
   async function tetapkan() {
     const selesai: LangkahKendaraan[] = [];
     setSebagian([]);
-    if (await simpan(utama, isiTrips, kembali, (l) => selesai.push(l))) tutup();
+    if (await simpan(utamaKirim, isiTrips, kembali, (l) => selesai.push(l))) tutup();
     else setSebagian(selesai);
   }
 
@@ -956,7 +966,7 @@ export function DialogBus({ open, orang, data, busPeserta, busy, onClose, keTabB
         <div className="flex flex-col gap-3">
           {sebagian.length > 0 ? (
             <Banner tone="warning" icon={<Warning size={18} />}>
-              {`Only part of this was saved: ${sebagian.map(langkahNama).join(", ")}. Press Assign again to finish. It is safe to repeat.`}
+              {`Only part of this was saved: ${sebagian.map(langkahNama).join(", ")}. Not saved yet: ${belumTersimpan.map(langkahNama).join(", ")}. Press Assign again to finish. It is safe to repeat.`}
             </Banner>
           ) : null}
           <div className="flex flex-col gap-2">

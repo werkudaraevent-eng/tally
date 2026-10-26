@@ -843,7 +843,7 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
       <div className="flex flex-col gap-4">
         {!logistik ? (
           <p className="rounded-sm bg-surface-container-low px-3 py-2 text-body-small text-on-surface-variant">
-            Participants don&apos;t see their bus yet, because Room and bus is off. Turn it on in{" "}
+            Participants don&apos;t see their vehicle yet, because Room and vehicle is off. Turn it on in{" "}
             <Link href="/admin/area-peserta" className="rounded-sm font-medium text-primary hover:underline">Participant area</Link>.
           </p>
         ) : null}

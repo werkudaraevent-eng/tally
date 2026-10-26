@@ -284,7 +284,7 @@ async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara
       .select("id,code");
     if (error) return { galat: error.code === "23505" ? "Someone else has just created a vehicle from this file. Reload the page, then import again." : "New vehicles could not be created." };
     for (const bus of (data ?? []) as Array<{ id: number; code: string }>) busId.set(kunci(bus.code), bus.id);
-    dibuat.push(plural(rencana.busBaru.length, "bus", "buses"));
+    dibuat.push(plural(rencana.busBaru.length, "vehicle"));
   }
 
   const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));
