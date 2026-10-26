@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Agenda "Show before sign-in" per section (hide a day from the event page and /rundown, portal unchanged) and "Published" rename: PR open with migration 202610260001; merges after Mas runs the SQL and its post-check is all true, then QA and his merge time (before 3 Nov).
+- Agenda "Show before sign-in" per section (hide a day from the event page and /rundown, portal unchanged) and "Published" rename: PR open; migration 202610260001 run by Mas 26 Oct (post-check all true); waiting on QA and his merge time (before 3 Nov).
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
