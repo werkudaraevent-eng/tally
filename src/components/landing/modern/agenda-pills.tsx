@@ -5,6 +5,7 @@ import type { LandingAgendaSpeakers, LandingSpeaker } from "@/lib/domain";
 import { TeksKaya } from "@/components/landing/teks-kaya";
 import { kelompokPeran, keteranganLengkap, keteranganPembicara, sisaKeterangan } from "@/lib/landing-agenda-pembicara";
 import type { AgendaPreview } from "@/lib/landing-agenda";
+import { hariBerkelompok, PilihKelompok, saringKelompok, usePilihanKelompok } from "@/components/landing/pilih-kelompok";
 import { barisJeda, pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -44,6 +45,10 @@ export function AgendaPills({
   const dasar = useId();
   const multi = agenda.length > 1;
   const blok = agenda[aktif] ?? agenda[0];
+  // Hari dengan baris per kelompok: "Semua · Batch 1 · …" di atas daftar (pilih-kelompok.tsx).
+  const berkelompok = Boolean(blok?.pilihan?.length) && hariBerkelompok(blok?.items ?? []);
+  const pilihanTamu = usePilihanKelompok(berkelompok ? blok?.pilihan : undefined);
+  const barisTampil = blok ? (berkelompok ? saringKelompok(blok.items, pilihanTamu) : blok.items) : [];
 
   function pindah(event: KeyboardEvent<HTMLDivElement>) {
     const maju = event.key === "ArrowRight" || event.key === "ArrowDown";
@@ -113,13 +118,19 @@ export function AgendaPills({
         </div>
       ) : null}
 
+      {berkelompok && blok?.pilihan ? (
+        <div className="mt-4 print:hidden">
+          <PilihKelompok pilihan={blok.pilihan} lang={lang} nada="terang" />
+        </div>
+      ) : null}
+
       <ol
         id={`${dasar}-panel`}
         role={multi ? "tabpanel" : undefined}
         aria-labelledby={multi ? `${dasar}-tab-${aktif}` : undefined}
         className="border-b border-[color-mix(in_srgb,var(--reg-outline-variant)_70%,transparent)]"
       >
-        {blok?.items.map((item, index) => {
+        {barisTampil.map((item, index) => {
           const orang = pembicaraSesi(speakers, item);
           // Jeda (registrasi, makan siang, penutupan) ditulis tenang supaya
           // sesi inti menonjol sendiri dan rundown terbaca sebagai alur acara.

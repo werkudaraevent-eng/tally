@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "./supabase/service";
 import { formatClock } from "./rundown";
+import type { KelompokBaris } from "./agenda-kelompok";
 import { barisPublikBersyarat } from "./agenda-publik-server";
 import { bacaSyaratBaris, barisUntukPeserta, type SyaratBaris } from "./sasaran-baris";
 import { muatDataSasaran } from "./sasaran-blok-server";
@@ -45,6 +46,8 @@ export type AgendaItem = {
    * dari labelAgendaPublik. Kosong untuk baris tanpa syarat dan untuk portal.
    */
   untuk?: string | null;
+  /** Halaman acara sebelum masuk saja: jawaban baris berlabel per kelompok (agenda-kelompok.ts). */
+  kelompok?: KelompokBaris[] | null;
 };
 
 export type AgendaPreview = {
@@ -56,6 +59,11 @@ export type AgendaPreview = {
   /** Tanggal bagian "YYYY-MM-DD" apa adanya, untuk label panjang (kartu hari gathering). */
   tanggal: string | null;
   items: AgendaItem[];
+  /**
+   * Halaman acara sebelum masuk saja: jawaban per kelompok yang bisa dipilih
+   * tamu ("Batch 1", "Batch 2"), sama di setiap bagian. Kosong = tanpa pilihan.
+   */
+  pilihan?: string[][];
 };
 
 /**
@@ -178,6 +186,8 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
   const publik = !penonton ? await barisPublikBersyarat(eventId, syarat) : null;
   for (const id of publik?.tersembunyi ?? []) tersembunyi.add(id);
   const label = publik?.label ?? new Map<number, string>();
+  const kelompok = publik?.kelompok ?? new Map<number, KelompokBaris[]>();
+  const pilihan = publik?.pilihan ?? [];
 
   return daftarSeksi
     .map((section) => ({
@@ -187,6 +197,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
       sectionTitle: section.name?.trim() || section.title?.trim() || null,
       hari: hariPendek(section.event_date, bahasa),
       tanggal: section.event_date && /^\d{4}-\d{2}-\d{2}$/.test(section.event_date) ? section.event_date : null,
+      ...(pilihan.length > 0 ? { pilihan } : {}),
       items: daftarItem
         .filter((item) => item.section_id === section.id && !tersembunyi.has(item.id))
         .slice(0, MAX_ITEMS)
@@ -202,6 +213,7 @@ export async function loadAgendaPreview(eventId: string, bahasa: "id" | "en" = "
           key: item.title ?? "",
           jeda: Boolean(item.is_break),
           untuk: label.get(item.id) ?? null,
+          kelompok: kelompok.get(item.id) ?? null,
         }))
         // Baris tanpa judul adalah pemisah visual di layar rundown. Di ringkasan
         // ia hanya menjadi baris kosong yang terbaca sebagai data yang hilang.

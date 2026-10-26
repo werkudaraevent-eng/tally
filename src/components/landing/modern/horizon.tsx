@@ -402,7 +402,7 @@ export function PerjalananHorizon({
                     </p>
                   ) : null}
                 </div>
-                <JamHariHorizon penting={tampil} semua={bagian.items} speakers={speakers} lang={lang} />
+                <JamHariHorizon penting={tampil} semua={bagian.items} speakers={speakers} lang={lang} pilihan={bagian.pilihan} />
               </Muncul>
             );
           })}

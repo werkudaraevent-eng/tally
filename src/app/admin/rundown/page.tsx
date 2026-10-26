@@ -984,6 +984,24 @@ export default function RundownAdminPage() {
     return JSON.stringify(syaratDrafts[itemId]) !== JSON.stringify(syaratSaved[itemId] ?? null);
   }
 
+  /** "Show <question> answers on the event page": satu tanda per pertanyaan, langsung disimpan. */
+  async function ubahLabel(field: string, on: boolean): Promise<boolean> {
+    const response = await fetch(eventApiPath("/api/admin/rundown/items/label"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ field, on }),
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok) {
+      gagalPanel("Event page setting not saved", response ? failureMessage(data, "Event page setting not saved.") : PUTUS);
+      return false;
+    }
+    setSyaratInfo((kini) => kini && { ...kini, fields: kini.fields.map((k) => (k.key === field ? { ...k, label_agenda: on } : k)) });
+    const nama = syaratInfo?.fields.find((k) => k.key === field)?.label ?? "These";
+    toast.success(on ? `${nama} answers now show on the event page` : `${nama} answers hidden from the event page`);
+    return true;
+  }
+
   async function saveSyarat(itemId: number): Promise<boolean> {
     const dikirim = syaratDrafts[itemId];
     const response = await fetch(eventApiPath("/api/admin/rundown/items/sasaran"), {
@@ -1541,6 +1559,7 @@ export default function RundownAdminPage() {
           tersimpan={syaratSaved[selectedItem.id] ?? null}
           tanggal={sections.find((row) => row.id === selectedItem.section_id)?.event_date ?? null}
           onChange={(next) => setSyaratDrafts((kini) => ({ ...kini, [selectedItem.id]: next }))}
+          onUbahLabel={ubahLabel}
         />
       ) : null}
     </div>
@@ -1574,6 +1593,7 @@ export default function RundownAdminPage() {
           tanggal={active.event_date ?? null}
           value={syaratBaru[active.id] ?? null}
           onChange={(next) => setSyaratBaru((kini) => ({ ...kini, [active.id]: next }))}
+          onUbahLabel={ubahLabel}
         />
       ) : null}
       <p className="text-body-medium text-on-surface-variant">Leave the end time empty to mark a single moment. Select an item in the schedule to edit it.</p>

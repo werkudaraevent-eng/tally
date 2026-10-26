@@ -8,7 +8,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { landingFormOnly } from "@/lib/landing-i18n";
 import { LANDING_HEADING_FONTS, type EventLandingConfig, type RegistrationField, type RegistrationFormConfig } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
-import { kunciPensiun, rapikanPertanyaan } from "@/lib/kolom-staf";
+import { kunciPensiun, pertahankanLabelAgenda, rapikanPertanyaan } from "@/lib/kolom-staf";
 import { rapikanPersetujuan } from "@/lib/live/kolom-klien";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
@@ -58,7 +58,7 @@ const fieldSchema = z.object({
   participant_update: z.boolean().optional(),
   // "Ask on the registration form". Kosong = ditanyakan (lib/kolom-staf.ts).
   on_form: z.boolean().optional(),
-  // "Show answers in the public agenda" (labelAgendaPublik di lib/sasaran-baris.ts).
+  // Diatur di Agenda; nilai kiriman diabaikan (pertahankanLabelAgenda).
   agenda_label: z.boolean().optional(),
 });
 
@@ -250,7 +250,10 @@ export async function PATCH(request: Request) {
   const fieldsBaru = formBaru ? (formBaru.fields as RegistrationField[]).map(rapikanPertanyaan) : [];
   const susunForm = (tersimpan: RegistrationFormConfig | null): RegistrationFormConfig | undefined => formBaru ? {
     ...formBaru,
-    fields: fieldsBaru,
+    // "Show … answers on the event page" diatur di Agenda (items/label), bukan
+    // di layar ini: nilainya diambil dari yang tersimpan, supaya tab Registration
+    // yang dibuka sebelum sakelar itu diubah tidak mengembalikannya.
+    fields: fieldsBaru.map((field) => pertahankanLabelAgenda(field, tersimpan)),
     // Tema DIPERTAHANKAN dari yang sudah tersimpan, bukan dikirim ulang dari
     // layar ini. Tanpa baris ini, menyimpan susunan field akan menghapus warna
     // formulir yang dipilih di CMS halaman acara — dan tidak ada apa pun di

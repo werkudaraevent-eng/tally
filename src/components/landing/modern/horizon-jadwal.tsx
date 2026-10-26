@@ -8,6 +8,8 @@ import { kelompokPeran, sisaKeterangan } from "@/lib/landing-agenda-pembicara";
 import { pembicaraSesi } from "@/lib/landing-speaker-tabs";
 import { TeksKaya } from "@/components/landing/teks-kaya";
 import { LabelUntuk } from "@/components/landing/label-untuk";
+import { hariBerkelompok, PilihKelompok, saringKelompok, usePilihanKelompok } from "@/components/landing/pilih-kelompok";
+import { jamPenting } from "./hari-gathering";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 
 /**
@@ -22,17 +24,26 @@ import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
  * catatan dalam kurungnya ("(online)") pindah ke sebelah nama pembicara.
  */
 export function JamHariHorizon({
-  penting,
-  semua,
+  penting: pentingAsli,
+  semua: semuaAsli,
   speakers,
   lang,
+  pilihan,
 }: {
   penting: AgendaItem[];
   semua: AgendaItem[];
   speakers: LandingSpeaker[];
   lang: LandingLang;
+  /** Jawaban kelompok halaman acara ("Batch 1", "Batch 2"): pilihan di atas daftar (pilih-kelompok.tsx). */
+  pilihan?: string[][];
 }) {
   const [buka, setBuka] = useState(false);
+  // Hari dengan baris per kelompok mendapat pilihan "Semua · Batch 1 · …";
+  // pilihan tamu menyaring daftar dan jam pentingnya dihitung ulang darinya.
+  const berkelompok = Boolean(pilihan?.length) && hariBerkelompok(semuaAsli);
+  const pilihanTamu = usePilihanKelompok(berkelompok ? pilihan : undefined);
+  const semua = berkelompok ? saringKelompok(semuaAsli, pilihanTamu) : semuaAsli;
+  const penting = berkelompok && semua !== semuaAsli ? jamPenting(semua).tampil : pentingAsli;
   const idDaftar = useId();
   const t = LANDING_UI[lang];
   const isi = buka ? semua : penting;
@@ -41,6 +52,11 @@ export function JamHariHorizon({
   const bisaBuka = semua.length > penting.length || semua.some((item) => Boolean(item.subtitle?.trim()) || pembicaraSesi(speakers, item).length > 0);
   return (
     <div className="flex flex-col md:w-[260px] md:shrink-0 lg:w-[360px] 2xl:w-[420px]">
+      {berkelompok && pilihan ? (
+        <div className="mb-2 print:hidden">
+          <PilihKelompok pilihan={pilihan} lang={lang} nada="gelap" />
+        </div>
+      ) : null}
       {isi.length > 0 ? (
         <ul id={idDaftar} className="flex flex-col text-[14px] leading-[2] text-[#CDD7EA] md:text-[15px] md:leading-[2.2] md:text-[#FAF8F2]">
           {isi.map((item) => {

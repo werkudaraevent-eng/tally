@@ -55,7 +55,6 @@ assert.equal(barisUntukPeserta(b2Gramm, pindah, "2026-11-05"), true);
 assert.equal(barisUntukPeserta(b2Gramm, pindah, "2026-11-07"), false);
 assert.equal(barisUntukPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["8"] }]), pindah, "2026-11-07"), true);
 
-console.log("sasaran-baris ok");
 
 // Label di halaman acara sebelum masuk: hanya kolom yang diizinkan, hanya jawaban.
 {
@@ -88,3 +87,4 @@ console.log("sasaran-baris ok");
   assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: KOLOM_HOTEL, values: ["7"] }]), kolomLabel, new Set()), true);
   assert.equal(syaratTanpaPeserta(bacaSyaratBaris([{ field: "vip", values: ["VIP"] }]), kolomLabel), false);
 }
+console.log("sasaran-baris ok");

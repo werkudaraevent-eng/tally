@@ -89,6 +89,18 @@ export function rapikanPertanyaan<T extends RegistrationField>(field: T): T {
   return sisa as T;
 }
 
+/**
+ * `agenda_label` milik Agenda (Who sees it > "Show … answers on the event
+ * page"): simpan Registration mengambilnya dari susunan tersimpan untuk kunci
+ * yang sama, bukan dari layar Registration. Hanya dropdown dan pilihan tunggal.
+ */
+export function pertahankanLabelAgenda<T extends RegistrationField>(field: T, tersimpan: { fields?: RegistrationField[] } | null | undefined): T {
+  const { agenda_label: _kiriman, ...tanpa } = field;
+  void _kiriman;
+  const lama = (tersimpan?.fields ?? []).find((isi) => isi.key === field.key);
+  return lama?.agenda_label === true && (field.type === "select" || field.type === "radio") ? ({ ...tanpa, agenda_label: true } as T) : (tanpa as T);
+}
+
 /* ----------------------------------------------------- Formulir publik */
 
 /** Isi satu pertanyaan dalam urutan tetap, supaya dua susunan bisa dibandingkan sebagai teks. */

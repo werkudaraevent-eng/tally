@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { hariBerkelompok, PilihKelompok, saringKelompok, usePilihanKelompok } from "@/components/landing/pilih-kelompok";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { TeksKaya } from "@/components/landing/teks-kaya";
@@ -38,6 +39,10 @@ export function AgendaTabs({
   const dasar = useId();
   const multi = agenda.length > 1;
   const blok = agenda[aktif] ?? agenda[0];
+  // Hari dengan baris per kelompok: "Semua · Batch 1 · …" di atas daftar (pilih-kelompok.tsx).
+  const berkelompok = Boolean(blok?.pilihan?.length) && hariBerkelompok(blok?.items ?? []);
+  const pilihanTamu = usePilihanKelompok(berkelompok ? blok?.pilihan : undefined);
+  const barisTampil = blok ? (berkelompok ? saringKelompok(blok.items, pilihanTamu) : blok.items) : [];
 
   function pindah(event: KeyboardEvent<HTMLDivElement>) {
     const maju = event.key === "ArrowRight" || event.key === "ArrowDown";
@@ -52,6 +57,40 @@ export function AgendaTabs({
     setAktif(tujuan);
     tabRefs.current[tujuan]?.focus();
   }
+
+  const daftarBaris = (
+    <ol
+      id={`${dasar}-panel`}
+      role={multi ? "tabpanel" : undefined}
+      aria-labelledby={multi ? `${dasar}-tab-${aktif}` : undefined}
+      // Tanpa tab, daftar mengambil posisi yang sama dengan kolom isi bagian
+      // lain, jadi tepi kirinya tetap lurus dengan paragraf di atasnya.
+      className={`divide-y divide-[var(--reg-outline-variant)] border-y border-[var(--reg-outline-variant)] ${
+        berkelompok ? "" : lebar(multi ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12")
+      }`}
+    >
+      {barisTampil.map((item, index) => (
+        <li
+          key={`${item.time}-${item.title}-${index}`}
+          className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 py-5 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-x-8"
+        >
+          <span className="pt-0.5 text-body-medium tabular-nums text-[var(--reg-on-surface-variant)]">
+            {item.time}
+            {item.end ? <span className="hidden sm:inline"> hingga {item.end}</span> : null}
+          </span>
+          <div className="min-w-0">
+            <p className="text-title-medium font-semibold text-balance">
+              {item.title}
+              <LabelUntuk teks={item.untuk} className="text-[var(--reg-on-surface-variant)]" />
+            </p>
+            {item.subtitle ? (
+              <TeksKaya teks={item.subtitle} warna={warnaTanda} className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]" />
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
 
   return (
     <div className={`grid gap-8 ${lebar("lg:grid-cols-12 lg:gap-12")}`}>
@@ -97,37 +136,17 @@ export function AgendaTabs({
         </div>
       ) : null}
 
-      <ol
-        id={`${dasar}-panel`}
-        role={multi ? "tabpanel" : undefined}
-        aria-labelledby={multi ? `${dasar}-tab-${aktif}` : undefined}
-        // Tanpa tab, daftar mengambil posisi yang sama dengan kolom isi bagian
-        // lain, jadi tepi kirinya tetap lurus dengan paragraf di atasnya.
-        className={`divide-y divide-[var(--reg-outline-variant)] border-y border-[var(--reg-outline-variant)] ${
-          lebar(multi ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12")
-        }`}
-      >
-        {blok?.items.map((item, index) => (
-          <li
-            key={`${item.time}-${item.title}-${index}`}
-            className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 py-5 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-x-8"
-          >
-            <span className="pt-0.5 text-body-medium tabular-nums text-[var(--reg-on-surface-variant)]">
-              {item.time}
-              {item.end ? <span className="hidden sm:inline"> hingga {item.end}</span> : null}
-            </span>
-            <div className="min-w-0">
-              <p className="text-title-medium font-semibold text-balance">
-                {item.title}
-                <LabelUntuk teks={item.untuk} className="text-[var(--reg-on-surface-variant)]" />
-              </p>
-              {item.subtitle ? (
-                <TeksKaya teks={item.subtitle} warna={warnaTanda} className="mt-1 text-body-medium text-[var(--reg-on-surface-variant)]" />
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ol>
+      {berkelompok && blok?.pilihan ? (
+        // Pilihan dan daftar satu kolom, supaya keduanya tetap di samping tab di layar lebar.
+        <div className={`flex flex-col gap-3 ${lebar(multi ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12")}`}>
+          <div className="print:hidden">
+            <PilihKelompok pilihan={blok.pilihan} lang="id" nada="terang" />
+          </div>
+          {daftarBaris}
+        </div>
+      ) : (
+        daftarBaris
+      )}
     </div>
   );
 }

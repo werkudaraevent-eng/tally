@@ -495,6 +495,9 @@ export type LandingUiText = {
   andOthers: (names: string[], total: number) => string;
   /** Label kelompok pembicara sesi tanpa peran di Susunan acara. */
   agendaSpeakers: string;
+  /** Pilihan kelompok di agenda sebelum masuk ("Semua · Batch 1 · Batch 2"): tombol pertama dan nama grupnya. */
+  agendaGroupAll: string;
+  agendaGroupPick: string;
   openGoogleMaps: string;
   openMap: string;
   mapOf: (venue: string | null) => string;
@@ -649,6 +652,8 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     agendaParts: "Bagian acara",
     andOthers: (names, total) => (total > 2 ? `${names.join(", ")}, dan ${total - 2} lainnya` : names.join(" dan ")),
     agendaSpeakers: "Pembicara",
+    agendaGroupAll: "Semua",
+    agendaGroupPick: "Tampilkan jadwal untuk",
     openGoogleMaps: "Buka di Google Maps",
     openMap: "Buka peta",
     mapOf: (venue) => `Peta ${venue ?? "lokasi acara"}`,
@@ -800,6 +805,8 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     agendaParts: "Event parts",
     andOthers: (names, total) => (total > 2 ? `${names.join(", ")} and ${total - 2} more` : names.join(" and ")),
     agendaSpeakers: "Speakers",
+    agendaGroupAll: "All",
+    agendaGroupPick: "Show the schedule for",
     openGoogleMaps: "Open in Google Maps",
     openMap: "Open map",
     mapOf: (venue) => `Map of ${venue ?? "the venue"}`,

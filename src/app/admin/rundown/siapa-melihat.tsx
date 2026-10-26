@@ -4,7 +4,7 @@ import { ArrowSquareOut, Plus, X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Kelompok } from "@/components/admin/compact-form";
 import Link from "@/components/event-link";
-import { Button, FilterChip, IconButton, SegmentedButton, SelectMenu } from "@/components/m3";
+import { Button, FilterChip, IconButton, SegmentedButton, SelectMenu, Switch } from "@/components/m3";
 import { eventApiPath } from "@/lib/event-url";
 import type { KolomSasaran } from "@/lib/sasaran-bagian";
 import { labelAgendaPublik, SYARAT_MAX } from "@/lib/sasaran-baris";
@@ -74,7 +74,7 @@ export function ringkasSyarat(syarat: DrafSyarat, info: InfoSiapaMelihat | null)
  * disentuh, syarat rusak tersimpan (kolom kosong) dibaca mati, bukan draf yang
  * belum lengkap. `tombol`: tombol yang menyimpannya (Save item atau Add item).
  */
-export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "Save item", tanggal = null, onChange }: {
+export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "Save item", tanggal = null, onChange, onUbahLabel }: {
   info: InfoSiapaMelihat;
   value: DrafSyarat | null;
   tersimpan?: DrafSyarat | null;
@@ -82,6 +82,8 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
   /** Tanggal bagian baris ini: Hotel dihitung dari stay yang berlaku hari itu. */
   tanggal?: string | null;
   onChange: (next: DrafSyarat | null) => void;
+  /** "Show <question> answers on the event page": langsung disimpan, berlaku untuk semua baris. */
+  onUbahLabel?: (field: string, on: boolean) => Promise<boolean>;
 }) {
   const kolom = daftarKolom(info);
   const lengkap = syaratLengkap(value);
@@ -222,7 +224,7 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
               )}
             </p>
           ) : null}
-          {value && lengkap && !hilang ? <LabelHalamanAcara syarat={value} info={info} /> : null}
+          {value && lengkap && !hilang ? <LabelHalamanAcara syarat={value} info={info} onUbahLabel={onUbahLabel} /> : null}
         </>
       )}
     </Kelompok>
@@ -230,29 +232,43 @@ export function KelompokSiapaMelihat({ info, value, tersimpan = null, tombol = "
 }
 
 /**
- * Label baris ini di halaman acara sebelum masuk (labelAgendaPublik). Tanpa
- * label, panitia diberi tahu sakelar mana yang menyalakannya, di tempatnya.
+ * Halaman acara sebelum masuk: Who sees it tidak menyaring di sana, jadi
+ * jawaban pertanyaan yang dipakai syarat bisa tampil sebagai label baris dan
+ * sebagai pilihan "Semua · Batch 1 · …" di atas jadwal (labelAgendaPublik,
+ * agenda-kelompok.ts). Satu sakelar per pertanyaan, di tempat syaratnya diatur;
+ * nama pertanyaannya diambil dari formulir, bukan dari kode.
  */
-function LabelHalamanAcara({ syarat, info }: { syarat: DrafSyarat; info: InfoSiapaMelihat }) {
-  const label = labelAgendaPublik(syarat, info.fields);
-  if (label) {
-    return <p className="text-body-small text-on-surface-variant">Before sign-in, the event page labels this row <span className="font-semibold text-on-surface">{label}</span>.</p>;
-  }
+function LabelHalamanAcara({ syarat, info, onUbahLabel }: { syarat: DrafSyarat; info: InfoSiapaMelihat; onUbahLabel?: (field: string, on: boolean) => Promise<boolean> }) {
+  const [menyimpan, setMenyimpan] = useState<string | null>(null);
+  const dipakai = info.fields.filter((k) => syarat.some((isi) => isi.field === k.key));
   const hotel = syarat.some((isi) => isi.field === KOLOM_HOTEL);
-  const tanpaIzin = info.fields.filter((k) => !k.label_agenda && syarat.some((isi) => isi.field === k.key));
+  const label = labelAgendaPublik(syarat, info.fields);
   return (
-    <p className="text-body-small text-on-surface-variant">
-      Before sign-in, the event page shows this row without a label.{" "}
-      {hotel ? (
-        "Hotel conditions never get a label."
-      ) : tanpaIzin.length > 0 ? (
-        <>
-          To label it, turn on Show answers in the public agenda for {tanpaIzin.map((k) => k.label).join(" and ")}.{" "}
-          <Link href="/admin/registrasi" target="_blank" rel="noreferrer" className={TAUTAN}>
-            Edit in Registration <ArrowSquareOut size={14} aria-hidden /><span className="sr-only">(new tab)</span>
-          </Link>
-        </>
-      ) : null}
-    </p>
+    <div className="flex flex-col gap-3 border-t border-outline-variant pt-3">
+      {dipakai.map((k) => (
+        <Switch
+          key={k.key}
+          checked={k.label_agenda}
+          disabled={!onUbahLabel || menyimpan !== null}
+          onChange={async (on) => {
+            if (!onUbahLabel) return;
+            setMenyimpan(k.key);
+            await onUbahLabel(k.key, on);
+            setMenyimpan(null);
+          }}
+          label={`Show ${k.label} answers on the event page`}
+          description={`Before sign-in, visitors see the answer (for example “${k.options[0] ?? k.label}”) on each row and can pick theirs above the schedule. Applies to every Agenda row that uses ${k.label}. Saved right away.`}
+        />
+      ))}
+      <p className="text-body-small text-on-surface-variant">
+        {label ? (
+          <>Before sign-in, the event page labels this row <span className="font-semibold text-on-surface">{label}</span>.</>
+        ) : hotel ? (
+          "Before sign-in, the event page shows this row without a label: Hotel conditions never show there."
+        ) : (
+          "Before sign-in, the event page shows this row without a label."
+        )}
+      </p>
+    </div>
   );
 }
