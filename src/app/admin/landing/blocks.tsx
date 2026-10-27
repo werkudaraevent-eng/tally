@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Button, Dialog, IconButton, SegmentedButton, Skeleton, TextArea, TextField } from "@/components/m3";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { EditorRute, TampilDi } from "./editor-rute";
+import { EditorDosDonts } from "./editor-dos-donts";
 import { PilihLatar } from "./pilih-latar";
 import type { WarnaUbin } from "./pilih-ikon";
 import {
@@ -61,7 +62,7 @@ const EditorHitungMundur = dynamic(() => import("./editor-hitung-mundur").then((
  * menyebut rasio slotnya, karena gambar dipotong otomatis ke rasio itu.
  */
 
-const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "countdown", "gallery", "quote", "route"];
+const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "countdown", "gallery", "quote", "route", "dos_donts"];
 
 export function buatBlok(type: LandingBlockType): LandingBlock {
   const acak = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 10);
@@ -95,6 +96,10 @@ export function ringkasanBlok(block: LandingBlock): string | null {
     case "logos": return jumlah ? plural(jumlah, "logo") : null;
     case "multicolumn": return jumlah ? `${plural(jumlah, "item")} · ${plural(landingColumnCount(block), "column")}` : null;
     case "quote": return block.name?.trim() || null;
+    case "dos_donts": {
+      const tidak = (block.items ?? []).filter((item) => item.kind === "dont").length;
+      return jumlah ? `${jumlah - tidak} do · ${tidak} don\u2019t` : null;
+    }
     case "route": return [jumlah ? plural(jumlah, "way") : null, LANDING_BLOCK_SHOW_ON_LABELS[block.show_on ?? "public"]].filter(Boolean).join(" · ");
     default: return block.heading?.trim() || null;
   }
@@ -119,6 +124,7 @@ function Sketsa({ type }: { type: LandingBlockType }) {
       {type === "countdown" ? (<span className="flex flex-1 items-center gap-2"><span className="flex w-8 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-3/4")}</span>{[0, 1, 2].map((key) => <span key={key} className="flex flex-1 flex-col items-start gap-1 border-l border-white/30 pl-1"><span className="text-[13px] font-semibold leading-none text-white tabular-nums">{["24", "08", "15"][key]}</span>{garis("w-3/4")}</span>)}</span>) : null}
       {type === "cta" ? (<span className="flex flex-1 items-center gap-2"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-2/3")}</span><span className="h-3 w-8 rounded-[2px] bg-white" /></span>) : null}
       {type === "route" ? (<><span className="flex w-10 flex-col justify-between rounded-[3px] bg-surface-container-lowest p-1.5"><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full border border-primary" />{garis("w-full")}</span><span className="ml-[2px] h-3 border-l border-dashed border-on-surface-variant/50" /><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full bg-primary" />{garis("w-full")}</span></span><span className="flex flex-1 flex-col gap-1">{[0, 1].map((key) => <span key={key} className="flex flex-1 items-center gap-1 rounded-[3px] bg-surface-container-lowest p-1"><span className="size-2.5 shrink-0 rounded-[2px] bg-primary/30" />{garis("w-full")}</span>)}</span></>) : null}
+      {type === "dos_donts" ? (<span className="flex flex-1 flex-col gap-1.5">{["#1E7B45", "#B42318"].map((warna) => <span key={warna} className="flex flex-1 items-center gap-1">{[0, 1, 2].map((key) => <span key={key} className="relative flex h-full flex-1 items-center justify-center rounded-[3px] bg-surface-container-lowest"><span className="size-2.5 rounded-full bg-on-surface-variant/40" /><span className="absolute bottom-0.5 right-1 size-1.5 rounded-full" style={{ background: warna }} /></span>)}</span>)}</span>) : null}
     </span>
   );
 }
@@ -262,6 +268,8 @@ export function labelKolomBlok(block: LandingBlock, key: string): string {
     case "role": return "Position and organisation";
     case "countdown_from": return "Start label";
     case "countdown_to": return "Destination";
+    case "do_label": return "Do heading";
+    case "dont_label": return "Don't heading";
     default: return key;
   }
 }
@@ -292,6 +300,7 @@ export function labelIsianButir(block: LandingBlock, key: KolomButir): string {
       return layout === "columns" ? "Description or publisher" : "Description";
     case "logos": return "Organisation name";
     case "multicolumn": return key === "title" ? "Title" : key === "body" ? "Text" : "Link text";
+    case "dos_donts": return key === "body" ? "Note" : "Text";
     default: return "Photo caption";
   }
 }
@@ -305,6 +314,7 @@ export function isianButirTampil(block: LandingBlock, item: LandingBlockItem, ke
     case "cards": return key !== "value" || layout === "overlay";
     case "logos": return key === "label";
     case "multicolumn": return key !== "label" || Boolean(item.href?.trim());
+    case "dos_donts": return key === "title" || key === "body";
     default: return key === "label";
   }
 }
@@ -315,7 +325,7 @@ export function namaButirBlok(block: LandingBlock, index: number): string {
   return `${butir[0].toUpperCase()}${butir.slice(1)} ${index + 1}`;
 }
 
-type KolomTeks = "eyebrow" | "heading" | "body" | "link_label" | "link2_label" | "fact_title" | "fact_body" | "source" | "quote" | "name" | "role";
+type KolomTeks = "eyebrow" | "heading" | "body" | "link_label" | "link2_label" | "fact_title" | "fact_body" | "source" | "quote" | "name" | "role" | "do_label" | "dont_label";
 export type KolomButir = "label" | "title" | "body" | "value";
 
 export function BlockEditor({
@@ -767,6 +777,22 @@ export function BlockEditor({
             judul={teks("heading", "Heading", { optional: true, hint: "Leave empty to use \u201cDari <from> ke <to>\u201d, or \u201cFrom <from> to <to>\u201d in English. Horizon\u2019s Travel tab titles each route by its two places instead." })}
             semuaBlok={semuaBlok}
             ubin={ubinRute}
+          />
+          {latar}
+        </div>
+      );
+    case "dos_donts":
+      return (
+        <div className="flex flex-col gap-4">
+          <EditorDosDonts
+            block={block}
+            ubah={ubah}
+            tataLetak={tataLetak}
+            alis={alis}
+            judul={judul("Heading", "e.g. Do's and Don'ts")}
+            pengantar={area("body", "Intro", { optional: true, rows: 2 })}
+            judulDo={teks("do_label", "Do heading", { optional: true, placeholder: "Lakukan", hint: "Empty: Lakukan, or Do in English." })}
+            judulDont={teks("dont_label", "Don't heading", { optional: true, placeholder: "Hindari", hint: "Empty: Hindari, or Don\u2019t in English." })}
           />
           {latar}
         </div>

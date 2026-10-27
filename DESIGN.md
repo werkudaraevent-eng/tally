@@ -667,6 +667,25 @@ dijepit di kolom 360 px dengan hanya tiga acara yang melompat jam.
 Berlaku sekarang di Horizon. Agenda preset lain mengikuti aturan ini di PR
 terpisah bila dirombak.
 
+#### Blok Do's and Don'ts
+
+Diputuskan 27 Oktober 2026 dari buku panduan acara (lingkaran ikon) dan pola
+fasilitas Airbnb. Tiga tampilan, dipilih admin per blok: Kisi ikon (bawaan),
+Dua kartu, Daftar ringkas.
+
+- Do dan Don't dibedakan dengan kata, tanda, dan warna sekaligus, tidak pernah
+  warna saja: judul kelompok "Lakukan"/"Hindari" dengan lingkaran centang
+  atau silang, dan pada Kisi ikon lencana 22 px di kanan bawah lingkaran ikon.
+- Hijau `#1E7B45` dan merah `#B42318` tetap untuk semua acara (versi terang di
+  latar gelap): arti centang dan silang tidak ikut warna merek.
+- Kisi ikon: ubin `rounded-2xl` p-4, lingkaran 56 px berwarna lembut dengan
+  ikon 28 px, teks 16/24 semibold, catatan 14/20; 2 kolom di ponsel, 3 di
+  tablet, 5 di layar lebar.
+- Dua kartu dan Daftar ringkas: ikon 24 atau 28 px di tengah baris pertama
+  teks, jarak antarbutir 16 px.
+- Daftar ringkas melipat Lakukan setelah 6 butir ("Tampilkan N lainnya");
+  Hindari tidak pernah dilipat, karena larangan tidak boleh tersembunyi.
+
 ### Area peserta
 
 `/e/<slug>/masuk` dan `/e/<slug>/peserta`, dinyalakan di CMS Halaman acara, tab
