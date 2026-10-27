@@ -73,13 +73,15 @@ const blockEnSchema = z.object({
   nav_label: teks(LANDING_NAV_LABEL_MAX),
   countdown_from: teks(40),
   countdown_to: teks(60),
+  do_label: teks(24),
+  dont_label: teks(24),
 });
 // Hanya https (QA #115 L1): gambar ikon dari unggahan CMS selalu https.
 const ikonUrl = z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon images must be an https:// address").nullable().optional();
 const routeStop = z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown", "dos_donts"]),
   show_on: z.enum(LANDING_BLOCK_SHOW_ON).optional(),
   route_from: routeStop.optional(),
   route_to: routeStop.optional(),
@@ -93,7 +95,7 @@ const blockSchema = z.object({
   }).refine((isi) => isi.field !== "@hotel" || isi.values.every((nilai) => /^[1-9]\d{0,17}$/.test(nilai)), "Hotel groups use hotel ids").optional(),
   agenda_item_ids: z.array(z.number().int().positive()).max(TAUTAN_AGENDA_MAX).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
-  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo"]).optional(),
+  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo", "tiles"]).optional(),
   eyebrow: teks(60),
   heading: teks(160),
   body: teks(1200),
@@ -115,6 +117,7 @@ const blockSchema = z.object({
       image_url: gambarPenuh.nullable().optional(),
       en: z.object({ text: teks(LANDING_ROUTE_STEP_TEXT_MAX) }).optional(),
     })).max(LANDING_ROUTE_STEPS_MAX).optional(),
+    kind: z.enum(["do", "dont"]).optional(),
     en: itemEnSchema.optional(),
   })).max(16).optional(),
   quote: teks(600),
@@ -133,6 +136,8 @@ const blockSchema = z.object({
   align: z.enum(["left", "center", "right"]).optional(),
   countdown_from: teks(40),
   countdown_to: teks(60),
+  do_label: teks(24),
+  dont_label: teks(24),
   icon: z.string().regex(/^[A-Za-z0-9]{1,48}$/).optional(),
   icon_url: gambarUrl,
   highlight: z.union([z.enum(["brand", "accent", "ink"]), z.string().regex(/^#[0-9a-fA-F]{6}$/)]).optional(),
@@ -146,7 +151,7 @@ const blockSchema = z.object({
       ctx.addIssue({ code: "custom", path, message: `Maximum ${limit.max} characters` });
     }
   };
-  (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "countdown_from", "countdown_to"] as const).forEach((key) => {
+  (["eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "countdown_from", "countdown_to", "do_label", "dont_label"] as const).forEach((key) => {
     periksa(block[key], batas[key], [key]);
     periksa(block.en?.[key], batas[key], ["en", key]);
   });

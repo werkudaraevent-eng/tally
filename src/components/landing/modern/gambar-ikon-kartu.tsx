@@ -11,7 +11,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * dan bayangannya sendiri. Margin negatif: tingginya tetap 52px seperti ubin,
  * jadi judul sejajar dengan kartu lain.
  */
-export function GambarIkonKartu({ src, children }: { src: string | null; children: ReactNode }) {
+export function GambarIkonKartu({ src, children, className = "-my-1.5 size-16 object-contain", size = 64 }: { src: string | null; children: ReactNode; className?: string; size?: number }) {
   const [gagal, setGagal] = useState<string | null>(null);
   const gambar = useRef<HTMLImageElement>(null);
 
@@ -29,12 +29,12 @@ export function GambarIkonKartu({ src, children }: { src: string | null; childre
       src={src}
       alt=""
       aria-hidden
-      width={64}
-      height={64}
+      width={size}
+      height={size}
       loading="lazy"
       decoding="async"
       onError={() => setGagal(src)}
-      className="-my-1.5 size-16 object-contain"
+      className={className}
     />
   );
 }

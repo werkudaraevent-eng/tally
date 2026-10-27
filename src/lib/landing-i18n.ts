@@ -513,6 +513,12 @@ export type LandingUiText = {
   footerContact: string;
   poweredBy: string;
   readMore: string;
+  /** Judul bawaan kelompok blok Do's and Don'ts. */
+  doLabel: string;
+  dontLabel: string;
+  /** Tombol lipat Lakukan di tampilan Daftar ringkas. */
+  showMoreItems: (n: number) => string;
+  showFewerItems: string;
   downloadMaterial: string;
   document: string;
   /** Label kelompok pilihan bahasa "ID | EN" untuk pembaca layar. */
@@ -669,6 +675,10 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     footerContact: "Kontak panitia",
     poweredBy: "Dikelola dengan Tally",
     readMore: "Selengkapnya",
+    doLabel: "Lakukan",
+    dontLabel: "Hindari",
+    showMoreItems: (n) => `Tampilkan ${n} lainnya`,
+    showFewerItems: "Tampilkan lebih sedikit",
     downloadMaterial: "Unduh materi",
     document: "Dokumen",
     languageGroup: "Bahasa halaman",
@@ -822,6 +832,10 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     footerContact: "Contact",
     poweredBy: "Powered by Tally",
     readMore: "Learn more",
+    doLabel: "Do",
+    dontLabel: "Don\u2019t",
+    showMoreItems: (n) => `Show ${n} more`,
+    showFewerItems: "Show fewer",
     downloadMaterial: "Download",
     document: "Document",
     languageGroup: "Page language",

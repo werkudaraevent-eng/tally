@@ -128,10 +128,12 @@ const LABEL_BLOK: Record<keyof LandingBlockEn, string> = {
   nav_label: "Top menu label",
   countdown_from: "Route start label",
   countdown_to: "Destination",
+  do_label: "Do heading",
+  dont_label: "Don't heading",
 };
 const AREA_BLOK = new Set<keyof LandingBlockEn>(["body", "source", "quote"]);
 /** Urutan kolom sama dengan editor ID. */
-const URUT_BLOK: (keyof LandingBlockEn)[] = ["eyebrow", "heading", "body", "quote", "name", "role", "fact_title", "fact_body", "link_label", "link2_label", "source", "countdown_from", "countdown_to", "nav_label"];
+const URUT_BLOK: (keyof LandingBlockEn)[] = ["eyebrow", "heading", "body", "quote", "name", "role", "fact_title", "fact_body", "link_label", "link2_label", "source", "countdown_from", "countdown_to", "do_label", "dont_label", "nav_label"];
 
 const LABEL_BUTIR: Record<"label" | "title" | "body" | "value", string> = { label: "Label", title: "Title", body: "Text", value: "Figure" };
 
@@ -142,6 +144,7 @@ export function labelKolomBlokEn(key: string): string {
 
 export function labelIsianButirEn(block: LandingBlock, key: "label" | "title" | "body" | "value"): string {
   if (block.type === "route") return LABEL_BUTIR_RUTE[key];
+  if (block.type === "dos_donts") return key === "body" ? "Note" : "Text";
   return key === "label" && block.type === "logos" ? "Organisation name" : key === "label" && block.type === "multicolumn" ? "Link text" : LABEL_BUTIR[key];
 }
 
