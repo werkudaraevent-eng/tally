@@ -171,6 +171,13 @@ export type ClientFieldApproval = { key: string; label: string; type: Registrati
  * `hero` sengaja TIDAK ada di sini. Ia selalu tampil dan selalu pertama —
  * halaman acara tanpa nama acara di bagian atas bukan pilihan gaya.
  */
+/** Kartu: tiap pertanyaan berkartu (bawaan). Daftar: baris bergaris, bisa dikelompokkan per topik. */
+export const LANDING_FAQ_LAYOUTS = ["cards", "list"] as const;
+export type LandingFaqLayout = (typeof LANDING_FAQ_LAYOUTS)[number];
+export const LANDING_FAQ_LAYOUT_LABELS: Record<LandingFaqLayout, string> = { cards: "Cards", list: "List" };
+/** Panjang nama topik FAQ ("Perjalanan & hotel"). */
+export const FAQ_GROUP_MAX = 40;
+
 export type LandingSectionId = "about" | "highlights" | "agenda" | "speakers" | "venue" | "faq" | "sponsors" | "contact";
 
 /**
@@ -1587,7 +1594,14 @@ export type EventLandingConfig = {
   speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
   highlights?: { label: string; value: string; en?: { label?: string; value?: string } }[];
-  faq?: { q: string; a: string; en?: { q?: string; a?: string } }[];
+  /**
+   * `group`: topik opsional (tampilan Daftar), teks bebas dari panitia.
+   * `group_id` hanya ada setelah resolveLanding di /en: nama Indonesianya,
+   * supaya pengelompokan tidak pecah bila terjemahan topik berbeda.
+   */
+  faq?: { q: string; a: string; group?: string; group_id?: string; en?: { q?: string; a?: string; group?: string } }[];
+  /** Tampilan FAQ di tata letak Modern. Kosong = kartu (seperti sebelumnya). */
+  faq_layout?: LandingFaqLayout;
   /** Logo sponsor dan mitra. Diunggah di CMS halaman acara, bukan ditarik dari layar lain. */
   sponsors?: { name?: string; logo_url: string; en?: { name?: string } }[];
   contact_name?: string;

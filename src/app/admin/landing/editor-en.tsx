@@ -8,6 +8,7 @@ import { landingTokens } from "@/lib/landing-tokens";
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
 import { landingSectionHeading } from "@/lib/landing-i18n";
+import { kunciKelompok } from "@/lib/landing-faq";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_ABOUT_CARDS,
@@ -26,6 +27,7 @@ import {
   type LandingSectionId,
   type LandingTextLimit,
   LANDING_ROUTE_STEP_TEXT_MAX,
+  FAQ_GROUP_MAX,
 } from "@/lib/domain";
 
 /**
@@ -464,7 +466,28 @@ export function BagianEn({
       }
       case "faq": {
         const daftar = landing.faq ?? [];
-        return [...daftar.map((item, index) => {
+        // Topik hanya dirender tampilan Daftar. Satu kolom per topik; terjemahannya
+        // ditulis ke semua pertanyaan dengan topik itu.
+        const topik = landing.layout === "modern" && landing.faq_layout === "list"
+          ? [...new Map(daftar.filter((f) => kunciKelompok(f)).map((f) => [kunciKelompok(f), f] as const)).entries()]
+          : [];
+        const kartuTopik = topik.length ? (
+          <Kartu key="faq-topik" judul="Topics">
+            {topik.map(([kunci, contoh]) => (
+              <KolomEn
+                key={kunci}
+                label="Topic"
+                sumber={contoh.group ?? ""}
+                value={contoh.en?.group}
+                max={FAQ_GROUP_MAX}
+                onChange={(value) =>
+                  setLanding({ ...landing, faq: daftar.map((f) => (kunciKelompok(f) === kunci ? { ...f, en: { ...f.en, group: value } } : f)) })
+                }
+              />
+            ))}
+          </Kartu>
+        ) : null;
+        return [kartuTopik, ...daftar.map((item, index) => {
           const ubah = (key: "q" | "a", value: string) =>
             setLanding({ ...landing, faq: daftar.map((f, posisi) => (posisi === index ? { ...f, en: { ...f.en, [key]: value } } : f)) });
           return (
