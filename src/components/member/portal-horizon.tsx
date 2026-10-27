@@ -818,20 +818,16 @@ export function KartuDaruratHorizon({
   baris: BarisDaruratHorizon[];
   label?: { call: string; whatsapp: string; map: string } | null;
 }) {
-  const kelasTombol = PIL_KONTAK;
-  const gayaTombol = GAYA_PIL_KONTAK;
   return (
-    <section id="darurat" aria-label={judul} className={`${KARTU_HZ} flex scroll-mt-24 flex-col gap-3 ${PAD_KARTU} lg:scroll-mt-32`} style={{ color: TINTA }}>
-      <div className="mb-1">
-        <KepalaKartuHorizon Ikon={Lifebuoy} judul={judul} warna="#B42318" />
-      </div>
+    <section id="darurat" aria-label={judul} className={`${KARTU_HZ} flex scroll-mt-24 flex-col gap-4 ${PAD_KARTU} lg:scroll-mt-32`} style={{ color: TINTA }}>
+      <KepalaKartuHorizon Ikon={Lifebuoy} judul={judul} warna="#B42318" />
       {isi ? (
         <p className={`whitespace-pre-line ${KELAS_KET}`} style={{ color: REDUP }}>
           {isi}
         </p>
       ) : null}
       {baris.length > 0 ? (
-        <ul className="-mx-2">
+        <ul className={baris.some((item) => item.kontak) ? "flex flex-col" : "-mx-2"}>
           {baris.map((item, index) => {
             const dalam = (
               <>
@@ -848,41 +844,45 @@ export function KartuDaruratHorizon({
             );
             const kontak = item.kontak;
             if (kontak) {
+              // Baris daftar M3 dua-tiga baris: nama, nomor, catatan di kiri; tombol ikon
+              // 48 px di kanan (pola daftar kontak Google Phone dan Uber Safety Toolkit).
+              const aksi = label
+                ? [
+                    kontak.tel ? { href: `tel:${kontak.tel}`, Ikon: Phone, teks: label.call, luar: false, hijau: false } : null,
+                    kontak.wa ? { href: kontak.wa, Ikon: WhatsappLogo, teks: label.whatsapp, luar: true, hijau: true } : null,
+                    kontak.peta ? { href: kontak.peta, Ikon: MapPin, teks: label.map, luar: true, hijau: false } : null,
+                  ].filter((x) => x !== null)
+                : [];
               return (
-                <li key={`${index}-${item.judul}`} className="flex flex-col gap-3 border-[#E6E8EC] px-2 py-3 [&+&]:border-t">
-                  <span className="flex min-w-0 flex-col">
+                <li key={`${index}-${item.judul}`} className="flex items-start gap-3 border-[#E6E8EC] py-3 first:pt-0 last:pb-0 [&+&]:border-t">
+                  <span className="flex min-w-0 flex-1 flex-col">
                     <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
+                    {kontak.nomor ? (
+                      <span className="text-[14px] font-medium leading-5 tabular-nums [overflow-wrap:anywhere]">{kontak.nomor}</span>
+                    ) : null}
                     {item.isi ? (
                       <span className="whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
                         {item.isi}
                       </span>
                     ) : null}
-                    {kontak.nomor ? (
-                      <span className="text-[14px] font-medium leading-5 tabular-nums [overflow-wrap:anywhere]" style={{ color: TINTA }}>
-                        {kontak.nomor}
-                      </span>
-                    ) : null}
                   </span>
-                  {label && (kontak.tel || kontak.wa || kontak.peta) ? (
-                    <span className="flex flex-wrap gap-2">
-                      {kontak.tel ? (
-                        <a href={`tel:${kontak.tel}`} className={kelasTombol} style={gayaTombol}>
-                          <Phone size={18} weight="bold" aria-hidden />
-                          {label.call}
+                  {aksi.length > 0 ? (
+                    // Area ketuk 48 px, lingkaran 40 px: tepi lingkaran sejajar padding kartu.
+                    <span className="-my-1 -mr-1 flex shrink-0">
+                      {aksi.map(({ href, Ikon, teks, luar, hijau }) => (
+                        <a
+                          key={teks}
+                          href={href}
+                          {...(luar ? { target: "_blank", rel: "noreferrer noopener" } : {})}
+                          aria-label={`${teks}: ${item.judul}`}
+                          title={teks}
+                          className="group flex size-12 items-center justify-center rounded-full"
+                        >
+                          <span className={`m3-state flex size-10 items-center justify-center rounded-full ${hijau ? "bg-[#E7F4EC] text-[#1E7B45] [--m3-state-color:#1E7B45]" : "bg-[#EEF1F6] text-[#101E38]"}`}>
+                            <Ikon size={20} weight="bold" aria-hidden />
+                          </span>
                         </a>
-                      ) : null}
-                      {kontak.wa ? (
-                        <a href={kontak.wa} target="_blank" rel="noreferrer noopener" className={kelasTombol} style={gayaTombol}>
-                          <WhatsappLogo size={18} weight="bold" aria-hidden />
-                          {label.whatsapp}
-                        </a>
-                      ) : null}
-                      {kontak.peta ? (
-                        <a href={kontak.peta} target="_blank" rel="noreferrer noopener" className={kelasTombol} style={gayaTombol}>
-                          <MapPin size={18} weight="bold" aria-hidden />
-                          {label.map}
-                        </a>
-                      ) : null}
+                      ))}
                     </span>
                   ) : null}
                 </li>

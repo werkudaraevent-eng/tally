@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bantuanBahasa, bantuanPratinjau, barisKontakDarurat, kontakDariBlok, nomorTelepon, rapikanBantuan, tautanPeta } from "./kontak-darurat.ts";
+import { bantuanBahasa, bantuanPratinjau, barisKontakDarurat, kontakDariBlok, nomorTampil, nomorTelepon, rapikanBantuan, tautanPeta } from "./kontak-darurat.ts";
 
 assert.deepEqual(nomorTelepon("0811 2836 676"), { tel: "+628112836676", wa: "https://wa.me/628112836676" });
 assert.deepEqual(nomorTelepon("+62 812-3456-7890"), { tel: "+6281234567890", wa: "https://wa.me/6281234567890" });
@@ -28,10 +28,20 @@ assert.deepEqual(
     { name: "RS Panti Rapih", phone: "(0274) 514 845", map_url: "https://maps.app.goo.gl/x" },
   ]),
   [
-    { judul: "Koordinator acara", nomor: "0812 3456 7890", isi: "Siaga 24 jam", tel: "+6281234567890", wa: "https://wa.me/6281234567890", peta: null },
-    { judul: "RS Panti Rapih", nomor: "(0274) 514 845", isi: null, tel: "0274514845", wa: null, peta: "https://maps.app.goo.gl/x" },
+    { judul: "Koordinator acara", nomor: "+62 812-3456-7890", isi: "Siaga 24 jam", tel: "+6281234567890", wa: "https://wa.me/6281234567890", peta: null },
+    { judul: "RS Panti Rapih", nomor: "+62 274-514-845", isi: null, tel: "0274514845", wa: null, peta: "https://maps.app.goo.gl/x" },
   ],
 );
+// Nomor tampil +62 dengan tanda hubung, apa pun cara mengetiknya.
+assert.equal(nomorTampil("628112546014", "+628112546014"), "+62 811-2546-014");
+assert.equal(nomorTampil("0812 3456 7890", "+6281234567890"), "+62 812-3456-7890");
+assert.equal(nomorTampil("(0274) 555 0101", "02745550101"), "+62 274-555-0101");
+assert.equal(nomorTampil("021 5000 800", "0215000800"), "+62 21-500-0800");
+assert.equal(nomorTampil("62 21 5000800", "+62215000800"), "+62 21-500-0800");
+assert.equal(nomorTampil("119", "119"), "119");
+assert.equal(nomorTampil("+65 6123 4567", "+6561234567"), "+65 6123 4567");
+assert.equal(nomorTampil("lihat grup", null), "lihat grup");
+assert.equal(nomorTampil("  ", null), null);
 assert.equal(barisKontakDarurat(Array.from({ length: 10 }, (_, i) => ({ name: `K${i}` }))).length, 8);
 
 assert.deepEqual(kontakDariBlok([{ title: "Koordinator", body: "Hadi 0811 2836 676" }]), [

@@ -53,6 +53,27 @@ export function nomorTelepon(teks: string | null | undefined): { tel: string; wa
   return { tel: `${negara ? "+" : ""}${angka}`, wa: null };
 }
 
+// Kode wilayah dua digit: Jakarta, Bandung, Semarang, Surabaya, Medan.
+const WILAYAH_DUA = /^(?:21|22|24|31|61)/;
+
+/**
+ * Nomor seperti yang ditampilkan di kartu: nomor Indonesia yang terbaca
+ * selalu +62 dengan tanda hubung (ponsel 3-4-sisa: "+62 811-2546-014",
+ * kantor kode wilayah lalu nomor: "+62 274-555-0101"), apa pun cara panitia
+ * mengetiknya. Nomor pendek (119) dan nomor yang tidak terbaca tetap apa adanya.
+ */
+export function nomorTampil(nomor: string | null | undefined, tel: string | null | undefined): string | null {
+  const isi = (nomor ?? "").trim();
+  if (!isi) return null;
+  const nasional = tel?.startsWith("+62") ? tel.slice(3) : tel?.startsWith("0") ? tel.slice(1) : null;
+  if (!nasional || !/^\d{7,12}$/.test(nasional)) return isi;
+  if (nasional.startsWith("8")) return `+62 ${nasional.slice(0, 3)}-${nasional.slice(3, 7)}-${nasional.slice(7)}`;
+  const kode = nasional.slice(0, WILAYAH_DUA.test(nasional) ? 2 : 3);
+  const sisa = nasional.slice(kode.length);
+  const kelompok = sisa.length <= 6 ? [sisa.slice(0, 3), sisa.slice(3)] : [sisa.slice(0, -4), sisa.slice(-4)];
+  return `+62 ${kode}-${kelompok.filter(Boolean).join("-")}`;
+}
+
 /** Tautan peta hanya http(s). */
 export function tautanPeta(teks: string | null | undefined): string | null {
   const isi = (teks ?? "").trim();
@@ -81,7 +102,7 @@ export function barisKontakDarurat(kontak: KontakDarurat[] | null | undefined): 
     .map((item) => {
       const nomor = item.phone?.trim() || null;
       const sambung = nomorTelepon(nomor);
-      return { judul: item.name.trim(), nomor, isi: item.note?.trim() || null, tel: sambung?.tel ?? null, wa: sambung?.wa ?? null, peta: tautanPeta(item.map_url) };
+      return { judul: item.name.trim(), nomor: nomorTampil(nomor, sambung?.tel), isi: item.note?.trim() || null, tel: sambung?.tel ?? null, wa: sambung?.wa ?? null, peta: tautanPeta(item.map_url) };
     });
 }
 
