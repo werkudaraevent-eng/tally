@@ -406,6 +406,8 @@ export type LandingUiText = {
   countdownDaysLeft: (hari: number) => string;
   /** Kalimat gaya Pita, dipecah supaya angkanya bisa diberi warna sorot. */
   countdownStrip: (hari: number, tujuan: string) => { teks: string; sorot: boolean }[];
+  /** Kalimat di atas hitungan berdetik gaya Journey. */
+  countdownJourneyIn: (tujuan: string) => string;
   countdownLive: string;
   /** Kalimat utuh untuk pembaca layar; angkanya sendiri tidak diumumkan tiap menit. */
   countdownSr: (hari: number, jam: number, menit: number) => string;
@@ -580,6 +582,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       hari > 1
         ? [{ teks: `${hari} hari`, sorot: true }, { teks: tujuan ? ` lagi ke ${tujuan}` : " lagi", sorot: false }]
         : [{ teks: hari === 1 ? "Besok" : "Hari ini", sorot: true }, { teks: tujuan ? ` ke ${tujuan}` : "", sorot: false }],
+    countdownJourneyIn: (tujuan) => (tujuan ? `Menuju ${tujuan} dalam` : "Dimulai dalam"),
     countdownLive: "Sedang berlangsung",
     countdownSr: (hari, jam, menit) => `Acara dimulai dalam ${hari} hari ${jam} jam ${menit} menit.`,
     countdownIn: (s, detik) =>
@@ -736,6 +739,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       hari > 1
         ? [{ teks: `${hari} days`, sorot: true }, { teks: tujuan ? ` to ${tujuan}` : " to go", sorot: false }]
         : [{ teks: hari === 1 ? "Tomorrow" : "Today", sorot: true }, { teks: tujuan ? `: ${tujuan}` : "", sorot: false }],
+    countdownJourneyIn: (tujuan) => (tujuan ? `Heading to ${tujuan} in` : "Starts in"),
     countdownLive: "Happening now",
     countdownSr: (hari, jam, menit) => `The event starts in ${hari} ${hari === 1 ? "day" : "days"}, ${jam} ${jam === 1 ? "hour" : "hours"} and ${menit} ${menit === 1 ? "minute" : "minutes"}.`,
     countdownIn: (s, detik) =>

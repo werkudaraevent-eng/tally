@@ -265,7 +265,7 @@ export function EditorHitungMundur({
           checked={countdownSeconds(block)}
           onChange={(seconds) => ubah({ seconds })}
           label="Show seconds"
-          description="Livelier, but busier. Best with Flip board."
+          description={gaya === "journey" ? "Replaces \"24 hari lagi\" with a ticking days, hours, minutes and seconds count; each digit rolls as it changes." : "Livelier, but busier. Best with Flip board."}
         />
       </div>
     </div>

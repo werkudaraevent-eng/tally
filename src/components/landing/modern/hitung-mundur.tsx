@@ -355,6 +355,8 @@ const ANIMASI_PERJALANAN = `
 @keyframes hm-gulir { from { transform: translateY(0) } }
 @keyframes hm-laju { from { transform: translateX(0) } }
 @keyframes hm-isi { from { transform: scaleX(0) } }
+@keyframes hm-naik { from { transform: translateY(70%); opacity: 0 } }
+.hm-naik { animation: hm-naik 320ms cubic-bezier(.05,.7,.1,1) }
 @keyframes hm-denyut { 0% { transform: scale(1); opacity: .55 } 100% { transform: scale(3.2); opacity: 0 } }
 .hm-gulir { animation: hm-gulir 1100ms cubic-bezier(.05,.7,.1,1) both; animation-delay: var(--hm-jeda, 0ms) }
 .hm-laju { animation: hm-laju 1600ms cubic-bezier(.05,.7,.1,1) 150ms both }
@@ -364,8 +366,8 @@ const ANIMASI_PERJALANAN = `
 [data-tunggu] .hm-gulir { transform: translateY(0) !important }
 [data-tunggu] .hm-laju { transform: translateX(0) !important }
 [data-tunggu] .hm-isi { transform: scaleX(0) }
-@media (prefers-reduced-motion: reduce) { .hm-gulir, .hm-laju, .hm-isi, .hm-denyut { animation: none } }
-@media print { .hm-gulir, .hm-laju, .hm-isi, .hm-denyut { animation: none } }
+@media (prefers-reduced-motion: reduce) { .hm-gulir, .hm-laju, .hm-isi, .hm-denyut, .hm-naik { animation: none } }
+@media print { .hm-gulir, .hm-laju, .hm-isi, .hm-denyut, .hm-naik { animation: none } }
 `;
 
 /** Satu digit yang bergulir dari 0 melewati satu putaran penuh ke nilainya. */
@@ -407,7 +409,11 @@ function Perjalanan({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender
 
   const p = berlangsung ? 1 : kemajuan;
   const bagian = t.countdownStrip(hariKalender, teks.ke);
-  const sisaJam = !berlangsung && hariKalender <= 1;
+  const sisaJam = !berlangsung && !detik && hariKalender <= 1;
+  // Dengan detik: satu hitungan waktu berjalan menggantikan "10 hari lagi",
+  // jadi tidak ada dua angka sisa yang berbeda (hari kalender dan hari penuh).
+  const jam = !berlangsung && detik;
+  const sel4 = sel(sisa, true, lang).filter((_, i) => i > 0 || sisa.hari > 0);
   return (
     <div ref={akar} className="flex flex-col gap-6 @4xl:flex-row @4xl:items-center @4xl:gap-12">
       <style>{ANIMASI_PERJALANAN}</style>
@@ -419,6 +425,8 @@ function Perjalanan({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender
               <span className="text-[var(--hm-sorot)]">{t.countdownLive}</span>
               {hariKe ? <span className={`block pt-1 text-isi font-normal tracking-normal ${MUTED}`}>{hariKe}</span> : null}
             </>
+          ) : jam ? (
+            <span className="block text-isi font-normal tracking-normal">{t.countdownJourneyIn(teks.ke)}</span>
           ) : (
             bagian.map((b, i) =>
               b.sorot ? (
@@ -437,6 +445,23 @@ function Perjalanan({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender
             )
           )}
         </p>
+        {jam ? (
+          // Tiap digit yang berganti naik dari bawah (kunci baru = animasi baru); yang tetap diam.
+          <div aria-hidden className="flex items-start gap-4 @md:gap-6">
+            {sel4.map((item) => (
+              <div key={item.label} className="flex flex-col gap-1">
+                <span className={`${HEAD} flex text-[36px] font-semibold leading-[1.2] tracking-[-0.02em] tabular-nums text-[var(--hm-sorot)] sm:text-[44px]`}>
+                  {item.angka.split("").map((d, k) => (
+                    <span key={k} className="inline-block h-[1.2em] overflow-hidden">
+                      <span key={d} className="hm-naik inline-block">{d}</span>
+                    </span>
+                  ))}
+                </span>
+                <span className={`text-[12px] font-semibold uppercase leading-4 tracking-[0.08em] ${MUTED}`}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {sisaJam ? <p aria-hidden className={`text-isi tabular-nums ${MUTED}`}>{t.countdownIn(sisa, detik)}</p> : null}
       </div>
       <div aria-hidden className="flex min-w-0 flex-1 flex-col gap-2">
