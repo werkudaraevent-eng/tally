@@ -8,6 +8,7 @@ import { landingTokens } from "@/lib/landing-tokens";
 import type { ReactNode } from "react";
 import { TextArea, TextField } from "@/components/m3";
 import { landingSectionHeading } from "@/lib/landing-i18n";
+import { kunciKelompok } from "@/lib/landing-faq";
 import {
   LANDING_BLOCK_LABELS,
   LANDING_ABOUT_CARDS,
@@ -26,6 +27,7 @@ import {
   type LandingSectionId,
   type LandingTextLimit,
   LANDING_ROUTE_STEP_TEXT_MAX,
+  FAQ_GROUP_MAX,
 } from "@/lib/domain";
 
 /**
@@ -128,10 +130,12 @@ const LABEL_BLOK: Record<keyof LandingBlockEn, string> = {
   nav_label: "Top menu label",
   countdown_from: "Route start label",
   countdown_to: "Destination",
+  do_label: "Do heading",
+  dont_label: "Don't heading",
 };
 const AREA_BLOK = new Set<keyof LandingBlockEn>(["body", "source", "quote"]);
 /** Urutan kolom sama dengan editor ID. */
-const URUT_BLOK: (keyof LandingBlockEn)[] = ["eyebrow", "heading", "body", "quote", "name", "role", "fact_title", "fact_body", "link_label", "link2_label", "source", "countdown_from", "countdown_to", "nav_label"];
+const URUT_BLOK: (keyof LandingBlockEn)[] = ["eyebrow", "heading", "body", "quote", "name", "role", "fact_title", "fact_body", "link_label", "link2_label", "source", "countdown_from", "countdown_to", "do_label", "dont_label", "nav_label"];
 
 const LABEL_BUTIR: Record<"label" | "title" | "body" | "value", string> = { label: "Label", title: "Title", body: "Text", value: "Figure" };
 
@@ -142,6 +146,7 @@ export function labelKolomBlokEn(key: string): string {
 
 export function labelIsianButirEn(block: LandingBlock, key: "label" | "title" | "body" | "value"): string {
   if (block.type === "route") return LABEL_BUTIR_RUTE[key];
+  if (block.type === "dos_donts") return key === "body" ? "Note" : "Text";
   return key === "label" && block.type === "logos" ? "Organisation name" : key === "label" && block.type === "multicolumn" ? "Link text" : LABEL_BUTIR[key];
 }
 
@@ -461,7 +466,28 @@ export function BagianEn({
       }
       case "faq": {
         const daftar = landing.faq ?? [];
-        return [...daftar.map((item, index) => {
+        // Topik hanya dirender tampilan Daftar. Satu kolom per topik; terjemahannya
+        // ditulis ke semua pertanyaan dengan topik itu.
+        const topik = landing.layout === "modern" && landing.faq_layout === "list"
+          ? [...new Map(daftar.filter((f) => kunciKelompok(f)).map((f) => [kunciKelompok(f), f] as const)).entries()]
+          : [];
+        const kartuTopik = topik.length ? (
+          <Kartu key="faq-topik" judul="Topics">
+            {topik.map(([kunci, contoh]) => (
+              <KolomEn
+                key={kunci}
+                label="Topic"
+                sumber={contoh.group ?? ""}
+                value={contoh.en?.group}
+                max={FAQ_GROUP_MAX}
+                onChange={(value) =>
+                  setLanding({ ...landing, faq: daftar.map((f) => (kunciKelompok(f) === kunci ? { ...f, en: { ...f.en, group: value } } : f)) })
+                }
+              />
+            ))}
+          </Kartu>
+        ) : null;
+        return [kartuTopik, ...daftar.map((item, index) => {
           const ubah = (key: "q" | "a", value: string) =>
             setLanding({ ...landing, faq: daftar.map((f, posisi) => (posisi === index ? { ...f, en: { ...f.en, [key]: value } } : f)) });
           return (

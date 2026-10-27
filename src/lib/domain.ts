@@ -171,6 +171,13 @@ export type ClientFieldApproval = { key: string; label: string; type: Registrati
  * `hero` sengaja TIDAK ada di sini. Ia selalu tampil dan selalu pertama —
  * halaman acara tanpa nama acara di bagian atas bukan pilihan gaya.
  */
+/** Kartu: tiap pertanyaan berkartu (bawaan). Daftar: baris bergaris, bisa dikelompokkan per topik. */
+export const LANDING_FAQ_LAYOUTS = ["cards", "list"] as const;
+export type LandingFaqLayout = (typeof LANDING_FAQ_LAYOUTS)[number];
+export const LANDING_FAQ_LAYOUT_LABELS: Record<LandingFaqLayout, string> = { cards: "Cards", list: "List" };
+/** Panjang nama topik FAQ ("Perjalanan & hotel"). */
+export const FAQ_GROUP_MAX = 40;
+
 export type LandingSectionId = "about" | "highlights" | "agenda" | "speakers" | "venue" | "faq" | "sponsors" | "contact";
 
 /**
@@ -211,7 +218,7 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
  * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
  * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
  */
-export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route" | "countdown";
+export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route" | "countdown" | "dos_donts";
 
 /**
  * Tempat blok tampil. `public` = halaman acara (bawaan, perilaku sebelum pilihan
@@ -274,7 +281,13 @@ export const LANDING_ROUTE_MAPS_MODES = ["walking", "driving", "transit"] as con
 export type LandingRouteMapsMode = (typeof LANDING_ROUTE_MAPS_MODES)[number];
 export const LANDING_ROUTE_MAPS_MODE_LABELS: Record<LandingRouteMapsMode, string> = { walking: "Walking", driving: "Driving", transit: "Public transport" };
 
-export type LandingBlockLayout = "featured" | "overlay" | "columns" | "cards" | "numbered" | "list" | LandingCountdownStyle;
+export type LandingBlockLayout = "featured" | "overlay" | "columns" | "cards" | "numbered" | "list" | LandingCountdownStyle | "tiles";
+
+/**
+ * Jenis butir blok Do's and Don'ts: yang dianjurkan atau yang dihindari.
+ * Kosong = dianjurkan.
+ */
+export type LandingDoKind = "do" | "dont";
 
 /**
  * Gaya blok Hitung mundur. Tiap gaya punya kontrolnya sendiri di CMS; kolom
@@ -318,6 +331,8 @@ export type LandingBlockItem = {
    * `body`; cara lama tanpa `steps` tetap membaca `body` (satu langkah per baris).
    */
   steps?: LandingRouteStep[];
+  /** Do's and Don'ts: anjuran atau larangan. Kosong = anjuran. */
+  kind?: LandingDoKind;
   /** Teks English butir ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingItemEn;
 };
@@ -391,6 +406,9 @@ export type LandingBlock = {
   bg_color?: string;
   /** Hitung mundur: tampilkan detik. Bawaan menyala di Papan, mati di gaya lain. */
   seconds?: boolean;
+  /** Do's and Don'ts: judul kelompok anjuran dan larangan. Kosong = "Lakukan" / "Hindari" (atau "Do" / "Don't"). */
+  do_label?: string;
+  dont_label?: string;
   /** Teks English blok ini. Lihat src/lib/landing-i18n.ts. */
   en?: LandingBlockEn;
 };
@@ -405,7 +423,7 @@ export type LandingBlock = {
 
 /** Kolom teks blok yang punya versi English. */
 export const LANDING_BLOCK_EN_KEYS = [
-  "eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "nav_label", "countdown_from", "countdown_to",
+  "eyebrow", "heading", "body", "link_label", "link2_label", "fact_title", "fact_body", "source", "quote", "name", "role", "nav_label", "countdown_from", "countdown_to", "do_label", "dont_label",
 ] as const;
 export type LandingBlockEn = Partial<Record<(typeof LANDING_BLOCK_EN_KEYS)[number], string>>;
 
@@ -496,6 +514,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   multicolumn: "Columns",
   route: "Directions",
   countdown: "Countdown",
+  dos_donts: "Do's and Don'ts",
 };
 
 export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
@@ -511,6 +530,7 @@ export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
   multicolumn: "1 to 4 columns, each with an image, title, text and link.",
   route: "How to get from one place to another, e.g. between two hotels, with a Google Maps button.",
   countdown: "Days, hours and minutes to the event start. Hides itself once the event is over.",
+  dos_donts: "What to do and what to avoid, each with an icon: what to wear, what to bring, house rules.",
 };
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
@@ -533,6 +553,7 @@ export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTo
   multicolumn: "light",
   route: "panel",
   countdown: "dark",
+  dos_donts: "panel",
 };
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
@@ -552,6 +573,11 @@ export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: La
     { value: "ticket", label: "Ticket", hint: "A ticket with a route from today to the event, an icon that moves closer each day, and the days left on the stub." },
     { value: "strip", label: "Slim strip", hint: "One slim line: days left, a progress route and the time. Good right under the hero." },
     { value: "photo", label: "Photo", hint: "Large numbers over your own photo, with a dark layer so they stay readable." },
+  ],
+  dos_donts: [
+    { value: "tiles", label: "Icon grid", hint: "Each item in its own tile with a large icon and a tick or cross badge. The most visual, and the longest on phones." },
+    { value: "cards", label: "Two cards", hint: "One card for Do and one for Don't, side by side on wide screens. Reads like a checklist." },
+    { value: "list", label: "Compact list", hint: "Icons and text without cards, two columns on wide screens. More than 6 Do items fold behind a Show more button; Don't items always show in full." },
   ],
 };
 
@@ -595,6 +621,8 @@ export type LandingBlockLimits = {
   role?: LandingTextLimit;
   countdown_from?: LandingTextLimit;
   countdown_to?: LandingTextLimit;
+  do_label?: LandingTextLimit;
+  dont_label?: LandingTextLimit;
   item?: { label?: LandingTextLimit; title?: LandingTextLimit; body?: LandingTextLimit; value?: LandingTextLimit };
   /** Jumlah butir. `full` = jumlah yang membuat baris penuh; selain itu CMS memberi peringatan. */
   items?: { max: number; full?: number[] };
@@ -679,8 +707,18 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
       return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: { max: 600 }, item: { label: { max: 40 }, value: { max: 20 }, body: { max: 160, ideal: 120 } }, items: { max: 4 } };
     case "countdown":
       return { eyebrow: ALIS_BATAS, heading: { max: 44, ideal: 36 }, countdown_from: { max: 16 }, countdown_to: { max: 28, ideal: 20 } };
+    case "dos_donts":
+      // Satu kalimat per butir: di kisi ikon lima kolom (~210px) 60 karakter sudah tiga baris.
+      return {
+        eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: PENGANTAR_BATAS, do_label: { max: 24 }, dont_label: { max: 24 },
+        item: { title: { max: 60, ideal: 44 }, body: { max: 120, ideal: 90 } },
+        items: { max: DOS_DONTS_MAX },
+      };
   }
 }
+
+/** Batas butir blok Do's and Don'ts (gabungan anjuran dan larangan). */
+export const DOS_DONTS_MAX = 16;
 
 /** Jumlah kolom blok Kolom, dengan bawaan untuk data lama atau rusak. */
 export function landingColumnCount(block: Pick<LandingBlock, "columns">): LandingColumnCount {
@@ -721,6 +759,7 @@ export function landingBlockHasContent(
     // Isinya tanggal acara, bukan isian blok. Acara tanpa tanggal atau yang sudah
     // selesai disaring saat render (src/lib/landing-hitung-mundur.ts).
     case "countdown": return true;
+    case "dos_donts": return items.some((item) => item.title?.trim());
   }
 }
 
@@ -1555,7 +1594,14 @@ export type EventLandingConfig = {
   speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
   highlights?: { label: string; value: string; en?: { label?: string; value?: string } }[];
-  faq?: { q: string; a: string; en?: { q?: string; a?: string } }[];
+  /**
+   * `group`: topik opsional (tampilan Daftar), teks bebas dari panitia.
+   * `group_id` hanya ada setelah resolveLanding di /en: nama Indonesianya,
+   * supaya pengelompokan tidak pecah bila terjemahan topik berbeda.
+   */
+  faq?: { q: string; a: string; group?: string; group_id?: string; en?: { q?: string; a?: string; group?: string } }[];
+  /** Tampilan FAQ di tata letak Modern. Kosong = kartu (seperti sebelumnya). */
+  faq_layout?: LandingFaqLayout;
   /** Logo sponsor dan mitra. Diunggah di CMS halaman acara, bukan ditarik dari layar lain. */
   sponsors?: { name?: string; logo_url: string; en?: { name?: string } }[];
   contact_name?: string;

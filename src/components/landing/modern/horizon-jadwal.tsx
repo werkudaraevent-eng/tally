@@ -17,7 +17,9 @@ const BARIS_RINGKAS = 6;
 /**
  * Jadwal satu hari Horizon: daftar jam selebar kolom kanan, kolom jam tetap
  * (tabular) dan judul acara di sebelahnya, garis tipis antarbaris, seperti
- * agenda publik Sched dan Eventbrite. Keterangan acara selalu tampil; pembicara
+ * agenda publik Sched dan Eventbrite. Keterangan acara selalu tampil utuh, tidak
+ * pernah dipotong: isinya sering info penting (apa yang dibawa, titik kumpul),
+ * dan hari pendek tidak punya tombol untuk membukanya; pembicara
  * sesi (Speakers, `session_refs`) tampil saat hari dibuka.
  *
  * Hari panjang tampil enam baris pertama berurutan (bukan potongan acak), lalu
@@ -74,7 +76,7 @@ export function JamHariHorizon({
                     <LabelUntuk teks={item.untuk} className="text-[#CDD7EA]" />
                   </p>
                   {keterangan ? (
-                    <TeksKaya teks={keterangan} warna={null} className={`mt-0.5 whitespace-pre-line text-[13px] leading-5 text-[#CDD7EA] md:text-[14px] ${buka ? "" : "line-clamp-2"}`} />
+                    <TeksKaya teks={keterangan} warna={null} className="mt-0.5 whitespace-pre-line text-[13px] leading-5 text-[#CDD7EA] md:text-[14px]" />
                   ) : null}
                   {orang.length > 0
                     ? kelompokPeran(orang, t.agendaSpeakers).map((grup) => (

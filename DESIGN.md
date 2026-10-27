@@ -656,6 +656,9 @@ dijepit di kolom 360 px dengan hanya tiga acara yang melompat jam.
   digulir; di ponsel keduanya bertumpuk.
 - Tanggal ditulis sekali. Bila judul bagian sudah memuat tanggal, baris tanggal
   dilewati (`judulMemuatTanggal`).
+- Keterangan acara tampil utuh, tidak pernah dipotong dengan "…": isinya info
+  penting (apa yang dibawa, titik kumpul) dan tamu tidak boleh harus menebak
+  ada tombol untuk membacanya (27 Oktober 2026, Mas).
 - Urutan hari cukup label kecil ("HARI 01"), bukan angka hias besar.
 - Hari panjang memotong secara berurutan (enam acara pertama, lalu "Lihat semua
   N acara"), tidak pernah mengambil acara dari tengah atau akhir.
@@ -663,6 +666,48 @@ dijepit di kolom 360 px dengan hanya tiga acara yang melompat jam.
 
 Berlaku sekarang di Horizon. Agenda preset lain mengikuti aturan ini di PR
 terpisah bila dirombak.
+
+#### Blok Do's and Don'ts
+
+Diputuskan 27 Oktober 2026 dari buku panduan acara (lingkaran ikon) dan pola
+fasilitas Airbnb. Tiga tampilan, dipilih admin per blok: Kisi ikon (bawaan),
+Dua kartu, Daftar ringkas.
+
+- Do dan Don't dibedakan dengan kata, tanda, dan warna sekaligus, tidak pernah
+  warna saja: judul kelompok "Lakukan"/"Hindari" dengan lingkaran centang
+  atau silang, dan pada Kisi ikon lencana 22 px di kanan bawah lingkaran ikon.
+- Hijau `#1E7B45` dan merah `#B42318` tetap untuk semua acara (versi terang di
+  latar gelap): arti centang dan silang tidak ikut warna merek.
+- Kisi ikon: ubin `rounded-2xl` p-4, lingkaran 56 px berwarna lembut dengan
+  ikon 28 px, teks 16/24 semibold, catatan 14/20; 2 kolom di ponsel, 3 di
+  tablet, 5 di layar lebar.
+- Dua kartu dan Daftar ringkas: ikon 24 atau 28 px di tengah baris pertama
+  teks, jarak antarbutir 16 px.
+- Daftar ringkas melipat Lakukan setelah 6 butir ("Tampilkan N lainnya");
+  Hindari tidak pernah dilipat, karena larangan tidak boleh tersembunyi.
+
+#### FAQ tampilan Daftar
+
+Diputuskan 27 Oktober 2026 (Mas, FAQ KSO 12 pertanyaan). Pilihan Tampilan di
+CMS: Kartu (bawaan, tiap pertanyaan berkartu, cocok sampai sekitar 5) atau
+Daftar (Apple Support, GOV.UK accordion, daftar M3 bergaris). Tata letak Modern
+saja.
+
+- Baris: garis 1 px `--reg-outline-variant`, tinggi minimal 56 px, pertanyaan
+  16/24 (17/24 di layar lebar) tebal 500, chevron 20 px yang berputar saat
+  terbuka. Semua tertutup di awal.
+- Topik diisi panitia per pertanyaan (kolom Topic, teks bebas dengan saran nama
+  yang sudah dipakai). Judul topik HARUS mengungguli pertanyaan dalam ukuran
+  dan ketebalan: huruf judul 20/28 (22/28 di layar lebar) tebal 700, jumlah
+  pertanyaan 14/20 abu-abu di sebelahnya, garis aksen 32x3 px warna `--alis`
+  12 px di atasnya, 8 px ke baris pertama. Label kapital abu-abu kecil
+  ditolak: terbaca setara dengan pertanyaan.
+- Jarak antartopik 48 px (56 px di layar lebar).
+- Layar lebar: kolom kiri 360 px menempel (`--nav-h` + 32 px) berisi judul,
+  pengantar, dan daftar topik (dari 2 topik) dengan garis aksen 3 px pada
+  topik yang sedang dibaca. Di ponsel daftar topik tidak ada.
+- Tidak dipakai: tab per topik dan "Tampilkan semua" (menyembunyikan jawaban),
+  kolom cari (baru berguna di sekitar 30 pertanyaan).
 
 ### Area peserta
 

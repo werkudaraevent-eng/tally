@@ -19,6 +19,7 @@ import { gayaBlokLatarSendiri, hexLatarSendiri } from "@/lib/landing-latar-sendi
 import { keadaanSaatIni, LAPISAN_FOTO, sekarangServer, TINTA, warnaHitungMundur, type JadwalHitungMundur } from "@/lib/landing-hitung-mundur";
 import { readableOn } from "@/lib/color";
 import { HitungMundurIsi } from "./hitung-mundur-lazy";
+import { BlokDosDonts } from "./blok-dos-donts";
 import { MUAT_IKON } from "./ikon-ssr";
 import { HEAD, JUDUL, LABEL_BAGIAN, MUTED, PIL, SHELL } from "./styles";
 
@@ -959,6 +960,7 @@ export function LandingBlockView({
     case "download": return <Unduhan block={block} lang={lang} />;
     case "cta": return <Ajakan block={block} daftarUrl={daftarUrl} daftarLabel={daftarLabel} />;
     case "multicolumn": return <Kolom block={block} lang={lang} />;
+    case "dos_donts": return <Wadah block={block}><BlokDosDonts block={block} lang={lang} kepala={<Kepala block={block} />} /></Wadah>;
     case "countdown": return jadwal ? <HitungMundur block={block} acara={jadwal} lang={lang} warnaTema={warnaTema ?? { brand: "#1B2D57", accent: null }} /> : null;
   }
 }
