@@ -2,7 +2,7 @@ import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { tanpaBintang } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { FaqDaftar } from "./modern/faq-daftar";
-import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Moon, Plus } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, EnvelopeSimple, MapPin, Minus, Moon, Phone, Plus, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type {
   EventLandingConfig,
   EventRow,
@@ -26,6 +26,7 @@ import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, l
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
 import { MasukDialog } from "@/components/member/masuk-dialog";
+import { daftarKontakPanitia } from "@/lib/kontak-panitia";
 import { caraMasukPublik } from "@/lib/member/kolom-masuk";
 import type { MasukMode, MasukSandi } from "@/app/masuk/masuk-client";
 import { timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
@@ -580,6 +581,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const indeksHorizon = config.hero_index?.trim() || t.horizon.index;
   // Gathering Horizon: garis perjalanan emas di talang kiri sepanjang bagian halaman.
   const bungkusJalur = (isi: ReactNode) => (horizon ? <JalurHorizon>{isi}</JalurHorizon> : isi);
+  const kontakPanitiaDaftar = horizon ? daftarKontakPanitia(config) : [];
   const bawaanHorizon: Partial<Record<LandingSectionId, ReactNode>> = horizon
     ? {
         about: tampil("about") ? (
@@ -621,7 +623,15 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       <JudulBagian {...judulBagian("faq")} />
       <p className={`text-isi ${MUTED}`}>
         {pengantarFaq(config.faq_intro?.trim() || t.faqIntro, kontak.length > 0)}
-        {kontak.length > 0 ? t.faqContact : null}
+        {kontak.length > 0 ? (
+          // Horizon: kalimatnya menuju bagian Kontak panitia di halaman ini.
+          horizon && kontakPanitiaDaftar.length > 0 ? (
+            <>
+              {" "}
+              <a href="#contact" className="font-medium text-[var(--reg-on-surface)] underline underline-offset-4">{t.faqContact.trim()}</a>
+            </>
+          ) : t.faqContact
+        ) : null}
       </p>
     </>
   );
@@ -912,6 +922,50 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     // Logo mitra tinggal di kaki halaman ("Diselenggarakan oleh"), bukan
     // bagian sendiri di tengah halaman.
     sponsors: null,
+    // Horizon tidak punya kolom kontak di kaki: kontak panitia (Event settings)
+    // menjadi bagian sendiri, di urutan yang dipilih di CMS. Layout lain tetap
+    // menaruhnya di kaki.
+    contact: horizon && tampil("contact") && kontakPanitiaDaftar.length > 0 ? (
+      <Section id="contact">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
+          <div className="flex flex-col gap-5 lg:self-start">
+            <h2 className={JUDUL}>{t.footerContact}</h2>
+            <p className={`text-isi ${MUTED}`}>{t.contactLead}</p>
+          </div>
+          <ul className="flex flex-col gap-3">
+            {kontakPanitiaDaftar.map((kontak, index) => (
+              <li key={index} className="flex flex-col gap-4 rounded-md bg-[var(--reg-panel)] md:flex-row md:items-center md:justify-between md:gap-6 px-5 py-5 [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)] sm:px-7 sm:py-6">
+                <div className="flex min-w-0 flex-col gap-1">
+                  {kontak.nama ? <p className={`${JUDUL_BUTIR} [overflow-wrap:anywhere]`}>{kontak.nama}</p> : null}
+                  {kontak.nomor ? <p className={`text-isi ${MUTED}`}>{kontak.nomor}</p> : null}
+                  {kontak.email ? <p className={`text-isi ${MUTED} [overflow-wrap:anywhere]`}>{kontak.email}</p> : null}
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-3">
+                  {kontak.wa ? (
+                    <a href={kontak.wa} target="_blank" rel="noreferrer noopener" className={PIL_PENUH} style={STATE_ON_PRIMARY} aria-label={`${t.contactWhatsapp} ${kontak.nama ?? kontak.nomor ?? ""}`.trim()}>
+                      <WhatsappLogo size={20} aria-hidden />
+                      {t.contactWhatsapp}
+                    </a>
+                  ) : null}
+                  {kontak.tel ? (
+                    <a href={`tel:${kontak.tel}`} className={PIL_GARIS} aria-label={`${t.contactCall} ${kontak.nama ?? kontak.nomor ?? ""}`.trim()}>
+                      <Phone size={18} aria-hidden />
+                      {t.contactCall}
+                    </a>
+                  ) : null}
+                  {kontak.email ? (
+                    <a href={`mailto:${kontak.email}`} className={PIL_GARIS} aria-label={`${t.contactEmail} ${kontak.nama ?? kontak.email}`}>
+                      <EnvelopeSimple size={18} aria-hidden />
+                      {t.contactEmail}
+                    </a>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Section>
+    ) : null,
   };
 
   return (

@@ -197,7 +197,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
     venue: Boolean(event.venue_name?.trim() || event.venue_address?.trim()),
     faq: (config.faq ?? []).length > 0,
     sponsors: (config.sponsors ?? []).length > 0,
-    contact: Boolean(config.contact_name || config.contact_phone || config.contact_email),
+    contact: Boolean(config.contact_name || config.contact_phone || config.contact_email) || (config.contact_more ?? []).length > 0,
   };
   const tampil = aktif.filter((section) => isi[section.id]);
   const agendaTampil = tampil.some((section) => section.id === "agenda");
@@ -525,40 +525,53 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
             case "contact":
               return (
                 <SectionShell key="contact" id="contact" title={LANDING_SECTION_LABELS.contact}>
-                  <dl className="grid gap-x-12 gap-y-6 text-body-large sm:grid-cols-3">
-                    {config.contact_name ? (
-                      <div>
-                        <dt className={`text-body-medium ${MUTED}`}>Nama</dt>
-                        <dd className="mt-1 font-semibold">{config.contact_name}</dd>
-                      </div>
-                    ) : null}
-                    {config.contact_phone ? (
-                      <div>
-                        <dt className={`text-body-medium ${MUTED}`}>Telepon</dt>
-                        <dd className="mt-1">
-                          <a
-                            href={`tel:${config.contact_phone}`}
-                            className="inline-flex min-h-11 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
-                          >
-                            {config.contact_phone}
-                          </a>
-                        </dd>
-                      </div>
-                    ) : null}
-                    {config.contact_email ? (
-                      <div className="min-w-0">
-                        <dt className={`text-body-medium ${MUTED}`}>Email</dt>
-                        <dd className="mt-1">
-                          <a
-                            href={`mailto:${config.contact_email}`}
-                            className="inline-flex min-h-11 items-center break-all font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
-                          >
-                            {config.contact_email}
-                          </a>
-                        </dd>
-                      </div>
-                    ) : null}
-                  </dl>
+                  {/* Kontak utama lalu kontak kedua dan ketiga (Event settings).
+                      Satu kontak: satu daftar seperti sebelumnya. */}
+                  {(() => {
+                    const daftar = [
+                      { name: config.contact_name, phone: config.contact_phone, email: config.contact_email },
+                      ...(config.contact_more ?? []),
+                    ]
+                      .map((item) => ({ name: item.name?.trim(), phone: item.phone?.trim(), email: item.email?.trim() }))
+                      .filter((item) => item.name || item.phone || item.email);
+                    const isi = daftar.map((kontak, urutan) => (
+                      <dl key={urutan} className="grid gap-x-12 gap-y-6 text-body-large sm:grid-cols-3">
+                        {kontak.name ? (
+                          <div>
+                            <dt className={`text-body-medium ${MUTED}`}>Nama</dt>
+                            <dd className="mt-1 font-semibold">{kontak.name}</dd>
+                          </div>
+                        ) : null}
+                        {kontak.phone ? (
+                          <div>
+                            <dt className={`text-body-medium ${MUTED}`}>Telepon</dt>
+                            <dd className="mt-1">
+                              <a
+                                href={`tel:${kontak.phone}`}
+                                className="inline-flex min-h-11 items-center font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
+                              >
+                                {kontak.phone}
+                              </a>
+                            </dd>
+                          </div>
+                        ) : null}
+                        {kontak.email ? (
+                          <div className="min-w-0">
+                            <dt className={`text-body-medium ${MUTED}`}>Email</dt>
+                            <dd className="mt-1">
+                              <a
+                                href={`mailto:${kontak.email}`}
+                                className="inline-flex min-h-11 items-center break-all font-semibold text-[var(--reg-primary)] underline-offset-4 hover:underline"
+                              >
+                                {kontak.email}
+                              </a>
+                            </dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    ));
+                    return isi.length > 1 ? <div className="flex flex-col gap-10">{isi}</div> : isi;
+                  })()}
                 </SectionShell>
               );
 

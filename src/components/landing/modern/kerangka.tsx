@@ -102,7 +102,7 @@ export function bagianModern(
     venue: Boolean(event.venue_name?.trim() || event.venue_address?.trim() || (opsi.gathering && opsi.adaHotel)),
     faq: (config.faq ?? []).length > 0,
     sponsors: (config.sponsors ?? []).some((sponsor) => sponsor.logo_url),
-    contact: Boolean(config.contact_name || config.contact_phone || config.contact_email),
+    contact: Boolean(config.contact_name || config.contact_phone || config.contact_email) || (config.contact_more ?? []).length > 0,
   };
   const tampil = (id: LandingSectionId) => aktif.has(id) && isi[id];
   // Program = bagian-bagian rundown sebagai kartu. Satu bagian saja tidak
@@ -157,6 +157,13 @@ export function bagianModern(
         config.contact_name ? { label: config.contact_name, href: null } : null,
         config.contact_email ? { label: config.contact_email, href: `mailto:${config.contact_email}` } : null,
         config.contact_phone ? { label: config.contact_phone, href: `tel:${config.contact_phone}` } : null,
+        // Kontak kedua dan ketiga sesudah yang utama: tautan pertama (bantuan
+        // di dialog Masuk) tetap milik kontak utama.
+        ...(config.contact_more ?? []).flatMap((item) => [
+          item.name?.trim() ? { label: item.name.trim(), href: null } : null,
+          item.email?.trim() ? { label: item.email.trim(), href: `mailto:${item.email.trim()}` } : null,
+          item.phone?.trim() ? { label: item.phone.trim(), href: `tel:${item.phone.trim()}` } : null,
+        ]),
       ].filter((item): item is { label: string; href: string | null } => item !== null)
     : [];
 

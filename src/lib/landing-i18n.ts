@@ -528,6 +528,11 @@ export type LandingUiText = {
   footerEvent: string;
   footerGuests: string;
   footerContact: string;
+  /** Bagian Kontak panitia (Horizon). */
+  contactLead: string;
+  contactWhatsapp: string;
+  contactCall: string;
+  contactEmail: string;
   poweredBy: string;
   readMore: string;
   /** Judul bawaan kelompok blok Do's and Don'ts. */
@@ -692,6 +697,10 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     footerEvent: "Acara",
     footerGuests: "Peserta",
     footerContact: "Kontak panitia",
+    contactLead: "Ada pertanyaan sebelum atau selama acara? Hubungi panitia.",
+    contactWhatsapp: "WhatsApp",
+    contactCall: "Telepon",
+    contactEmail: "Email",
     poweredBy: "Dikelola dengan Tally",
     readMore: "Selengkapnya",
     doLabel: "Lakukan",
@@ -851,6 +860,10 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     footerEvent: "Event",
     footerGuests: "Participants",
     footerContact: "Contact",
+    contactLead: "Questions before or during the event? Contact the organisers.",
+    contactWhatsapp: "WhatsApp",
+    contactCall: "Call",
+    contactEmail: "Email",
     poweredBy: "Powered by Tally",
     readMore: "Learn more",
     doLabel: "Do",
