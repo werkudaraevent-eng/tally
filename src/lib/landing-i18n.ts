@@ -448,7 +448,6 @@ export type LandingUiText = {
   horizon: {
     start: string;
     index: string;
-    teaser: string;
     teaserLink: string;
     days: (days: number) => string;
     inviteEyebrow: string;
@@ -616,7 +615,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     horizon: {
       start: "Mulai perjalanan kita",
       index: "01 / Sebuah awal baru",
-      teaser: "Bukan sekadar pergi.\nAda cerita yang kita bawa pulang.",
       teaserLink: "Kenali perjalanannya",
       days: (days) => `${["Nol", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh"][days] ?? days} hari.\nSatu cerita kita.`,
       inviteEyebrow: "Setelah masuk, ceritanya jadi milikmu",
@@ -773,7 +771,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     horizon: {
       start: "Start our journey",
       index: "01 / A new beginning",
-      teaser: "Not just a trip.\nA story we bring home.",
       teaserLink: "See the journey",
       days: (days) => `${["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][days] ?? days} ${days === 1 ? "day" : "days"}.\nOne story, together.`,
       inviteEyebrow: "Sign in and the story is yours",

@@ -1901,8 +1901,7 @@ export default function LandingCmsPage() {
       data-kolom="program_heading"
       optional
       rows={2}
-      placeholder={LANDING_UI.id.horizon.teaser}
-      hint="The large line at the top of this section, beside the day count (01–03). Its link scrolls to the agenda. Press Enter to start a new line."
+      hint="Optional large line above the photo, beside the day count (01–03), with a link that scrolls to the agenda. Empty: no opening line, so the section heading below is the only heading. Press Enter to start a new line."
       maxLength={120}
       value={landing.program_heading ?? ""}
       onChange={(event) => setLanding({ ...landing, program_heading: event.target.value })}

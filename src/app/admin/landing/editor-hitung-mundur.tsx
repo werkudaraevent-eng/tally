@@ -34,6 +34,7 @@ const NAMA_GAYA: Record<LandingCountdownStyle, string> = {
   ticket: "Ticket",
   strip: "Slim strip",
   photo: "Photo",
+  journey: "Journey",
 };
 
 type Latar = "light" | "panel" | "dark" | "custom";
@@ -67,6 +68,17 @@ function Sketsa({ gaya }: { gaya: LandingCountdownStyle }) {
         <span className="flex w-full items-center gap-1.5">
           <span className="text-[10px] font-semibold text-[#F5C451]">24h</span>
           <span className="relative h-[3px] flex-1 rounded-full bg-white/20"><span className="absolute inset-y-0 left-0 w-2/3 rounded-full bg-[#F5C451]" /></span>
+        </span>
+      ) : null}
+      {gaya === "journey" ? (
+        <span className="flex w-full flex-col gap-1.5">
+          <span className="text-[11px] font-semibold leading-none text-white"><span className="text-[#F5C451]">24</span> hari lagi</span>
+          <span className="relative flex h-3 items-center">
+            <span className="h-px w-full bg-white/30" />
+            <span className="absolute left-0 h-[3px] w-1/2 rounded-full bg-[#F5C451]" />
+            <span className="absolute left-1/2 size-3 -translate-x-1/2 rounded-full bg-[#F5C451] ring-2 ring-[#111A42]" />
+            <span className="absolute right-0 size-1.5 rounded-full bg-[#F5C451]" />
+          </span>
         </span>
       ) : null}
       {gaya === "photo" ? (
@@ -161,16 +173,17 @@ export function EditorHitungMundur({
           {teks("heading", "Heading", { placeholder: "Menuju hari H", hint: "Empty: \"Menuju hari H\" (English page: \"Counting down to the day\")." })}
         </>
       ) : null}
-      {pakai("board", "ticket", "strip")
+      {gaya === "journey" ? teks("eyebrow", "Small label", { hint: "Optional, one to three words above the days left." }) : null}
+      {pakai("board", "ticket", "strip", "journey")
         ? teks("countdown_to", gaya === "board" ? "Board title" : "Destination", {
             placeholder: "Venue name",
-            hint: gaya === "strip" ? "Shown as \"24 hari lagi ke …\". Empty: the venue name. e.g. Yogyakarta." : "Empty: the venue name. A city reads best, e.g. Yogyakarta.",
+            hint: gaya === "strip" || gaya === "journey" ? "Shown as \"24 hari lagi ke …\". Empty: the venue name. e.g. Yogyakarta." : "Empty: the venue name. A city reads best, e.g. Yogyakarta.",
           })
         : null}
-      {pakai("ticket", "strip")
+      {pakai("ticket", "strip", "journey")
         ? teks("countdown_from", gaya === "ticket" ? "Start label" : "Label under the start of the route", { placeholder: "Hari ini", hint: "Empty: \"Hari ini\"." })
         : null}
-      {pakai("ticket", "strip") ? (
+      {pakai("ticket", "strip", "journey") ? (
         <div className="flex flex-col gap-1">
           <PilihIkonKartu
             nomor={1}
@@ -245,7 +258,7 @@ export function EditorHitungMundur({
               {peringatan}
             </p>
           ) : (
-            <p className="text-body-small text-on-surface-variant">Colours the numbers{pakai("ticket", "strip") ? ", the route and its icon" : ""}. Auto picks the accent or brand colour that reads best.</p>
+            <p className="text-body-small text-on-surface-variant">Colours the numbers{pakai("ticket", "strip", "journey") ? ", the route and its icon" : ""}. Auto picks the accent or brand colour that reads best.</p>
           )}
         </div>
         <Switch

@@ -547,7 +547,7 @@ async function siapkanHitungMundur(block: LandingBlock, acara: AcaraHitungMundur
 
   // Ikon penanda rute (Tiket, Pita): gambar sendiri, ikon Phosphor, atau titik.
   let ikon: ReactNode = null;
-  if (gaya === "ticket" || gaya === "strip") {
+  if (gaya === "ticket" || gaya === "strip" || gaya === "journey") {
     if (block.icon_url) {
       // eslint-disable-next-line @next/next/no-img-element
       ikon = <img src={block.icon_url} alt="" className="size-6 object-contain" />;
@@ -603,7 +603,7 @@ async function HitungMundur({ block, acara, lang, warnaTema }: { block: LandingB
   const { gaya, gayaWarna, isi } = siap;
   return (
     // Nada kosong = Merek gelap, sama dengan dasar perhitungan warnanya (warnaHitungMundur).
-    <Wadah block={{ ...block, tone: block.tone ?? "dark" }} className={gaya === "strip" ? "py-6 sm:py-8" : gaya === "photo" ? "py-20 sm:py-28" : "py-16 sm:py-20"} style={gayaWarna}>
+    <Wadah block={{ ...block, tone: block.tone ?? "dark" }} className={gaya === "strip" ? "py-6 sm:py-8" : gaya === "journey" ? "py-8 sm:py-10" : gaya === "photo" ? "py-20 sm:py-28" : "py-16 sm:py-20"} style={gayaWarna}>
       {isi}
     </Wadah>
   );

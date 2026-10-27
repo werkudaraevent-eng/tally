@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { LandingCountdownStyle } from "@/lib/domain";
 import { jedaBerikutnya, keadaanHitungMundur, pecahSisa, rentangAcara, sisaHariKalender, type JadwalHitungMundur } from "@/lib/landing-hitung-mundur";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
@@ -108,6 +108,7 @@ export function HitungMundurIsi({
       case "ticket": return <Tiket {...dasar} ikon={ikon} kemajuan={kemajuan} />;
       case "strip": return <Pita {...dasar} ikon={ikon} kemajuan={kemajuan} />;
       case "photo": return <Foto {...dasar} />;
+      case "journey": return <Perjalanan {...dasar} ikon={ikon} kemajuan={kemajuan} />;
       default: return <Angka {...dasar} />;
     }
   })();
@@ -336,6 +337,133 @@ function Pita({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender, ikon
         {berlangsung ? null : (
           <span aria-hidden className={`pt-1 text-body-medium tabular-nums ${MUTED}`}>{t.countdownIn(sisa, detik)}</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+/*
+ * Gaya Perjalanan: kalimat sisa hari dengan angka yang bergulir, lalu rel
+ * dari hari ini ke tujuan. Saat pertama terlihat ikon melaju ke posisi hari
+ * ini, rel yang sudah dilalui terisi, dan tujuan berdenyut tiga kali. Semua
+ * gerak selesai di bawah 5 detik (WCAG 2.2.2, tanpa tombol jeda) dan hanya
+ * memakai transform dan opacity. Keadaan akhir adalah gaya dasarnya: tanpa
+ * JavaScript, dengan gerak dikurangi, atau saat dicetak, yang tampil langsung
+ * posisi akhir. Blok yang dimuat di bawah layar menunggu sampai digulir masuk.
+ */
+const ANIMASI_PERJALANAN = `
+@keyframes hm-gulir { from { transform: translateY(0) } }
+@keyframes hm-laju { from { transform: translateX(0) } }
+@keyframes hm-isi { from { transform: scaleX(0) } }
+@keyframes hm-denyut { 0% { transform: scale(1); opacity: .55 } 100% { transform: scale(3.2); opacity: 0 } }
+.hm-gulir { animation: hm-gulir 1100ms cubic-bezier(.05,.7,.1,1) both; animation-delay: var(--hm-jeda, 0ms) }
+.hm-laju { animation: hm-laju 1600ms cubic-bezier(.05,.7,.1,1) 150ms both }
+.hm-isi { animation: hm-isi 1600ms cubic-bezier(.05,.7,.1,1) 150ms both }
+.hm-denyut { opacity: 0; animation: hm-denyut 1100ms cubic-bezier(.2,0,0,1) 1500ms 3 }
+[data-tunggu] .hm-gulir, [data-tunggu] .hm-laju, [data-tunggu] .hm-isi, [data-tunggu] .hm-denyut { animation: none }
+[data-tunggu] .hm-gulir { transform: translateY(0) !important }
+[data-tunggu] .hm-laju { transform: translateX(0) !important }
+[data-tunggu] .hm-isi { transform: scaleX(0) }
+@media (prefers-reduced-motion: reduce) { .hm-gulir, .hm-laju, .hm-isi, .hm-denyut { animation: none } }
+@media print { .hm-gulir, .hm-laju, .hm-isi, .hm-denyut { animation: none } }
+`;
+
+/** Satu digit yang bergulir dari 0 melewati satu putaran penuh ke nilainya. */
+function DigitGulir({ digit, jeda }: { digit: number; jeda: number }) {
+  return (
+    <span className="relative inline-block h-[1.2em] overflow-hidden align-bottom">
+      <span className="invisible">{digit}</span>
+      <span className="hm-gulir absolute inset-x-0 top-0 flex flex-col" style={{ transform: `translateY(-${(10 + digit) * 1.2}em)`, "--hm-jeda": `${jeda}ms` } as CSSProperties}>
+        {Array.from({ length: 20 }, (_, i) => (
+          <span key={i} className="block h-[1.2em] text-center">{i % 10}</span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+function Perjalanan({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender, hariIni, ikon, kemajuan }: Dasar & { ikon: ReactNode; kemajuan: number }) {
+  const t = LANDING_UI[lang];
+  const akar = useRef<HTMLDivElement>(null);
+  // Blok di bawah layar menunggu: animasi dimatikan sampai blok masuk layar.
+  useEffect(() => {
+    const el = akar.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (el.getBoundingClientRect().top < window.innerHeight) return;
+    el.dataset.tunggu = "";
+    const pengamat = new IntersectionObserver((entri) => {
+      if (entri.some((e) => e.isIntersecting)) {
+        delete el.dataset.tunggu;
+        pengamat.disconnect();
+      }
+    }, { rootMargin: "0px 0px -15% 0px" });
+    pengamat.observe(el);
+    return () => {
+      pengamat.disconnect();
+      delete el.dataset.tunggu;
+    };
+  }, []);
+
+  const p = berlangsung ? 1 : kemajuan;
+  const bagian = t.countdownStrip(hariKalender, teks.ke);
+  const sisaJam = !berlangsung && hariKalender <= 1;
+  return (
+    <div ref={akar} className="flex flex-col gap-6 @4xl:flex-row @4xl:items-center @4xl:gap-12">
+      <style>{ANIMASI_PERJALANAN}</style>
+      <div className="flex min-w-0 flex-col gap-2 @4xl:w-[42%] @4xl:shrink-0">
+        {teks.alis ? <p className={ALIS}>{teks.alis}</p> : null}
+        <p className={`${HEAD} min-w-0 text-balance break-words text-[28px] font-semibold leading-[1.2] tracking-[-0.02em] sm:text-[36px] @4xl:text-[40px]`}>
+          {berlangsung ? (
+            <>
+              <span className="text-[var(--hm-sorot)]">{t.countdownLive}</span>
+              {hariKe ? <span className={`block pt-1 text-isi font-normal tracking-normal ${MUTED}`}>{hariKe}</span> : null}
+            </>
+          ) : (
+            bagian.map((b, i) =>
+              b.sorot ? (
+                <span key={i} className="whitespace-nowrap text-[var(--hm-sorot)]">
+                  {/^\d+/.test(b.teks) ? (
+                    <>
+                      <span aria-hidden className="tabular-nums">
+                        {b.teks.match(/^\d+/)![0].split("").map((d, k) => <DigitGulir key={k} digit={Number(d)} jeda={k * 90} />)}
+                      </span>
+                      <span className="sr-only">{b.teks.match(/^\d+/)![0]}</span>
+                      {b.teks.replace(/^\d+/, "")}
+                    </>
+                  ) : b.teks}
+                </span>
+              ) : <span key={i}>{b.teks}</span>,
+            )
+          )}
+        </p>
+        {sisaJam ? <p aria-hidden className={`text-isi tabular-nums ${MUTED}`}>{t.countdownIn(sisa, detik)}</p> : null}
+      </div>
+      <div aria-hidden className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="relative h-10 [container-type:inline-size]">
+          {/* Rel: garis tipis dengan bantalan rel, lalu bagian yang sudah dilalui. */}
+          <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-[color-mix(in_srgb,currentColor_22%,transparent)]" />
+          <span className="absolute inset-x-0 top-1/2 h-[10px] -translate-y-1/2 bg-[repeating-linear-gradient(90deg,color-mix(in_srgb,currentColor_16%,transparent)_0_2px,transparent_2px_12px)]" />
+          <span className="absolute left-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full" style={{ width: `calc(${p.toFixed(4)} * (100% - 32px))` }}>
+            <span className="hm-isi block size-full origin-left rounded-full bg-[var(--hm-sorot)]" />
+          </span>
+          <span className="absolute left-0 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--hm-sorot)] bg-[var(--hm-latar)]" />
+          <span className="absolute right-0 top-1/2 size-3.5 -translate-y-1/2 translate-x-1/2">
+            <span className="hm-denyut absolute inset-0 rounded-full bg-[var(--hm-sorot)]" />
+            <span className="absolute inset-0 rounded-full bg-[var(--hm-sorot)]" />
+          </span>
+          {/* Penanda melaju dengan transform (bukan left), sejauh kemajuan kali lebar rel (cqw), berhenti
+              sebelum titik tujuan supaya tujuan tidak tertutup sampai hari H. */}
+          <span className="hm-laju absolute left-0 top-1/2 -mt-5 size-10" style={{ transform: `translateX(calc(${p.toFixed(4)} * (100cqw - 32px)))` }}>
+            <span className="flex size-10 -translate-x-1/2 items-center justify-center rounded-full bg-[var(--hm-sorot)] text-[var(--hm-pada-sorot)] shadow-[0_0_0_4px_var(--hm-latar)]">
+              {ikon ?? <span className="size-2.5 rounded-full bg-current" />}
+            </span>
+          </span>
+        </div>
+        <div className={`flex justify-between gap-4 text-body-medium ${MUTED}`}>
+          <span><span className="font-semibold text-[var(--reg-on-surface)]">{teks.dari}</span> · {hariIni}</span>
+          <span className="text-right"><span className="font-semibold text-[var(--reg-on-surface)]">{teks.tanggalPendek}</span>{teks.jamMulai ? ` · ${teks.jamMulai}` : ""}</span>
+        </div>
       </div>
     </div>
   );

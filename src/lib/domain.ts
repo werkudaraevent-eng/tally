@@ -286,7 +286,7 @@ export type LandingDoKind = "do" | "dont";
  * Gaya blok Hitung mundur. Tiap gaya punya kontrolnya sendiri di CMS; kolom
  * yang tidak dipakai gaya terpilih tetap tersimpan tetapi tidak dibaca.
  */
-export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "photo";
+export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "photo" | "journey";
 
 /**
  * Warna sorot blok Hitung mundur: warna tema (merek, aksen gathering, tinta)
@@ -566,6 +566,7 @@ export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: La
     { value: "ticket", label: "Ticket", hint: "A ticket with a route from today to the event, an icon that moves closer each day, and the days left on the stub." },
     { value: "strip", label: "Slim strip", hint: "One slim line: days left, a progress route and the time. Good right under the hero." },
     { value: "photo", label: "Photo", hint: "Large numbers over your own photo, with a dark layer so they stay readable." },
+    { value: "journey", label: "Journey", hint: "Days left and a rail route to the destination. On first view the icon travels to today's position and the destination glows; all motion ends within 5 seconds. Good right under the hero." },
   ],
   dos_donts: [
     { value: "tiles", label: "Icon grid", hint: "Each item in its own tile with a large icon and a tick or cross badge. The most visual, and the longest on phones." },
