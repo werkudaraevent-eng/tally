@@ -686,6 +686,29 @@ Dua kartu, Daftar ringkas.
 - Daftar ringkas melipat Lakukan setelah 6 butir ("Tampilkan N lainnya");
   Hindari tidak pernah dilipat, karena larangan tidak boleh tersembunyi.
 
+#### FAQ tampilan Daftar
+
+Diputuskan 27 Oktober 2026 (Mas, FAQ KSO 12 pertanyaan). Pilihan Tampilan di
+CMS: Kartu (bawaan, tiap pertanyaan berkartu, cocok sampai sekitar 5) atau
+Daftar (Apple Support, GOV.UK accordion, daftar M3 bergaris). Tata letak Modern
+saja.
+
+- Baris: garis 1 px `--reg-outline-variant`, tinggi minimal 56 px, pertanyaan
+  16/24 (17/24 di layar lebar) tebal 500, chevron 20 px yang berputar saat
+  terbuka. Semua tertutup di awal.
+- Topik diisi panitia per pertanyaan (kolom Topic, teks bebas dengan saran nama
+  yang sudah dipakai). Judul topik HARUS mengungguli pertanyaan dalam ukuran
+  dan ketebalan: huruf judul 20/28 (22/28 di layar lebar) tebal 700, jumlah
+  pertanyaan 14/20 abu-abu di sebelahnya, garis aksen 32x3 px warna `--alis`
+  12 px di atasnya, 8 px ke baris pertama. Label kapital abu-abu kecil
+  ditolak: terbaca setara dengan pertanyaan.
+- Jarak antartopik 48 px (56 px di layar lebar).
+- Layar lebar: kolom kiri 360 px menempel (`--nav-h` + 32 px) berisi judul,
+  pengantar, dan daftar topik (dari 2 topik) dengan garis aksen 3 px pada
+  topik yang sedang dibaca. Di ponsel daftar topik tidak ada.
+- Tidak dipakai: tab per topik dan "Tampilkan semua" (menyembunyikan jawaban),
+  kolom cari (baru berguna di sekitar 30 pertanyaan).
+
 ### Area peserta
 
 `/e/<slug>/masuk` dan `/e/<slug>/peserta`, dinyalakan di CMS Halaman acara, tab

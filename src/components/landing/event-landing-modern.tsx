@@ -1,6 +1,7 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { tanpaBintang } from "@/lib/landing-tagline";
 import Link from "next/link";
+import { FaqDaftar } from "./modern/faq-daftar";
 import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, MapPin, Minus, Moon, Plus } from "@phosphor-icons/react/dist/ssr";
 import type {
   EventLandingConfig,
@@ -608,6 +609,16 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         ) : null,
       }
     : {};
+  // Judul dan pengantar FAQ, sama untuk tampilan Kartu dan Daftar.
+  const kepalaFaq = (
+    <>
+      <JudulBagian {...judulBagian("faq")} />
+      <p className={`text-isi ${MUTED}`}>
+        {pengantarFaq(config.faq_intro?.trim() || t.faqIntro, kontak.length > 0)}
+        {kontak.length > 0 ? t.faqContact : null}
+      </p>
+    </>
+  );
   const bawaan: Partial<Record<LandingSectionId, ReactNode>> = {
     about: (
       <>
@@ -859,32 +870,35 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         {/* ---- FAQ ---------------------------------------------------------- */}
         {tampil("faq") ? (
           <Section id="faq">
-            <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
-              <div className="flex flex-col gap-5 lg:self-start">
-                <JudulBagian {...judulBagian("faq")} />
-                <p className={`text-isi ${MUTED}`}>
-                  {pengantarFaq(config.faq_intro?.trim() || t.faqIntro, kontak.length > 0)}
-                  {kontak.length > 0 ? t.faqContact : null}
-                </p>
+            {config.faq_layout === "list" ? (
+              <FaqDaftar
+                items={config.faq ?? []}
+                labelTopik={t.faqTopics}
+                hitung={t.faqCount}
+                kepala={kepalaFaq}
+              />
+            ) : (
+              <div className="grid gap-10 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-20">
+                <div className="flex flex-col gap-5 lg:self-start">{kepalaFaq}</div>
+                {/* <details>: papan ketik, pembaca layar, dan tanpa JavaScript.
+                    Yang pertama terbuka, seperti di rancangan. */}
+                <div className="flex flex-col gap-3">
+                  {(config.faq ?? []).map((item, index) => (
+                    // Lapisan hover hanya menutup pertanyaan (M3 state layer). Saat
+                    // terbuka (layar sm ke atas), ruang bawah pertanyaan 16px dan jawaban diberi
+                    // 16px di atasnya: tepi lapisan tidak lagi menempel di teks.
+                    <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
+                      <summary className={`m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 sm:px-7 sm:py-6 sm:group-open:pb-4 ${JUDUL_BUTIR} [&::-webkit-details-marker]:hidden`}>
+                        {item.q}
+                        <Plus size={22} aria-hidden className={`shrink-0 group-open:hidden ${MUTED}`} />
+                        <Minus size={22} aria-hidden className={`hidden shrink-0 group-open:block ${MUTED}`} />
+                      </summary>
+                      <p className={`max-w-[38.5rem] whitespace-pre-line px-5 pb-6 pt-4 text-isi sm:px-7 ${MUTED}`}>{item.a}</p>
+                    </details>
+                  ))}
+                </div>
               </div>
-              {/* <details>: papan ketik, pembaca layar, dan tanpa JavaScript.
-                  Yang pertama terbuka, seperti di rancangan. */}
-              <div className="flex flex-col gap-3">
-                {(config.faq ?? []).map((item, index) => (
-                  // Lapisan hover hanya menutup pertanyaan (M3 state layer). Saat
-                  // terbuka (layar sm ke atas), ruang bawah pertanyaan 16px dan jawaban diberi
-                  // 16px di atasnya: tepi lapisan tidak lagi menempel di teks.
-                  <details key={item.q} open={index === 0} className="faq group rounded-md bg-[var(--reg-panel)] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
-                    <summary className={`m3-state flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-md px-5 py-5 sm:px-7 sm:py-6 sm:group-open:pb-4 ${JUDUL_BUTIR} [&::-webkit-details-marker]:hidden`}>
-                      {item.q}
-                      <Plus size={22} aria-hidden className={`shrink-0 group-open:hidden ${MUTED}`} />
-                      <Minus size={22} aria-hidden className={`hidden shrink-0 group-open:block ${MUTED}`} />
-                    </summary>
-                    <p className={`max-w-[38.5rem] whitespace-pre-line px-5 pb-6 pt-4 text-isi sm:px-7 ${MUTED}`}>{item.a}</p>
-                  </details>
-                ))}
-              </div>
-            </div>
+            )}
           </Section>
         ) : null}
       </>

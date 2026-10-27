@@ -59,7 +59,12 @@ import {
   LANDING_AGENDA_SPEAKERS_LABELS,
   type LandingAgendaSpeakers,
   type LandingSpeakerFrame,
+  LANDING_FAQ_LAYOUTS,
+  LANDING_FAQ_LAYOUT_LABELS,
+  FAQ_GROUP_MAX,
+  type LandingFaqLayout,
 } from "@/lib/domain";
+import { namaKelompokFaq } from "@/lib/landing-faq";
 import { ukurTerangKv } from "@/lib/kv-terang";
 import { HERO_KV_KUAT, emasHorizon as hitungEmasHorizon, landingTokens, sorotHorizon } from "@/lib/landing-tokens";
 import { gatheringColors } from "@/lib/registration-theme-css";
@@ -2319,11 +2324,46 @@ export default function LandingCmsPage() {
       case "faq": {
         const list = landing.faq ?? [];
         const setList = (next: typeof list) => setLanding({ ...landing, faq: next });
+        // Tampilan dan Topik hanya dirender tata letak Modern; Daftar baru memakai Topik.
+        const tampilanFaq: LandingFaqLayout = modern ? landing.faq_layout ?? "cards" : "cards";
+        const pakaiTopik = tampilanFaq === "list";
+        const namaTopik = namaKelompokFaq(list);
         return (
           <div className="flex flex-col gap-3">
+            {modern ? (
+              <div className="flex flex-col gap-2">
+                <p id="label-tampilan-faq" className="text-body-medium font-medium text-on-surface">Layout</p>
+                <SegmentedButton<LandingFaqLayout>
+                  className="w-full"
+                  label="FAQ layout"
+                  labelledBy="label-tampilan-faq"
+                  value={tampilanFaq}
+                  onChange={(faq_layout) => setLanding({ ...landing, faq_layout: faq_layout === "cards" ? undefined : faq_layout })}
+                  options={LANDING_FAQ_LAYOUTS.map((value) => ({ value, label: LANDING_FAQ_LAYOUT_LABELS[value] }))}
+                />
+                <p className="text-body-small text-on-surface-variant">
+                  {pakaiTopik
+                    ? "Rows with dividers, all closed. Give questions a topic to group them under a heading; with two topics or more, wide screens also list the topics beside the questions."
+                    : "Each question on its own card, the first one open. Suits up to about five questions; for more, choose List."}
+                </p>
+              </div>
+            ) : null}
+            {pakaiTopik && namaTopik.length ? <datalist id="faq-topik-saran">{namaTopik.map((nama) => <option key={nama} value={nama} />)}</datalist> : null}
             {list.length === 0 ? <p className="text-body-medium text-on-surface-variant">No questions yet.</p> : null}
             {list.map((item, index) => (
               <div key={index} className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
+                {pakaiTopik ? (
+                  <TextField
+                    label="Topic"
+                    optional
+                    list="faq-topik-saran"
+                    maxLength={FAQ_GROUP_MAX}
+                    placeholder="e.g. Travel & hotel"
+                    hint={index === 0 ? "Questions with the same topic show together, in the order of their first question. Leave empty for no heading." : undefined}
+                    value={item.group ?? ""}
+                    onChange={(event) => { const next = [...list]; next[index] = { ...next[index], group: event.target.value || undefined }; setList(next); }}
+                  />
+                ) : null}
                 <div className="flex items-end gap-2">
                   <TextField
                     className="min-w-0 flex-1"
