@@ -818,16 +818,20 @@ export function KartuDaruratHorizon({
   baris: BarisDaruratHorizon[];
   label?: { call: string; whatsapp: string; map: string } | null;
 }) {
+  // Daftar kontak memakai jarak 16 px DESIGN.md; baris blok lama tetap seperti dulu (12 px + 4 px di bawah kepala).
+  const adaKontak = baris.some((item) => item.kontak);
   return (
-    <section id="darurat" aria-label={judul} className={`${KARTU_HZ} flex scroll-mt-24 flex-col gap-4 ${PAD_KARTU} lg:scroll-mt-32`} style={{ color: TINTA }}>
-      <KepalaKartuHorizon Ikon={Lifebuoy} judul={judul} warna="#B42318" />
+    <section id="darurat" aria-label={judul} className={`${KARTU_HZ} flex scroll-mt-24 flex-col ${adaKontak ? "gap-4" : "gap-3"} ${PAD_KARTU} lg:scroll-mt-32`} style={{ color: TINTA }}>
+      <div className={adaKontak ? "" : "mb-1"}>
+        <KepalaKartuHorizon Ikon={Lifebuoy} judul={judul} warna="#B42318" />
+      </div>
       {isi ? (
         <p className={`whitespace-pre-line ${KELAS_KET}`} style={{ color: REDUP }}>
           {isi}
         </p>
       ) : null}
       {baris.length > 0 ? (
-        <ul className={baris.some((item) => item.kontak) ? "flex flex-col" : "-mx-2"}>
+        <ul className={adaKontak ? "flex flex-col" : "-mx-2"}>
           {baris.map((item, index) => {
             const dalam = (
               <>

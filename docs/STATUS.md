@@ -15,11 +15,10 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Agenda batch picker Lows follow-up (#283 QA L1-L3): picker gets arrow keys and one Tab stop, two labelled questions get distinct group names, and a row ruled by a labelled question plus Hotel (e.g. Batch 2 + Hotel GRAMM) now hides when a visitor picks another batch. "Ringkas" reads "Tampilkan lebih sedikit". Two labelled questions that share answers (departure and return Batch) now share one picker instead of two identical rows (Mas, 26 Oct), and a day shows only the questions its rows use. PR open, waiting on QA delta.
 - "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").
 - Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 merged 26 Oct. No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
-- Check-in: rename a session or registration desk (Edit in the detail panel, dialog with the name only); the `?sesi=` / `?jalur=` address never changes, so links already given to staff keep working. Admin only, no SQL, no scanner change. PR open, waiting on QA.
+- Horizon emergency card ("Darurat dan bantuan") as an M3 contact list: one row per contact with round Call / WhatsApp / Map icon buttons on the right, numbers shown as +62 with hyphens, spacing per DESIGN.md (new rule there). No SQL. PR open, QA GO after fix; waiting on Mas's design OK and merge time (visible on KSO, before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -28,6 +27,8 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #286 Check-in rename (merged 26 Oct): sessions and registration desks renamable from Edit in the detail panel; the `?sesi=` / `?jalur=` address never changes.
+- #285 Agenda batch picker Lows (merged 26 Oct): arrow keys and one Tab stop, questions with shared answers share one picker, a day shows only the questions its rows use.
 - #284 Horizon event-page agenda re-laid out (merged 26 Oct, QA GO): day column left (sticky), wide time list right, date once, no 64 px number, first six rows then "Lihat semua"; rule in DESIGN.md.
 - #283 Agenda batch picker (merged 26 Oct, QA GO): "Semua · Batch 1 · …" above labelled days (Horizon/Modern/Editorial), remembered per device; the label switch lives in Agenda › Who sees it, named after the question.
 - #282 Agenda public rows follow-up (merged 26 Oct, QA GO): a Hotel rule whose hotels were all deleted stays hidden before sign-in; the label flag is kept only on dropdown and single-choice questions.
@@ -171,6 +172,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #262 L1-L3 (luggage photo sweep): a stray top-level object in the luggage bucket makes the daily job call the route every day (a harmless no-op), a row whose photo file is already gone keeps its `photo_path` (the portal may show a broken image), and the bucket's top-level listing reads only the first 1,000 event folders.
 
 ### Agenda
+- #285 Low: a batch choice stored before #285 selects only one of the merged question groups until the visitor picks again.
 - #121 L10/L11: a speaker is duplicated when Details abbreviates the organisation or rewords the title, and the "+N" chip is nearly invisible on the dark tone.
 - #122 L1/L4/L9-L11/L13: rich-details editor: `<ol>` has no start, escapes are stored, undo is lost after a rejected change, the caret jumps to the end, IME input at the limit misbehaves, and pasting over a selection under-fills the 800 limit.
 - #122 note: the theme mark colour often reads as bold, and the editor previews a fixed blue.
@@ -190,6 +192,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #202: the Agenda tab strip at 1280 px has no cue that more tabs are off-screen, and the Bus chip and note refresh on load and save only, so a trip changed in Logistics in another tab shows after a reload.
 
 ### Horizon portal
+- Emergency card contacts (#287 QA Lows): 1500xxx / 14xxx hotlines get no Call button; "021 1500 999" is grouped oddly; a local landline shows as +62 while its `tel:` link stays local. Other contact cards (Butuh bantuan, bus crew) do not follow the new contact-list rule yet.
 - #273 Low: the bus card "Selesai" head (every trip already left) was checked in code only, not on a render.
 - Portal card scale: Susunan acara rows (white, shadow instead of the card outline) and Directions cards in Perjalanan keep their own look; the QR page and the sign-in page are not cards and were not touched.
 - #268 Perjalanan chips: at 1440x900 the header is 102 px, so hash links and the no-JS sticky bar are about 30 px off (share one header-height value); from 1280 Hotel and Bus sit side by side, so tapping Hotel lights Bus. Bagasi does not fold yet after pick-up (#267 `handed_over_at`).
@@ -336,6 +339,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #93: at 390 the selection bar row leaves a lot of empty tint (cosmetic).
 
 ### Other
+- #286 Lows (Check-in rename): the Edit button is 30 px (36 for admin controls), the "Gagal disimpan" toast is Indonesian (Check-in page goes in the English batch), and on phones Edit is only at the bottom of the detail panel.
 - #55: preview blasts stuck in `mengirim` stay there and keep waking the prod cron, the list and report count failures differently (N4), and L2-L4 and L6-L12 were not re-checked.
 - #58 L1/L3/L5: sender validation errors show only a generic toast, other instances keep the old sender for up to 30 s, and the DB check on reply-to is looser than the API.
 - #63 Lows: the beacon fires on scripted focus or scroll, a held Invitation blast cannot be cancelled, cancel error copy misleads, and the `patch-or` guard is textual.
