@@ -373,7 +373,8 @@ const ANIMASI_PERJALANAN = `
 /** Satu digit yang bergulir dari 0 melewati satu putaran penuh ke nilainya. */
 function DigitGulir({ digit, jeda }: { digit: number; jeda: number }) {
   return (
-    <span className="relative inline-block h-[1.2em] overflow-hidden align-bottom">
+    // Kolom 0-9 hanya hiasan: tidak ikut tersalin, tidak masuk cuplikan mesin pencari.
+    <span data-nosnippet className="relative inline-block h-[1.2em] select-none overflow-hidden align-bottom">
       <span className="invisible">{digit}</span>
       <span className="hm-gulir absolute inset-x-0 top-0 flex flex-col" style={{ transform: `translateY(-${(10 + digit) * 1.2}em)`, "--hm-jeda": `${jeda}ms` } as CSSProperties}>
         {Array.from({ length: 20 }, (_, i) => (
