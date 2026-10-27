@@ -750,6 +750,19 @@ yang sama dipakai preset lain.
   sudah di tiap baris. Peserta satu hotel di tanggal acara tidak berubah.
   Tanpa setelan CMS: semuanya dari Logistics. Kartu lain yang menulis tanggal
   atau hotel untuk satu peserta memakai aturan yang sama.
+- **Daftar kontak di dalam kartu = baris daftar M3, bukan tumpukan tombol**
+  (kartu Darurat, Oktober 2026; pola daftar kontak Google Phone dan Uber
+  Safety Toolkit). Satu baris per kontak: nama 16/24 600, nomor 14/20 500,
+  catatan 14/20 abu di kiri, 4 px di antara ketiganya (satu kelompok);
+  tombol ikon bulat 40 px (area ketuk 48 px) di
+  kanan, sejajar baris pertama: Telepon dan Peta `#EEF1F6`, WhatsApp hijau.
+  Tombol hanya untuk yang ada (tanpa WhatsApp = satu tombol, tanpa nomor =
+  tanpa tombol); label tiap tombol dibacakan dengan nama kontaknya. Baris
+  dipisah garis yang sejajar teks, 12 px di atas dan bawah garis. Nomor
+  Indonesia yang terbaca selalu tampil +62 dengan tanda hubung
+  (`nomorTampil`: "+62 812-3456-7890", "+62 274-555-0101"); nomor pendek
+  (119) apa adanya. Kartu lain yang menampilkan kontak (Butuh bantuan, kru
+  bus) mengikuti aturan ini.
 - Kelasnya ada di `portal-horizon.tsx` (`KELAS_JUDUL_ISI`, `KELAS_KET`,
   `KELAS_ALIS`, `KELAS_TAUTAN`, `KELAS_STRIP`). Kartu baru memakainya, bukan
   ukuran sendiri.
