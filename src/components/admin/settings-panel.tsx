@@ -149,6 +149,14 @@ export function SettingsPanel() {
       // Kontak tambahan tanpa nomor maupun email tidak bisa dihubungi: tunjuk
       // kontaknya di sini, bukan pesan validasi umum dari server.
       const tanpaSambung = kontak.contact_more.findIndex((item) => (item.name.trim() || item.email.trim() || item.phone.trim()) && !item.email.trim() && !item.phone.trim());
+      const adaTambahan = kontak.contact_more.some((item) => item.name.trim() || item.email.trim() || item.phone.trim());
+      if (adaTambahan && !kontak.contact_email.trim() && !kontak.contact_phone.trim()) {
+        setSaving(false);
+        const failure = "Isi nomor telepon atau email kontak 1 dulu. Kontak 1 dipakai di halaman daftar, undangan, dan dashboard peserta.";
+        setError(failure);
+        toast.error("Kontak panitia belum tersimpan", failure);
+        return;
+      }
       if (tanpaSambung >= 0) {
         setSaving(false);
         const failure = `Kontak ${tanpaSambung + 2} perlu nomor telepon atau email.`;

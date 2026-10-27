@@ -551,4 +551,12 @@ const kontakSchema = z.object({
 });
 export type KontakPanitia = z.infer<typeof kontakSchema>;
 /** PATCH /api/admin/kontak: `base` = kontak seperti yang terakhir dibaca klien. */
-export const kontakBodySchema = z.object({ base: kontakSchema.partial(), contact: kontakSchema });
+// Kontak tambahan tanpa kontak utama: halaman daftar, undangan, dan dashboard
+// hanya membaca yang utama, jadi mereka akan kosong.
+export const kontakBodySchema = z.object({
+  base: kontakSchema.partial(),
+  contact: kontakSchema.refine(
+    (kontak) => !(kontak.contact_more ?? []).length || Boolean(kontak.contact_email || kontak.contact_phone),
+    "Fill in a phone number or email for the first contact before adding more.",
+  ),
+});
