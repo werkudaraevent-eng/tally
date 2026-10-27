@@ -951,14 +951,14 @@ export async function DashboardGathering({
                           </p>
                           {item.subtitle ? <p className={`mt-1 text-[14px] leading-5 ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
                           {ruteBaris.has(item.id) ? (
-                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="-mb-2 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold text-[#274FC0]">
+                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="-mb-3.5 -mt-2.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0]">
                               {tH.agenda.routeLink}
                               <CaretRight size={16} aria-hidden />
                               <PenandaTab tab="perjalanan" />
                             </Link>
                           ) : null}
                           {adaTrip(bagian.tanggal, item) ? (
-                            <Link href={keTab("perjalanan")} className="-mb-2 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold text-[#274FC0]">
+                            <Link href={keTab("perjalanan")} className="-mb-3.5 -mt-2.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0]">
                               {tH.agenda.tripLink}
                               <CaretRight size={16} aria-hidden />
                               <PenandaTab tab="perjalanan" />

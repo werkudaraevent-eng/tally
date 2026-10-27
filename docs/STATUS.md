@@ -18,7 +18,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").
 - Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 merged 26 Oct. No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
-- Horizon emergency card ("Darurat dan bantuan") as an M3 contact list: one row per contact with round Call / WhatsApp / Map icon buttons on the right, numbers shown as +62 with hyphens, spacing per DESIGN.md (new rule there). No SQL. PR open, QA GO after fix; waiting on Mas's design OK and merge time (visible on KSO, before 3 Nov).
+- Horizon portal spacing/type audit fixes (measured on renders against DESIGN.md 4/12/16 and the five card sizes): Agenda row links ("Kendaraan dan titik kumpul…", route link) sit 4 px under the title instead of 14; Menu QR card code and label 4 px apart; date chips 12/16 (was 13), batch segment 14/20 (was 15), small chips 12/16 (was 13), page header note 16/24 desktop and 14/20 phone (was 17 and 15). No SQL. Draft PR, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov). Pengumuman cards not measured yet (no announcement in the fake data).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
@@ -27,6 +27,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #287 Horizon emergency card as an M3 contact list (merged 27 Oct, QA GO): one row per contact with round Call / WhatsApp / Map buttons, numbers shown +62 with hyphens, 4 px between name, number and note; rule in DESIGN.md.
 - #286 Check-in rename (merged 26 Oct): sessions and registration desks renamable from Edit in the detail panel; the `?sesi=` / `?jalur=` address never changes.
 - #285 Agenda batch picker Lows (merged 26 Oct): arrow keys and one Tab stop, questions with shared answers share one picker, a day shows only the questions its rows use.
 - #284 Horizon event-page agenda re-laid out (merged 26 Oct, QA GO): day column left (sticky), wide time list right, date once, no 64 px number, first six rows then "Lihat semua"; rule in DESIGN.md.
