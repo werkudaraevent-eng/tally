@@ -875,7 +875,7 @@ export default function LandingCmsPage() {
       case "venue": return Boolean(facts?.venue_name?.trim() || facts?.venue_address?.trim());
       case "faq": return (landing.faq ?? []).length > 0;
       case "sponsors": return (landing.sponsors ?? []).length > 0;
-      case "contact": return Boolean(landing.contact_name || landing.contact_phone || landing.contact_email);
+      case "contact": return kontakPanitiaAdmin.length > 0;
       default: return null;
     }
   }
@@ -1069,6 +1069,13 @@ export default function LandingCmsPage() {
   // Gathering Horizon: susunan dan teksnya sendiri. Kolom yang tidak dibacanya
   // disembunyikan (isinya tetap tersimpan untuk Gathering biasa).
   const horizon = gathering && landing.gathering_variant === "horizon";
+  // Ringkasan Kontak panitia (Event settings): satu baris per kontak yang terisi.
+  const kontakPanitiaAdmin = [
+    { name: landing.contact_name, email: landing.contact_email, phone: landing.contact_phone },
+    ...(landing.contact_more ?? []),
+  ]
+    .map((item) => [item.name, item.phone, item.email].map((nilai) => nilai?.trim()).filter(Boolean).join(" · "))
+    .filter(Boolean);
   // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
   const kurangEn = landingUntranslated({
     landing_config: { ...landing, sections },
@@ -2467,10 +2474,10 @@ export default function LandingCmsPage() {
           // halaman daftar, undangan, dan dashboard peserta. Di sini hanya
           // ringkasannya; bagian ini tetap dinyalakan/dimatikan di daftar bagian.
           <div className="flex flex-col gap-2 text-body-medium">
-            <p className="text-on-surface-variant">Filled in once under Event settings. The same contact shows on the registration, invitation and participant pages.</p>
-            {[landing.contact_name, landing.contact_email, landing.contact_phone].some((nilai) => nilai?.trim()) ? (
+            <p className="text-on-surface-variant">Filled in once under Event settings, up to three contacts. The first one also shows on the registration, invitation and participant pages.</p>
+            {kontakPanitiaAdmin.length > 0 ? (
               <ul className="flex flex-col gap-0.5 text-on-surface">
-                {[landing.contact_name, landing.contact_email, landing.contact_phone].map((nilai, i) => (nilai?.trim() ? <li key={i} className="[overflow-wrap:anywhere]">{nilai}</li> : null))}
+                {kontakPanitiaAdmin.map((baris, i) => <li key={i} className="[overflow-wrap:anywhere]">{baris}</li>)}
               </ul>
             ) : (
               <p className="text-on-surface-variant">No organiser contact yet.</p>
@@ -2804,7 +2811,8 @@ export default function LandingCmsPage() {
             ? `First figure beside About (automatic picture) · ${plural(JUMLAH.highlights ?? 0, "figure")}`
             : `Built-in · ${plural(JUMLAH.highlights ?? 0, "figure")}`;
       case "sponsors": return modern ? `Logo strip above the footer · ${plural(JUMLAH.sponsors ?? 0, "logo")}` : `Built-in · ${plural(JUMLAH.sponsors ?? 0, "logo")}`;
-      case "contact": return modern ? "Shown in the footer · name, phone, email" : "Name, phone, email";
+      // Horizon tidak punya kontak di kaki: bagiannya tampil di urutan daftar ini.
+      case "contact": return horizon ? `Own section · ${plural(kontakPanitiaAdmin.length, "contact")}` : modern ? "Shown in the footer · name, phone, email" : "Name, phone, email";
     }
   }
 

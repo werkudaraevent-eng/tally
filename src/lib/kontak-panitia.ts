@@ -1,4 +1,5 @@
 import type { EventLandingConfig } from "@/lib/domain";
+import { nomorTampil, nomorTelepon } from "@/lib/member/kontak-darurat";
 
 /**
  * Kontak panitia untuk halaman peserta (daftar ditutup, undangan, dashboard).
@@ -15,3 +16,26 @@ export function kontakPanitia(landing: EventLandingConfig | null | undefined, ba
 
 /** Nomor untuk tautan tel:, tanpa spasi dan tanda baca. */
 export const telHref = (telepon: string) => `tel:${telepon.replace(/[^\d+]/g, "")}`;
+
+/** Paling banyak tiga kontak panitia: `contact_*` lalu `contact_more`. */
+export const KONTAK_PANITIA_MAX = 3;
+
+export type BarisKontakPanitia = { nama: string | null; nomor: string | null; email: string | null; tel: string | null; wa: string | null };
+
+/**
+ * Semua kontak panitia untuk bagian Kontak halaman acara, urut seperti di
+ * Event settings. Kontak tanpa nomor maupun email tidak ikut.
+ */
+export function daftarKontakPanitia(landing: EventLandingConfig | null | undefined): BarisKontakPanitia[] {
+  const semua = [
+    { name: landing?.contact_name, phone: landing?.contact_phone, email: landing?.contact_email },
+    ...(landing?.contact_more ?? []),
+  ].slice(0, KONTAK_PANITIA_MAX);
+  return semua.flatMap((item) => {
+    const nomor = item?.phone?.trim() || null;
+    const email = item?.email?.trim() || null;
+    if (!nomor && !email) return [];
+    const sambung = nomorTelepon(nomor);
+    return [{ nama: item?.name?.trim() || null, nomor: nomorTampil(nomor, sambung?.tel), email, tel: sambung?.tel ?? null, wa: sambung?.wa ?? null }];
+  });
+}

@@ -6,6 +6,7 @@ import { TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
 import { outfitSetiapHariSchema } from "@/lib/outfit-setiap-hari";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
+import { KONTAK_PANITIA_MAX } from "@/lib/kontak-panitia";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, LANDING_ROUTE_STEPS_MAX, LANDING_ROUTE_STEP_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
@@ -536,10 +537,17 @@ export const landingBodySchema = z.object({
 
 
 /** Kontak panitia (Event settings). Kosong = tidak diisi. */
+const emailKontak = z.union([z.literal(""), z.string().trim().toLowerCase().max(160).email("Contact email is not a valid email address.")]);
+const teleponKontak = z.string().trim().max(40).regex(/^[0-9+()\-.\s]*$/, "Phone may only contain digits, spaces, + ( ) - and .");
+/** Kontak kedua dan ketiga: nama boleh kosong, tetapi nomor atau email wajib ada. */
+const kontakTambahanSchema = z
+  .object({ name: z.string().trim().max(120), email: emailKontak, phone: teleponKontak })
+  .refine((kontak) => kontak.email || kontak.phone, "Each extra contact needs a phone number or an email.");
 const kontakSchema = z.object({
   contact_name: z.string().trim().max(120),
-  contact_email: z.union([z.literal(""), z.string().trim().toLowerCase().max(160).email("Contact email is not a valid email address.")]),
-  contact_phone: z.string().trim().max(40).regex(/^[0-9+()\-.\s]*$/, "Phone may only contain digits, spaces, + ( ) - and ."),
+  contact_email: emailKontak,
+  contact_phone: teleponKontak,
+  contact_more: z.array(kontakTambahanSchema).max(KONTAK_PANITIA_MAX - 1).optional(),
 });
 export type KontakPanitia = z.infer<typeof kontakSchema>;
 /** PATCH /api/admin/kontak: `base` = kontak seperti yang terakhir dibaca klien. */

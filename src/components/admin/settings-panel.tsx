@@ -1,10 +1,11 @@
 "use client";
 
-import { Trash, Warning, XCircle } from "@phosphor-icons/react";
+import { Plus, Trash, Warning, XCircle } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
-import { Banner, Button, Dialog, Pane, PaneBody, PaneFooter, TextField } from "@/components/m3";
+import { Banner, Button, Dialog, IconButton, Pane, PaneBody, PaneFooter, TextField } from "@/components/m3";
+import { KONTAK_PANITIA_MAX } from "@/lib/kontak-panitia";
 import { formatEventDateTime } from "@/lib/datetime";
 import { cx } from "@/lib/m3/cx";
 import { DEFAULT_TIME_ZONE, EVENT_TIME_ZONES, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
@@ -28,8 +29,19 @@ type Settings = {
 /** Field yang dikirim PATCH. Hanya ini yang dihitung sebagai perubahan belum tersimpan. */
 const FIELD_DISIMPAN = ["time_zone", "pickup_mode", "cashier_confirmation_required", "pending_auto_void_minutes", "email_sender_name", "email_reply_to"] as const;
 
-type Kontak = { contact_name: string; contact_email: string; contact_phone: string };
+type KontakTambahan = { name: string; email: string; phone: string };
+type Kontak = { contact_name: string; contact_email: string; contact_phone: string; contact_more: KontakTambahan[] };
 const KUNCI_KONTAK = ["contact_name", "contact_email", "contact_phone"] as const;
+
+/** Kontak kedua dan ketiga sebagai teks pembanding; baris kosong tidak dihitung. */
+const tambahanTeks = (kontak: Kontak) =>
+  JSON.stringify((kontak.contact_more ?? []).map((item) => [item.name.trim(), item.email.trim(), item.phone.trim()]).filter((baris) => baris.some(Boolean)));
+
+/** Jumlah isian kontak yang berbeda dari yang tersimpan (kontak tambahan dihitung satu). */
+const ubahKontak = (kontak: Kontak | null, tersimpan: Kontak | null) =>
+  kontak && tersimpan
+    ? KUNCI_KONTAK.filter((kunci) => !samaNilai(kontak[kunci], tersimpan[kunci])).length + (tambahanTeks(kontak) !== tambahanTeks(tersimpan) ? 1 : 0)
+    : 0;
 
 const kelasInput = "h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary";
 
@@ -68,6 +80,18 @@ function Peringatan({ children }: { children: ReactNode }) {
   );
 }
 
+/** Jawaban /api/admin/kontak, dengan `contact_more` selalu berupa daftar. */
+function kontakBaca(data: unknown): Kontak | null {
+  if (!data || typeof data !== "object") return null;
+  const isi = data as Partial<Kontak>;
+  return {
+    contact_name: isi.contact_name ?? "",
+    contact_email: isi.contact_email ?? "",
+    contact_phone: isi.contact_phone ?? "",
+    contact_more: (isi.contact_more ?? []).map((item) => ({ name: item?.name ?? "", email: item?.email ?? "", phone: item?.phone ?? "" })),
+  };
+}
+
 /** Teks kosong dan null sama-sama berarti "pakai bawaan". */
 function samaNilai(a: unknown, b: unknown) {
   return typeof a === "string" || typeof b === "string" ? String(a ?? "").trim() === String(b ?? "").trim() : a === b;
@@ -98,7 +122,7 @@ export function SettingsPanel() {
     const data = (await response.json()) as Settings;
     setSaved(data);
     setSettings(data);
-    const dataKontak = jawabKontak?.ok ? ((await jawabKontak.json().catch(() => null)) as Kontak | null) : null;
+    const dataKontak = jawabKontak?.ok ? kontakBaca(await jawabKontak.json().catch(() => null)) : null;
     setKontakSaved(dataKontak);
     setKontak(dataKontak);
   }, []);
@@ -120,8 +144,18 @@ export function SettingsPanel() {
       email_reply_to: settings.email_reply_to?.trim() || null,
     };
     const ubah = Object.fromEntries(Object.entries(semua).filter(([key]) => saved && !samaNilai(settings[key as keyof Settings], saved[key as keyof Settings])));
-    const kontakUbah = Boolean(kontak && kontakSaved && KUNCI_KONTAK.some((kunci) => !samaNilai(kontak[kunci], kontakSaved[kunci])));
+    const kontakUbah = ubahKontak(kontak, kontakSaved) > 0;
     if (kontakUbah && kontak && kontakSaved) {
+      // Kontak tambahan tanpa nomor maupun email tidak bisa dihubungi: tunjuk
+      // kontaknya di sini, bukan pesan validasi umum dari server.
+      const tanpaSambung = kontak.contact_more.findIndex((item) => (item.name.trim() || item.email.trim() || item.phone.trim()) && !item.email.trim() && !item.phone.trim());
+      if (tanpaSambung >= 0) {
+        setSaving(false);
+        const failure = `Kontak ${tanpaSambung + 2} perlu nomor telepon atau email.`;
+        setError(failure);
+        toast.error("Kontak panitia belum tersimpan", failure);
+        return;
+      }
       const jawab = await fetch("/api/admin/kontak", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -131,13 +165,13 @@ export function SettingsPanel() {
       if (!jawab?.ok) {
         setSaving(false);
         // Diubah di tab lain: tampilkan yang terbaru, admin mengulang perubahannya.
-        if (body?.error?.code === "CONTACT_CHANGED" && body.error.details) { setKontakSaved(body.error.details); setKontak(body.error.details); }
+        if (body?.error?.code === "CONTACT_CHANGED" && body.error.details) { const terbaru = kontakBaca(body.error.details); setKontakSaved(terbaru); setKontak(terbaru); }
         const failure = body?.error?.message ?? "Kontak panitia gagal disimpan.";
         setError(failure);
         toast.error("Kontak panitia gagal disimpan", failure);
         return;
       }
-      setKontakSaved(body); setKontak(body);
+      const tersimpan = kontakBaca(body); setKontakSaved(tersimpan); setKontak(tersimpan);
     }
     if (!Object.keys(ubah).length) {
       setSaving(false);
@@ -186,7 +220,7 @@ export function SettingsPanel() {
 
   const jumlahUbah =
     FIELD_DISIMPAN.filter((key) => !samaNilai(settings[key], saved[key])).length +
-    (kontak && kontakSaved ? KUNCI_KONTAK.filter((kunci) => !samaNilai(kontak[kunci], kontakSaved[kunci])).length : 0);
+    ubahKontak(kontak, kontakSaved);
   const zonaTersimpan = saved.time_zone ?? DEFAULT_TIME_ZONE;
   const waktuUbah = saved.updated_at ? `${formatEventDateTime(saved.updated_at, zonaTersimpan)} ${timeZoneAbbr(zonaTersimpan)}` : "";
   const zonaDipilih = EVENT_TIME_ZONES.find((option) => option.id === settings.time_zone);
@@ -269,35 +303,98 @@ export function SettingsPanel() {
               halaman daftar saat ditutup, halaman undangan, dan dashboard
               peserta. Disimpan di landing_config lewat /api/admin/kontak. */}
           {kontak ? (
-            <SettingRow title="Kontak panitia" description="Satu kontak untuk peserta. Tampil di halaman acara, halaman daftar saat ditutup, halaman undangan, dan dashboard peserta.">
-              <div className="flex flex-col gap-3">
-                {([
-                  ["contact_name", "Nama", "text", 120, "Tim Acara", true],
-                  ["contact_email", "Email", "email", 160, balasanAcara ?? "panitia@penyelenggara.com", false],
-                  ["contact_phone", "Telepon / WhatsApp", "tel", 40, "+62 812-3456-7890", false],
-                ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
-                  <div key={kunci}>
-                    <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor={`kontak-${kunci}`}>
-                      {label}{opsional ? <span className="font-normal text-on-surface-variant"> (opsional)</span> : null}
-                    </label>
-                    <input
-                      id={`kontak-${kunci}`}
-                      type={jenis}
-                      maxLength={maks}
-                      autoComplete="off"
-                      value={kontak[kunci]}
-                      placeholder={contoh}
-                      onChange={(event) => setKontak((sekarang) => sekarang && { ...sekarang, [kunci]: event.target.value })}
-                      className={kelasInput}
-                    />
-                  </div>
-                ))}
-                <p className="text-body-medium text-on-surface-variant">
-                  {balasanAcara
-                    ? <>Email kosong: memakai alamat Balasan ke (<span className="font-medium text-on-surface">{balasanAcara}</span>).</>
-                    : "Email kosong: memakai alamat Balasan ke bila diisi."}
-                  {" "}Bagian Kontak di halaman acara dinyalakan di Event page.
-                </p>
+            <SettingRow
+              title="Kontak panitia"
+              description={`Sampai ${KONTAK_PANITIA_MAX} kontak untuk peserta. Semua tampil di bagian Kontak panitia halaman acara. Kontak pertama juga tampil di halaman daftar saat ditutup, halaman undangan, dan dashboard peserta.`}
+            >
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
+                  {kontak.contact_more.length > 0 ? <p className="text-body-medium font-semibold text-on-surface">Kontak 1 (utama)</p> : null}
+                  {([
+                    ["contact_name", "Nama", "text", 120, "Tim Acara", true],
+                    ["contact_email", "Email", "email", 160, balasanAcara ?? "panitia@penyelenggara.com", false],
+                    ["contact_phone", "Telepon / WhatsApp", "tel", 40, "+62 812-3456-7890", false],
+                  ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
+                    <div key={kunci}>
+                      <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor={`kontak-${kunci}`}>
+                        {label}{opsional ? <span className="font-normal text-on-surface-variant"> (opsional)</span> : null}
+                      </label>
+                      <input
+                        id={`kontak-${kunci}`}
+                        type={jenis}
+                        maxLength={maks}
+                        autoComplete="off"
+                        value={kontak[kunci]}
+                        placeholder={contoh}
+                        onChange={(event) => setKontak((sekarang) => sekarang && { ...sekarang, [kunci]: event.target.value })}
+                        className={kelasInput}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-body-medium text-on-surface-variant">
+                    {balasanAcara
+                      ? <>Email kosong: memakai alamat Balasan ke (<span className="font-medium text-on-surface">{balasanAcara}</span>).</>
+                      : "Email kosong: memakai alamat Balasan ke bila diisi."}
+                  </p>
+                </div>
+
+                {/* Kontak kedua dan ketiga: hanya di bagian Kontak panitia halaman
+                    acara. Halaman yang butuh satu kontak tetap memakai yang utama. */}
+                {kontak.contact_more.map((tambahan, urutan) => {
+                  const ubahTambahan = (patch: Partial<KontakTambahan>) =>
+                    setKontak((sekarang) => sekarang && { ...sekarang, contact_more: sekarang.contact_more.map((item, i) => (i === urutan ? { ...item, ...patch } : item)) });
+                  return (
+                    <div key={urutan} className="flex flex-col gap-3 border-t border-outline-variant pt-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-body-medium font-semibold text-on-surface">Kontak {urutan + 2}</p>
+                        <IconButton
+                          size="sm"
+                          label={`Hapus kontak ${urutan + 2}`}
+                          onClick={() => setKontak((sekarang) => sekarang && { ...sekarang, contact_more: sekarang.contact_more.filter((_, i) => i !== urutan) })}
+                        >
+                          <Trash size={16} />
+                        </IconButton>
+                      </div>
+                      {([
+                        ["name", "Nama", "text", 120, "Nama dan peran, mis. Budi · Transportasi", true],
+                        ["email", "Email", "email", 160, "panitia@penyelenggara.com", false],
+                        ["phone", "Telepon / WhatsApp", "tel", 40, "+62 813-0000-0000", false],
+                      ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
+                        <div key={kunci}>
+                          <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor={`kontak-${urutan + 2}-${kunci}`}>
+                            {label}{opsional ? <span className="font-normal text-on-surface-variant"> (opsional)</span> : null}
+                          </label>
+                          <input
+                            id={`kontak-${urutan + 2}-${kunci}`}
+                            type={jenis}
+                            maxLength={maks}
+                            autoComplete="off"
+                            value={tambahan[kunci]}
+                            placeholder={contoh}
+                            onChange={(event) => ubahTambahan({ [kunci]: event.target.value })}
+                            className={kelasInput}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  {kontak.contact_more.length < KONTAK_PANITIA_MAX - 1 ? (
+                    <Button
+                      variant="outlined"
+                      size="sm"
+                      icon={<Plus size={16} />}
+                      onClick={() => setKontak((sekarang) => sekarang && { ...sekarang, contact_more: [...sekarang.contact_more, { name: "", email: "", phone: "" }] })}
+                    >
+                      Tambah kontak
+                    </Button>
+                  ) : null}
+                  <p className="text-body-medium text-on-surface-variant">
+                    Bagian Kontak panitia dinyalakan dan diurutkan di <Link href="/admin/landing" className="rounded-sm font-medium text-primary hover:underline">Event page</Link>.
+                  </p>
+                </div>
               </div>
             </SettingRow>
           ) : null}

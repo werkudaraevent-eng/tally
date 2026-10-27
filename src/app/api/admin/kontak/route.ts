@@ -1,15 +1,17 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { type EventLandingConfig } from "@/lib/domain";
+import { KONTAK_PANITIA_MAX } from "@/lib/kontak-panitia";
 import { kontakBodySchema, type KontakPanitia } from "@/lib/landing-body-schema";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
  * Kontak panitia (Event settings > Kontak panitia).
  *
- * Disimpan di `landing_config.contact_*`, tempat yang sama dengan bagian
+ * Disimpan di `landing_config.contact_*` (kontak utama) dan
+ * `landing_config.contact_more` (kontak kedua dan ketiga), tempat yang sama dengan bagian
  * Kontak halaman acara sebelumnya, jadi isian lama terbawa tanpa migrasi.
- * PATCH hanya menulis tiga kunci itu di atas salinan server yang terbaru;
+ * PATCH hanya menulis kunci-kunci itu di atas salinan server yang terbaru;
  * editor Halaman acara tidak lagi menulisnya (lihat PATCH /api/admin/landing).
  *
  * Penjaga dua tab sama dengan Speakers: klien mengirim `base`, kontak seperti
@@ -22,11 +24,22 @@ type Baris = { landing_config: EventLandingConfig | null; updated_at: string };
 
 const KUNCI = ["contact_name", "contact_email", "contact_phone"] as const;
 
-function kontakDari(landing: EventLandingConfig): KontakPanitia {
+type Tambahan = NonNullable<KontakPanitia["contact_more"]>;
+
+/** Kontak kedua dan ketiga yang terisi, dirapikan. Baris kosong dibuang. */
+function rapikanTambahan(daftar: EventLandingConfig["contact_more"]): Tambahan {
+  return (daftar ?? [])
+    .map((item) => ({ name: item?.name?.trim() ?? "", email: item?.email?.trim() ?? "", phone: item?.phone?.trim() ?? "" }))
+    .filter((item) => item.name || item.email || item.phone)
+    .slice(0, KONTAK_PANITIA_MAX - 1);
+}
+
+function kontakDari(landing: EventLandingConfig): Required<KontakPanitia> {
   return {
     contact_name: landing.contact_name?.trim() ?? "",
     contact_email: landing.contact_email?.trim() ?? "",
     contact_phone: landing.contact_phone?.trim() ?? "",
+    contact_more: rapikanTambahan(landing.contact_more),
   };
 }
 
@@ -57,11 +70,17 @@ export async function PATCH(request: Request) {
     const landing = (baris.landing_config ?? {}) as EventLandingConfig;
     lama = kontakDari(landing);
     const terbaca = lama;
-    if (KUNCI.some((kunci) => (parsed.data.base[kunci] ?? "").trim() !== terbaca[kunci])) {
+    const tambahanBeda = parsed.data.base.contact_more !== undefined && JSON.stringify(rapikanTambahan(parsed.data.base.contact_more)) !== JSON.stringify(terbaca.contact_more);
+    if (tambahanBeda || KUNCI.some((kunci) => (parsed.data.base[kunci] ?? "").trim() !== terbaca[kunci])) {
       return apiError("CONTACT_CHANGED", 409, lama);
     }
     // Kosong disimpan sebagai tidak ada, seperti editor halaman acara dulu.
-    const isi = Object.fromEntries(KUNCI.map((kunci) => [kunci, baru[kunci] || undefined]));
+    // Tanpa `contact_more` (tab lama): kontak tambahan yang tersimpan tetap.
+    const tambahan = baru.contact_more === undefined ? (terbaca.contact_more ?? []) : rapikanTambahan(baru.contact_more);
+    const isi = {
+      ...Object.fromEntries(KUNCI.map((kunci) => [kunci, baru[kunci] || undefined])),
+      contact_more: tambahan.length > 0 ? tambahan.map((item) => Object.fromEntries(Object.entries(item).filter(([, nilai]) => nilai))) : undefined,
+    };
     const hasil = await client
       .from("events")
       .update({ landing_config: { ...landing, ...isi }, updated_at: new Date().toISOString() } as never)
