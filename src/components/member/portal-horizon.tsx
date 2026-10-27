@@ -859,7 +859,7 @@ export function KartuDaruratHorizon({
                 : [];
               return (
                 <li key={`${index}-${item.judul}`} className="flex items-start gap-3 border-[#E6E8EC] py-3 first:pt-0 last:pb-0 [&+&]:border-t">
-                  <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
                     {kontak.nomor ? (
                       <span className="text-[14px] font-medium leading-5 tabular-nums [overflow-wrap:anywhere]">{kontak.nomor}</span>

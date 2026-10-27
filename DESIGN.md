@@ -753,7 +753,8 @@ yang sama dipakai preset lain.
 - **Daftar kontak di dalam kartu = baris daftar M3, bukan tumpukan tombol**
   (kartu Darurat, Oktober 2026; pola daftar kontak Google Phone dan Uber
   Safety Toolkit). Satu baris per kontak: nama 16/24 600, nomor 14/20 500,
-  catatan 14/20 abu di kiri; tombol ikon bulat 40 px (area ketuk 48 px) di
+  catatan 14/20 abu di kiri, 4 px di antara ketiganya (satu kelompok);
+  tombol ikon bulat 40 px (area ketuk 48 px) di
   kanan, sejajar baris pertama: Telepon dan Peta `#EEF1F6`, WhatsApp hijau.
   Tombol hanya untuk yang ada (tanpa WhatsApp = satu tombol, tanpa nomor =
   tanpa tombol); label tiap tombol dibacakan dengan nama kontaknya. Baris
