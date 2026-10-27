@@ -656,6 +656,9 @@ dijepit di kolom 360 px dengan hanya tiga acara yang melompat jam.
   digulir; di ponsel keduanya bertumpuk.
 - Tanggal ditulis sekali. Bila judul bagian sudah memuat tanggal, baris tanggal
   dilewati (`judulMemuatTanggal`).
+- Keterangan acara tampil utuh, tidak pernah dipotong dengan "…": isinya info
+  penting (apa yang dibawa, titik kumpul) dan tamu tidak boleh harus menebak
+  ada tombol untuk membacanya (27 Oktober 2026, Mas).
 - Urutan hari cukup label kecil ("HARI 01"), bukan angka hias besar.
 - Hari panjang memotong secara berurutan (enam acara pertama, lalu "Lihat semua
   N acara"), tidak pernah mengambil acara dari tengah atau akhir.
