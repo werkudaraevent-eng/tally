@@ -72,7 +72,7 @@ export function EditorDosDonts({
         {daftar.length === 0 ? <p className="text-body-medium text-on-surface-variant">No {nama} items yet.</p> : null}
         {daftar.map(({ item, index }, posisi) => (
           <div key={index} className="flex flex-col gap-3 rounded-lg border border-outline-variant p-3">
-            <div className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] items-start gap-3">
+            <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
               <PilihIkonKartu
                 nomor={posisi + 1}
                 label="Icon"
