@@ -98,10 +98,16 @@ function petunjuk(domain: Domain) {
     const lengkap = r.purpose === "arah" ? (r.name === "@" ? " (domain utama)" : ` (nama lengkap: ${domain.domain})`) : "";
     return `${i + 1}. Tipe: ${r.type}\n   Nama: ${r.name}${lengkap}\n   Nilai: ${r.value}`;
   });
+  const arah = domain.records.find((r) => r.purpose === "arah");
+  // Record lama yang masih ada untuk nama yang sama (mis. dua record A @).
+  const hapus = domain.problem === "record_lama" && domain.target && arah
+    ? ["", `Mohon HAPUS juga record ${arah.type} lama untuk nama ${arah.name} dengan nilai: ${domain.target}. Record dengan nilai ${arah.value} jangan dihapus.`]
+    : [];
   return [
     `Halo, mohon bantu pasang record DNS berikut supaya halaman acara bisa dibuka di ${domain.domain}:`,
     "",
     ...baris,
+    ...hapus,
     "",
     "Bila domain memakai Cloudflare, atur record ini ke \"DNS only\" (awan abu-abu), bukan \"Proxied\".",
     "Setelah dipasang, halaman aktif sendiri dalam beberapa menit. Terima kasih.",
@@ -112,6 +118,11 @@ function masalahTeks(domain: Domain): ReactNode {
   switch (domain.problem) {
     case "mengarah_lain":
       return <>Domain ini masih mengarah ke <code className="font-mono">{domain.target}</code>, belum ke Tally. Minta tim IT klien mengganti <span className="font-medium">Nilai</span> menjadi persis seperti di atas.</>;
+    case "record_lama": {
+      const arah = domain.records.find((r) => r.purpose === "arah");
+      const banyak = (domain.target ?? "").includes(",");
+      return <>Record yang benar sudah terpasang, tetapi masih ada {banyak ? "record lama" : "satu record lama"}{arah ? <> {arah.type} untuk <code className="font-mono">{arah.name}</code></> : null} yang mengarah ke <code className="font-mono">{domain.target}</code>. Minta tim IT klien <span className="font-medium">menghapus</span> {banyak ? "record-record itu" : "record itu"} dan menyisakan hanya{arah ? <> <code className="font-mono">{arah.value}</code></> : " record di atas"}.</>;
+    }
     case "cloudflare":
       return <>Domain ini lewat proxy Cloudflare (awan oranye). Minta tim IT klien mengubahnya menjadi <span className="font-medium">DNS only</span> (awan abu-abu) untuk record ini.</>;
     case "caa":
