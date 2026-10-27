@@ -171,6 +171,13 @@ export type ClientFieldApproval = { key: string; label: string; type: Registrati
  * `hero` sengaja TIDAK ada di sini. Ia selalu tampil dan selalu pertama —
  * halaman acara tanpa nama acara di bagian atas bukan pilihan gaya.
  */
+/** Kartu: tiap pertanyaan berkartu (bawaan). Daftar: baris bergaris, bisa dikelompokkan per topik. */
+export const LANDING_FAQ_LAYOUTS = ["cards", "list"] as const;
+export type LandingFaqLayout = (typeof LANDING_FAQ_LAYOUTS)[number];
+export const LANDING_FAQ_LAYOUT_LABELS: Record<LandingFaqLayout, string> = { cards: "Cards", list: "List" };
+/** Panjang nama topik FAQ ("Perjalanan & hotel"). */
+export const FAQ_GROUP_MAX = 40;
+
 export type LandingSectionId = "about" | "highlights" | "agenda" | "speakers" | "venue" | "faq" | "sponsors" | "contact";
 
 /**
@@ -286,7 +293,7 @@ export type LandingDoKind = "do" | "dont";
  * Gaya blok Hitung mundur. Tiap gaya punya kontrolnya sendiri di CMS; kolom
  * yang tidak dipakai gaya terpilih tetap tersimpan tetapi tidak dibaca.
  */
-export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "photo";
+export type LandingCountdownStyle = "numbers" | "board" | "ticket" | "strip" | "photo" | "journey";
 
 /**
  * Warna sorot blok Hitung mundur: warna tema (merek, aksen gathering, tinta)
@@ -566,6 +573,7 @@ export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: La
     { value: "ticket", label: "Ticket", hint: "A ticket with a route from today to the event, an icon that moves closer each day, and the days left on the stub." },
     { value: "strip", label: "Slim strip", hint: "One slim line: days left, a progress route and the time. Good right under the hero." },
     { value: "photo", label: "Photo", hint: "Large numbers over your own photo, with a dark layer so they stay readable." },
+    { value: "journey", label: "Journey", hint: "Days left and a rail route to the destination. On first view the icon travels to today's position and the destination glows; all motion ends within 5 seconds. Good right under the hero." },
   ],
   dos_donts: [
     { value: "tiles", label: "Icon grid", hint: "Each item in its own tile with a large icon and a tick or cross badge. The most visual, and the longest on phones." },
@@ -1587,7 +1595,14 @@ export type EventLandingConfig = {
   speakers?: LandingSpeaker[];
   /** Angka yang ingin ditonjolkan: "300+ peserta", "12 booth". */
   highlights?: { label: string; value: string; en?: { label?: string; value?: string } }[];
-  faq?: { q: string; a: string; en?: { q?: string; a?: string } }[];
+  /**
+   * `group`: topik opsional (tampilan Daftar), teks bebas dari panitia.
+   * `group_id` hanya ada setelah resolveLanding di /en: nama Indonesianya,
+   * supaya pengelompokan tidak pecah bila terjemahan topik berbeda.
+   */
+  faq?: { q: string; a: string; group?: string; group_id?: string; en?: { q?: string; a?: string; group?: string } }[];
+  /** Tampilan FAQ di tata letak Modern. Kosong = kartu (seperti sebelumnya). */
+  faq_layout?: LandingFaqLayout;
   /** Logo sponsor dan mitra. Diunggah di CMS halaman acara, bukan ditarik dari layar lain. */
   sponsors?: { name?: string; logo_url: string; en?: { name?: string } }[];
   contact_name?: string;

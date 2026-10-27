@@ -257,6 +257,8 @@ export function CeritaHorizon({
   isi: string | null;
   indeks: string;
 }) {
+  // Tanpa kalimat pembuka, judul di samping foto menjadi judul bagian (h2).
+  const JudulCerita = pembuka ? "h3" : "h2";
   return (
     <section id="about" className="scroll-mt-16 md:scroll-mt-[72px] text-[#101E38]" style={{ backgroundColor: KREM, color: TINTA }}>
       {foto ? (
@@ -306,7 +308,7 @@ export function CeritaHorizon({
                   {alis}
                 </p>
               ) : null}
-              {judul ? <h3 className="whitespace-pre-line text-balance text-[30px] font-extrabold leading-[1.15] [overflow-wrap:anywhere] md:text-[48px] md:leading-[1.12]">{patahJudul(judul)}</h3> : null}
+              {judul ? <JudulCerita className="whitespace-pre-line text-balance text-[30px] font-extrabold leading-[1.15] [overflow-wrap:anywhere] md:text-[48px] md:leading-[1.12]">{patahJudul(judul)}</JudulCerita> : null}
               {isi ? (
                 <p className="whitespace-pre-line text-[16px] leading-[1.65] md:text-[18px] md:leading-[1.7]" style={{ color: REDUP }}>
                   {isi}

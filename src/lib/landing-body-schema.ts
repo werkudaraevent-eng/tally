@@ -7,7 +7,7 @@ import { outfitSetiapHariSchema } from "@/lib/outfit-setiap-hari";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
 import { KONTAK_PANITIA_MAX } from "@/lib/kontak-panitia";
-import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, LANDING_ROUTE_STEPS_MAX, LANDING_ROUTE_STEP_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
+import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FAQ_LAYOUTS, FAQ_GROUP_MAX, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, LANDING_ROUTE_STEPS_MAX, LANDING_ROUTE_STEP_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
 const WARNA_BAGIAN = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -96,7 +96,7 @@ const blockSchema = z.object({
   }).refine((isi) => isi.field !== "@hotel" || isi.values.every((nilai) => /^[1-9]\d{0,17}$/.test(nilai)), "Hotel groups use hotel ids").optional(),
   agenda_item_ids: z.array(z.number().int().positive()).max(TAUTAN_AGENDA_MAX).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
-  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo", "tiles"]).optional(),
+  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo", "journey", "tiles"]).optional(),
   eyebrow: teks(60),
   heading: teks(160),
   body: teks(1200),
@@ -501,8 +501,10 @@ export const landingBodySchema = z.object({
     faq: z.array(z.object({
       q: z.string().trim().min(1).max(200),
       a: z.string().trim().min(1).max(2000),
-      en: z.object({ q: teks(200), a: teks(2000) }).optional(),
+      group: teks(FAQ_GROUP_MAX),
+      en: z.object({ q: teks(200), a: teks(2000), group: teks(FAQ_GROUP_MAX) }).optional(),
     })).max(20).optional(),
+    faq_layout: z.enum(LANDING_FAQ_LAYOUTS).optional(),
     // Kontak panitia diisi di Event settings (/api/admin/kontak); server
     // memakai yang tersimpan, bukan salinan editor ini (lihat PATCH /api/admin/landing).
     contact_name: z.string().trim().max(120).optional(),

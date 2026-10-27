@@ -16,6 +16,7 @@ import { formatEventDate } from "./event-datetime";
 import { DEFAULT_TIME_ZONE } from "./timezone";
 import { jumlahLembaga } from "./landing-speaker-tabs";
 import { peranSesiUntukEn } from "./landing-peran-sesi";
+import { kunciKelompok } from "./landing-faq";
 
 /**
  * Halaman acara dwibahasa: Indonesia (bahasa utama, `/e/<slug>`) dan English
@@ -147,7 +148,9 @@ export function resolveLanding(event: EventRow, lang: LandingLang): { event: Eve
       ...(speaker.role ? { role_id: speaker.role } : {}),
       ...(speaker.session_refs ? { session_refs: speaker.session_refs.map((ref) => ({ ...tumpuk(ref, ref.en, ["role"]), ...(ref.role ? { role_id: ref.role } : {}) })) } : {}),
     })),
-    faq: asli.faq?.map((item) => tumpuk(item, item.en, ["q", "a"])),
+    // `group_id`: topik Indonesia, supaya pertanyaan dengan terjemahan topik
+    // yang berbeda (atau belum ada) tetap satu kelompok di /en.
+    faq: asli.faq?.map((item) => ({ ...tumpuk(item, item.en, ["q", "a", "group"]), ...(item.group ? { group_id: item.group } : {}) })),
     highlights: asli.highlights?.map((item) => tumpuk(item, item.en, ["label", "value"])),
     sponsors: asli.sponsors?.map((item) => tumpuk(item, item.en, ["name"])),
   };
@@ -333,6 +336,16 @@ export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
       periksa(item.q, item.en?.q, `faq.${index}.q`, "faq");
       periksa(item.a, item.en?.a, `faq.${index}.a`, "faq");
     });
+    // Topik hanya tampil di tampilan Daftar; satu topik ditagih sekali.
+    if (config.layout === "modern" && config.faq_layout === "list") {
+      const sudah = new Set<string>();
+      config.faq?.forEach((item) => {
+        const kunci = kunciKelompok(item);
+        if (!kunci || sudah.has(kunci)) return;
+        sudah.add(kunci);
+        periksa(item.group, item.en?.group, `faq.group.${kunci}`, "faq");
+      });
+    }
   }
   if (bagian("highlights")) {
     config.highlights?.forEach((item, index) => periksa(item.label, item.en?.label, `highlights.${index}.label`, "highlights"));
@@ -406,6 +419,8 @@ export type LandingUiText = {
   countdownDaysLeft: (hari: number) => string;
   /** Kalimat gaya Pita, dipecah supaya angkanya bisa diberi warna sorot. */
   countdownStrip: (hari: number, tujuan: string) => { teks: string; sorot: boolean }[];
+  /** Kalimat di atas hitungan berdetik gaya Journey. */
+  countdownJourneyIn: (tujuan: string) => string;
   countdownLive: string;
   /** Kalimat utuh untuk pembaca layar; angkanya sendiri tidak diumumkan tiap menit. */
   countdownSr: (hari: number, jam: number, menit: number) => string;
@@ -448,7 +463,6 @@ export type LandingUiText = {
   horizon: {
     start: string;
     index: string;
-    teaser: string;
     teaserLink: string;
     days: (days: number) => string;
     inviteEyebrow: string;
@@ -506,6 +520,9 @@ export type LandingUiText = {
   faqHeading: string;
   faqIntro: string;
   faqContact: string;
+  /** Tampilan Daftar FAQ: nama navigasi topik dan jumlah pertanyaan per topik. */
+  faqTopics: string;
+  faqCount: (n: number) => string;
   ctaHeading: string;
   organisedBy: string;
   footerEvent: string;
@@ -586,6 +603,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       hari > 1
         ? [{ teks: `${hari} hari`, sorot: true }, { teks: tujuan ? ` lagi ke ${tujuan}` : " lagi", sorot: false }]
         : [{ teks: hari === 1 ? "Besok" : "Hari ini", sorot: true }, { teks: tujuan ? ` ke ${tujuan}` : "", sorot: false }],
+    countdownJourneyIn: (tujuan) => (tujuan ? `Menuju ${tujuan} dalam` : "Dimulai dalam"),
     countdownLive: "Sedang berlangsung",
     countdownSr: (hari, jam, menit) => `Acara dimulai dalam ${hari} hari ${jam} jam ${menit} menit.`,
     countdownIn: (s, detik) =>
@@ -621,7 +639,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     horizon: {
       start: "Mulai perjalanan kita",
       index: "01 / Sebuah awal baru",
-      teaser: "Bukan sekadar pergi.\nAda cerita yang kita bawa pulang.",
       teaserLink: "Kenali perjalanannya",
       days: (days) => `${["Nol", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh"][days] ?? days} hari.\nSatu cerita kita.`,
       inviteEyebrow: "Setelah masuk, ceritanya jadi milikmu",
@@ -673,6 +690,8 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     faqHeading: "Sebelum Anda datang",
     faqIntro: "Pertanyaan yang paling sering ditanyakan tamu.",
     faqContact: " Hubungi panitia untuk hal lain.",
+    faqTopics: "Topik",
+    faqCount: (n) => `${n} pertanyaan`,
     ctaHeading: "Amankan tempat Anda",
     organisedBy: "Diselenggarakan oleh",
     footerEvent: "Acara",
@@ -747,6 +766,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       hari > 1
         ? [{ teks: `${hari} days`, sorot: true }, { teks: tujuan ? ` to ${tujuan}` : " to go", sorot: false }]
         : [{ teks: hari === 1 ? "Tomorrow" : "Today", sorot: true }, { teks: tujuan ? `: ${tujuan}` : "", sorot: false }],
+    countdownJourneyIn: (tujuan) => (tujuan ? `Heading to ${tujuan} in` : "Starts in"),
     countdownLive: "Happening now",
     countdownSr: (hari, jam, menit) => `The event starts in ${hari} ${hari === 1 ? "day" : "days"}, ${jam} ${jam === 1 ? "hour" : "hours"} and ${menit} ${menit === 1 ? "minute" : "minutes"}.`,
     countdownIn: (s, detik) =>
@@ -782,7 +802,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     horizon: {
       start: "Start our journey",
       index: "01 / A new beginning",
-      teaser: "Not just a trip.\nA story we bring home.",
       teaserLink: "See the journey",
       days: (days) => `${["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][days] ?? days} ${days === 1 ? "day" : "days"}.\nOne story, together.`,
       inviteEyebrow: "Sign in and the story is yours",
@@ -834,6 +853,8 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     faqHeading: "Before you come",
     faqIntro: "The questions guests ask most often.",
     faqContact: " Contact the organisers for anything else.",
+    faqTopics: "Topics",
+    faqCount: (n) => (n === 1 ? "1 question" : `${n} questions`),
     ctaHeading: "Save your seat",
     organisedBy: "Organised by",
     footerEvent: "Event",

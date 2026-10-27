@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-26.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-27.
 
 ## How to update this file
 
@@ -21,7 +21,9 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 merged 26 Oct. No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
 - Horizon Profile page as an account page (version C, Trip.com pattern): identity and tiles on the navy band, one-line QR card, flat icon rows, Help group, and a separate "Your details" page. PR open, waiting on QA and Mas's merge time (before 3 Nov).
 - Horizon emergency card ("Darurat dan bantuan") as an M3 contact list: one row per contact with round Call / WhatsApp / Map icon buttons on the right, numbers shown as +62 with hyphens, spacing per DESIGN.md (new rule there). No SQL. PR open, QA GO after fix; waiting on Mas's design OK and merge time (visible on KSO, before 3 Nov).
+- FAQ List layout with topics (Mas 27 Oct, KSO has 12 questions): Event page > FAQ gets Layout Cards/List and a Topic per question; List shows divider rows under topic headings, sticky topic list on wide screens. No SQL; existing events unchanged (0 px). PR open, waiting on Mas's merge time (visible on KSO only after he switches the layout; before 3 Nov).
 - Do's and Don'ts block for the event page (Mas 27 Oct): three layouts chosen in the CMS (Icon grid, Two cards, Compact list), icon from the library or own upload, Do/Don't per item. No SQL; existing events unchanged (0 px). PR open, waiting on QA and Mas's merge time (KSO content can use it before 3 Nov).
+- Horizon countdown "Journey" style (rail with travelling icon, rolling digits, optional ticking seconds) and About without the built-in opening line (it showed two headings; now only when "Opening line" is filled). No SQL; existing events 0 px except Horizon pages with an empty Opening line. Mas liked it 27 Oct. PR open, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov); after merge KSO's Countdown block needs Style Journey + Dark brand (+ Show seconds) in the CMS.
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.
 - Lucky draw admin screens: 48 DESIGN.md deviations listed (raw fields and selects, hand-written toggles and buttons); restyle batch after the English PR.
