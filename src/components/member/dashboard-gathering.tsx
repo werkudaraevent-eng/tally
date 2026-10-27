@@ -950,17 +950,19 @@ export async function DashboardGathering({
                             {status ? <Chip nada="aksi">{status === "berlangsung" ? t.now : t.next}</Chip> : null}
                           </p>
                           {item.subtitle ? <p className={`mt-1 text-[14px] leading-5 ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
+                          {/* Tautan 4 px di bawah judul tanpa margin negatif (tetap benar bila teksnya dua baris);
+                              lapisan ::before memberi area ketuk 48 px tanpa menggeser apa pun. */}
                           {ruteBaris.has(item.id) ? (
-                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="-mb-3.5 -mt-2.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0]">
+                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
                               {tH.agenda.routeLink}
-                              <CaretRight size={16} aria-hidden />
+                              <CaretRight size={16} aria-hidden className="mt-0.5 shrink-0" />
                               <PenandaTab tab="perjalanan" />
                             </Link>
                           ) : null}
                           {adaTrip(bagian.tanggal, item) ? (
-                            <Link href={keTab("perjalanan")} className="-mb-3.5 -mt-2.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0]">
+                            <Link href={keTab("perjalanan")} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
                               {tH.agenda.tripLink}
-                              <CaretRight size={16} aria-hidden />
+                              <CaretRight size={16} aria-hidden className="mt-0.5 shrink-0" />
                               <PenandaTab tab="perjalanan" />
                             </Link>
                           ) : null}
