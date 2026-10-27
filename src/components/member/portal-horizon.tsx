@@ -323,7 +323,7 @@ export function SapaanHorizon({
         <span className="hidden lg:inline">{judul}</span>
       </h1>
       {catatan ? (
-        <p className={`text-[17px] leading-[1.5] md:mt-[14px] md:block lg:short:mt-2 ${catatanPonsel ? "mt-1.5 text-[15px] md:text-[17px]" : "mt-[14px] hidden"}`} style={{ color: REDUP }}>
+        <p className={`text-[16px] leading-6 md:mt-[14px] md:block lg:short:mt-2 ${catatanPonsel ? "mt-1.5 text-[14px] leading-5 md:text-[16px] md:leading-6" : "mt-[14px] hidden"}`} style={{ color: REDUP }}>
           {alisDiCatatan && alis ? <span className="hidden lg:short:inline">{`${alis} ${SEPARATOR} `}</span> : null}
           {catatan}
         </p>
@@ -589,7 +589,7 @@ export function PitaKepalaHorizon({ children }: { children: ReactNode }) {
 export function ChipHorizon({ children, nada = "aksen" }: { children: ReactNode; nada?: "aksen" | "aksi" }) {
   return (
     <span
-      className={`inline-flex min-h-7 shrink-0 items-center gap-1 rounded-full px-3 text-[13px] font-bold ${
+      className={`inline-flex min-h-7 shrink-0 items-center gap-1 rounded-full px-3 text-[12px] font-bold leading-4 ${
         nada === "aksi" ? "bg-[var(--chip-aksi)] text-[var(--on-chip-aksi)]" : "bg-[var(--chip-aksen)] text-[var(--on-chip-aksen)]"
       }`}
     >
@@ -756,7 +756,7 @@ export function ChipTanggalHorizon({ hari, aria }: { hari: { atas: string; bawah
                 item.aktif ? "bg-[var(--hz-emas)] text-[var(--hz-on-emas)]" : "bg-white text-[#1A2333] shadow-[inset_0_0_0_1px_#E6E9EE]"
               }`}
             >
-              <span className="text-[13px] font-medium leading-4">{item.atas}</span>
+              <span className="text-[12px] font-medium leading-4">{item.atas}</span>
               {item.bawah ? <span className="text-[16px] font-bold leading-6">{item.bawah}</span> : null}
             </Link>
           </li>
@@ -779,7 +779,7 @@ export function SegmenBagianHorizon({ bagian, aria }: { bagian: { label: string;
             <Link
               href={item.href}
               aria-current={item.aktif ? "page" : undefined}
-              className={`m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full px-5 text-[15px] ${
+              className={`m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full px-5 text-[14px] leading-5 ${
                 item.aktif ? "bg-[var(--hz-emas)] font-bold text-[var(--hz-on-emas)]" : "font-medium text-[#1A2333]"
               }`}
             >
@@ -1522,7 +1522,7 @@ export function ProfilHorizon({
       {qr ? (
         <PemicuQr id="pemicu-qr-profil" href={qr.href} className={`${KARTU_HZ} m3-state relative -mt-5 flex items-center gap-4 p-4 text-[#101E38] md:-mt-2 lg:max-w-[480px]`}>
           <span className="size-12 shrink-0 rounded-[8px] bg-white p-0.5 ring-1 ring-[#E6E9EE]">{qr.gambar}</span>
-          <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
             {/* Kode dari impor bisa panjang: tidak pernah dipotong (dibacakan petugas), patah bila perlu. */}
             <span className="text-[18px] font-bold leading-6 tracking-[0.5px] [overflow-wrap:anywhere]">{qr.kode}</span>
             <span className="truncate text-[12px] leading-4" style={{ color: REDUP }}>
