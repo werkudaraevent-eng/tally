@@ -17,6 +17,16 @@ assert.deepEqual(recordsFor("event.klien.com", cfg({}) as never, belum)[1], { pu
 assert.equal(dnsProblem(cfg({}) as never, belum).masalah, "kepemilikan");
 assert.equal(dnsProblem(cfg({}) as never, null).masalah, "belum_ada");
 assert.deepEqual(dnsProblem(cfg({ cnames: ["ilo-forum.org."] }) as never, null), { masalah: "mengarah_lain", tujuanLain: "ilo-forum.org" });
+// Dua record A @: yang benar dan yang lama. Pesan harus menyebut yang lama saja.
+assert.deepEqual(dnsProblem(cfg({ aValues: ["216.198.79.1", "192.0.2.10"] }) as never, null), { masalah: "record_lama", tujuanLain: "192.0.2.10" });
+assert.deepEqual(dnsProblem(cfg({ aValues: ["192.0.2.10", "216.198.79.1", "198.51.100.7"] }) as never, null), { masalah: "record_lama", tujuanLain: "192.0.2.10, 198.51.100.7" });
+// Nilai bawaan lama Vercel juga dianggap benar.
+assert.deepEqual(dnsProblem(cfg({ aValues: ["76.76.21.21", "192.0.2.10"] }) as never, null), { masalah: "record_lama", tujuanLain: "192.0.2.10" });
+// Hanya record lain: ganti nilainya.
+assert.deepEqual(dnsProblem(cfg({ aValues: ["192.0.2.10"] }) as never, null), { masalah: "mengarah_lain", tujuanLain: "192.0.2.10" });
+// Hanya nilai Vercel tetapi Vercel masih menilai salah (mis. belum menyebar): jangan tuduh nilai yang benar.
+assert.deepEqual(dnsProblem(cfg({ aValues: ["216.198.79.1"] }) as never, null), { masalah: "belum_ada", tujuanLain: null });
+assert.equal(dnsProblem(cfg({ cnames: ["A1B2.vercel-dns-017.com."] }) as never, null).masalah, "belum_ada");
 assert.equal(dnsProblem(cfg({ configuredBy: "http" }) as never, null).masalah, "cloudflare");
 assert.equal(dnsProblem(cfg({ conflicts: [{ name: "klien.com", type: "CAA", value: "0 issue \"digicert.com\"" }] }) as never, null).masalah, "caa");
 assert.equal(dnsProblem(cfg({ configuredBy: "CNAME", misconfigured: false }) as never, { name: "x", verified: true }).masalah, null);
