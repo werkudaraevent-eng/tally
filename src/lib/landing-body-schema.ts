@@ -95,7 +95,7 @@ const blockSchema = z.object({
   }).refine((isi) => isi.field !== "@hotel" || isi.values.every((nilai) => /^[1-9]\d{0,17}$/.test(nilai)), "Hotel groups use hotel ids").optional(),
   agenda_item_ids: z.array(z.number().int().positive()).max(TAUTAN_AGENDA_MAX).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
-  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo", "tiles"]).optional(),
+  layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo", "journey", "tiles"]).optional(),
   eyebrow: teks(60),
   heading: teks(160),
   body: teks(1200),

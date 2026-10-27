@@ -584,11 +584,17 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     ? {
         about: tampil("about") ? (
           <CeritaHorizon
-            pembuka={{
-              nomor: agenda.length > 1 ? `01–${String(agenda.length).padStart(2, "0")}` : null,
-              judul: config.program_heading?.trim() || t.horizon.teaser,
-              tautan: tampil("agenda") ? { href: "#agenda", label: t.horizon.teaserLink } : null,
-            }}
+            // Kalimat pembuka hanya bila panitia menulisnya: tanpa itu bagian ini
+            // punya satu judul saja (judul Tentang di samping foto).
+            pembuka={
+              config.program_heading?.trim()
+                ? {
+                    nomor: agenda.length > 1 ? `01–${String(agenda.length).padStart(2, "0")}` : null,
+                    judul: config.program_heading.trim(),
+                    tautan: tampil("agenda") ? { href: "#agenda", label: t.horizon.teaserLink } : null,
+                  }
+                : null
+            }
             foto={fotoTentang ? { src: fotoTentang, alt: config.about_image_alt?.trim() ?? "" } : null}
             alis={judulBagian("about").alis}
             judul={judulBagian("about").judul}

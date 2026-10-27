@@ -419,6 +419,8 @@ export type LandingUiText = {
   countdownDaysLeft: (hari: number) => string;
   /** Kalimat gaya Pita, dipecah supaya angkanya bisa diberi warna sorot. */
   countdownStrip: (hari: number, tujuan: string) => { teks: string; sorot: boolean }[];
+  /** Kalimat di atas hitungan berdetik gaya Journey. */
+  countdownJourneyIn: (tujuan: string) => string;
   countdownLive: string;
   /** Kalimat utuh untuk pembaca layar; angkanya sendiri tidak diumumkan tiap menit. */
   countdownSr: (hari: number, jam: number, menit: number) => string;
@@ -461,7 +463,6 @@ export type LandingUiText = {
   horizon: {
     start: string;
     index: string;
-    teaser: string;
     teaserLink: string;
     days: (days: number) => string;
     inviteEyebrow: string;
@@ -597,6 +598,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       hari > 1
         ? [{ teks: `${hari} hari`, sorot: true }, { teks: tujuan ? ` lagi ke ${tujuan}` : " lagi", sorot: false }]
         : [{ teks: hari === 1 ? "Besok" : "Hari ini", sorot: true }, { teks: tujuan ? ` ke ${tujuan}` : "", sorot: false }],
+    countdownJourneyIn: (tujuan) => (tujuan ? `Menuju ${tujuan} dalam` : "Dimulai dalam"),
     countdownLive: "Sedang berlangsung",
     countdownSr: (hari, jam, menit) => `Acara dimulai dalam ${hari} hari ${jam} jam ${menit} menit.`,
     countdownIn: (s, detik) =>
@@ -632,7 +634,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     horizon: {
       start: "Mulai perjalanan kita",
       index: "01 / Sebuah awal baru",
-      teaser: "Bukan sekadar pergi.\nAda cerita yang kita bawa pulang.",
       teaserLink: "Kenali perjalanannya",
       days: (days) => `${["Nol", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh"][days] ?? days} hari.\nSatu cerita kita.`,
       inviteEyebrow: "Setelah masuk, ceritanya jadi milikmu",
@@ -756,6 +757,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       hari > 1
         ? [{ teks: `${hari} days`, sorot: true }, { teks: tujuan ? ` to ${tujuan}` : " to go", sorot: false }]
         : [{ teks: hari === 1 ? "Tomorrow" : "Today", sorot: true }, { teks: tujuan ? `: ${tujuan}` : "", sorot: false }],
+    countdownJourneyIn: (tujuan) => (tujuan ? `Heading to ${tujuan} in` : "Starts in"),
     countdownLive: "Happening now",
     countdownSr: (hari, jam, menit) => `The event starts in ${hari} ${hari === 1 ? "day" : "days"}, ${jam} ${jam === 1 ? "hour" : "hours"} and ${menit} ${menit === 1 ? "minute" : "minutes"}.`,
     countdownIn: (s, detik) =>
@@ -791,7 +793,6 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     horizon: {
       start: "Start our journey",
       index: "01 / A new beginning",
-      teaser: "Not just a trip.\nA story we bring home.",
       teaserLink: "See the journey",
       days: (days) => `${["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][days] ?? days} ${days === 1 ? "day" : "days"}.\nOne story, together.`,
       inviteEyebrow: "Sign in and the story is yours",
