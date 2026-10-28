@@ -6,6 +6,8 @@ import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-a
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
 import { FormKeluar } from "@/components/member/form-keluar";
 import { KartuFotoOutfit } from "@/components/member/foto-outfit";
+import { PilihanOutfit } from "@/components/member/pilihan-outfit";
+import type { OutfitPilihan } from "@/lib/outfit";
 import { IkonTabBawah, PenandaTab } from "@/components/member/muat-portal";
 import { PemicuQr } from "@/components/member/qr-fokus";
 import { SEPARATOR } from "@/lib/typography";
@@ -1358,15 +1360,18 @@ function LabelWaktuOutfit({ kapan, kecil = false }: { kapan: string; /** Ringkas
  * `tingkat`: judulnya h3 di bawah judul tanggal (h2); h2 bila kartu langsung di
  * bawah judul halaman (acara tanpa tab Agenda), supaya tidak melompat dari h1 ke h3.
  */
-export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3, judulFoto, teksFoto }: {
+export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat = 3, judulFoto, teksFoto, teksPilihan }: {
   kapan: string | null;
   apa: string;
   catatan: string | null;
   foto: string | null;
+  /** Pilihan gaya (Agenda > Dress code > Options): menggantikan foto tunggal. */
+  pilihan?: OutfitPilihan[];
   tingkat?: 2 | 3;
   /** Judul bilah atas penampil foto (label halaman per acara). */
   judulFoto: string;
   teksFoto: { buka: string; lihat: string; perbesar: string; tutup: string };
+  teksPilihan?: { pilih: string; buka: (nama: string) => string; tutup: string; sebelumnya: string; berikutnya: string };
 }) {
   const Judul = tingkat === 2 ? "h2" : "h3";
   const teks = (
@@ -1380,6 +1385,19 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, tingkat = 3, jud
       ) : null}
     </>
   );
+  if (pilihan && pilihan.length > 0 && teksPilihan) {
+    // Beberapa gaya untuk satu agenda (mis. Gala Dinner): teks di atas, lalu
+    // pilihan selebar kartu di semua ukuran. Foto tunggal tidak dipakai.
+    return (
+      <article className={`${KARTU_HZ} flex min-w-0 flex-col gap-4 ${PAD_KARTU}`} style={{ color: TINTA }}>
+        <div className="flex min-w-0 flex-col gap-1">{teks}</div>
+        <PilihanOutfit pilihan={pilihan} kapan={kapan} apa={apa} judul={judulFoto} warna={{ tinta: TINTA, redup: REDUP, label: LABEL }}
+          labelBuka={pilihan.map((isi) => teksPilihan.buka(isi.name))}
+          teks={{ pilih: teksPilihan.pilih, tutup: teksPilihan.tutup, sebelumnya: teksPilihan.sebelumnya, berikutnya: teksPilihan.berikutnya }}
+        />
+      </article>
+    );
+  }
   if (foto) {
     // Fotonya isi utama (papan dress code penuh teks dan contoh gaya). Ponsel dan
     // tablet: foto selebar kartu dengan rasio aslinya, teks di bawah (keputusan

@@ -143,6 +143,12 @@ export type PortalUiText = {
       /** Foto contoh: label pembuka layar penuh, teks tombolnya (desktop), dan tombol tutup. */
       openPhoto: (apa: string) => string;
       viewPhoto: string;
+      /** Pilihan gaya: label di atas kartu pilihan ("Pilih salah satu · 4 gaya") dan ringkasannya ("4 pilihan"). */
+      options: (jumlah: number) => string;
+      optionsShort: (jumlah: number) => string;
+      /** Tombol penampil layar penuh di antara pilihan. */
+      prevPhoto: string;
+      nextPhoto: string;
       /** Pil di pojok foto (ponsel dan tablet). */
       enlarge: string;
       closePhoto: string;
@@ -407,6 +413,10 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         seeYours: (label, bagian) => `Lihat ${label} ${bagian}`,
         openPhoto: (apa) => `Buka foto ${apa} layar penuh`,
         viewPhoto: "Lihat gambar penuh",
+        options: (jumlah) => `Pilih salah satu · ${jumlah} gaya`,
+        optionsShort: (jumlah) => `${jumlah} pilihan`,
+        prevPhoto: "Foto sebelumnya",
+        nextPhoto: "Foto berikutnya",
         enlarge: "Perbesar",
         closePhoto: "Tutup",
         allDay: "Sepanjang hari",
@@ -644,6 +654,10 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         seeYours: (label, bagian) => `See the ${bagian} ${label}`,
         openPhoto: (apa) => `Open the ${apa} photo full screen`,
         viewPhoto: "View full image",
+        options: (jumlah) => `Pick one · ${jumlah} styles`,
+        optionsShort: (jumlah) => `${jumlah} options`,
+        prevPhoto: "Previous photo",
+        nextPhoto: "Next photo",
         enlarge: "Enlarge",
         closePhoto: "Close",
         allDay: "All day",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  adaTautan, alasanDaftarOutfit, bacaOutfit, bagianOutfitTanggal, cekDaftarOutfit, hariOutfitBeranda, jenisOutfit, kapanOutfit, labelOutfit, labelTabOutfit, outfitSchema, outfitTerlihat,
+  adaTautan, alasanDaftarOutfit, apaRingkas, bacaOutfit, fotoRingkas, bagianOutfitTanggal, cekDaftarOutfit, hariOutfitBeranda, jenisOutfit, kapanOutfit, labelOutfit, labelTabOutfit, outfitSchema, outfitTerlihat,
   segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, tautkanOutfit, teksWaktuOutfit, urutOutfit,
 } from "./outfit.ts";
 
@@ -236,3 +236,26 @@ assert.equal(kapanOutfit({}, "Sepanjang hari"), "Sepanjang hari");
 assert.equal(kapanOutfit({ when: "  " }, "Sepanjang hari"), "Sepanjang hari");
 assert.equal(kapanOutfit({ when: "17.30 Gala Dinner" }, "Sepanjang hari"), "17.30 Gala Dinner");
 assert.equal(kapanOutfit({ item_id: 7, when: "" }, "Sepanjang hari"), null);
+
+// Pilihan gaya: nama wajib, deskripsi dan foto opsional, paling banyak enam; daftar kosong tidak disimpan.
+const pilihan = outfitSchema.safeParse([{ what: "Colonial Elegance", options: [{ name: " Priyayi Jawa ", description: " ", photo_url: "https://x.supabase.co/p.jpg" }, { name: "Opsir KNIL", description: "Kemeja khaki" }] }]);
+assert.ok(pilihan.success);
+assert.deepEqual(JSON.parse(JSON.stringify(pilihan.data)), [{ what: "Colonial Elegance", options: [{ name: "Priyayi Jawa", photo_url: "https://x.supabase.co/p.jpg" }, { name: "Opsir KNIL", description: "Kemeja khaki" }] }]);
+assert.deepEqual(JSON.parse(JSON.stringify(outfitSchema.parse([{ what: "Batik", options: [] }]))), [{ what: "Batik" }]);
+assert.equal(outfitSchema.safeParse([{ what: "a", options: [{ name: "" }] }]).success, false);
+assert.equal(outfitSchema.safeParse([{ what: "a", options: [{ name: "x".repeat(61) }] }]).success, false);
+assert.equal(outfitSchema.safeParse([{ what: "a", options: [{ name: "x", description: "x".repeat(201) }] }]).success, false);
+assert.equal(outfitSchema.safeParse([{ what: "a", options: [{ name: "x", photo_url: "javascript:alert(1)" }] }]).success, false);
+assert.equal(outfitSchema.safeParse([{ what: "a", options: Array.from({ length: 7 }, (_, i) => ({ name: `G${i}` })) }]).success, false);
+assert.equal(outfitSchema.safeParse([{ what: "a", options: Array.from({ length: 6 }, (_, i) => ({ name: `G${i}` })) }]).success, true);
+// Baca toleran: pilihan tanpa nama dan foto berbahaya dibuang, isian lama tanpa options tidak berubah.
+assert.deepEqual(bacaOutfit([{ what: "Gala", options: [{ name: " " }, "x", { name: "Noni", photo_url: "javascript:x", description: 3 }, { name: "Opsir", description: " Khaki " }] }]), [{ what: "Gala", options: [{ name: "Noni" }, { name: "Opsir", description: "Khaki" }] }]);
+assert.deepEqual(bacaOutfit([{ what: "Gala", options: "x" }]), [{ what: "Gala" }]);
+assert.equal(bacaOutfit([{ what: "Gala", options: Array.from({ length: 9 }, (_, i) => ({ name: `G${i}` })) }])[0].options?.length, 6);
+// Penyegaran teks waktu dan penyaringan peserta membawa pilihan apa adanya.
+assert.deepEqual(outfitTerlihat([{ item_id: 1, what: "Gala", options: [{ name: "Noni" }] }], [{ id: 1 }]), [{ what: "Gala", options: [{ name: "Noni" }] }]);
+assert.equal(apaRingkas({ what: "Colonial Elegance", options: [{ name: "A" }, { name: "B" }] }, (n) => `${n} pilihan`), "Colonial Elegance · 2 pilihan");
+assert.equal(apaRingkas({ what: "Batik" }, (n) => `${n} pilihan`), "Batik");
+assert.equal(fotoRingkas({ options: [{ name: "A" }, { name: "B", photo_url: "https://x/b.jpg" }] }), "https://x/b.jpg");
+assert.equal(fotoRingkas({ photo_url: "https://x/a.jpg", options: [{ name: "B", photo_url: "https://x/b.jpg" }] }), "https://x/a.jpg");
+assert.equal(fotoRingkas({}), null);

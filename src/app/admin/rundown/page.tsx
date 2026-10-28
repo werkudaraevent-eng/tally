@@ -903,7 +903,16 @@ export default function RundownAdminPage() {
     // satu per satu (Add photo mati di semua kartu) dan Save dress code
     // menunggunya selesai.
     const url = hasil.url;
-    setOutfitDrafts((kini) => ({ ...kini, [id]: (kini[id] ?? keDraf(outfitSaved[id] ?? [])).map((isi) => (isi.kunci === kunci ? { ...isi, photo_url: url } : isi)) }));
+    // `kunci` "kartu/pilihan": foto satu pilihan gaya (kunciFotoPilihan).
+    const [kartu, pilihan] = kunci.split("/");
+    setOutfitDrafts((kini) => ({
+      ...kini,
+      [id]: (kini[id] ?? keDraf(outfitSaved[id] ?? [])).map((isi) => {
+        if (isi.kunci !== kartu) return isi;
+        if (!pilihan) return { ...isi, photo_url: url };
+        return { ...isi, options: isi.options.map((opsi) => (opsi.kunci === pilihan ? { ...opsi, photo_url: url } : opsi)) };
+      }),
+    }));
     toast.info("Photo uploaded", "Select Save dress code to show it to participants.");
   }
 
