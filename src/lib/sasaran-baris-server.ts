@@ -2,6 +2,8 @@ import { z } from "zod";
 import { kolomSasaran, SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
 import { bacaSyaratBaris, SYARAT_MAX, type SyaratBaris } from "@/lib/sasaran-baris";
 import { KOLOM_HOTEL } from "@/lib/sasaran-blok";
+import { semuaBaris } from "@/lib/logistik/server";
+import { tanggalStay } from "@/lib/logistik/stay";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Pemeriksaan kiriman Who sees it baris Agenda, dipakai bersama oleh
@@ -53,4 +55,29 @@ export async function periksaSyarat(
     if (!isi.values.every((nilai) => pilihan.options.includes(nilai))) return { galat: "That answer is no longer in the participant field. Reload the page." };
   }
   return { syarat: bacaSyaratBaris(audience) };
+}
+
+export type StayPeserta = Map<string, Array<{ hotel_id: number; masuk: string | null; keluar: string | null }>>;
+
+/**
+ * Stay hotel tiap peserta untuk syarat Hotel: dari penempatan, termasuk tamu
+ * yang nomor kamarnya menyusul, dengan tanggal efektifnya (stay, lalu hotel).
+ * Null bila gagal dibaca. Dipakai hitungan Who sees it di editor Agenda dan
+ * angka "diharapkan" per checkpoint di Dashboard, supaya keduanya sama.
+ */
+export async function muatStayPeserta(eventId: string): Promise<StayPeserta | null> {
+  const db = getSupabaseServiceClient();
+  const [tempat, hotels] = await Promise.all([
+    semuaBaris<{ participant_id: string; hotel_id: number; check_in_at: string | null; check_out_at: string | null }>(() =>
+      db.from("lodging_assignments").select("participant_id,hotel_id,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
+    db.from("lodging_hotels").select("id,check_in_at,check_out_at").eq("event_id", eventId),
+  ]);
+  if (!tempat || hotels.error) return null;
+  const hotelById = new Map(((hotels.data ?? []) as Array<{ id: number; check_in_at: string | null; check_out_at: string | null }>).map((h) => [Number(h.id), h]));
+  const hasil: StayPeserta = new Map();
+  for (const isi of tempat) {
+    const t = tanggalStay({ hotel_id: Number(isi.hotel_id), check_in_at: isi.check_in_at, check_out_at: isi.check_out_at }, hotelById.get(Number(isi.hotel_id)));
+    hasil.set(isi.participant_id, [...(hasil.get(isi.participant_id) ?? []), { hotel_id: Number(isi.hotel_id), masuk: t.masuk, keluar: t.keluar }]);
+  }
+  return hasil;
 }

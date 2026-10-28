@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { totalAmbilBagasi, totalBagasiSesi } from "@/lib/bagasi/server";
+import { semuaBaris } from "@/lib/logistik/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -46,12 +47,14 @@ export async function GET(request: Request) {
       .order("id", { ascending: true }),
     // Kolom yang ditarik sesempit mungkin: tabel ini yang tumbuh paling cepat di
     // hari-H, dan halaman ini hanya butuh menghitung orang unik per sesi.
-    client.from("attendance_scans").select("session_id,participant_id,scanned_at").eq("event_id", eventId),
+    // Bertahap per 1.000 baris: tanpa itu angkanya berhenti di 1.000 pindaian.
+    semuaBaris<{ session_id: number; participant_id: string; scanned_at: string }>(() =>
+      client.from("attendance_scans").select("id,session_id,participant_id,scanned_at").eq("event_id", eventId).order("id")),
   ]);
 
-  if (sesi.error) return apiError("INTERNAL_ERROR", 500);
+  if (sesi.error || !scans) return apiError("INTERNAL_ERROR", 500);
 
-  const baris = (scans.data ?? []) as Array<{ session_id: number; participant_id: string; scanned_at: string }>;
+  const baris = scans;
   const unik = new Map<number, Set<string>>();
   const total = new Map<number, number>();
   const terakhir = new Map<number, string>();

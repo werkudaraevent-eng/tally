@@ -45,7 +45,8 @@ export async function GET(request: Request) {
     orders,
     pemindaian,
   ] = await Promise.all([
-    hitung("participants"),
+    // Peserta aktif: yang dihapus dari sumber sync tidak lagi diharapkan datang.
+    hitung("participants").is("source_removed_at", null),
     hitung("event_registrations").eq("status", "pending"),
     hitung("event_registrations").eq("status", "approved"),
     hitung("event_registrations").eq("status", "rejected"),
@@ -61,17 +62,18 @@ export async function GET(request: Request) {
     // kesiapan yang selalu merah, tanpa satu pun galat yang bisa dilihat.
     hitung("seat_map_sessions"),
     client.from("orders").select("status,total_amount").eq("event_id", event.id),
-    // Kehadiran dihitung per ORANG, bukan per pemindaian: satu tamu yang
-    // dipindai di dua sesi tetap satu orang yang hadir. Karena itu kolomnya
-    // ditarik lalu dihitung uniknya, bukan `head: true` seperti yang lain.
-    client.from("attendance_scans").select("participant_id").eq("event_id", event.id),
+    // Kehadiran dihitung per ORANG, bukan per pemindaian: peserta aktif yang
+    // punya minimal satu pindaian, sebagai hitungan. Dulu baris pindaian
+    // ditarik lalu dihitung uniknya, dan angkanya berhenti di 1.000 pindaian
+    // (batas baca PostgREST) tepat saat hari-H sedang ramai.
+    client
+      .from("participants")
+      .select("id,attendance_scans!inner(id)", { head: true, count: "exact" })
+      .eq("event_id", event.id)
+      .is("source_removed_at", null),
   ]);
 
-  const hadir = new Set(
-    ((pemindaian.data ?? []) as Array<{ participant_id: string | null }>)
-      .map((baris) => baris.participant_id)
-      .filter((id): id is string => Boolean(id)),
-  ).size;
+  const hadir = pemindaian.count ?? 0;
 
   // Sesi rundown dihitung dari seksinya, isinya dari itemnya. Seksi tanpa item
   // adalah rundown yang terlihat "sudah diisi" di angka tetapi kosong di layar

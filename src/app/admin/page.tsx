@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { DashboardCheckins } from "@/components/admin/dashboard-checkins";
 import { DashboardEventActions } from "@/components/admin/dashboard-event-actions";
 import { ExportMenu } from "@/components/admin/export-menu";
 import { Banner, ButtonLink, LinearProgress, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
@@ -314,6 +315,9 @@ export default function AdminPage() {
             </ul>
           )}
         </Kartu>
+
+        {/* Check-in per titik: sejak persiapan juga, supaya gladi bisa mengujinya. */}
+        {data ? <DashboardCheckins className="col-span-12" /> : null}
 
         {/* Metrik */}
         {data ? metrik.map((m) => (
