@@ -1666,7 +1666,7 @@ export function ProfilHorizon({
                 {darurat}
               </section>
             ) : null}
-            <div className={`${KARTU_HZ} px-4 py-1 lg:col-start-2 ${qr ? "lg:row-start-2" : "lg:row-start-1"}`}>
+            <div className={`${KARTU_HZ} px-4 py-1 ${qr ? "lg:col-start-2 lg:row-start-2" : adaBantuan ? "lg:col-start-2 lg:row-start-1" : "lg:col-start-1 lg:row-start-2"}`}>
               <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
                 <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
                   <IkonBulat Ikon={SignOut} nada="merah" />
