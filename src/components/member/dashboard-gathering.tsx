@@ -45,7 +45,7 @@ import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, l
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import type { MemberSession } from "@/lib/member/account";
-import { inisialNama, muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
+import { inisialNama, muatNavPeserta, namaSapaan, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { bantuanBahasa, barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
@@ -1693,7 +1693,7 @@ export async function DashboardGathering({
     const aktifBawah = tabsBawahHorizon.some((tab) => tab.id === tabMenyala) ? tabMenyala : "profil";
     let badan: ReactNode;
     if (tabAktif === "beranda") {
-      const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
+      const namaLengkap = namaSapaan(sesi.name);
       const tampilLogistik = diBeranda("logistics");
       const tampilTeman = diBeranda("roommates") && teman && teman.length > 0;
 
@@ -2055,9 +2055,10 @@ export async function DashboardGathering({
         <>
           <SapaanHorizon
             alisDiCatatan
+            sapaan
             alis={gabungMeta([tanggalSapaan(kini.tanggal, lang), teksFase])}
-            judul={tH.home.heading(namaDepan)}
-            judulPonsel={tH.home.heading(namaDepan)}
+            judul={tH.home.heading(namaLengkap)}
+            judulPonsel={tH.home.heading(namaLengkap)}
             catatan={tH.home.timeNote(singkatanZona)}
             catatanPonsel
           />
@@ -2117,9 +2118,9 @@ export async function DashboardGathering({
     // Lencana Pengumuman (U-03): jumlah yang belum dibaca; tidak di tab Pengumuman sendiri.
     const infoBelum = tabAktif === "info" ? 0 : pengumuman.unread;
     // Judul tab tujuan untuk kerangka saat pindah tab (U-10).
-    const namaDepanSesi = sesi.name.trim().split(/\s+/)[0] || sesi.name;
+    const namaLengkapSesi = namaSapaan(sesi.name);
     const kepalaTab: Record<string, KepalaTab> = {
-      beranda: { alis: tanggalSapaan(kini.tanggal, lang), judul: tH.home.heading(namaDepanSesi), judulPonsel: tH.home.heading(namaDepanSesi), catatan: tH.home.timeNote(singkatanZona), jenis: "kartu" },
+      beranda: { alis: tanggalSapaan(kini.tanggal, lang), judul: tH.home.heading(namaLengkapSesi), judulPonsel: tH.home.heading(namaLengkapSesi), catatan: tH.home.timeNote(singkatanZona), jenis: "kartu", sapaan: true },
       jadwal: { alis: alisJadwal || nama, judul: t.schedule, judulPonsel: t.schedule, catatan: catatanJadwal, jenis: "jadwal" },
       perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona), jenis: "kartu" },
       outfit: { alis: outfitDiAcara ? t.schedule : nama, judul: labelOutfitHalaman, judulPonsel: labelOutfitHalaman, catatan: tH.outfit.note, jenis: outfitDiAcara ? "jadwal" : "kartu" },

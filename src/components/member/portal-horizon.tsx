@@ -267,6 +267,7 @@ export function SapaanHorizon({
   catatan,
   catatanPonsel = false,
   alisDiCatatan = false,
+  sapaan = false,
   kembali = null,
 }: {
   alis: string;
@@ -280,6 +281,12 @@ export function SapaanHorizon({
    * depan catatan di sana, jadi tidak hilang.
    */
   alisDiCatatan?: boolean;
+  /**
+   * Judul berisi nama peserta (Beranda): panjangnya tidak tentu, jadi lebih kecil
+   * dari judul tab (24/32 di ponsel, 36/44 di desktop) dan selebar kolom utama
+   * (790 px), supaya nama lengkap paling banyak dua baris dan tidak selebar layar.
+   */
+  sapaan?: boolean;
   /**
    * Ponsel: halaman yang dibuka dari Menu (bukan dari bilah bawah) punya tautan
    * kembali ke Menu. `semua`: halaman bagian dari tab lain (Outfit di bawah
@@ -318,7 +325,10 @@ export function SapaanHorizon({
       >
         {alis}
       </p>
-      <h1 className="mt-1 whitespace-pre-line text-balance text-[30px] font-extrabold leading-[1.15] [overflow-wrap:anywhere] md:mt-[14px] md:text-[48px] md:leading-[1.2] lg:short:mt-0 lg:short:text-[30px]" style={{ color: TINTA }}>
+      <h1
+        className={`mt-1 whitespace-pre-line text-balance font-extrabold [overflow-wrap:anywhere] md:mt-[14px] lg:short:mt-0 ${sapaan ? "max-w-[790px] text-[24px] leading-8 md:text-[36px] md:leading-[44px] lg:short:text-[28px] lg:short:leading-9" : "text-[30px] leading-[1.15] md:text-[48px] md:leading-[1.2] lg:short:text-[30px]"}`}
+        style={{ color: TINTA }}
+      >
         <span className="lg:hidden">{judulPonsel}</span>
         <span className="hidden lg:inline">{judul}</span>
       </h1>

@@ -60,7 +60,7 @@ function useLampuTujuan() {
   return useSyncExternalStore(langganan, () => lampuTujuan, () => null);
 }
 
-export type KepalaTab = { alis: string; judul: string; judulPonsel: string; catatan: string; jenis: "jadwal" | "kartu" };
+export type KepalaTab = { alis: string; judul: string; judulPonsel: string; catatan: string; jenis: "jadwal" | "kartu"; sapaan?: boolean };
 
 export function KerangkaPortal({ kepala, garisLabel }: { kepala: Record<string, KepalaTab>; garisLabel: string }) {
   const tab = useTabTujuan();
@@ -74,7 +74,9 @@ export function KerangkaPortal({ kepala, garisLabel }: { kepala: Record<string, 
       <div aria-hidden className="mx-auto w-full max-w-[1440px] px-6 pt-6 md:px-16 md:pt-12 lg:short:pt-6">
         {/* Alis sama dengan SapaanHorizon (U-25), supaya judulnya tidak melompat saat halaman tiba. */}
         <p className="text-[0.8125rem] font-medium leading-5 text-[#4D5D77] md:text-[0.875rem] lg:short:hidden">{isi.alis}</p>
-        <p className="mt-1 whitespace-pre-line text-balance text-[30px] font-extrabold leading-[1.15] text-[#101E38] md:mt-[14px] md:text-[48px] md:leading-[1.2] lg:short:mt-0 lg:short:text-[30px]">
+        <p
+          className={`mt-1 whitespace-pre-line text-balance font-extrabold text-[#101E38] md:mt-[14px] lg:short:mt-0 ${isi.sapaan ? "max-w-[790px] text-[24px] leading-8 md:text-[36px] md:leading-[44px] lg:short:text-[28px] lg:short:leading-9" : "text-[30px] leading-[1.15] md:text-[48px] md:leading-[1.2] lg:short:text-[30px]"}`}
+        >
           <span className="lg:hidden">{isi.judulPonsel}</span>
           <span className="hidden lg:inline">{isi.judul}</span>
         </p>

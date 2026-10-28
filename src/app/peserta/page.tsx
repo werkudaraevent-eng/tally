@@ -15,7 +15,7 @@ import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
 import { kartuLengkapi } from "@/lib/member/lengkapi";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
-import { waktuPengumuman } from "@/lib/member/nav";
+import { namaSapaan, waktuPengumuman } from "@/lib/member/nav";
 import { gatheringHorizon, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import { labelOutfit } from "@/lib/outfit";
@@ -134,7 +134,7 @@ export default async function AreaPesertaPage({
 
   const peserta = sesi.participant;
   const schedule = formatEventSchedule(event);
-  const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
+  const namaLengkap = namaSapaan(sesi.name);
   const tampilKode = Boolean(peserta) && member.show_code !== false;
   const tampilKursi = Boolean(peserta) && member.show_seat !== false;
   const tampilSusunan = member.show_schedule !== false;
@@ -191,7 +191,7 @@ export default async function AreaPesertaPage({
       <div className="mx-auto w-full max-w-[1440px] px-5 py-10 sm:px-8 sm:py-14 lg:px-10">
         {schedule ? <p className={`text-body-large font-medium ${MUTED}`}>{schedule}</p> : null}
         <h1 className={`mt-3 text-balance text-[36px] font-semibold leading-[1.1] sm:text-[48px] ${HEAD}`}>
-          Selamat datang, {namaDepan}
+          Selamat datang, {namaLengkap}
         </h1>
 
         {konfirmasi === "ok" ? (
