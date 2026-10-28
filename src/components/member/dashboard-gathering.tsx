@@ -1393,8 +1393,8 @@ export async function DashboardGathering({
       const bagianTrip = [
         legKereta.length > 0 ? { id: "kereta", label: tv.jump.train } : null,
         daftarStay.length > 0 ? { id: "hotel", label: tv.jump.hotel } : null,
-        kartuBusHorizon ? { id: "bus", label: tv.jump.bus } : null,
-        kartuBagasi ? { id: "bagasi", label: tv.jump.luggage } : null,
+        kartuBusHorizon ? { id: "kendaraan", label: tv.jump.bus } : null,
+        kartuBagasi ? { id: "koper", label: tv.jump.luggage } : null,
         rutePerjalanan.length ? { id: "rute", label: tv.jump.routes } : null,
       ].filter((item): item is { id: string; label: string } => item !== null);
       return (
@@ -1407,9 +1407,8 @@ export async function DashboardGathering({
           ) : null}
           <div className={`flex min-w-0 flex-col gap-6 [&_section]:scroll-mt-32 ${rencana.length > 0 || kartuBantuanPerjalanan ? "" : "lg:col-span-2"}`}>
             {bagianTrip.length >= 3 ? (
-              <div className="lg:hidden">
-                <LompatPerjalanan aria={tv.jump.aria} bagian={bagianTrip} latar={LATAR_PORTAL_HORIZON} />
-              </div>
+              // Langsung di kolom ini, bukan dibungkus div: pembungkus setinggi bilah membuatnya tidak bisa menempel.
+              <LompatPerjalanan aria={tv.jump.aria} bagian={bagianTrip} latar={LATAR_PORTAL_HORIZON} className="lg:hidden" />
             ) : null}
             {legKereta.length > 0 ? (
               <BagianTrip id="kereta" Ikon={Train} nada="kereta" judul={tH.train.title} meta={legAktif > 0 ? tH.train.count(legAktif) : tH.train.done} duaKolom>

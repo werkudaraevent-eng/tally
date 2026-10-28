@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from "react";
  * di ponsel, desktop, dan layar pendek). Mengetuk chip hanya menggulir: alamat
  * dan riwayat browser tidak berubah, jadi Back tetap keluar dari halaman.
  */
-export function LompatPerjalanan({ aria, bagian, latar }: { aria: string; bagian: Array<{ id: string; label: string }>; latar: string }) {
+export function LompatPerjalanan({ aria, bagian, latar, className = "" }: { aria: string; bagian: Array<{ id: string; label: string }>; latar: string; className?: string }) {
   const bilah = useRef<HTMLElement>(null);
   // Tanpa JS (atau sebelum diukur) bilah menempel di 64 px, tinggi bilah atas portal.
   const [atas, setAtas] = useState<number | null>(null);
@@ -54,9 +54,17 @@ export function LompatPerjalanan({ aria, bagian, latar }: { aria: string; bagian
     };
   }, [atas, bagian]);
 
-  // Chip aktif tetap terlihat saat barisnya lebih lebar dari layar.
+  // Chip aktif tetap terlihat saat barisnya lebih lebar dari layar. Hanya baris
+  // chip yang digeser ke samping: scrollIntoView ikut menggulir halaman ke atas
+  // bila bilah ini sedang tidak terlihat, jadi halaman "mental" saat digulir.
   useEffect(() => {
-    bilah.current?.querySelector(`[data-bagian="${aktif}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const baris = bilah.current?.querySelector("ul");
+    const chip = baris?.querySelector<HTMLElement>(`[data-bagian="${aktif}"]`);
+    if (!baris || !chip) return;
+    const kiri = chip.offsetLeft - baris.offsetLeft;
+    const kanan = kiri + chip.offsetWidth;
+    if (kiri < baris.scrollLeft) baris.scrollLeft = kiri;
+    else if (kanan > baris.scrollLeft + baris.clientWidth) baris.scrollLeft = kanan - baris.clientWidth;
   }, [aktif]);
 
   function lompat(id: string) {
@@ -75,7 +83,7 @@ export function LompatPerjalanan({ aria, bagian, latar }: { aria: string; bagian
     <nav
       ref={bilah}
       aria-label={aria}
-      className="sticky top-16 z-20 -mx-6 px-6 py-1 shadow-[0_1px_0_rgb(16_30_56/0.08)] md:-mx-16 md:px-16"
+      className={`sticky top-16 z-20 -mx-6 px-6 py-1 shadow-[0_1px_0_rgb(16_30_56/0.08)] md:-mx-16 md:px-16 ${className}`}
       style={{ ...(atas !== null ? { top: atas } : {}), background: latar }}
     >
       <ul className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
