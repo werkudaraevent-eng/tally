@@ -991,7 +991,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     <main
       lang={LANDING_LANG_LABELS[lang].htmlLang}
       data-halaman-publik
-      className={`min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)] ${horizon ? "[--nav-h:102px] md:[--nav-h:128px]" : ""} ${bilahTrip ? "pb-[calc(72px+env(safe-area-inset-bottom))]" : ""}`}
+      className={`min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)] ${horizon ? "[--nav-h:102px] md:[--nav-h:128px]" : ""} ${bilahTrip ? "pb-[calc(73px+env(safe-area-inset-bottom))]" : ""}`}
       style={mainStyle}
     >
       <LandingNavModern

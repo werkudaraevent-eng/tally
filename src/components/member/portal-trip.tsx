@@ -504,7 +504,7 @@ export function HariTrip({ aria, hari }: { aria: string; hari: { href: string; a
   return (
     <nav aria-label={aria} className="pudar-bawah-gulir sticky top-[118px] -m-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
       <GulirHariAktif />
-      <ol className="flex flex-col gap-2">
+      <ol className="flex flex-col gap-3">
         {hari.map((item) => (
           <li key={item.href}>
             <Link
@@ -647,7 +647,7 @@ export function PengumumanTrip({ item, teks }: { item: PengumumanTripItem[]; tek
               <div className="flex items-start gap-3">
                 <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-[12px] leading-4" style={{ color: REDUP }}>
                   {baris.baru ? (
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-2">
                       <span aria-hidden className="size-2 rounded-full bg-[var(--hz-emas)]" />
                       {teks.baru}
                     </span>
@@ -664,7 +664,7 @@ export function PengumumanTrip({ item, teks }: { item: PengumumanTripItem[]; tek
               ) : null}
               {baris.tautan ? (
                 <div className="mt-2">
-                  <a href={baris.tautan.href} target="_blank" rel="noreferrer noopener" className={`${TAUTAN_TRIP} gap-1.5`} style={{ color: TINTA }}>
+                  <a href={baris.tautan.href} target="_blank" rel="noreferrer noopener" className={`${TAUTAN_TRIP} gap-2`} style={{ color: TINTA }}>
                     {baris.tautan.label}
                     <ArrowSquareOut size={16} aria-hidden className="shrink-0" />
                   </a>
