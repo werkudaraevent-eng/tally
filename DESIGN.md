@@ -566,14 +566,21 @@ memuat, dan galat; jaga keterbacaan tabel tanpa menaruh setiap baris di dalam
 kartunya sendiri.
 
 **Dialog penempatan Logistik: satu dialog, tujuan utama dulu, pengecualian di
-bawahnya** (disetujui Mas 26 Okt). Assign to hotel (hotel, lalu "Add another
-hotel" untuk yang pindah) dan Assign to vehicle (kendaraan bawaan, lalu "Add a
+bawahnya** (disetujui Mas 26 Okt). Assign to hotel (stay, lalu "Add another
+stay" untuk yang pindah hotel atau pindah kamar di hotel yang sama) dan Assign to vehicle (kendaraan bawaan, lalu "Add a
 trip" untuk perjalanan yang naik kendaraan lain atau tanpa kendaraan) bekerja
 sama: daftar di dialog mengganti yang dimiliki orang terpilih, yang sama untuk
 semua orang sudah terisi, dan kalimat di bawah menyebut apa yang akan dilepas
 sebelum Assign. Panitia tidak perlu pindah tab untuk pengecualian. Nama benda
 memakai istilah umum ("Vehicles", bukan "Buses"), dan jenisnya ditulis di nama
 yang diketik panitia ("Hiace 2"), bukan kolom Jenis terpisah.
+
+**Satu fakta per kolom** (Mas 28 Okt). Tabel admin tidak menggabungkan dua
+fakta dalam satu sel ("1208 · Royal · 5–6 Nov"). Orang dengan beberapa stay
+mendapat satu baris sejajar per stay di dalam baris orangnya, di setiap kolom
+(Hotel, Room, Check-in, Check-out), setinggi 28 px per baris. Nama hotel yang
+sama dengan stay sebelumnya ditulis redup (pindah kamar). Kolom bernomor
+("Hotel 1", "Hotel 2") hanya untuk Daftar peserta dan ekspornya.
 
 ### Layar sapa
 

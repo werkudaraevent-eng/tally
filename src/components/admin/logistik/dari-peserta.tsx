@@ -10,7 +10,7 @@ import { useEventTimeZone } from "@/lib/use-event-timezone";
 import { plural } from "@/lib/plural";
 import type { Kirim } from "./bersama";
 import { DialogImpor } from "./dialog-impor";
-import { DialogStays, hitungPenghuni } from "./stay";
+import { buatHunian, DialogStays } from "./stay";
 import { DialogBus, DialogKamar, DialogLepasBus, DialogLepasKamar, simpanKendaraan, simpanPenempatan } from "./tab-penempatan";
 import { useLogistik } from "./use-logistik";
 
@@ -123,7 +123,7 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
         keTabKamar={() => keLogistik("kamar")}
         stayPeserta={stayPeserta}
         offset={offset}
-        simpan={async (daftar, lepasHotel, langkah) => (await simpanPenempatan(kirimCatat, orang.map((o) => o.id), daftar, lepasHotel, langkah)) !== null}
+        simpan={async (items) => (await simpanPenempatan(kirimCatat, items)) !== null}
       />
       <DialogBus
         open={aksi.jenis === "bus"}
@@ -140,7 +140,7 @@ export function LogistikDariPeserta({ aksi, onClose, onChanged }: {
         stays={orang[0] ? stayPeserta.get(orang[0].id) ?? [] : []}
         hotels={data.hotels}
         rooms={data.rooms}
-        penghuni={hitungPenghuni(data.lodging, data.participants)}
+        hunian={buatHunian(data.lodging, data.participants, data.hotels)}
         offset={offset}
         busy={busy}
         kirim={kirimCatat}

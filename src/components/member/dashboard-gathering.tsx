@@ -1152,6 +1152,8 @@ export async function DashboardGathering({
     // (GRAMM lalu RAY) melihat kartu kedua berjudul "Pindah hotel · Jum, 6 Nov",
     // seperti itinerary Booking.com; peserta satu hotel tetap satu kartu.
     const daftarStay = (logistik?.stays.length ?? 0) > 1 ? logistik?.stays ?? [] : kamar ? [kamar] : [];
+    // Hotel berbeda: pindah kamar di hotel yang sama tidak dihitung "2 hotel".
+    const banyakHotel = new Set(daftarStay.map((x) => x.hotel?.name?.trim())).size;
     const kartuHotel = daftarStay.length > 0 ? (
       <>
         {daftarStay.map((stay, urut) => {
@@ -1165,7 +1167,7 @@ export async function DashboardGathering({
             <KartuInfoHorizon
               key={urut}
               id={urut === 0 && !selesai ? "hotel" : undefined}
-              judul={urut > 0 ? tv.moveTitle : tv.hotelCard}
+              judul={urut > 0 ? (daftarStay[urut - 1]?.hotel?.name?.trim() === h?.name?.trim() ? tv.roomChangeTitle : tv.moveTitle) : tv.hotelCard}
               // Tanggal dan jamnya sudah di baris check-in; kepala cukup jumlah malam (pola Booking.com).
               meta={stay.check_in_at && stay.check_out_at ? { teks: tv.nights(Math.max(1, Math.round((new Date(stay.check_out_at).getTime() - new Date(stay.check_in_at).getTime()) / 86_400_000))) } : null}
               Ikon={Bed}
@@ -1357,7 +1359,7 @@ export async function DashboardGathering({
             key={urut}
             id={urut === 0 && !selesai ? "hotel-1" : undefined}
             stay={{
-              pil: gabungMeta([daftarStay.length > 1 ? tt.hotelN(urut + 1) : tv.hotelCard, jumlahMalam ? tv.nights(jumlahMalam) : null]),
+              pil: gabungMeta([urut > 0 && daftarStay[urut - 1]?.hotel?.name?.trim() === daftarStay[urut]?.hotel?.name?.trim() ? tv.roomChangeTitle : banyakHotel > 1 ? tt.hotelN(urut + 1) : tv.hotelCard, jumlahMalam ? tv.nights(jumlahMalam) : null]),
               nama: h?.name?.trim() || null,
               alamat: h?.address?.trim() || null,
               peta: { href: petaStay, label: labelTautanPeta(petaStay, lang) },
@@ -1419,7 +1421,7 @@ export async function DashboardGathering({
               </BagianTrip>
             ) : null}
             {daftarStay.length > 0 ? (
-              <BagianTrip id="hotel" Ikon={Bed} nada="hotel" judul={tv.hotelCard} meta={gabungMeta([daftarStay.length > 1 ? tt.hotels(daftarStay.length) : null, totalMalam ? tv.nights(totalMalam) : null]) || null} duaKolom={daftarStay.length > 1}>
+              <BagianTrip id="hotel" Ikon={Bed} nada="hotel" judul={tv.hotelCard} meta={gabungMeta([banyakHotel > 1 ? tt.hotels(banyakHotel) : null, totalMalam ? tv.nights(totalMalam) : null]) || null} duaKolom={daftarStay.length > 1}>
                 {hotelTrip}
               </BagianTrip>
             ) : null}
@@ -2118,7 +2120,8 @@ export async function DashboardGathering({
           ? [
               {
                 label: tH.hotel,
-                nilai: stayPass.map((stay) => stay.hotel?.name?.trim() || tH.hotel).join(", "),
+                // Pindah kamar di hotel yang sama: nama hotelnya sekali saja.
+                nilai: [...new Set(stayPass.map((stay) => stay.hotel?.name?.trim() || tH.hotel))].join(", "),
                 ponsel,
                 lebar: true,
                 daftar: stayPass.map((stay) => ({

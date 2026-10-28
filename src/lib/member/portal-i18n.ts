@@ -72,6 +72,8 @@ export type PortalUiText = {
       nights: (jumlah: number) => string;
       /** Kepala kartu hotel berikutnya bagi peserta yang pindah hotel. */
       moveTitle: string;
+      /** Stay berikutnya di hotel yang sama: check-out lalu check-in lagi di kamar lain. */
+      roomChangeTitle: string;
       floor: string;
       roomType: string;
       checkIn: string;
@@ -184,6 +186,9 @@ export type PortalUiText = {
       checkInAt: (hotel: string) => string;
       moveTo: (hotel: string) => string;
       checkOutAt: (hotel: string) => string;
+      /** Pindah kamar di hotel yang sama; null = nomor kamar menyusul. */
+      roomOut: (kamar: string | null) => string;
+      roomIn: (kamar: string | null) => string;
       copy: string;
       copied: string;
       next: string;
@@ -389,6 +394,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         hotelCard: "Hotel",
         nights: (jumlah) => `${jumlah} malam`,
         moveTitle: "Pindah hotel",
+        roomChangeTitle: "Pindah kamar",
         floor: "Lantai",
         roomType: "Tipe kamar",
         checkIn: "Check-in",
@@ -468,6 +474,8 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         checkInAt: (hotel) => `Check-in ${hotel}`,
         moveTo: (hotel) => `Pindah ke ${hotel}`,
         checkOutAt: (hotel) => `Check-out ${hotel}`,
+        roomOut: (kamar) => (kamar ? `Check-out kamar ${kamar}` : "Check-out kamar pertama"),
+        roomIn: (kamar) => (kamar ? `Check-in lagi, kamar ${kamar}` : "Check-in lagi, kamar baru"),
         copy: "Salin kode booking",
         copied: "Kode booking disalin",
         next: "Berikutnya",
@@ -651,6 +659,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         hotelCard: "Hotel",
         nights: (jumlah) => `${jumlah} ${jumlah === 1 ? "night" : "nights"}`,
         moveTitle: "Moving hotels",
+        roomChangeTitle: "Changing rooms",
         floor: "Floor",
         roomType: "Room type",
         checkIn: "Check-in",
@@ -730,6 +739,8 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         checkInAt: (hotel) => `Check in at ${hotel}`,
         moveTo: (hotel) => `Move to ${hotel}`,
         checkOutAt: (hotel) => `Check out of ${hotel}`,
+        roomOut: (kamar) => (kamar ? `Check out of room ${kamar}` : "Check out of your first room"),
+        roomIn: (kamar) => (kamar ? `Check in again, room ${kamar}` : "Check in again, new room"),
         copy: "Copy booking code",
         copied: "Booking code copied",
         next: "Next",
