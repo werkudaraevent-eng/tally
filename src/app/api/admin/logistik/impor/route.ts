@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { barisPesertaBus, barisPesertaKereta, barisStaySekarang, LABEL_ARAH, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type JenisImpor, type KeadaanAcara, type Rencana } from "@/lib/logistik/impor";
+import { barisPesertaBus, barisPesertaKereta, barisStaySekarang, LABEL_ARAH, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type JenisImpor, type TripImpor, type KeadaanAcara, IKUT, type Rencana } from "@/lib/logistik/impor";
 import { bacaTiketKereta, klien, pesanRpc, semuaBaris } from "@/lib/logistik/server";
 import { plural } from "@/lib/plural";
 import { kolomSasaran } from "@/lib/sasaran-bagian";
@@ -121,17 +121,18 @@ async function muatKeadaan(eventId: string, denganKereta: boolean, offset: strin
   const setelan = await db.from("lodging_settings").select("gender_field_key,enforce_same_gender").eq("event_id", eventId).maybeSingle();
   if (setelan.error) return null;
   const settings = (setelan.data as KeadaanAcara["settings"] | null) ?? { gender_field_key: null, enforce_same_gender: true };
-  const [peserta, hotels, rooms, lodging, vehicles, transport] = await Promise.all([
+  const [peserta, hotels, rooms, lodging, vehicles, transport, trips] = await Promise.all([
     semuaBaris<{ id: string; name: string; qr_code: string; extra: Record<string, unknown> | null }>(() =>
       db.from("participants").select("id,name,qr_code,extra").eq("event_id", eventId).is("source_removed_at", null).order("id")),
     semuaBaris<KeadaanAcara["hotels"][number]>(() => db.from("lodging_hotels").select("id,name,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
     semuaBaris<KeadaanAcara["rooms"][number]>(() => db.from("lodging_rooms").select("id,hotel_id,room_number,capacity").eq("event_id", eventId).order("id")),
     semuaBaris<KeadaanAcara["lodging"][number]>(() => db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
     semuaBaris<KeadaanAcara["vehicles"][number]>(() => db.from("transport_vehicles").select("id,code,capacity").eq("event_id", eventId).order("id")),
-    semuaBaris<{ participant_id: string; vehicle_id: number | null }>(() =>
-      db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("id")),
+    semuaBaris<{ trip_id: number | null; participant_id: string; vehicle_id: number | null }>(() =>
+      db.from("transport_assignments").select("trip_id,participant_id,vehicle_id").eq("event_id", eventId).order("id")),
+    semuaBaris<TripImpor>(() => db.from("transport_trips").select("id,name,depart_at,follows_default").eq("event_id", eventId).order("id")),
   ]);
-  if (!peserta || !hotels || !rooms || !lodging || !vehicles || !transport) return null;
+  if (!peserta || !hotels || !rooms || !lodging || !vehicles || !transport || !trips) return null;
   const kereta = denganKereta ? await bacaTiketKereta(eventId) : [];
   if (kereta === null) return "belum";
   if (kereta === "galat") return null;
@@ -146,7 +147,9 @@ async function muatKeadaan(eventId: string, denganKereta: boolean, offset: strin
     lodging,
     settings,
     vehicles,
-    busBawaan: transport.filter((b): b is { participant_id: string; vehicle_id: number } => b.vehicle_id !== null),
+    busBawaan: transport.filter((b): b is { trip_id: null; participant_id: string; vehicle_id: number } => b.trip_id === null && b.vehicle_id !== null),
+    trips,
+    busTrip: transport.filter((b): b is { trip_id: number; participant_id: string; vehicle_id: number | null } => b.trip_id !== null),
     kereta,
     offset,
   };
@@ -173,7 +176,7 @@ async function muatStaySekarang(eventId: string, offset: string): Promise<string
  * keyset (id > id terakhir), bukan offset: daftar ini dipakai untuk mengisi
  * tiket semua orang, jadi tidak boleh ada yang terlewat atau terulang.
  */
-async function muatPesertaUnduh(event: { id: string; registration_form_config: unknown }, jenis: "bus" | "kereta"): Promise<string[][] | null | "belum"> {
+async function muatPesertaUnduh(event: { id: string; registration_form_config: unknown; time_zone: string | null }, jenis: "bus" | "kereta"): Promise<string[][] | null | "belum"> {
   const db = klien();
   const peserta: Array<{ id: string; name: string; qr_code: string; extra: Record<string, unknown> | null }> = [];
   for (let terakhir: string | null = null; ;) {
@@ -190,16 +193,19 @@ async function muatPesertaUnduh(event: { id: string; registration_form_config: u
     const kereta = await bacaTiketKereta(event.id);
     if (kereta === null) return "belum";
     if (kereta === "galat") return null;
-    return barisPesertaKereta({ peserta, info, vehicles: [], busBawaan: [], kereta });
+    return barisPesertaKereta({ peserta, info, vehicles: [], busBawaan: [], trips: [], busTrip: [], offset: "+00:00", kereta });
   }
-  const [vehicles, transport] = await Promise.all([
+  const [vehicles, transport, trips] = await Promise.all([
     semuaBaris<{ id: number; code: string }>(() => db.from("transport_vehicles").select("id,code").eq("event_id", event.id).order("id")),
-    semuaBaris<{ participant_id: string; vehicle_id: number | null }>(() =>
-      db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", event.id).is("trip_id", null).order("id")),
+    semuaBaris<{ trip_id: number | null; participant_id: string; vehicle_id: number | null }>(() =>
+      db.from("transport_assignments").select("trip_id,participant_id,vehicle_id").eq("event_id", event.id).order("id")),
+    semuaBaris<TripImpor>(() => db.from("transport_trips").select("id,name,depart_at,follows_default").eq("event_id", event.id).order("id")),
   ]);
-  if (!vehicles || !transport) return null;
-  const busBawaan = transport.filter((b): b is { participant_id: string; vehicle_id: number } => b.vehicle_id !== null);
-  return barisPesertaBus({ peserta, info, vehicles, busBawaan, kereta: [] });
+  if (!vehicles || !transport || !trips) return null;
+  const busBawaan = transport.filter((b): b is { trip_id: null; participant_id: string; vehicle_id: number } => b.trip_id === null && b.vehicle_id !== null);
+  const busTrip = transport.filter((b): b is { trip_id: number; participant_id: string; vehicle_id: number | null } => b.trip_id !== null);
+  const offset = timeZoneOffset(normalizeTimeZone(event.time_zone));
+  return barisPesertaBus({ peserta, info, vehicles, busBawaan, trips, busTrip, offset, kereta: [] });
 }
 
 type Hasil = { masuk: number; gagal: Array<{ nama: string; alasan: string }>; dibuat: string[] } | { galat: string };
@@ -332,24 +338,53 @@ async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara
     dibuat.push(plural(rencana.busBaru.length, "vehicle"));
   }
 
-  const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));
-  let masuk = 0;
-  const gagal: Array<{ nama: string; alasan: string }> = [];
+  // Setiap penulisan (kendaraan utama, pengecualian trip, kembali ke utama)
+  // menjadi satu langkah. `assign_bus` memeriksa kapasitas sesudah tiap
+  // panggilan, jadi urutan berpengaruh: tempat yang dikosongkan baris lain di
+  // berkas yang sama baru tersedia setelah baris itu ditulis. Langkah yang
+  // ditolak karena penuh dicoba lagi selama putaran sebelumnya masih ada yang
+  // masuk, seperti impor kamar.
+  type Langkah = { trip: number | null; vehicle: number | null | typeof IKUT; ids: string[] };
+  const langkah: Langkah[] = [];
+  for (const kelompok of rencana.busTrip) {
+    const vehicle = kelompok.tujuan === null || kelompok.tujuan === IKUT ? kelompok.tujuan : busId.get(kunci(kelompok.tujuan));
+    if (vehicle !== undefined) langkah.push({ trip: kelompok.trip_id, vehicle, ids: kelompok.participant_ids });
+  }
   for (const kelompok of rencana.penempatan) {
     const vehicle = busId.get(kunci(kelompok.tujuan));
-    if (vehicle === undefined) continue;
-    const panggil = (ids: string[]) => db.rpc("assign_bus" as never, { p_event_id: eventId, p_trip_id: null, p_vehicle_id: vehicle, p_participant_ids: ids, p_actor: actor } as never);
-    const { error } = await panggil(kelompok.participant_ids);
-    if (!error) { masuk += kelompok.participant_ids.length; continue; }
-    // `assign_bus` menulis satu bus sekaligus. Bila ditolak (biasanya agenda
-    // yang sudah penuh), sisanya dicoba satu per satu supaya yang muat tetap masuk.
-    for (const pid of kelompok.participant_ids) {
-      const satu = await panggil([pid]);
-      if (satu.error) gagal.push({ nama: nama.get(pid) ?? pid, alasan: pesanRpc(satu.error) ?? "Could not save." });
-      else masuk += 1;
-    }
+    if (vehicle !== undefined) langkah.push({ trip: null, vehicle, ids: kelompok.participant_ids });
   }
-  return { masuk, dibuat, gagal };
+  const panggil = (l: Langkah, ids: string[]) => l.vehicle === IKUT
+    ? db.rpc("reset_bus_override" as never, { p_event_id: eventId, p_trip_id: l.trip, p_participant_ids: ids, p_actor: actor } as never)
+    : db.rpc("assign_bus" as never, { p_event_id: eventId, p_trip_id: l.trip, p_vehicle_id: l.vehicle, p_participant_ids: ids, p_actor: actor } as never);
+  const penuh = (error: { message?: string }) => /VEHICLE_FULL/.test(String(error.message ?? ""));
+
+  const nama = new Map(acara.peserta.map((orang) => [orang.id, orang.name]));
+  let masuk = 0;
+  let antre = langkah;
+  const gagal: Array<{ pid: string; error: { message?: string } }> = [];
+  for (;;) {
+    const ulang: Array<Langkah & { error: { message?: string } }> = [];
+    let maju = false;
+    for (const l of antre) {
+      const { error } = await panggil(l, l.ids);
+      if (!error) { masuk += l.ids.length; maju = true; continue; }
+      // Satu panggilan menulis satu kelompok sekaligus. Bila ditolak, sisanya
+      // dicoba satu per satu supaya yang muat tetap masuk.
+      for (const pid of l.ids) {
+        const satu = await panggil(l, [pid]);
+        if (!satu.error) { masuk += 1; maju = true; continue; }
+        if (penuh(satu.error)) ulang.push({ ...l, ids: [pid], error: satu.error });
+        else gagal.push({ pid, error: satu.error });
+      }
+    }
+    if (!maju || ulang.length === 0) {
+      gagal.push(...ulang.map((l) => ({ pid: l.ids[0], error: l.error })));
+      break;
+    }
+    antre = ulang;
+  }
+  return { masuk, dibuat, gagal: gagal.map((g) => ({ nama: nama.get(g.pid) ?? g.pid, alasan: pesanRpc(g.error) ?? "Could not save." })) };
 }
 
 /** Tiket per upsert. Jauh di bawah batas ukuran permintaan PostgREST. */
