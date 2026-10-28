@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- `tally-ui` skill for agents (Mas 28 Oct asked for more UI/UX skills): repo skill with Tally's UI workflow, bound to DESIGN.md; third-party taste skills not installed because they push a new look per page. Docs only. PR open, waiting on Mas.
 - Organiser contacts follow-up (Mas 28 Oct): CMS preview showed only the first contact (the preview action dropped `contact_more`); the participant Profile listed the same people twice, so organiser contacts now come only from Event settings (Profile > Help shows them as a contact card with Call/WhatsApp) and Participant area > Emergency and help is for emergency services (hospital, police, hotel), default title "Kontak darurat"; each contact gets an optional "Peran / jabatan" shown under the name. No SQL. PR open, waiting on QA and Mas's merge time.
 - Horizon agenda: item details show in full (no "…" clamp). #284 clamped them to two lines on collapsed days, and a short day has no button to open them; Mas 27 Oct (KSO Jeep Merapi note). PR open, waiting on QA and Mas's merge time.
 - "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").

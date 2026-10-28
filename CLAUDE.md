@@ -10,6 +10,10 @@ antislop is enabled as a plugin in `.claude/settings.json` (marketplace `miqdadb
 Before starting, ask the user when antislop applies: during the work, or after it is done.
 <!-- antislop:end -->
 
+## tally-ui
+
+For any UI/UX design, mockup, build or review, load the `tally-ui` skill (`.claude/skills/tally-ui/SKILL.md`) first. It is Tally's workflow: judge placement and CMS fit, build from `DESIGN.md` primitives, check every state, measure on the real render. General design skills that push a new aesthetic or new fonts do not apply here; `DESIGN.md` wins.
+
 # Tally: rules for every agent
 
 Tally is one multi-event platform (Next.js + Supabase) that runs real, live events: public event pages, registration, participant area, check-in and scanners, seating, agenda, logistics, lucky draw, voting, booth and cashier. The project owner is Hanung (call him "Mas"; he writes Bahasa Indonesia, so reply to him in Bahasa Indonesia).
