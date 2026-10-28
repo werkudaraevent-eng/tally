@@ -866,7 +866,7 @@ export async function DashboardGathering({
             <HariJadwalHorizon
               aria={t.daysAria}
               hari={hariJadwal.map((item, urutan) => ({
-                label: [String(urutan + 1).padStart(2, "0"), item.tanggal ? tanggalBab(item.tanggal, lang) : null].filter(Boolean).join(" / "),
+                label: [item.tanggal ? tanggalBab(item.tanggal, lang) : null].filter(Boolean).join(" / "),
                 judul: tanpaLabelBagian(agenda[item.bagian[0].indeks].sectionTitle?.trim() || t.day(urutan + 1), item.bagian[0].label),
                 href: hrefBagian(bukaHari(item)),
                 aktif: item === hariTerpilih,
@@ -907,7 +907,7 @@ export async function DashboardGathering({
                       return (
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[14px] leading-5 text-[#4A5568]">
                           <span>{tH.schedule.notYours(pilihanKu.kelompok)}</span>
-                          <Link href={hrefBagian(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[#274FC0] underline underline-offset-4">
+                          <Link href={hrefBagian(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[var(--hz-navy)] underline underline-offset-4">
                             {tH.schedule.seeYours(labelMilik)}
                           </Link>
                         </p>
@@ -928,21 +928,19 @@ export async function DashboardGathering({
                     lampu="jadwal"
                   />
                 ) : null}
-                <ol className="mt-4 flex flex-col gap-2">
+                <ol className="mt-4 flex flex-col border-t border-[rgb(16_30_56/0.14)]">
                   {bagian.items.map((item, _i, semua) => {
                     // Kolom jam dilebarkan hanya bila hari ini punya jam selesai, supaya semua baris sejajar.
                     const adaJamSelesai = semua.some((butir) => butir.end);
                     const status = statusBagian.get(item.id) ?? null;
                     return (
-                      <li key={item.id} className={`grid gap-3 ${adaJamSelesai ? "grid-cols-[92px_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)]" : "grid-cols-[52px_minmax(0,1fr)]"}`}>
+                      <li key={item.id} className={`grid gap-3 border-b border-[rgb(16_30_56/0.14)] ${adaJamSelesai ? "grid-cols-[92px_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)]" : "grid-cols-[52px_minmax(0,1fr)]"}`}>
                         {/* M3 label-large 14/20; jam mulai dan selesai satu baris, "07.00–08.00". */}
-                        <span className={`pt-[18px] text-[14px] font-medium leading-5 tabular-nums ${status === "berlangsung" ? "text-[var(--alis)]" : MUTED}`}>
+                        <span className={`pt-[14px] text-[14px] font-medium leading-5 tabular-nums ${status === "berlangsung" ? "text-[var(--alis)]" : MUTED}`}>
                           {item.end ? `${item.time}–${item.end}` : item.time}
                         </span>
                         <div
-                          className={`flex min-h-14 flex-col justify-center rounded-[16px] bg-white px-4 py-4 ${
-                            status === "berlangsung" ? "shadow-[inset_0_0_0_2px_var(--aksi)]" : "shadow-[0_1px_2px_rgb(16_24_40/0.06)]"
-                          }`}
+                          className="flex min-h-14 flex-col justify-center py-3"
                         >
                           {/* M3 title-medium 16/24 tebal 500; jeda memakai warna redup, bukan opacity. */}
                           <p className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[16px] font-medium leading-6 ${item.jeda ? MUTED : ""}`}>
@@ -953,14 +951,14 @@ export async function DashboardGathering({
                           {/* Tautan 4 px di bawah judul tanpa margin negatif (tetap benar bila teksnya dua baris);
                               lapisan ::before memberi area ketuk 48 px tanpa menggeser apa pun. */}
                           {ruteBaris.has(item.id) ? (
-                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
+                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[var(--hz-navy)] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
                               {tH.agenda.routeLink}
                               <CaretRight size={16} aria-hidden className="mt-0.5 shrink-0" />
                               <PenandaTab tab="perjalanan" />
                             </Link>
                           ) : null}
                           {adaTrip(bagian.tanggal, item) ? (
-                            <Link href={keTab("perjalanan")} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
+                            <Link href={keTab("perjalanan")} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[var(--hz-navy)] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
                               {tH.agenda.tripLink}
                               <CaretRight size={16} aria-hidden className="mt-0.5 shrink-0" />
                               <PenandaTab tab="perjalanan" />
@@ -991,7 +989,7 @@ export async function DashboardGathering({
             <HariJadwalHorizon
               aria={t.daysAria}
               hari={agenda.map((b, index) => ({
-                label: [String(index + 1).padStart(2, "0"), b.tanggal ? tanggalBab(b.tanggal, lang) : null].filter(Boolean).join(" / "),
+                label: [b.tanggal ? tanggalBab(b.tanggal, lang) : null].filter(Boolean).join(" / "),
                 judul: b.sectionTitle?.trim() || t.day(index + 1),
                 href: keTab("jadwal", { hari: String(index + 1) }),
                 aktif: index === pilihan,
@@ -1047,7 +1045,7 @@ export async function DashboardGathering({
                   const adaJamSelesai = horizon && semua.some((butir) => butir.end);
                   const status = statusBagian.get(item.id) ?? null;
                   return (
-                    <li key={item.id} className={`grid gap-3 ${adaJamSelesai ? "grid-cols-[92px_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)]" : "grid-cols-[52px_minmax(0,1fr)]"}`}>
+                    <li key={item.id} className={`grid gap-3 border-b border-[rgb(16_30_56/0.14)] ${adaJamSelesai ? "grid-cols-[92px_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)]" : "grid-cols-[52px_minmax(0,1fr)]"}`}>
                       <span
                         className={`tabular-nums ${
                           // Horizon mengikuti skala M3: label-large 14/20 tebal 500, tanpa tracking tambahan (Plus Jakarta sudah lebar).
@@ -1120,7 +1118,7 @@ export async function DashboardGathering({
                 temanStay && temanStay.length > 0 ? `${tH.roommate(temanStay.length)}: ${temanStay.map((orang) => orang.name).join(", ")}` : "",
               ].filter(Boolean)}
             >
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[12px] px-3 py-2" style={{ background: LATAR_STRIP }}>
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-l-[3px] border-[var(--hz-emas)] pl-3 py-0.5" style={{ background: LATAR_STRIP }}>
                 <p className="text-[16px] font-semibold leading-6">{gabungMeta([stay.room_number ? `${tH.room} ${stay.room_number}` : tH.roomPending, stay.floor ? `${tv.floor} ${stay.floor}` : null])}</p>
                 {stay.room_type ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{stay.room_type}</p> : null}
               </div>
@@ -1359,7 +1357,7 @@ export async function DashboardGathering({
           <HariJadwalHorizon
             aria={t.daysAria}
             hari={hariO.map((item, urutan) => ({
-              label: [String(urutan + 1).padStart(2, "0"), item.tanggal ? tanggalBab(item.tanggal, lang) : null].filter(Boolean).join(" / "),
+              label: [item.tanggal ? tanggalBab(item.tanggal, lang) : null].filter(Boolean).join(" / "),
               judul: tanpaLabelBagian(hariOutfit[item.bagian[0].indeks].sectionTitle?.trim() || t.day(urutan + 1), item.bagian[0].label),
               href: hrefO(bukaHariO(item)),
               aktif: item === hariTerpilih,
@@ -1411,7 +1409,7 @@ export async function DashboardGathering({
                     return (
                       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[14px] leading-5 text-[#4A5568]">
                         <span>{to.notYours(labelIni, pilihanOutfit.kelompok)}</span>
-                        <Link href={hrefO(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[#274FC0] underline underline-offset-4">
+                        <Link href={hrefO(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[var(--hz-navy)] underline underline-offset-4">
                           {to.seeYours(labelOutfitHalaman, labelMilik)}
                         </Link>
                       </p>
@@ -2009,7 +2007,7 @@ export async function DashboardGathering({
                 : id === "logistics"
                   ? kartuLogistik
                   : (kartuBlok.get(id) ?? null);
-      const SAMPING = new Set(["announcements", "outfit"]);
+      const SAMPING = new Set(["logistics", "announcements", "outfit"]);
       const temanDiKartu = Boolean(tampilTeman && fase?.fase === "saat" && kamar);
       // Di bawah lg kartu diurutkan dengan `order` lewat pembungkus `contents`;
       // reading-flow membuat urutan baca dan Tab mengikuti urutan tampil (U-19).
@@ -2033,7 +2031,7 @@ export async function DashboardGathering({
           kartu
         );
       };
-      const kartuSamping = ["announcements", "outfit"].map(susun).filter(Boolean);
+      const kartuSamping = ["logistics", "announcements", "outfit"].map(susun).filter(Boolean);
       badan = (
         <>
           <SapaanHorizon
