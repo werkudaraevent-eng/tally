@@ -65,7 +65,7 @@ export function patahJudul(judul: string): string {
  * dulu, baru jeda barisnya dipasang: jeda yang jatuh di dalam sorotan
  * ("*Bersama, kita*") tidak boleh membuat bintangnya tampil apa adanya.
  */
-function judulBersorot(judul: string): ReactNode[] {
+export function judulBersorot(judul: string): ReactNode[] {
   const bagian = pecahJudul(judul);
   const polos = bagian.map((b) => b.teks).join("");
   const patah = patahJudul(polos);

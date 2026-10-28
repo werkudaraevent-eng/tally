@@ -47,7 +47,7 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
   return (
     <div className="flex flex-col gap-3" style={{ color: TINTA }}>
       {agenda.length > 1 ? (
-        <div role="tablist" aria-label={t.agendaParts} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
+        <div role="group" aria-label={t.agendaParts} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
           {agenda.map((bagian, index) => {
             const { atas, bawah, tambah } = label(bagian, index);
             const on = index === aktif;
@@ -55,8 +55,7 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
               <button
                 key={bagian.id ?? index}
                 type="button"
-                role="tab"
-                aria-selected={on}
+                aria-pressed={on}
                 onClick={() => {
                   setAktif(index);
                   setSemua(false);
@@ -73,7 +72,7 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
         </div>
       ) : null}
       {berkelompok && blok.pilihan ? <PilihKelompok pilihan={blok.pilihan} items={blok.items} lang={lang} nada="terang" /> : null}
-      <div role={agenda.length > 1 ? "tabpanel" : undefined} className="rounded-[16px] bg-white p-4 shadow-[inset_0_0_0_1px_rgb(16_30_56/0.12)]">
+      <div className="rounded-[16px] bg-white p-4 shadow-[inset_0_0_0_1px_rgb(16_30_56/0.12)]">
         {blok.sectionTitle ? <p className="mb-3 text-[14px] font-semibold leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>{blok.sectionTitle}</p> : null}
         <ol className="flex flex-col">
           {tampil.map((item, index) => (

@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import type { LandingSpeaker } from "@/lib/domain";
 import { TeksKaya } from "@/components/landing/teks-kaya";
+import { judulBersorot } from "./horizon";
 
 /**
  * Halaman acara tema Gathering Trip (keputusan Mas 28 Okt 2026, mockup
@@ -64,7 +65,7 @@ export function HeroTrip({ alis, judul, catatan, kv, fakta }: { alis: string | n
             </p>
           ) : null}
           <h1 data-sunting="pembuka:tagline" className="max-w-[16ch] whitespace-pre-line text-balance text-[40px] font-extrabold leading-[48px] tracking-[-0.02em] [overflow-wrap:anywhere] lg:max-w-[20ch] lg:text-[57px] lg:leading-[64px]">
-            {judul}
+            {judulBersorot(judul)}
           </h1>
           {catatan ? (
             <p data-sunting="pembuka:hero_note" className="max-w-[520px] whitespace-pre-line text-[16px] leading-6 text-white/85">
