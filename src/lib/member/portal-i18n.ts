@@ -244,6 +244,8 @@ export type PortalUiText = {
     emergency: string;
     /** Tombol peta pada kontak darurat (E-03). */
     emergencyMap: string;
+    /** Subjudul kelompok kontak darurat per jenis (Mas 28 Okt). */
+    emergencyKinds: { hospital: string; ambulance: string; police: string; fire: string; hotel: string; other: string };
     /**
      * Beranda "Hari ini" (keputusan Mas 20 Okt): satu judul di ponsel dan
      * desktop (U-09), dan isi yang berganti sebelum, saat, dan sesudah acara.
@@ -531,6 +533,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       emergency: "Kontak darurat",
       emergencyMap: "Peta",
+      emergencyKinds: { hospital: "Rumah sakit", ambulance: "Ambulans", police: "Polisi", fire: "Pemadam kebakaran", hotel: "Hotel", other: "Lainnya" },
       home: {
         heading: (nama) => `Halo, ${nama}`,
         dayOf: (hariKe, lama) => `hari ke-${hariKe} dari ${lama}`,
@@ -797,6 +800,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       },
       emergency: "Emergency contacts",
       emergencyMap: "Map",
+      emergencyKinds: { hospital: "Hospitals", ambulance: "Ambulance", police: "Police", fire: "Fire brigade", hotel: "Hotels", other: "Other" },
       home: {
         heading: (nama) => `Hi, ${nama}`,
         dayOf: (hariKe, lama) => `day ${hariKe} of ${lama}`,

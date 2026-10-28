@@ -1732,12 +1732,25 @@ export async function DashboardGathering({
       // Kartu darurat (E-03): kontak dari Participant area dengan tombol Telepon,
       // WhatsApp (ponsel), dan Peta. Cadangannya blok lama: tiap butir menjadi baris
       // yang bisa diketuk lewat tautannya atau nomor ponsel di teksnya (pola kontak kru bus).
+      const barisDarurat = (item: (typeof kontakDarurat)[number]) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta } });
       const kartuDarurat = pakaiKontak ? (
         <KartuDaruratHorizon
           judul={judulDarurat}
           isi={bantuan?.note?.trim() || null}
           label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
-          baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta }, Ikon: kontakDarurat.some((baris) => baris.jenis) ? ikonJenisDarurat(item.jenis) : null }))}
+          baris={kontakDarurat.map(barisDarurat)}
+          // Ada jenis: kelompok per jenis dengan subjudul, urutan tetap; tanpa jenis masuk Lainnya.
+          kelompok={
+            kontakDarurat.some((item) => item.jenis)
+              ? (["hospital", "ambulance", "police", "fire", "hotel", "other"] as const)
+                  .map((jenis) => ({
+                    judul: tH.emergencyKinds[jenis],
+                    Ikon: ikonJenisDarurat(jenis),
+                    baris: kontakDarurat.filter((item) => (item.jenis ?? "other") === jenis).map(barisDarurat),
+                  }))
+                  .filter((grup) => grup.baris.length > 0)
+              : null
+          }
         />
       ) : blokDarurat ? (
         <KartuDaruratHorizon
