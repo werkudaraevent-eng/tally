@@ -2055,6 +2055,7 @@ export async function DashboardGathering({
         <>
           <SapaanHorizon
             alisDiCatatan
+            sapaan
             alis={gabungMeta([tanggalSapaan(kini.tanggal, lang), teksFase])}
             judul={tH.home.heading(namaLengkap)}
             judulPonsel={tH.home.heading(namaLengkap)}
@@ -2119,7 +2120,7 @@ export async function DashboardGathering({
     // Judul tab tujuan untuk kerangka saat pindah tab (U-10).
     const namaLengkapSesi = namaSapaan(sesi.name);
     const kepalaTab: Record<string, KepalaTab> = {
-      beranda: { alis: tanggalSapaan(kini.tanggal, lang), judul: tH.home.heading(namaLengkapSesi), judulPonsel: tH.home.heading(namaLengkapSesi), catatan: tH.home.timeNote(singkatanZona), jenis: "kartu" },
+      beranda: { alis: tanggalSapaan(kini.tanggal, lang), judul: tH.home.heading(namaLengkapSesi), judulPonsel: tH.home.heading(namaLengkapSesi), catatan: tH.home.timeNote(singkatanZona), jenis: "kartu", sapaan: true },
       jadwal: { alis: alisJadwal || nama, judul: t.schedule, judulPonsel: t.schedule, catatan: catatanJadwal, jenis: "jadwal" },
       perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona), jenis: "kartu" },
       outfit: { alis: outfitDiAcara ? t.schedule : nama, judul: labelOutfitHalaman, judulPonsel: labelOutfitHalaman, catatan: tH.outfit.note, jenis: outfitDiAcara ? "jadwal" : "kartu" },
