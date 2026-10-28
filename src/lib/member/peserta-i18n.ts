@@ -13,7 +13,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
  */
 export type PesertaUiText = {
   dashboardEyebrow: string;
-  hello: (namaDepan: string) => string;
+  hello: (nama: string) => string;
   status: { approved: string; rejected: string; pending: string };
   emailConfirmed: string;
   confirmLinkUsed: string;
@@ -64,7 +64,7 @@ export type PesertaUiText = {
 export const PESERTA_UI: Record<LandingLang, PesertaUiText> = {
   id: {
     dashboardEyebrow: "Dashboard peserta",
-    hello: (namaDepan) => `Halo, ${namaDepan}`,
+    hello: (nama) => `Halo, ${nama}`,
     status: { approved: "Terdaftar", rejected: "Tidak disetujui", pending: "Menunggu persetujuan" },
     emailConfirmed: "Email sudah terkonfirmasi.",
     confirmLinkUsed: "Tautan konfirmasi itu sudah dipakai atau kedaluwarsa. ",
@@ -114,7 +114,7 @@ export const PESERTA_UI: Record<LandingLang, PesertaUiText> = {
   },
   en: {
     dashboardEyebrow: "Participant dashboard",
-    hello: (namaDepan) => `Hello, ${namaDepan}`,
+    hello: (nama) => `Hello, ${nama}`,
     status: { approved: "Registered", rejected: "Not approved", pending: "Awaiting approval" },
     emailConfirmed: "Your email is confirmed.",
     confirmLinkUsed: "That confirmation link has already been used or has expired. ",

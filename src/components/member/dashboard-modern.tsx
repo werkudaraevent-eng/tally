@@ -22,7 +22,7 @@ import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolveLanding, type LandingLang } from "@/lib/landing-i18n";
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import type { MemberSession } from "@/lib/member/account";
-import { muatNavPeserta, waktuPengumuman } from "@/lib/member/nav";
+import { muatNavPeserta, namaSapaan, waktuPengumuman } from "@/lib/member/nav";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
@@ -165,7 +165,7 @@ export async function DashboardModern({
   const sekarang = new Date();
   const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
   const nama = publicEventName(event);
-  const namaDepan = sesi.name.trim().split(/\s+/)[0] || sesi.name;
+  const namaLengkap = namaSapaan(sesi.name);
   const tanggal = formatEventDate(event, lang);
   const jam = formatEventTime(event, lang);
   const venue = event.venue_name?.trim() || null;
@@ -238,7 +238,7 @@ export async function DashboardModern({
           <div className="min-w-0">
             <p className={`${LABEL_BAGIAN} opacity-85`}>{p.dashboardEyebrow}</p>
             <h1 className={`${HEAD} mt-1.5 text-balance text-[32px] font-semibold leading-[1.15] tracking-[-0.02em] sm:text-[40px]`}>
-              {p.hello(namaDepan)}
+              {p.hello(namaLengkap)}
             </h1>
             <ul className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-body-large font-medium">
               {[tanggal, jam, venue].filter(Boolean).map((teks) => (

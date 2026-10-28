@@ -27,6 +27,15 @@ export function inisialNama(nama: string) {
   return huruf.toUpperCase();
 }
 
+/**
+ * Nama di sapaan dashboard: nama lengkap seperti tertulis di data peserta.
+ * Bukan kata pertama: banyak nama Indonesia diawali "Muhammad", "Siti", atau
+ * "Ni Luh" yang bukan nama panggilan, jadi kata pertama sering salah orang.
+ */
+export function namaSapaan(nama: string) {
+  return nama.trim().replace(/\s+/g, " ");
+}
+
 /** "3 Okt, 14.20" dalam zona waktu acara. */
 export function waktuPengumuman(iso: string, timeZone: string | null | undefined, lang: LandingLang) {
   try {
