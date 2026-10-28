@@ -465,7 +465,7 @@ export function PerjalananmuTrip({
           {judul}
         </h2>
         {tautan ? (
-          <Link href={tautan.href} className={`${TAUTAN_TRIP} self-center`} style={{ color: TINTA }}>
+          <Link href={tautan.href} className={`${TAUTAN_TRIP} min-w-12 justify-center self-center`} style={{ color: TINTA }}>
             {tautan.label}
             <PenandaTab tab="perjalanan" />
           </Link>

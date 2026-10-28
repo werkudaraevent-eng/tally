@@ -1345,14 +1345,14 @@ export async function DashboardGathering({
         rutePerjalanan.length ? { id: "rute", label: tv.jump.routes } : null,
       ].filter((item): item is { id: string; label: string } => item !== null);
       return (
-        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:items-start lg:gap-8">
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:items-start lg:gap-8">
           {rencana.length > 0 || kartuBantuanPerjalanan ? (
             <aside className="hidden lg:sticky lg:top-[126px] lg:flex lg:flex-col lg:gap-4 lg:[@media(max-height:939px)]:static">
               <RencanaTrip judul={tt.plan} langkah={rencana} />
               {kartuBantuanPerjalanan}
             </aside>
           ) : null}
-          <div className={`flex min-w-0 flex-col gap-8 [&_section]:scroll-mt-32 ${rencana.length > 0 || kartuBantuanPerjalanan ? "" : "lg:col-span-2"}`}>
+          <div className={`flex min-w-0 flex-col gap-6 [&_section]:scroll-mt-32 ${rencana.length > 0 || kartuBantuanPerjalanan ? "" : "lg:col-span-2"}`}>
             {bagianTrip.length >= 3 ? (
               <div className="lg:hidden">
                 <LompatPerjalanan aria={tv.jump.aria} bagian={bagianTrip} latar={LATAR_PORTAL_HORIZON} />
