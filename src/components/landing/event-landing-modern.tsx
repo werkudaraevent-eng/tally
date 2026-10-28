@@ -13,7 +13,7 @@ import type {
   LandingSectionId,
   LandingSpeaker,
 } from "@/lib/domain";
-import { LANDING_BLOCK_LABELS, logoNavPutih, isLandingBlockId, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, logoNavPutih, isLandingBlockId, landingBlockShownOn, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { kontras } from "@/lib/landing-hitung-mundur";
 import { emasHorizon as hitungEmasHorizon, sorotHorizon } from "@/lib/landing-tokens";
@@ -1041,8 +1041,10 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
   // Bilah masuk Trip: tombol yang sama dengan hero (masuk atau Dashboard saya),
   // atau Daftar selama pendaftaran terbuka. Tidak di pratinjau CMS.
-  // Blok Countdown yang menyala sudah membawa sisa hari: kartu dan bilah tidak mengulangnya.
-  const adaBlokHitung = (config.blocks ?? []).some((blok) => blok.type === "countdown" && (config.sections ?? []).some((bagian) => bagian.id === blok.id && bagian.enabled));
+  // Blok Countdown yang menyala dan tampil untuk semua tamu sudah membawa sisa
+  // hari: kartu dan bilah tidak mengulangnya. Blok khusus portal atau satu
+  // kelompok (Who sees it) tidak dihitung, karena tamu publik tidak melihatnya.
+  const adaBlokHitung = (config.blocks ?? []).some((blok) => blok.type === "countdown" && landingBlockShownOn(blok, "public") && (config.sections ?? []).some((bagian) => bagian.id === blok.id && bagian.enabled));
   const hitungTrip = !adaBlokHitung && hitungMundur && sisa && sisa.sisa > 0 ? [hitungMundur.angka, hitungMundur.teks].filter(Boolean).join(" ") : null;
   const aksiBilahTrip = !trip || pratinjau ? null : aksiHeroHorizon.link ? { href: aksiHeroHorizon.href, label: aksiHeroHorizon.label } : event.registration_enabled && !peserta ? { href: daftarUrl, label: ctaLabel } : null;
   const bilahTrip = aksiBilahTrip ? (
