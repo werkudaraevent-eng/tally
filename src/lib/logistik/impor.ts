@@ -55,6 +55,11 @@ export type Rencana = {
   lepas: Array<{ participant_id: string; hotel_id: number }>;
   /** Hanya impor kereta: tiket yang akan ditulis (baru atau diperbarui), satu per orang per arah. */
   tiket: TiketImpor[];
+  /**
+   * Bus dan kereta: baris yang hanya berisi orangnya (berkas Download
+   * participant list yang belum diisi). Dilewati tanpa mengubah apa pun.
+   */
+  dilewati: number;
 };
 
 /** Satu tiket dari berkas, siap di-upsert ke `train_tickets`. */
@@ -85,7 +90,8 @@ const ALIAS = {
   kapasitas: ["kapasitas", "capacity", "jumlah tempat", "pax"],
   masuk: ["check-in", "check in", "checkin", "check-in date", "tanggal masuk", "tanggal check-in", "hotel check-in", "hotel check in"],
   keluar: ["check-out", "check out", "checkout", "check-out date", "tanggal keluar", "tanggal check-out", "hotel check-out", "hotel check out"],
-  kode: ["kode qr", "qr", "qr code", "kode", "kode peserta", "participant code", "code"],
+  // qr_code: judul kolom ekspor peserta mentah.
+  kode: ["kode qr", "qr", "qr code", "qr_code", "kode", "kode peserta", "participant code", "code"],
   nama: ["nama", "nama peserta", "nama tamu", "name", "guest", "guest name", "peserta", "tamu", "participant", "participant name", "full name"],
   bus: ["vehicle", "bus", "nama bus", "kendaraan", "nama kendaraan", "armada", "bus name", "vehicle name", "default vehicle", "default bus"],
   arah: ["direction", "arah", "leg", "pergi/pulang", "berangkat/pulang", "outbound/return"],
@@ -186,7 +192,7 @@ function buatPencocok(peserta: KeadaanAcara["peserta"]): Pencocok {
 }
 
 function kosong(jenis: JenisImpor, galat: string): Rencana {
-  return { jenis, galat, baris: [], hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket: [] };
+  return { jenis, galat, baris: [], hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket: [], dilewati: 0 };
 }
 
 /* ------------------------------------------------------------------ Kamar */
@@ -539,7 +545,7 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara): Rencan
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, tiket: [] };
+  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, tiket: [], dilewati: 0 };
 }
 
 /** Data untuk "Download current stays". */
@@ -610,6 +616,7 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
   const cocokkan = buatPencocok(acara.peserta);
 
   const baris: BarisRencana[] = [];
+  let dilewati = 0;
   const sudah = new Map<string, number>();
   const perBus = new Map<string, { kode: string; ada: KeadaanAcara["vehicles"][number] | null; orang: BarisRencana[] }>();
 
@@ -621,7 +628,8 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
     if (!bus && !kode && !nama) return;
     const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: bus, status: "tolak", alasan, participant_id: null }); };
     if (!kode && !nama) return tolak("Name and QR code are empty");
-    if (!bus) return tolak("Vehicle name is empty");
+    // Orang tanpa kendaraan: baris Download participant list yang belum diisi.
+    if (!bus) { dilewati += 1; return; }
     const hasil = cocokkan(kode, nama);
     if ("alasan" in hasil) return tolak(hasil.alasan);
     const pertama = sudah.get(hasil.id);
@@ -665,7 +673,7 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "bus", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru, penempatan, lepas: [], tiket: [] };
+  return { jenis: "bus", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru, penempatan, lepas: [], tiket: [], dilewati };
 }
 
 /* ----------------------------------------------------------------- Kereta */
@@ -740,6 +748,7 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
   const cocokkan = buatPencocok(acara.peserta);
   const baris: BarisRencana[] = [];
   const tiket: TiketImpor[] = [];
+  let dilewati = 0;
   const sudah = new Map<string, number>();
   const ambil = (sel1: string[], nama: keyof typeof ALIAS) => (kolom[nama] !== undefined ? rapi(sel1[kolom[nama]!]) : undefined);
 
@@ -753,6 +762,12 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
     const tujuanSementara = [arahTeks ? LABEL_ARAH[ARAH[arahTeks]] ?? arahTeks : "", kereta].filter(Boolean).join(" · ");
     const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: tujuanSementara, status: "tolak", alasan, participant_id: null }); };
     if (!kode && !nama) return tolak("Name and QR code are empty");
+    // Hanya orang dan arahnya, kolom tiket kosong semua: baris Download
+    // participant list yang belum diisi. Dilewati, tiket tersimpan tetap.
+    if (BATAS_KERETA.every(([nama]) => !ambil(sel1, nama)) && (["tanggal", "berangkat", "tiba"] as const).every((nama) => !ambil(sel1, nama))) {
+      dilewati += 1;
+      return;
+    }
     const arah = ARAH[arahTeks];
     if (!arah) return tolak("Direction must be Outbound or Return (Berangkat or Pulang)");
     if (!kereta) return tolak("Train name is empty");
@@ -804,5 +819,73 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
   });
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kereta", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket };
+  return { jenis: "kereta", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket, dilewati };
+}
+
+/* ------------------------------------------- Download participant list */
+
+/** Data untuk "Download participant list" (bus dan kereta). */
+export type PesertaUnduh = {
+  peserta: Array<{ id: string; name: string; qr_code: string; extra: Record<string, unknown> | null }>;
+  /** Kolom pilihan peserta, ditulis sebagai "<label> (info)" untuk filter di Excel. */
+  info: Array<{ key: string; label: string }>;
+  vehicles: Array<{ id: number; code: string }>;
+  busBawaan: Array<{ participant_id: string; vehicle_id: number }>;
+  kereta: TiketKereta[];
+};
+
+/**
+ * Judul kolom bantuan. Akhiran " (info)" menjamin judulnya tidak pernah sama
+ * dengan alias impor (kolom "Class" atau "Kode" milik acara tidak terbaca
+ * sebagai kolom tiket), jadi impor mengabaikannya.
+ */
+const judulInfo = (label: string) => `${label} (info)`;
+
+function jawabanInfo(extra: Record<string, unknown> | null, key: string): string {
+  const isi = extra?.[key];
+  return typeof isi === "string" ? isi.trim() : typeof isi === "number" || typeof isi === "boolean" ? String(isi) : "";
+}
+
+const urutNama = (data: PesertaUnduh) => {
+  const banding = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+  return [...data.peserta].sort((a, b) => banding.compare(a.name, b.name) || banding.compare(a.qr_code, b.qr_code));
+};
+
+/**
+ * Semua peserta aktif dalam bentuk templat bus: satu baris per orang, urut
+ * nama, kendaraan bawaan yang tersimpan sudah terisi.
+ */
+export function barisPesertaBus(data: PesertaUnduh): string[][] {
+  const kodeBus = new Map(data.vehicles.map((bus) => [bus.id, bus.code]));
+  const busOrang = new Map(data.busBawaan.map((b) => [b.participant_id, kodeBus.get(b.vehicle_id) ?? ""]));
+  return [
+    [...TEMPLAT.bus.judul, ...data.info.map((k) => judulInfo(k.label))],
+    ...urutNama(data).map((orang) => [orang.qr_code, orang.name, busOrang.get(orang.id) ?? "", ...data.info.map((k) => jawabanInfo(orang.extra, k.key))]),
+  ];
+}
+
+/**
+ * Semua peserta aktif dalam bentuk templat kereta: dua baris per orang
+ * (Outbound lalu Return), urut nama, tiket yang tersimpan sudah terisi
+ * (tanggal DD/MM/YYYY, jam HH:MM, sama dengan yang dibaca impor).
+ */
+export function barisPesertaKereta(data: PesertaUnduh): string[][] {
+  const tiket = new Map(data.kereta.map((t) => [`${t.participant_id}\u0000${t.direction}`, t]));
+  const tanggal = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "");
+  const jam = (teks: string | null) => (teks ? teks.slice(0, 5) : "");
+  const hasil: string[][] = [[...TEMPLAT.kereta.judul, ...data.info.map((k) => judulInfo(k.label))]];
+  for (const orang of urutNama(data)) {
+    const info = data.info.map((k) => jawabanInfo(orang.extra, k.key));
+    for (const arah of ["outbound", "return"] as const) {
+      const t = tiket.get(`${orang.id}\u0000${arah}`);
+      hasil.push([
+        orang.qr_code, orang.name, LABEL_ARAH[arah],
+        t?.train_name ?? "", t?.travel_class ?? "", t?.origin ?? "", t?.destination ?? "",
+        tanggal(t?.depart_date ?? null), jam(t?.depart_time ?? null), jam(t?.arrive_time ?? null),
+        t?.carriage ?? "", t?.seat ?? "", t?.booking_code ?? "",
+        ...info,
+      ]);
+    }
+  }
+  return hasil;
 }
