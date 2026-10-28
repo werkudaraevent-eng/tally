@@ -25,7 +25,8 @@ export const LABEL_JENIS_DARURAT: Record<JenisDarurat, string> = {
 export type KontakDarurat = { name: string; kind?: JenisDarurat | null; phone?: string | null; note?: string | null; map_url?: string | null; en?: TeksKontakEn | null };
 export type BantuanDarurat = { title?: string | null; note?: string | null; contacts?: KontakDarurat[]; en?: { title?: string | null; note?: string | null } | null };
 
-export const KONTAK_DARURAT_MAX = 8;
+/** Mas 28 Okt: 8 terlalu sedikit untuk acara lintas kota. */
+export const KONTAK_DARURAT_MAX = 12;
 // Nama dan judul sama dengan judul butir dan judul blok Columns (60); catatan
 // cukup untuk teks butir terpanjang (360) ditambah tautannya.
 export const KONTAK_DARURAT_BATAS = { title: 60, name: 60, phone: 40, note: 1000, map_url: 600, catatan: 280 } as const;
@@ -201,7 +202,8 @@ export function rapikanBantuan(help: BantuanDarurat | null | undefined): { help:
   const contacts: KontakDarurat[] = [];
   (help?.contacts ?? []).forEach((item, index) => {
     const en = { name: isi(item.en?.name), note: isi(item.en?.note) };
-    const rapi = { name: item.name?.trim() ?? "", phone: isi(item.phone), note: isi(item.note), map_url: isi(item.map_url), ...(en.name || en.note ? { en } : {}) };
+    const kind = item.kind && (JENIS_DARURAT as readonly string[]).includes(item.kind) ? item.kind : null;
+    const rapi = { name: item.name?.trim() ?? "", ...(kind ? { kind } : {}), phone: isi(item.phone), note: isi(item.note), map_url: isi(item.map_url), ...(en.name || en.note ? { en } : {}) };
     if (!rapi.name && !rapi.phone && !rapi.note && !rapi.map_url) return;
     if (!rapi.name && tanpaNama === null) tanpaNama = index;
     contacts.push(rapi);

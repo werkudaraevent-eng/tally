@@ -1358,7 +1358,7 @@ export const MEMBER_HOME_BUILTINS: Record<"gathering" | "modern" | "horizon", re
     { id: "checkpoints", label: "Checkpoints", sub: "Progress and next step", source: SUMBER_CHECKPOINT },
     { id: "logistics", label: "Vehicle and room", sub: "Travel card before the event, then a trip summary", source: SUMBER_LOGISTIK },
     { id: "roommates", label: "Roommates", sub: "Who shares their room", source: SUMBER_LOGISTIK },
-    { id: "help", label: "Help card", sub: "Organiser phone and WhatsApp", source: SUMBER_PENGATURAN },
+    { id: "help", label: "Help card", sub: "Links to organiser and emergency contacts", source: SUMBER_PENGATURAN },
   ],
 };
 
