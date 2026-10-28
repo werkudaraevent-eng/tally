@@ -849,6 +849,7 @@ export function KartuDaruratHorizon({
   id = "darurat",
   Ikon = Lifebuoy,
   warna = "#B42318",
+  kelompok = null,
 }: {
   judul: string;
   isi: string | null;
@@ -858,9 +859,93 @@ export function KartuDaruratHorizon({
   id?: string;
   Ikon?: typeof Lifebuoy;
   warna?: string | null;
+  /** Kontak darurat berjenis: dikelompokkan dengan subjudul jenis; `baris` diabaikan. */
+  kelompok?: { judul: string; Ikon: typeof Lifebuoy; baris: BarisDaruratHorizon[] }[] | null;
 }) {
   // Daftar kontak memakai jarak 16 px DESIGN.md; baris blok lama tetap seperti dulu (12 px + 4 px di bawah kepala).
   const adaKontak = baris.some((item) => item.kontak);
+  // Desktop: kartu selebar halaman, kontak dalam dua kolom supaya 12 kontak tidak memanjang.
+  const daftar = (isiBaris: BarisDaruratHorizon[], duaKolom: boolean) => (
+    <ul className={adaKontak ? `flex flex-col ${duaKolom ? "lg:grid lg:grid-cols-2 lg:gap-x-8" : ""}` : "-mx-2"}>
+      {isiBaris.map((item, index) => {
+        const dalam = (
+          <>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
+              {item.isi ? (
+                <span className="whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+                  {item.isi}
+                </span>
+              ) : null}
+            </span>
+            {item.href ? <CaretRight size={18} aria-hidden className="shrink-0" style={{ color: LABEL }} /> : null}
+          </>
+        );
+        const kontak = item.kontak;
+        if (kontak) {
+          // Baris daftar M3 dua-tiga baris: nama, nomor, catatan di kiri; tombol ikon
+          // 48 px di kanan (pola daftar kontak Google Phone dan Uber Safety Toolkit).
+          const aksi = label
+            ? [
+                kontak.tel ? { href: `tel:${kontak.tel}`, Ikon: Phone, teks: label.call, luar: false, hijau: false } : null,
+                kontak.wa ? { href: kontak.wa, Ikon: WhatsappLogo, teks: label.whatsapp, luar: true, hijau: true } : null,
+                kontak.peta ? { href: kontak.peta, Ikon: MapPin, teks: label.map, luar: true, hijau: false } : null,
+              ].filter((x) => x !== null)
+            : [];
+          return (
+            <li key={`${index}-${item.judul}`} className={`flex items-start gap-3 border-[#E6E8EC] py-3 first:pt-0 last:pb-0 [&+&]:border-t ${duaKolom ? "lg:[&:nth-child(2)]:border-t-0 lg:[&:nth-child(2)]:pt-0" : ""}`}>
+              {item.Ikon ? (
+                <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FCEBEA] text-[#B42318]">
+                  <item.Ikon size={20} />
+                </span>
+              ) : null}
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
+                {kontak.nomor ? (
+                  <span className="text-[14px] font-medium leading-5 tabular-nums [overflow-wrap:anywhere]">{kontak.nomor}</span>
+                ) : null}
+                {item.isi ? (
+                  <span className="whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+                    {item.isi}
+                  </span>
+                ) : null}
+              </span>
+              {aksi.length > 0 ? (
+                // Area ketuk 48 px, lingkaran 40 px: tepi lingkaran sejajar padding kartu.
+                <span className="-my-1 -mr-1 flex shrink-0">
+                  {aksi.map(({ href, Ikon, teks, luar, hijau }) => (
+                    <a
+                      key={teks}
+                      href={href}
+                      {...(luar ? { target: "_blank", rel: "noreferrer noopener" } : {})}
+                      aria-label={`${teks}: ${item.judul}`}
+                      title={teks}
+                      className="group flex size-12 items-center justify-center rounded-full"
+                    >
+                      <span className={`m3-state flex size-10 items-center justify-center rounded-full ${hijau ? "bg-[#E7F4EC] text-[#1E7B45] [--m3-state-color:#1E7B45]" : "bg-[#EEF1F6] text-[#101E38]"}`}>
+                        <Ikon size={20} weight="bold" aria-hidden />
+                      </span>
+                    </a>
+                  ))}
+                </span>
+              ) : null}
+            </li>
+          );
+        }
+        return (
+          <li key={`${index}-${item.judul}`} className="border-[#E6E8EC] [&+&]:border-t">
+            {item.href ? (
+              <a href={item.href} {...(item.luar ? { target: "_blank", rel: "noreferrer noopener" } : {})} className="m3-state flex min-h-14 items-center gap-4 rounded-[12px] px-2 py-2">
+                {dalam}
+              </a>
+            ) : (
+              <div className="flex min-h-14 items-center gap-4 px-2 py-2">{dalam}</div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
   return (
     <section id={id} aria-label={judul} className={`${KARTU_HZ} flex scroll-mt-24 flex-col ${adaKontak ? "gap-4" : "gap-3"} ${PAD_KARTU} lg:scroll-mt-32`} style={{ color: TINTA }}>
       <div className={adaKontak ? "" : "mb-1"}>
@@ -871,86 +956,21 @@ export function KartuDaruratHorizon({
           {isi}
         </p>
       ) : null}
-      {baris.length > 0 ? (
-        <ul className={adaKontak ? "flex flex-col" : "-mx-2"}>
-          {baris.map((item, index) => {
-            const dalam = (
-              <>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
-                  {item.isi ? (
-                    <span className="whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
-                      {item.isi}
-                    </span>
-                  ) : null}
-                </span>
-                {item.href ? <CaretRight size={18} aria-hidden className="shrink-0" style={{ color: LABEL }} /> : null}
-              </>
-            );
-            const kontak = item.kontak;
-            if (kontak) {
-              // Baris daftar M3 dua-tiga baris: nama, nomor, catatan di kiri; tombol ikon
-              // 48 px di kanan (pola daftar kontak Google Phone dan Uber Safety Toolkit).
-              const aksi = label
-                ? [
-                    kontak.tel ? { href: `tel:${kontak.tel}`, Ikon: Phone, teks: label.call, luar: false, hijau: false } : null,
-                    kontak.wa ? { href: kontak.wa, Ikon: WhatsappLogo, teks: label.whatsapp, luar: true, hijau: true } : null,
-                    kontak.peta ? { href: kontak.peta, Ikon: MapPin, teks: label.map, luar: true, hijau: false } : null,
-                  ].filter((x) => x !== null)
-                : [];
-              return (
-                <li key={`${index}-${item.judul}`} className="flex items-start gap-3 border-[#E6E8EC] py-3 first:pt-0 last:pb-0 [&+&]:border-t">
-                  {item.Ikon ? (
-                    <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FCEBEA] text-[#B42318]">
-                      <item.Ikon size={20} />
-                    </span>
-                  ) : null}
-                  <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
-                    {kontak.nomor ? (
-                      <span className="text-[14px] font-medium leading-5 tabular-nums [overflow-wrap:anywhere]">{kontak.nomor}</span>
-                    ) : null}
-                    {item.isi ? (
-                      <span className="whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
-                        {item.isi}
-                      </span>
-                    ) : null}
-                  </span>
-                  {aksi.length > 0 ? (
-                    // Area ketuk 48 px, lingkaran 40 px: tepi lingkaran sejajar padding kartu.
-                    <span className="-my-1 -mr-1 flex shrink-0">
-                      {aksi.map(({ href, Ikon, teks, luar, hijau }) => (
-                        <a
-                          key={teks}
-                          href={href}
-                          {...(luar ? { target: "_blank", rel: "noreferrer noopener" } : {})}
-                          aria-label={`${teks}: ${item.judul}`}
-                          title={teks}
-                          className="group flex size-12 items-center justify-center rounded-full"
-                        >
-                          <span className={`m3-state flex size-10 items-center justify-center rounded-full ${hijau ? "bg-[#E7F4EC] text-[#1E7B45] [--m3-state-color:#1E7B45]" : "bg-[#EEF1F6] text-[#101E38]"}`}>
-                            <Ikon size={20} weight="bold" aria-hidden />
-                          </span>
-                        </a>
-                      ))}
-                    </span>
-                  ) : null}
-                </li>
-              );
-            }
-            return (
-              <li key={`${index}-${item.judul}`} className="border-[#E6E8EC] [&+&]:border-t">
-                {item.href ? (
-                  <a href={item.href} {...(item.luar ? { target: "_blank", rel: "noreferrer noopener" } : {})} className="m3-state flex min-h-14 items-center gap-4 rounded-[12px] px-2 py-2">
-                    {dalam}
-                  </a>
-                ) : (
-                  <div className="flex min-h-14 items-center gap-4 px-2 py-2">{dalam}</div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+      {kelompok && kelompok.length > 0 ? (
+        // Dikelompokkan per jenis (Mas 28 Okt); desktop: kelompok mengalir dalam dua kolom.
+        <div className="flex flex-col gap-6 lg:block lg:columns-2 lg:gap-x-8">
+          {kelompok.map((grup) => (
+            <section key={grup.judul} aria-label={grup.judul} className="flex break-inside-avoid flex-col gap-3 lg:mb-6 lg:last:mb-0">
+              <h3 className="flex items-center gap-2 text-[14px] font-semibold leading-5" style={{ color: LABEL }}>
+                <grup.Ikon size={18} aria-hidden style={{ color: warna ?? TINTA }} />
+                {grup.judul}
+              </h3>
+              {daftar(grup.baris, false)}
+            </section>
+          ))}
+        </div>
+      ) : baris.length > 0 ? (
+        daftar(baris, adaKontak)
       ) : null}
     </section>
   );
@@ -1618,9 +1638,9 @@ export function ProfilHorizon({
           </PemicuQr>
         ) : null}
         {sisipan}
-        <div className={`flex flex-col gap-6 lg:grid lg:items-start lg:gap-8 ${qr ? "lg:mt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]" : "lg:grid-cols-2"}`}>
+        <div className={`flex flex-col gap-6 lg:grid lg:items-start lg:gap-8 ${qr ? "lg:mt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:grid-rows-[auto_1fr_auto]" : "lg:grid-cols-2"}`}>
           {qr ? (
-            <PemicuQr id="pemicu-qr-profil-besar" href={qr.href} className={`${KARTU_HZ} m3-state hidden flex-col items-center gap-4 px-6 pb-6 pt-8 text-center lg:flex`}>
+            <PemicuQr id="pemicu-qr-profil-besar" href={qr.href} className={`${KARTU_HZ} m3-state hidden flex-col lg:col-start-1 lg:row-span-2 lg:row-start-1 items-center gap-4 px-6 pb-6 pt-8 text-center lg:flex`}>
               <span className="size-[200px] bg-white">{qr.gambar}</span>
               <span className="flex flex-col gap-1">
                 <span className="text-[22px] font-bold leading-7 tracking-[0.5px] [overflow-wrap:anywhere]">{qr.kode}</span>
@@ -1630,12 +1650,13 @@ export function ProfilHorizon({
               </span>
             </PemicuQr>
           ) : null}
-          <div className="flex min-w-0 flex-col gap-6">
-            <section aria-label={akun[0]?.judul} className={kartu}>
+          {/* Desktop: QR kiri, akun dan Keluar kanan, Bantuan selebar halaman di bawah. */}
+          <div className="flex min-w-0 flex-col gap-6 lg:contents">
+            <section aria-label={akun[0]?.judul} className={`${kartu} ${qr ? "lg:col-start-2" : "lg:col-start-1"} lg:row-start-1`}>
               <DaftarProfil baris={akun} />
             </section>
             {adaBantuan ? (
-              <section aria-labelledby="profil-bantuan" className="flex flex-col gap-3">
+              <section aria-labelledby="profil-bantuan" className={`flex flex-col gap-3 lg:col-span-2 ${qr ? "lg:row-start-3" : "lg:row-start-2"}`}>
                 <JudulKelompok id="profil-bantuan">{bantuan.judul}</JudulKelompok>
                 {bantuan.baris.length > 0 ? (
                   <div className={kartu}>
@@ -1645,7 +1666,7 @@ export function ProfilHorizon({
                 {darurat}
               </section>
             ) : null}
-            <div className={`${KARTU_HZ} px-4 py-1`}>
+            <div className={`${KARTU_HZ} px-4 py-1 lg:col-start-2 ${qr ? "lg:row-start-2" : "lg:row-start-1"}`}>
               <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
                 <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
                   <IkonBulat Ikon={SignOut} nada="merah" />
@@ -1681,19 +1702,20 @@ export function ProfilHorizon({
       ) : null}
       {sisipan}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-16" style={{ color: TINTA }}>
-        <section aria-label={akun[0]?.judul} className="min-w-0">
+        <section aria-label={akun[0]?.judul} className="min-w-0 lg:col-start-1 lg:row-start-1">
           <DaftarProfil baris={akun} />
         </section>
-        <div className="flex min-w-0 flex-col gap-2 border-t border-[#E6E8EC] pt-2 lg:border-t-0 lg:pt-0">
+        {/* Desktop: Bantuan selebar halaman di bawah akun, Keluar tetap baris terakhir. */}
+        <div className="flex min-w-0 flex-col gap-2 border-t border-[#E6E8EC] pt-2 lg:contents">
           {adaBantuan ? (
-            <section aria-labelledby="profil-bantuan" className="flex flex-col gap-2">
+            <section aria-labelledby="profil-bantuan" className="flex flex-col gap-2 lg:col-span-2 lg:row-start-2 lg:mt-6">
               <JudulKelompok id="profil-bantuan">{bantuan.judul}</JudulKelompok>
               {bantuan.baris.length > 0 ? <DaftarProfil baris={bantuan.baris} /> : null}
               {darurat}
             </section>
           ) : null}
           {/* Keluar: baris terakhir, merah, seperti "Sign out" di halaman akun aplikasi. */}
-          <div className={adaBantuan ? "mt-2 border-t border-[#E6E8EC] pt-2" : ""}>
+          <div className={`lg:col-start-1 ${adaBantuan ? "mt-2 border-t border-[#E6E8EC] pt-2 lg:row-start-3" : "lg:row-start-2"}`}>
             <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
               <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
                 <IkonBulat Ikon={SignOut} nada="merah" />
