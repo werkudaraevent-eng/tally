@@ -3,6 +3,7 @@
 import { Bed, Plus, Bus as IkonBus, CaretLeft, CaretRight, MagnifyingGlass, Users, Warning, X } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { Banner, Button, ChipMenu, Dialog, EmptyState, IconButton, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, SelectField, StatusChip, TextField, EMPTY_VALUE } from "@/components/m3";
+import { kurangKendaraan, labelTripPendek, lengkapKendaraan, petaKendaraan, ringkasKendaraan, TEKS_KURANG } from "@/lib/logistik/kendaraan-trip";
 import { labelRentang, stayPerPeserta, tanggalStay, type Stay } from "@/lib/logistik/stay";
 import { kunciGender, type Hotel, type Kamar, type LogistikPeserta } from "@/lib/logistik/types";
 import { timeZoneOffset } from "@/lib/timezone";
@@ -76,6 +77,13 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
   );
   const kamarById = useMemo(() => new Map(data.rooms.map((kamar) => [kamar.id, kamar])), [data.rooms]);
   const busById = useMemo(() => new Map(data.vehicles.map((bus) => [bus.id, bus])), [data.vehicles]);
+  // Kendaraan yang dinaiki di tiap Trip (pengecualian, atau kendaraan utama bila
+  // trip mengikutinya). Tanpa Trip: kendaraan utama saja, seperti sebelumnya.
+  const kendaraan = useMemo(() => {
+    const baca = petaKendaraan(data.transport, data.trips);
+    return new Map(data.participants.map((orang) => [orang.id, baca(orang.id)]));
+  }, [data.transport, data.trips, data.participants]);
+  const kodeBus = (id: number) => busById.get(id)?.code ?? "Vehicle";
 
   const perusahaan = useMemo(() => {
     const hitung = new Map<string, number>();
@@ -92,12 +100,12 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
       if (saringKamar[0] === "menyusul" && !inap.some((s) => s.room_id === null)) return false;
       if (saringKamar[0] === "sudah" && !(inap.length > 0 && inap.every((s) => s.room_id !== null))) return false;
       if (saringKamar[0] === "pindah" && inap.length < 2) return false;
-      if (saringBus[0] === "belum" && busPeserta.has(orang.id)) return false;
-      if (saringBus[0] === "sudah" && !busPeserta.has(orang.id)) return false;
+      if (saringBus[0] === "belum" && !kurangKendaraan(kendaraan.get(orang.id)!)) return false;
+      if (saringBus[0] === "sudah" && !lengkapKendaraan(kendaraan.get(orang.id)!)) return false;
       if (saringPerusahaan.length > 0 && !saringPerusahaan.includes(orang.company ?? "")) return false;
       return true;
     });
-  }, [data.participants, cari, saringKamar, saringBus, saringPerusahaan, inapPeserta, busPeserta]);
+  }, [data.participants, cari, saringKamar, saringBus, saringPerusahaan, inapPeserta, kendaraan]);
 
   // Saringan berubah, halaman kembali ke 1. Disetel saat render, bukan di efek,
   // supaya tidak ada satu bingkai yang menampilkan halaman 5 dari hasil baru.
@@ -116,7 +124,8 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
   const belumHotel = data.participants.filter((orang) => !inapPeserta.has(orang.id)).length;
   const menungguKamar = data.participants.filter((orang) => inapPeserta.get(orang.id)?.some((s) => s.room_id === null)).length;
   const pindahHotel = data.participants.filter((orang) => (inapPeserta.get(orang.id)?.length ?? 0) > 1).length;
-  const belumBus = data.participants.filter((orang) => !busPeserta.has(orang.id)).length;
+  const belumBus = data.participants.filter((orang) => kurangKendaraan(kendaraan.get(orang.id)!)).length;
+  const adaTrip = data.trips.length > 0;
 
   function ubah(id: string, centang: boolean) {
     setPilih((lama) => {
@@ -197,7 +206,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
       />
       <ChipMenu
         label="Vehicle"
-        options={[{ value: "belum", label: "No vehicle", count: belumBus }, { value: "sudah", label: "Has a vehicle" }]}
+        options={[{ value: "belum", label: adaTrip ? "Missing on a trip" : "No vehicle", count: belumBus }, { value: "sudah", label: "Has a vehicle" }]}
         selected={saringBus}
         onChange={setSaringBus}
         summary={(pilihan) => pilihan[0]?.label ?? "Vehicle"}
@@ -260,7 +269,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                 {barisHalaman.map((orang) => {
                   const centang = pilih.has(orang.id);
                   const stays = inapPeserta.get(orang.id) ?? [];
-                  const bus = busById.get(busPeserta.get(orang.id) ?? -1);
+                  const kend = ringkasKendaraan(kendaraan.get(orang.id)!, kodeBus);
                   const td = "border-b border-outline-variant px-3 py-2";
                   return (
                     <tr
@@ -322,7 +331,20 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                           })}
                         </button>
                       </td>
-                      <td className={cx(td, "whitespace-nowrap", bus ? "text-on-surface" : "text-on-surface-variant")}>{bus?.code ?? EMPTY_VALUE}</td>
+                      <td className={cx(td, "whitespace-nowrap", kend.satu !== null || kend.baris.length > 0 ? "text-on-surface" : "text-on-surface-variant")}>
+                        {/* Berbeda per Trip: satu baris per trip, seperti kolom Stay untuk dua hotel. */}
+                        {kend.baris.length > 0 ? (
+                          <span className="flex flex-col gap-0.5">
+                            {kend.baris.map((b) => (
+                              <span key={b.trip.id} className="flex items-center gap-2">
+                                <span className="text-on-surface-variant">{labelTripPendek(b.trip, offset)}</span>
+                                {b.status === "kurang" ? <StatusChip dot tone="warning">{TEKS_KURANG}</StatusChip>
+                                  : <span className={b.status === "tidak" ? "text-on-surface-variant" : undefined}>{b.teks}</span>}
+                              </span>
+                            ))}
+                          </span>
+                        ) : kend.satu ?? EMPTY_VALUE}
+                      </td>
                     </tr>
                   );
                 })}

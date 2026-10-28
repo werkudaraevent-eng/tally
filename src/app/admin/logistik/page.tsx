@@ -11,6 +11,7 @@ import { TabKamar } from "@/components/admin/logistik/tab-kamar";
 import { TabKereta } from "@/components/admin/logistik/tab-kereta";
 import { TabPenempatan } from "@/components/admin/logistik/tab-penempatan";
 import { useLogistik } from "@/components/admin/logistik/use-logistik";
+import { kurangKendaraan, petaKendaraan } from "@/lib/logistik/kendaraan-trip";
 import { plural } from "@/lib/plural";
 
 /**
@@ -98,9 +99,11 @@ export default function LogistikPage() {
   // Hotel sudah, nomor kamar menyusul (orang, bukan stay: yang pindah hotel
   // bisa menunggu kamar di dua hotel).
   const menungguKamar = new Set(inapAktif.filter((b) => b.room_id === null).map((b) => b.participant_id)).size;
-  const tanpaBus = data
-    ? data.participants.length - new Set(data.transport.filter((b) => b.trip_id === null && b.vehicle_id !== null).map((b) => b.participant_id).filter((id) => aktif.has(id))).size
-    : 0;
+  // Dengan Trip: orang yang di salah satu trip belum punya kendaraan. Tanpa
+  // Trip: belum punya kendaraan utama. Aturan di `kendaraan-trip.ts`.
+  const bacaKendaraan = data ? petaKendaraan(data.transport, data.trips) : null;
+  const tanpaBus = data && bacaKendaraan ? data.participants.filter((orang) => kurangKendaraan(bacaKendaraan(orang.id))).length : 0;
+  const adaTrip = (data?.trips.length ?? 0) > 0;
 
   // Dialog "baru" milik bagian yang sedang tampil: Bus baru di Daftar bus,
   // Agenda baru di bagian Agenda.
@@ -140,7 +143,7 @@ export default function LogistikPage() {
             {data.vehicles.length > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{tanpaBus === 0 ? "Everyone has a vehicle" : `${tanpaBus.toLocaleString("en-GB")} without a vehicle`}</span>
+                <span className="tabular-nums">{tanpaBus === 0 ? "Everyone has a vehicle" : `${tanpaBus.toLocaleString("en-GB")} ${adaTrip ? "missing a vehicle on a trip" : "without a vehicle"}`}</span>
               </>
             ) : null}
           </>
