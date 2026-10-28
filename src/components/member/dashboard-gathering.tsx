@@ -1583,7 +1583,9 @@ export async function DashboardGathering({
           ]}
           bantuan={{
             judul: tp.helpTitle,
-            baris: kontakHorizon
+            // Kartu darurat (Participant area) sudah berisi kontak panitia: baris
+            // dari Event settings di atasnya hanya mengulang orang yang sama.
+            baris: kontakHorizon && !kartuDarurat
               ? [
                   ...(kontakHorizon.wa ? [{ href: kontakHorizon.wa, judul: tp.whatsappRow, isi: namaKontak, Ikon: WhatsappLogo, luar: true, tabBaru: true, nada: "hijau" as const }] : []),
                   ...(kontakHorizon.tel ? [{ href: `tel:${kontakHorizon.tel}`, judul: tp.callRow, isi: telepon, Ikon: Phone, luar: true }] : []),

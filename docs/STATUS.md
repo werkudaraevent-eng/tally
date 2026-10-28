@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Organiser contacts: Event settings > Kontak panitia holds up to three contacts (first stays the primary for registration, invitation, sign-in help, dashboard); Horizon gets its own Kontak panitia section with WhatsApp / Call buttons (it showed no contact before), FAQ line links to it, other layouts list extras in the footer. No SQL. Mas OK on design 27 Oct (KSO wants two public contacts); PR open, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov).
+- Organiser contacts follow-up (Mas 28 Oct): CMS preview showed only the first contact (the preview action dropped `contact_more`); the participant Profile listed the same people twice (Event settings rows plus the Participant area help card), so the rows now show only when that card is empty; each contact gets an optional "Peran / jabatan" shown under the name. No SQL. PR open, waiting on QA and Mas's merge time.
 - Horizon agenda: item details show in full (no "…" clamp). #284 clamped them to two lines on collapsed days, and a short day has no button to open them; Mas 27 Oct (KSO Jeep Merapi note). PR open, waiting on QA and Mas's merge time.
 - "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").
 - Horizon Beranda travel pass follows the participant's own trip: dates widened by their stays, trains and bus trips ("5–8 November 2026 · Acara 6–8 Nov"), and every hotel listed with its dates and room for people who move hotels. Approved by Mas 26 Oct; #279 merged 26 Oct. No SQL. Parked Lows: a bus trip on an Agenda row hidden by Who sees it still widens the dates; trains plus 2-3 hotels make the desktop pass 550-660 px tall at 1280x588; a stay without dates shows no date in its row.
@@ -32,6 +32,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #294 Organiser contacts (merged 27 Oct, QA GO): up to three contacts in Event settings > Kontak panitia, first stays the primary; Horizon gets its own Kontak panitia section with WhatsApp and Call buttons; other layouts list extras in the footer.
 - #287 Horizon emergency card as an M3 contact list (merged 27 Oct, QA GO): one row per contact with round Call / WhatsApp / Map buttons, numbers shown +62 with hyphens, 4 px between name, number and note; rule in DESIGN.md.
 - #286 Check-in rename (merged 26 Oct): sessions and registration desks renamable from Edit in the detail panel; the `?sesi=` / `?jalur=` address never changes.
 - #285 Agenda batch picker Lows (merged 26 Oct): arrow keys and one Tab stop, questions with shared answers share one picker, a day shows only the questions its rows use.

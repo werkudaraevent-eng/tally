@@ -1076,10 +1076,10 @@ export default function LandingCmsPage() {
   const horizon = gathering && landing.gathering_variant === "horizon";
   // Ringkasan Kontak panitia (Event settings): satu baris per kontak yang terisi.
   const kontakPanitiaAdmin = [
-    { name: landing.contact_name, email: landing.contact_email, phone: landing.contact_phone },
+    { name: landing.contact_name, role: landing.contact_role, email: landing.contact_email, phone: landing.contact_phone },
     ...(landing.contact_more ?? []),
   ]
-    .map((item) => [item.name, item.phone, item.email].map((nilai) => nilai?.trim()).filter(Boolean).join(" · "))
+    .map((item) => [item.name, item.role, item.phone, item.email].map((nilai) => nilai?.trim()).filter(Boolean).join(" · "))
     .filter(Boolean);
   // Teks yang tampil di halaman Indonesia tetapi belum punya versi English.
   const kurangEn = landingUntranslated({

@@ -154,13 +154,13 @@ export function bagianModern(
   const mitra = aktif.has("sponsors") ? (config.sponsors ?? []).filter((sponsor) => sponsor.logo_url) : [];
   const kontak = tampil("contact")
     ? [
-        config.contact_name ? { label: config.contact_name, href: null } : null,
+        config.contact_name ? { label: [config.contact_name, config.contact_role?.trim()].filter(Boolean).join(" · "), href: null } : null,
         config.contact_email ? { label: config.contact_email, href: `mailto:${config.contact_email}` } : null,
         config.contact_phone ? { label: config.contact_phone, href: `tel:${config.contact_phone}` } : null,
         // Kontak kedua dan ketiga sesudah yang utama: tautan pertama (bantuan
         // di dialog Masuk) tetap milik kontak utama.
         ...(config.contact_more ?? []).flatMap((item) => [
-          item.name?.trim() ? { label: item.name.trim(), href: null } : null,
+          item.name?.trim() ? { label: [item.name.trim(), item.role?.trim()].filter(Boolean).join(" · "), href: null } : null,
           item.email?.trim() ? { label: item.email.trim(), href: `mailto:${item.email.trim()}` } : null,
           item.phone?.trim() ? { label: item.phone.trim(), href: `tel:${item.phone.trim()}` } : null,
         ]),

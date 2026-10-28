@@ -529,10 +529,10 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                       Satu kontak: satu daftar seperti sebelumnya. */}
                   {(() => {
                     const daftar = [
-                      { name: config.contact_name, phone: config.contact_phone, email: config.contact_email },
+                      { name: config.contact_name, role: config.contact_role, phone: config.contact_phone, email: config.contact_email },
                       ...(config.contact_more ?? []),
                     ]
-                      .map((item) => ({ name: item.name?.trim(), phone: item.phone?.trim(), email: item.email?.trim() }))
+                      .map((item) => ({ name: item.name?.trim(), role: item.role?.trim(), phone: item.phone?.trim(), email: item.email?.trim() }))
                       .filter((item) => item.name || item.phone || item.email);
                     const isi = daftar.map((kontak, urutan) => (
                       <dl key={urutan} className="grid gap-x-12 gap-y-6 text-body-large sm:grid-cols-3">
@@ -540,6 +540,7 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                           <div>
                             <dt className={`text-body-medium ${MUTED}`}>Nama</dt>
                             <dd className="mt-1 font-semibold">{kontak.name}</dd>
+                            {kontak.role ? <dd className={`mt-0.5 text-body-medium ${MUTED}`}>{kontak.role}</dd> : null}
                           </div>
                         ) : null}
                         {kontak.phone ? (

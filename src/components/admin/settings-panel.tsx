@@ -5,7 +5,7 @@ import Link from "@/components/event-link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
 import { Banner, Button, Dialog, IconButton, Pane, PaneBody, PaneFooter, TextField } from "@/components/m3";
-import { KONTAK_PANITIA_MAX } from "@/lib/kontak-panitia";
+import { KONTAK_PANITIA_MAX, KONTAK_PERAN_MAX } from "@/lib/kontak-panitia";
 import { formatEventDateTime } from "@/lib/datetime";
 import { cx } from "@/lib/m3/cx";
 import { DEFAULT_TIME_ZONE, EVENT_TIME_ZONES, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
@@ -29,13 +29,13 @@ type Settings = {
 /** Field yang dikirim PATCH. Hanya ini yang dihitung sebagai perubahan belum tersimpan. */
 const FIELD_DISIMPAN = ["time_zone", "pickup_mode", "cashier_confirmation_required", "pending_auto_void_minutes", "email_sender_name", "email_reply_to"] as const;
 
-type KontakTambahan = { name: string; email: string; phone: string };
-type Kontak = { contact_name: string; contact_email: string; contact_phone: string; contact_more: KontakTambahan[] };
-const KUNCI_KONTAK = ["contact_name", "contact_email", "contact_phone"] as const;
+type KontakTambahan = { name: string; role: string; email: string; phone: string };
+type Kontak = { contact_name: string; contact_role: string; contact_email: string; contact_phone: string; contact_more: KontakTambahan[] };
+const KUNCI_KONTAK = ["contact_name", "contact_role", "contact_email", "contact_phone"] as const;
 
 /** Kontak kedua dan ketiga sebagai teks pembanding; baris kosong tidak dihitung. */
 const tambahanTeks = (kontak: Kontak) =>
-  JSON.stringify((kontak.contact_more ?? []).map((item) => [item.name.trim(), item.email.trim(), item.phone.trim()]).filter((baris) => baris.some(Boolean)));
+  JSON.stringify((kontak.contact_more ?? []).map((item) => [item.name.trim(), item.role.trim(), item.email.trim(), item.phone.trim()]).filter((baris) => baris.some(Boolean)));
 
 /** Jumlah isian kontak yang berbeda dari yang tersimpan (kontak tambahan dihitung satu). */
 const ubahKontak = (kontak: Kontak | null, tersimpan: Kontak | null) =>
@@ -86,9 +86,10 @@ function kontakBaca(data: unknown): Kontak | null {
   const isi = data as Partial<Kontak>;
   return {
     contact_name: isi.contact_name ?? "",
+    contact_role: isi.contact_role ?? "",
     contact_email: isi.contact_email ?? "",
     contact_phone: isi.contact_phone ?? "",
-    contact_more: (isi.contact_more ?? []).map((item) => ({ name: item?.name ?? "", email: item?.email ?? "", phone: item?.phone ?? "" })),
+    contact_more: (isi.contact_more ?? []).map((item) => ({ name: item?.name ?? "", role: item?.role ?? "", email: item?.email ?? "", phone: item?.phone ?? "" })),
   };
 }
 
@@ -148,8 +149,8 @@ export function SettingsPanel() {
     if (kontakUbah && kontak && kontakSaved) {
       // Kontak tambahan tanpa nomor maupun email tidak bisa dihubungi: tunjuk
       // kontaknya di sini, bukan pesan validasi umum dari server.
-      const tanpaSambung = kontak.contact_more.findIndex((item) => (item.name.trim() || item.email.trim() || item.phone.trim()) && !item.email.trim() && !item.phone.trim());
-      const adaTambahan = kontak.contact_more.some((item) => item.name.trim() || item.email.trim() || item.phone.trim());
+      const tanpaSambung = kontak.contact_more.findIndex((item) => (item.name.trim() || item.role.trim() || item.email.trim() || item.phone.trim()) && !item.email.trim() && !item.phone.trim());
+      const adaTambahan = kontak.contact_more.some((item) => item.name.trim() || item.role.trim() || item.email.trim() || item.phone.trim());
       if (adaTambahan && !kontak.contact_email.trim() && !kontak.contact_phone.trim()) {
         setSaving(false);
         const failure = "Isi nomor telepon atau email kontak 1 dulu. Kontak 1 dipakai di halaman daftar, undangan, dan dashboard peserta.";
@@ -320,6 +321,7 @@ export function SettingsPanel() {
                   {kontak.contact_more.length > 0 ? <p className="text-body-medium font-semibold text-on-surface">Kontak 1 (utama)</p> : null}
                   {([
                     ["contact_name", "Nama", "text", 120, "Tim Acara", true],
+                    ["contact_role", "Peran / jabatan", "text", KONTAK_PERAN_MAX, "Ketua Panitia", true],
                     ["contact_email", "Email", "email", 160, balasanAcara ?? "panitia@penyelenggara.com", false],
                     ["contact_phone", "Telepon / WhatsApp", "tel", 40, "+62 812-3456-7890", false],
                   ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
@@ -364,7 +366,8 @@ export function SettingsPanel() {
                         </IconButton>
                       </div>
                       {([
-                        ["name", "Nama", "text", 120, "Nama dan peran, mis. Budi · Transportasi", true],
+                        ["name", "Nama", "text", 120, "Budi Santoso", true],
+                        ["role", "Peran / jabatan", "text", KONTAK_PERAN_MAX, "Transportasi", true],
                         ["email", "Email", "email", 160, "panitia@penyelenggara.com", false],
                         ["phone", "Telepon / WhatsApp", "tel", 40, "+62 813-0000-0000", false],
                       ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
@@ -394,7 +397,7 @@ export function SettingsPanel() {
                       variant="outlined"
                       size="sm"
                       icon={<Plus size={16} />}
-                      onClick={() => setKontak((sekarang) => sekarang && { ...sekarang, contact_more: [...sekarang.contact_more, { name: "", email: "", phone: "" }] })}
+                      onClick={() => setKontak((sekarang) => sekarang && { ...sekarang, contact_more: [...sekarang.contact_more, { name: "", role: "", email: "", phone: "" }] })}
                     >
                       Tambah kontak
                     </Button>
