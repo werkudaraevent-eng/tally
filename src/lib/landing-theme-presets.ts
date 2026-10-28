@@ -113,7 +113,7 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     key: "gathering-trip",
     label: "Gathering Trip",
     note: "Gathering Horizon with travel-app participant pages",
-    thumb: "/preset-tema/gathering-horizon.png",
+    thumb: "/preset-tema/gathering-trip.png",
     layout: "modern",
     tokens: { brand: HORIZON_BRAND_DEFAULT, accent: HORIZON_GOLD_DEFAULT, button: HORIZON_GOLD_DEFAULT, nav: HORIZON_NAV_DEFAULT, heading_font: "jakarta", body_font: "jakarta", corners: "soft" },
     features: { invite_only: true, gathering: true, horizon: true, trip: true },
