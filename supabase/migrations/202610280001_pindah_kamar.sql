@@ -82,6 +82,15 @@ begin
     return;
   end if;
 
+  -- Kunci kamar tujuan (urut id, sesudah kunci peserta di pemanggilnya).
+  -- Panggilan lain ke kamar yang sama menunggu di sini, lalu pernyataan
+  -- berikutnya membaca penghuni yang sudah di-commit: dua orang tidak bisa
+  -- sama-sama mengambil tempat terakhir.
+  perform 1 from public.lodging_rooms
+   where id = any(p_room_ids) and event_id = p_event_id
+   order by id
+   for update;
+
   create temp table if not exists lodging_cek_huni (
     room_id bigint, participant_id uuid, rentang tstzrange, gender text
   ) on commit drop;
@@ -103,12 +112,21 @@ begin
      and a.room_id = any(p_room_ids)
      and p.source_removed_at is null;
 
+  -- Hanya malam stay yang baru ditulis: kamar yang sudah kelebihan karena
+  -- kapasitasnya diturunkan tidak menghalangi perubahan di malam lain.
   select r.room_number, r.capacity, x.jumlah into penuh
     from (
       select s.room_id, max((select count(*) from lodging_cek_huni t
-                              where t.room_id = s.room_id and t.rentang @> lower(s.rentang))) as jumlah
+                              where t.room_id = s.room_id and t.rentang @> p.titik)) as jumlah
         from lodging_cek_huni s
+        cross join lateral (
+          select lower(s.rentang) as titik
+          union
+          select lower(u.rentang) from lodging_cek_huni u
+           where u.room_id = s.room_id and not isempty(u.rentang) and s.rentang @> lower(u.rentang)
+        ) p
        where not isempty(s.rentang)
+         and s.participant_id = any(p_participant_ids)
        group by s.room_id
     ) x
     join public.lodging_rooms r on r.id = x.room_id
@@ -192,6 +210,13 @@ begin
        where id = any(ids) and event_id = p_event_id and source_removed_at is null) <> cardinality(ids) then
     raise exception 'PARTICIPANT_NOT_FOUND';
   end if;
+
+  -- Kunci peserta lebih dulu (urut id): dua permintaan yang sama untuk orang
+  -- yang sama berjalan bergantian, jadi tidak ada stay ganda.
+  perform 1 from public.participants
+   where event_id = p_event_id and id = any(ids)
+   order by id
+   for no key update;
 
   insert into replace_stays_baru
   select (i ->> 'participant_id')::uuid, s.urut::int,
@@ -303,6 +328,11 @@ declare
   kamar_lama bigint;
   calon int;
 begin
+  -- Kunci peserta dulu, lalu kamar, sama urutannya dengan fungsi lain.
+  perform 1 from public.participants
+   where id = p_participant_id and event_id = p_event_id
+   for no key update;
+
   select * into kamar from public.lodging_rooms
    where id = p_room_id and event_id = p_event_id
    for update;
@@ -365,7 +395,28 @@ begin
     values (p_event_id, kamar.hotel_id, p_room_id, p_participant_id, p_check_in_at, p_check_out_at, p_actor);
   end if;
 
-  perform public.lodging_cek_kamar(p_event_id, array[p_room_id], array[p_participant_id]);
+  -- Pindah kamar bisa menggeser malam stay yang ikut tanggal kamar: malamnya
+  -- tidak boleh bertabrakan dengan stay lain orang ini.
+  if target is not null and exists (
+    with g as (
+      select a.id, public.lodging_rentang(coalesce(a.check_in_at, r.check_in_at, h.check_in_at),
+                                          coalesce(a.check_out_at, r.check_out_at, h.check_out_at)) as rentang
+        from public.lodging_assignments a
+        join public.lodging_hotels h on h.id = a.hotel_id
+        left join public.lodging_rooms r on r.id = a.room_id
+       where a.event_id = p_event_id and a.participant_id = p_participant_id
+    )
+    select 1 from g x join g y on y.id <> x.id where x.id = target and x.rentang && y.rentang
+  ) then
+    raise exception using message = 'LODGING_STAYS_OVERLAP',
+      detail = format('%s: the nights of this room overlap another stay', peserta.name);
+  end if;
+
+  -- Sudah di kamar ini dan malamnya tidak berubah: tidak ada yang perlu
+  -- diperiksa (sama dengan sebelum migrasi ini).
+  if not (kamar_lama is not distinct from p_room_id and p_check_in_at is null and p_check_out_at is null) then
+    perform public.lodging_cek_kamar(p_event_id, array[p_room_id], array[p_participant_id]);
+  end if;
 
   insert into public.audit_logs (event_id, user_id, action, payload)
   values (p_event_id, p_actor, 'lodging_assigned', jsonb_build_object(
@@ -409,6 +460,13 @@ begin
        where id = any(ids) and event_id = p_event_id and source_removed_at is null) <> cardinality(ids) then
     raise exception 'PARTICIPANT_NOT_FOUND';
   end if;
+
+  -- Kunci peserta lebih dulu (urut id): dua permintaan yang sama untuk orang
+  -- yang sama berjalan bergantian, jadi tidak ada stay ganda.
+  perform 1 from public.participants
+   where event_id = p_event_id and id = any(ids)
+   order by id
+   for no key update;
 
   insert into public.audit_logs (event_id, user_id, action, payload)
   select p_event_id, p_actor, 'lodging_hotel_assigned', jsonb_build_object(
@@ -479,6 +537,13 @@ begin
        where id = any(ids) and event_id = p_event_id and source_removed_at is null) <> cardinality(ids) then
     raise exception 'PARTICIPANT_NOT_FOUND';
   end if;
+
+  -- Kunci peserta lebih dulu (urut id): dua permintaan yang sama untuk orang
+  -- yang sama berjalan bergantian, jadi tidak ada stay ganda.
+  perform 1 from public.participants
+   where event_id = p_event_id and id = any(ids)
+   order by id
+   for no key update;
 
   -- Stay sasaran per peserta (null = buat baru).
   create temp table if not exists set_stay_sasaran (participant_id uuid, stay_id bigint) on commit drop;
@@ -601,6 +666,10 @@ as $$
 declare
   lepas jsonb;
 begin
+  perform 1 from public.participants
+   where id = p_participant_id and event_id = p_event_id
+   for no key update;
+
   with hapus as (
     delete from public.lodging_assignments
      where event_id = p_event_id and participant_id = p_participant_id
