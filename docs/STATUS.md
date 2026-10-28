@@ -37,6 +37,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #318 Room change at the same hotel + Hotel, Room, Check-in, Check-out as separate Assignments columns (merged 28 Oct, QA GO; SQL `202610280001_pindah_kamar` run 28 Oct). Parked Lows: room import creates rooms named on rejected rows (older); empty Name on a rejected second-stay preview line; portal spots the same hotel by name, not id.
 - #316 Perjalanan on Gathering Trip no longer jumps back up while scrolling (merged 28 Oct): chip row scrolls only sideways, jump bar sticks again, Vehicle/Luggage chips use the real section ids. No SQL.
 - #301 Organiser contacts up to five (merged 28 Oct, QA GO).
 - #295 Organiser contacts follow-up (merged 28 Oct): CMS preview shows every contact; organiser contacts come only from Event settings (Profile > Help card with Call/WhatsApp and role), Participant area > Emergency and help is for emergency services ("Kontak darurat"); optional role per contact.

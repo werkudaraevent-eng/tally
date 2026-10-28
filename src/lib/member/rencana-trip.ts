@@ -19,6 +19,8 @@ type Teks = {
   checkInAt: (hotel: string) => string;
   moveTo: (hotel: string) => string;
   checkOutAt: (hotel: string) => string;
+  roomOut: (kamar: string | null) => string;
+  roomIn: (kamar: string | null) => string;
 };
 
 /** Tanggal dan jam (HH:MM) sebuah waktu ISO di zona acara. */
@@ -49,6 +51,17 @@ export function rencanaTrip(stays: LogistikKamar[], trains: LogistikKereta[], zo
   urutStay.forEach((stay, urut) => {
     const nama = stay.hotel.name.trim();
     const masuk = waktuDiZona(stay.check_in_at!, zona);
+    // Pindah kamar di hotel yang sama (migrasi 202610280001): check-out dulu,
+    // lalu check-in lagi, dua langkah dengan jamnya sendiri.
+    const sebelum = urut > 0 ? urutStay[urut - 1] : null;
+    if (sebelum && sebelum.hotel.name.trim() === nama) {
+      if (sebelum.check_out_at) {
+        const keluar = waktuDiZona(sebelum.check_out_at, zona);
+        langkah.push({ jenis: "checkout", kunci: `${keluar.tanggal} ${keluar.jam}`, tanggal: keluar.tanggal, jam: keluar.jam, teks: teks.roomOut(sebelum.room_number) });
+      }
+      langkah.push({ jenis: "pindah", kunci: `${masuk.tanggal} ${masuk.jam}`, tanggal: masuk.tanggal, jam: masuk.jam, teks: teks.roomIn(stay.room_number) });
+      return;
+    }
     langkah.push({ jenis: urut === 0 ? "checkin" : "pindah", kunci: `${masuk.tanggal} ${masuk.jam}`, tanggal: masuk.tanggal, jam: masuk.jam, teks: urut === 0 ? teks.checkInAt(nama) : teks.moveTo(nama) });
   });
   const terakhir = urutStay.at(-1);

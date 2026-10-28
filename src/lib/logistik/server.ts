@@ -34,6 +34,10 @@ const PESAN_RPC: Record<string, string> = {
   PARTICIPANT_GENDER_UNKNOWN:
     "This participant has no gender answer yet. Fill it in on the Participant list, then assign them again.",
   ROOM_GENDER_MISMATCH: "This participant's gender differs from the occupants of this room.",
+  LODGING_STAYS_OVERLAP: "Two stays of one person share a night. Change the dates so one ends when the next starts.",
+  STAY_AMBIGUOUS: "This person has more than one stay at this hotel. Choose the stay in Stays.",
+  STAY_NOT_FOUND: "This stay no longer exists. Reload the page.",
+  STAYS_INVALID: "The stays could not be read. Reload the page, then try again.",
   TRIP_NOT_FOUND: "This trip no longer exists. Reload the page.",
   VEHICLE_NOT_FOUND: "This vehicle no longer exists. Reload the page.",
   SESSION_NOT_FOUND: "Sesi tidak ditemukan di acara ini.",
@@ -60,7 +64,14 @@ export function pesanRpc(error: { message?: string; details?: string | null }): 
     return "Vehicle over capacity. Choose another vehicle or raise its capacity.";
   }
   const kode = Object.keys(PESAN_RPC).find((nama) => pesan.includes(nama));
-  return kode ? PESAN_RPC[kode] : null;
+  if (!kode) return null;
+  // Rincian kamar penuh dan malam yang bertabrakan ditulis SQL dalam English
+  // ("Room 1208: 2 of 2 places taken"): ditempel supaya panitia tahu kamar
+  // atau orang mana. Rincian ROOM_FULL sebelum migrasi 202610280001
+  // berbahasa Indonesia dan tidak ditempel.
+  const rinci = error.details ?? "";
+  if ((kode === "ROOM_FULL" && rinci.startsWith("Room ")) || (kode === "LODGING_STAYS_OVERLAP" && rinci)) return `${PESAN_RPC[kode]} ${rinci}.`;
+  return PESAN_RPC[kode];
 }
 
 /**
@@ -170,7 +181,7 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
   // potongan 1000 PostgREST: semua dibaca per 1000. Galat tetap ditelan (sel kosong).
   const aman = <T,>(baca: Promise<T[]>) => baca.catch(() => [] as T[]);
   const [barisInap, barisAngkut, kereta, ambil] = await Promise.all([
-    aman(bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", ids).order("participant_id").order("id").range(dari, dari + 999))),
+    aman(bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", ids).order("participant_id").order("id").range(dari, dari + 999))),
     aman(bacaSemua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids).order("participant_id").order("vehicle_id").range(dari, dari + 999))),
     aman(bacaSemua<TiketKereta>((dari) => db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
     aman(bacaSemua<BarisAmbil>((dari) => db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
@@ -191,7 +202,7 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
 export async function logistikAcara(eventId: string): Promise<Map<string, LogistikRingkas>> {
   const db = klien();
   const [barisInap, barisAngkut] = await Promise.all([
-    bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("participant_id").order("id").range(dari, dari + 999)),
+    bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("participant_id").order("id").range(dari, dari + 999)),
     bacaSemua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("participant_id").order("vehicle_id").range(dari, dari + 999)),
   ]);
   return susunLogistik(eventId, barisInap, barisAngkut, true);
@@ -227,7 +238,7 @@ async function bacaSemua<T>(baca: (dari: number) => PromiseLike<{ data: unknown;
 }
 
 /** `room_id` null = tamu hotel itu, nomor kamar menyusul. Satu baris per stay. */
-type BarisInap = { participant_id: string; hotel_id: number; room_id: number | null; check_in_at: string | null; check_out_at: string | null };
+type BarisInap = { id: number; participant_id: string; hotel_id: number; room_id: number | null; check_in_at: string | null; check_out_at: string | null };
 
 type BarisAmbil = { participant_id: string; item_id: number; size: string | null };
 
