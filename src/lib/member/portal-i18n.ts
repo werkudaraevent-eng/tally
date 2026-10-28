@@ -191,6 +191,12 @@ export type PortalUiText = {
       pass: string;
       show: string;
       seeAll: string;
+      /** Jumlah kegiatan di kartu hari Susunan acara ("9 kegiatan"). */
+      activities: (jumlah: number) => string;
+      noNewsTitle: string;
+      noNewsBody: string;
+      pinned: string;
+      qrNote: string;
     };
     bus: string;
     room: string;
@@ -468,6 +474,11 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         pass: "Kartu peserta",
         show: "Tampilkan",
         seeAll: "Lihat semua",
+        activities: (jumlah) => `${jumlah} kegiatan`,
+        noNewsTitle: "Belum ada pengumuman",
+        noNewsBody: "Info dari panitia muncul di sini, dan kami beri tanda di ikon Pengumuman.",
+        pinned: "Disematkan",
+        qrNote: "Tunjukkan ke panitia saat registrasi, makan, dan checkpoint",
       },
       bus: "Kendaraan",
       room: "Kamar",
@@ -725,6 +736,11 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         pass: "Participant pass",
         show: "Show",
         seeAll: "See all",
+        activities: (jumlah) => `${jumlah} ${jumlah === 1 ? "activity" : "activities"}`,
+        noNewsTitle: "No announcements yet",
+        noNewsBody: "News from the organisers shows up here, and we mark the Announcements icon.",
+        pinned: "Pinned",
+        qrNote: "Show it to the organisers at registration, meals and checkpoints",
       },
       bus: "Vehicle",
       room: "Room",

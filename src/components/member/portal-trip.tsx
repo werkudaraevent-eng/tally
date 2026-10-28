@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowsOut, CalendarPlus, CaretRight, Train } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, ArrowSquareOut, ArrowsOut, Bell, CalendarPlus, CaretRight, Train } from "@phosphor-icons/react/dist/ssr";
+import { GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { PenandaTab } from "@/components/member/muat-portal";
 import { PemicuQr } from "@/components/member/qr-fokus";
 import { GARIS_KARTU, KELAS_ALIS, KELAS_KET, LATAR_PORTAL_HORIZON, LipatanHorizon, type LegKereta } from "@/components/member/portal-horizon";
@@ -491,5 +492,188 @@ export function PerjalananmuTrip({
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Pilihan hari Susunan acara di desktop (pola daftar tanggal Trip.com): kartu
+ * per hari dengan ubin tanggal, judul, dan jumlah kegiatan; hari terpilih emas.
+ * Di ponsel tetap chip tanggal Horizon yang bergulir ke samping.
+ */
+export function HariTrip({ aria, hari }: { aria: string; hari: { href: string; atas: string; angka: string; judul: string; catatan: string | null; aktif: boolean }[] }) {
+  return (
+    <nav aria-label={aria} className="pudar-bawah-gulir sticky top-[118px] -m-1 hidden max-h-[calc(100dvh-134px)] scroll-py-1 self-start overflow-y-auto p-1 print:max-h-none print:overflow-visible lg:block" style={{ color: TINTA }}>
+      <GulirHariAktif />
+      <ol className="flex flex-col gap-2">
+        {hari.map((item) => (
+          <li key={item.href}>
+            <Link
+              href={item.href}
+              aria-current={item.aktif ? "page" : undefined}
+              className={`m3-state flex min-h-[72px] items-center gap-4 rounded-[16px] px-4 py-3 ${item.aktif ? "bg-[var(--hz-emas)] text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]" : `${KARTU_TRIP}`}`}
+            >
+              <span aria-hidden className="flex w-10 shrink-0 flex-col items-center tabular-nums">
+                <span className="text-[12px] leading-4" style={item.aktif ? undefined : { color: REDUP }}>
+                  {item.atas}
+                </span>
+                <span className="text-[18px] font-bold leading-6">{item.angka}</span>
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
+                {item.catatan ? (
+                  <span className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={item.aktif ? { opacity: 0.8 } : { color: REDUP }}>
+                    {item.catatan}
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+export type ButirAgendaTrip = {
+  kunci: string;
+  jam: string;
+  sampai: string | null;
+  judul: string;
+  catatan: string | null;
+  jeda: boolean;
+  /** "Sedang berlangsung" atau "Berikutnya"; titiknya emas. */
+  status: string | null;
+  /** Pesanan peserta di baris ini (bus), sebagai kotak menuju Perjalanan. */
+  pesanan: { href: string; Ikon: typeof Train; nada: NadaTrip; teks: string } | null;
+  tautan: { href: string; label: string; tab: string } | null;
+};
+
+/**
+ * Susunan satu hari sebagai linimasa dalam satu kartu (pola itinerary
+ * Trip.com): jam mulai dan selesai di kiri, rel dengan titik, lalu judul,
+ * keterangan, dan kotak pesanan yang tertaut ke baris itu.
+ */
+export function AgendaHariTrip({ judul, meta, butir }: { judul: string; meta: string | null; butir: ButirAgendaTrip[] }) {
+  return (
+    <section aria-labelledby="agenda-hari-trip" className={`${KARTU_TRIP} p-4 md:p-6`} style={{ color: TINTA }}>
+      <div className="flex items-baseline gap-3">
+        <h2 id="agenda-hari-trip" className="min-w-0 flex-1 text-[22px] font-semibold leading-7 [overflow-wrap:anywhere]">
+          {judul}
+        </h2>
+        {meta ? (
+          <p className="shrink-0 text-[14px] leading-5" style={{ color: REDUP }}>
+            {meta}
+          </p>
+        ) : null}
+      </div>
+      <ol className="mt-6 flex flex-col">
+        {butir.map((item, urut) => (
+          <li key={item.kunci} className="relative grid grid-cols-[48px_12px_minmax(0,1fr)] gap-x-3 pb-6 last:pb-0">
+            <p className="flex flex-col tabular-nums">
+              <span className="text-[14px] font-semibold leading-5">{item.jam}</span>
+              {item.sampai ? (
+                <span className="text-[12px] leading-4" style={{ color: REDUP }}>
+                  {item.sampai}
+                </span>
+              ) : null}
+            </p>
+            {urut < butir.length - 1 ? <span aria-hidden className="absolute bottom-0 left-[65px] top-5 w-0.5" style={{ background: "rgb(16 30 56 / 0.08)" }} /> : null}
+            <span
+              aria-hidden
+              className="relative mt-1 size-3 rounded-full border-2"
+              style={item.status ? { background: "var(--hz-emas)", borderColor: "var(--hz-emas)", boxShadow: "0 0 0 4px #FBF3D9" } : { background: "#fff", borderColor: item.jeda ? "#C9D1DE" : "#6B7385" }}
+            />
+            <div className="flex min-w-0 flex-col gap-1">
+              {item.status ? <PilTrip emas>{item.status}</PilTrip> : null}
+              <p className={`text-[16px] leading-6 [overflow-wrap:anywhere] ${item.jeda ? "font-medium" : "font-semibold"}`} style={item.jeda ? { color: REDUP } : undefined}>
+                {item.judul}
+              </p>
+              {item.catatan ? (
+                <p className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+                  {item.catatan}
+                </p>
+              ) : null}
+              {item.pesanan ? (
+                <Link href={item.pesanan.href} className="m3-state mt-2 flex min-h-14 items-center gap-3 rounded-[12px] border px-3 py-2" style={{ borderColor: GARIS }}>
+                  <UbinTrip Ikon={item.pesanan.Ikon} nada={item.pesanan.nada} kecil />
+                  <span className="min-w-0 flex-1 text-[14px] leading-5 [overflow-wrap:anywhere]">{item.pesanan.teks}</span>
+                  <CaretRight size={16} aria-hidden className="shrink-0" style={{ color: REDUP }} />
+                  <PenandaTab tab="perjalanan" />
+                </Link>
+              ) : null}
+              {item.tautan ? (
+                <div className="mt-1">
+                  <Link href={item.tautan.href} className={TAUTAN_TRIP} style={{ color: TINTA }}>
+                    {item.tautan.label}
+                    <CaretRight size={16} aria-hidden className="shrink-0" />
+                    <PenandaTab tab={item.tautan.tab} />
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+export type PengumumanTripItem = { id: string; judul: string; isi: string | null; waktu: string; baru: boolean; disematkan: boolean; tautan: { href: string; label: string } | null };
+
+/**
+ * Pengumuman dalam satu kartu berbaris (pola kotak masuk Traveloka): ubin
+ * lonceng, waktu, judul, isi. Yang belum dibaca berlatar kuning pucat dengan
+ * titik "Baru"; yang disematkan berpil di kanan.
+ */
+export function PengumumanTrip({ item, teks }: { item: PengumumanTripItem[]; teks: { baru: string; disematkan: string; kosongJudul: string; kosongIsi: string } }) {
+  if (item.length === 0) {
+    return (
+      <div className={`${KARTU_TRIP} flex flex-col items-center gap-2 px-6 py-12 text-center`} style={{ color: TINTA }}>
+        <Bell size={24} aria-hidden style={{ color: REDUP }} />
+        <p className="text-[16px] font-semibold leading-6">{teks.kosongJudul}</p>
+        <p className="max-w-[48ch] text-[14px] leading-5" style={{ color: REDUP }}>
+          {teks.kosongIsi}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <ul className={`${KARTU_TRIP} flex flex-col overflow-hidden`} style={{ color: TINTA }}>
+      {item.map((baris) => (
+        <li key={baris.id} className="border-t first:border-t-0" style={{ borderColor: "#E6E8EC", background: baris.baru ? "#FFFBEA" : undefined }}>
+          <article className="flex gap-3 p-4 md:p-6">
+            <UbinTrip Ikon={Bell} nada={baris.baru || baris.disematkan ? "bagasi" : "netral"} />
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex items-start gap-3">
+                <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-[12px] leading-4" style={{ color: REDUP }}>
+                  {baris.baru ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden className="size-2 rounded-full bg-[var(--hz-emas)]" />
+                      {teks.baru}
+                    </span>
+                  ) : null}
+                  <span>{baris.waktu}</span>
+                </p>
+                {baris.disematkan ? <PilTrip emas>{teks.disematkan}</PilTrip> : null}
+              </div>
+              <h2 className="max-w-[70ch] text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{baris.judul}</h2>
+              {baris.isi ? (
+                <p className="max-w-[70ch] whitespace-pre-line text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
+                  {baris.isi}
+                </p>
+              ) : null}
+              {baris.tautan ? (
+                <div className="mt-2">
+                  <a href={baris.tautan.href} target="_blank" rel="noreferrer noopener" className={`${TAUTAN_TRIP} gap-1.5`} style={{ color: TINTA }}>
+                    {baris.tautan.label}
+                    <ArrowSquareOut size={16} aria-hidden className="shrink-0" />
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          </article>
+        </li>
+      ))}
+    </ul>
   );
 }
