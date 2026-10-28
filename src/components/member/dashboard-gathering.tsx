@@ -15,6 +15,7 @@ import {
   Globe,
   House,
   Hourglass,
+  Lifebuoy,
   MapPin,
   Megaphone,
   Headset,
@@ -80,6 +81,8 @@ import {
   ChipTanggalHorizon,
   GARIS_KARTU,
   HariJadwalHorizon,
+  KartuBantuanBeranda,
+  ikonJenisDarurat,
   KartuBantuanHorizon,
   KartuDaruratHorizon,
   KartuInfoHorizon,
@@ -109,6 +112,7 @@ import {
   type TabHorizon,
 } from "@/components/member/portal-horizon";
 import { LompatPerjalanan } from "@/components/member/lompat-perjalanan";
+import { GulirKeHash } from "@/components/member/gulir-ke-hash";
 import { jamLeg, jamTiket, legSelesai, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
@@ -1733,7 +1737,7 @@ export async function DashboardGathering({
           judul={judulDarurat}
           isi={bantuan?.note?.trim() || null}
           label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
-          baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta } }))}
+          baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta }, Ikon: kontakDarurat.some((baris) => baris.jenis) ? ikonJenisDarurat(item.jenis) : null }))}
         />
       ) : blokDarurat ? (
         <KartuDaruratHorizon
@@ -1787,6 +1791,7 @@ export async function DashboardGathering({
           darurat={
             kartuPanitia || kartuDarurat ? (
               <div className="flex flex-col gap-4">
+                <GulirKeHash ids={["panitia", "darurat"]} />
                 {kartuPanitia}
                 {kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
               </div>
@@ -2293,16 +2298,15 @@ export async function DashboardGathering({
       ) : tampilKode && peserta && !kartuPass ? (
           <KartuQrSampingHorizon href={keTab("qr")} judul={t.qrTitle} tombol={tH.qr.showQr} kode={<QrMini code={peserta.qr_code} alt="" />} />
         ) : null;
-      const kartuBantuan = kontakHorizon && diBeranda("help") ? (
-        <KartuBantuanHorizon
-          alis={tH.helpCard.eyebrow}
-          judul={tH.helpCard.title}
-          catatan={kontakHorizon.tel ? tH.helpCard.note : tH.helpCard.noteEmail}
-          kontak={kontakHorizon}
-          label={labelKontak}
-          tautan={adaDarurat ? { href: `${keTab("profil")}#darurat`, label: judulDarurat, tab: "profil" } : null}
-        />
-      ) : null;
+      // Bantuan di Beranda: dua baris ke Profil, hanya bila daftarnya terisi.
+      const panitiaBeranda = daftarKontakPanitia(config);
+      const barisBantuan = [
+        ...(panitiaBeranda.length > 0
+          ? [{ href: `${keTab("profil")}#panitia`, judul: tH.profile.organisersTitle, isi: panitiaBeranda.map((item) => item.nama).filter(Boolean).join(", ") || null, Ikon: Headset, tab: "profil" }]
+          : []),
+        ...(adaDarurat ? [{ href: `${keTab("profil")}#darurat`, judul: judulDarurat, isi: tH.helpCard.emergencyRow, Ikon: Lifebuoy, tab: "profil", nada: "merah" as const }] : []),
+      ];
+      const kartuBantuan = barisBantuan.length > 0 && diBeranda("help") ? <KartuBantuanBeranda judul={tH.helpCard.eyebrow} baris={barisBantuan} /> : null;
 
       // Urutan ponsel dari Participant home (lib/member/susunan-horizon.ts, keputusan
       // Mas 20 Okt): Next up paling atas (hanya Announcements boleh di atasnya), Help
