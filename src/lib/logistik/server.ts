@@ -2,6 +2,7 @@ import { apiError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { TiketKereta } from "@/lib/logistik/types";
 import { labelStay, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
+import { petaKendaraan, teksKendaraan, type BarisAngkut, type TripKendaraan } from "@/lib/logistik/kendaraan-trip";
 import { stayPerPeserta, tanggalStay, type TanggalHotel } from "@/lib/logistik/stay";
 import type { TripTertaut } from "@/lib/logistik/trip-agenda";
 
@@ -161,6 +162,9 @@ export async function tripPerBarisAgenda(eventId: string): Promise<Map<number, T
 export type { LogistikRingkas };
 
 
+/** Kolom Trip yang dibutuhkan untuk kendaraan per trip di Daftar peserta. */
+const KOLOM_TRIP = "id,name,depart_at,follows_default,sort_order";
+
 /**
  * Stay, bus, tiket kereta dan barang kit untuk sekumpulan peserta, dipakai
  * kolom Logistics dan panel detail di Daftar peserta.
@@ -180,13 +184,14 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
   // Satu halaman daftar bisa 200 peserta x 6 barang kit = 1.200 baris, di atas
   // potongan 1000 PostgREST: semua dibaca per 1000. Galat tetap ditelan (sel kosong).
   const aman = <T,>(baca: Promise<T[]>) => baca.catch(() => [] as T[]);
-  const [barisInap, barisAngkut, kereta, ambil] = await Promise.all([
+  const [barisInap, barisAngkut, kereta, ambil, trips] = await Promise.all([
     aman(bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", ids).order("participant_id").order("id").range(dari, dari + 999))),
-    aman(bacaSemua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).in("participant_id", ids).order("participant_id").order("vehicle_id").range(dari, dari + 999))),
+    aman(bacaSemua<BarisAngkut>((dari) => db.from("transport_assignments").select("trip_id,participant_id,vehicle_id").eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
     aman(bacaSemua<TiketKereta>((dari) => db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
     aman(bacaSemua<BarisAmbil>((dari) => db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
+    aman(bacaSemua<TripKendaraan>((dari) => db.from("transport_trips").select(KOLOM_TRIP).eq("event_id", eventId).order("id").range(dari, dari + 999))),
   ]);
-  const hasil = await susunLogistik(eventId, barisInap, barisAngkut, false);
+  const hasil = await susunLogistik(eventId, barisInap, barisAngkut, trips, false);
   tambahKeretaKit(hasil, kereta, ambil);
   return hasil;
 }
@@ -201,11 +206,12 @@ export async function logistikPeserta(eventId: string, ids: string[]): Promise<M
  */
 export async function logistikAcara(eventId: string): Promise<Map<string, LogistikRingkas>> {
   const db = klien();
-  const [barisInap, barisAngkut] = await Promise.all([
+  const [barisInap, barisAngkut, trips] = await Promise.all([
     bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("participant_id").order("id").range(dari, dari + 999)),
-    bacaSemua<{ participant_id: string; vehicle_id: number | null }>((dari) => db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", eventId).is("trip_id", null).order("participant_id").order("vehicle_id").range(dari, dari + 999)),
+    bacaSemua<BarisAngkut>((dari) => db.from("transport_assignments").select("trip_id,participant_id,vehicle_id").eq("event_id", eventId).order("id").range(dari, dari + 999)),
+    bacaSemua<TripKendaraan>((dari) => db.from("transport_trips").select(KOLOM_TRIP).eq("event_id", eventId).order("id").range(dari, dari + 999)),
   ]);
-  return susunLogistik(eventId, barisInap, barisAngkut, true);
+  return susunLogistik(eventId, barisInap, barisAngkut, trips, true);
 }
 
 /**
@@ -304,7 +310,8 @@ async function bacaMenurutId<T>(ids: number[], baca: (potong: number[]) => Promi
 async function susunLogistik(
   eventId: string,
   barisInap: BarisInap[],
-  barisAngkut: Array<{ participant_id: string; vehicle_id: number | null }>,
+  barisAngkut: BarisAngkut[],
+  trips: TripKendaraan[],
   ketat: boolean,
 ): Promise<Map<string, LogistikRingkas>> {
   const hasil = new Map<string, LogistikRingkas>();
@@ -334,9 +341,13 @@ async function susunLogistik(
     });
     hasil.set(pid, { kamar: labelStay(stays), bus: null, stays });
   }
-  for (const b of barisAngkut) {
-    const lama = hasil.get(b.participant_id) ?? kosong();
-    hasil.set(b.participant_id, { ...lama, bus: b.vehicle_id !== null ? kodeBus.get(b.vehicle_id) ?? null : null });
+  // Kendaraan per Trip bila acara punya Trip ("BUS 5", atau "Ke venue: BUS 5 ·
+  // Jeep Merapi: BUS 7"); tanpa Trip, kendaraan utama saja. Lihat `kendaraan-trip.ts`.
+  const baca = petaKendaraan(barisAngkut, trips);
+  const adaKendaraan = new Set(barisAngkut.map((b) => b.participant_id));
+  for (const pid of adaKendaraan) {
+    const lama = hasil.get(pid) ?? kosong();
+    hasil.set(pid, { ...lama, bus: teksKendaraan(baca(pid), (id) => kodeBus.get(id) ?? "Vehicle") });
   }
   return hasil;
 }

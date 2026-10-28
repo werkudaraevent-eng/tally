@@ -10,6 +10,7 @@ import {
 import { hrefBarisAgenda, jamPendek, keteranganTrip, namaMirip, petunjukBerangkat, selisihMenit, tanggalGanda, teksBaris } from "@/lib/logistik/trip-agenda";
 import type { Agenda, Bus, LogistikPeserta } from "@/lib/logistik/types";
 import { cx } from "@/lib/m3/cx";
+import { kurangKendaraan, petaKendaraan } from "@/lib/logistik/kendaraan-trip";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
@@ -79,6 +80,12 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
     return peta;
   }, [bawaan, orangById]);
   const tanpaBus = data.participants.length - bawaan.size;
+  const adaTrip = data.trips.length > 0;
+  const kurangDiTrip = useMemo(() => {
+    if (!adaTrip) return 0;
+    const baca = petaKendaraan(data.transport, data.trips);
+    return data.participants.filter((orang) => kurangKendaraan(baca(orang.id))).length;
+  }, [adaTrip, data.transport, data.trips, data.participants]);
 
   const lebihDi = (bus: Bus) => data.overview.filter((baris) => baris.vehicle_id === bus.id && baris.over_capacity).length;
 
@@ -103,10 +110,16 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           />
         ) : (
           <>
-            <KepalaKolom kolom={[["Vehicle", "min-w-0 flex-1"], ["Plate", "w-28 max-sm:hidden"], ["Default passengers", "w-36 text-right"]]} />
+            <KepalaKolom kolom={[["Vehicle", "min-w-0 flex-1"], ["Plate", "w-28 max-sm:hidden"], [adaTrip ? "Passengers" : "Default passengers", "w-36 text-right"]]} />
             {data.vehicles.map((bus) => {
               const isi = penumpang.get(bus.id)?.length ?? 0;
               const lebih = (bus.capacity !== null && isi > bus.capacity) || lebihDi(bus) > 0;
+              // Dengan Trip: isi tersedikit sampai terbanyak di antara semua trip
+              // (`transport_overview`), karena kendaraan bisa diisi per trip saja.
+              const perTrip = data.trips.map((agenda) => data.overview.find((o) => o.trip_id === agenda.id && o.vehicle_id === bus.id)?.load ?? 0);
+              const teksIsi = !adaTrip ? isiTeks(isi, bus.capacity)
+                : Math.min(...perTrip) === Math.max(...perTrip) ? isiTeks(perTrip[0], bus.capacity)
+                  : `${Math.min(...perTrip)}–${isiTeks(Math.max(...perTrip), bus.capacity)}`;
               return (
                 <button
                   key={bus.id}
@@ -121,7 +134,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
                     {lebih ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
                   </span>
                   <span className="w-28 shrink-0 truncate text-on-surface-variant max-sm:hidden">{bus.plate_number ?? EMPTY_VALUE}</span>
-                  <span className={cx("w-36 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>{isiTeks(isi, bus.capacity)}</span>
+                  <span className={cx("w-36 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>{teksIsi}</span>
                 </button>
               );
             })}
@@ -129,7 +142,9 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         )}
       </PaneBody>
       {data.vehicles.length > 0 ? (
-        <PaneFooter note={tanpaBus === 0 ? "Every participant has a default vehicle." : `${tanpaBus.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} have no default vehicle.`} />
+        <PaneFooter note={adaTrip
+          ? (kurangDiTrip === 0 ? "Every participant has a vehicle on every trip." : `${kurangDiTrip.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} are missing a vehicle on a trip.`)
+          : tanpaBus === 0 ? "Every participant has a default vehicle." : `${tanpaBus.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} have no default vehicle.`} />
       ) : null}
     </Pane>
   );
