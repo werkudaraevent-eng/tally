@@ -20,7 +20,7 @@ export function PilihHariHorizon({ label, children, aria }: { label: { pendek: s
               role="tab"
               aria-selected={aktif}
               onClick={() => setPilih(index)}
-              className={`flex min-h-14 shrink-0 flex-col items-center justify-center rounded-[12px] border px-4 text-center ${
+              className={`flex min-h-14 w-[76px] shrink-0 flex-col items-center justify-center rounded-[12px] border text-center ${
                 aktif ? "border-transparent bg-[var(--hz-emas)] text-[var(--hz-on-emas)]" : "border-white/20 text-white"
               }`}
             >

@@ -323,18 +323,15 @@ export function CeritaHorizon({
   );
 }
 
-/** Label chip tanggal: "Kam" di atas, "5 Nov" di bawah; tanggal kembar diberi keterangan dari judul bagian ("6 Nov · Batch 2"). */
-function chipHari(bagian: AgendaPreview, semua: AgendaPreview[], lang: LandingLang): { atas: string; pendek: string } {
+/** Label chip tanggal: "Kam" di atas, "5 Nov" di bawah. */
+function chipHari(bagian: AgendaPreview, lang: LandingLang): { atas: string; pendek: string } {
   const locale = lang === "en" ? "en-GB" : "id-ID";
   if (!bagian.tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(bagian.tanggal)) return { atas: "", pendek: bagian.sectionTitle?.trim() || "" };
   const d = new Date(`${bagian.tanggal}T00:00:00Z`);
-  const atas = d.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" });
-  let pendek = d.toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" });
-  if (semua.filter((b) => b.tanggal === bagian.tanggal).length > 1) {
-    const ket = bagian.sectionTitle?.match(/\(([^)]+)\)/)?.[1];
-    if (ket) pendek = `${pendek} · ${ket}`;
-  }
-  return { atas, pendek };
+  return {
+    atas: d.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" }),
+    pendek: d.toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" }),
+  };
 }
 
 /** "2026-11-06" menjadi "Jumat, 6 November" (Indonesia) atau "Friday 6 November" (English). */
@@ -375,6 +372,14 @@ export function PerjalananHorizon({
   const t = LANDING_UI[lang];
   // Chip tanggal urut kalender; nomor asli tetap dipakai untuk cerita per bagian.
   const urut = agenda.map((bagian, asli) => ({ bagian, asli })).sort((x, y) => (x.bagian.tanggal ?? "").localeCompare(y.bagian.tanggal ?? ""));
+  // Satu chip per tanggal; bagian bertanggal sama (Batch 1, Batch 2) tampil berurutan di bawah chip itu.
+  // Pemilih batch publik (#283) tetap yang menyaring bagian mana yang terlihat.
+  const grup: (typeof urut)[] = [];
+  for (const isi of urut) {
+    const akhir = grup[grup.length - 1];
+    if (akhir && isi.bagian.tanggal && akhir[0].bagian.tanggal === isi.bagian.tanggal) akhir.push(isi);
+    else grup.push([isi]);
+  }
   return (
     <section id="agenda" className={`scroll-mt-16 md:scroll-mt-[72px] bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
       <div className={`${BINGKAI} flex flex-col gap-7 py-10 md:gap-10 md:py-20`}>
@@ -389,8 +394,10 @@ export function PerjalananHorizon({
             </p>
           ) : null}
         </Muncul>
-        <PilihHariHorizon aria={judul} label={urut.map(({ bagian }) => chipHari(bagian, agenda, lang))}>
-          {urut.map(({ bagian, asli: index }) => {
+        <PilihHariHorizon aria={judul} label={grup.map((isi) => chipHari(isi[0].bagian, lang))}>
+          {grup.map((isi, gi) => (
+            <div key={gi} className="flex flex-col gap-10 md:gap-0 md:divide-y md:divide-[#405272]">
+          {isi.map(({ bagian, asli: index }) => {
             const judulHari = bagian.sectionTitle?.trim() || t.day(index + 1);
             // Tanggal ditulis sekali: dilewati bila judul bagian sudah menyebutnya.
             const tanggalHari = judulMemuatTanggal(judulHari, bagian.tanggal) ? null : labelHari(bagian.tanggal, lang);
@@ -415,6 +422,8 @@ export function PerjalananHorizon({
               </Muncul>
             );
           })}
+            </div>
+          ))}
         </PilihHariHorizon>
         {catatan ? (
           <p className="text-[11px] leading-[1.26] md:hidden" style={{ color: REDUP_NAVY }}>
