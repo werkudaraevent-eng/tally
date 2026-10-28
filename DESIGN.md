@@ -724,6 +724,34 @@ dari halaman yang sama.
 - Akun peserta terpisah dari akun panitia (`participant_accounts`,
   `participant_sessions`); tidak ada jalur dari sesi peserta ke layar admin.
 
+#### Portal dan halaman acara Horizon: tanpa bumbu template (28 Okt 2026)
+
+Diputuskan Mas setelah audit slop (portal dan halaman acara terasa "kurang
+menarik"). Aturan ini menang atas bab kartu di bawahnya bila bertentangan.
+
+- **Satu warna aksi dari tema.** Tautan di portal memakai `--hz-navy` dengan
+  garis bawah `--hz-emas` 2 px; tidak ada biru tetap (#274FC0). Merah hanya untuk
+  galat dan kartu Darurat.
+- **Kartu hanya untuk benda yang ditunjukkan ke petugas:** QR kehadiran dan
+  kartu perjalanan (`KARTU_BENDA`). Isi lain adalah bagian: garis atas tipis,
+  kepala tanpa garis bawah, 16 px di bawah garis, 24 px antar-bagian
+  (`KARTU_HZ`, `PAD_KARTU`). Fakta kunci (Kamar 1208) memakai garis emas 3 px di
+  kiri, bukan kotak abu di dalam kotak.
+- **Susunan acara portal adalah satu daftar** bergaris tipis, bukan gelembung
+  per kegiatan.
+- **Layar lebar (lg) Beranda:** kartu perjalanan dan QR di kolom kanan yang
+  menempel. Kartu perjalanan memakai container query, jadi bentuknya mengikuti
+  lebar kolom, bukan lebar layar.
+- **Tanpa nomor yang bukan urutan:** tidak ada "01 /" di hero, "HARI 01" di
+  agenda, atau "01 / 5 November" di daftar hari. Label di atas judul ditulis
+  huruf biasa, bukan kapital berspasi lebar.
+- **Agenda publik: chip tanggal**, satu per tanggal, lebar sama (76 px), urut
+  kalender, satu tanggal tampil sekaligus. Bagian bertanggal sama (Batch 1 dan 2)
+  tampil berurutan di bawah chip itu; pemilih batch (#283) tetap yang menyaring.
+- **Yang sengaja dipertahankan:** garis perjalanan emas yang terisi saat
+  halaman acara digulir. Satu ornamen yang hidup lebih baik daripada banyak
+  hiasan diam.
+
 #### Kartu di portal Horizon: skala dan irama
 
 Diputuskan Oktober 2026 dari halaman Perjalanan (pola Trip.com "All bookings"):
