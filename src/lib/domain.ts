@@ -1433,10 +1433,16 @@ export type LandingNavConfig = {
 export type LandingNavLogoTone = "white" | "original";
 
 export type LandingGatheringVariant = "horizon";
+export type LandingHorizonStyle = "trip";
 
 /** Gaya Gathering Horizon dipakai halaman ini: varian hanya berlaku di gaya gathering. */
 export function gatheringHorizon(config: EventLandingConfig | null | undefined): boolean {
   return config?.gathering === true && config.gathering_variant === "horizon";
+}
+
+/** Tema Gathering Trip: Gathering Horizon dengan portal bergaya aplikasi perjalanan. */
+export function gatheringTrip(config: EventLandingConfig | null | undefined): boolean {
+  return gatheringHorizon(config) && config?.horizon_style === "trip";
 }
 
 /**
@@ -1647,6 +1653,14 @@ export type EventLandingConfig = {
    * Hanya dibaca bila `gathering` menyala; dipilih lewat preset Gathering Horizon.
    */
   gathering_variant?: LandingGatheringVariant;
+  /**
+   * Gaya portal peserta Gathering Horizon. Kosong = Horizon klasik (tidak
+   * berubah). `trip`: tema "Gathering Trip" (keputusan Mas 28 Okt 2026), pola
+   * aplikasi perjalanan: e-tiket, kartu per pesanan, dua kolom di desktop.
+   * Data dan teksnya sama dengan Horizon, jadi pindah bolak-balik tidak
+   * menghapus apa pun. Hanya dibaca bila `gathering_variant` = "horizon".
+   */
+  horizon_style?: LandingHorizonStyle;
   /**
    * Kartu perjalanan Gathering Horizon: asal dan tujuan ("Gambir" dan
    * "Yogyakarta"). Kosong = tujuan dari nama tempat acara, tanpa asal.

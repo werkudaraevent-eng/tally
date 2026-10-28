@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { LANDING_BODY_FONTS, LANDING_HEADING_FONTS, susunanDenganPortal } from "./domain.ts";
 import type { EventLandingConfig } from "./domain.ts";
 import type { LandingTokens } from "./landing-tokens.ts";
-import { LANDING_THEME_PRESETS, gayaPreset, isiGathering, isiGatheringMengubah, presetCocok, presetDiubah, terapkanPreset } from "./landing-theme-presets.ts";
+import { LANDING_THEME_PRESETS, gayaPreset, isiGathering, isiGatheringMengubah, pindahDalamHorizon, presetCocok, presetDiubah, terapkanPreset } from "./landing-theme-presets.ts";
 
 const pick = (t: LandingTokens) => [t.heroAlign, t.heroPosition];
 
@@ -211,5 +211,28 @@ for (const key of LANDING_BODY_FONTS) {
   // Tempat pilihan admin dibiarkan.
   const pilihan = ids(isiGathering({ sections: [...tersimpan] }, bawaan).sections);
   assert.ok(pilihan.startsWith("about,portal"), pilihan);
+}
+// Gathering Trip (keputusan Mas 28 Okt): pindah dari dan ke Gathering Horizon
+// hanya mengganti horizon_style. Warna, bilah, dan isi panitia tetap.
+{
+  const horizon = LANDING_THEME_PRESETS.find((p) => p.key === "gathering-horizon")!;
+  const trip = LANDING_THEME_PRESETS.find((p) => p.key === "gathering-trip")!;
+  const conference = LANDING_THEME_PRESETS.find((p) => p.key === "modern")!;
+  const kso: EventLandingConfig = { ...terapkanPreset(horizon, {}), accent: "#D4AF37", nav: { color: "#0B1730", opacity: 100, height: 72, logo_url: "https://x.test/l.png" }, sections: [{ id: "venue", enabled: true }] };
+  assert.equal(presetCocok(horizon, kso) && !presetCocok(trip, kso), true);
+  assert.equal(pindahDalamHorizon(trip, kso), true);
+  const keTrip = terapkanPreset(trip, kso);
+  assert.deepEqual(keTrip, { ...kso, horizon_style: "trip" });
+  assert.equal(presetCocok(trip, keTrip) && !presetCocok(horizon, keTrip), true);
+  const balik = terapkanPreset(horizon, keTrip);
+  assert.deepEqual({ ...balik, horizon_style: undefined }, { ...kso, horizon_style: undefined });
+  assert.equal(balik.horizon_style, undefined);
+  // Dari tema lain ke Trip: preset penuh (Horizon + gaya trip).
+  const dariConference = terapkanPreset(trip, terapkanPreset(conference, {}));
+  assert.equal(dariConference.gathering_variant, "horizon");
+  assert.equal(dariConference.horizon_style, "trip");
+  // Trip ke tema lain melepas gayanya.
+  assert.equal(terapkanPreset(conference, keTrip).horizon_style, undefined);
+  assert.equal(pindahDalamHorizon(conference, keTrip), false);
 }
 console.log("landing-tokens.check.ts OK");

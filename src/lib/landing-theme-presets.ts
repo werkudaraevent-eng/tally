@@ -50,6 +50,8 @@ export type LandingThemePreset = {
     gathering?: boolean;
     /** Varian Gathering Horizon (EventLandingConfig.gathering_variant). */
     horizon?: boolean;
+    /** Gaya portal Gathering Trip di atas Horizon (EventLandingConfig.horizon_style). */
+    trip?: boolean;
   };
 };
 
@@ -104,6 +106,18 @@ export const LANDING_THEME_PRESETS: LandingThemePreset[] = [
     tokens: { brand: HORIZON_BRAND_DEFAULT, accent: HORIZON_GOLD_DEFAULT, button: HORIZON_GOLD_DEFAULT, nav: HORIZON_NAV_DEFAULT, heading_font: "jakarta", body_font: "jakarta", corners: "soft" },
     features: { invite_only: true, gathering: true, horizon: true },
   },
+  {
+    // Keputusan Mas 28 Okt 2026: portal peserta bergaya aplikasi perjalanan
+    // (Traveloka, tiket.com, Trip.com, Airbnb) sebagai tema sendiri, supaya
+    // Gathering Horizon tetap bisa dipilih kembali. Isi dan token sama.
+    key: "gathering-trip",
+    label: "Gathering Trip",
+    note: "Gathering Horizon with travel-app participant pages",
+    thumb: "/preset-tema/gathering-horizon.png",
+    layout: "modern",
+    tokens: { brand: HORIZON_BRAND_DEFAULT, accent: HORIZON_GOLD_DEFAULT, button: HORIZON_GOLD_DEFAULT, nav: HORIZON_NAV_DEFAULT, heading_font: "jakarta", body_font: "jakarta", corners: "soft" },
+    features: { invite_only: true, gathering: true, horizon: true, trip: true },
+  },
 ];
 
 const sama = (a: string | null | undefined, b: string | null | undefined) => (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
@@ -118,7 +132,8 @@ export function presetCocok(preset: LandingThemePreset, landing: EventLandingCon
   return (
     landingLayout(landing) === preset.layout &&
     gathering === Boolean(preset.features.gathering) &&
-    (gathering && landing.gathering_variant === "horizon") === Boolean(preset.features.horizon)
+    (gathering && landing.gathering_variant === "horizon") === Boolean(preset.features.horizon) &&
+    (gathering && landing.gathering_variant === "horizon" && landing.horizon_style === "trip") === Boolean(preset.features.trip)
   );
 }
 
@@ -186,6 +201,9 @@ function lepasBilahGathering(nav: EventLandingConfig["nav"]): EventLandingConfig
 
 /** Terapkan preset (tata letak, fitur, dan semua token gaya) tanpa menyentuh isi: teks, gambar, bagian, perataan hero. */
 export function terapkanPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+  // Gathering Horizon <-> Gathering Trip: hanya gaya portal yang berganti.
+  // Warna, huruf, bilah atas, dan isi yang sudah disetel panitia tetap.
+  if (pindahDalamHorizon(preset, landing)) return { ...landing, horizon_style: preset.features.trip ? "trip" : undefined };
   const dariGathering = landing.gathering === true && !preset.features.gathering;
   return gayaPreset(preset, {
     ...landing,
@@ -197,8 +215,18 @@ export function terapkanPreset(preset: LandingThemePreset, landing: EventLanding
     gathering: Boolean(preset.features.gathering),
     // Varian ikut preset: Gathering biasa melepasnya, Horizon menyalakannya.
     gathering_variant: preset.features.horizon ? "horizon" : undefined,
+    horizon_style: preset.features.trip ? "trip" : undefined,
     ...(dariGathering ? { nav: lepasBilahGathering(landing.nav) } : {}),
   });
+}
+
+/**
+ * Acara sudah memakai Gathering Horizon atau Gathering Trip, dan preset yang
+ * dipilih juga salah satunya: berpindah tema tidak menyentuh apa pun selain
+ * `horizon_style` (keputusan Mas 28 Okt: bisa kembali ke tema lama).
+ */
+export function pindahDalamHorizon(preset: LandingThemePreset, landing: EventLandingConfig): boolean {
+  return Boolean(preset.features.horizon) && landingLayout(landing) === "modern" && landing.gathering === true && landing.gathering_variant === "horizon";
 }
 
 /** Teks bawaan Tentang acara per bahasa (LANDING_UI), diberikan pemanggil. */

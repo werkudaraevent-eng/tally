@@ -173,6 +173,25 @@ export type PortalUiText = {
     /** Kartu tiket kereta (tabel train_tickets). */
     /** count dan done: di kanan kepala kartu Tiket kereta. */
     train: { title: string; outbound: string; return: string; carriage: string; seat: string; booking: string; count: (jumlah: number) => string; done: string; to: string };
+    /** Tema Gathering Trip (keputusan Mas 28 Okt 2026): teks yang hanya dipakai tema itu. */
+    trip: {
+      plan: string;
+      /** Lama perjalanan kereta dari jam berangkat dan tiba, mis. "5j 40m". */
+      duration: (menit: number) => string;
+      hotelN: (urut: number) => string;
+      hotels: (jumlah: number) => string;
+      trainLeg: (dari: string, ke: string) => string;
+      checkInAt: (hotel: string) => string;
+      moveTo: (hotel: string) => string;
+      checkOutAt: (hotel: string) => string;
+      copy: string;
+      copied: string;
+      next: string;
+      /** Kartu peserta di Beranda dengan sobekan QR. */
+      pass: string;
+      show: string;
+      seeAll: string;
+    };
     bus: string;
     room: string;
     roommate: (jumlah: number) => string;
@@ -434,6 +453,22 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       participant: "Peserta",
       hotel: "Hotel",
       train: { title: "Tiket kereta", outbound: "Berangkat", return: "Pulang", carriage: "Gerbong", seat: "Kursi", booking: "Kode booking", count: (jumlah) => `${jumlah} tiket`, done: "Selesai", to: "ke" },
+      trip: {
+        plan: "Rencana perjalananmu",
+        duration: (menit) => (menit % 60 ? `${Math.floor(menit / 60)}j ${menit % 60}m` : `${menit / 60}j`),
+        hotelN: (urut) => `Hotel ${urut}`,
+        hotels: (jumlah) => `${jumlah} hotel`,
+        trainLeg: (dari, ke) => `Kereta ${dari} → ${ke}`,
+        checkInAt: (hotel) => `Check-in ${hotel}`,
+        moveTo: (hotel) => `Pindah ke ${hotel}`,
+        checkOutAt: (hotel) => `Check-out ${hotel}`,
+        copy: "Salin kode booking",
+        copied: "Kode booking disalin",
+        next: "Berikutnya",
+        pass: "Kartu peserta",
+        show: "Tampilkan",
+        seeAll: "Lihat semua",
+      },
       bus: "Kendaraan",
       room: "Kamar",
       roommate: (jumlah) => (jumlah > 1 ? "Teman-teman sekamar" : "Teman sekamar"),
@@ -675,6 +710,22 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       participant: "Participant",
       hotel: "Hotel",
       train: { title: "Train tickets", outbound: "Outbound", return: "Return", carriage: "Carriage", seat: "Seat", booking: "Booking code", count: (jumlah) => `${jumlah} ${jumlah === 1 ? "ticket" : "tickets"}`, done: "Done", to: "to" },
+      trip: {
+        plan: "Your trip plan",
+        duration: (menit) => (menit % 60 ? `${Math.floor(menit / 60)}h ${menit % 60}m` : `${menit / 60}h`),
+        hotelN: (urut) => `Hotel ${urut}`,
+        hotels: (jumlah) => `${jumlah} ${jumlah === 1 ? "hotel" : "hotels"}`,
+        trainLeg: (dari, ke) => `Train ${dari} → ${ke}`,
+        checkInAt: (hotel) => `Check in at ${hotel}`,
+        moveTo: (hotel) => `Move to ${hotel}`,
+        checkOutAt: (hotel) => `Check out of ${hotel}`,
+        copy: "Copy booking code",
+        copied: "Booking code copied",
+        next: "Next",
+        pass: "Participant pass",
+        show: "Show",
+        seeAll: "See all",
+      },
       bus: "Vehicle",
       room: "Room",
       roommate: (jumlah) => (jumlah > 1 ? "Roommates" : "Roommate"),
