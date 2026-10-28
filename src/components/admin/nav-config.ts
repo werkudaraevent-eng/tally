@@ -190,7 +190,7 @@ export const navigation: NavGroup[] = [
  * acara, kepala halaman Events, dan tautan di Event settings.
  */
 export const halamanSistem: NavItem[] = [
-  { href: "/admin/settings", label: "Event settings", icon: GearSix, description: "Time zone, order flow, payment methods, integrations, and the audit trail.", alias: ["pengaturan", "setelan"] },
+  { href: "/admin/settings", label: "Event settings", icon: GearSix, description: "Time zone, organiser contacts, order flow, payment methods, integrations, and the audit trail.", alias: ["pengaturan", "setelan", "kontak panitia"] },
   { href: "/users", global: true, label: "Users & roles", icon: ShieldCheck, description: "Staff accounts, their roles, and PIN resets.", alias: ["user & role", "pengguna", "panitia"] },
 ];
 

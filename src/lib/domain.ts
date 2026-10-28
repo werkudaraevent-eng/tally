@@ -1612,7 +1612,9 @@ export type EventLandingConfig = {
    * Kontak panitia kedua dan ketiga (Event settings > Kontak panitia). Yang
    * pertama tetap `contact_*`, dipakai halaman yang hanya butuh satu kontak.
    */
-  contact_more?: { name?: string; phone?: string; email?: string }[];
+  contact_more?: { name?: string; role?: string; phone?: string; email?: string }[];
+  /** Peran atau jabatan kontak utama, mis. "Ketua Panitia" (Event settings). */
+  contact_role?: string;
   /**
    * Warna merek halaman. Bentuknya sama dengan tema form pendaftaran, dan
    * memang disengaja: satu acara punya satu warna, dua permukaan.

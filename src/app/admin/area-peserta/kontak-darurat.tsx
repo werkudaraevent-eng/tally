@@ -109,7 +109,7 @@ export function KontakDaruratForm({
         rows={2}
         maxLength={KONTAK_DARURAT_BATAS.catatan}
         counter
-        placeholder="If you are left behind, stay where you are and call the event coordinator."
+        placeholder="In an emergency, call the numbers below. For questions about the event, contact the organisers."
         value={help?.note ?? ""}
         onChange={(event) => onChange({ ...help, contacts: kontak, note: event.target.value })}
       />
@@ -151,7 +151,7 @@ export function KontakDaruratForm({
                       label="Name or role"
                       data-kontak={index}
                       maxLength={KONTAK_DARURAT_BATAS.name}
-                      placeholder="Event coordinator"
+                      placeholder="Nearest hospital"
                       value={item.name ?? ""}
                       error={tanpaNama === index && !item.name?.trim() ? "Add a name or role, or remove this contact." : undefined}
                       onChange={(event) => ubahSatu(index, { name: event.target.value })}
@@ -173,7 +173,7 @@ export function KontakDaruratForm({
                       rows={2}
                       maxLength={KONTAK_DARURAT_BATAS.note}
                       counter
-                      placeholder="Available 24 hours"
+                      placeholder="24-hour emergency room"
                       value={item.note ?? ""}
                       onChange={(event) => ubahSatu(index, { note: event.target.value })}
                     />
