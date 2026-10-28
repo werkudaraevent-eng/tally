@@ -514,7 +514,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       helpCard: {
         eyebrow: "Butuh bantuan?",
         title: "Hubungi panitia",
-        emergencyRow: "Rumah sakit, polisi, dan nomor penting lain",
+        emergencyRow: "Rumah sakit, polisi, hotel",
         note: "Langsung ke panitia lewat telepon atau WhatsApp.",
         noteEmail: "Kirim email ke panitia.",
         noteTravel: "Tertinggal rombongan atau ada kendala di perjalanan.",
@@ -777,7 +777,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       helpCard: {
         eyebrow: "Need help?",
         title: "Contact the organisers",
-        emergencyRow: "Hospital, police and other key numbers",
+        emergencyRow: "Hospital, police, hotel",
         note: "Reach the organisers by phone or WhatsApp.",
         noteEmail: "Email the organisers.",
         noteTravel: "Left behind or having trouble on the way?",

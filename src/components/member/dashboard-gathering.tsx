@@ -112,6 +112,7 @@ import {
   type TabHorizon,
 } from "@/components/member/portal-horizon";
 import { LompatPerjalanan } from "@/components/member/lompat-perjalanan";
+import { GulirKeHash } from "@/components/member/gulir-ke-hash";
 import { jamLeg, jamTiket, legSelesai, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
@@ -1789,6 +1790,7 @@ export async function DashboardGathering({
           darurat={
             kartuPanitia || kartuDarurat ? (
               <div className="flex flex-col gap-4">
+                <GulirKeHash ids={["panitia", "darurat"]} />
                 {kartuPanitia}
                 {kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
               </div>

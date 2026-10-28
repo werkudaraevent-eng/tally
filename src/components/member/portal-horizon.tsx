@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Ambulance, ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, FireTruck, Hospital, Bed, PoliceCar, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { Ambulance, ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, FireTruck, Hospital, Bed, PoliceCar, Question, Siren, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
@@ -758,7 +758,7 @@ export function KartuBantuanHorizon({
 export function KartuBantuanBeranda({ judul, baris }: { judul: string; baris: BarisProfil[] }) {
   return (
     <section aria-label={judul} className={`${KARTU_HZ} flex flex-col gap-2 ${PAD_KARTU}`} style={{ color: TINTA }}>
-      <KepalaKartuHorizon Ikon={Lifebuoy} judul={judul} />
+      <KepalaKartuHorizon Ikon={Question} judul={judul} />
       <DaftarProfil baris={baris} />
     </section>
   );
@@ -832,7 +832,7 @@ export type BarisDaruratHorizon = {
 
 /** Ikon tiap jenis kontak darurat. Satu kontak berjenis = semua baris kartu berikon (tanpa jenis = Telepon), agar nama sejajar. */
 export function ikonJenisDarurat(jenis: string | null): typeof Train {
-  return jenis === "hospital" ? Hospital : jenis === "police" ? PoliceCar : jenis === "fire" ? FireTruck : jenis === "ambulance" ? Ambulance : jenis === "hotel" ? Bed : Phone;
+  return jenis === "hospital" ? Hospital : jenis === "police" ? PoliceCar : jenis === "fire" ? FireTruck : jenis === "ambulance" ? Ambulance : jenis === "hotel" ? Bed : jenis === "other" ? Siren : Phone;
 }
 
 /**
