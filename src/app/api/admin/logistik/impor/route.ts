@@ -1,8 +1,9 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { barisStaySekarang, LABEL_ARAH, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type JenisImpor, type KeadaanAcara, type Rencana } from "@/lib/logistik/impor";
+import { barisPesertaBus, barisPesertaKereta, barisStaySekarang, LABEL_ARAH, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type JenisImpor, type KeadaanAcara, type Rencana } from "@/lib/logistik/impor";
 import { bacaTiketKereta, klien, pesanRpc, semuaBaris } from "@/lib/logistik/server";
 import { plural } from "@/lib/plural";
+import { kolomSasaran } from "@/lib/sasaran-bagian";
 import { malamIso } from "@/lib/logistik/stay";
 import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
 import { textToCells, xlsxToCells } from "@/lib/undian-import";
@@ -22,7 +23,11 @@ import { textToCells, xlsxToCells } from "@/lib/undian-import";
  *
  * GET `?jenis=kamar|bus|kereta` mengunduh templatnya. `?jenis=kamar&isi=sekarang`
  * mengunduh stay yang sekarang tersimpan dalam bentuk templat yang sama, untuk
- * diubah di Excel lalu diimpor kembali.
+ * diubah di Excel lalu diimpor kembali. `?jenis=bus|kereta&isi=peserta`
+ * mengunduh semua peserta aktif dalam bentuk templatnya (kereta dua baris per
+ * orang), kendaraan atau tiket yang tersimpan sudah terisi, ditambah kolom
+ * pilihan peserta sebagai "(info)" untuk filter di Excel. Berisi QR code:
+ * admin saja, seperti route ini seluruhnya.
  */
 
 const BATAS_BERKAS = 10 * 1024 * 1024;
@@ -44,15 +49,21 @@ export async function GET(request: Request) {
   const jenis = jenisDari(new URL(request.url).searchParams.get("jenis"));
   if (!jenis) return apiError("VALIDATION_ERROR", 422);
 
-  const sekarang = jenis === "kamar" && new URL(request.url).searchParams.get("isi") === "sekarang";
-  const isi = sekarang ? await muatStaySekarang(auth.scope.event.id, timeZoneOffset(normalizeTimeZone(auth.scope.event.time_zone))) : TEMPLAT[jenis].contoh;
+  const minta = new URL(request.url).searchParams.get("isi");
+  const sekarang = jenis === "kamar" && minta === "sekarang";
+  const denganPeserta = jenis !== "kamar" && minta === "peserta";
+  const isi = sekarang
+    ? await muatStaySekarang(auth.scope.event.id, timeZoneOffset(normalizeTimeZone(auth.scope.event.time_zone)))
+    : denganPeserta ? await muatPesertaUnduh(auth.scope.event, jenis) : TEMPLAT[jenis].contoh;
+  if (isi === "belum") return apiError("VALIDATION_ERROR", 422, { message: "Train tickets need a database update first. Ask your Tally administrator to run the train tickets migration." });
   if (!isi) return apiError("INTERNAL_ERROR", 500);
 
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(NAMA_TEMPLAT[jenis].sheet);
-  // Stay sekarang membawa judulnya sendiri: jumlah kolom Hotel N mengikuti orang dengan stay terbanyak.
-  const [judul, ...badan] = sekarang ? isi : [TEMPLAT[jenis].judul, ...isi];
+  // Stay sekarang membawa judulnya sendiri: jumlah kolom Hotel N mengikuti orang
+  // dengan stay terbanyak. Daftar peserta juga: kolom (info) mengikuti acara.
+  const [judul, ...badan] = sekarang || denganPeserta ? isi : [TEMPLAT[jenis].judul, ...isi];
   sheet.addRow(judul);
   sheet.getRow(1).font = { bold: true };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
@@ -64,7 +75,7 @@ export async function GET(request: Request) {
   return new Response(buffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${sekarang ? "current-stays" : `${NAMA_TEMPLAT[jenis].berkas}-template`}.xlsx"`,
+      "Content-Disposition": `attachment; filename="${sekarang ? "current-stays" : `${NAMA_TEMPLAT[jenis].berkas}-${denganPeserta ? "participants" : "template"}`}.xlsx"`,
     },
   });
 }
@@ -155,6 +166,40 @@ async function muatStaySekarang(eventId: string, offset: string): Promise<string
   ]);
   if (!peserta || !hotels || !rooms || !lodging) return null;
   return barisStaySekarang({ peserta, hotels, rooms, lodging, offset });
+}
+
+/**
+ * Peserta aktif untuk Download participant list. Dibaca per 1000 dengan
+ * keyset (id > id terakhir), bukan offset: daftar ini dipakai untuk mengisi
+ * tiket semua orang, jadi tidak boleh ada yang terlewat atau terulang.
+ */
+async function muatPesertaUnduh(event: { id: string; registration_form_config: unknown }, jenis: "bus" | "kereta"): Promise<string[][] | null | "belum"> {
+  const db = klien();
+  const peserta: Array<{ id: string; name: string; qr_code: string; extra: Record<string, unknown> | null }> = [];
+  for (let terakhir: string | null = null; ;) {
+    let kueri = db.from("participants").select("id,name,qr_code,extra").eq("event_id", event.id).is("source_removed_at", null).order("id").limit(1000);
+    if (terakhir) kueri = kueri.gt("id", terakhir);
+    const { data, error } = await kueri;
+    if (error || !Array.isArray(data)) return null;
+    peserta.push(...(data as typeof peserta));
+    if (data.length < 1000) break;
+    terakhir = (data[data.length - 1] as { id: string }).id;
+  }
+  const info = kolomSasaran(event.registration_form_config).map(({ key, label }) => ({ key, label }));
+  if (jenis === "kereta") {
+    const kereta = await bacaTiketKereta(event.id);
+    if (kereta === null) return "belum";
+    if (kereta === "galat") return null;
+    return barisPesertaKereta({ peserta, info, vehicles: [], busBawaan: [], kereta });
+  }
+  const [vehicles, transport] = await Promise.all([
+    semuaBaris<{ id: number; code: string }>(() => db.from("transport_vehicles").select("id,code").eq("event_id", event.id).order("id")),
+    semuaBaris<{ participant_id: string; vehicle_id: number | null }>(() =>
+      db.from("transport_assignments").select("participant_id,vehicle_id").eq("event_id", event.id).is("trip_id", null).order("id")),
+  ]);
+  if (!vehicles || !transport) return null;
+  const busBawaan = transport.filter((b): b is { participant_id: string; vehicle_id: number } => b.vehicle_id !== null);
+  return barisPesertaBus({ peserta, info, vehicles, busBawaan, kereta: [] });
 }
 
 type Hasil = { masuk: number; gagal: Array<{ nama: string; alasan: string }>; dibuat: string[] } | { galat: string };
