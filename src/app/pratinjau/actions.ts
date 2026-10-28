@@ -81,9 +81,20 @@ export async function renderPratinjau(
   const draft: EventRow = {
     ...event,
     ...facts,
-    // Pembicara selalu dari salinan tersimpan: disunting dan disimpan di
-    // halaman Speakers, bukan di draf editor ini.
-    landing_config: { ...landing, speakers: event.landing_config?.speakers, theme: landing.theme ? withDerivedRoles(landing.theme) : undefined },
+    // Pembicara dan kontak panitia selalu dari salinan tersimpan: disunting
+    // dan disimpan di halaman Speakers dan Event settings, bukan di draf editor
+    // ini (skema draf membuang `contact_more`, jadi pratinjau dulu hanya
+    // menampilkan kontak pertama).
+    landing_config: {
+      ...landing,
+      speakers: event.landing_config?.speakers,
+      contact_name: event.landing_config?.contact_name,
+      contact_phone: event.landing_config?.contact_phone,
+      contact_email: event.landing_config?.contact_email,
+      contact_more: event.landing_config?.contact_more,
+      contact_role: event.landing_config?.contact_role,
+      theme: landing.theme ? withDerivedRoles(landing.theme) : undefined,
+    },
   } as EventRow;
   // Bahasa mengikuti mode editor, bukan bahasa utama: mode ID menyunting teks
   // Indonesia, mode EN teks English. Draf yang baru berganti dari Forum ke tata

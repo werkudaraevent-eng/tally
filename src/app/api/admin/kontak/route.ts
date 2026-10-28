@@ -29,7 +29,7 @@ type Tambahan = NonNullable<KontakPanitia["contact_more"]>;
 /** Kontak kedua dan ketiga yang terisi, dirapikan. Baris kosong dibuang. */
 function rapikanTambahan(daftar: EventLandingConfig["contact_more"]): Tambahan {
   return (daftar ?? [])
-    .map((item) => ({ name: item?.name?.trim() ?? "", email: item?.email?.trim() ?? "", phone: item?.phone?.trim() ?? "" }))
+    .map((item) => ({ name: item?.name?.trim() ?? "", role: item?.role?.trim() ?? "", email: item?.email?.trim() ?? "", phone: item?.phone?.trim() ?? "" }))
     .filter((item) => item.name || item.email || item.phone)
     .slice(0, KONTAK_PANITIA_MAX - 1);
 }
@@ -39,6 +39,7 @@ function kontakDari(landing: EventLandingConfig): Required<KontakPanitia> {
     contact_name: landing.contact_name?.trim() ?? "",
     contact_email: landing.contact_email?.trim() ?? "",
     contact_phone: landing.contact_phone?.trim() ?? "",
+    contact_role: landing.contact_role?.trim() ?? "",
     contact_more: rapikanTambahan(landing.contact_more),
   };
 }
@@ -70,8 +71,9 @@ export async function PATCH(request: Request) {
     const landing = (baris.landing_config ?? {}) as EventLandingConfig;
     lama = kontakDari(landing);
     const terbaca = lama;
+    const peranBeda = parsed.data.base.contact_role !== undefined && parsed.data.base.contact_role.trim() !== terbaca.contact_role;
     const tambahanBeda = parsed.data.base.contact_more !== undefined && JSON.stringify(rapikanTambahan(parsed.data.base.contact_more)) !== JSON.stringify(terbaca.contact_more);
-    if (tambahanBeda || KUNCI.some((kunci) => (parsed.data.base[kunci] ?? "").trim() !== terbaca[kunci])) {
+    if (peranBeda || tambahanBeda || KUNCI.some((kunci) => (parsed.data.base[kunci] ?? "").trim() !== terbaca[kunci])) {
       return apiError("CONTACT_CHANGED", 409, lama);
     }
     // Kosong disimpan sebagai tidak ada, seperti editor halaman acara dulu.
@@ -79,6 +81,8 @@ export async function PATCH(request: Request) {
     const tambahan = baru.contact_more === undefined ? (terbaca.contact_more ?? []) : rapikanTambahan(baru.contact_more);
     const isi = {
       ...Object.fromEntries(KUNCI.map((kunci) => [kunci, baru[kunci] || undefined])),
+      // Tanpa `contact_role` (tab lama): peran yang tersimpan tetap.
+      contact_role: (baru.contact_role === undefined ? terbaca.contact_role : baru.contact_role) || undefined,
       contact_more: tambahan.length > 0 ? tambahan.map((item) => Object.fromEntries(Object.entries(item).filter(([, nilai]) => nilai))) : undefined,
     };
     const hasil = await client

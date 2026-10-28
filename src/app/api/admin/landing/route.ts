@@ -76,6 +76,7 @@ export async function PATCH(request: Request) {
           contact_phone: tersimpan.landing_config?.contact_phone,
           contact_email: tersimpan.landing_config?.contact_email,
           contact_more: tersimpan.landing_config?.contact_more,
+          contact_role: tersimpan.landing_config?.contact_role,
           // Saklar blok khusus peserta milik Participant home: yang tersimpan dipakai.
           sections: sectionsDariEventPage(
             landing.sections as LandingSectionEntry[] | undefined,

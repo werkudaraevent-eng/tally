@@ -937,6 +937,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <li key={index} className="flex flex-col gap-4 rounded-md bg-[var(--reg-panel)] md:flex-row md:items-center md:justify-between md:gap-6 px-5 py-5 [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)] sm:px-7 sm:py-6">
                 <div className="flex min-w-0 flex-col gap-1">
                   {kontak.nama ? <p className={`${JUDUL_BUTIR} [overflow-wrap:anywhere]`}>{kontak.nama}</p> : null}
+                  {kontak.peran ? <p className={`text-isi ${MUTED} [overflow-wrap:anywhere]`}>{kontak.peran}</p> : null}
                   {kontak.nomor ? <p className={`text-isi ${MUTED}`}>{kontak.nomor}</p> : null}
                   {kontak.email ? <p className={`text-isi ${MUTED} [overflow-wrap:anywhere]`}>{kontak.email}</p> : null}
                 </div>

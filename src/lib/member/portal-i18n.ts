@@ -287,6 +287,8 @@ export type PortalUiText = {
       /** Ujung kanan kartu QR satu baris. */
       show: string;
       helpTitle: string;
+      /** Kartu kontak panitia (Event settings) di Bantuan profil. */
+      organisersTitle: string;
       checkpoints: string;
       room: (nomor: string) => string;
       whatsappRow: string;
@@ -462,7 +464,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         noteProfile: "Ada data yang salah atau butuh bantuan?",
         email: "Email",
       },
-      emergency: "Darurat dan bantuan",
+      emergency: "Kontak darurat",
       emergencyMap: "Peta",
       home: {
         heading: (nama) => `Halo, ${nama}`,
@@ -525,6 +527,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         back: "Profil",
         show: "Tampilkan",
         helpTitle: "Bantuan",
+        organisersTitle: "Kontak panitia",
         checkpoints: "Checkpoint selesai",
         room: (nomor) => `Kamar ${nomor}`,
         whatsappRow: "WhatsApp panitia",
@@ -698,7 +701,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         noteProfile: "Wrong details or need help?",
         email: "Email",
       },
-      emergency: "Emergency and help",
+      emergency: "Emergency contacts",
       emergencyMap: "Map",
       home: {
         heading: (nama) => `Hi, ${nama}`,
@@ -760,6 +763,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         back: "Profile",
         show: "Show",
         helpTitle: "Help",
+        organisersTitle: "Organiser contacts",
         checkpoints: "Checkpoints done",
         room: (nomor) => `Room ${nomor}`,
         whatsappRow: "WhatsApp the organisers",
