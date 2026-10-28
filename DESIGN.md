@@ -827,10 +827,16 @@ berubah (0 px), jadi semua aturan Trip hidup di `components/member/portal-trip.t
   berwarna latar halaman; kode booking tidak pernah dipotong (nowrap) dan punya tombol
   salin 48 px.
 - Hotel: kotak Check-in | Check-out dua kolom, strip kamar abu, inisial teman sekamar.
-- Halaman acara: blok CMS tetap seperti Horizon; yang ditambah hanya bilah Masuk putih
-  yang menempel di bawah layar setelah hero lewat (pola "Reserve" Airbnb): nama acara,
-  tanggal · kota, pil sisa hari, tombol emas 48 px. Di HP hanya pil dan tombol selebar
-  sisa ruang. Tidak muncul di pratinjau Theme atau bila tak ada tujuan (pendaftaran tutup).
+- Halaman acara (mockup acara.html, pola listing Airbnb): hero KV navy dengan judul,
+  kotak fakta (tanggal, tempat, lama) menumpang tepi bawah hero di ponsel, lalu satu
+  kolom isi; desktop 7/4 dengan kartu Masuk menempel di kanan, di ponsel bilah Masuk
+  selalu di bawah layar. Bagian bawaan versi Trip (`halaman-trip.tsx`, `agenda-trip.tsx`):
+  judul 24/32, jarak antarbagian 40, Susunan acara chip hari + kartu lima baris dengan
+  "Lihat semua", Pembicara geser, Lokasi peta 180/240, FAQ dan Kontak dalam satu kartu.
+  Isi, urutan, nyala/mati, dan Siapa yang melihat tetap dari CMS; pilihan tampilan per
+  blok (layout FAQ, latar bagian) tidak dipakai. Blok CMS dirender di kolom yang sama
+  (`[data-trip-kolom]` di globals.css): tanpa grid 1440, blok berlatar jadi kartu 16 px,
+  grid paling banyak tiga kolom.
 - Tautan: navy dengan garis bawah emas 2 px, area ketuk 48 px tanpa menambah jarak.
 - Beranda: kartu peserta dengan sobekan QR (QR selalu di atas putih), paling atas di
   ponsel dan menempel di kolom kanan desktop; tombolnya turun ke baris sendiri bila
