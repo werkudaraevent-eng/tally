@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- `tally-ui` skill for agents (Mas 28 Oct asked for more UI/UX skills): repo skill with Tally's UI workflow, bound to DESIGN.md; third-party taste skills not installed because they push a new look per page. Docs only. PR open, waiting on Mas.
 - Organiser contacts: Event settings > Kontak panitia holds up to three contacts (first stays the primary for registration, invitation, sign-in help, dashboard); Horizon gets its own Kontak panitia section with WhatsApp / Call buttons (it showed no contact before), FAQ line links to it, other layouts list extras in the footer. No SQL. Mas OK on design 27 Oct (KSO wants two public contacts); PR open, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov).
 - Horizon agenda: item details show in full (no "…" clamp). #284 clamped them to two lines on collapsed days, and a short day has no button to open them; Mas 27 Oct (KSO Jeep Merapi note). PR open, waiting on QA and Mas's merge time.
 - "Buses" renamed "Vehicles" (participants: "Kendaraan" / "Vehicle"), name carries the type (Bus 1, Hiace 2), no Type field; Assign to vehicle sets the default vehicle and per-trip changes in one dialog. Admin + participant copy, no SQL. PR open, waiting on QA and Mas's merge time (before 3 Nov, KSO participants see "Kendaraan").
