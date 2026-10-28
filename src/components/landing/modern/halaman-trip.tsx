@@ -16,6 +16,7 @@ import {
 import type { LandingSpeaker } from "@/lib/domain";
 import { TeksKaya } from "@/components/landing/teks-kaya";
 import { judulBersorot } from "./horizon";
+import { kelompokFaq, type FaqButir } from "@/lib/landing-faq";
 
 /**
  * Halaman acara tema Gathering Trip (keputusan Mas 28 Okt 2026, mockup
@@ -235,7 +236,9 @@ export function LokasiTrip({
   );
 }
 
-export function FaqTrip({ judul, pengantar, butir }: { judul: string; pengantar: ReactNode; butir: { q: string; a: string }[] }) {
+/** FAQ Trip: satu kartu per Topic (kolom "Topic" di CMS), judul topik di atasnya; tanpa Topic satu kartu saja. */
+export function FaqTrip({ judul, pengantar, butir }: { judul: string; pengantar: ReactNode; butir: FaqButir[] }) {
+  const kelompok = kelompokFaq(butir);
   return (
     <BagianTrip id="faq" judul={judul}>
       {pengantar ? (
@@ -243,17 +246,24 @@ export function FaqTrip({ judul, pengantar, butir }: { judul: string; pengantar:
           {pengantar}
         </p>
       ) : null}
-      <div className={`${KARTU} px-4`}>
-        {butir.map((item, index) => (
-          <details key={`${item.q}-${index}`} className="group" style={index > 0 ? { borderTop: `1px solid ${GARIS}` } : undefined}>
-            <summary className="m3-state -mx-4 flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-[16px] font-semibold leading-6 [&::-webkit-details-marker]:hidden">
-              <span className="min-w-0 [overflow-wrap:anywhere]">{item.q}</span>
-              <CaretDown size={20} aria-hidden className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" style={{ color: REDUP }} />
-            </summary>
-            <p className="max-w-[65ch] whitespace-pre-line pb-4 text-[14px] leading-5" style={{ color: REDUP }}>
-              {item.a}
-            </p>
-          </details>
+      <div className={`flex flex-col gap-8 ${kelompok.some((grup) => grup.judul) && pengantar ? "pt-2" : ""}`}>
+        {kelompok.map((grup) => (
+          <div key={grup.kunci || "-"} className="flex flex-col gap-3">
+            {grup.judul ? <h3 className="text-[20px] font-bold leading-7 [overflow-wrap:anywhere]">{grup.judul}</h3> : null}
+            <div className={`${KARTU} px-4`}>
+              {grup.butir.map((item, index) => (
+                <details key={`${item.q}-${index}`} className="group" style={index > 0 ? { borderTop: `1px solid ${GARIS}` } : undefined}>
+                  <summary className="m3-state -mx-4 flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-[16px] font-semibold leading-6 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{item.q}</span>
+                    <CaretDown size={20} aria-hidden className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" style={{ color: REDUP }} />
+                  </summary>
+                  <p className="max-w-[65ch] whitespace-pre-line pb-4 text-[14px] leading-5" style={{ color: REDUP }}>
+                    {item.a}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </BagianTrip>
