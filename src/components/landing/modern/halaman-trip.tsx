@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -32,9 +32,9 @@ const REDUP = "#526078";
 const GARIS = "rgb(16 30 56 / 0.12)";
 const KARTU = "rounded-[16px] bg-white shadow-[inset_0_0_0_1px_rgb(16_30_56/0.12)]";
 const TOMBOL_EMAS =
-  "m3-state inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--hz-emas)] px-5 text-[14px] font-bold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]";
-const TOMBOL_GARIS = "m3-state inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-5 text-[14px] font-semibold shadow-[inset_0_0_0_1px_rgb(16_30_56/0.24)]";
-const TOMBOL_NAVY = "m3-state inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--hz-navy)] px-5 text-[14px] font-semibold text-white [--m3-state-color:#fff]";
+  "trip-tekan m3-state inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--hz-emas)] px-5 text-[14px] font-bold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]";
+const TOMBOL_GARIS = "trip-tekan m3-state inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-5 text-[14px] font-semibold shadow-[inset_0_0_0_1px_rgb(16_30_56/0.24)]";
+const TOMBOL_NAVY = "trip-tekan m3-state inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[var(--hz-navy)] px-5 text-[14px] font-semibold text-white [--m3-state-color:#fff]";
 const TAUTAN =
   "-my-3.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5 underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]";
 
@@ -56,20 +56,20 @@ export function HeroTrip({ alis, judul, catatan, kv, fakta }: { alis: string | n
       <header data-bagian="pembuka" data-landing-hero className="relative isolate -mt-[var(--nav-h)] flex min-h-[calc(125vw)] flex-col justify-end overflow-hidden bg-[var(--hz-navy)] text-white sm:min-h-[560px] lg:min-h-[480px]">
         {kv ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img data-sunting="pembuka:hero_bg_url" src={kv} alt="" aria-hidden decoding="async" className="pointer-events-none absolute inset-0 -z-20 size-full select-none object-cover" />
+          <img data-sunting="pembuka:hero_bg_url" src={kv} alt="" aria-hidden decoding="async" className="settle-in pointer-events-none absolute inset-0 -z-20 size-full select-none object-cover" />
         ) : null}
         <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(16_30_56/0)_30%,rgb(16_30_56/0.88)_100%)]" />
         <div data-sunting="pembuka" className="mx-auto flex w-full max-w-[1200px] flex-col gap-3 px-4 pb-[72px] pt-[calc(var(--nav-h)+24px)] sm:px-8 lg:pb-14">
           {alis ? (
-            <p data-sunting="pembuka:hero_eyebrow" className="text-[14px] font-semibold leading-5 text-[var(--hz-sorot,var(--hz-emas))]">
+            <p data-sunting="pembuka:hero_eyebrow" className="rise-in text-[14px] font-semibold leading-5 text-[var(--hz-sorot,var(--hz-emas))]">
               {alis}
             </p>
           ) : null}
-          <h1 data-sunting="pembuka:tagline" className="max-w-[16ch] whitespace-pre-line text-balance text-[40px] font-extrabold leading-[48px] tracking-[-0.02em] [overflow-wrap:anywhere] lg:max-w-[20ch] lg:text-[57px] lg:leading-[64px]">
+          <h1 data-sunting="pembuka:tagline" style={{ "--rise-delay": "60ms" } as CSSProperties} className="rise-in max-w-[16ch] whitespace-pre-line text-balance text-[40px] font-extrabold leading-[48px] tracking-[-0.02em] [overflow-wrap:anywhere] lg:max-w-[20ch] lg:text-[57px] lg:leading-[64px]">
             {judulBersorot(judul)}
           </h1>
           {catatan ? (
-            <p data-sunting="pembuka:hero_note" className="max-w-[520px] whitespace-pre-line text-[16px] leading-6 text-white/85">
+            <p data-sunting="pembuka:hero_note" style={{ "--rise-delay": "140ms" } as CSSProperties} className="rise-in max-w-[520px] whitespace-pre-line text-[16px] leading-6 text-white/85">
               {catatan}
             </p>
           ) : null}
@@ -246,13 +246,13 @@ export function FaqTrip({ judul, pengantar, butir }: { judul: string; pengantar:
           {pengantar}
         </p>
       ) : null}
-      <div className={`flex flex-col gap-8 ${kelompok.some((grup) => grup.judul) && pengantar ? "pt-2" : ""}`}>
+      <div className={`flex flex-col gap-6 ${kelompok.some((grup) => grup.judul) && pengantar ? "pt-2" : ""}`}>
         {kelompok.map((grup) => (
-          <div key={grup.kunci || "-"} className="flex flex-col gap-3">
-            {grup.judul ? <h3 className="text-[20px] font-bold leading-7 [overflow-wrap:anywhere]">{grup.judul}</h3> : null}
+          <div key={grup.kunci || "-"} className="flex flex-col gap-2">
+            {grup.judul ? <h3 className="text-[14px] font-semibold leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>{grup.judul}</h3> : null}
             <div className={`${KARTU} px-4`}>
               {grup.butir.map((item, index) => (
-                <details key={`${item.q}-${index}`} className="group" style={index > 0 ? { borderTop: `1px solid ${GARIS}` } : undefined}>
+                <details key={`${item.q}-${index}`} className="faq group" style={index > 0 ? { borderTop: `1px solid ${GARIS}` } : undefined}>
                   <summary className="m3-state -mx-4 flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-[16px] font-semibold leading-6 [&::-webkit-details-marker]:hidden">
                     <span className="min-w-0 [overflow-wrap:anywhere]">{item.q}</span>
                     <CaretDown size={20} aria-hidden className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" style={{ color: REDUP }} />
@@ -270,6 +270,12 @@ export function FaqTrip({ judul, pengantar, butir }: { judul: string; pengantar:
   );
 }
 
+/** Dua huruf awal nama (inisial kontak, pola daftar kontak WhatsApp/Gmail). */
+function inisial(nama: string | null) {
+  const kata = (nama ?? "").trim().split(/\s+/).filter(Boolean);
+  return kata.length ? (kata[0][0] + (kata[1]?.[0] ?? "")).toUpperCase() : null;
+}
+
 export type KontakTrip = { nama: string | null; peran: string | null; nomor: string | null; email: string | null; tel: string | null; wa: string | null };
 
 export function KontakPanitiaTrip({ judul, pengantar, kontak, label }: { judul: string; pengantar: string; kontak: KontakTrip[]; label: { wa: string; tel: string; email: string } }) {
@@ -283,9 +289,9 @@ export function KontakPanitiaTrip({ judul, pengantar, kontak, label }: { judul: 
           const siapa = item.nama ?? item.nomor ?? item.email ?? "";
           return (
             <li key={index} className="flex items-center gap-3 py-3" style={index > 0 ? { borderTop: `1px solid ${GARIS}` } : undefined}>
-              <Ubin>
-                <Headset size={20} />
-              </Ubin>
+              <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold" style={{ background: "#EEF1F6", color: TINTA }}>
+                {inisial(item.nama) ?? <Headset size={20} />}
+              </span>
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.nama ?? item.nomor ?? item.email}</span>
                 {item.peran || (item.nama && item.nomor) ? (
@@ -362,7 +368,7 @@ export function KartuMasukTrip({
   catatan: string | null;
 }) {
   return (
-    <aside className={`${KARTU} flex flex-col gap-4 p-6 shadow-[inset_0_0_0_1px_rgb(16_30_56/0.12),0_8px_24px_rgb(16_30_56/0.08)]`} style={{ color: TINTA }}>
+    <aside className={`rise-in ${KARTU} flex flex-col gap-4 p-6 shadow-[inset_0_0_0_1px_rgb(16_30_56/0.12),0_8px_24px_rgb(16_30_56/0.08)]`} style={{ color: TINTA, "--rise-delay": "220ms" } as CSSProperties}>
       <div className="flex flex-col gap-2">
         {hitung ? (
           <span className="inline-flex min-h-6 items-center self-start rounded-full px-2 text-[12px] font-semibold leading-4" style={{ background: "#FBF3D9", color: "#6B4F00" }}>
