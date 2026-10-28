@@ -35,9 +35,10 @@ Before a mockup or code, answer in a few lines:
 
 - Read the matching parts of `DESIGN.md`: the screen profile, "Primitif",
   "Tipografi", the 4/8 grid and card rhythm (4/12/16 gaps).
-- If a primitive exists (Button, TextField, SelectField, SelectMenu, Popover +
-  POPOVER_ITEM, panels), use it. Do not hand-write classes, even when the
-  surrounding old screen does.
+- If a primitive exists in `@/components/m3` (the table in `DESIGN.md`
+  "Primitif": Button, TextField, SelectField, SegmentedButton, Tabs, Dialog,
+  EmptyState, …), use it. Do not hand-write classes, even when the surrounding
+  old screen does.
 - Type comes only from M3 role classes (`text-title-medium`, …), never raw
   Tailwind sizes. Admin controls 36 px; public, participant, booth and scanner
   tap targets at least 48 px.
