@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowsOut, Broadcast, Bus, CaretRight, CoatHanger, Suitcase } from "@phosphor-icons/react/dist/ssr";
 import { PenandaTab } from "@/components/member/muat-portal";
-import { ChipHorizon, KARTU_BENDA, KARTU_HZ, KELAS_ALIS, KELAS_KET, KELAS_NILAI, KELAS_TAUTAN, KepalaKartuHorizon, PAD_KARTU } from "@/components/member/portal-horizon";
+import { ChipHorizon, KARTU_HZ, KELAS_ALIS, KELAS_KET, KELAS_NILAI, KELAS_TAUTAN, KepalaKartuHorizon, PAD_KARTU } from "@/components/member/portal-horizon";
 import { PemicuQr } from "@/components/member/qr-fokus";
 
 /**
@@ -19,14 +19,14 @@ import { PemicuQr } from "@/components/member/qr-fokus";
 const TINTA = "#101E38";
 const REDUP = "#526078";
 const LABEL = "#4D5D77";
-const BIRU = "var(--hz-navy)";
+const BIRU = "#274FC0";
 const KARTU = KARTU_HZ;
 const GARIS = "border-[#E6E8EC]";
 
 /** Tautan teks biru dengan panah ke halaman rumah infonya; area ketuk 48 px tanpa menambah jarak. */
 function TautanKartu({ href, label, tab, lampu, className = "" }: { href: string; label: string; tab: string; lampu?: string; className?: string }) {
   return (
-    <Link href={href} className={`m3-state rounded-sm ${KELAS_TAUTAN} ${className}`} style={{ color: BIRU }}>
+    <Link href={href} className={`m3-state -mx-2 rounded-md px-2 ${KELAS_TAUTAN} ${className}`} style={{ color: BIRU }}>
       {label}
       <CaretRight size={16} aria-hidden className="shrink-0" />
       <PenandaTab tab={tab} lampu={lampu} />
@@ -128,7 +128,7 @@ export function KartuSekarangHorizon({
         ) : null}
       </div>
       {tautan ? (
-        <div className={`border-t ${GARIS} py-3.5`}>
+        <div className={`border-t ${GARIS} px-4 py-3.5 md:px-6`}>
           {/* Kaki kartu setinggi tautannya (48 px): cincin fokus ke dalam supaya tidak terpotong tepi kartu. */}
           <TautanKartu href={tautan.href} label={tautan.label} tab={tautan.tab} className="focus-visible:!outline-offset-[-2px]" />
         </div>
@@ -239,7 +239,7 @@ export function KartuPerjalananmuHorizon({
  */
 export function KartuQrSampingHorizon({ href, judul, tombol, kode }: { href: string; judul: string; tombol: string; kode: ReactNode }) {
   return (
-    <section aria-labelledby="qr-samping-judul" className={`${KARTU_BENDA} p-4 md:p-6 hidden items-center gap-4 lg:flex`} style={{ color: TINTA }}>
+    <section aria-labelledby="qr-samping-judul" className={`${KARTU} hidden items-center gap-4 ${PAD_KARTU} lg:flex`} style={{ color: TINTA }}>
       <span className="size-[72px] shrink-0 rounded-[14px] bg-white p-1.5 ring-1 ring-[#E6E9EE]">{kode}</span>
       <div className="flex min-w-0 flex-col items-start gap-2">
         <h2 id="qr-samping-judul" className="text-[16px] font-semibold leading-6">
