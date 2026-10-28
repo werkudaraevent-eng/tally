@@ -2452,3 +2452,25 @@ html[data-theme="dark"] .warna-pemindai {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+/* Deret geser selebar layar ponsel (galeri, tab): pinggir kolom Trip 16 px, bukan 20. */
+@media (max-width: 39.99rem) {
+  [data-trip-kolom] .-mx-5 {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
+}
+/* Strip angka (Stats): baris flex di layar lebar tidak muat di kolom Trip; jadi kisi tiga kolom di bawah judulnya. */
+@media (min-width: 64rem) {
+  [data-trip-kolom] .lg\:flex-row:has(> dl) {
+    flex-direction: column;
+    gap: 24px;
+  }
+  [data-trip-kolom] dl.lg\:flex {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+  [data-trip-kolom] dl.lg\:flex dd {
+    font-size: 40px;
+  }
+}
