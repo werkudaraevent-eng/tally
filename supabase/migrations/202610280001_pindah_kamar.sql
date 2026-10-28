@@ -94,6 +94,7 @@ begin
   create temp table if not exists lodging_cek_huni (
     room_id bigint, participant_id uuid, rentang tstzrange, gender text
   ) on commit drop;
+  create index if not exists lodging_cek_huni_kamar on lodging_cek_huni (room_id);
   truncate lodging_cek_huni;
 
   select * into aturan from public.lodging_settings where event_id = p_event_id;
@@ -111,6 +112,7 @@ begin
    where a.event_id = p_event_id
      and a.room_id = any(p_room_ids)
      and p.source_removed_at is null;
+  analyze lodging_cek_huni;
 
   -- Hanya malam stay yang baru ditulis: kamar yang sudah kelebihan karena
   -- kapasitasnya diturunkan tidak menghalangi perubahan di malam lain.
@@ -279,6 +281,13 @@ begin
                        from replace_stays_baru b where b.participant_id = x))
     from unnest(ids) as x;
 
+  -- Kamar tujuan dikunci sebelum menulis (urut id, sesudah kunci peserta):
+  -- dua panggilan ke kamar yang sama berjalan bergantian, tanpa deadlock.
+  perform 1 from public.lodging_rooms
+   where event_id = p_event_id and id in (select room_id from replace_stays_baru where room_id is not null)
+   order by id
+   for update;
+
   -- Kamar lama ikut diperiksa tidak perlu: melepas penghuni tidak pernah
   -- membuat kamar penuh. Hanya kamar tujuan.
   delete from public.lodging_assignments
@@ -326,6 +335,7 @@ declare
   peserta public.participants;
   target bigint;
   kamar_lama bigint;
+  rentang_lama tstzrange;
   calon int;
 begin
   -- Kunci peserta dulu, lalu kamar, sama urutannya dengan fungsi lain.
@@ -381,6 +391,14 @@ begin
   end if;
 
   if target is not null then
+    select public.lodging_rentang(coalesce(a.check_in_at, r.check_in_at, h.check_in_at),
+                                  coalesce(a.check_out_at, r.check_out_at, h.check_out_at))
+      into rentang_lama
+      from public.lodging_assignments a
+      join public.lodging_hotels h on h.id = a.hotel_id
+      left join public.lodging_rooms r on r.id = a.room_id
+     where a.id = target;
+
     update public.lodging_assignments
        set room_id = p_room_id,
            check_in_at = coalesce(p_check_in_at, check_in_at),
@@ -395,8 +413,10 @@ begin
     values (p_event_id, kamar.hotel_id, p_room_id, p_participant_id, p_check_in_at, p_check_out_at, p_actor);
   end if;
 
-  -- Pindah kamar bisa menggeser malam stay yang ikut tanggal kamar: malamnya
-  -- tidak boleh bertabrakan dengan stay lain orang ini.
+  -- Pindah kamar bisa menggeser malam stay yang ikut tanggal kamar: bila
+  -- malamnya berubah, tidak boleh bertabrakan dengan stay lain orang ini.
+  -- Malam yang tidak berubah tidak diperiksa: dialog lama menulis stay satu
+  -- per satu dan sesaat boleh bertabrakan sebelum langkah berikutnya.
   if target is not null and exists (
     with g as (
       select a.id, public.lodging_rentang(coalesce(a.check_in_at, r.check_in_at, h.check_in_at),
@@ -406,7 +426,8 @@ begin
         left join public.lodging_rooms r on r.id = a.room_id
        where a.event_id = p_event_id and a.participant_id = p_participant_id
     )
-    select 1 from g x join g y on y.id <> x.id where x.id = target and x.rentang && y.rentang
+    select 1 from g x join g y on y.id <> x.id
+     where x.id = target and x.rentang is distinct from rentang_lama and x.rentang && y.rentang
   ) then
     raise exception using message = 'LODGING_STAYS_OVERLAP',
       detail = format('%s: the nights of this room overlap another stay', peserta.name);
