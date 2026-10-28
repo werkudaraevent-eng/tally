@@ -1638,7 +1638,7 @@ export function ProfilHorizon({
           </PemicuQr>
         ) : null}
         {sisipan}
-        <div className={`flex flex-col gap-6 lg:grid lg:items-start lg:gap-8 ${qr ? "lg:mt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:grid-rows-[auto_1fr_auto]" : "lg:grid-cols-2"}`}>
+        <div className={`flex flex-col gap-6 lg:grid lg:items-start lg:gap-8 ${qr ? `lg:mt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] ${adaBantuan ? "lg:grid-rows-[auto_1fr_auto]" : "lg:grid-rows-[auto_1fr]"}` : "lg:grid-cols-2"} lg:gap-y-6 lg:[reading-flow:grid-rows]`}>
           {qr ? (
             <PemicuQr id="pemicu-qr-profil-besar" href={qr.href} className={`${KARTU_HZ} m3-state hidden flex-col lg:col-start-1 lg:row-span-2 lg:row-start-1 items-center gap-4 px-6 pb-6 pt-8 text-center lg:flex`}>
               <span className="size-[200px] bg-white">{qr.gambar}</span>
@@ -1666,7 +1666,7 @@ export function ProfilHorizon({
                 {darurat}
               </section>
             ) : null}
-            <div className={`${KARTU_HZ} px-4 py-1 lg:col-start-2 ${qr ? "lg:row-start-2" : "lg:row-start-1"}`}>
+            <div className={`${KARTU_HZ} px-4 py-1 ${qr ? "lg:col-start-2 lg:row-start-2" : adaBantuan ? "lg:col-start-2 lg:row-start-1" : "lg:col-start-1 lg:row-start-2"}`}>
               <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
                 <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
                   <IkonBulat Ikon={SignOut} nada="merah" />
@@ -1715,7 +1715,7 @@ export function ProfilHorizon({
             </section>
           ) : null}
           {/* Keluar: baris terakhir, merah, seperti "Sign out" di halaman akun aplikasi. */}
-          <div className={`lg:col-start-1 ${adaBantuan ? "mt-2 border-t border-[#E6E8EC] pt-2 lg:row-start-3" : "lg:row-start-2"}`}>
+          <div className={adaBantuan ? "mt-2 border-t border-[#E6E8EC] pt-2 lg:col-start-1 lg:row-start-3" : "lg:col-start-2 lg:row-start-1"}>
             <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
               <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
                 <IkonBulat Ikon={SignOut} nada="merah" />
