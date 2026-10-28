@@ -38,6 +38,7 @@ import { gayaLatarBagian } from "./modern/latar-bagian";
 import { nadaKartu } from "@/lib/landing-card-icons";
 import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama } from "./modern/gathering-app";
 import { JalurHorizon } from "./modern/horizon-gerak";
+import { BilahMasukTrip } from "./modern/bilah-masuk-trip";
 import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon, type HorizonAksi } from "./modern/horizon";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
@@ -222,6 +223,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Portal peserta, pita penutup, dan kaki dirender modern/horizon.tsx. Bagian
   // lain (blok, Pembicara, Lokasi, FAQ) tetap gaya gathering biasa.
   const horizon = gaya && config.gathering_variant === "horizon";
+  // Tema Gathering Trip: Horizon dengan bilah masuk yang menempel di bawah layar.
+  const trip = horizon && config.horizon_style === "trip";
   // Blok Rute juga butuh hotel (titik dari Logistik), di jenis acara apa pun.
   const adaRute = (config.blocks ?? []).some((block) => block.type === "route");
   const inap = gaya || adaRute ? await loadLandingLodging(event.id) : null;
@@ -969,6 +972,18 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     ) : null,
   };
 
+  // Bilah masuk Trip: tombol yang sama dengan hero (masuk atau Dashboard saya),
+  // atau Daftar selama pendaftaran terbuka. Tidak di pratinjau CMS.
+  const aksiBilahTrip = !trip || pratinjau ? null : aksiHeroHorizon.link ? { href: aksiHeroHorizon.href, label: aksiHeroHorizon.label } : event.registration_enabled && !peserta ? { href: daftarUrl, label: ctaLabel } : null;
+  const bilahTrip = aksiBilahTrip ? (
+    <BilahMasukTrip
+      judul={nama}
+      fakta={[formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join(" · ") || null}
+      hitung={hitungMundur && sisa && sisa.sisa > 0 ? [hitungMundur.angka, hitungMundur.teks].filter(Boolean).join(" ") : null}
+      aksi={aksiBilahTrip}
+    />
+  ) : null;
+
   return (
     // `lang` di <main>: <html lang="id"> ditulis root layout untuk seluruh
     // aplikasi, jadi halaman English menandai bahasanya di sini supaya pembaca
@@ -976,7 +991,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     <main
       lang={LANDING_LANG_LABELS[lang].htmlLang}
       data-halaman-publik
-      className={`min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)] ${horizon ? "[--nav-h:102px] md:[--nav-h:128px]" : ""}`}
+      className={`min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)] ${horizon ? "[--nav-h:102px] md:[--nav-h:128px]" : ""} ${bilahTrip ? "pb-[calc(72px+env(safe-area-inset-bottom))]" : ""}`}
       style={mainStyle}
     >
       <LandingNavModern
@@ -1387,6 +1402,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           }}
         />
       ) : null}
+      {bilahTrip}
     </main>
   );
 }

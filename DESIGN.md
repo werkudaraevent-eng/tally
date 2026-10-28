@@ -827,6 +827,10 @@ berubah (0 px), jadi semua aturan Trip hidup di `components/member/portal-trip.t
   berwarna latar halaman; kode booking tidak pernah dipotong (nowrap) dan punya tombol
   salin 48 px.
 - Hotel: kotak Check-in | Check-out dua kolom, strip kamar abu, inisial teman sekamar.
+- Halaman acara: blok CMS tetap seperti Horizon; yang ditambah hanya bilah Masuk putih
+  yang menempel di bawah layar setelah hero lewat (pola "Reserve" Airbnb): nama acara,
+  tanggal · kota, pil sisa hari, tombol emas 48 px. Di HP hanya pil dan tombol selebar
+  sisa ruang. Tidak muncul di pratinjau Theme atau bila tak ada tujuan (pendaftaran tutup).
 - Tautan: navy dengan garis bawah emas 2 px, area ketuk 48 px tanpa menambah jarak.
 - Beranda: kartu peserta dengan sobekan QR (QR selalu di atas putih), paling atas di
   ponsel dan menempel di kolom kanan desktop; tombolnya turun ke baris sendiri bila
