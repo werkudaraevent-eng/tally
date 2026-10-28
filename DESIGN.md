@@ -815,6 +815,12 @@ yang sama dipakai preset lain.
   (`nomorTampil`: "+62 812-3456-7890", "+62 274-555-0101"); nomor pendek
   (119) apa adanya. Kartu lain yang menampilkan kontak (Butuh bantuan, kru
   bus) mengikuti aturan ini.
+- **Daftar kontak panjang** (Profil, Mas 28 Okt 2026): di desktop kartu kontak
+  selebar halaman dengan kontak dua kolom, bukan kolom samping yang sempit.
+  Kontak darurat yang punya Type dikelompokkan per jenis dengan subjudul
+  14/20 600 abu berikon jenis (merah), 12 px ke baris pertama, 24 px antar
+  kelompok; ikon jenis di subjudul, tidak diulang di baris. Di desktop
+  kelompok mengalir dalam dua kolom (`columns-2`, tidak terpotong).
 - Kelasnya ada di `portal-horizon.tsx` (`KELAS_JUDUL_ISI`, `KELAS_KET`,
   `KELAS_ALIS`, `KELAS_TAUTAN`, `KELAS_STRIP`). Kartu baru memakainya, bukan
   ukuran sendiri.
