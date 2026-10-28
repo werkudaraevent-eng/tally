@@ -1,10 +1,10 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Copy, Plus, Trash } from "@phosphor-icons/react";
-import { Banner, Button, Card, IconButton, TextArea, TextField } from "@/components/m3";
+import { Banner, Button, Card, IconButton, SelectField, TextArea, TextField } from "@/components/m3";
 import type { LandingMemberConfig } from "@/lib/domain";
 import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
-import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX, kontakDariBlok, nomorTelepon, tautanPeta, type KontakDarurat } from "@/lib/member/kontak-darurat";
+import { JENIS_DARURAT, KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX, LABEL_JENIS_DARURAT, kontakDariBlok, nomorTelepon, tautanPeta, type KontakDarurat } from "@/lib/member/kontak-darurat";
 import type { BlokPeserta } from "./susunan-beranda";
 
 type Bantuan = NonNullable<LandingMemberConfig["help"]>;
@@ -147,6 +147,21 @@ export function KontakDaruratForm({
                     </IconButton>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
+                    <SelectField
+                      className="md:col-span-2"
+                      label="Type"
+                      optional
+                      hint="Shows an icon before the name, so participants find the right number at a glance."
+                      value={item.kind ?? ""}
+                      onChange={(event) => ubahSatu(index, { kind: (event.target.value || null) as KontakDarurat["kind"] })}
+                    >
+                      <option value="">No icon</option>
+                      {JENIS_DARURAT.map((jenis) => (
+                        <option key={jenis} value={jenis}>
+                          {LABEL_JENIS_DARURAT[jenis]}
+                        </option>
+                      ))}
+                    </SelectField>
                     <TextField
                       label="Name or role"
                       data-kontak={index}

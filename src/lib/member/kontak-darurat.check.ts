@@ -28,8 +28,8 @@ assert.deepEqual(
     { name: "RS Panti Rapih", phone: "(0274) 514 845", map_url: "https://maps.app.goo.gl/x" },
   ]),
   [
-    { judul: "Koordinator acara", nomor: "+62 812-3456-7890", isi: "Siaga 24 jam", tel: "+6281234567890", wa: "https://wa.me/6281234567890", peta: null },
-    { judul: "RS Panti Rapih", nomor: "+62 274-514-845", isi: null, tel: "0274514845", wa: null, peta: "https://maps.app.goo.gl/x" },
+    { judul: "Koordinator acara", jenis: null, nomor: "+62 812-3456-7890", isi: "Siaga 24 jam", tel: "+6281234567890", wa: "https://wa.me/6281234567890", peta: null },
+    { judul: "RS Panti Rapih", jenis: null, nomor: "+62 274-514-845", isi: null, tel: "0274514845", wa: null, peta: "https://maps.app.goo.gl/x" },
   ],
 );
 // Nomor tampil +62 dengan tanda hubung, apa pun cara mengetiknya.
@@ -42,7 +42,10 @@ assert.equal(nomorTampil("119", "119"), "119");
 assert.equal(nomorTampil("+65 6123 4567", "+6561234567"), "+65 6123 4567");
 assert.equal(nomorTampil("lihat grup", null), "lihat grup");
 assert.equal(nomorTampil("  ", null), null);
-assert.equal(barisKontakDarurat(Array.from({ length: 10 }, (_, i) => ({ name: `K${i}` }))).length, 8);
+assert.equal(barisKontakDarurat(Array.from({ length: 14 }, (_, i) => ({ name: `K${i}` }))).length, 12);
+// Jenis dikenal jadi ikon; nilai asing diabaikan.
+assert.equal(barisKontakDarurat([{ name: "RS", kind: "hospital" }])[0].jenis, "hospital");
+assert.equal(barisKontakDarurat([{ name: "X", kind: "zoo" as never }])[0].jenis, null);
 
 assert.deepEqual(kontakDariBlok([{ title: "Koordinator", body: "Hadi 0811 2836 676" }]), [
   { name: "Koordinator", phone: "0811 2836 676", note: "Hadi", map_url: null },
@@ -114,3 +117,8 @@ assert.deepEqual(bantuanBahasa(dwi, "en"), {
 });
 assert.equal(bantuanBahasa(dwi, "id"), dwi);
 console.log("kontak-darurat ok");
+
+// Jenis ikut tersimpan saat dirapikan; jenis asing dibuang.
+assert.equal(rapikanBantuan({ contacts: [{ name: "RS", kind: "hospital" }] }).help?.contacts?.[0]?.kind, "hospital");
+assert.equal(rapikanBantuan({ contacts: [{ name: "X", kind: "zoo" as never }] }).help?.contacts?.[0]?.kind, undefined);
+console.log("kontak-darurat jenis ok");
