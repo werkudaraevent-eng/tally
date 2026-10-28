@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Import Download participant list for Vehicles and Trains (Mas 28 Oct): file pre-filled with every active participant (trains two rows, Outbound and Return), saved vehicles/tickets filled, choice fields as "(info)" columns; rows with no vehicle or ticket data are skipped instead of rejected; `qr_code` header read as QR code. Admin only, no SQL. PR open, waiting on QA and Mas's OK.
 - `tally-ui` skill for agents (Mas 28 Oct asked for more UI/UX skills): repo skill with Tally's UI workflow, bound to DESIGN.md; third-party taste skills not installed because they push a new look per page. Docs only. PR open, waiting on Mas.
 - Organiser contacts: up to five (was three; Mas 28 Oct). One constant, no SQL; existing events unchanged. PR open, waiting on QA and Mas's merge time.
 - Horizon agenda: item details show in full (no "…" clamp). #284 clamped them to two lines on collapsed days, and a short day has no button to open them; Mas 27 Oct (KSO Jeep Merapi note). PR open, waiting on QA and Mas's merge time.

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaJam, bacaTanggal, barisStaySekarang, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type KeadaanAcara } from "./impor.ts";
+import { bacaJam, bacaTanggal, barisPesertaBus, barisPesertaKereta, barisStaySekarang, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type KeadaanAcara } from "./impor.ts";
 
 const acara: KeadaanAcara = {
   peserta: [
@@ -177,11 +177,13 @@ assert.equal(sk[3], "masuk:");
 assert.equal(sk[4], "pindah:Updates the saved ticket");
 assert.equal(sk[5], "tolak:Same person and direction already on row 4");
 assert.match(sk[6], /^tolak:Direction must be/);
-assert.equal(sk[7], "tolak:Train name is empty");
+// Orang dan arah saja, kolom tiket kosong: dilewati, bukan ditolak.
+assert.equal(sk[7], undefined);
+assert.equal(kereta.dilewati, 1);
 assert.match(sk[8], /^tolak:Date not recognised/);
 assert.match(sk[9], /^tolak:Time not recognised/);
 assert.match(sk[10], /^tolak:2 participants have this name/);
-assert.equal(kereta.baris.length, 9);
+assert.equal(kereta.baris.length, 8);
 assert.equal(kereta.tiket.length, 2);
 assert.deepEqual(kereta.tiket[0], {
   participant_id: "a", direction: "return", train_name: "Taksaka 72", travel_class: "Executive", origin: "Yogyakarta", destination: "Gambir",
@@ -329,5 +331,47 @@ const ekspor = rencanaKamar([
 ], duaHotel);
 assert.equal(ekspor.galat, null);
 assert.deepEqual(ekspor.baris.map((b) => b.status), ["masuk", "pindah"]);
+
+// Download participant list, kereta: dua baris per orang urut nama, tiket
+// tersimpan terisi, kolom (info) diabaikan saat diimpor kembali, meski
+// labelnya "Class". Diimpor tanpa diubah: tidak ada yang ditulis.
+const unduhKereta = barisPesertaKereta({
+  peserta: [
+    { id: "b", name: "Budi Santoso", qr_code: "Q-2", extra: { kelas: "VIP" } },
+    { id: "a", name: "Andi Pratama", qr_code: "Q-1", extra: { batch: "Batch 1", kelas: "Reguler" } },
+  ],
+  info: [{ key: "batch", label: "Batch" }, { key: "kelas", label: "Class" }],
+  vehicles: [], busBawaan: [], kereta: [tersimpan],
+});
+assert.deepEqual(unduhKereta[0].slice(-3), ["Booking code", "Batch (info)", "Class (info)"]);
+assert.deepEqual(unduhKereta.slice(1).map((b) => `${b[1]}|${b[2]}|${b[3]}`), ["Andi Pratama|Outbound|Argo Lawu 8", "Andi Pratama|Return|", "Budi Santoso|Outbound|", "Budi Santoso|Return|"]);
+assert.deepEqual(unduhKereta[1].slice(7, 10), ["06/11/2026", "08:20", "15:10"]);
+assert.deepEqual(unduhKereta[3].slice(-2), ["", "VIP"]);
+const balikKereta = rencanaKereta(unduhKereta, { ...acara, kereta: [tersimpan] });
+assert.equal(balikKereta.galat, null);
+assert.deepEqual(balikKereta.baris.map((b) => b.status), ["tetap"]);
+assert.equal(balikKereta.dilewati, 3);
+assert.equal(balikKereta.tiket.length, 0);
+// Satu baris diisi panitia: hanya itu yang ditulis.
+const diisi = unduhKereta.map((b) => [...b]);
+diisi[3][3] = "Taksaka 72";
+const isiKereta = rencanaKereta(diisi, { ...acara, kereta: [tersimpan] });
+assert.deepEqual(isiKereta.tiket.map((t) => `${t.participant_id}:${t.direction}:${t.train_name}`), ["b:outbound:Taksaka 72"]);
+assert.equal(isiKereta.dilewati, 2);
+
+// Download participant list, bus: kendaraan bawaan terisi, yang kosong dilewati.
+const unduhBus = barisPesertaBus({
+  peserta: [{ id: "b", name: "Budi Santoso", qr_code: "Q-2", extra: null }, { id: "a", name: "Andi Pratama", qr_code: "Q-1", extra: null }],
+  info: [], vehicles: [{ id: 5, code: "Bus 1" }], busBawaan: [{ participant_id: "a", vehicle_id: 5 }], kereta: [],
+});
+assert.deepEqual(unduhBus, [["QR code", "Name", "Vehicle"], ["Q-1", "Andi Pratama", "Bus 1"], ["Q-2", "Budi Santoso", ""]]);
+const balikBus = rencanaBus(unduhBus, { ...acara, busBawaan: [{ participant_id: "a", vehicle_id: 5 }] });
+assert.deepEqual(balikBus.baris.map((b) => b.status), ["tetap"]);
+assert.equal(balikBus.dilewati, 1);
+assert.deepEqual(balikBus.penempatan, []);
+
+// Judul qr_code dari ekspor peserta mentah terbaca sebagai QR code.
+const qrMentah = rencanaBus([["qr_code", "name", "Vehicle"], ["Q-3", "Nama Lain", "Bus 1"]], acara);
+assert.equal(qrMentah.baris[0].participant_id, "c");
 
 console.log("impor.check: ok");

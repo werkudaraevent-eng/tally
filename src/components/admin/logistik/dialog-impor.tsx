@@ -227,13 +227,29 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
               >
                 Download current stays
               </Button>
-            ) : null}
+            ) : (
+              <Button
+                variant="text"
+                size="sm"
+                icon={<DownloadSimple size={16} />}
+                onClick={() => { window.location.href = eventApiPath(`/api/admin/logistik/impor?jenis=${jenis}&isi=peserta`); }}
+              >
+                Download participant list
+              </Button>
+            )}
           </div>
           {jenis === "kamar" ? (
             <p className="-mt-2 text-body-small text-on-surface-variant">
               To change many people at once: Download current stays, edit it in Excel, then choose the file here. You see every change before anything is saved.
             </p>
-          ) : null}
+          ) : (
+            <p className="-mt-2 text-body-small text-on-surface-variant">
+              {jenis === "kereta"
+                ? "Download participant list gives every participant two rows, Outbound and Return, with tickets already saved. Fill the train columns, leave the rest empty, then choose the file here."
+                : "Download participant list gives every participant one row, with vehicles already saved. Fill Vehicle, leave the rest empty, then choose the file here."}
+              {" "}Columns marked (info) are only for filtering in Excel. The file contains QR codes, so keep it inside the team.
+            </p>
+          )}
 
           {proses === "baca" ? <p className="text-body-medium text-on-surface-variant">Reading file…</p> : null}
           {galat ? <Banner tone="warning" icon={<Warning size={18} />}>{galat}</Banner> : null}
@@ -247,12 +263,18 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                     <span className="tabular-nums text-on-surface">{hitung(status)}</span> {labelStatus(status, jenis).toLowerCase()}
                   </span>
                 ) : null)}
+                {rencana.dilewati > 0 ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusDot tone="neutral" />
+                    <span className="tabular-nums text-on-surface">{rencana.dilewati}</span> left empty, not changed
+                  </span>
+                ) : null}
                 {dibuatNanti.length > 0 ? <span>Will be created: {dibuatNanti.join(", ")}</span> : null}
               </div>
 
               {rencana.baris.length === 0 ? (
                 <p className="rounded-md border border-outline-variant px-4 py-6 text-center text-body-medium text-on-surface-variant">
-                  This file has no rows with a name or QR code.
+                  {rencana.dilewati > 0 ? `Nothing to import yet: all ${rencana.dilewati} rows are left empty. Fill in ${jenis === "kereta" ? "the train columns" : "Vehicle"} first.` : "This file has no rows with a name or QR code."}
                 </p>
               ) : (
                 <>
