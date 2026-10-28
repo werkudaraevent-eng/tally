@@ -2474,3 +2474,19 @@ html[data-theme="dark"] .warna-pemindai {
     font-size: 40px;
   }
 }
+
+/* ==========================================================================
+   Efek mikro tema Gathering Trip (keputusan Mas 28 Okt 2026)
+   ==========================================================================
+   Hanya transform dan opacity, di bawah 0,3 detik, mati di balik
+   prefers-reduced-motion. Tanpa saklar CMS: bagian dari cara komponen
+   bekerja, bukan gaya yang dipilih panitia. */
+/* Tekan: mengecil 3% selama ditekan, kembali 150 ms. Hanya transform. */
+.trip-tekan { transition: transform 150ms var(--md-sys-motion-easing-standard); }
+.trip-tekan:active { transform: scale(0.97); transition-duration: 60ms; }
+/* Ganti hari: baris lama diganti, lima baris pertama naik 6 px berurutan 30 ms. */
+.trip-ganti { animation: trip-ganti 220ms var(--md-sys-motion-easing-standard-decelerate) both; animation-delay: calc(var(--i, 0) * 30ms); }
+@keyframes trip-ganti { from { opacity: 0; transform: translateY(6px); } }
+/* Kepala blok di kolom Trip (~700 px): judul di atas pengantar, bukan dua kolom sempit. */
+[data-trip-kolom] .lg\:flex-row.lg\:justify-between { flex-direction: column; align-items: flex-start; gap: 12px; }
+@media (prefers-reduced-motion: reduce) { .trip-tekan, .trip-tekan:active { transform: none; transition: none; } .trip-ganti { animation: none; } }

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
+import { m } from "framer-motion";
+import { standard } from "@/lib/m3/motion";
 import type { AgendaPreview } from "@/lib/landing-agenda";
 import { hariBerkelompok, PilihKelompok, saringKelompok, usePilihanKelompok } from "@/components/landing/pilih-kelompok";
 import { TeksKaya } from "@/components/landing/teks-kaya";
@@ -22,6 +24,8 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
   const t = LANDING_UI[lang];
   const [aktif, setAktif] = useState(0);
   const [semua, setSemua] = useState(false);
+  // Rangkaian baris hanya bergerak setelah tamu berganti hari, tidak saat halaman dimuat.
+  const [ganti, setGanti] = useState(false);
   const blok = agenda[aktif] ?? agenda[0];
   const berkelompok = Boolean(blok?.pilihan?.length) && hariBerkelompok(blok?.items ?? []);
   const pilihan = usePilihanKelompok(berkelompok ? blok?.pilihan : undefined);
@@ -58,11 +62,14 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
                 aria-pressed={on}
                 onClick={() => {
                   setAktif(index);
+                  setGanti(true);
                   setSemua(false);
                 }}
-                className="m3-state flex min-h-14 min-w-[76px] max-w-[120px] shrink-0 flex-col items-center justify-center rounded-[12px] px-3 py-1"
-                style={on ? { background: "var(--hz-emas)", color: "var(--hz-on-emas)" } : { background: "#fff", boxShadow: `inset 0 0 0 1px ${GARIS}` }}
+                className="trip-tekan m3-state flex min-h-14 min-w-[76px] max-w-[120px] shrink-0 flex-col items-center justify-center rounded-[12px] px-3 py-1 transition-colors duration-200"
+                style={on ? { color: "var(--hz-on-emas)" } : { background: "#fff", boxShadow: `inset 0 0 0 1px ${GARIS}` }}
               >
+                {/* Penanda hari terpilih bergeser ke chip baru (pola indikator Tabs M3). */}
+                {on ? <m.span layoutId="trip-hari" aria-hidden className="absolute inset-0 -z-10 rounded-[12px] bg-[var(--hz-emas)]" transition={standard.spatial.default} /> : null}
                 <span className="text-[12px] leading-4">{atas}</span>
                 <span className="text-[14px] font-semibold leading-5">{bawah}</span>
                 {tambah ? <span className="max-w-full truncate text-[12px] font-semibold leading-4">{tambah}</span> : null}
@@ -74,9 +81,9 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
       {berkelompok && blok.pilihan ? <PilihKelompok pilihan={blok.pilihan} items={blok.items} lang={lang} nada="terang" /> : null}
       <div className="rounded-[16px] bg-white p-4 shadow-[inset_0_0_0_1px_rgb(16_30_56/0.12)]">
         {blok.sectionTitle ? <p className="mb-3 text-[14px] font-semibold leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>{blok.sectionTitle}</p> : null}
-        <ol className="flex flex-col">
+        <ol key={aktif} className="flex flex-col">
           {tampil.map((item, index) => (
-            <li key={`${item.key}-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-3 py-3 first:pt-0" style={index > 0 ? { borderTop: `1px solid ${GARIS}` } : undefined}>
+            <li key={`${item.key}-${index}`} style={{ "--i": Math.min(index, RINGKAS - 1), ...(index > 0 ? { borderTop: `1px solid ${GARIS}` } : {}) } as CSSProperties} className={`${ganti ? "trip-ganti " : ""}grid grid-cols-[56px_minmax(0,1fr)] gap-3 py-3 first:pt-0`}>
               <span className="text-[14px] font-semibold leading-6 tabular-nums" style={item.jeda ? { color: REDUP } : undefined}>
                 {item.time}
               </span>
@@ -95,7 +102,7 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
             type="button"
             aria-expanded={semua}
             onClick={() => setSemua((nilai) => !nilai)}
-            className="m3-state mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-full text-[14px] font-semibold shadow-[inset_0_0_0_1px_rgb(16_30_56/0.24)]"
+            className="trip-tekan m3-state mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-full text-[14px] font-semibold shadow-[inset_0_0_0_1px_rgb(16_30_56/0.24)]"
           >
             {semua ? t.horizon.scheduleLess : t.horizon.scheduleAll(baris.length)}
           </button>

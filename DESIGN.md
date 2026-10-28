@@ -853,6 +853,17 @@ berubah (0 px), jadi semua aturan Trip hidup di `components/member/portal-trip.t
 - Profil: ubin pita navy di kanan identitas mulai 1024 px; QR besar 200 px di kartu
   putih kolom kiri desktop (ponsel tetap kartu QR satu baris); daftar akun, bantuan,
   dan Keluar masing-masing di kartu.
+- Halaman acara Trip, audit 28 Okt 2026: fakta ditulis sekali. Alis hero hanya isian
+  panitia (tanggal dan tempat sudah di kotak fakta dan kartu Masuk); chip "N hari lagi"
+  di kartu dan bilah hilang bila blok Countdown menyala. Kepala blok CMS bertumpuk di
+  kolom Trip. Topik FAQ label 14/20 abu, bukan judul kedua. Kontak memakai inisial nama.
+- Gerak Trip (pengecualian bernama dari "tidak ada animasi saat digulir"; tidak ada
+  yang dipicu guliran): hero `rise-in` sekali + `settle-in` KV; ganti hari = penanda
+  emas `layoutId` bergeser dan lima baris pertama naik 6 px berurutan 30 ms (hanya
+  setelah chip ditekan); FAQ memakai `details.faq`; tombol dan chip mengecil 3% saat
+  ditekan (`trip-tekan`). Semua transform/opacity, mati di balik gerak dikurangi, tanpa
+  saklar CMS. Ditolak: muncul saat digulir, kartu terangkat saat hover, kilau/glow,
+  tombol magnet, parallax.
 
 ### Papan peringkat
 

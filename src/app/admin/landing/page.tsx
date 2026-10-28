@@ -1419,7 +1419,7 @@ export default function LandingCmsPage() {
             data-kolom="hero_eyebrow"
             optional
             maxLength={60}
-            hint={horizon ? "Empty shows the venue and dates, like \"Yogyakarta / 6–8 November 2026\"." : 'Empty shows "You\'re invited · event name" while the page is invite only.'}
+            hint={horizon && landing.horizon_style === "trip" ? "Empty shows no label: Gathering Trip already shows the dates and venue below the title." : horizon ? "Empty shows the venue and dates, like \"Yogyakarta / 6–8 November 2026\"." : 'Empty shows "You\'re invited · event name" while the page is invite only.'}
             value={landing.hero_eyebrow ?? ""}
             onChange={(event) => setLanding({ ...landing, hero_eyebrow: event.target.value })}
           />

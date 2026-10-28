@@ -1041,12 +1041,15 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
   // Bilah masuk Trip: tombol yang sama dengan hero (masuk atau Dashboard saya),
   // atau Daftar selama pendaftaran terbuka. Tidak di pratinjau CMS.
+  // Blok Countdown yang menyala sudah membawa sisa hari: kartu dan bilah tidak mengulangnya.
+  const adaBlokHitung = (config.blocks ?? []).some((blok) => blok.type === "countdown" && (config.sections ?? []).some((bagian) => bagian.id === blok.id && bagian.enabled));
+  const hitungTrip = !adaBlokHitung && hitungMundur && sisa && sisa.sisa > 0 ? [hitungMundur.angka, hitungMundur.teks].filter(Boolean).join(" ") : null;
   const aksiBilahTrip = !trip || pratinjau ? null : aksiHeroHorizon.link ? { href: aksiHeroHorizon.href, label: aksiHeroHorizon.label } : event.registration_enabled && !peserta ? { href: daftarUrl, label: ctaLabel } : null;
   const bilahTrip = aksiBilahTrip ? (
     <BilahMasukTrip
       judul={nama}
       fakta={[formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join(" · ") || null}
-      hitung={hitungMundur && sisa && sisa.sisa > 0 ? [hitungMundur.angka, hitungMundur.teks].filter(Boolean).join(" ") : null}
+      hitung={hitungTrip}
       aksi={aksiBilahTrip}
     />
   ) : null;
@@ -1058,7 +1061,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const kartuMasukTrip = trip ? (
     <KartuMasukTrip
       judul={nama}
-      hitung={hitungMundur && sisa && sisa.sisa > 0 ? [hitungMundur.angka, hitungMundur.teks].filter(Boolean).join(" ") : null}
+      hitung={hitungTrip}
       tanggal={tanggalPanjang ?? tanggal}
       tanggalSub={lamaHari ? t.stayLength(lamaHari) : null}
       tempat={venue}
@@ -1101,7 +1104,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           mulai dari tepi atas layar, seperti di rancangan. */}
       {trip ? (
         <HeroTrip
-          alis={config.hero_eyebrow?.trim() || [tanggalPanjang, venue].filter(Boolean).join(" · ") || null}
+          // Tanggal dan tempat sudah di kotak fakta dan kartu Masuk: alis hanya isian panitia.
+          alis={config.hero_eyebrow?.trim() || null}
           judul={judulAjakan ?? nama}
           catatan={config.hero_note?.trim() || null}
           kv={kvGathering(config)?.src ?? null}
