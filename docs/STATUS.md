@@ -37,6 +37,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #316 Perjalanan on Gathering Trip no longer jumps back up while scrolling (merged 28 Oct): chip row scrolls only sideways, jump bar sticks again, Vehicle/Luggage chips use the real section ids. No SQL.
 - #301 Organiser contacts up to five (merged 28 Oct, QA GO).
 - #295 Organiser contacts follow-up (merged 28 Oct): CMS preview shows every contact; organiser contacts come only from Event settings (Profile > Help card with Call/WhatsApp and role), Participant area > Emergency and help is for emergency services ("Kontak darurat"); optional role per contact.
 - #294 Organiser contacts (merged 27 Oct, QA GO): up to three contacts in Event settings > Kontak panitia, first stays the primary; Horizon gets its own Kontak panitia section with WhatsApp and Call buttons; other layouts list extras in the footer.
