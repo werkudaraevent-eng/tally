@@ -15,6 +15,7 @@ import {
   Globe,
   House,
   Hourglass,
+  Lifebuoy,
   MapPin,
   Megaphone,
   Headset,
@@ -80,6 +81,8 @@ import {
   ChipTanggalHorizon,
   GARIS_KARTU,
   HariJadwalHorizon,
+  KartuBantuanBeranda,
+  ikonJenisDarurat,
   KartuBantuanHorizon,
   KartuDaruratHorizon,
   KartuInfoHorizon,
@@ -109,6 +112,7 @@ import {
   type TabHorizon,
 } from "@/components/member/portal-horizon";
 import { LompatPerjalanan } from "@/components/member/lompat-perjalanan";
+import { GulirKeHash } from "@/components/member/gulir-ke-hash";
 import { jamLeg, jamTiket, legSelesai, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
@@ -1152,6 +1156,8 @@ export async function DashboardGathering({
     // (GRAMM lalu RAY) melihat kartu kedua berjudul "Pindah hotel · Jum, 6 Nov",
     // seperti itinerary Booking.com; peserta satu hotel tetap satu kartu.
     const daftarStay = (logistik?.stays.length ?? 0) > 1 ? logistik?.stays ?? [] : kamar ? [kamar] : [];
+    // Hotel berbeda: pindah kamar di hotel yang sama tidak dihitung "2 hotel".
+    const banyakHotel = new Set(daftarStay.map((x) => x.hotel?.name?.trim())).size;
     const kartuHotel = daftarStay.length > 0 ? (
       <>
         {daftarStay.map((stay, urut) => {
@@ -1165,7 +1171,7 @@ export async function DashboardGathering({
             <KartuInfoHorizon
               key={urut}
               id={urut === 0 && !selesai ? "hotel" : undefined}
-              judul={urut > 0 ? tv.moveTitle : tv.hotelCard}
+              judul={urut > 0 ? (daftarStay[urut - 1]?.hotel?.name?.trim() === h?.name?.trim() ? tv.roomChangeTitle : tv.moveTitle) : tv.hotelCard}
               // Tanggal dan jamnya sudah di baris check-in; kepala cukup jumlah malam (pola Booking.com).
               meta={stay.check_in_at && stay.check_out_at ? { teks: tv.nights(Math.max(1, Math.round((new Date(stay.check_out_at).getTime() - new Date(stay.check_in_at).getTime()) / 86_400_000))) } : null}
               Ikon={Bed}
@@ -1357,7 +1363,7 @@ export async function DashboardGathering({
             key={urut}
             id={urut === 0 && !selesai ? "hotel-1" : undefined}
             stay={{
-              pil: gabungMeta([daftarStay.length > 1 ? tt.hotelN(urut + 1) : tv.hotelCard, jumlahMalam ? tv.nights(jumlahMalam) : null]),
+              pil: gabungMeta([urut > 0 && daftarStay[urut - 1]?.hotel?.name?.trim() === daftarStay[urut]?.hotel?.name?.trim() ? tv.roomChangeTitle : banyakHotel > 1 ? tt.hotelN(urut + 1) : tv.hotelCard, jumlahMalam ? tv.nights(jumlahMalam) : null]),
               nama: h?.name?.trim() || null,
               alamat: h?.address?.trim() || null,
               peta: { href: petaStay, label: labelTautanPeta(petaStay, lang) },
@@ -1393,8 +1399,8 @@ export async function DashboardGathering({
       const bagianTrip = [
         legKereta.length > 0 ? { id: "kereta", label: tv.jump.train } : null,
         daftarStay.length > 0 ? { id: "hotel", label: tv.jump.hotel } : null,
-        kartuBusHorizon ? { id: "bus", label: tv.jump.bus } : null,
-        kartuBagasi ? { id: "bagasi", label: tv.jump.luggage } : null,
+        kartuBusHorizon ? { id: "kendaraan", label: tv.jump.bus } : null,
+        kartuBagasi ? { id: "koper", label: tv.jump.luggage } : null,
         rutePerjalanan.length ? { id: "rute", label: tv.jump.routes } : null,
       ].filter((item): item is { id: string; label: string } => item !== null);
       return (
@@ -1407,9 +1413,8 @@ export async function DashboardGathering({
           ) : null}
           <div className={`flex min-w-0 flex-col gap-6 [&_section]:scroll-mt-32 ${rencana.length > 0 || kartuBantuanPerjalanan ? "" : "lg:col-span-2"}`}>
             {bagianTrip.length >= 3 ? (
-              <div className="lg:hidden">
-                <LompatPerjalanan aria={tv.jump.aria} bagian={bagianTrip} latar={LATAR_PORTAL_HORIZON} />
-              </div>
+              // Langsung di kolom ini, bukan dibungkus div: pembungkus setinggi bilah membuatnya tidak bisa menempel.
+              <LompatPerjalanan aria={tv.jump.aria} bagian={bagianTrip} latar={LATAR_PORTAL_HORIZON} className="lg:hidden" />
             ) : null}
             {legKereta.length > 0 ? (
               <BagianTrip id="kereta" Ikon={Train} nada="kereta" judul={tH.train.title} meta={legAktif > 0 ? tH.train.count(legAktif) : tH.train.done} duaKolom>
@@ -1419,7 +1424,7 @@ export async function DashboardGathering({
               </BagianTrip>
             ) : null}
             {daftarStay.length > 0 ? (
-              <BagianTrip id="hotel" Ikon={Bed} nada="hotel" judul={tv.hotelCard} meta={gabungMeta([daftarStay.length > 1 ? tt.hotels(daftarStay.length) : null, totalMalam ? tv.nights(totalMalam) : null]) || null} duaKolom={daftarStay.length > 1}>
+              <BagianTrip id="hotel" Ikon={Bed} nada="hotel" judul={tv.hotelCard} meta={gabungMeta([banyakHotel > 1 ? tt.hotels(banyakHotel) : null, totalMalam ? tv.nights(totalMalam) : null]) || null} duaKolom={daftarStay.length > 1}>
                 {hotelTrip}
               </BagianTrip>
             ) : null}
@@ -1732,7 +1737,7 @@ export async function DashboardGathering({
           judul={judulDarurat}
           isi={bantuan?.note?.trim() || null}
           label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
-          baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta } }))}
+          baris={kontakDarurat.map((item) => ({ judul: item.judul, isi: item.isi, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: item.peta }, Ikon: kontakDarurat.some((baris) => baris.jenis) ? ikonJenisDarurat(item.jenis) : null }))}
         />
       ) : blokDarurat ? (
         <KartuDaruratHorizon
@@ -1786,6 +1791,7 @@ export async function DashboardGathering({
           darurat={
             kartuPanitia || kartuDarurat ? (
               <div className="flex flex-col gap-4">
+                <GulirKeHash ids={["panitia", "darurat"]} />
                 {kartuPanitia}
                 {kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
               </div>
@@ -2118,7 +2124,8 @@ export async function DashboardGathering({
           ? [
               {
                 label: tH.hotel,
-                nilai: stayPass.map((stay) => stay.hotel?.name?.trim() || tH.hotel).join(", "),
+                // Pindah kamar di hotel yang sama: nama hotelnya sekali saja.
+                nilai: [...new Set(stayPass.map((stay) => stay.hotel?.name?.trim() || tH.hotel))].join(", "),
                 ponsel,
                 lebar: true,
                 daftar: stayPass.map((stay) => ({
@@ -2291,16 +2298,15 @@ export async function DashboardGathering({
       ) : tampilKode && peserta && !kartuPass ? (
           <KartuQrSampingHorizon href={keTab("qr")} judul={t.qrTitle} tombol={tH.qr.showQr} kode={<QrMini code={peserta.qr_code} alt="" />} />
         ) : null;
-      const kartuBantuan = kontakHorizon && diBeranda("help") ? (
-        <KartuBantuanHorizon
-          alis={tH.helpCard.eyebrow}
-          judul={tH.helpCard.title}
-          catatan={kontakHorizon.tel ? tH.helpCard.note : tH.helpCard.noteEmail}
-          kontak={kontakHorizon}
-          label={labelKontak}
-          tautan={adaDarurat ? { href: `${keTab("profil")}#darurat`, label: judulDarurat, tab: "profil" } : null}
-        />
-      ) : null;
+      // Bantuan di Beranda: dua baris ke Profil, hanya bila daftarnya terisi.
+      const panitiaBeranda = daftarKontakPanitia(config);
+      const barisBantuan = [
+        ...(panitiaBeranda.length > 0
+          ? [{ href: `${keTab("profil")}#panitia`, judul: tH.profile.organisersTitle, isi: panitiaBeranda.map((item) => item.nama).filter(Boolean).join(", ") || null, Ikon: Headset, tab: "profil" }]
+          : []),
+        ...(adaDarurat ? [{ href: `${keTab("profil")}#darurat`, judul: judulDarurat, isi: tH.helpCard.emergencyRow, Ikon: Lifebuoy, tab: "profil", nada: "merah" as const }] : []),
+      ];
+      const kartuBantuan = barisBantuan.length > 0 && diBeranda("help") ? <KartuBantuanBeranda judul={tH.helpCard.eyebrow} baris={barisBantuan} /> : null;
 
       // Urutan ponsel dari Participant home (lib/member/susunan-horizon.ts, keputusan
       // Mas 20 Okt): Next up paling atas (hanya Announcements boleh di atasnya), Help

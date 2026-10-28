@@ -27,16 +27,27 @@ import { plural } from "@/lib/plural";
  *
  * `release_room_id`: lepas kamar, hotel dan malamnya tetap (Rooms > hapus
  * penghuni).
+ *
+ * Pindah kamar di hotel yang sama (migrasi 202610280001): satu orang boleh
+ * punya dua stay di satu hotel, jadi dialog Stays menyebut stay-nya
+ * (`stay_id`, satu orang). `tambah`: stay baru, juga di hotel yang sudah ada.
+ *
+ * PUT: dialog Assign menulis seluruh stay tiap orang sekaligus lewat
+ * `replace_stays`, satu transaksi. Isi kamar diperiksa per malam sesudah
+ * semuanya tertulis.
  */
 const malam = {
   check_in_at: z.string().datetime({ offset: true }).optional(),
   check_out_at: z.string().datetime({ offset: true }).optional(),
   trim: z.literal(false).optional(),
+  stay_id: z.number().int().positive().optional(),
 };
+const satuOrangBilaStay = (isi: { stay_id?: number; participant_ids: string[] }) => isi.stay_id === undefined || isi.participant_ids.length === 1;
 const adaMalam = (isi: { check_in_at?: string; check_out_at?: string }) => (isi.check_in_at === undefined) === (isi.check_out_at === undefined);
 const tempatkan = z.union([
-  z.object({ room_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(20), ...malam }).strict().refine(adaMalam),
-  z.object({ hotel_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(2000), ...malam }).strict().refine(adaMalam),
+  z.object({ room_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(20), ...malam }).strict().refine(adaMalam).refine(satuOrangBilaStay),
+  z.object({ hotel_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(2000), ...malam, tambah: z.literal(true).optional() })
+    .strict().refine(adaMalam).refine(satuOrangBilaStay).refine((isi) => !(isi.tambah && isi.stay_id)),
   z.object({ release_room_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(200) }).strict(),
 ]);
 
@@ -69,6 +80,9 @@ export async function POST(request: Request) {
   }
 
   if (hotelId !== null) {
+    // Tanpa malam: `assign_hotel` mengganti semua stay. Stay tertentu atau
+    // stay tambahan selalu bermalam.
+    if (!isi.check_in_at && (isi.stay_id || ("tambah" in isi && isi.tambah))) return apiError("VALIDATION_ERROR", 422);
     const { data, error } = isi.check_in_at
       ? await klien().rpc("set_stay" as never, {
           p_event_id: eventId,
@@ -78,6 +92,8 @@ export async function POST(request: Request) {
           p_check_out_at: isi.check_out_at,
           p_actor: auth.user.id,
           ...(isi.trim === false ? { p_trim: false } : {}),
+          ...(isi.stay_id ? { p_stay_id: isi.stay_id } : {}),
+          ...("tambah" in isi && isi.tambah ? { p_tambah: true } : {}),
         } as never)
       : await klien().rpc("assign_hotel" as never, {
           p_event_id: eventId,
@@ -96,6 +112,7 @@ export async function POST(request: Request) {
       p_room_id: (isi as { room_id: number }).room_id,
       p_participant_id: participantId,
       p_actor: auth.user.id,
+      ...(isi.stay_id ? { p_stay_id: isi.stay_id } : {}),
     } as never);
     if (error) {
       const galat = galatRpc(error);
@@ -125,7 +142,10 @@ export async function DELETE(request: Request) {
   const url = new URL(request.url);
   const ids = z.array(z.string().uuid()).min(1).max(200).safeParse(url.searchParams.getAll("participant_id"));
   const hotel = z.coerce.number().int().positive().optional().safeParse(url.searchParams.get("hotel_id") ?? undefined);
-  if (!ids.success || !hotel.success) return apiError("VALIDATION_ERROR", 422);
+  // `stay_id`: satu stay saja, untuk satu orang (dua stay di hotel yang sama).
+  const stay = z.coerce.number().int().positive().optional().safeParse(url.searchParams.get("stay_id") ?? undefined);
+  if (!ids.success || !hotel.success || !stay.success) return apiError("VALIDATION_ERROR", 422);
+  if (stay.data && ids.data.length !== 1) return apiError("VALIDATION_ERROR", 422);
 
   let lepas = 0;
   for (const participantId of ids.data) {
@@ -134,9 +154,36 @@ export async function DELETE(request: Request) {
       p_participant_id: participantId,
       p_actor: auth.user.id,
       ...(hotel.data ? { p_hotel_id: hotel.data } : {}),
+      ...(stay.data ? { p_stay_id: stay.data } : {}),
     } as never);
     if (error) return galatRpc(error);
     if (data) lepas += 1;
   }
   return Response.json({ removed: lepas });
+}
+
+const isiStay = z.object({
+  hotel_id: z.number().int().positive(),
+  room_id: z.number().int().positive().nullable(),
+  check_in_at: z.string().datetime({ offset: true }).nullable(),
+  check_out_at: z.string().datetime({ offset: true }).nullable(),
+}).strict().refine((s) => (s.check_in_at === null) === (s.check_out_at === null));
+const gantiStay = z.object({
+  items: z.array(z.object({ participant_id: z.string().uuid(), stays: z.array(isiStay).max(6) }).strict()).min(1).max(2000),
+}).strict().refine((isi) => new Set(isi.items.map((i) => i.participant_id)).size === isi.items.length);
+
+export async function PUT(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"]);
+  if (auth.response) return auth.response;
+
+  const parsed = gantiStay.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
+
+  const { data, error } = await klien().rpc("replace_stays" as never, {
+    p_event_id: auth.scope.event.id,
+    p_items: parsed.data.items,
+    p_actor: auth.user.id,
+  } as never);
+  if (error) return galatRpc(error);
+  return Response.json({ assigned: Number(data ?? 0) });
 }

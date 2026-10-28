@@ -1,7 +1,9 @@
 /**
  * Stay: satu penempatan hotel seorang peserta (hotel, kamar boleh menyusul,
- * dan malam menginap). Peserta boleh punya beberapa stay, satu per hotel,
- * berurutan tanggal: GRAMM 5-6 Nov lalu RAY 6-8 Nov.
+ * dan malam menginap). Peserta boleh punya beberapa stay, berurutan tanggal:
+ * GRAMM 5-6 Nov lalu RAY 6-8 Nov, atau RAY kamar 1208 5-6 Nov lalu RAY kamar
+ * 1410 6-8 Nov (pindah kamar, migrasi 202610280001). Satu stay dikenali lewat
+ * `id`-nya, bukan hotelnya.
  *
  * Tanggal stay null = ikut tanggal hotel. Jadi peserta dengan satu stay tanpa
  * tanggal tetap seperti sebelum ada fitur ini.
@@ -12,6 +14,7 @@
  */
 
 export type Stay = {
+  id: number;
   participant_id: string;
   hotel_id: number;
   room_id: number | null;
@@ -73,7 +76,7 @@ export function urutkanStay<T extends Stay>(stays: T[], hotelById: Map<number, T
   return [...stays].sort((a, b) => {
     const ma = tanggalStay(a, hotelById.get(a.hotel_id)).masuk;
     const mb = tanggalStay(b, hotelById.get(b.hotel_id)).masuk;
-    if (ma === mb) return a.hotel_id - b.hotel_id;
+    if (ma === mb) return a.hotel_id - b.hotel_id || a.id - b.id;
     if (ma === null) return -1;
     if (mb === null) return 1;
     return Date.parse(ma) - Date.parse(mb);
@@ -101,18 +104,19 @@ export function stayPadaTanggal(masuk: string | null, keluar: string | null, tan
 
 export type Potongan =
   /** `sisaHilang`: stay lama berlanjut melewati malam baru; malam sesudahnya ikut hilang. */
-  | { jenis: "akhir"; hotel_id: number; tanggal: string; sisaHilang: string | null }
-  | { jenis: "awal"; hotel_id: number; tanggal: string }
-  | { jenis: "hapus"; hotel_id: number };
+  | { jenis: "akhir"; stay_id: number; hotel_id: number; tanggal: string; sisaHilang: string | null }
+  | { jenis: "awal"; stay_id: number; hotel_id: number; tanggal: string }
+  | { jenis: "hapus"; stay_id: number; hotel_id: number };
 
 /**
- * Apa yang terjadi pada stay lain seseorang bila ia diberi stay baru di
- * `hotelId` dari `masuk` sampai `keluar`. Cermin `set_stay` di migrasi
- * 202610230002, untuk kalimat akibat di dialog sebelum tombol ditekan.
+ * Apa yang terjadi pada stay lain seseorang bila satu stay-nya (`kecuali`,
+ * null = stay baru) diberi malam dari `masuk` sampai `keluar`. Cermin
+ * `set_stay` di migrasi 202610280001, untuk kalimat akibat di dialog sebelum
+ * tombol ditekan. Stay lain di hotel yang sama ikut dipotong.
  */
 export function potonganStay(
   stays: Stay[],
-  hotelId: number,
+  kecuali: number | null,
   masuk: string,
   keluar: string,
   hotelById: Map<number, TanggalHotel>,
@@ -122,7 +126,7 @@ export function potonganStay(
   const m = Date.parse(masuk);
   const k = Date.parse(keluar);
   for (const stay of stays) {
-    if (stay.hotel_id === hotelId) continue;
+    if (stay.id === kecuali) continue;
     const t = tanggalStay(stay, hotelById.get(stay.hotel_id));
     const sm = t.masuk === null ? null : Date.parse(t.masuk);
     const sk = t.keluar === null ? null : Date.parse(t.keluar);
@@ -130,12 +134,46 @@ export function potonganStay(
     if (!tabrak) continue;
     if (sm === null || sm < m) {
       const sisaHilang = sk === null || sk > k ? tanggalZona(keluar, offset) : null;
-      hasil.push({ jenis: "akhir", hotel_id: stay.hotel_id, tanggal: tanggalZona(masuk, offset), sisaHilang });
+      hasil.push({ jenis: "akhir", stay_id: stay.id, hotel_id: stay.hotel_id, tanggal: tanggalZona(masuk, offset), sisaHilang });
     }
-    else if (sk === null || sk > k) hasil.push({ jenis: "awal", hotel_id: stay.hotel_id, tanggal: tanggalZona(keluar, offset) });
-    else hasil.push({ jenis: "hapus", hotel_id: stay.hotel_id });
+    else if (sk === null || sk > k) hasil.push({ jenis: "awal", stay_id: stay.id, hotel_id: stay.hotel_id, tanggal: tanggalZona(keluar, offset) });
+    else hasil.push({ jenis: "hapus", stay_id: stay.id, hotel_id: stay.hotel_id });
   }
   return hasil;
+}
+
+/**
+ * Rentang efektif [masuk, keluar) dalam milidetik: stay, lalu kamar, lalu
+ * hotel; tanpa batas = ±Infinity. Cermin `lodging_rentang` di migrasi
+ * 202610280001. Tanggal terbalik = kosong (null), tidak bertabrakan apa pun.
+ */
+export function rentangStay(
+  stay: Pick<Stay, "check_in_at" | "check_out_at">,
+  kamar: { check_in_at?: string | null; check_out_at?: string | null } | undefined,
+  hotel: TanggalHotel | undefined,
+): [number, number] | null {
+  const masuk = stay.check_in_at ?? kamar?.check_in_at ?? hotel?.check_in_at ?? null;
+  const keluar = stay.check_out_at ?? kamar?.check_out_at ?? hotel?.check_out_at ?? null;
+  const a = masuk === null ? -Infinity : Date.parse(masuk);
+  const b = keluar === null ? Infinity : Date.parse(keluar);
+  return b > a ? [a, b] : null;
+}
+
+/** Dua rentang berbagi malam. */
+export function bertabrakan(a: [number, number] | null, b: [number, number] | null): boolean {
+  return a !== null && b !== null && a[0] < b[1] && b[0] < a[1];
+}
+
+/**
+ * Jumlah penghuni terbanyak pada satu waktu di dalam `rentang`, dari rentang
+ * penghuni lain. Cermin pemeriksaan kapasitas `lodging_cek_kamar`: kamar 1208
+ * yang dikosongkan 6 Nov boleh diisi orang lain mulai 6 Nov.
+ */
+export function puncakHuni(lain: Array<[number, number] | null>, rentang: [number, number] | null): number {
+  if (rentang === null) return 0;
+  const tabrak = lain.filter((r): r is [number, number] => bertabrakan(r, rentang));
+  const titik = [rentang[0], ...tabrak.map((r) => r[0]).filter((t) => t > rentang[0] && t < rentang[1])];
+  return Math.max(0, ...titik.map((t) => tabrak.filter((r) => r[0] <= t && t < r[1]).length));
 }
 
 const BULAN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
