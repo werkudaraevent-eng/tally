@@ -16,8 +16,8 @@ export function BilahMasukTrip({ judul, fakta, hitung, aksi }: { judul: string; 
   useEffect(() => {
     const penanda = document.getElementById("mulai");
     if (!penanda) {
-      setTampil(true);
-      return;
+      const bingkai = requestAnimationFrame(() => setTampil(true));
+      return () => cancelAnimationFrame(bingkai);
     }
     const amati = new IntersectionObserver(([entri]) => setTampil(entri.boundingClientRect.top < 0), { threshold: 0 });
     amati.observe(penanda);
