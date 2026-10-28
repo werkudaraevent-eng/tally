@@ -246,7 +246,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             <p className="-mt-2 text-body-small text-on-surface-variant">
               {jenis === "kereta"
                 ? "Download participant list gives every participant two rows, Outbound and Return, with tickets already saved. Fill the train columns, leave the rest empty, then choose the file here."
-                : "Download participant list gives every participant one row, with vehicles already saved, and one column per Trip. Fill Vehicle; fill a Trip column only when the person rides a different vehicle on that Trip (\"No vehicle\" if they do not ride). Empty cells change nothing."}
+                : "Download participant list gives every participant one row, with vehicles already saved, and one column per Trip. Fill Vehicle; fill a Trip column only when the person rides a different vehicle on that Trip (\"No vehicle\" if they do not ride, \"Default\" to go back to the main vehicle). Empty cells change nothing."}
               {" "}Columns marked (info) are only for filtering in Excel. The file contains QR codes, so keep it inside the team.
             </p>
           )}
@@ -356,7 +356,10 @@ function TabelRencana({ baris, jenis }: { baris: BarisRencana[]; jenis: JenisImp
                 {/* Di layar sempit kolom tujuan digabung ke sini, supaya Keterangan tetap terlihat tanpa menggeser tabel. */}
                 <span className="block text-on-surface-variant sm:hidden">{b.tujuan || (jenis === "kereta" ? "No ticket" : "No room or vehicle")}</span>
               </td>
-              <td className="hidden whitespace-nowrap px-4 py-2 text-on-surface sm:table-cell">{b.tujuan || <span className="text-on-surface-variant">Empty</span>}</td>
+              <td className="hidden whitespace-nowrap px-4 py-2 text-on-surface sm:table-cell">
+                {/* Kendaraan: utama dan tiap trip satu baris, supaya kolom Status tidak terdorong keluar. */}
+                {!b.tujuan ? <span className="text-on-surface-variant">Empty</span> : jenis === "bus" ? b.tujuan.split(" · ").map((bagian, j) => <span key={j} className="block">{bagian}</span>) : b.tujuan}
+              </td>
               <td className="px-4 py-2 sm:min-w-48">
                 <span className="flex items-start gap-1.5">
                   <span className="mt-[7px] flex"><StatusDot tone={STATUS[b.status].tone} /></span>

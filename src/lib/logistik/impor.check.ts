@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaJam, bacaTanggal, barisPesertaBus, barisPesertaKereta, barisStaySekarang, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type KeadaanAcara } from "./impor.ts";
+import { IKUT, bacaJam, bacaTanggal, barisPesertaBus, barisPesertaKereta, barisStaySekarang, rencanaBus, rencanaKamar, rencanaKereta, TEMPLAT, type KeadaanAcara } from "./impor.ts";
 
 const acara: KeadaanAcara = {
   peserta: [
@@ -379,9 +379,9 @@ assert.equal(qrMentah.baris[0].participant_id, "c");
 // Kendaraan per Trip: satu kolom per trip, urut jam berangkat, judul memakai
 // jam zona acara. Pengecualian tersimpan terisi; "No vehicle" = tidak naik.
 const tripAcara = [
-  { id: 2, name: "Jeep Merapi", depart_at: "2026-11-06T22:00:00Z" },
-  { id: 1, name: "Ke venue", depart_at: "2026-11-06T00:00:00Z" },
-  { id: 3, name: "Pulang", depart_at: null },
+  { id: 2, name: "Jeep Merapi", depart_at: "2026-11-06T22:00:00Z", follows_default: true },
+  { id: 1, name: "Ke venue", depart_at: "2026-11-06T00:00:00Z", follows_default: true },
+  { id: 3, name: "Pulang", depart_at: null, follows_default: true },
 ];
 const busDua = [{ id: 5, code: "Bus 1", capacity: 40 }, { id: 7, code: "Bus 7", capacity: 1 }];
 const unduhTrip = barisPesertaBus({
@@ -435,8 +435,32 @@ assert.match(tripAsing.galat ?? "", /Column "Trip: Pantai" does not match a Trip
 const tripGanda = rencanaBus([["QR code", "Name", "Vehicle", "Trip: Pulang", "Trip: pulang"], ["Q-1", "", "Bus 1", "", ""]], acaraTrip);
 assert.match(tripGanda.galat ?? "", /same Trip \(Pulang\)/);
 // Kendaraan utama penuh: barisnya ditolak dan pengecualian tripnya tidak ditulis.
-const penuhTrip = rencanaBus([["QR code", "Name", "Vehicle", "Trip: Pulang"], ["Q-2", "", "Bus 7", "Bus 1"], ["Q-3", "", "Bus 7", "Bus 1"]], { ...acaraTrip, busBawaan: [] });
+const penuhTrip = rencanaBus([["QR code", "Name", "Vehicle", "Trip: Pulang"], ["Q-2", "", "Bus 7", "Bus 1"], ["Q-3", "", "Bus 7", "Bus 1"]], { ...acaraTrip, busBawaan: [], busTrip: [] });
 assert.deepEqual(penuhTrip.baris.map((b) => b.status), ["masuk", "tolak"]);
 assert.deepEqual(penuhTrip.busTrip, [{ trip_id: 3, tujuan: "Bus 1", participant_ids: ["b"] }]);
+
+// Kapasitas per trip sudah dinilai di pratinjau: Bus 7 (1 kursi) di Ke venue.
+const tripPenuh = rencanaBus([["QR code", "Name", "Vehicle", "Trip: Ke venue"], ["Q-2", "", "", "Bus 7"], ["Q-3", "", "", "Bus 7"]], acaraTrip);
+assert.deepEqual(tripPenuh.baris.map((b) => `${b.status}:${b.alasan}`), ["pindah:Trip vehicles change", "tolak:Bus 7 full on Ke venue (capacity 1)"]);
+assert.deepEqual(tripPenuh.busTrip, [{ trip_id: 1, tujuan: "Bus 7", participant_ids: ["b"] }]);
+// Kendaraan utama baru muat sebagai utama, tetapi Jeep Merapi (ikut utama)
+// sudah berisi Andi di Bus 7: ditolak di pratinjau, bukan baru saat disimpan.
+const utamaPenuh = rencanaBus([["QR code", "Name", "Vehicle"], ["Q-2", "", "Bus 7"]], acaraTrip);
+assert.deepEqual(utamaPenuh.baris.map((b) => `${b.status}:${b.alasan}`), ["tolak:Bus 7 full on Jeep Merapi (capacity 1)"]);
+assert.deepEqual(utamaPenuh.penempatan, []);
+// Kursi yang dikosongkan baris berikutnya di berkas yang sama ikut dihitung.
+const kursiLepas = rencanaBus([["QR code", "Name", "Vehicle", "Trip: Jeep Merapi"], ["Q-2", "", "Bus 7", ""], ["Q-1", "", "Bus 1", "No vehicle"]], acaraTrip);
+assert.deepEqual(kursiLepas.baris.map((b) => b.status), ["masuk", "pindah"]);
+assert.deepEqual(kursiLepas.penempatan.map((p) => `${p.tujuan}:${p.participant_ids}`), ["Bus 7:b"]);
+// "Default" mengembalikan orang ke kendaraan utama di trip itu; tanpa
+// pengecualian tersimpan tidak ada yang berubah.
+const kembali = rencanaBus([["QR code", "Name", "Vehicle", "Trip: Jeep Merapi"], ["Q-1", "", "", "Default"], ["Q-2", "", "", "default"]], acaraTrip);
+assert.deepEqual(kembali.baris.map((b) => `${b.status}:${b.tujuan}`), ["pindah:Jeep Merapi: Default", "tetap:Jeep Merapi: Default"]);
+assert.deepEqual(kembali.busTrip, [{ trip_id: 2, tujuan: IKUT, participant_ids: ["a"] }]);
+assert.deepEqual(kembali.busBaru, []);
+// Kolom (info) yang labelnya diawali "Trip:" bukan kolom trip.
+const infoTrip = rencanaBus([["QR code", "Name", "Vehicle", "Trip: preference (info)"], ["Q-2", "", "Bus 1", "Pantai"]], acaraTrip);
+assert.equal(infoTrip.galat, null);
+assert.deepEqual(infoTrip.busTrip, []);
 
 console.log("impor.check: ok");
