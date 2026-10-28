@@ -1305,7 +1305,7 @@ export type LandingMemberConfig = {
   help?: {
     title?: string | null;
     note?: string | null;
-    contacts?: Array<{ name: string; phone?: string | null; note?: string | null; map_url?: string | null; en?: { name?: string | null; note?: string | null } | null }>;
+    contacts?: Array<{ name: string; kind?: "hospital" | "police" | "fire" | "ambulance" | "hotel" | "other" | null; phone?: string | null; note?: string | null; map_url?: string | null; en?: { name?: string | null; note?: string | null } | null }>;
     /** Teks English untuk halaman /en; kosong = teks Indonesia. */
     en?: { title?: string | null; note?: string | null } | null;
   } | null;

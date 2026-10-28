@@ -7,7 +7,22 @@ import { nomorKru, PONSEL } from "../logistik/kontak-kru.ts";
  * Disimpan di `landing_config.member.help`.
  */
 export type TeksKontakEn = { name?: string | null; note?: string | null };
-export type KontakDarurat = { name: string; phone?: string | null; note?: string | null; map_url?: string | null; en?: TeksKontakEn | null };
+/**
+ * Jenis kontak darurat (keputusan Mas 28 Okt): dipilih panitia per kontak dan
+ * tampil sebagai ikon di depan nama, seperti daftar nomor darurat aplikasi
+ * perjalanan. Kosong = tanpa ikon, tampilan lama.
+ */
+export const JENIS_DARURAT = ["hospital", "police", "fire", "ambulance", "hotel", "other"] as const;
+export type JenisDarurat = (typeof JENIS_DARURAT)[number];
+export const LABEL_JENIS_DARURAT: Record<JenisDarurat, string> = {
+  hospital: "Hospital or clinic",
+  police: "Police",
+  fire: "Fire brigade",
+  ambulance: "Ambulance",
+  hotel: "Hotel",
+  other: "Other",
+};
+export type KontakDarurat = { name: string; kind?: JenisDarurat | null; phone?: string | null; note?: string | null; map_url?: string | null; en?: TeksKontakEn | null };
 export type BantuanDarurat = { title?: string | null; note?: string | null; contacts?: KontakDarurat[]; en?: { title?: string | null; note?: string | null } | null };
 
 export const KONTAK_DARURAT_MAX = 8;
@@ -18,6 +33,7 @@ export const KONTAK_DARURAT_BATAS = { title: 60, name: 60, phone: 40, note: 1000
 /** Baris kartu darurat yang siap digambar: tombol hanya untuk nomor dan tautan yang terbaca. */
 export type BarisKontakDarurat = {
   judul: string;
+  jenis: JenisDarurat | null;
   nomor: string | null;
   isi: string | null;
   tel: string | null;
@@ -102,7 +118,8 @@ export function barisKontakDarurat(kontak: KontakDarurat[] | null | undefined): 
     .map((item) => {
       const nomor = item.phone?.trim() || null;
       const sambung = nomorTelepon(nomor);
-      return { judul: item.name.trim(), nomor: nomorTampil(nomor, sambung?.tel), isi: item.note?.trim() || null, tel: sambung?.tel ?? null, wa: sambung?.wa ?? null, peta: tautanPeta(item.map_url) };
+      const jenis = item.kind && (JENIS_DARURAT as readonly string[]).includes(item.kind) ? item.kind : null;
+      return { judul: item.name.trim(), jenis, nomor: nomorTampil(nomor, sambung?.tel), isi: item.note?.trim() || null, tel: sambung?.tel ?? null, wa: sambung?.wa ?? null, peta: tautanPeta(item.map_url) };
     });
 }
 

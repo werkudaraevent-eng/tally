@@ -5,7 +5,7 @@ import { SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
 import { TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
 import { outfitSetiapHariSchema } from "@/lib/outfit-setiap-hari";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
-import { KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
+import { JENIS_DARURAT, KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
 import { KONTAK_PANITIA_MAX, KONTAK_PERAN_MAX } from "@/lib/kontak-panitia";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FAQ_LAYOUTS, FAQ_GROUP_MAX, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, LANDING_ROUTE_STEPS_MAX, LANDING_ROUTE_STEP_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
@@ -302,6 +302,7 @@ export const memberSchema = z.object({
         .array(
           z.object({
             name: z.string().trim().min(1, "Each contact needs a name or role").max(KONTAK_DARURAT_BATAS.name),
+            kind: z.enum(JENIS_DARURAT).nullish(),
             phone: z.string().trim().max(KONTAK_DARURAT_BATAS.phone).nullish(),
             note: z.string().trim().max(KONTAK_DARURAT_BATAS.note).nullish(),
             map_url: z.string().trim().max(KONTAK_DARURAT_BATAS.map_url).regex(/^(https?:\/\/[^\s"'<>\\]+)?$/i, "Map links must start with http:// or https://").nullish(),

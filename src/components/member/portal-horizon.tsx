@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { Ambulance, ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, FireTruck, Hospital, Bed, PoliceCar, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
@@ -750,6 +750,21 @@ export function KartuBantuanHorizon({
 }
 
 /**
+ * Kartu Bantuan di Beranda (keputusan Mas 28 Okt): pintu ke dua daftar di Profil,
+ * Kontak panitia (Event settings) dan Kontak darurat (Participant area), seperti
+ * baris "Get help" di halaman trip Airbnb. Tidak menelepon langsung: dengan lima
+ * kontak, peserta memilih orangnya di Profil.
+ */
+export function KartuBantuanBeranda({ judul, baris }: { judul: string; baris: BarisProfil[] }) {
+  return (
+    <section aria-label={judul} className={`${KARTU_HZ} flex flex-col gap-2 ${PAD_KARTU}`} style={{ color: TINTA }}>
+      <KepalaKartuHorizon Ikon={Lifebuoy} judul={judul} />
+      <DaftarProfil baris={baris} />
+    </section>
+  );
+}
+
+/**
  * Pilihan hari Jadwal di ponsel dan tablet (U-06): satu chip per TANGGAL, dua
  * baris ("Jum" / "6 Nov"), jadi empat hari muat utuh di layar 390. Hari lebih
  * banyak bergeser mendatar, dan hari terpilih digulir ke tengah.
@@ -811,7 +826,14 @@ export type BarisDaruratHorizon = {
   luar: boolean;
   /** Kontak dari Participant area (E-03): nomor tampil sebagai teks, tombolnya di bawah. */
   kontak?: { nomor: string | null; tel: string | null; wa: string | null; peta: string | null };
+  /** Ikon jenis kontak darurat (rumah sakit, polisi, ...); lihat ikonJenisDarurat. */
+  Ikon?: typeof Train | null;
 };
+
+/** Ikon tiap jenis kontak darurat. Satu kontak berjenis = semua baris kartu berikon (tanpa jenis = Telepon), agar nama sejajar. */
+export function ikonJenisDarurat(jenis: string | null): typeof Train {
+  return jenis === "hospital" ? Hospital : jenis === "police" ? PoliceCar : jenis === "fire" ? FireTruck : jenis === "ambulance" ? Ambulance : jenis === "hotel" ? Bed : Phone;
+}
 
 /**
  * Kartu "Darurat dan bantuan" di Menu (E-03, pola halaman kontak darurat
@@ -878,6 +900,11 @@ export function KartuDaruratHorizon({
                 : [];
               return (
                 <li key={`${index}-${item.judul}`} className="flex items-start gap-3 border-[#E6E8EC] py-3 first:pt-0 last:pb-0 [&+&]:border-t">
+                  {item.Ikon ? (
+                    <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FCEBEA] text-[#B42318]">
+                      <item.Ikon size={20} />
+                    </span>
+                  ) : null}
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</span>
                     {kontak.nomor ? (
@@ -1437,7 +1464,7 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat
  * tautan tel:/mailto: atau situs lain; `tabBaru`: dibuka di tab baru (WhatsApp);
  * `nada`: warna lingkaran ikon (hijau WhatsApp).
  */
-export type BarisProfil = { href: string; judul: string; isi: string | null; Ikon: typeof Train; luar?: boolean; tab?: string; tabBaru?: boolean; nada?: "hijau" };
+export type BarisProfil = { href: string; judul: string; isi: string | null; Ikon: typeof Train; luar?: boolean; tab?: string; tabBaru?: boolean; nada?: "hijau" | "merah" };
 
 const BARIS_PROFIL = "m3-state -mx-3 flex min-h-14 items-center gap-4 rounded-[12px] px-3 py-2";
 

@@ -234,7 +234,7 @@ export type PortalUiText = {
     /** Baris Simpan QR ke galeri menjelang keberangkatan (U-02). */
     saveQrRow: { eyebrow: string; title: string; note: string; failed: string };
     /** Kartu Hubungi panitia (U-07). */
-    helpCard: { eyebrow: string; title: string; note: string; noteEmail: string; noteTravel: string; noteProfile: string; email: string };
+    helpCard: { eyebrow: string; title: string; emergencyRow: string; note: string; noteEmail: string; noteTravel: string; noteProfile: string; email: string };
     /** Judul kartu darurat bila blok panitia tanpa judul (E-03). */
     emergency: string;
     /** Tombol peta pada kontak darurat (E-03). */
@@ -514,6 +514,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       helpCard: {
         eyebrow: "Butuh bantuan?",
         title: "Hubungi panitia",
+        emergencyRow: "Rumah sakit, polisi, dan nomor penting lain",
         note: "Langsung ke panitia lewat telepon atau WhatsApp.",
         noteEmail: "Kirim email ke panitia.",
         noteTravel: "Tertinggal rombongan atau ada kendala di perjalanan.",
@@ -776,6 +777,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       helpCard: {
         eyebrow: "Need help?",
         title: "Contact the organisers",
+        emergencyRow: "Hospital, police and other key numbers",
         note: "Reach the organisers by phone or WhatsApp.",
         noteEmail: "Email the organisers.",
         noteTravel: "Left behind or having trouble on the way?",
