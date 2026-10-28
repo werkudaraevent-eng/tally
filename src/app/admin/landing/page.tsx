@@ -2513,7 +2513,7 @@ export default function LandingCmsPage() {
           // halaman daftar, undangan, dan dashboard peserta. Di sini hanya
           // ringkasannya; bagian ini tetap dinyalakan/dimatikan di daftar bagian.
           <div className="flex flex-col gap-2 text-body-medium">
-            <p className="text-on-surface-variant">Filled in once under Event settings, up to three contacts. The first one also shows on the registration, invitation and participant pages.</p>
+            <p className="text-on-surface-variant">Filled in once under Event settings, up to five contacts. The first one also shows on the registration, invitation and participant pages.</p>
             {kontakPanitiaAdmin.length > 0 ? (
               <ul className="flex flex-col gap-0.5 text-on-surface">
                 {kontakPanitiaAdmin.map((baris, i) => <li key={i} className="[overflow-wrap:anywhere]">{baris}</li>)}

@@ -9,7 +9,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * Kontak panitia (Event settings > Kontak panitia).
  *
  * Disimpan di `landing_config.contact_*` (kontak utama) dan
- * `landing_config.contact_more` (kontak kedua dan ketiga), tempat yang sama dengan bagian
+ * `landing_config.contact_more` (kontak kedua sampai kelima), tempat yang sama dengan bagian
  * Kontak halaman acara sebelumnya, jadi isian lama terbawa tanpa migrasi.
  * PATCH hanya menulis kunci-kunci itu di atas salinan server yang terbaru;
  * editor Halaman acara tidak lagi menulisnya (lihat PATCH /api/admin/landing).

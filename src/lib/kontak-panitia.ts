@@ -17,8 +17,8 @@ export function kontakPanitia(landing: EventLandingConfig | null | undefined, ba
 /** Nomor untuk tautan tel:, tanpa spasi dan tanda baca. */
 export const telHref = (telepon: string) => `tel:${telepon.replace(/[^\d+]/g, "")}`;
 
-/** Paling banyak tiga kontak panitia: `contact_*` lalu `contact_more`. */
-export const KONTAK_PANITIA_MAX = 3;
+/** Paling banyak lima kontak panitia: `contact_*` lalu `contact_more` (Mas 28 Okt: 3 terlalu sedikit). */
+export const KONTAK_PANITIA_MAX = 5;
 /** Panjang peran atau jabatan, sama dengan catatan pendek kartu darurat. */
 export const KONTAK_PERAN_MAX = 60;
 
