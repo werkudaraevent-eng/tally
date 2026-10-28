@@ -125,7 +125,7 @@ import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
 import { bagianOutfitTanggal, labelOutfit, type OutfitEntry } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
-import { kapanOutfit, outfitTerlihat } from "@/lib/outfit";
+import { apaRingkas, fotoRingkas, kapanOutfit, outfitTerlihat } from "@/lib/outfit";
 import { bacaOutfitSetiapHari, denganSetiapHari, hariOutfitBerandaSetiapHari, hariTanpaAgenda } from "@/lib/outfit-setiap-hari";
 import { bagianPertama, pilihanPeserta } from "@/lib/sasaran-bagian";
 import { loadSasaranPeserta } from "@/lib/sasaran-bagian-server";
@@ -922,7 +922,7 @@ export async function DashboardGathering({
                     Ikon={CoatHanger}
                     judul={labelOutfitHalaman}
                     aksi={tH.outfit.see}
-                    isian={outfitHari.map((isian) => ({ kapan: kapanOutfit(isian, tH.outfit.allDay), apa: isian.what }))}
+                    isian={outfitHari.map((isian) => ({ kapan: kapanOutfit(isian, tH.outfit.allDay), apa: apaRingkas(isian, tH.outfit.optionsShort) }))}
                     href={keTab("outfit", { hari: String(pilihan + 1) })}
                     tab="outfit"
                     lampu="jadwal"
@@ -1329,9 +1329,11 @@ export async function DashboardGathering({
         apa={isian.what}
         catatan={isian.note ?? null}
         foto={isian.photo_url ?? null}
+        pilihan={isian.options}
         tingkat={bagian ? 3 : 2}
         judulFoto={labelOutfitHalaman}
         teksFoto={{ buka: to.openPhoto(isian.what), lihat: to.viewPhoto, perbesar: to.enlarge, tutup: to.closePhoto }}
+        teksPilihan={{ pilih: to.options(isian.options?.length ?? 0), buka: to.openPhoto, tutup: to.closePhoto, sebelumnya: to.prevPhoto, berikutnya: to.nextPhoto }}
       />
     ));
     const hariTerpilih = hariO.find((item) => item.bagian.some((isi) => isi.indeks === pilihan));
@@ -1429,7 +1431,7 @@ export async function DashboardGathering({
                 <KartuRingkasOutfit
                   Ikon={CalendarBlank}
                   judul={gabungMeta([to.next, (({ atas, bawah }) => `${atas}, ${bawah}`)(chipTanggal(berikutO.item.tanggal, lang))])}
-                  isian={outfitTampil(berikutO.indeks).map((isian) => ({ kapan: kapanOutfit(isian, to.allDay), apa: isian.what }))}
+                  isian={outfitTampil(berikutO.indeks).map((isian) => ({ kapan: kapanOutfit(isian, to.allDay), apa: apaRingkas(isian, to.optionsShort) }))}
                   href={hrefO(berikutO.indeks)}
                   redup
                 />
@@ -1834,7 +1836,7 @@ export async function DashboardGathering({
                   : null
                 : gabungMeta([bagian.tanggal ? tanggalSapaan(bagian.tanggal, lang) : null, kelompok]) || null
             }
-            isian={denganSetiapHari(bagian.outfit, setiapHari, tH.outfit.everyDay).map((isian, index) => ({ kunci: String(index), kapan: isian.when?.trim() || null, apa: isian.what, catatan: isian.note?.trim() || null, foto: isian.photo_url ?? null }))}
+            isian={denganSetiapHari(bagian.outfit, setiapHari, tH.outfit.everyDay).map((isian, index) => ({ kunci: String(index), kapan: isian.when?.trim() || null, apa: apaRingkas(isian, tH.outfit.optionsShort), catatan: isian.note?.trim() || null, foto: fotoRingkas(isian) }))}
             tautan={{ href: keTab("outfit", hariOutfit.length > 0 ? { hari: String(outfitBeranda.indeks + 1) } : {}), label: tH.home.seeAll, tab: "outfit", lampu: outfitDiAcara ? "jadwal" : undefined }}
           />
         );

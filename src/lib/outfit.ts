@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { labelPembeda, tanpaLabelBagian } from "./member/hari-agenda.ts";
 import type { PilihanPeserta } from "./sasaran-bagian.ts";
+import { SEPARATOR } from "./typography.ts";
 
 /**
  * Outfit (dress code) per bagian Agenda: kolom `rundown_sections.outfit`
@@ -18,6 +19,9 @@ import type { PilihanPeserta } from "./sasaran-bagian.ts";
 
 export const OUTFIT_MAX = 3;
 export const OUTFIT_BATAS = { when: 40, what: 120, note: 200 } as const;
+/** Pilihan gaya dalam satu isian (mis. empat gaya Gala Dinner). */
+export const OUTFIT_PILIHAN_MAX = 6;
+export const OUTFIT_PILIHAN_BATAS = { name: 60, description: 200 } as const;
 /** Label halaman bawaan; sama di kedua bahasa. */
 export const OUTFIT_LABEL_BAWAAN = "Outfit";
 export const OUTFIT_LABEL_MAX = 16;
@@ -27,7 +31,13 @@ export const OUTFIT_LABEL_MAX = 16;
  * ditulis server ("17.30 Gala Dinner") dan dibaca peserta apa adanya, jadi
  * portal tidak perlu tahu tautannya.
  */
-export type OutfitEntry = { item_id?: number; when?: string; what: string; note?: string; photo_url?: string };
+export type OutfitEntry = { item_id?: number; when?: string; what: string; note?: string; photo_url?: string; options?: OutfitPilihan[] };
+
+/**
+ * Satu pilihan gaya: peserta memakai salah satunya (pola panduan attire The
+ * Knot/Zola). Isian tanpa `options` tetap satu outfit dengan satu foto.
+ */
+export type OutfitPilihan = { name: string; description?: string; photo_url?: string };
 
 /** `baris`: satu baris agenda. `waktu`: sebagian hari bernama ("Malam hari"). */
 export type JenisOutfit = "seharian" | "baris" | "waktu";
@@ -50,6 +60,12 @@ const fotoHttps = z
   .transform((nilai) => nilai || undefined)
   .refine((nilai) => nilai === undefined || urlHttps(nilai), "Photo must be an https:// address.");
 
+export const outfitPilihanSchema = z.object({
+  name: z.string().trim().min(1, "Each option needs a name.").max(OUTFIT_PILIHAN_BATAS.name),
+  description: opsional(OUTFIT_PILIHAN_BATAS.description),
+  photo_url: fotoHttps,
+});
+
 export const outfitEntrySchema = z.object({
   // Tanpa ini zod membuang kuncinya, dan tautan ke baris hilang saat disimpan.
   item_id: z
@@ -62,6 +78,12 @@ export const outfitEntrySchema = z.object({
   what: z.string().trim().min(1, "What to wear is required.").max(OUTFIT_BATAS.what),
   note: opsional(OUTFIT_BATAS.note),
   photo_url: fotoHttps,
+  // Kosong berarti tanpa pilihan: kuncinya tidak disimpan.
+  options: z
+    .array(outfitPilihanSchema)
+    .max(OUTFIT_PILIHAN_MAX, `${OUTFIT_PILIHAN_MAX} options is the most.`)
+    .nullish()
+    .transform((daftar) => (daftar && daftar.length > 0 ? daftar : undefined)),
 });
 
 export const outfitSchema = z.array(outfitEntrySchema).max(OUTFIT_MAX);
@@ -89,7 +111,8 @@ export function bacaOutfit(nilai: unknown): OutfitEntry[] {
       const baris = isi as Record<string, unknown>;
       const what = teks(baris.what, OUTFIT_BATAS.what);
       if (!what) return [];
-      const foto = teks(baris.photo_url, 600);
+      const foto = fotoBaca(teks(baris.photo_url, 600));
+      const pilihan = bacaPilihan(baris.options);
       const idBaris = baris.item_id;
       return [
         {
@@ -97,11 +120,31 @@ export function bacaOutfit(nilai: unknown): OutfitEntry[] {
           ...(typeof idBaris === "number" && Number.isInteger(idBaris) && idBaris > 0 ? { item_id: idBaris } : {}),
           ...(teks(baris.when, OUTFIT_BATAS.when) ? { when: teks(baris.when, OUTFIT_BATAS.when) } : {}),
           ...(teks(baris.note, OUTFIT_BATAS.note) ? { note: teks(baris.note, OUTFIT_BATAS.note) } : {}),
-          // Ditulis hanya https lewat API; data uji lokal memakai http, jadi http(s) diterima saat membaca.
-          ...(foto && /^https?:\/\/[^\s"'<>\\]+$/i.test(foto) ? { photo_url: foto } : {}),
+          ...(foto ? { photo_url: foto } : {}),
+          ...(pilihan.length > 0 ? { options: pilihan } : {}),
         },
       ];
     });
+}
+
+/** Ditulis hanya https lewat API; data uji lokal memakai http, jadi http(s) diterima saat membaca. */
+function fotoBaca(foto: string | undefined): string | undefined {
+  return foto && /^https?:\/\/[^\s"'<>\\]+$/i.test(foto) ? foto : undefined;
+}
+
+/** Pilihan tersimpan apa adanya, toleran seperti bacaOutfit: tanpa nama dibuang. */
+function bacaPilihan(nilai: unknown): OutfitPilihan[] {
+  if (!Array.isArray(nilai)) return [];
+  const teks = (isi: unknown, maks: number) => (typeof isi === "string" && isi.trim() ? isi.trim().slice(0, maks) : undefined);
+  return nilai.slice(0, OUTFIT_PILIHAN_MAX).flatMap((isi): OutfitPilihan[] => {
+    if (!isi || typeof isi !== "object") return [];
+    const baris = isi as Record<string, unknown>;
+    const name = teks(baris.name, OUTFIT_PILIHAN_BATAS.name);
+    if (!name) return [];
+    const description = teks(baris.description, OUTFIT_PILIHAN_BATAS.description);
+    const foto = fotoBaca(teks(baris.photo_url, 600));
+    return [{ name, ...(description ? { description } : {}), ...(foto ? { photo_url: foto } : {}) }];
+  });
 }
 
 /** Label halaman Outfit acara ini (`landing_config.member.outfit_label`). */
@@ -125,6 +168,20 @@ export function jenisOutfit(isian: IsianJenis): JenisOutfit {
  */
 export function kapanOutfit(isian: IsianJenis, semuaHari: string): string | null {
   return isian.when?.trim() || (jenisOutfit(isian) === "seharian" ? semuaHari : null);
+}
+
+/**
+ * Pakaian di ringkasan (strip Susunan acara, Beranda, Berikutnya): dengan
+ * pilihan gaya, jumlahnya ikut ("Colonial Elegance · 4 pilihan") supaya
+ * peserta tahu ada yang dipilih tanpa ringkasan memanjang.
+ */
+export function apaRingkas(isian: Pick<OutfitEntry, "what" | "options">, jumlahPilihan: (jumlah: number) => string): string {
+  return isian.options?.length ? `${isian.what} ${SEPARATOR} ${jumlahPilihan(isian.options.length)}` : isian.what;
+}
+
+/** Foto kecil di ringkasan: foto isian, atau foto pilihan pertama yang punya foto. */
+export function fotoRingkas(isian: Pick<OutfitEntry, "photo_url" | "options">): string | null {
+  return isian.photo_url ?? isian.options?.find((pilihan) => pilihan.photo_url)?.photo_url ?? null;
 }
 
 /** Urutan tersimpan, kecuali isian seharian yang selalu di depan. */

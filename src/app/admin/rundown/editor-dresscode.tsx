@@ -1,15 +1,15 @@
 "use client";
 
-import { ArrowSquareOut, CaretDown, Check, CoatHanger, DeviceMobile, Info, MagnifyingGlass, Plus, Trash, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CaretRight, Check, CoatHanger, DeviceMobile, Image as IkonGambar, Info, MagnifyingGlass, Plus, Trash, Warning } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { FotoDresscode } from "@/components/admin/foto-dresscode";
 import { KELAS_OPSI } from "@/components/admin/logistik/pilih-baris-agenda";
 import Link from "@/components/event-link";
-import { Banner, Button, ListRow, Popover, Skeleton, StatusChip, TextField, usePopoverAnchor, type PopoverAnchor } from "@/components/m3";
+import { Banner, Button, IconButton, ListRow, Popover, Skeleton, StatusChip, TextField, usePopoverAnchor, type PopoverAnchor } from "@/components/m3";
 import { cocokCari, daftarNama, hariPendek } from "@/lib/logistik/trip-agenda";
 import { cx } from "@/lib/m3/cx";
 import { labelPembeda } from "@/lib/member/hari-agenda";
-import { OUTFIT_BATAS, OUTFIT_MAX, bagianOutfitTanggal, jenisOutfit, teksWaktuOutfit, type JenisOutfit, type OutfitEntry } from "@/lib/outfit";
+import { OUTFIT_BATAS, OUTFIT_MAX, OUTFIT_PILIHAN_BATAS, OUTFIT_PILIHAN_MAX, bagianOutfitTanggal, jenisOutfit, teksWaktuOutfit, type JenisOutfit, type OutfitEntry } from "@/lib/outfit";
 import { SETIAP_HARI_ADMIN, barisDenganSetiapHari, keteranganSetiapHari, kosongDresscode, petunjukSeharian, type OutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { plural } from "@/lib/plural";
 import { formatClock, type RundownItem, type RundownSection } from "@/lib/rundown";
@@ -39,7 +39,15 @@ export type DrafDresscode = {
   what: string;
   note: string;
   photo_url: string | null;
+  /** Pilihan gaya (mis. empat gaya Gala Dinner); kosong = satu outfit. */
+  options: DrafPilihan[];
 };
+
+/** Satu pilihan gaya yang disunting. `kunci` unik di kartunya, juga kunci unggahan (`kartu/pilihan`). */
+export type DrafPilihan = { kunci: string; name: string; description: string; photo_url: string | null };
+
+/** Kunci unggahan foto satu pilihan: kunci kartu dan kunci pilihan. */
+export const kunciFotoPilihan = (kartu: string, pilihan: string) => `${kartu}/${pilihan}`;
 
 /** Baris agenda seperti tersimpan: peserta membaca yang tersimpan, bukan suntingan Edit item. */
 export type BarisDc = Pick<RundownItem, "id" | "section_id" | "start_time" | "end_time" | "title" | "is_published">;
@@ -49,7 +57,15 @@ let nomorKartu = 0;
 /** Kartu baru. Dipanggil dari aksi, tidak pernah saat render. */
 export function kartuBaru(jenis: JenisOutfit, itemId: number | null = null): DrafDresscode {
   nomorKartu += 1;
-  return { kunci: `b${nomorKartu}`, jenis, item_id: jenis === "baris" ? itemId : null, when: "", what: "", note: "", photo_url: null };
+  return { kunci: `b${nomorKartu}`, jenis, item_id: jenis === "baris" ? itemId : null, when: "", what: "", note: "", photo_url: null, options: [] };
+}
+
+let nomorPilihan = 0;
+
+/** Pilihan baru. Dipanggil dari aksi, tidak pernah saat render. */
+function pilihanBaru(photo_url: string | null = null): DrafPilihan {
+  nomorPilihan += 1;
+  return { kunci: `p${nomorPilihan}`, name: "", description: "", photo_url };
 }
 
 /** Isian tersimpan menjadi kartu. Kuncinya tetap selama isian tersimpannya sama. */
@@ -62,6 +78,7 @@ export function keDraf(daftar: readonly OutfitEntry[]): DrafDresscode[] {
     what: isian.what,
     note: isian.note ?? "",
     photo_url: isian.photo_url ?? null,
+    options: (isian.options ?? []).map((pilihan, urutan) => ({ kunci: `s${urutan}`, name: pilihan.name, description: pilihan.description ?? "", photo_url: pilihan.photo_url ?? null })),
   }));
 }
 
@@ -78,6 +95,7 @@ export function keKiriman(daftar: readonly DrafDresscode[]) {
     what: isi.what.trim(),
     note: isi.note.trim() || null,
     photo_url: isi.photo_url,
+    options: isi.options.map((pilihan) => ({ name: pilihan.name.trim(), description: pilihan.description.trim() || null, photo_url: pilihan.photo_url })),
   }));
 }
 
@@ -86,14 +104,20 @@ export function samaDraf(a: readonly DrafDresscode[], b: readonly DrafDresscode[
   return a.length === b.length && a.every((isi, indeks) => {
     const lain = b[indeks];
     return isi.jenis === lain.jenis && isi.item_id === lain.item_id && (isi.jenis !== "waktu" || isi.when === lain.when)
-      && isi.what === lain.what && isi.note === lain.note && isi.photo_url === lain.photo_url;
+      && isi.what === lain.what && isi.note === lain.note && isi.photo_url === lain.photo_url
+      && isi.options.length === lain.options.length
+      && isi.options.every((pilihan, urutan) => {
+        const b = lain.options[urutan];
+        return pilihan.name === b.name && pilihan.description === b.description && pilihan.photo_url === b.photo_url;
+      });
   });
 }
 
-/** Isian yang belum lengkap: Part of the day tanpa Name, atau tanpa What to wear. */
-export function drafKurang(isi: DrafDresscode): "nama" | "apa" | null {
+/** Isian yang belum lengkap: Part of the day tanpa Name, tanpa What to wear, atau pilihan tanpa nama. */
+export function drafKurang(isi: DrafDresscode): "nama" | "apa" | "pilihan" | null {
   if (isi.jenis === "waktu" && !isi.when.trim()) return "nama";
-  return isi.what.trim() ? null : "apa";
+  if (!isi.what.trim()) return "apa";
+  return isi.options.some((pilihan) => !pilihan.name.trim()) ? "pilihan" : null;
 }
 
 /** Satu baris di baris Dress code: untuk apa, lalu pakaiannya. */
@@ -103,10 +127,11 @@ export type RingkasDc = { untuk: string; apa: string };
 export function ringkasDresscode(daftar: readonly OutfitEntry[], cariBaris: (id: number) => BarisDc | null): RingkasDc[] {
   return daftar.map((isian) => {
     const jenis = jenisOutfit(isian);
-    if (jenis === "seharian") return { untuk: "Whole day", apa: isian.what };
-    if (jenis === "waktu") return { untuk: isian.when ?? "", apa: isian.what };
+    const apa = isian.options?.length ? `${isian.what} (${plural(isian.options.length, "option")})` : isian.what;
+    if (jenis === "seharian") return { untuk: "Whole day", apa };
+    if (jenis === "waktu") return { untuk: isian.when ?? "", apa };
     const item = isian.item_id ? cariBaris(isian.item_id) : null;
-    return { untuk: item ? `${formatClock(item.start_time)} ${item.title.trim()}` : isian.when || "Item not found", apa: isian.what };
+    return { untuk: item ? `${formatClock(item.start_time)} ${item.title.trim()}` : isian.when || "Item not found", apa };
   });
 }
 
@@ -438,8 +463,194 @@ function MenuUntuk({ anchor, id, label, baris, dipakai, tawarSeharian, terpilih,
   );
 }
 
+/** Fokus Name satu pilihan sesudah dirender. */
+function fokusPilihan(kartu: string, pilihan: string) {
+  window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${kartu}"] [data-pilihan="${pilihan}"] [data-pilihan-nama]`)?.focus(), 0);
+}
+
+/**
+ * Pilihan gaya satu baris Dress code (mis. empat gaya Gala Dinner): peserta
+ * memakai salah satunya. Tiap pilihan punya foto, nama dan deskripsi. Yang
+ * sedang disunting terbuka; yang lain satu baris ringkas (pola daftar
+ * Shopify varian). Pilihan tanpa nama selalu terbuka, supaya kolom yang
+ * kurang terlihat saat Save.
+ */
+function PilihanDresscode({ kartu, daftar, coba, unggah, adaUnggah, menyimpan, onUbah, onUnggah }: {
+  kartu: string;
+  daftar: DrafPilihan[];
+  coba: boolean;
+  /** "" foto kartu, kunci pilihan, atau null. */
+  unggah: string | null;
+  adaUnggah: boolean;
+  menyimpan: boolean;
+  onUbah: (daftar: DrafPilihan[]) => void;
+  onUnggah: (pilihan: string, file: File) => void;
+}) {
+  const [buka, setBuka] = useState<string | null>(() => daftar.find((pilihan) => !pilihan.name.trim())?.kunci ?? null);
+  const berkas = useRef<HTMLInputElement | null>(null);
+  const tujuanUnggah = useRef<string | null>(null);
+  const penuh = daftar.length >= OUTFIT_PILIHAN_MAX;
+
+  function ubah(kunci: string, perubahan: Partial<DrafPilihan>) {
+    onUbah(daftar.map((pilihan) => (pilihan.kunci === kunci ? { ...pilihan, ...perubahan } : pilihan)));
+  }
+  function geser(urutan: number, arah: -1 | 1) {
+    const baru = [...daftar];
+    [baru[urutan], baru[urutan + arah]] = [baru[urutan + arah], baru[urutan]];
+    onUbah(baru);
+  }
+  function pilihFoto(kunci: string) {
+    tujuanUnggah.current = kunci;
+    berkas.current?.click();
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-dresscode-pilihan-daftar="">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-body-medium font-medium text-on-surface">Options</span>
+        <span className="text-body-small tabular-nums text-on-surface-variant">{daftar.length}/{OUTFIT_PILIHAN_MAX}</span>
+      </div>
+      <p className="-mt-1 text-body-small text-on-surface-variant">Participants wear one of these. Each has its own photo, name and description.</p>
+      <input
+        ref={berkas}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+        disabled={adaUnggah || menyimpan}
+        onChange={(peristiwa) => {
+          const file = peristiwa.target.files?.[0];
+          if (file && tujuanUnggah.current) onUnggah(tujuanUnggah.current, file);
+          peristiwa.target.value = "";
+        }}
+      />
+      <ol className="flex flex-col gap-2">
+        {daftar.map((pilihan, urutan) => {
+          const terbuka = buka === pilihan.kunci || !pilihan.name.trim();
+          const nomor = `Option ${urutan + 1}`;
+          const nama = pilihan.name.trim() || nomor;
+          const gambar = pilihan.photo_url ? (
+            <span aria-hidden className="h-[50px] w-10 shrink-0 rounded-sm border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${pilihan.photo_url})` }} />
+          ) : (
+            <span aria-hidden className="flex h-[50px] w-10 shrink-0 items-center justify-center rounded-sm border border-dashed border-outline-variant text-on-surface-variant">
+              <IkonGambar size={16} />
+            </span>
+          );
+          if (!terbuka) {
+            return (
+              <li key={pilihan.kunci} data-pilihan={pilihan.kunci}>
+                <button
+                  type="button"
+                  aria-expanded={false}
+                  onClick={() => setBuka(pilihan.kunci)}
+                  className="m3-state flex w-full items-center gap-3 rounded-md border border-outline-variant py-2 pl-2 pr-3 text-left"
+                >
+                  {gambar}
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-body-medium font-medium text-on-surface">{nama}</span>
+                    <span className="truncate text-body-small text-on-surface-variant">{pilihan.description.trim() || "No description"}</span>
+                  </span>
+                  <CaretRight size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
+                  <span className="sr-only">Edit {nama}</span>
+                </button>
+              </li>
+            );
+          }
+          return (
+            <li key={pilihan.kunci} data-pilihan={pilihan.kunci} className="flex flex-col gap-3 rounded-md border border-primary p-3">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-expanded
+                  onClick={() => setBuka(null)}
+                  disabled={!pilihan.name.trim()}
+                  className="mr-auto inline-flex min-h-9 items-center gap-1 rounded-sm text-body-medium font-medium text-on-surface disabled:cursor-default"
+                >
+                  {nomor}
+                  {pilihan.name.trim() ? <CaretDown size={14} className="text-on-surface-variant" aria-hidden /> : null}
+                </button>
+                <IconButton size="sm" label={`Move ${nama} up`} disabled={urutan === 0} onClick={() => geser(urutan, -1)}>
+                  <ArrowUp size={16} />
+                </IconButton>
+                <IconButton size="sm" label={`Move ${nama} down`} disabled={urutan === daftar.length - 1} onClick={() => geser(urutan, 1)}>
+                  <ArrowDown size={16} />
+                </IconButton>
+                <IconButton
+                  size="sm"
+                  label={`Remove ${nama}`}
+                  className="text-error"
+                  disabled={unggah === pilihan.kunci}
+                  onClick={() => {
+                    onUbah(daftar.filter((isi) => isi.kunci !== pilihan.kunci));
+                    setBuka(null);
+                  }}
+                >
+                  <Trash size={16} />
+                </IconButton>
+              </div>
+              {pilihan.photo_url ? (
+                <FotoDresscode url={pilihan.photo_url} unggah={unggah === pilihan.kunci} mati={adaUnggah || menyimpan} onGanti={() => pilihFoto(pilihan.kunci)} onHapus={() => ubah(pilihan.kunci, { photo_url: null })} />
+              ) : (
+                <div className="-my-1 -ml-3">
+                  <Button variant="text" size="sm" icon={<Plus size={16} />} loading={unggah === pilihan.kunci} disabled={adaUnggah || menyimpan} onClick={() => pilihFoto(pilihan.kunci)}>
+                    Add photo
+                  </Button>
+                </div>
+              )}
+              <TextField
+                label="Name"
+                maxLength={OUTFIT_PILIHAN_BATAS.name}
+                counter
+                hint="Such as “Priyayi Jawa”"
+                error={coba && !pilihan.name.trim() ? "Enter a name, or remove this option" : undefined}
+                value={pilihan.name}
+                onChange={(peristiwa) => ubah(pilihan.kunci, { name: peristiwa.target.value })}
+                data-pilihan-nama=""
+                {...(!pilihan.name.trim() ? { "data-dresscode-pilihan": "" } : {})}
+              />
+              <TextField
+                label="Description"
+                optional
+                maxLength={OUTFIT_PILIHAN_BATAS.description}
+                counter
+                hint="Shown under the photo"
+                value={pilihan.description}
+                onChange={(peristiwa) => ubah(pilihan.kunci, { description: peristiwa.target.value })}
+              />
+            </li>
+          );
+        })}
+      </ol>
+      {penuh ? (
+        <p className="text-body-small text-on-surface-variant">{OUTFIT_PILIHAN_MAX} options is the most.</p>
+      ) : (
+        <div className="-my-1 -ml-3">
+          <Button
+            variant="text"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => {
+              const baru = pilihanBaru();
+              onUbah([...daftar, baru]);
+              setBuka(baru.kunci);
+              fokusPilihan(kartu, baru.kunci);
+            }}
+          >
+            Add option
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Unggahan yang berjalan di satu kartu: "" foto kartu, kunci pilihan, atau null. */
+function unggahDiKartu(unggah: string | null, kartu: string): string | null {
+  if (unggah === kartu) return "";
+  return unggah?.startsWith(`${kartu}/`) ? unggah.slice(kartu.length + 1) : null;
+}
+
 /** Fokus satu kolom di satu kartu sesudah kartunya dirender. */
-function fokusKartu(kunci: string, kolom: "apa" | "nama" | "catatan") {
+function fokusKartu(kunci: string, kolom: "apa" | "nama" | "catatan" | "pilihan") {
   window.setTimeout(() => document.querySelector<HTMLElement>(`[data-dresscode-kartu="${kunci}"] [data-dresscode-${kolom}]`)?.focus(), 0);
 }
 
@@ -458,14 +669,15 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, setiapHari, baris, dip
   /** Baris kartu ini sudah tertaut di yang tersimpan, jadi server tidak memeriksanya ulang. */
   tautanTersimpan: boolean;
   coba: boolean;
-  /** Foto kartu ini yang sedang diunggah. */
-  unggah: boolean;
+  /** Foto yang sedang diunggah di kartu ini: "" foto kartu, atau kunci pilihan. Null bila tidak ada. */
+  unggah: string | null;
   /** Ada unggahan berjalan di tab ini: satu per satu, lihat uploadFotoDresscode. */
   adaUnggah: boolean;
   menyimpan: boolean;
   onUbah: (perubahan: Partial<DrafDresscode>) => void;
   onHapus: () => void;
-  onUnggah: (file: File) => void;
+  /** `pilihan`: kunci pilihan yang fotonya diunggah; tanpa itu foto kartu. */
+  onUnggah: (file: File, pilihan?: string) => void;
 }) {
   const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
@@ -613,9 +825,21 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, setiapHari, baris, dip
         }}
       />
       {draf.photo_url ? (
-        <FotoDresscode url={draf.photo_url} unggah={unggah} mati={adaUnggah || menyimpan} onGanti={() => berkas.current?.click()} onHapus={() => onUbah({ photo_url: null })} />
+        <FotoDresscode url={draf.photo_url} unggah={unggah === ""} mati={adaUnggah || menyimpan} onGanti={() => berkas.current?.click()} onHapus={() => onUbah({ photo_url: null })} />
       ) : null}
-      {!catatanTampil || !draf.photo_url ? (
+      {draf.options.length > 0 ? (
+        <PilihanDresscode
+          kartu={draf.kunci}
+          daftar={draf.options}
+          coba={coba}
+          unggah={unggah}
+          adaUnggah={adaUnggah}
+          menyimpan={menyimpan}
+          onUbah={(options) => onUbah({ options })}
+          onUnggah={(kunci, file) => onUnggah(file, kunci)}
+        />
+      ) : null}
+      {!catatanTampil || draf.options.length === 0 ? (
         <div className="-my-1 -ml-3 flex flex-wrap items-center gap-1">
           {!catatanTampil ? (
             <Button
@@ -630,9 +854,26 @@ function KartuDresscode({ draf, labelHalaman, labelBatch, setiapHari, baris, dip
               Add note
             </Button>
           ) : null}
-          {!draf.photo_url ? (
-            <Button variant="text" size="sm" icon={<Plus size={16} />} loading={unggah} disabled={adaUnggah || menyimpan} onClick={() => berkas.current?.click()}>
+          {!draf.photo_url && draf.options.length === 0 ? (
+            <Button variant="text" size="sm" icon={<Plus size={16} />} loading={unggah === ""} disabled={adaUnggah || menyimpan} onClick={() => berkas.current?.click()}>
               Add photo
+            </Button>
+          ) : null}
+          {draf.options.length === 0 ? (
+            <Button
+              variant="text"
+              size="sm"
+              icon={<Plus size={16} />}
+              disabled={adaUnggah || menyimpan}
+              onClick={() => {
+                // Foto kartu yang sudah ada menjadi foto pilihan pertama: satu baris
+                // tidak menampilkan foto tunggal dan pilihan sekaligus.
+                const pertama = pilihanBaru(draf.photo_url);
+                onUbah({ options: [pertama], photo_url: null });
+                fokusPilihan(draf.kunci, pertama.kunci);
+              }}
+            >
+              Add options
             </Button>
           ) : null}
         </div>
@@ -832,12 +1073,12 @@ export function EditorDresscode({
               seharianGanda={isi.jenis === "seharian" && indeks > 0}
               tautanTersimpan={isi.item_id !== null && tautanTersimpan.has(isi.item_id)}
               coba={coba}
-              unggah={unggah === isi.kunci}
+              unggah={unggahDiKartu(unggah, isi.kunci)}
               adaUnggah={unggah !== null}
               menyimpan={menyimpan}
               onUbah={(perubahan) => ubahKartu(isi.kunci, perubahan)}
               onHapus={() => hapusKartu(isi.kunci)}
-              onUnggah={(file) => onUnggah(isi.kunci, file)}
+              onUnggah={(file, pilihan) => onUnggah(pilihan ? kunciFotoPilihan(isi.kunci, pilihan) : isi.kunci, file)}
             />
           ))}
           {tombolTambah}
