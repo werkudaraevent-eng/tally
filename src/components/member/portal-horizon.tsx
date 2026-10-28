@@ -872,7 +872,8 @@ export function KartuDaruratHorizon({
         </p>
       ) : null}
       {baris.length > 0 ? (
-        <ul className={adaKontak ? "flex flex-col" : "-mx-2"}>
+        // Desktop: kartu selebar halaman, kontak dalam dua kolom supaya 12 kontak tidak memanjang.
+        <ul className={adaKontak ? "flex flex-col lg:grid lg:grid-cols-2 lg:gap-x-8" : "-mx-2"}>
           {baris.map((item, index) => {
             const dalam = (
               <>
@@ -899,7 +900,7 @@ export function KartuDaruratHorizon({
                   ].filter((x) => x !== null)
                 : [];
               return (
-                <li key={`${index}-${item.judul}`} className="flex items-start gap-3 border-[#E6E8EC] py-3 first:pt-0 last:pb-0 [&+&]:border-t">
+                <li key={`${index}-${item.judul}`} className="flex items-start gap-3 border-[#E6E8EC] py-3 first:pt-0 last:pb-0 [&+&]:border-t lg:[&:nth-child(2)]:border-t-0 lg:[&:nth-child(2)]:pt-0">
                   {item.Ikon ? (
                     <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FCEBEA] text-[#B42318]">
                       <item.Ikon size={20} />
@@ -1618,9 +1619,9 @@ export function ProfilHorizon({
           </PemicuQr>
         ) : null}
         {sisipan}
-        <div className={`flex flex-col gap-6 lg:grid lg:items-start lg:gap-8 ${qr ? "lg:mt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]" : "lg:grid-cols-2"}`}>
+        <div className={`flex flex-col gap-6 lg:grid lg:items-start lg:gap-8 ${qr ? "lg:mt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:grid-rows-[auto_1fr_auto]" : "lg:grid-cols-2"}`}>
           {qr ? (
-            <PemicuQr id="pemicu-qr-profil-besar" href={qr.href} className={`${KARTU_HZ} m3-state hidden flex-col items-center gap-4 px-6 pb-6 pt-8 text-center lg:flex`}>
+            <PemicuQr id="pemicu-qr-profil-besar" href={qr.href} className={`${KARTU_HZ} m3-state hidden flex-col lg:col-start-1 lg:row-span-2 lg:row-start-1 items-center gap-4 px-6 pb-6 pt-8 text-center lg:flex`}>
               <span className="size-[200px] bg-white">{qr.gambar}</span>
               <span className="flex flex-col gap-1">
                 <span className="text-[22px] font-bold leading-7 tracking-[0.5px] [overflow-wrap:anywhere]">{qr.kode}</span>
@@ -1630,12 +1631,13 @@ export function ProfilHorizon({
               </span>
             </PemicuQr>
           ) : null}
-          <div className="flex min-w-0 flex-col gap-6">
-            <section aria-label={akun[0]?.judul} className={kartu}>
+          {/* Desktop: QR kiri, akun dan Keluar kanan, Bantuan selebar halaman di bawah. */}
+          <div className="flex min-w-0 flex-col gap-6 lg:contents">
+            <section aria-label={akun[0]?.judul} className={`${kartu} ${qr ? "lg:col-start-2" : "lg:col-start-1"} lg:row-start-1`}>
               <DaftarProfil baris={akun} />
             </section>
             {adaBantuan ? (
-              <section aria-labelledby="profil-bantuan" className="flex flex-col gap-3">
+              <section aria-labelledby="profil-bantuan" className={`flex flex-col gap-3 lg:col-span-2 ${qr ? "lg:row-start-3" : "lg:row-start-2"}`}>
                 <JudulKelompok id="profil-bantuan">{bantuan.judul}</JudulKelompok>
                 {bantuan.baris.length > 0 ? (
                   <div className={kartu}>
@@ -1645,7 +1647,7 @@ export function ProfilHorizon({
                 {darurat}
               </section>
             ) : null}
-            <div className={`${KARTU_HZ} px-4 py-1`}>
+            <div className={`${KARTU_HZ} px-4 py-1 lg:col-start-2 ${qr ? "lg:row-start-2" : "lg:row-start-1"}`}>
               <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
                 <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
                   <IkonBulat Ikon={SignOut} nada="merah" />
@@ -1681,19 +1683,20 @@ export function ProfilHorizon({
       ) : null}
       {sisipan}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-16" style={{ color: TINTA }}>
-        <section aria-label={akun[0]?.judul} className="min-w-0">
+        <section aria-label={akun[0]?.judul} className="min-w-0 lg:col-start-1 lg:row-start-1">
           <DaftarProfil baris={akun} />
         </section>
-        <div className="flex min-w-0 flex-col gap-2 border-t border-[#E6E8EC] pt-2 lg:border-t-0 lg:pt-0">
+        {/* Desktop: Bantuan selebar halaman di bawah akun, Keluar tetap baris terakhir. */}
+        <div className="flex min-w-0 flex-col gap-2 border-t border-[#E6E8EC] pt-2 lg:contents">
           {adaBantuan ? (
-            <section aria-labelledby="profil-bantuan" className="flex flex-col gap-2">
+            <section aria-labelledby="profil-bantuan" className="flex flex-col gap-2 lg:col-span-2 lg:row-start-2 lg:mt-6">
               <JudulKelompok id="profil-bantuan">{bantuan.judul}</JudulKelompok>
               {bantuan.baris.length > 0 ? <DaftarProfil baris={bantuan.baris} /> : null}
               {darurat}
             </section>
           ) : null}
           {/* Keluar: baris terakhir, merah, seperti "Sign out" di halaman akun aplikasi. */}
-          <div className={adaBantuan ? "mt-2 border-t border-[#E6E8EC] pt-2" : ""}>
+          <div className={`lg:col-start-1 ${adaBantuan ? "mt-2 border-t border-[#E6E8EC] pt-2 lg:row-start-3" : "lg:row-start-2"}`}>
             <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
               <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
                 <IkonBulat Ikon={SignOut} nada="merah" />

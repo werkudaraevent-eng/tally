@@ -15,7 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
-- Beranda help card and emergency contact types (Mas 28 Oct): the bottom "Butuh bantuan?" card (Participant home > Help card) becomes two rows that open Profile > Kontak panitia and Kontak darurat, each shown only when filled; emergency contacts go from 8 to 12, and each gets an optional Type (hospital, police, fire brigade, ambulance, hotel, other) shown as an icon. No SQL. PR open, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov).
+- Profile on desktop with many contacts (Mas 28 Oct, 11 emergency contacts made the right column long and left the left side empty): at lg the Help section (Kontak panitia, Kontak darurat) spans the full width under QR/account, contacts in two columns; Trip keeps Sign out under the account card, classic Horizon keeps it last. Phones 0 px. No SQL. PR open, waiting on Mas's OK.
 - Dashboard "Check-ins by checkpoint" (Mas 28 Oct: live per checkpoint, checked in of expected and %): expected from the linked Agenda row's Who sees it, else all active participants; day filter; 30 s refresh. Same PR fixes Dashboard Hadir and Check-in page counts stopping at 1,000 scans. No SQL. PR open, waiting on QA and Mas's merge time (admin only; participants see nothing). Next, if Mas wants: filters, arrivals chart, Client view Overview tab.
 - Vehicle import per Trip (Mas 28 Oct): Download participant list for Vehicles adds one "Trip: …" column per Trip (sorted by departure, event time zone) with saved per-trip vehicles; empty = no change, "No vehicle" = not riding, "Default" = back to main vehicle; unknown Trip column rejects the file; preview checks capacity per Trip like `assign_bus`, and save retries writes refused as full while others still land (QA M1/M2/L1-L3 fixed). No SQL. PR open, waiting on QA and Mas's OK. (Download participant list itself merged in #312.)
 - `tally-ui` skill for agents (Mas 28 Oct asked for more UI/UX skills): repo skill with Tally's UI workflow, bound to DESIGN.md; third-party taste skills not installed because they push a new look per page. Docs only. PR open, waiting on Mas.
@@ -37,6 +37,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #315 Beranda help card links to Kontak panitia and Kontak darurat; emergency contacts up to 12 with an optional Type icon (merged 28 Oct, QA GO). No SQL.
 - #318 Room change at the same hotel + Hotel, Room, Check-in, Check-out as separate Assignments columns (merged 28 Oct, QA GO; SQL `202610280001_pindah_kamar` run 28 Oct). Parked Lows: room import creates rooms named on rejected rows (older); empty Name on a rejected second-stay preview line; portal spots the same hotel by name, not id.
 - #316 Perjalanan on Gathering Trip no longer jumps back up while scrolling (merged 28 Oct): chip row scrolls only sideways, jump bar sticks again, Vehicle/Luggage chips use the real section ids. No SQL.
 - #301 Organiser contacts up to five (merged 28 Oct, QA GO).
