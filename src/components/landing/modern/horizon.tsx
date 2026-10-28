@@ -9,6 +9,7 @@ import { CINCIN_NAVY, CINCIN_TERANG } from "./cincin-horizon";
 import { pecahJudul, tanpaBintang } from "@/lib/landing-tagline";
 import { Muncul } from "./horizon-gerak";
 import { JamHariHorizon } from "./horizon-jadwal";
+import { PilihHariHorizon } from "./pilih-hari-horizon";
 import { judulMemuatTanggal } from "@/lib/judul-hari";
 
 /**
@@ -194,7 +195,7 @@ export function HeroHorizon({
         <div aria-hidden className="hidden md:block" />
         <div className="flex flex-col gap-[22px] px-6 pb-6 [container-type:inline-size] md:mx-auto md:w-full md:max-w-[980px] md:items-center md:px-0 md:pb-0 md:text-center">
           {alis || alisPonsel ? (
-            <p data-sunting="pembuka:hero_eyebrow" className="whitespace-pre-wrap text-[11px] font-bold uppercase leading-[1.26] tracking-[1.2px] text-[var(--hz-sorot,var(--hz-emas))] md:text-[12px] md:tracking-[1.8px] md:text-[#F3DF9E]">
+            <p data-sunting="pembuka:hero_eyebrow" className="whitespace-pre-wrap text-[14px] font-semibold leading-5 text-[var(--hz-sorot,var(--hz-emas))] md:text-[16px] md:leading-6 md:text-[#F3DF9E]">
               <span className="md:hidden">{alisPonsel ?? alis}</span>
               <span className="hidden md:inline">{alis ?? alisPonsel}</span>
             </p>
@@ -322,6 +323,17 @@ export function CeritaHorizon({
   );
 }
 
+/** Label chip tanggal: "Kam" di atas, "5 Nov" di bawah. */
+function chipHari(bagian: AgendaPreview, lang: LandingLang): { atas: string; pendek: string } {
+  const locale = lang === "en" ? "en-GB" : "id-ID";
+  if (!bagian.tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(bagian.tanggal)) return { atas: "", pendek: bagian.sectionTitle?.trim() || "" };
+  const d = new Date(`${bagian.tanggal}T00:00:00Z`);
+  return {
+    atas: d.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" }),
+    pendek: d.toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" }),
+  };
+}
+
 /** "2026-11-06" menjadi "Jumat, 6 November" (Indonesia) atau "Friday 6 November" (English). */
 function labelHari(tanggal: string | null, lang: LandingLang): string | null {
   if (!tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) return null;
@@ -358,6 +370,16 @@ export function PerjalananHorizon({
   speakers: LandingSpeaker[];
 }) {
   const t = LANDING_UI[lang];
+  // Chip tanggal urut kalender; nomor asli tetap dipakai untuk cerita per bagian.
+  const urut = agenda.map((bagian, asli) => ({ bagian, asli })).sort((x, y) => (x.bagian.tanggal ?? "").localeCompare(y.bagian.tanggal ?? ""));
+  // Satu chip per tanggal; bagian bertanggal sama (Batch 1, Batch 2) tampil berurutan di bawah chip itu.
+  // Pemilih batch publik (#283) tetap yang menyaring bagian mana yang terlihat.
+  const grup: (typeof urut)[] = [];
+  for (const isi of urut) {
+    const akhir = grup[grup.length - 1];
+    if (akhir && isi.bagian.tanggal && akhir[0].bagian.tanggal === isi.bagian.tanggal) akhir.push(isi);
+    else grup.push([isi]);
+  }
   return (
     <section id="agenda" className={`scroll-mt-16 md:scroll-mt-[72px] bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
       <div className={`${BINGKAI} flex flex-col gap-7 py-10 md:gap-10 md:py-20`}>
@@ -367,25 +389,23 @@ export function PerjalananHorizon({
           </h2>
           {tanggal || catatan ? (
             <p className="hidden shrink-0 text-[13px] leading-[1.7] md:block" style={{ color: REDUP_NAVY }}>
-              {tanggal ? <span className="block uppercase tabular-nums">{tanggal}</span> : null}
+              {tanggal ? <span className="block tabular-nums">{tanggal}</span> : null}
               {catatan ? <span className="block max-w-[360px]">{catatan}</span> : null}
             </p>
           ) : null}
         </Muncul>
-        <ol className="flex flex-col gap-7 md:gap-0">
-          {agenda.map((bagian, index) => {
-            const nomor = String(index + 1).padStart(2, "0");
+        <PilihHariHorizon aria={judul} label={grup.map((isi) => chipHari(isi[0].bagian, lang))}>
+          {grup.map((isi, gi) => (
+            <div key={gi} className="flex flex-col gap-10 md:gap-0 md:divide-y md:divide-[#405272]">
+          {isi.map(({ bagian, asli: index }) => {
             const judulHari = bagian.sectionTitle?.trim() || t.day(index + 1);
             // Tanggal ditulis sekali: dilewati bila judul bagian sudah menyebutnya.
             const tanggalHari = judulMemuatTanggal(judulHari, bagian.tanggal) ? null : labelHari(bagian.tanggal, lang);
             const isiCerita = cerita[index]?.trim();
             return (
               // Indeks, bukan judul: dua bagian rundown boleh berjudul sama.
-              <Muncul as="li" key={index} jeda={Math.min(index, 4) * 0.06} className="grid gap-5 border-t pt-6 md:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] md:gap-12 md:py-10 lg:gap-16" style={{ borderColor: GARIS_NAVY }}>
+              <Muncul key={index} jeda={Math.min(index, 4) * 0.06} className="grid gap-5 md:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] md:gap-12 md:py-10 lg:gap-16" style={{ borderColor: GARIS_NAVY }}>
                 <div className="flex min-w-0 flex-col gap-2 md:sticky md:top-24 md:self-start">
-                  <p className="text-[12px] font-bold uppercase leading-4 tracking-[1.2px] tabular-nums text-[var(--hz-sorot,var(--hz-emas))]">
-                    {t.day(index + 1).replace(/\d+$/, nomor)}
-                  </p>
                   <h3 className="text-balance text-[24px] font-extrabold leading-8 [overflow-wrap:anywhere] md:text-[28px] md:leading-9">{judulHari}</h3>
                   {tanggalHari ? (
                     <p className="text-[14px] leading-5" style={{ color: REDUP_NAVY }}>
@@ -402,7 +422,9 @@ export function PerjalananHorizon({
               </Muncul>
             );
           })}
-        </ol>
+            </div>
+          ))}
+        </PilihHariHorizon>
         {catatan ? (
           <p className="text-[11px] leading-[1.26] md:hidden" style={{ color: REDUP_NAVY }}>
             {catatan}

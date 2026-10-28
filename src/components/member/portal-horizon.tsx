@@ -25,7 +25,7 @@ const KREM = "#FAF8F2";
 const TINTA = "#101E38";
 const REDUP = "#526078";
 const LABEL = "#4D5D77";
-const BIRU = "#274FC0";
+const BIRU = "var(--hz-navy)";
 const GARIS_NAVY = "#405272";
 const REDUP_NAVY = "#CDD7EA";
 
@@ -43,15 +43,17 @@ export const GARIS_KARTU = "ring-1 ring-[rgb(16_30_56/0.12)]";
  * menambah jarak baris (-my-3.5 menarik balik kelebihan 28 px). Jarak: 4 px
  * antar-baris satu kelompok, 12 px antar-kelompok, 16 px antar-bagian kartu.
  */
-export const KARTU_HZ = `${GARIS_KARTU} rounded-[16px] bg-white`;
-export const PAD_KARTU = "p-4 md:p-6";
+export const KARTU_HZ = "border-t border-[rgb(16_30_56/0.14)]";
+/** Kartu sungguhan: hanya untuk benda yang ditunjukkan (QR, kartu perjalanan). */
+export const KARTU_BENDA = `${GARIS_KARTU} rounded-[16px] bg-white`;
+export const PAD_KARTU = "pt-4";
 export const KELAS_JUDUL_ISI = "text-[18px] font-bold leading-6 [overflow-wrap:anywhere]";
 export const KELAS_NILAI = "text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]";
 export const KELAS_ALIS = "text-[12px] font-semibold leading-4";
 export const KELAS_KET = "text-[14px] leading-5 [overflow-wrap:anywhere]";
-export const KELAS_TAUTAN = "-my-3.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5";
-const KELAS_STRIP = "flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[12px] px-3 py-2";
-export const LATAR_STRIP = "#F1F3F8";
+export const KELAS_TAUTAN = "-my-3.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5 underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]";
+const KELAS_STRIP = "flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-l-[3px] border-[var(--hz-emas)] pl-3 py-0.5";
+export const LATAR_STRIP = "transparent";
 export const WARNA_GARIS = "#E6E8EC";
 
 /**
@@ -61,7 +63,7 @@ export const WARNA_GARIS = "#E6E8EC";
  */
 export function KepalaKartuHorizon({ Ikon, judul, meta, nadaMeta = "redup", idJudul, warna = TINTA }: { Ikon: typeof Train; judul: string; meta?: ReactNode; nadaMeta?: "redup" | "hijau"; idJudul?: string; /** Merah hanya untuk kartu darurat. */ warna?: string }) {
   return (
-    <div className="-mx-4 flex items-center gap-3 border-b px-4 pb-4 md:-mx-6 md:px-6" style={{ borderColor: WARNA_GARIS }}>
+    <div className="flex items-center gap-3">
       <Ikon size={22} weight="bold" aria-hidden className="shrink-0" style={{ color: warna }} />
       <h2 id={idJudul} className="min-w-0 flex-1 text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]" style={{ color: warna }}>
         {judul}
@@ -405,8 +407,8 @@ export function PassHorizon({
   const tigaPendek = faktaPonsel.length === 3 && faktaPonsel.every((item) => item.pendek);
   const isiSobekan = qr ? (
     <>
-      <span className="size-[72px] shrink-0 rounded-xl bg-white p-1.5 xl:size-[148px] xl:rounded-2xl xl:p-2.5">{qr.kode}</span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5 xl:flex-none xl:items-center xl:text-center">
+      <span className="size-[72px] shrink-0 rounded-xl bg-white p-1.5 @3xl:size-[148px] @3xl:rounded-2xl @3xl:p-2.5">{qr.kode}</span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 @3xl:flex-none @3xl:items-center @3xl:text-center">
         <span className="text-[15px] font-bold">{qr.label}</span>
         <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--hz-emas)]">
           <ArrowsOut size={14} weight="bold" aria-hidden />
@@ -417,23 +419,23 @@ export function PassHorizon({
   ) : null;
   // Di bawah 1024 px QR ada di bilah bawah, jadi sobekannya hanya untuk layar tanpa bilah bawah (v5T1l).
   const kelasSobekan =
-    "m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 focus-visible:outline-offset-[-4px] max-lg:hidden md:px-[30px] xl:w-[210px] xl:shrink-0 xl:flex-col xl:justify-center xl:gap-3 xl:border-l xl:border-t-0 xl:px-6 xl:py-[30px]";
+    "m3-state group relative flex items-center gap-4 border-t border-dashed border-[#405272] px-5 py-4 focus-visible:outline-offset-[-4px] max-lg:hidden @xl:px-[30px] @3xl:w-[210px] @3xl:shrink-0 @3xl:flex-col @3xl:justify-center @3xl:gap-3 @3xl:border-l @3xl:border-t-0 @3xl:px-6 @3xl:py-[30px]";
   return (
-    <section aria-label={label} className={`overflow-hidden rounded-[16px] bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
+    <section aria-label={label} className={`@container overflow-hidden rounded-[16px] bg-[var(--hz-navy)] text-white ${CINCIN_NAVY}`}>
       {kv ? (
         // Hiasan: KV acara, dipotong tengah seperti rancangan (cover). Laptop berlayar pendek: 145 px (U-11).
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={kv} alt="" aria-hidden decoding="async" className="h-[145px] w-full select-none object-cover md:h-[200px] lg:short:h-[145px]" />
+        <img src={kv} alt="" aria-hidden decoding="async" className="h-[145px] w-full select-none object-cover @xl:h-[200px] lg:short:h-[145px]" />
       ) : null}
       {/* Sobekan QR di samping rute hanya bila kartunya cukup lebar (xl); di bawahnya rute tetap utuh. */}
-      <div className="xl:flex">
-      <div className="flex min-w-0 flex-col gap-4 p-5 md:gap-6 md:p-[30px] xl:flex-1">
+      <div className="@3xl:flex">
+      <div className="flex min-w-0 flex-col gap-4 p-5 @xl:gap-6 @xl:p-[30px] @3xl:flex-1">
         <div className="flex items-center justify-between gap-4">
           <p className="text-[0.8125rem] font-semibold text-[var(--hz-emas)]">{label}</p>
-          {tanggalPendek ? <p className="hidden text-[0.8125rem] font-semibold md:block">{tanggalPendek}</p> : null}
+          {tanggalPendek ? <p className="hidden text-[0.8125rem] font-semibold @xl:block">{tanggalPendek}</p> : null}
         </div>
         {/* Ponsel: satu baris "Gambir → Yogyakarta" dan tanggal di bawahnya. */}
-        <div className="md:hidden">
+        <div className="@xl:hidden">
           <p className="text-[22px] font-extrabold leading-[1.26] [overflow-wrap:anywhere]">{dari ? `${dari} → ${ke}` : ke}</p>
           {tanggalPanjang ? (
             <p className="mt-4 text-[13px]" style={{ color: REDUP_NAVY }}>
@@ -441,7 +443,7 @@ export function PassHorizon({
             </p>
           ) : null}
         </div>
-        <div className={`hidden items-center gap-6 md:flex ${dari ? "justify-between" : ""}`}>
+        <div className={`hidden items-center gap-6 @xl:flex ${dari ? "justify-between" : ""}`}>
           {dari ? (
             <>
               <p className="min-w-0 text-[35px] font-extrabold leading-[1.26] [overflow-wrap:anywhere]">{dari}</p>
@@ -453,9 +455,9 @@ export function PassHorizon({
         {fakta.length > 0 || detail ? (
           // Seluruh bidang fakta mengetuk ke Perjalanan lewat tautan "Detail perjalanan"
           // (area ketuk diregangkan dengan ::before), jadi fakta tetap dibaca sebagai daftar.
-          <div className="relative flex flex-col gap-4 md:gap-5">
+          <div className="relative flex flex-col gap-4 @xl:gap-5">
             {fakta.length > 0 ? (
-              <dl className="hidden flex-wrap justify-between gap-x-6 gap-y-4 border-t pt-5 md:flex" style={{ borderColor: GARIS_NAVY }}>
+              <dl className="hidden flex-wrap justify-between gap-x-6 gap-y-4 border-t pt-5 @xl:flex" style={{ borderColor: GARIS_NAVY }}>
                 {fakta.map((item) => (
                   <div key={item.label} className={`flex flex-col gap-2 ${item.pendek ? "max-w-[14rem] shrink-0" : item.lebar ? "min-w-[9rem] flex-[1_1_12rem]" : "min-w-0"}`}>
                     <dt className="text-[0.75rem]" style={{ color: REDUP_NAVY }}>
@@ -473,7 +475,7 @@ export function PassHorizon({
               </dl>
             ) : null}
             {faktaPonsel.length > 0 ? (
-              <dl className={`border-t pt-4 md:hidden ${tigaPendek ? "flex justify-between gap-4" : "grid grid-cols-2 gap-7"}`} style={{ borderColor: GARIS_NAVY }}>
+              <dl className={`border-t pt-4 @xl:hidden ${tigaPendek ? "flex justify-between gap-4" : "grid grid-cols-2 gap-7"}`} style={{ borderColor: GARIS_NAVY }}>
                 {faktaPonsel.map((item) => (
                   <div key={item.label} className={`flex min-w-0 flex-col gap-[5px] ${item.lebar ? "col-span-2" : ""}`}>
                     <dt className="text-[0.75rem]" style={{ color: REDUP_NAVY }}>
@@ -948,7 +950,7 @@ export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label
   const pergi = leg.filter((item) => !item.lipat).length;
   return (
     // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
-    <section id="kereta" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6 lg:scroll-mt-32`} style={{ color: TINTA }}>
+    <section id="kereta" aria-label={judul} className={`${KARTU_HZ} flex scroll-mt-24 flex-col gap-4 ${PAD_KARTU} lg:scroll-mt-32`} style={{ color: TINTA }}>
       <KepalaKartuHorizon Ikon={Train} judul={judul} meta={pergi > 0 ? label.jumlah(pergi) : label.selesai} nadaMeta={pergi > 0 ? "redup" : "hijau"} />
       <div className="flex flex-col xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
       {leg.map((item, index) => {
@@ -1039,7 +1041,7 @@ export function KartuInfoHorizon({
   children?: ReactNode;
 }) {
   return (
-    <section id={id} aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6`} style={{ color: TINTA }}>
+    <section id={id} aria-label={judul} className={`${KARTU_HZ} flex flex-col gap-4 ${PAD_KARTU}`} style={{ color: TINTA }}>
       <KepalaKartuHorizon Ikon={Ikon} judul={judul} meta={meta?.teks} nadaMeta={meta?.nada} />
       <div className="flex flex-col gap-3">
         {nama ? (
