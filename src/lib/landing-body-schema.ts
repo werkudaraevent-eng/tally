@@ -445,6 +445,7 @@ export const landingBodySchema = z.object({
     invite_only: z.boolean().optional(),
     gathering: z.boolean().optional(),
     gathering_variant: z.enum(["horizon"]).optional(),
+    horizon_style: z.enum(["trip"]).optional(),
     pass_from: teks(40),
     pass_to: teks(40),
     ...TEKS_HORIZON,

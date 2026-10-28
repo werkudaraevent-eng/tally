@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-27.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-28.
 
 ## How to update this file
 
@@ -25,6 +25,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 - FAQ List layout with topics (Mas 27 Oct, KSO has 12 questions): Event page > FAQ gets Layout Cards/List and a Topic per question; List shows divider rows under topic headings, sticky topic list on wide screens. No SQL; existing events unchanged (0 px). PR open, waiting on Mas's merge time (visible on KSO only after he switches the layout; before 3 Nov).
 - Do's and Don'ts block for the event page (Mas 27 Oct): three layouts chosen in the CMS (Icon grid, Two cards, Compact list), icon from the library or own upload, Do/Don't per item. No SQL; existing events unchanged (0 px). PR open, waiting on QA and Mas's merge time (KSO content can use it before 3 Nov).
 - Horizon countdown "Journey" style (rail with travelling icon, rolling digits, optional ticking seconds) and About without the built-in opening line (it showed two headings; now only when "Opening line" is filled). No SQL; existing events 0 px except Horizon pages with an empty Opening line. Mas liked it 27 Oct. PR open, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov); after merge KSO's Countdown block needs Style Journey + Dark brand (+ Show seconds) in the CMS.
+- Theme "Gathering Trip" (Mas 28 Oct, from the all-pages mockup): new Theme preset beside Gathering Horizon; switching between the two only flips `horizon_style`, so colours, nav and CMS content stay. PR 1 = Beranda (participant pass with QR stub, Next timeline, Your trip rows) and Perjalanan (train e-tickets, hotel reservation cards, trip plan); PR 2 Agenda, Announcements, Profile; PR 3 event page. No SQL; classic Horizon 0 px. Invisible until an event picks the preset. PR open, waiting on QA. Parked: preset thumbnail reuses the Horizon one; checkpoint card keeps Horizon styling until PR 2.
 - Dress code options (Mas 28 Oct, KSO Gala Dinner has four styles): Agenda > Dress code > Add options, up to 6 per line, each with photo, name and description; Horizon Outfit page shows them as cards (swipe on phone, grid on desktop) with a full-screen viewer that moves between them. Stored in the existing dress code JSON, no SQL; lines without options are unchanged (0 px). Every day (Participant area) has no options yet. PR open, waiting on QA and Mas's merge time (visible on KSO once options are entered; before 3 Nov).
 
 - Admin English, next batches by area: Check-in, then the rest of admin; Booth offers condition summaries are still Indonesian.

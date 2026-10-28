@@ -812,6 +812,28 @@ yang sama dipakai preset lain.
   `KELAS_ALIS`, `KELAS_TAUTAN`, `KELAS_STRIP`). Kartu baru memakainya, bukan
   ukuran sendiri.
 
+#### Tema Gathering Trip (portal peserta)
+
+Diputuskan Mas 28 Okt 2026 dari mockup semua halaman. Preset tema "Gathering Trip"
+adalah Gathering Horizon dengan `horizon_style: "trip"`; berpindah antara keduanya di
+Theme hanya mengganti tanda itu (warna, nav, isi CMS tetap). Horizon klasik tidak
+berubah (0 px), jadi semua aturan Trip hidup di `components/member/portal-trip.tsx`.
+
+- Kepala tiap jenis pesanan: ubin 32 px berwarna per jenis (`NADA_TRIP`: kereta biru,
+  hotel hijau, kendaraan ungu, bagasi kuning), judul 16/24, keterangan kanan 14/20.
+  Warna ubin semantik, bukan aksen tema (Trip.com "My bookings").
+- Kartu 16 px radius, isi 16 (ponsel) / 24 (md+), jarak antar kartu 12, antar bagian 24.
+- Tiket kereta: jam 22/28 tebal, stasiun 14/20, sobekan putus-putus dengan takik
+  berwarna latar halaman; kode booking tidak pernah dipotong (nowrap) dan punya tombol
+  salin 48 px.
+- Hotel: kotak Check-in | Check-out dua kolom, strip kamar abu, inisial teman sekamar.
+- Tautan: navy dengan garis bawah emas 2 px, area ketuk 48 px tanpa menambah jarak.
+- Beranda: kartu peserta dengan sobekan QR (QR selalu di atas putih), paling atas di
+  ponsel dan menempel di kolom kanan desktop; tombolnya turun ke baris sendiri bila
+  kartunya di bawah 400 px. "Berikutnya" linimasa tiga butir, titik emas untuk butir
+  pertama. "Perjalananmu" satu baris 72 px per pesanan menuju bagiannya di Perjalanan.
+- Perjalanan desktop 4/8: kolom kiri menempel (Rencana perjalananmu + bantuan).
+
 ### Papan peringkat
 
 Lanskap 1920×1080. Kanvas gelap tetap, teks terang, angka besar, hierarki

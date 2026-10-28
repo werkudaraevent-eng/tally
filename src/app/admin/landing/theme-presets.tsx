@@ -10,6 +10,7 @@ import {
   gayaPreset,
   isiGathering,
   isiGatheringMengubah,
+  pindahDalamHorizon,
   presetCocok,
   presetDiubah,
   terapkanPreset,
@@ -42,7 +43,7 @@ export function PresetTema({
     <Kelompok
       first
       title="Start from a preset"
-      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white, fills the About heading and three About cards if they are empty, hides Location (with the hotel card), and adds a hidden “Sebelum berangkat” section for you to fill in. Gathering Horizon does the same with a navy top bar, but writes no About cards because it does not show them."
+      note="Click to preview it, then Apply. A preset sets the layout, colours, fonts and corners. Page content and the hero text placement stay. Gathering also makes the top bar white, fills the About heading and three About cards if they are empty, hides Location (with the hotel card), and adds a hidden “Sebelum berangkat” section for you to fill in. Gathering Horizon does the same with a navy top bar, but writes no About cards because it does not show them. Gathering Trip is Gathering Horizon with travel-app participant pages; switching between these two changes only the participant pages and keeps everything else."
     >
       <div role="radiogroup" aria-label="Preset" className="flex flex-col gap-2">
         {LANDING_THEME_PRESETS.map((preset) => {
@@ -208,6 +209,8 @@ const KARTU_DRESS_CODE = "Dress code";
  * contoh. Panitia mengisi teksnya lalu menampilkannya.
  */
 export function pakaiPreset(preset: LandingThemePreset, landing: EventLandingConfig): EventLandingConfig {
+  // Horizon <-> Trip hanya mengganti gaya portal: tanpa isi Gathering dan blok baru.
+  if (pindahDalamHorizon(preset, landing)) return terapkanPreset(preset, landing);
   const terapan = terapkanPreset(preset, landing);
   // Gathering: judul, label, dan tiga kartu Tentang acara seperti rancangan
   // (hanya yang masih kosong), Lokasi disembunyikan. Lihat isiGathering.

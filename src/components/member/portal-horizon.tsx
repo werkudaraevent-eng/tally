@@ -1035,6 +1035,7 @@ export function KartuInfoHorizon({
   id,
   meta,
   baris,
+  tanpaKepala = false,
   children,
 }: {
   judul: string;
@@ -1048,11 +1049,25 @@ export function KartuInfoHorizon({
   nama?: string | null;
   alamat?: string | null;
   tautan?: { href: string; label: string } | null;
+  /**
+   * Tema Gathering Trip: kepala bagian di luar kartu sudah menyebut jenisnya,
+   * jadi kepala kartu tidak diulang; keterangannya menjadi pil di atas isi.
+   */
+  tanpaKepala?: boolean;
   children?: ReactNode;
 }) {
   return (
     <section id={id} aria-label={judul} className={`${GARIS_KARTU} flex flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6`} style={{ color: TINTA }}>
-      <KepalaKartuHorizon Ikon={Ikon} judul={judul} meta={meta?.teks} nadaMeta={meta?.nada} />
+      {!tanpaKepala ? (
+        <KepalaKartuHorizon Ikon={Ikon} judul={judul} meta={meta?.teks} nadaMeta={meta?.nada} />
+      ) : meta ? (
+        <span
+          className="-mb-2 inline-flex min-h-6 items-center self-start rounded-full px-2 text-[12px] font-semibold leading-4"
+          style={meta.nada === "hijau" ? { background: "#E7F4EC", color: "#1E7B45" } : { background: "#EEF1F6", color: TINTA }}
+        >
+          {meta.teks}
+        </span>
+      ) : null}
       <div className="flex flex-col gap-3">
         {nama ? (
           <div className="flex flex-col gap-1">
