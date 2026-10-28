@@ -1506,9 +1506,9 @@ export type UbinProfil = { href: string; Ikon: typeof Train; judul: string; isi:
  * 25 Okt, versi C): avatar, nama, dan "Lihat data diri" langsung di pita navy,
  * lalu ubin ringkas yang hanya muncul bila datanya ada. Tanpa judul "Profil".
  */
-export function IdentitasProfilHorizon({ inisial, nama, data, ubin }: { inisial: string; nama: string; data: { href: string; label: string }; ubin: UbinProfil[] }) {
+export function IdentitasProfilHorizon({ inisial, nama, data, ubin, trip = false }: { inisial: string; nama: string; data: { href: string; label: string }; ubin: UbinProfil[]; /** Tema Gathering Trip: ubin di kanan identitas mulai 1024 px. */ trip?: boolean }) {
   return (
-    <div className="flex flex-col gap-4 pb-2 md:pb-0">
+    <div className={`flex flex-col gap-4 pb-2 md:pb-0 ${trip ? "lg:flex-row lg:items-center lg:justify-between lg:gap-8" : ""}`}>
       <div className="flex items-center gap-4">
         <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--hz-emas)] text-[18px] font-extrabold text-[var(--hz-on-emas)] shadow-[0_0_0_2px_var(--hz-navy),0_0_0_4px_var(--hz-emas)]">
           {inisial}
@@ -1523,7 +1523,7 @@ export function IdentitasProfilHorizon({ inisial, nama, data, ubin }: { inisial:
       </div>
       {ubin.length > 0 ? (
         // Bergulir ke samping di ponsel bila tidak muat, seperti ubin Diamond di Trip.com.
-        <ul className="-mx-6 flex gap-2 overflow-x-auto px-6 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
+        <ul className={`-mx-6 flex gap-2 overflow-x-auto px-6 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0 ${trip ? "lg:shrink-0 lg:flex-nowrap" : ""}`}>
           {ubin.map(({ href, Ikon, judul, isi, tab }) => (
             <li key={href} className="flex shrink-0">
               <Link href={href} className="m3-state flex w-[148px] flex-col gap-1 rounded-[12px] bg-white/[0.08] p-3 [--m3-state-color:#fff] md:w-[176px]">
@@ -1553,6 +1553,7 @@ export function ProfilHorizon({
   bantuan,
   darurat = null,
   keluar,
+  trip = false,
 }: {
   sisipan: ReactNode;
   qr: { href: string; label: string; kode: string; tampilkan: string; gambar: ReactNode } | null;
@@ -1563,8 +1564,73 @@ export function ProfilHorizon({
   darurat?: ReactNode;
   /** `lingkup`: alamat portal yang salinan QR luringnya dihapus sebelum keluar. */
   keluar: { action: string; label: string; lingkup: string[] };
+  /**
+   * Tema Gathering Trip: kartu QR besar di kolom kiri desktop (kode di atas
+   * putih, seperti boarding pass), daftar akun dan Keluar di dalam kartu.
+   */
+  trip?: { catatanQr: string } | false;
 }) {
   const adaBantuan = bantuan.baris.length > 0 || Boolean(darurat);
+  if (trip) {
+    const kartu = `${KARTU_HZ} px-4 py-1 [&_li+li]:border-t [&_li+li]:border-[#E6E8EC]`;
+    return (
+      <div className={`flex flex-col gap-6 pb-6 ${qr ? "" : "mt-3 md:mt-6"}`} style={{ color: TINTA }}>
+        {qr ? (
+          <PemicuQr id="pemicu-qr-profil" href={qr.href} className={`${KARTU_HZ} m3-state relative -mt-5 flex items-center gap-4 p-4 text-[#101E38] md:-mt-2 lg:hidden`}>
+            <span className="size-12 shrink-0 rounded-[8px] bg-white p-0.5 ring-1 ring-[#E6E9EE]">{qr.gambar}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="text-[18px] font-bold leading-6 tracking-[0.5px] [overflow-wrap:anywhere]">{qr.kode}</span>
+              <span className="truncate text-[12px] leading-4" style={{ color: REDUP }}>
+                {qr.label}
+              </span>
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-[14px] font-semibold leading-5">
+              <span className="sr-only md:not-sr-only">{qr.tampilkan}</span>
+              <CaretRight size={20} aria-hidden className="md:size-4" />
+            </span>
+          </PemicuQr>
+        ) : null}
+        {sisipan}
+        <div className={`flex flex-col gap-6 lg:grid lg:items-start lg:gap-8 ${qr ? "lg:mt-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]" : "lg:grid-cols-2"}`}>
+          {qr ? (
+            <PemicuQr id="pemicu-qr-profil-besar" href={qr.href} className={`${KARTU_HZ} m3-state hidden flex-col items-center gap-4 px-6 pb-6 pt-8 text-center lg:flex`}>
+              <span className="size-[200px] bg-white">{qr.gambar}</span>
+              <span className="flex flex-col gap-1">
+                <span className="text-[22px] font-bold leading-7 tracking-[0.5px] [overflow-wrap:anywhere]">{qr.kode}</span>
+                <span className="text-[14px] leading-5" style={{ color: REDUP }}>
+                  {trip.catatanQr}
+                </span>
+              </span>
+            </PemicuQr>
+          ) : null}
+          <div className="flex min-w-0 flex-col gap-6">
+            <section aria-label={akun[0]?.judul} className={kartu}>
+              <DaftarProfil baris={akun} />
+            </section>
+            {adaBantuan ? (
+              <section aria-labelledby="profil-bantuan" className="flex flex-col gap-3">
+                <JudulKelompok id="profil-bantuan">{bantuan.judul}</JudulKelompok>
+                {bantuan.baris.length > 0 ? (
+                  <div className={kartu}>
+                    <DaftarProfil baris={bantuan.baris} />
+                  </div>
+                ) : null}
+                {darurat}
+              </section>
+            ) : null}
+            <div className={`${KARTU_HZ} px-4 py-1`}>
+              <FormKeluar action={keluar.action} lingkup={keluar.lingkup}>
+                <button type="submit" className={`${BARIS_PROFIL} w-[calc(100%+24px)] text-left text-[16px] font-semibold leading-6 text-[#B42318] [--m3-state-color:#B42318]`}>
+                  <IkonBulat Ikon={SignOut} nada="merah" />
+                  {keluar.label}
+                </button>
+              </FormKeluar>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     // Pembungkus isi naik 12/24 px ke pita; kartu QR naik lagi 20/8 px, jadi menumpang 32 px.
     // Tanpa QR, isi turun kembali ke bawah pita.

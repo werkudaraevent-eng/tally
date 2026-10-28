@@ -833,6 +833,16 @@ berubah (0 px), jadi semua aturan Trip hidup di `components/member/portal-trip.t
   kartunya di bawah 400 px. "Berikutnya" linimasa tiga butir, titik emas untuk butir
   pertama. "Perjalananmu" satu baris 72 px per pesanan menuju bagiannya di Perjalanan.
 - Perjalanan desktop 4/8: kolom kiri menempel (Rencana perjalananmu + bantuan).
+- Susunan acara: desktop kartu hari (ubin hari dan tanggal, judul "Kamis, 5 Nov",
+  jumlah kegiatan; hari terpilih emas) di kolom 360 px; ponsel tetap chip tanggal.
+  Satu hari = satu kartu linimasa: jam 14/20 + selesai 12/16, rel dengan titik
+  (emas untuk Sedang berlangsung/Berikutnya), judul 16/24, bus tertaut sebagai
+  kotak pesanan menuju Perjalanan.
+- Pengumuman: satu kartu berbaris, ubin lonceng; belum dibaca berlatar #FFFBEA
+  dengan titik "Baru", disematkan berpil emas. Kosong: ikon, judul, satu kalimat.
+- Profil: ubin pita navy di kanan identitas mulai 1024 px; QR besar 200 px di kartu
+  putih kolom kiri desktop (ponsel tetap kartu QR satu baris); daftar akun, bantuan,
+  dan Keluar masing-masing di kartu.
 
 ### Papan peringkat
 

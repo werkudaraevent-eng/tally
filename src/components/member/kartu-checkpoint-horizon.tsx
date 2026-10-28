@@ -75,6 +75,7 @@ export function KartuCheckpointHorizon({
   qrHref,
   slug,
   berakhir = false,
+  trip = false,
 }: {
   data: CheckpointPeserta;
   lang: LandingLang;
@@ -87,7 +88,10 @@ export function KartuCheckpointHorizon({
    * diselesaikan, jadi kartu hanya merangkum kemajuan dan daftarnya.
    */
   berakhir?: boolean;
+  /** Tema Gathering Trip: tautan navy bergaris bawah emas, bukan biru. */
+  trip?: boolean;
 }) {
+  const warnaTautan = trip ? "text-[#101E38] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]" : "text-[#274FC0]";
   const t = TEKS[lang];
   const total = data.steps.length;
   const berikut = data.steps.find((step) => !step.done_at) ?? null;
@@ -148,7 +152,7 @@ export function KartuCheckpointHorizon({
         slug={slug}
         lang={lang}
         qrHref={sisa.self_scan === "both" ? qrHref : null}
-        className="m3-state -mx-2 -mb-3.5 mt-[-2px] inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold leading-5 text-[#274FC0]"
+        className={`m3-state -mx-2 -mb-3.5 mt-[-2px] inline-flex min-h-12 items-center gap-2 rounded-md px-2 text-[14px] font-semibold leading-5 ${warnaTautan}`}
       />
       {sisa.self_scan === "both" ? <p className={`mt-3 ${KELAS_KET}`}>{t.jugaTunjukkan}</p> : null}
     </>
@@ -215,7 +219,7 @@ export function KartuCheckpointHorizon({
         lengkap={daftar}
         bukaLabel={t.lihatSemua(total)}
         tutupLabel={t.sembunyikan}
-        tombolKelas="m3-state -mx-2 -mb-3.5 mt-[-2px] inline-flex min-h-12 items-center gap-1 rounded-md px-2 text-[14px] font-semibold leading-5 text-[#274FC0]"
+        tombolKelas={`m3-state -mx-2 -mb-3.5 mt-[-2px] inline-flex min-h-12 items-center gap-1 rounded-md px-2 text-[14px] font-semibold leading-5 ${warnaTautan}`}
       />
     </section>
   );
