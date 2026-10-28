@@ -17,19 +17,19 @@ import {
   Hourglass,
   MapPin,
   Megaphone,
+  Headset,
   Phone,
   PushPin,
   SignOut,
   Suitcase,
   Ticket,
   User,
-  WhatsappLogo,
   Users,
   X,
   XCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
-import { kontakPanitia, telHref } from "@/lib/kontak-panitia";
+import { daftarKontakPanitia, kontakPanitia, telHref } from "@/lib/kontak-panitia";
 import { saringBlokPeserta } from "@/lib/sasaran-blok-server";
 import { bacaTautanAgenda } from "@/lib/sasaran-blok";
 import { logoNavPutih, isPortalEntry, landingBlockMemberOnly, landingMemberBlocks, memberHomeOrder, normalizeLandingSections, publicEventName, susunanDenganPortal } from "@/lib/domain";
@@ -1566,7 +1566,24 @@ export async function DashboardGathering({
             })}
         />
       ) : null;
-      const namaKontak = config.contact_name?.trim() || null;
+      const panitia = daftarKontakPanitia(config);
+      const kartuPanitia = panitia.length > 0 ? (
+        <KartuDaruratHorizon
+          id="panitia"
+          Ikon={Headset}
+          warna={null}
+          judul={tp.organisersTitle}
+          isi={null}
+          label={{ call: tH.travel.call, whatsapp: tH.travel.whatsapp, map: tH.emergencyMap }}
+          baris={panitia.map((item) => {
+            const judul = item.nama || tp.organisersTitle;
+            // Tanpa nomor: baris email biasa; dengan nomor: tombol Telepon dan WhatsApp.
+            return item.tel
+              ? { judul, isi: item.peran, href: null, luar: false, kontak: { nomor: item.nomor, tel: item.tel, wa: item.wa, peta: null } }
+              : { judul, isi: [item.peran, item.email].filter(Boolean).join("\n") || null, href: item.email ? `mailto:${item.email}` : null, luar: true };
+          })}
+        />
+      ) : null;
       isi = (
         <ProfilHorizon
           sisipan={pitaEmail || statusPendaftaran ? <div className="flex flex-col gap-4">{pitaEmail}{statusPendaftaran}</div> : null}
@@ -1581,19 +1598,17 @@ export async function DashboardGathering({
             ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: tp.language, isi: t.languageRow, Ikon: Globe }] : []),
             { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
           ]}
-          bantuan={{
-            judul: tp.helpTitle,
-            // Kartu darurat (Participant area) sudah berisi kontak panitia: baris
-            // dari Event settings di atasnya hanya mengulang orang yang sama.
-            baris: kontakHorizon && !kartuDarurat
-              ? [
-                  ...(kontakHorizon.wa ? [{ href: kontakHorizon.wa, judul: tp.whatsappRow, isi: namaKontak, Ikon: WhatsappLogo, luar: true, tabBaru: true, nada: "hijau" as const }] : []),
-                  ...(kontakHorizon.tel ? [{ href: `tel:${kontakHorizon.tel}`, judul: tp.callRow, isi: telepon, Ikon: Phone, luar: true }] : []),
-                  ...(!kontakHorizon.tel && kontakHorizon.email ? [{ href: `mailto:${kontakHorizon.email}`, judul: tp.emailRow, isi: kontakHorizon.email, Ikon: EnvelopeSimple, luar: true }] : []),
-                ]
-              : [],
-          }}
-          darurat={kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
+          // Dua sumber, dua arti: Kontak panitia dari Event settings, kartu darurat
+          // (rumah sakit, polisi, hotel) dari Participant area. Keputusan Mas 28 Okt.
+          bantuan={{ judul: tp.helpTitle, baris: [] }}
+          darurat={
+            kartuPanitia || kartuDarurat ? (
+              <div className="flex flex-col gap-4">
+                {kartuPanitia}
+                {kartuDarurat ? <BagianBeranda id="darurat" pratinjau={pratinjau}>{kartuDarurat}</BagianBeranda> : null}
+              </div>
+            ) : null
+          }
           keluar={{
             action: `/e/${encodeURIComponent(event.slug)}/api/peserta/keluar`,
             label: t.signOut,

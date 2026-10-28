@@ -470,7 +470,12 @@ export default function AreaPesertaPage() {
                   <SettingRow
                     stacked={berpratinjau}
                     title="Emergency and help"
-                    description="Contacts shown in Menu, under Travel, and linked from the help card on Travel. Each contact gets Call, WhatsApp and Map buttons where they apply."
+                    description={
+                      <>
+                        Emergency services, not organisers: nearest hospital, police, hotel front desk. Shown in Menu and on Profile, each with Call, WhatsApp and Map buttons where they apply. Organiser contacts come from{" "}
+                        <Link href="/admin/settings" className={TAUTAN}>Event settings</Link>.
+                      </>
+                    }
                   >
                     <KontakDaruratForm
                       help={anggota.help}
