@@ -2414,3 +2414,41 @@ html[data-theme="dark"] .warna-pemindai {
 		animation-timeline: scroll(self);
 	}
 }
+
+/*
+ * Tema Gathering Trip, halaman acara: blok CMS dan bagian bawaan lain dirender
+ * di kolom isi (halaman-trip.tsx TataTrip). Grid halaman 1440 dan pinggirnya
+ * sudah diberikan kolom itu, jadi tidak diulang; judul bagian mengikuti skala
+ * Trip (24/32) dan jarak antarbagian 40 px.
+ */
+[data-trip-kolom] {
+  --judul-besar: 24px;
+  --judul-baris: 32px;
+  --bagian-y: 40px;
+}
+[data-trip-kolom] .max-w-\[1440px\] {
+  max-width: none;
+  padding-inline: 0;
+}
+[data-trip-kolom] > section,
+[data-trip-kolom] > [data-bagian] > section {
+  padding-top: 40px;
+  padding-bottom: 0;
+}
+/* Blok berlatar (Panel, Dark) menjadi kartu di kolom, bukan pita selebar layar. */
+[data-trip-kolom] > section[style*="background-color"] {
+  margin-top: 40px;
+  padding: 24px 16px;
+  border-radius: 16px;
+}
+[data-trip-kolom] .text-\[32px\] {
+  font-size: 24px;
+  line-height: 32px;
+}
+/* Kolom isi Trip kira-kira 700 px: grid blok paling banyak tiga kolom. */
+@media (min-width: 64rem) {
+  [data-trip-kolom] .lg\:grid-cols-4,
+  [data-trip-kolom] .lg\:grid-cols-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

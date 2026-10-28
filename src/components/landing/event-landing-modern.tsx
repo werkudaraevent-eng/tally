@@ -39,6 +39,8 @@ import { nadaKartu } from "@/lib/landing-card-icons";
 import { HeroGathering, KakiGathering, PitaPenutupGathering, PortalGathering, PratinjauPortal, TentangGathering, agendaSelanjutnya, inisialNama } from "./modern/gathering-app";
 import { JalurHorizon } from "./modern/horizon-gerak";
 import { BilahMasukTrip } from "./modern/bilah-masuk-trip";
+import { AgendaTrip } from "./modern/agenda-trip";
+import { BagianTrip, FaqTrip, HeroTrip, KakiTrip, KartuMasukTrip, KontakPanitiaTrip, LokasiTrip, PembicaraTrip, PortalTrip, TataTrip, TentangTrip, type FaktaTrip } from "./modern/halaman-trip";
 import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon, type HorizonAksi } from "./modern/horizon";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
@@ -584,6 +586,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const indeksHorizon = config.hero_index?.trim() || t.horizon.index;
   // Gathering Horizon: garis perjalanan emas di talang kiri sepanjang bagian halaman.
   const bungkusJalur = (isi: ReactNode) => (horizon ? <JalurHorizon>{isi}</JalurHorizon> : isi);
+  // Trip: isi satu kolom dengan kartu Masuk di kanan desktop; tanpa jalur Horizon.
+  const tataTrip = (isi: ReactNode) => (trip ? <TataTrip isi={isi} samping={kartuMasukTrip} /> : bungkusJalur(isi));
   const kontakPanitiaDaftar = horizon ? daftarKontakPanitia(config) : [];
   const bawaanHorizon: Partial<Record<LandingSectionId, ReactNode>> = horizon
     ? {
@@ -972,6 +976,69 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     ) : null,
   };
 
+  // Tema Gathering Trip: bagian bawaan versi listing (halaman-trip.tsx). Bagian
+  // lain dan blok CMS tetap memakai tampilan biasa di kolom yang sama.
+  // Judul tanpa isian CMS: nama bagiannya ("Lokasi"), bukan nama tempat atau
+  // tanggal yang di Trip sudah tampil di baris dan kotak fakta.
+  const judulTrip = (id: "agenda" | "venue" | "speakers") => config[`${id}_heading`]?.trim() || t.sectionLabels[id];
+  const bawaanTrip: Partial<Record<LandingSectionId, ReactNode>> = trip
+    ? {
+        about: tampil("about") ? (
+          <TentangTrip judul={judulBagian("about").judul} isi={event.description?.trim() || null} foto={fotoTentang ? { src: fotoTentang, alt: config.about_image_alt?.trim() ?? "" } : null} />
+        ) : null,
+        agenda: tampil("agenda") ? (
+          <BagianTrip id="agenda" judul={judulTrip("agenda")}>
+            {config.agenda_note?.trim() ? <p className={`mb-4 text-[14px] leading-5 ${MUTED}`}>{config.agenda_note.trim()}</p> : null}
+            <AgendaTrip agenda={agenda} lang={lang} />
+          </BagianTrip>
+        ) : null,
+        speakers: tampil("speakers") ? <PembicaraTrip judul={judulTrip("speakers")} orang={speakers} /> : null,
+        ...(hotelInap.length > 0
+          ? {}
+          : {
+              venue: tampil("venue") ? (
+                <LokasiTrip
+                  judul={judulTrip("venue")}
+                  nama={venue}
+                  alamat={event.venue_address?.trim() || null}
+                  petaKueri={petaKueri}
+                  petaJudul={t.mapOf(venue)}
+                  peta={petaUrl ? { href: petaUrl, label: labelTautanPeta(petaUrl, lang) } : null}
+                  kalender={kalenderUrl ? { href: kalenderUrl, label: t.addToCalendar } : null}
+                  kursi={{ href: `/e/${event.slug}/denah`, label: t.findSeat }}
+                />
+              ) : null,
+            }),
+        faq: tampil("faq") ? (
+          <FaqTrip
+            judul={judulBagian("faq").judul}
+            pengantar={
+              <>
+                {pengantarFaq(config.faq_intro?.trim() || t.faqIntro, kontak.length > 0)}
+                {kontak.length > 0 ? (
+                  kontakPanitiaDaftar.length > 0 ? (
+                    <>
+                      {" "}
+                      <a href="#contact" className="font-medium text-[#101E38] underline underline-offset-4">
+                        {t.faqContact.trim()}
+                      </a>
+                    </>
+                  ) : (
+                    t.faqContact
+                  )
+                ) : null}
+              </>
+            }
+            butir={config.faq ?? []}
+          />
+        ) : null,
+        contact:
+          tampil("contact") && kontakPanitiaDaftar.length > 0 ? (
+            <KontakPanitiaTrip judul={t.footerContact} pengantar={t.contactLead} kontak={kontakPanitiaDaftar} label={{ wa: t.contactWhatsapp, tel: t.contactCall, email: t.contactEmail }} />
+          ) : null,
+      }
+    : {};
+
   // Bilah masuk Trip: tombol yang sama dengan hero (masuk atau Dashboard saya),
   // atau Daftar selama pendaftaran terbuka. Tidak di pratinjau CMS.
   const aksiBilahTrip = !trip || pratinjau ? null : aksiHeroHorizon.link ? { href: aksiHeroHorizon.href, label: aksiHeroHorizon.label } : event.registration_enabled && !peserta ? { href: daftarUrl, label: ctaLabel } : null;
@@ -983,6 +1050,23 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       aksi={aksiBilahTrip}
     />
   ) : null;
+  const faktaTrip: FaktaTrip[] = [
+    formatEventDateRingkas(event, lang) ?? tanggal ? { jenis: "tanggal" as const, teks: (formatEventDateRingkas(event, lang) ?? tanggal) as string } : null,
+    venue ? { jenis: "tempat" as const, teks: venue } : null,
+    lamaHari ? { jenis: "lama" as const, teks: t.stayLength(lamaHari) } : null,
+  ].filter((item): item is FaktaTrip => item !== null);
+  const kartuMasukTrip = trip ? (
+    <KartuMasukTrip
+      judul={nama}
+      hitung={hitungMundur && sisa && sisa.sisa > 0 ? [hitungMundur.angka, hitungMundur.teks].filter(Boolean).join(" ") : null}
+      tanggal={tanggalPanjang ?? tanggal}
+      tanggalSub={lamaHari ? t.stayLength(lamaHari) : null}
+      tempat={venue}
+      aksi={aksiBilahTrip}
+      kalender={kalenderUrl ? { href: kalenderUrl, label: t.addToCalendar } : null}
+      catatan={member && aksiBilahTrip ? t.horizon.passInfo(member.show_logistics === true) : null}
+    />
+  ) : null;
 
   return (
     // `lang` di <main>: <html lang="id"> ditulis root layout untuk seluruh
@@ -991,7 +1075,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     <main
       lang={LANDING_LANG_LABELS[lang].htmlLang}
       data-halaman-publik
-      className={`min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)] ${horizon ? "[--nav-h:102px] md:[--nav-h:128px]" : ""} ${bilahTrip ? "pb-[calc(73px+env(safe-area-inset-bottom))]" : ""}`}
+      className={`min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)] ${horizon ? "[--nav-h:102px] md:[--nav-h:128px]" : ""} ${bilahTrip ? "pb-[calc(73px+env(safe-area-inset-bottom))] lg:pb-0" : ""}`}
       style={mainStyle}
     >
       <LandingNavModern
@@ -1015,7 +1099,15 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           Ditarik ke bawah bilah nav (margin negatif setinggi nav, `--nav-h`
           dari modernNavStyle) supaya KV
           mulai dari tepi atas layar, seperti di rancangan. */}
-      {horizon ? (
+      {trip ? (
+        <HeroTrip
+          alis={config.hero_eyebrow?.trim() || [tanggalPanjang, venue].filter(Boolean).join(" · ") || null}
+          judul={judulAjakan ?? nama}
+          catatan={config.hero_note?.trim() || null}
+          kv={kvGathering(config)?.src ?? null}
+          fakta={faktaTrip}
+        />
+      ) : horizon ? (
         <HeroHorizon
           alis={config.hero_eyebrow?.trim() || [venue, tanggalPanjang].filter(Boolean).join("  /  ") || null}
           alisPonsel={config.hero_eyebrow?.trim() || [formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join("  /  ") || null}
@@ -1207,9 +1299,18 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       {/* Gathering Horizon: tujuan tombol hero, di bawah bilah atas yang sudah menyusut (72px). */}
       {horizon ? <div id="mulai" aria-hidden className="scroll-mt-16 md:scroll-mt-[72px]" /> : null}
 
-      {bungkusJalur(urutan
+      {tataTrip(urutan
         .filter((section) => section.enabled)
         .map((section) => {
+          if (isPortalEntry(section) && trip)
+            return portalTampil ? (
+              <PortalTrip
+                key="portal"
+                judul={config.portal_heading?.trim() || t.horizon.inviteHeading}
+                catatan={config.portal_note?.trim() || (member ? t.horizon.inviteNote(member.show_logistics === true) : null)}
+                aksi={aksiBilahTrip}
+              />
+            ) : null;
           if (isPortalEntry(section)) return portalTampil ? <Fragment key="portal">{portal}</Fragment> : kosongPortal ? <Fragment key="portal">{kosongPortal}</Fragment> : null;
           if (isLandingBlockId(section.id)) {
             const block = blokById.get(section.id);
@@ -1235,6 +1336,14 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               </div>
             );
           }
+          if (trip && section.id in bawaanTrip) {
+            const kontenTrip = bawaanTrip[section.id];
+            return kontenTrip ? (
+              <div key={section.id} data-bagian={section.id}>
+                {kontenTrip}
+              </div>
+            ) : null;
+          }
           if (horizon && section.id in bawaanHorizon) {
             const kontenHorizon = bawaanHorizon[section.id];
             return kontenHorizon ? (
@@ -1245,6 +1354,13 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           }
           const konten = bawaan[section.id];
           if (!konten) return null;
+          if (trip) {
+            return (
+              <div key={section.id} data-bagian={section.id}>
+                {konten}
+              </div>
+            );
+          }
           // Gathering: latar pilihan admin selebar layar (Light, Grey, Dark brand).
           const latar = gaya ? gayaLatarBagian(section.id, config.section_tone, tokens.brand, config.section_bg_color) : undefined;
           return latar ? (
@@ -1317,7 +1433,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
 
 
       {/* Gathering: pita penutup selebar layar dengan tombol warna Tema. */}
-      {horizon && penutupTampil ? (
+      {horizon && !trip && penutupTampil ? (
         <PenutupHorizon
           judul={config.cta_heading?.trim() || t.horizon.closing}
           aksi={undangan ? { href: masukUrl, label: tombolPortalHorizon, link: true, sunting: "portal:portal_button_label" } : { href: daftarUrl, label: ctaLabel, link: true }}
@@ -1340,7 +1456,9 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       </div>
 
       {/* ---- Kaki halaman ---------------------------------------------------- */}
-      {horizon ? (
+      {trip ? (
+        <KakiTrip nama={nama} catatan={config.footer_note?.trim() || null} />
+      ) : horizon ? (
         <KakiHorizon tandaTangan={tandaTanganHorizon} catatan={config.footer_note?.trim() || null} ponsel={!penutupTampil} />
       ) : gaya ? (
         // Gathering: kaki tipis putih seperti rancangan. Catatan kaki dari CMS
