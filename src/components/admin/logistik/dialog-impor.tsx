@@ -25,7 +25,7 @@ type Hasil = { masuk: number; dibuat: string[]; gagal: Array<{ nama: string; ala
 
 const URAIAN: Record<JenisImpor, string> = {
   kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
-  bus: "One row per person: Vehicle, then QR code or Name. Vehicles that do not exist yet are created with no capacity limit.",
+  bus: "One row per person: Vehicle, then QR code or Name. Vehicles that do not exist yet are created with no capacity limit. A \"Trip: …\" column sets a different vehicle for that Trip only.",
   kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
 };
 
@@ -246,7 +246,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             <p className="-mt-2 text-body-small text-on-surface-variant">
               {jenis === "kereta"
                 ? "Download participant list gives every participant two rows, Outbound and Return, with tickets already saved. Fill the train columns, leave the rest empty, then choose the file here."
-                : "Download participant list gives every participant one row, with vehicles already saved. Fill Vehicle, leave the rest empty, then choose the file here."}
+                : "Download participant list gives every participant one row, with vehicles already saved, and one column per Trip. Fill Vehicle; fill a Trip column only when the person rides a different vehicle on that Trip (\"No vehicle\" if they do not ride). Empty cells change nothing."}
               {" "}Columns marked (info) are only for filtering in Excel. The file contains QR codes, so keep it inside the team.
             </p>
           )}

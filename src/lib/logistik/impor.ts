@@ -12,7 +12,7 @@
  * (`impor.check.ts`).
  */
 
-import { stayPerPeserta, tanggalStay, tanggalZona } from "./stay.ts";
+import { jamZona, stayPerPeserta, tanggalStay, tanggalZona } from "./stay.ts";
 import type { ArahKereta, TiketKereta } from "./types";
 
 export type JenisImpor = "kamar" | "bus" | "kereta";
@@ -60,7 +60,11 @@ export type Rencana = {
    * participant list yang belum diisi). Dilewati tanpa mengubah apa pun.
    */
   dilewati: number;
+  /** Hanya impor kendaraan: pengecualian per trip. `tujuan` null = "No vehicle". */
+  busTrip: Array<{ trip_id: number; tujuan: string | null; participant_ids: string[] }>;
 };
+
+export type TripImpor = { id: number; name: string; depart_at: string | null };
 
 /** Satu tiket dari berkas, siap di-upsert ke `train_tickets`. */
 export type TiketImpor = Omit<TiketKereta, "id">;
@@ -77,6 +81,10 @@ export type KeadaanAcara = {
   vehicles: Array<{ id: number; code: string; capacity: number | null }>;
   /** Bus bawaan saja (trip_id null, vehicle_id terisi). */
   busBawaan: Array<{ participant_id: string; vehicle_id: number }>;
+  /** Trip Logistics, untuk kolom "Trip: …" di impor kendaraan. */
+  trips: TripImpor[];
+  /** Pengecualian per trip yang tersimpan. `vehicle_id` null = "No vehicle" di trip itu. */
+  busTrip: Array<{ trip_id: number; participant_id: string; vehicle_id: number | null }>;
   /** Tiket kereta yang sudah tersimpan, untuk menandai Updated atau Unchanged. */
   kereta: TiketKereta[];
 };
@@ -192,7 +200,7 @@ function buatPencocok(peserta: KeadaanAcara["peserta"]): Pencocok {
 }
 
 function kosong(jenis: JenisImpor, galat: string): Rencana {
-  return { jenis, galat, baris: [], hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket: [], dilewati: 0 };
+  return { jenis, galat, baris: [], hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket: [], dilewati: 0, busTrip: [] };
 }
 
 /* ------------------------------------------------------------------ Kamar */
@@ -545,7 +553,7 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara): Rencan
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, tiket: [], dilewati: 0 };
+  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, tiket: [], dilewati: 0, busTrip: [] };
 }
 
 /** Data untuk "Download current stays". */
@@ -600,12 +608,61 @@ export function barisStaySekarang(data: StaySekarang): string[][] {
 
 /* -------------------------------------------------------------------- Bus */
 
+const BULAN_TRIP = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Judul kolom satu trip: "Trip: Jeep Merapi (7 Nov 05:00)", jam di zona
+ * acara. Tanpa jam berangkat: "Trip: Jeep Merapi". Judul inilah yang dicari
+ * impor, jadi dua trip bernama sama tetap terbedakan oleh jamnya.
+ */
+export function judulTrip(trip: TripImpor, offset: string): string {
+  if (!trip.depart_at) return `Trip: ${trip.name}`;
+  const t = tanggalZona(trip.depart_at, offset);
+  return `Trip: ${trip.name} (${Number(t.slice(8, 10))} ${BULAN_TRIP[Number(t.slice(5, 7)) - 1]} ${jamZona(trip.depart_at, offset)})`;
+}
+
+/** Trip urut jam berangkat (tanpa jam di belakang), lalu nama. */
+export function urutTrip(trips: TripImpor[]): TripImpor[] {
+  return [...trips].sort((a, b) => (a.depart_at ?? "\uffff").localeCompare(b.depart_at ?? "\uffff") || a.name.localeCompare(b.name) || a.id - b.id);
+}
+
+/** Isi sel trip yang berarti "tidak naik kendaraan di trip ini". */
+const TANPA_KENDARAAN = new Set(["no vehicle", "none", "-", "tidak ada", "tanpa kendaraan", "tidak naik"]);
+export const LABEL_TANPA_KENDARAAN = "No vehicle";
+
+/**
+ * Kolom "Trip: …" di judul, dipasangkan ke trip acara. Judul persis dulu;
+ * bila tidak ada, nama saja asal hanya satu trip bernama itu (jam trip
+ * berubah sesudah berkas diunduh). Kolom yang tidak cocok = galat berkas:
+ * diabaikan diam-diam berarti pengecualian satu hari hilang tanpa terlihat.
+ */
+function kolomTrip(judul: string[], acara: KeadaanAcara): { kolom: Array<{ indeks: number; trip: TripImpor }> } | { galat: string } {
+  const perJudul = new Map(acara.trips.map((trip) => [kunci(judulTrip(trip, acara.offset)), trip]));
+  const hasil: Array<{ indeks: number; trip: TripImpor }> = [];
+  for (const [indeks, isi] of judul.entries()) {
+    const k = kunci(isi);
+    if (!k.startsWith("trip:")) continue;
+    let trip = perJudul.get(k);
+    if (!trip) {
+      const nama = k.slice(5).replace(/\s*\([^)]*\)\s*$/, "").trim();
+      const sama = acara.trips.filter((t) => kunci(t.name) === nama);
+      if (sama.length === 1) trip = sama[0];
+    }
+    if (!trip) return { galat: `Column "${rapi(isi)}" does not match a Trip in Logistics. Download the participant list again, or fix the column name.` };
+    if (hasil.some((h) => h.trip.id === trip!.id)) return { galat: `Two columns are for the same Trip (${trip.name}). Keep one.` };
+    hasil.push({ indeks, trip });
+  }
+  return { kolom: hasil };
+}
+
 export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
   const judul = bacaJudul(sel);
   if (!judul || judul.kolom.bus === undefined || (judul.kolom.nama === undefined && judul.kolom.kode === undefined)) {
     return kosong("bus", "Vehicle and Name (or QR code) columns not found in the header row. Download the template for an example.");
   }
   const { kolom, mulai } = judul;
+  const trips = kolomTrip(sel[mulai - 1], acara);
+  if ("galat" in trips) return kosong("bus", trips.galat);
   const isi = sel.slice(mulai);
   if (isi.length > BATAS_BARIS) return kosong("bus", `You can import at most ${BATAS_BARIS.toLocaleString("en-GB")} rows at a time.`);
 
@@ -619,22 +676,59 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
   let dilewati = 0;
   const sudah = new Map<string, number>();
   const perBus = new Map<string, { kode: string; ada: KeadaanAcara["vehicles"][number] | null; orang: BarisRencana[] }>();
+  // Pengecualian per trip: kunci "trip id \0 kode kecil" (kosong = No vehicle).
+  const tripSekarang = new Map(acara.busTrip.map((b) => [`${b.trip_id}\u0000${b.participant_id}`, b.vehicle_id]));
+  const perTrip = new Map<string, { trip_id: number; tujuan: string | null; participant_ids: string[] }>();
+  const busBaruTrip = new Map<string, string>();
+  // Baris yang kendaraan utamanya tidak berubah (statusnya bisa "pindah" karena trip).
+  const busTetap = new Set<BarisRencana>();
 
   isi.forEach((sel1, i) => {
     const nomorBaris = mulai + i + 1;
     const bus = rapi(sel1[kolom.bus!]).slice(0, 40);
     const kode = kolom.kode !== undefined ? rapi(sel1[kolom.kode]) : "";
     const nama = kolom.nama !== undefined ? rapi(sel1[kolom.nama]) : "";
-    if (!bus && !kode && !nama) return;
-    const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: bus, status: "tolak", alasan, participant_id: null }); };
+    const isiTrip = trips.kolom.map(({ indeks, trip }) => ({ trip, isi: rapi(sel1[indeks]).slice(0, 40) })).filter((t) => t.isi);
+    if (!bus && !kode && !nama && isiTrip.length === 0) return;
+    const ringkasTrip = isiTrip.map((t) => `${t.trip.name}: ${TANPA_KENDARAAN.has(kunci(t.isi)) ? LABEL_TANPA_KENDARAAN : t.isi}`);
+    const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: [bus, ...ringkasTrip].filter(Boolean).join(" · "), status: "tolak", alasan, participant_id: null }); };
     if (!kode && !nama) return tolak("Name and QR code are empty");
     // Orang tanpa kendaraan: baris Download participant list yang belum diisi.
-    if (!bus) { dilewati += 1; return; }
+    if (!bus && isiTrip.length === 0) { dilewati += 1; return; }
     const hasil = cocokkan(kode, nama);
     if ("alasan" in hasil) return tolak(hasil.alasan);
     const pertama = sudah.get(hasil.id);
     if (pertama !== undefined) return tolak(`Same person already on row ${pertama}`);
     sudah.set(hasil.id, nomorBaris);
+
+    // Pengecualian per trip. Sel kosong = tidak berubah (ikut kendaraan utama
+    // bila belum ada pengecualian); "No vehicle" = tidak naik di trip itu.
+    let tripBerubah = false;
+    for (const { trip, isi } of isiTrip) {
+      const tanpa = TANPA_KENDARAAN.has(kunci(isi));
+      const ada = tanpa ? null : busPerKode.get(kunci(isi)) ?? null;
+      const lama = tripSekarang.get(`${trip.id}\u0000${hasil.id}`);
+      if (lama !== undefined && (tanpa ? lama === null : ada !== null && lama === ada.id)) continue;
+      tripBerubah = true;
+      if (!tanpa && !ada && !busPerKode.has(kunci(isi))) busBaruTrip.set(kunci(isi), isi);
+      const tujuan = tanpa ? null : ada?.code ?? busBaruTrip.get(kunci(isi)) ?? isi;
+      const k = `${trip.id}\u0000${tujuan === null ? "" : kunci(tujuan)}`;
+      const grup = perTrip.get(k) ?? { trip_id: trip.id, tujuan, participant_ids: [] };
+      perTrip.set(k, grup);
+      grup.participant_ids.push(hasil.id);
+    }
+    if (!bus) {
+      baris.push({
+        baris: nomorBaris,
+        nama: orangById.get(hasil.id)!.name,
+        kode: kode || null,
+        tujuan: ringkasTrip.join(" · "),
+        status: tripBerubah ? "pindah" : "tetap",
+        alasan: tripBerubah ? "Trip vehicles change" : "Already on these vehicles",
+        participant_id: hasil.id,
+      });
+      return;
+    }
 
     const ada = busPerKode.get(kunci(bus)) ?? null;
     const grup = perBus.get(kunci(bus)) ?? { kode: ada?.code ?? bus, ada, orang: [] };
@@ -645,11 +739,12 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
       baris: nomorBaris,
       nama: orangById.get(hasil.id)!.name,
       kode: kode || null,
-      tujuan: grup.kode,
-      status: tetap ? "tetap" : lama !== undefined ? "pindah" : "masuk",
-      alasan: tetap ? "Already on this vehicle" : lama !== undefined ? `Moving from ${kodeBusById.get(lama) ?? "another vehicle"}` : null,
+      tujuan: [grup.kode, ...ringkasTrip].join(" · "),
+      status: tetap ? (tripBerubah ? "pindah" : "tetap") : lama !== undefined ? "pindah" : "masuk",
+      alasan: tetap ? (tripBerubah ? "Trip vehicles change" : "Already on this vehicle") : lama !== undefined ? `Moving from ${kodeBusById.get(lama) ?? "another vehicle"}` : null,
       participant_id: hasil.id,
     };
+    if (tetap) busTetap.add(b);
     baris.push(b);
     grup.orang.push(b);
   });
@@ -661,10 +756,10 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
     if (!grup.ada) busBaru.push(grup.kode);
     const kapasitas = grup.ada?.capacity ?? null;
     let terisi = grup.ada ? [...busSekarang].filter(([pid, vid]) => vid === grup.ada!.id && !pindah.has(pid)).length : 0;
-    terisi += grup.orang.filter((b) => b.status === "tetap").length;
+    terisi += grup.orang.filter((b) => busTetap.has(b)).length;
     const masuk: string[] = [];
     for (const b of grup.orang) {
-      if (b.status === "tetap") continue;
+      if (busTetap.has(b)) continue;
       if (kapasitas !== null && terisi >= kapasitas) { b.status = "tolak"; b.alasan = `Vehicle full (capacity ${kapasitas})`; continue; }
       terisi += 1;
       masuk.push(b.participant_id!);
@@ -672,8 +767,16 @@ export function rencanaBus(sel: string[][], acara: KeadaanAcara): Rencana {
     if (masuk.length > 0) penempatan.push({ hotel: null, tujuan: grup.kode, malam: null, participant_ids: masuk });
   }
 
+  // Kendaraan baru yang hanya disebut di kolom trip juga dibuat.
+  for (const [k, kode] of busBaruTrip) if (!perBus.has(k)) busBaru.push(kode);
+  // Baris yang kendaraan utamanya ditolak (penuh) tidak menulis apa pun, trip juga tidak.
+  const ditolak = new Set(baris.filter((b) => b.status === "tolak" && b.participant_id).map((b) => b.participant_id!));
+  const busTrip = [...perTrip.values()]
+    .map((g) => ({ ...g, participant_ids: g.participant_ids.filter((pid) => !ditolak.has(pid)) }))
+    .filter((g) => g.participant_ids.length > 0);
+
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "bus", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru, penempatan, lepas: [], tiket: [], dilewati };
+  return { jenis: "bus", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru, penempatan, lepas: [], tiket: [], dilewati, busTrip };
 }
 
 /* ----------------------------------------------------------------- Kereta */
@@ -819,7 +922,7 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
   });
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kereta", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket, dilewati };
+  return { jenis: "kereta", galat: null, baris, hotelBaru: [], kamarBaru: [], busBaru: [], penempatan: [], lepas: [], tiket, dilewati, busTrip: [] };
 }
 
 /* ------------------------------------------- Download participant list */
@@ -831,6 +934,10 @@ export type PesertaUnduh = {
   info: Array<{ key: string; label: string }>;
   vehicles: Array<{ id: number; code: string }>;
   busBawaan: Array<{ participant_id: string; vehicle_id: number }>;
+  /** Kendaraan saja: trip acara dan pengecualian tersimpan, satu kolom per trip. */
+  trips: TripImpor[];
+  busTrip: Array<{ trip_id: number; participant_id: string; vehicle_id: number | null }>;
+  offset: string;
   kereta: TiketKereta[];
 };
 
@@ -853,14 +960,22 @@ const urutNama = (data: PesertaUnduh) => {
 
 /**
  * Semua peserta aktif dalam bentuk templat bus: satu baris per orang, urut
- * nama, kendaraan bawaan yang tersimpan sudah terisi.
+ * nama, kendaraan bawaan yang tersimpan sudah terisi, lalu satu kolom per trip
+ * (urut jam berangkat) berisi pengecualian yang tersimpan. Sel trip kosong =
+ * ikut kendaraan utama.
  */
 export function barisPesertaBus(data: PesertaUnduh): string[][] {
   const kodeBus = new Map(data.vehicles.map((bus) => [bus.id, bus.code]));
   const busOrang = new Map(data.busBawaan.map((b) => [b.participant_id, kodeBus.get(b.vehicle_id) ?? ""]));
+  const trips = urutTrip(data.trips);
+  const pengecualian = new Map(data.busTrip.map((b) => [`${b.trip_id}\u0000${b.participant_id}`, b.vehicle_id === null ? LABEL_TANPA_KENDARAAN : kodeBus.get(b.vehicle_id) ?? ""]));
   return [
-    [...TEMPLAT.bus.judul, ...data.info.map((k) => judulInfo(k.label))],
-    ...urutNama(data).map((orang) => [orang.qr_code, orang.name, busOrang.get(orang.id) ?? "", ...data.info.map((k) => jawabanInfo(orang.extra, k.key))]),
+    [...TEMPLAT.bus.judul, ...trips.map((trip) => judulTrip(trip, data.offset)), ...data.info.map((k) => judulInfo(k.label))],
+    ...urutNama(data).map((orang) => [
+      orang.qr_code, orang.name, busOrang.get(orang.id) ?? "",
+      ...trips.map((trip) => pengecualian.get(`${trip.id}\u0000${orang.id}`) ?? ""),
+      ...data.info.map((k) => jawabanInfo(orang.extra, k.key)),
+    ]),
   ];
 }
 
