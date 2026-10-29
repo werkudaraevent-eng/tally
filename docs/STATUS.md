@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-28.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-29.
 
 ## How to update this file
 
@@ -41,6 +41,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #334 Sign-in examples for Participant fields (merged 29 Oct, QA GO): Participant area > How participants sign in > Participant fields has an optional Example per field (ID, plus English when the English page is on), shown as the faded text in the sign-in box. Empty = Email shows "nama@perusahaan.com" / "name@company.com", registration questions show their Registration form placeholder. No SQL. Parked Low: an Example stays stored after its field is unpicked (comes back if picked again).
 - #331 Show or hide each Logistics part for participants (merged 29 Oct, QA GO): Participant area > Logistics gets four checkboxes (Room and roommates, Vehicle and trips, Train tickets, Kit items), also Vehicles > What participants see. Stored as member.hide_logistics; empty = all shown (0 px). Filtered server-side in loadMemberLogistics. No SQL. Follow-up fix (QA M1): screens send only the parts they changed and the server merges them into the current setting, so the Participant area and Vehicles tabs no longer overwrite each other; Vehicles dialog spacing and plate/crew shown off while vehicles are hidden.
 - #329 Committee attendance in the participant portal (merged 29 Oct): Type-based access set in Check-in > Checkpoints > Committee access; Beranda card plus a read-only page per check-in point. The access dialog now says to tap a type when none is selected (it saved "turned off" unnoticed).
 - #325 Dress code block for the event page (merged 29 Oct): reads Agenda > Dress code (no retyping), per-day rows like the Horizon agenda with the Outfit page cards, "All days" or chosen days; only days that show before sign-in. No SQL; events without the block unchanged (0 px). Follow-up fix (29 Oct): a dress code with one photo measured the screen, not its column, so in the admin preview and narrow windows the text was squeezed into one letter per line beside the photo; the block's cards now follow their column width (photo left only when the text still fits, otherwise photo on top). Second follow-up (Mas 29 Oct): no "Hari NN" (it counted Agenda tabs, including the day-before luggage pickup); date chips pick the day and one day shows at full width, so four styles fit on one row.

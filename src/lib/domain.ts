@@ -1282,6 +1282,13 @@ export type LandingMemberConfig = {
   /** Dua kolom untuk `sign_in: "fields"`: "email", "phone", "name", atau "x:<kunci pertanyaan tambahan>". */
   sign_in_fields?: [string, string] | null;
   /**
+   * Contoh isian (placeholder) per kolom cara dua kolom, dikunci id kolom
+   * (bukan urutan), jadi ikut kolomnya bila First/Second field ditukar.
+   * `text` untuk halaman Indonesia, `en` untuk halaman English (kosong =
+   * `text`). Kolom tanpa isian memakai bawaan (contohKolomMasuk).
+   */
+  sign_in_examples?: Record<string, { text?: string | null; en?: string | null }> | null;
+  /**
    * Kapan acara ini terakhir pindah KE cara dua kolom. Diisi server
    * (api/admin/area-peserta), bukan layar admin: sesi dua kolom yang lebih
    * tua ditolak, jadi pindah ke cara lain lalu kembali tidak menghidupkannya.

@@ -18,7 +18,7 @@ assert.equal(samakanIsian("x:nik", "text", "---"), "");
 // Kolom yang boleh dipilih: bawaan + pertanyaan selain unggahan. Kode QR,
 // perusahaan, dan jabatan tidak pernah ada di daftar.
 const fields = [
-  { key: "nik", label: "NIK", type: "text", required: false },
+  { key: "nik", label: "NIK", type: "text", required: false, placeholder: "16 digit" },
   { key: "ktp", label: "Foto KTP", type: "file", required: false },
   { key: "hp_kantor", label: "HP kantor", type: "tel", required: false },
   { key: "gender", label: "Gender", type: "radio", required: false, options: ["L", "P"] },
@@ -44,8 +44,20 @@ assert.deepEqual(caraMasukPublik(acara({ enabled: true }), "id"), { jenis: "pass
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "email_code" }), "id"), { jenis: "email_code" });
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "fields", sign_in_fields: ["phone", "x:nik"] }), "id"), {
   jenis: "fields",
-  kolom: [{ label: "Nomor HP", jenis: "tel" }, { label: "NIK", jenis: "text" }],
+  kolom: [{ label: "Nomor HP", jenis: "tel", contoh: null }, { label: "NIK", jenis: "text", contoh: "16 digit" }],
 });
+// Contoh isian: tulisan panitia dulu (English di halaman English, kosong =
+// Indonesia), lalu bawaan Email dan placeholder pertanyaan form.
+const contoh = (sign_in_examples: unknown, lang: "id" | "en") => {
+  const cara = caraMasukPublik(acara({ enabled: true, sign_in: "fields", sign_in_fields: ["email", "x:nik"], sign_in_examples }), lang);
+  return cara.jenis === "fields" ? cara.kolom.map((k) => k.contoh) : null;
+};
+assert.deepEqual(contoh(undefined, "id"), ["nama@perusahaan.com", "16 digit"]);
+assert.deepEqual(contoh(undefined, "en"), ["name@company.com", "16 digit"]);
+assert.deepEqual(contoh({ email: { text: "nama@scisi.com" }, "x:nik": { text: " ", en: "" } }, "en"), ["nama@scisi.com", "16 digit"]);
+assert.deepEqual(contoh({ email: { text: "nama@scisi.com", en: "name@scisi.com" } }, "en"), ["name@scisi.com", "16 digit"]);
+assert.deepEqual(pilihanKolomMasuk(fields).slice(0, 4).map((k) => k.contoh), ["nama@perusahaan.com", undefined, undefined, "16 digit"]);
+assert.deepEqual(pilihanKolomMasuk(fields).slice(0, 4).map((k) => k.contoh_en), ["name@company.com", undefined, undefined, "16 digit"]);
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "fields", sign_in_fields: ["phone", "x:dihapus"] }), "id"), { jenis: "password" });
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "fields", sign_in_fields: ["phone", "phone"] }), "id"), { jenis: "password" });
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "fields" }), "id"), { jenis: "password" });

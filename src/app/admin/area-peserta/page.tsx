@@ -13,7 +13,7 @@ import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
 import { TETAP_HORIZON, letakkanHorizon, urutanHorizon } from "@/lib/member/susunan-horizon";
-import type { PilihanKolomMasuk } from "@/lib/member/kolom-masuk";
+import { CONTOH_KOLOM_MAX, type PilihanKolomMasuk } from "@/lib/member/kolom-masuk";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { rapikanBantuan } from "@/lib/member/kontak-darurat";
@@ -597,6 +597,14 @@ function CaraMasuk({ anggota, set, data }: { anggota: LandingMemberConfig; set: 
     set({ sign_in_fields: baru });
   };
   const hasil = ringkas && ringkas.kunci === kunci ? ringkas.isi : null;
+  const contoh = anggota.sign_in_examples ?? null;
+  // Dikunci id kolom, jadi contoh ikut kolomnya bila First/Second ditukar.
+  // Kolom yang kedua isiannya kosong dibuang dari simpanan.
+  const ubahContoh = (id: string, patch: { text?: string; en?: string }) => {
+    const isi = { ...contoh?.[id], ...patch };
+    const sisa = Object.fromEntries(Object.entries(contoh ?? {}).filter(([kunci]) => kunci !== id));
+    set({ sign_in_examples: isi.text?.trim() || isi.en?.trim() ? { ...sisa, [id]: isi } : sisa });
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -648,20 +656,52 @@ function CaraMasuk({ anggota, set, data }: { anggota: LandingMemberConfig; set: 
       {cara === "fields" ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2">
-            {([0, 1] as const).map((indeks) => (
-              <SelectField
-                key={indeks}
-                label={indeks === 0 ? "First field" : "Second field"}
-                value={kolom?.[indeks] ?? ""}
-                onChange={(event) => ubahKolom(indeks, event.target.value)}
-              >
-                {pilihanKolom
-                  .filter((pilihan) => pilihan.id !== kolom?.[indeks === 0 ? 1 : 0])
-                  .map((pilihan) => (
-                    <option key={pilihan.id} value={pilihan.id}>{pilihan.label}</option>
-                  ))}
-              </SelectField>
-            ))}
+            {([0, 1] as const).map((indeks) => {
+              const id = kolom?.[indeks] ?? null;
+              const pilihanIni = pilihanKolom.find((pilihan) => pilihan.id === id);
+              const bawaan = pilihanIni?.contoh;
+              // Halaman English tanpa Example in English: Example, lalu bawaan English.
+              const bawaanEn = contoh?.[id ?? ""]?.text?.trim() || pilihanIni?.contoh_en;
+              return (
+                <div key={indeks} className="flex min-w-0 flex-col gap-3">
+                  <SelectField
+                    label={indeks === 0 ? "First field" : "Second field"}
+                    value={id ?? ""}
+                    onChange={(event) => ubahKolom(indeks, event.target.value)}
+                  >
+                    {pilihanKolom
+                      .filter((pilihan) => pilihan.id !== kolom?.[indeks === 0 ? 1 : 0])
+                      .map((pilihan) => (
+                        <option key={pilihan.id} value={pilihan.id}>{pilihan.label}</option>
+                      ))}
+                  </SelectField>
+                  {id ? (
+                    <>
+                      <TextField
+                        label="Example"
+                        optional
+                        maxLength={CONTOH_KOLOM_MAX}
+                        placeholder={bawaan}
+                        hint={bawaan ? "Faded text in the sign-in box. Empty = the default shown here." : "Faded text in the sign-in box."}
+                        value={contoh?.[id]?.text ?? ""}
+                        onChange={(event) => ubahContoh(id, { text: event.target.value })}
+                      />
+                      {data.english ? (
+                        <TextField
+                          label="Example in English"
+                          optional
+                          maxLength={CONTOH_KOLOM_MAX}
+                          placeholder={bawaanEn}
+                          hint={bawaanEn ? "Empty = the text shown here." : "Empty = no example."}
+                          value={contoh?.[id]?.en ?? ""}
+                          onChange={(event) => ubahContoh(id, { en: event.target.value })}
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
           <p className="text-body-medium text-on-surface-variant" aria-live="polite">
             {!kunci
