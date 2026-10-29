@@ -1447,7 +1447,7 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat
   judulFoto: string;
   teksFoto: { buka: string; lihat: string; perbesar: string; tutup: string };
   teksPilihan?: { pilih: string; buka: (nama: string) => string; tutup: string; sebelumnya: string; berikutnya: string };
-  /** Kartu foto ikut lebar wadah `@container`, bukan layar (blok Dress code halaman acara). */
+  /** Kartu foto dan grid pilihan ikut lebar wadah `@container`, bukan layar (blok Dress code halaman acara). */
   wadah?: boolean;
 }) {
   const Judul = tingkat === 2 ? "h2" : tingkat === 4 ? "h4" : "h3";
@@ -1471,6 +1471,7 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat
         <PilihanOutfit pilihan={pilihan} kapan={kapan} apa={apa} judul={judulFoto} warna={{ tinta: TINTA, redup: REDUP, label: LABEL }}
           labelBuka={pilihan.map((isi) => teksPilihan.buka(isi.name))}
           teks={{ pilih: teksPilihan.pilih, tutup: teksPilihan.tutup, sebelumnya: teksPilihan.sebelumnya, berikutnya: teksPilihan.berikutnya }}
+          wadah={wadah}
         />
       </article>
     );

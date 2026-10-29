@@ -8,6 +8,8 @@ import { gabungMeta } from "@/lib/typography";
 
 /** Kolom grid layar lebar per jumlah pilihan: empat sebaris, lima dan enam jadi 3 + 3. */
 const KOLOM_LG: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3", 4: "lg:grid-cols-4", 5: "lg:grid-cols-3", 6: "lg:grid-cols-3" };
+/** Sama, diukur dari lebar wadah `@container` (896 px), bukan layar: blok Dress code halaman acara. */
+const KOLOM_WADAH: Record<number, string> = { 1: "@4xl:grid-cols-1", 2: "@4xl:grid-cols-2", 3: "@4xl:grid-cols-3", 4: "@4xl:grid-cols-4", 5: "@4xl:grid-cols-3", 6: "@4xl:grid-cols-3" };
 
 /**
  * Pilihan gaya satu outfit (mis. empat gaya Gala Dinner): peserta memakai
@@ -16,7 +18,7 @@ const KOLOM_LG: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols
  * samping dengan kartu berikutnya mengintip (M3 Carousel) dan titik penanda;
  * mulai 768 px grid. Ketuk foto untuk layar penuh, lalu geser antar-pilihan.
  */
-export function PilihanOutfit({ pilihan, kapan, apa, judul, warna, labelBuka, teks }: {
+export function PilihanOutfit({ pilihan, kapan, apa, judul, warna, labelBuka, teks, wadah = false }: {
   pilihan: OutfitPilihan[];
   kapan: string | null;
   apa: string;
@@ -26,6 +28,8 @@ export function PilihanOutfit({ pilihan, kapan, apa, judul, warna, labelBuka, te
   /** Label tombol foto tiap pilihan ("Buka foto Priyayi Jawa layar penuh"): string, karena komponen server tidak bisa mengirim fungsi. */
   labelBuka: string[];
   teks: { pilih: string; tutup: string; sebelumnya: string; berikutnya: string };
+  /** Grid mengikuti lebar wadah `@container` (576 px dua kolom, 896 px sebaris), bukan layar. */
+  wadah?: boolean;
 }) {
   const penampil = usePenampilGambar();
   const [aktif, setAktif] = useState(0);
@@ -46,10 +50,10 @@ export function PilihanOutfit({ pilihan, kapan, apa, judul, warna, labelBuka, te
           const lebar = (el.firstElementChild as HTMLElement | null)?.offsetWidth ?? el.clientWidth;
           setTerlihat(Math.round(el.scrollLeft / (lebar + 12)));
         }}
-        className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:snap-none md:grid-cols-2 md:gap-4 md:overflow-visible md:px-0 ${KOLOM_LG[Math.min(pilihan.length, 6)] ?? "lg:grid-cols-3"} [&::-webkit-scrollbar]:hidden`}
+        className={`-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 [scrollbar-width:none] ${wadah ? `@xl:mx-0 @xl:grid @xl:snap-none @xl:grid-cols-2 @xl:gap-4 @xl:overflow-visible @xl:px-0 ${KOLOM_WADAH[Math.min(pilihan.length, 6)] ?? "@4xl:grid-cols-3"}` : `md:mx-0 md:grid md:snap-none md:grid-cols-2 md:gap-4 md:overflow-visible md:px-0 ${KOLOM_LG[Math.min(pilihan.length, 6)] ?? "lg:grid-cols-3"}`} [&::-webkit-scrollbar]:hidden`}
       >
         {pilihan.map((isi, indeks) => (
-          <li key={indeks} className={`flex min-w-0 snap-start flex-col gap-3 md:w-auto ${pilihan.length > 1 ? "w-[calc(100%-40px)] shrink-0" : "w-full"}`}>
+          <li key={indeks} className={`flex min-w-0 snap-start flex-col gap-3 ${wadah ? "@xl:w-auto" : "md:w-auto"} ${pilihan.length > 1 ? "w-[calc(100%-40px)] shrink-0" : "w-full"}`}>
             {isi.photo_url ? (
               <button
                 type="button"
@@ -63,7 +67,7 @@ export function PilihanOutfit({ pilihan, kapan, apa, judul, warna, labelBuka, te
               >
                 {/* Papan gaya dari panitia: utuh di ponsel (sering penuh teks), dipotong 4:5 di grid. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={isi.photo_url} alt="" loading="lazy" decoding="async" className="size-full object-contain md:object-cover" />
+                <img src={isi.photo_url} alt="" loading="lazy" decoding="async" className={`size-full object-contain ${wadah ? "@xl:object-cover" : "md:object-cover"}`} />
                 <span aria-hidden className="pointer-events-none absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-full bg-white/90 text-[#1A2333] shadow-[0_1px_3px_rgb(16_24_40/0.18)]">
                   <ArrowsOut size={16} />
                 </span>
@@ -83,7 +87,7 @@ export function PilihanOutfit({ pilihan, kapan, apa, judul, warna, labelBuka, te
         ))}
       </ul>
       {pilihan.length > 1 ? (
-        <div aria-hidden className="flex justify-center gap-1.5 md:hidden">
+        <div aria-hidden className={`flex justify-center gap-1.5 ${wadah ? "@xl:hidden" : "md:hidden"}`}>
           {pilihan.map((_, indeks) => (
             <span key={indeks} className={`h-1.5 rounded-full ${indeks === Math.min(terlihat, pilihan.length - 1) ? "w-4 bg-[#101E38]" : "w-1.5 bg-[#C9CED8]"}`} />
           ))}
