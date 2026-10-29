@@ -132,7 +132,8 @@ function keIsi(form: Form, poin: boolean, waktu: boolean, pesan: boolean) {
     // Sebelum migrasi 202610220001 kolomnya tidak dikirim, jadi simpan tetap jalan.
     ...(waktu ? { agenda_item_ids: form.agenda } : {}),
     // Sama: sebelum migrasi 202610290002 pesannya tidak dikirim.
-    ...(pesan ? { scan_message: form.pesan.trim() || null, scan_message_en: form.pesan_en.trim() || null } : {}),
+    // Hanya checkpoint yang dipindai peserta: Staff tidak punya layar hasil di ponsel peserta.
+    ...(pesan && jenis === "s" && form.completion !== "staff" ? { scan_message: form.pesan.trim() || null, scan_message_en: form.pesan_en.trim() || null } : {}),
   };
 }
 

@@ -259,7 +259,7 @@ export function LayarHasil({
       aria-labelledby="hasil-scan-judul"
       aria-describedby="hasil-scan-rinci"
       onPointerDown={() => setJalan(false)}
-      className={`${className} flex flex-col overflow-y-auto outline-none text-white ${NADA[nada]} pb-[max(24px,env(safe-area-inset-bottom))] pt-[max(16px,env(safe-area-inset-top))]`}
+      className={`${className} hasil-scan flex flex-col overflow-hidden outline-none text-white ${NADA[nada]} pb-[max(24px,env(safe-area-inset-bottom))] pt-[max(16px,env(safe-area-inset-top))]`}
     >
       <div className="flex h-12 shrink-0 items-center px-2">
         {onTutup ? (
@@ -268,7 +268,9 @@ export function LayarHasil({
           </button>
         ) : null}
       </div>
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-6">
+      {/* Isi bergulir sendiri; tombolnya selalu terlihat di bawah, juga di layar pendek. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col px-6">
         <div className="flex flex-1 flex-col items-center justify-center py-6 text-center [@media(max-height:700px)]:py-3">
           <span aria-hidden className={`hasil-scan-ikon flex size-[104px] shrink-0 items-center [@media(max-height:700px)]:size-20 justify-center rounded-full ${nada === "sudah" ? "shadow-[inset_0_0_0_4px_rgb(255_255_255/0.85)]" : "bg-white"}`}>
             <Ikon size={nada === "gagal" ? 72 : 60} weight={nada === "gagal" ? "fill" : "bold"} className={nada === "baru" ? "text-[#006B58]" : nada === "gagal" ? "text-[#B41340]" : "text-white"} />
@@ -305,7 +307,7 @@ export function LayarHasil({
             ) : null}
           </div>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 empty:hidden">
           {kabar?.pesan ? (
             <p className="whitespace-pre-line rounded-2xl bg-white px-4 py-3.5 text-[16px] leading-[22px] text-[#1B2230] [overflow-wrap:anywhere]">{kabar.pesan}</p>
           ) : null}
@@ -322,6 +324,10 @@ export function LayarHasil({
               {kabar.berikut.rinci ? <p className="[overflow-wrap:anywhere]">{kabar.berikut.rinci}</p> : null}
             </div>
           ) : null}
+        </div>
+      </div>
+      </div>
+      <div className="mx-auto flex w-full max-w-md shrink-0 flex-col gap-3 px-6 pt-3">
           {utama.href ? (
             <a href={utama.href} className={kelasUtama}>{tombolUtama}</a>
           ) : (
@@ -334,7 +340,6 @@ export function LayarHasil({
               <button type="button" onClick={kedua.onClick} className={kelasKedua}>{kedua.label}</button>
             )
           ) : null}
-        </div>
       </div>
     </div>
   );
@@ -343,13 +348,12 @@ export function LayarHasil({
 // Layar hasil dipasang di root sendiri, bukan di dalam kartu: sesudah
 // router.refresh langkah berikutnya bisa langkah panitia, dan tombol kamera
 // (beserta isinya) hilang.
-let hasilAktif: { root: Root; wadah: HTMLDivElement; overflow: string } | null = null;
+let hasilAktif: { root: Root; wadah: HTMLDivElement } | null = null;
 
 function tutupHasil() {
   if (!hasilAktif) return;
   hasilAktif.root.unmount();
   hasilAktif.wadah.remove();
-  document.body.style.overflow = hasilAktif.overflow;
   hasilAktif = null;
 }
 
@@ -358,10 +362,13 @@ function tampilkanHasil(kabar: KabarCheckpoint, lang: LandingLang, huruf: string
   const wadah = document.createElement("div");
   // Huruf acara: portal memasangnya di pembungkus halaman, bukan di body.
   if (huruf) wadah.style.fontFamily = huruf;
+  // Gulir halaman dikunci lewat CSS (globals.css, body:has([data-hasil-scan])),
+  // bukan body.style: kamera yang baru ditutup memulihkan body.style-nya
+  // sendiri sesudah layar ini dipasang.
+  wadah.dataset.hasilScan = "";
   document.body.append(wadah);
   const root = createRoot(wadah);
-  hasilAktif = { root, wadah, overflow: document.body.style.overflow };
-  document.body.style.overflow = "hidden";
+  hasilAktif = { root, wadah };
   const tutup = () => {
     if (hasilAktif?.root !== root) return;
     tutupHasil();
