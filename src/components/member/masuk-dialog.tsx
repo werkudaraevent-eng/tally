@@ -612,6 +612,7 @@ export function MasukDialog({
                   inputMode={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : undefined}
                   autoComplete={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : "off"}
                   enterKeyHint={indeks === 1 ? "go" : "next"}
+                  placeholder={kolom.contoh ?? undefined}
                   value={nilai[indeks]}
                   onChange={(event) => {
                     const isi = event.target.value;

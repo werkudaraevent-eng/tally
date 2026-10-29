@@ -5,7 +5,7 @@ import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
 import { SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
 import { TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
 import { outfitSetiapHariSchema } from "@/lib/outfit-setiap-hari";
-import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
+import { CONTOH_KOLOM_MAX, KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { JENIS_DARURAT, KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
 import { KONTAK_PANITIA_MAX, KONTAK_PERAN_MAX } from "@/lib/kontak-panitia";
 import { PANITIA_SEMBUNYI_MAX, PANITIA_TIPE_MAX, PANITIA_TIPE_PANJANG, POLA_KUNCI_TITIK } from "@/lib/member/akses-panitia";
@@ -276,6 +276,18 @@ export const memberSchema = z.object({
   sign_in_fields: z
     .tuple([z.string().regex(KOLOM_MASUK_POLA), z.string().regex(KOLOM_MASUK_POLA)])
     .refine(([a, b]) => a !== b, "Choose two different fields")
+    .nullable()
+    .optional(),
+  /** Contoh isian per kolom dua kolom, dikunci id kolom (lib/member/kolom-masuk.ts). */
+  sign_in_examples: z
+    .record(
+      z.string().regex(KOLOM_MASUK_POLA),
+      z.object({
+        text: z.string().trim().max(CONTOH_KOLOM_MAX).nullish(),
+        en: z.string().trim().max(CONTOH_KOLOM_MAX).nullish(),
+      }),
+    )
+    .refine((isi) => Object.keys(isi).length <= 40, "Too many fields")
     .nullable()
     .optional(),
   feedback_url: z.string().trim().url().max(600).nullable().optional(),

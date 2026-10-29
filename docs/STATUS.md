@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-28.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-29.
 
 ## How to update this file
 
@@ -16,6 +16,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 ## In flight
 
 - Show or hide each Logistics part for participants (Mas 29 Oct): Participant area > Logistics gets four checkboxes (Room and roommates, Vehicle and trips, Train tickets, Kit items), also Vehicles > What participants see. Stored as member.hide_logistics; empty = all shown, so existing events do not change. Filtered server-side in loadMemberLogistics. No SQL. PR open, waiting on QA and Mas's merge time.
+- Sign-in examples for Participant fields (Mas 29 Oct, KSO signs in with Email + NIK): Participant area > How participants sign in gets an optional Example per field (ID, plus English when the English page is on), shown as the faded text inside the sign-in box. Empty = Email shows "nama@perusahaan.com" (was nothing in this mode), registration questions show their Registration form placeholder. No SQL. PR open, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov).
 - Agenda Details formatting in the participant portal (Mas 29 Oct, KSO): Acara > Susunan acara (Horizon, Trip, classic Gathering) and the classic Beranda rundown now show bold, italic, theme-colour marks, lists and line breaks like the event page, instead of flattened text. One-line summaries (Beranda next-up, Trip Beranda rows) stay plain. No SQL; Details without marks look the same except typed line breaks now show. PR open, waiting on QA and Mas's merge time.
 - Logistics recap by date (Mas 29 Oct, KSO): Rooms > By date (per stay check-in/check-out and per night: rooms, guests, without a room, room-nights) and Vehicles > By date (passengers per vehicle per Trip, grouped by day). Hotel pane no longer says its times apply to every room when guests have their own dates. Admin only, no SQL. PR open, waiting on QA.
 - Room label for hotel rooming lists (Mas 29 Oct, KSO lists name rooms "Kamar 01" before the hotel gives numbers): rooms get an organiser Label and a Bed type beside Room type; Room number may stay empty. Import reads Room label / Room number / Bed / Room type as separate columns, pairs roommates by label, and a later import with numbers fills them in without moving anyone; all-caps bed and type become "Deluxe", "Twin". Participants see "Menyusul · Deluxe · Twin" and their roommate, never the label. SQL `202610290001_label_kamar` (review GO) to be run by Mas first; PR #322 merges after its post-check, QA GO, with Mas's merge time (before 3 Nov). Unlabelled events 0 px.

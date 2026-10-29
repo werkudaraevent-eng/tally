@@ -1,5 +1,6 @@
 import type { MasukMode } from "@/app/masuk/masuk-client";
 import type { LandingLang } from "@/lib/landing-i18n";
+import { CONTOH_EMAIL } from "@/lib/member/kolom-masuk";
 
 /**
  * Teks dialog masuk area peserta (components/member/masuk-dialog.tsx).
@@ -55,7 +56,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     untukPertamaKali: "Untuk membuat kata sandi pertama kali, atau bila lupa kata sandi.",
     untuk: (email) => `Untuk ${email}.`,
     emailLabel: "Email pendaftaran",
-    emailPlaceholder: "nama@perusahaan.com",
+    emailPlaceholder: CONTOH_EMAIL.id,
     sandiLabel: "Kata sandi",
     sandiBaruLabel: "Kata sandi baru",
     lupa: "Lupa kata sandi?",
@@ -89,7 +90,7 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     untukPertamaKali: "To create your password for the first time, or if you have forgotten it.",
     untuk: (email) => `For ${email}.`,
     emailLabel: "Registration email",
-    emailPlaceholder: "name@company.com",
+    emailPlaceholder: CONTOH_EMAIL.en,
     sandiLabel: "Password",
     sandiBaruLabel: "New password",
     lupa: "Forgot password?",

@@ -1,5 +1,5 @@
 import type { LandingLang } from "@/lib/landing-i18n";
-import type { EventLandingConfig, RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import type { EventLandingConfig, LandingMemberConfig, RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 
 /**
  * "Dua kolom data peserta" (Participant area > How participants sign in >
@@ -29,7 +29,8 @@ export const KOLOM_MASUK_POLA = /^(email|phone|name|x:[A-Za-z0-9_]{1,60})$/;
 
 export type JenisIsian = "email" | "tel" | "text";
 
-export type PilihanKolomMasuk = { id: KolomMasukId; label: string; jenis: JenisIsian };
+/** `contoh`: contoh isian bawaan kolom ini di halaman Indonesia (tampil samar di layar admin). */
+export type PilihanKolomMasuk = { id: KolomMasukId; label: string; jenis: JenisIsian; contoh?: string };
 
 const DASAR: Record<KolomMasukDasar, { admin: string; id: string; en: string; jenis: JenisIsian }> = {
   email: { admin: "Email", id: "Email", en: "Email", jenis: "email" },
@@ -52,13 +53,21 @@ function jenisPertanyaan(field: RegistrationField): JenisIsian {
   return field.type === "email" ? "email" : field.type === "tel" ? "tel" : "text";
 }
 
+function bawaan(id: KolomMasukId, fields: RegistrationField[]) {
+  const contoh = contohKolomMasuk(id, fields, "id", null);
+  return contoh ? { contoh } : {};
+}
+
 /** Pilihan kolom di layar admin, dalam urutan: bawaan, lalu pertanyaan form. */
 export function pilihanKolomMasuk(fields: RegistrationField[]): PilihanKolomMasuk[] {
   return [
-    ...(Object.keys(DASAR) as KolomMasukDasar[]).map((id) => ({ id, label: DASAR[id].admin, jenis: DASAR[id].jenis })),
+    ...(Object.keys(DASAR) as KolomMasukDasar[]).map((id) => ({ id, label: DASAR[id].admin, jenis: DASAR[id].jenis, ...bawaan(id, fields) })),
     ...fields
       .filter(bolehDipilih)
-      .map((field) => ({ id: `x:${field.key}`, label: field.label.trim() || field.key, jenis: jenisPertanyaan(field) })),
+      .map((field) => {
+        const id = `x:${field.key}`;
+        return { id, label: field.label.trim() || field.key, jenis: jenisPertanyaan(field), ...bawaan(id, fields) };
+      }),
   ];
 }
 
@@ -103,11 +112,39 @@ function telepon(teks: string) {
   return angka;
 }
 
+/** Contoh isian kolom email, juga di cara Email and password (masuk-i18n). */
+export const CONTOH_EMAIL: Record<LandingLang, string> = { id: "nama@perusahaan.com", en: "name@company.com" };
+
+/** Panjang maksimal contoh isian (Example) satu kolom, per bahasa. */
+export const CONTOH_KOLOM_MAX = 60;
+
+/**
+ * Contoh isian (placeholder) satu kolom di dialog masuk. Urutannya: Example
+ * yang ditulis panitia di Participant area (English dulu di halaman English,
+ * lalu yang Indonesia), lalu bawaan: Email memakai contoh cara Email and
+ * password, pertanyaan form memakai placeholder-nya di Registration form.
+ * null = kotak tanpa contoh.
+ */
+export function contohKolomMasuk(
+  id: KolomMasukId,
+  fields: RegistrationField[],
+  lang: LandingLang,
+  contoh: LandingMemberConfig["sign_in_examples"],
+): string | null {
+  const tulisan = contoh?.[id];
+  const pilih = (lang === "en" ? tulisan?.en?.trim() : "") || tulisan?.text?.trim();
+  if (pilih) return pilih;
+  if (id === "email") return CONTOH_EMAIL[lang];
+  return pertanyaan(fields, id)?.placeholder?.trim() || null;
+}
+
+export type KolomMasukTampil = { label: string; jenis: JenisIsian; contoh: string | null };
+
 /** Cara masuk acara untuk dialog dan halaman masuk: tanpa data peserta apa pun. */
 export type CaraMasukPublik =
   | { jenis: "password" }
   | { jenis: "email_code" }
-  | { jenis: "fields"; kolom: [{ label: string; jenis: JenisIsian }, { label: string; jenis: JenisIsian }] };
+  | { jenis: "fields"; kolom: [KolomMasukTampil, KolomMasukTampil] };
 
 /**
  * Dari setelan acara. Dua kolom yang tidak lengkap lagi (pertanyaannya
@@ -122,6 +159,9 @@ export function caraMasukPublik(
   if (member?.sign_in === "email_code") return { jenis: "email_code" };
   if (member?.sign_in !== "fields" || !member.sign_in_fields) return { jenis: "password" };
   const fields = ((event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
-  const [a, b] = member.sign_in_fields.map((id) => kolomMasukPublik(id, fields, lang));
+  const [a, b] = member.sign_in_fields.map((id) => {
+    const kolom = kolomMasukPublik(id, fields, lang);
+    return kolom ? { ...kolom, contoh: contohKolomMasuk(id, fields, lang, member.sign_in_examples) } : null;
+  });
   return a && b && member.sign_in_fields[0] !== member.sign_in_fields[1] ? { jenis: "fields", kolom: [a, b] } : { jenis: "password" };
 }
