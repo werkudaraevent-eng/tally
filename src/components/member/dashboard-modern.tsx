@@ -30,6 +30,7 @@ import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { KartuHadiah } from "@/components/member/kartu-hadiah";
 import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
+import { hadiahDiAtas } from "@/lib/member/hadiah";
 import { KartuPanitia } from "@/components/member/kartu-panitia";
 import { panitiaDiPortal } from "@/lib/member/panitia";
 import { kartuLengkapi, updatableFields } from "@/lib/member/lengkapi";
@@ -172,6 +173,9 @@ export async function DashboardModern({
   const barangCheckpoint = new Set(checkpoint ? checkpoint.item_names : []);
   const sekarang = new Date();
   const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
+  const zonaAcara = normalizeTimeZone(event.time_zone);
+  const hadiahAtas = hadiahDiAtas(hadiah, zonaAcara, sekarang);
+  const kartuHadiah = <KartuHadiah gaya="modern" hadiah={hadiah} lang={lang} zona={zonaAcara} qrHref={null} />;
   const nama = publicEventName(event);
   const namaLengkap = namaSapaan(sesi.name);
   const tanggal = formatEventDate(event, lang);
@@ -301,12 +305,14 @@ export async function DashboardModern({
             {/* Kehadiran untuk panitia (lib/member/akses-panitia.ts): paling atas, hanya untuk Tipe terpilih. */}
             {panitiaDiPortal(asli, member, sesi, pratinjau) ? <KartuPanitia gaya="modern" slug={event.slug} lang={lang} href={`${halamanAcara}/peserta?tab=panitia`} /> : null}
             {/* Hadiah undian (lib/member/hadiah.ts); QR ada di kartu tiket tepat di bawahnya, jadi tanpa tautan QR. */}
-            <KartuHadiah gaya="modern" hadiah={hadiah} lang={lang} zona={normalizeTimeZone(event.time_zone)} qrHref={null} />
+            {/* Paling atas hanya pada hari dikonfirmasi, sesudahnya di bawah Next vehicle (hadiahDiAtas). */}
+            {hadiahAtas || !(berikutnya && nextDuluan) ? kartuHadiah : null}
             {berikutnya && nextDuluan ? (
               <BagianBeranda id="next" pratinjau={pratinjau}>
                 <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="lg:hidden" />
               </BagianBeranda>
             ) : null}
+            {!hadiahAtas && berikutnya && nextDuluan ? kartuHadiah : null}
             {!peserta ? (
               <section aria-labelledby="status-judul" className={KARTU}>
                 {sesi.status === "rejected" ? (
