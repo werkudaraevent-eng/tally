@@ -86,7 +86,7 @@ export type BahanPantau = {
  * (titik yang disembunyikan) memakai kunci dasar ini.
  */
 export function kunciDasar(key: string): string {
-  return key.replace(/-\d{8}$/, "");
+  return /^((?:cp|sesi)-\d+)-\d{8}$/.exec(key)?.[1] ?? key;
 }
 
 /** Tanggal (zona acara) sebuah waktu ISO, mis. "2026-11-05". */

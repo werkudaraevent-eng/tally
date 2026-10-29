@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { hitungPantau, rincianPantau, type PesertaPantau } from "./pantau-checkin.ts";
+import { hitungPantau, kunciDasar, rincianPantau, type PesertaPantau } from "./pantau-checkin.ts";
 import { bacaSyaratBaris } from "./sasaran-baris.ts";
 
 const kolom = [{ key: "batch", options: ["Batch 1", "Batch 2"] }];
@@ -105,3 +105,6 @@ console.log("pantau-checkin ok");
   assert.equal(satu.find((b) => b.key.startsWith("cp-"))?.key, "cp-200");
 }
 console.log("pantau-checkin per hari ok");
+assert.equal(kunciDasar("cp-12345678"), "cp-12345678");
+assert.equal(kunciDasar("cp-12345678-20261105"), "cp-12345678");
+assert.equal(kunciDasar("sesi-4"), "sesi-4");
