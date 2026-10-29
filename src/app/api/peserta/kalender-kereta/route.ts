@@ -1,4 +1,5 @@
 import { icsTiketKereta } from "@/lib/kalender-ics";
+import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { getMemberSession } from "@/lib/member/account";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
 import { loadMemberLogistics } from "@/lib/logistik/peserta";
@@ -12,7 +13,7 @@ import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
  * Pengingatnya berbunyi dua jam sebelum berangkat, juga tanpa sinyal.
  *
  * Hanya tiket milik peserta yang sedang masuk, dan hanya bila panitia
- * membagikan logistik (show_logistics), sama dengan halaman Perjalanan.
+ * membagikan tiket kereta (Participant area > Logistics), sama dengan halaman Perjalanan.
  */
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   const { event, member } = resolved;
   const sesi = await getMemberSession(event);
   if (!sesi) return memberError("UNAUTHORIZED", 401, "Masuk dulu ke Dashboard saya.");
-  if (!sesi.participant || member.show_logistics !== true) return memberError("NOT_FOUND", 404, "Tiket kereta tidak ditemukan.");
+  if (!sesi.participant || !bagianTampil(member, "trains")) return memberError("NOT_FOUND", 404, "Tiket kereta tidak ditemukan.");
   const arah = new URL(request.url).searchParams.get("arah");
   if (arah !== "outbound" && arah !== "return") return memberError("VALIDATION_ERROR", 400, "Arah tiket tidak dikenal.");
 

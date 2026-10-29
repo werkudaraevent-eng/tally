@@ -62,8 +62,11 @@ export type PortalUiText = {
     tabsShort: { beranda: string; jadwal: string; perjalanan: string; info: string; profil: string };
     /** Halaman Perjalanan: hotel dan kamar, bus, tiket kereta. */
     travel: {
-      /** Dengan zona waktu jam check-in, bus, dan kereta (U-24). */
-      note: (zona: string) => string;
+      /**
+       * Dengan zona waktu jam check-in, bus, dan kereta (U-24). `sebagian`:
+       * panitia menyembunyikan bagian Logistik, jadi daftarnya tidak disebut.
+       */
+      note: (zona: string, sebagian?: boolean) => string;
       empty: string;
       backToMenu: string;
       hotelTitle: string;
@@ -387,7 +390,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tabs: { beranda: "Beranda", jadwal: "Susunan acara", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Profil" },
       tabsShort: { beranda: "Beranda", jadwal: "Acara", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Menu" },
       travel: {
-        note: (zona) => `Hotel, kamar, kendaraan, dan kereta kamu. Waktu tercantum dalam ${zona}.`,
+        note: (zona, sebagian) => `${sebagian ? "Info perjalanan kamu dari panitia." : "Hotel, kamar, kendaraan, dan kereta kamu."} Waktu tercantum dalam ${zona}.`,
         empty: "Info perjalanan belum dibagikan panitia.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & kamar",
@@ -653,7 +656,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tabs: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Profile" },
       tabsShort: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Menu" },
       travel: {
-        note: (zona) => `Your hotel, room, vehicle, and train. Times shown in ${zona}.`,
+        note: (zona, sebagian) => `${sebagian ? "Your travel details from the organisers." : "Your hotel, room, vehicle, and train."} Times shown in ${zona}.`,
         empty: "The organisers haven't shared travel details yet.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & room",

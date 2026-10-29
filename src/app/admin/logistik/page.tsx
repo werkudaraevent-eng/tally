@@ -52,7 +52,8 @@ export default function LogistikPage() {
   const [tripAwal, setTripAwal] = useState<number | null>(null);
 
   // ?tab=barang dari Check-in > Checkpoints membuka Kit items langsung,
-  // ?tab=kamar dan ?tab=bus dari dialog Logistik di Daftar peserta, dan
+  // ?tab=kamar dan ?tab=bus dari dialog Logistik di Daftar peserta, semua
+  // tab dari Participant area > Logistics, dan
   // ?tab=bus&trip=<id> dari Agenda ("Edit in Logistics") membuka Buses > Trips
   // dengan trip itu terpilih. Dibaca sesudah mount supaya render server dan
   // klien sama.
@@ -60,7 +61,7 @@ export default function LogistikPage() {
     const timer = window.setTimeout(() => {
       const query = new URLSearchParams(window.location.search);
       const tab = query.get("tab");
-      if (tab !== "barang" && tab !== "bus" && tab !== "kamar") return;
+      if (tab !== "barang" && tab !== "bus" && tab !== "kamar" && tab !== "kereta") return;
       setBagian(tab);
       const trip = Number(query.get("trip"));
       if (tab === "bus" && Number.isInteger(trip) && trip > 0) {

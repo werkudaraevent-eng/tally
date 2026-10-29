@@ -136,7 +136,14 @@ export type LogistikData = {
   trip_agenda_ready: boolean;
   /** Plat nomor dan kontak kru di kartu Bus peserta (`landing_config.member`). Bawaan mati. */
   /** logistics = "Room and bus" di Participant area; tanpa itu peserta tidak melihat kartu Bus sama sekali. */
-  bus_shown: { plate: boolean; crew: boolean; logistics: boolean };
+  bus_shown: {
+    plate: boolean;
+    crew: boolean;
+    /** Sakelar induk Participant area > Logistics. */
+    logistics: boolean;
+    /** Bagian Logistik yang disembunyikan (member.hide_logistics). */
+    hidden: string[];
+  };
 };
 
 /** Pembanding jenis kelamin yang sama dengan `lodging_gender_of` di database. */

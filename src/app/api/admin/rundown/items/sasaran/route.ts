@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { semuaBaris } from "@/lib/logistik/server";
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
     hotels: hotels ?? [],
     hotels_failed: hotels === null,
     // Hotel peserta hanya terbaca bila kamar ditampilkan di Participant area.
-    rooms_shown: memberConfig(event)?.show_logistics === true,
+    rooms_shown: bagianTampil(memberConfig(event), "rooms"),
   };
   if (baris.error) {
     if (kolomOutfitBelumAda(baris.error)) return Response.json({ ...dasar, available: false, items: [] });
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
   if (!peserta) return apiError("INTERNAL_ERROR", 500);
   if (!syarat) return Response.json({ matches: peserta.length, total: peserta.length });
 
-  const tampilKamar = memberConfig(event)?.show_logistics === true;
+  const tampilKamar = bagianTampil(memberConfig(event), "rooms");
   let stayPeserta: StayPeserta = new Map();
   if (tampilKamar && syarat.some((isi) => isi.field === KOLOM_HOTEL)) {
     const dimuat = await muatStayPeserta(event.id);

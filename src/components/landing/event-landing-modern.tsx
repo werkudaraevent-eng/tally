@@ -1,4 +1,5 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
+import { adaLogistikTampil, bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { tanpaBintang } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { FaqDaftar } from "./modern/faq-daftar";
@@ -450,7 +451,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
     // Peserta Horizon yang sudah disetujui: "Perjalanan" membuka tab Perjalanan
     // portalnya, bukan pita ajakan masuk yang tidak lagi berlaku (U-21). Tanpa
     // info perjalanan (logistik dimatikan) tab itu tidak ada, jadi tetap ke pita.
-    const keTabPerjalanan = horizon && peserta && sesi?.status === "approved" && member?.show_logistics === true;
+    const keTabPerjalanan = horizon && peserta && sesi?.status === "approved" && adaLogistikTampil(member);
     const tautan = { id: "portal", label: t.navPortal, ...(keTabPerjalanan ? { href: withQuery(peserta.dashboardHref, { tab: "perjalanan" }) } : {}) };
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
@@ -477,7 +478,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       <UndanganHorizon
         alis={config.portal_eyebrow?.trim() || (sudahMasuk ? t.horizon.signedInEyebrow : t.horizon.inviteEyebrow)}
         judul={config.portal_heading?.trim() || t.horizon.inviteHeading}
-        catatan={config.portal_note?.trim() || t.horizon.inviteNote(member.show_logistics === true)}
+        catatan={config.portal_note?.trim() || t.horizon.inviteNote(adaLogistikTampil(member))}
         aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: tombolPortalHorizon, link: true, sunting: "portal:portal_button_label" }}
         kartu={{
           kv: kvGathering(config)?.src ?? null,
@@ -485,7 +486,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           dari: config.pass_from?.trim() || null,
           ke: config.pass_to?.trim() || venue || nama,
           tanggal: tanggalPanjang,
-          info: t.horizon.passInfo(member.show_logistics === true),
+          info: t.horizon.passInfo(adaLogistikTampil(member)),
         }}
       />
     </div>
@@ -498,12 +499,8 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
         aksi={aksiPeserta ? { ...aksiPeserta, link: true } : sudahMasuk ? null : { href: masukUrl, label: t.portalCta, link: true }}
         ubin={[
           ...(member.show_code !== false ? [{ ikon: "tiket" as const, judul: t.portalTicket, teks: t.portalTicketNote }] : []),
-          ...(member.show_logistics
-            ? [
-                { ikon: "kamar" as const, judul: t.portalRoom, teks: t.portalRoomNote(Boolean(member.show_roommates)) },
-                { ikon: "bus" as const, judul: t.portalBus, teks: t.portalBusNote },
-              ]
-            : []),
+          ...(bagianTampil(member, "rooms") ? [{ ikon: "kamar" as const, judul: t.portalRoom, teks: t.portalRoomNote(Boolean(member.show_roommates)) }] : []),
+          ...(bagianTampil(member, "vehicles") ? [{ ikon: "bus" as const, judul: t.portalBus, teks: t.portalBusNote }] : []),
           { ikon: "pengumuman" as const, judul: t.portalNews, teks: t.portalNewsNote },
         ]}
       />
@@ -1088,7 +1085,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
       tempat={venue}
       aksi={aksiBilahTrip}
       kalender={kalenderUrl ? { href: kalenderUrl, label: t.addToCalendar } : null}
-      catatan={member && aksiBilahTrip ? t.horizon.passInfo(member.show_logistics === true) : null}
+      catatan={member && aksiBilahTrip ? t.horizon.passInfo(adaLogistikTampil(member)) : null}
     />
   ) : null;
 
@@ -1167,7 +1164,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             ) : member && config.portal_preview !== false ? (
               <PratinjauPortal
                 agenda={agendaSelanjutnya(agenda, lang, zona, hariIni(event.time_zone), jamIni(event.time_zone))}
-                logistik={member.show_logistics === true}
+                logistik={bagianTampil(member, "rooms") && bagianTampil(member, "vehicles")}
                 lang={lang}
               />
             ) : null
@@ -1332,7 +1329,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               <PortalTrip
                 key="portal"
                 judul={config.portal_heading?.trim() || t.horizon.inviteHeading}
-                catatan={config.portal_note?.trim() || (member ? t.horizon.inviteNote(member.show_logistics === true) : null)}
+                catatan={config.portal_note?.trim() || (member ? t.horizon.inviteNote(adaLogistikTampil(member)) : null)}
                 aksi={aksiBilahTrip}
               />
             ) : null;

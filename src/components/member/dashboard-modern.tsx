@@ -36,6 +36,7 @@ import { KakiModern, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta }
 import { HEAD, LABEL_BAGIAN, MUTED, PIL, SHELL } from "@/components/landing/modern/styles";
 import { KartuBarang, KartuBerikutnya, KartuBus, KartuKamar, KartuKereta } from "@/components/member/kartu-logistik";
 import { agendaBerikutnya, loadMemberLogistics } from "@/lib/logistik/peserta";
+import { bagianTampil, bagianTersembunyi } from "@/lib/logistik/bagian-tampil";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
 import { loadCheckpointPeserta } from "@/lib/checkpoint/server";
 import { loadLandingLodging } from "@/lib/landing-hotel";
@@ -99,7 +100,7 @@ export async function DashboardModern({
   const lainnya: LandingLang = lang === "en" ? "id" : "en";
   const sections = normalizeLandingSections(config.sections, config.blocks);
   // Who sees it per baris Agenda: baris bersyarat hanya untuk peserta yang cocok.
-  const agenda = await loadAgendaPreview(event.id, lang, { acara: asli, participantId: sesi.participant?.id ?? null, tampilKamar: member.show_logistics === true });
+  const agenda = await loadAgendaPreview(event.id, lang, { acara: asli, participantId: sesi.participant?.id ?? null, tampilKamar: bagianTampil(member, "rooms") });
   // Pratinjau admin: semua pertanyaannya, supaya kartu terlihat seperti yang diterima peserta.
   const lengkapi = pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, sesi.participant?.id);
   // Gaya gathering: menu dan susunan acara sama dengan halaman acaranya.
@@ -112,7 +113,7 @@ export async function DashboardModern({
   // Blok yang admin pilih untuk halaman peserta (Show on), dalam urutan
   // Participant home (bawaannya tepat sebelum susunan acara).
   // Who sees it (src/lib/sasaran-blok.ts): blok bersasaran hanya untuk peserta yang cocok.
-  const blokPeserta = await saringBlokPeserta(landingMemberBlocks(config.sections, config.blocks, hotelIds), event, sesi.participant?.id ?? null, member.show_logistics === true);
+  const blokPeserta = await saringBlokPeserta(landingMemberBlocks(config.sections, config.blocks, hotelIds), event, sesi.participant?.id ?? null, bagianTampil(member, "rooms"));
   const tokens = landingTokens(config, "modern");
   const warnaTema = { brand: tokens.brand, accent: tokens.accent ?? null };
   const kartuBlok = new Map(
@@ -159,8 +160,8 @@ export async function DashboardModern({
   // tidak diulang di kartu "Barang yang disiapkan".
   const [logistik, checkpoint] = peserta
     ? await Promise.all([
-        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
-        diBeranda("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, { acara: asli, participantId: peserta.id, tampilKamar: member.show_logistics === true }) : null,
+        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }, false, bagianTersembunyi(member)),
+        diBeranda("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, { acara: asli, participantId: peserta.id, tampilKamar: bagianTampil(member, "rooms") }) : null,
       ])
     : [null, null];
   const barangCheckpoint = new Set(checkpoint ? checkpoint.item_names : []);
