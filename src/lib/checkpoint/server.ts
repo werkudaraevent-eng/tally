@@ -30,6 +30,9 @@ export type BarisCheckpoint = {
   completion: Penyelesaian;
   /** Baris Agenda yang memberi tanggal dan jam (migrasi 202610220001). Kosong: tanpa tanggal. */
   agenda_item_ids: number[];
+  /** Pesan di layar hasil scan mandiri (migrasi 202610290002). Null: tanpa pesan. */
+  scan_message: string | null;
+  scan_message_en: string | null;
 };
 
 /** staff: panitia memindai QR peserta. self: peserta memindai QR checkpoint. both: keduanya. */
@@ -79,6 +82,11 @@ export const loadSetelanCheckpoint = cache(async (eventId: string): Promise<Sete
   }
 });
 
+/** Teks kolom opsional: kolom yang belum ada, kosong, atau bukan teks berarti null. */
+function teksAtauNull(nilai: unknown): string | null {
+  return typeof nilai === "string" && nilai.trim() ? nilai.trim() : null;
+}
+
 export const loadDaftarCheckpoint = cache(async (eventId: string): Promise<BarisCheckpoint[] | null> => {
   try {
     // select *: kolom `completion` baru ada setelah migrasi 202610180001, dan
@@ -102,6 +110,8 @@ export const loadDaftarCheckpoint = cache(async (eventId: string): Promise<Baris
       sort_order: baris.sort_order as number,
       completion: bacaPenyelesaian(baris.completion),
       agenda_item_ids: bacaTautanAgenda(baris.agenda_item_ids),
+      scan_message: teksAtauNull(baris.scan_message),
+      scan_message_en: teksAtauNull(baris.scan_message_en),
     }));
   } catch {
     return null;
@@ -198,6 +208,8 @@ export type CheckpointPeserta = {
   total_points: number;
   /** Baris tujuan poin (E-08). Null: kartu tanpa baris itu. */
   goal: TujuanPeserta | null;
+  /** Angka tujuan poin bila `goal` ada: layar hasil scan tahu scan mana yang melewatinya. */
+  goal_target: number | null;
 };
 
 /**
@@ -254,6 +266,7 @@ export async function loadCheckpointPeserta(eventId: string, participantId: stri
     }));
     const earned = steps.reduce((jumlah, step) => jumlah + (step.done_at ? step.points ?? 0 : 0), 0);
     const total_points = steps.reduce((jumlah, step) => jumlah + (step.points ?? 0), 0);
+    const goal = tujuanPeserta(setelan, { earned, total: total_points }, lang);
     return {
       item_names: barang.error ? [] : ((barang.data ?? []) as { name: string }[]).map((item) => item.name),
       points: setelan.points_enabled,
@@ -261,7 +274,8 @@ export async function loadCheckpointPeserta(eventId: string, participantId: stri
       done: steps.filter((step) => step.done_at).length,
       earned,
       total_points,
-      goal: tujuanPeserta(setelan, { earned, total: total_points }, lang),
+      goal,
+      goal_target: goal ? setelan.goal?.points ?? null : null,
     };
   } catch {
     return null;

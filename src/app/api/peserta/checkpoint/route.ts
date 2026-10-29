@@ -3,6 +3,9 @@ import { getMemberSession } from "@/lib/member/account";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
 import { loadCheckpointPeserta, loadDaftarCheckpoint, scanMandiriPerSesi } from "@/lib/checkpoint/server";
 import { kodeSah, rahasiaKodeQr } from "@/lib/checkpoint/kode-qr";
+import { kalimatTujuan } from "@/lib/checkpoint/tujuan";
+import { tanggalDiZona, teksSelesai, teksWaktu } from "@/lib/checkpoint/waktu";
+import { normalizeTimeZone } from "@/lib/timezone";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -13,8 +16,10 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * semua aturan datanya di RPC `record_checkpoint_self_scan`.
  *
  * Jawaban `recorded` atau `already` membawa langkah yang selesai dan kemajuan
- * peserta, dalam bahasa halamannya, supaya ponsel bisa langsung menulis
- * "Foto bersama selesai · +5 poin · 3 dari 4".
+ * peserta, dalam bahasa halamannya, supaya layar hasil di ponsel bisa langsung
+ * menulis "Foto bersama · +5 poin · 3 dari 4", jam tercatatnya, langkah
+ * berikutnya, pesan panitia untuk checkpoint ini (Message after scan), dan
+ * kalimat tujuan poin bila scan inilah yang membuat poinnya cukup.
  */
 
 const bodySchema = z.object({
@@ -68,6 +73,7 @@ export async function POST(request: Request) {
   const resolved = await requireMemberEvent(request);
   if (resolved.response) return resolved.response;
   const event = resolved.event;
+  const member = resolved.member;
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
   const lang = (body as { lang?: unknown } | null)?.lang === "en" ? "en" : "id";
@@ -108,15 +114,46 @@ export async function POST(request: Request) {
 
   const hasil = data as { status: "recorded" | "already"; first_scan_at: string };
   // Kemajuan sesudah catatan ini. Gagal dibaca: catatannya tetap tersimpan,
-  // ponsel cukup menyegarkan kartunya.
-  const kartu = await loadCheckpointPeserta(event.id, sesi.participant.id, lang).catch(() => null);
+  // ponsel cukup menyegarkan kartunya. Penontonnya sama dengan Beranda, jadi
+  // tanggal langkah berikutnya hanya dari baris Agenda yang boleh ia lihat.
+  const penonton = { acara: event, participantId: sesi.participant.id, tampilKamar: member.show_logistics === true };
+  const kartu = await loadCheckpointPeserta(event.id, sesi.participant.id, lang, penonton).catch(() => null);
   const langkah = kartu?.steps.filter((step) => step.session_id === parsed.data.s) ?? [];
+  const zona = normalizeTimeZone(event.time_zone);
+  const hariIni = tanggalDiZona(new Date(), zona);
+  const berikut = kartu?.steps.find((step) => !step.done_at) ?? null;
+  // Tujuan poin yang baru tercapai karena scan ini, bukan yang sudah tercapai sebelumnya.
+  const ditambah = langkah.reduce((jumlah, step) => jumlah + (step.points ?? 0), 0);
+  const tercapai =
+    hasil.status === "recorded" && kartu?.goal && kartu.goal.sisa <= 0 && kartu.goal_target !== null && kartu.earned - ditambah < kartu.goal_target
+      ? kalimatTujuan(kartu.goal)
+      : null;
+  const pesan = [
+    ...new Set(
+      daftar
+        .filter((cp) => cp.session_id === parsed.data.s && cp.completion !== "staff")
+        .map((cp) => (lang === "en" ? cp.scan_message_en ?? cp.scan_message : cp.scan_message))
+        .filter((teks): teks is string => Boolean(teks)),
+    ),
+  ];
   return Response.json({
     status: hasil.status,
     done_at: hasil.first_scan_at,
+    done_at_text: waktuTercatat(hasil.first_scan_at, zona, hariIni, lang),
     steps: langkah.map((step) => ({ id: step.id, title: step.title, points: step.points })),
     done: kartu?.done ?? null,
     total: kartu?.steps.length ?? null,
     points: kartu?.points ? { earned: kartu.earned, total: kartu.total_points } : null,
+    next: berikut
+      ? { title: berikut.title, place: berikut.place, when: berikut.when ? teksWaktu(berikut.when, hariIni, lang, true).teks : null }
+      : null,
+    goal_reached: tercapai,
+    message: pesan.length > 0 ? pesan.join("\n") : null,
   });
+}
+
+/** "Hari ini · 16.09", atau "Kam, 29 Okt · 16.09" untuk hari lain, di zona acara. */
+function waktuTercatat(iso: string, zona: ReturnType<typeof normalizeTimeZone>, hariIni: string, lang: "id" | "en") {
+  const teks = teksSelesai(iso, zona, hariIni, lang);
+  return tanggalDiZona(new Date(iso), zona) === hariIni ? `${lang === "en" ? "Today" : "Hari ini"} · ${teks}` : teks;
 }

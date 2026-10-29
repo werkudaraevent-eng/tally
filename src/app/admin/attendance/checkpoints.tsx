@@ -3,7 +3,7 @@
 import { ArrowSquareOut, Flag, Plus, QrCode, Target, WarningCircle, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
-import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
+import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextArea, TextField, Dialog } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { AksesPanitia } from "@/app/admin/attendance/akses-panitia";
 import { PilihBarisAgenda, useAgendaTrip } from "@/components/admin/logistik/pilih-baris-agenda";
@@ -52,6 +52,9 @@ type Checkpoint = {
   completion: Penyelesaian;
   /** Baris Agenda When; kosong = tanpa tanggal. */
   agenda_item_ids: number[];
+  /** Message after scan (migrasi 202610290002); null = tanpa pesan. */
+  scan_message: string | null;
+  scan_message_en: string | null;
   done: number;
 };
 
@@ -67,6 +70,8 @@ type Muat = {
   self_scan_ready?: boolean;
   /** Kolom When sudah ada (migrasi 202610220001). */
   when_ready?: boolean;
+  /** Kolom Message after scan sudah ada (migrasi 202610290002). */
+  message_ready?: boolean;
   /** Halaman peserta English menyala: isian English tujuan ikut tampil. */
   en_available: boolean;
   checkpoints: Checkpoint[];
@@ -76,9 +81,9 @@ type Muat = {
   participants: number | null;
 };
 
-type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string; completion: Penyelesaian; agenda: number[] };
+type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string; completion: Penyelesaian; agenda: number[]; pesan: string; pesan_en: string };
 
-const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "", completion: "staff", agenda: [] };
+const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "", completion: "staff", agenda: [], pesan: "", pesan_en: "" };
 
 const PILIHAN_SELESAI: { value: Penyelesaian; title: string; description: string }[] = [
   { value: "staff", title: "Staff scan the participant's QR", description: "Same as before." },
@@ -106,10 +111,12 @@ function keForm(cp: Checkpoint): Form {
     points: cp.points == null ? "" : String(cp.points),
     completion: cp.completion ?? "staff",
     agenda: cp.agenda_item_ids ?? [],
+    pesan: cp.scan_message ?? "",
+    pesan_en: cp.scan_message_en ?? "",
   };
 }
 
-function keIsi(form: Form, poin: boolean, waktu: boolean) {
+function keIsi(form: Form, poin: boolean, waktu: boolean, pesan: boolean) {
   const [jenis, nomor] = form.bukti.split(":");
   return {
     title: form.title.trim(),
@@ -124,6 +131,8 @@ function keIsi(form: Form, poin: boolean, waktu: boolean) {
     ...(poin ? { points: form.points.trim() === "" ? null : Math.max(0, Math.min(10000, Math.round(Number(form.points)))) } : {}),
     // Sebelum migrasi 202610220001 kolomnya tidak dikirim, jadi simpan tetap jalan.
     ...(waktu ? { agenda_item_ids: form.agenda } : {}),
+    // Sama: sebelum migrasi 202610290002 pesannya tidak dikirim.
+    ...(pesan ? { scan_message: form.pesan.trim() || null, scan_message_en: form.pesan_en.trim() || null } : {}),
   };
 }
 
@@ -156,6 +165,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const [hapus, setHapus] = useState<Checkpoint | null>(null);
   const toast = useToast();
   const siapWaktu = data?.when_ready === true;
+  const siapPesan = data?.message_ready === true;
   const agendaTrip = useAgendaTrip(siapWaktu);
 
   const load = useCallback(async () => {
@@ -218,7 +228,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
 
   async function simpan() {
     if (!data) return;
-    const isi = keIsi(form, data.settings.points_enabled, siapWaktu);
+    const isi = keIsi(form, data.settings.points_enabled, siapWaktu, siapPesan);
     if (pilih === "baru") {
       const hasil = await kirim("POST", isi);
       if (hasil) { toast.success("Checkpoint added", `${isi.title} is now step ${data.checkpoints.length + 1}.`); setPilih(Number(hasil.id)); setDicoba(false); }
@@ -390,6 +400,8 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const sesiTersimpan = terpilih?.session_id && terpilih.completion !== "staff" && form.bukti === `s:${terpilih.session_id}` && form.completion !== "staff" ? terpilih.session_id : null;
   const namaSesiTersimpan = sesiTersimpan ? data?.sessions.find((s) => s.id === sesiTersimpan)?.name ?? "this session" : "";
   // Pola Choice di Lucky draw > Tiket tambahan: kartu radio dengan keterangan.
+  // Hanya checkpoint yang dipindai peserta sendiri punya layar hasil di ponselnya.
+  const pesanScan = form.bukti.startsWith("s:") && form.completion !== "staff" && data?.self_scan_ready !== false;
   const caraSelesai = (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-2 text-label-large font-semibold text-on-surface">How it gets done</legend>
@@ -553,10 +565,33 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
                 onChange={(event) => setForm({ ...form, points: event.target.value })}
               />
             ) : null}
+            {pesanScan ? (
+              data && !siapPesan ? (
+                <div>
+                  <p className="m3-field-label flex items-baseline gap-2 text-label-large font-semibold text-on-surface">Message after scan <span className="text-body-small font-normal text-on-surface-variant">optional</span></p>
+                  <p className="mt-2 rounded-md bg-surface-container-high px-4 py-2.5 text-body-medium text-on-surface-variant">A message on the participant&apos;s result screen needs a database update first (migration 202610290002).</p>
+                </div>
+              ) : (
+                <TextArea
+                  label="Message after scan"
+                  optional
+                  rows={2}
+                  counter
+                  value={form.pesan}
+                  maxLength={200}
+                  placeholder="e.g. You can join the Gala Dinner. Show this screen at the door."
+                  hint="Shown on the participant's result screen when they scan this checkpoint, also if they scanned it before. In the event's main language."
+                  onChange={(event) => setForm({ ...form, pesan: event.target.value })}
+                />
+              )
+            ) : null}
           </DetailSection>
           <DetailSection title="English participant page">
             <TextField label="Title in English" optional value={form.title_en} maxLength={80} onChange={(event) => setForm({ ...form, title_en: event.target.value })} hint="Leave empty to use the title above." />
             <TextField label="Where in English" optional value={form.place_en} maxLength={120} onChange={(event) => setForm({ ...form, place_en: event.target.value })} />
+            {pesanScan && siapPesan ? (
+              <TextArea label="Message after scan in English" optional rows={2} counter value={form.pesan_en} maxLength={200} onChange={(event) => setForm({ ...form, pesan_en: event.target.value })} hint="Leave empty to use the message above." />
+            ) : null}
           </DetailSection>
           {terpilih ? (
             <DetailSection title="Progress">
