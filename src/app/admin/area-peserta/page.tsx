@@ -3,7 +3,8 @@
 import { Info, Warning, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "@/components/event-link";
-import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, SelectField, StatusChip, Switch, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Banner, Button, MetaSeparator, Pane, PaneBody, PaneFooter, SelectField, StatusChip, Switch, TextArea, TextField, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { SettingRow } from "@/components/admin/settings-panel";
 import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
@@ -498,6 +499,18 @@ export default function AreaPesertaPage() {
                     />
                   </SettingRow>
                 ) : null}
+                <SettingRow
+                  stacked={berpratinjau}
+                  title="Lucky draw prize"
+                  description={
+                    <>
+                      A winner sees their prize at the top of Participant home once you confirm them in the{" "}
+                      <Link href="/admin/undian/kontrol" className={TAUTAN}>operator panel</Link>. Not while their name is on the stage screen, not after Absent, never in rehearsal. Nobody else sees it.
+                    </>
+                  }
+                >
+                  <HadiahPortal prize={anggota.prize} english={data.english === true} onChange={(prize) => set({ prize })} />
+                </SettingRow>
                 <SettingRow stacked={berpratinjau} title="Shown in the Participant area">
                   <div className="flex flex-col gap-4">
                     <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="QR code and participant code" description="For check-in at the entrance." />
@@ -764,5 +777,46 @@ function BagianLogistikPilih({ hidden, onChange }: { hidden: readonly string[]; 
           : "A hidden part never reaches participants: no card, no Home row, no Next up reminder. Logistics data stays as it is."}
       </p>
     </fieldset>
+  );
+}
+
+/** Participant area > Lucky draw prize (lib/member/hadiah.ts). Catatan per hadiah ada di Lucky draw › Prizes & rules. */
+function HadiahPortal({ prize, english, onChange }: { prize: LandingMemberConfig["prize"]; english: boolean; onChange: (prize: NonNullable<LandingMemberConfig["prize"]>) => void }) {
+  const nyala = prize?.enabled === true;
+  const isi = { enabled: nyala, note: prize?.note ?? null, en: prize?.en ?? null };
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      <Switch checked={nyala} onChange={(enabled) => onChange({ ...isi, enabled })} label="Show a winner's prize on Participant home" description="Off by default. Turning it on also shows prizes already confirmed in this event." />
+      {nyala ? (
+        <>
+          <TextArea
+            label="Default collection note"
+            optional
+            rows={2}
+            counter
+            maxLength={CATATAN_HADIAH_MAX}
+            value={isi.note ?? ""}
+            onChange={(event) => onChange({ ...isi, note: event.target.value })}
+            hint={
+              <>
+                For prizes without their own note in <Link href="/admin/undian" className={TAUTAN}>Lucky draw › Prizes &amp; rules</Link>. Leave empty to show no note.
+              </>
+            }
+          />
+          {english ? (
+            <TextArea
+              label="Default collection note in English"
+              optional
+              rows={2}
+              counter
+              maxLength={CATATAN_HADIAH_MAX}
+              value={isi.en?.note ?? ""}
+              onChange={(event) => onChange({ ...isi, en: { note: event.target.value } })}
+              hint="For the English pages. Leave empty to use the note above."
+            />
+          ) : null}
+        </>
+      ) : null}
+    </div>
   );
 }

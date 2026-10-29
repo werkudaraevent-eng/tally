@@ -1,7 +1,8 @@
 "use client";
 
 import { FloppyDisk, Trash, UploadSimple, Warning, X } from "@phosphor-icons/react";
-import { Button, DetailSection, IconButton, Pane, PaneBody, PaneFooter, PaneHeader, SegmentedButton, Switch } from "@/components/m3";
+import { Button, DetailSection, IconButton, Pane, PaneBody, PaneFooter, PaneHeader, SegmentedButton, Switch, TextArea } from "@/components/m3";
+import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
@@ -82,6 +83,18 @@ export function PrizeEditor({
                 {draft.image_url ? <Button variant="text" size="sm" className="text-error" onClick={() => onChange({ image_url: null })}>Delete image</Button> : null}
               </div>
             </div>
+            {/* Kartu Hadiah kamu di portal pemenang (lib/member/hadiah.ts). */}
+            <TextArea
+              label="How winners collect it"
+              optional
+              rows={2}
+              counter
+              maxLength={CATATAN_HADIAH_MAX}
+              value={draft.claim_note ?? ""}
+              onChange={(event) => onChange({ claim_note: event.target.value || null })}
+              placeholder="Collect it at the prize desk by the stage before 22.00. Show your QR code."
+              hint="Shown to the winner on Participant home after you confirm them, as typed on every language page. Leave empty to use the default in Participant area › Lucky draw prize."
+            />
           </DetailSection>
 
           <DetailSection title="Draw settings">
