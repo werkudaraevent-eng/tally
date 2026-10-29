@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { LockSimple } from "@phosphor-icons/react";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { MASUK_UI } from "@/lib/member/masuk-i18n";
+import { KolomSandi } from "@/components/member/kolom-sandi";
 import { lingkupSalinanQr } from "@/lib/member/halaman-qr-luring";
 import { hapusSalinanQr } from "@/components/member/form-keluar";
 import type { CaraMasukPublik } from "@/lib/member/kolom-masuk";
@@ -215,25 +217,39 @@ export function MasukClient({
         </label>
       ) : null}
 
+      {/* Dua kolom = nama pengguna + sandi bagi pengelola sandi HP (lihat kolom-sandi.tsx). */}
       {mode === "kolom" && cara.jenis === "fields"
-        ? cara.kolom.map((kolom, indeks) => (
-          <label key={indeks} className={LABEL}>
-            {kolom.label}
-            <input
-              type={kolom.jenis}
-              required
-              inputMode={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : undefined}
-              autoComplete={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : "off"}
-              placeholder={kolom.contoh ?? undefined}
-              value={nilai[indeks]}
-              onChange={(event) => {
-                const isi = event.target.value;
-                setNilai((lama) => (indeks === 0 ? [isi, lama[1]] : [lama[0], isi]));
-              }}
-              className={FIELD}
-            />
-          </label>
-        ))
+        ? cara.kolom.map((kolom, indeks) => {
+          const bersama = {
+            required: true,
+            inputMode: kolom.jenis === "email" ? "email" as const : kolom.jenis === "tel" ? "tel" as const : undefined,
+            placeholder: kolom.contoh ?? undefined,
+            value: nilai[indeks],
+            onChange: (event: { target: { value: string } }) => {
+              const isi = event.target.value;
+              setNilai((lama) => (indeks === 0 ? [isi, lama[1]] : [lama[0], isi]));
+            },
+          };
+          return indeks === 0 ? (
+            <label key={indeks} className={LABEL}>
+              {kolom.label}
+              <input type={kolom.jenis} name={`kolom-${indeks}`} autoComplete="username" {...bersama} className={FIELD} />
+            </label>
+          ) : (
+            <div key={indeks} className="flex flex-col gap-2">
+              <label htmlFor={`kolom-${indeks}`} className="text-body-large font-medium">{kolom.label}</label>
+              <KolomSandi
+                id={`kolom-${indeks}`}
+                name={`kolom-${indeks}`}
+                autoComplete="current-password"
+                labelTampil={t.tampilkan(kolom.label)}
+                labelSembunyi={t.sembunyikan(kolom.label)}
+                {...bersama}
+                className={FIELD}
+              />
+            </div>
+          );
+        })
         : null}
 
       {(mode === "masuk" || mode === "tautan" || mode === "kode") && !terkirim ? (
@@ -264,9 +280,10 @@ export function MasukClient({
               </button>
             ) : null}
           </div>
-          <input
+          <KolomSandi
             id="kata-sandi"
-            type="password"
+            labelTampil={t.tampilkan(mode === "masuk" ? t.sandiLabel : t.sandiBaruLabel)}
+            labelSembunyi={t.sembunyikan(mode === "masuk" ? t.sandiLabel : t.sandiBaruLabel)}
             required
             minLength={mode === "sandi" ? minPassword : undefined}
             autoComplete={mode === "masuk" ? "current-password" : "new-password"}
@@ -298,6 +315,13 @@ export function MasukClient({
           <button type="button" onClick={() => void kirimUlang()} className={TAUTAN_48}>{t.kirimUlang}</button>
           <button type="button" onClick={() => { setMode("kode"); setGalat(""); setCatatan(""); }} className={TAUTAN_48}>{t.gantiEmail}</button>
         </div>
+      ) : null}
+
+      {!terkirim && mode !== "tautan" ? (
+        <p className="-mt-2 flex gap-2 text-body-medium text-[var(--reg-on-surface-variant)]">
+          <LockSimple size={18} aria-hidden className="mt-0.5 shrink-0" />
+          {t.tetapMasuk}
+        </p>
       ) : null}
 
       {cara.jenis === "password" ? <div className="flex flex-col gap-2 border-t border-[var(--reg-outline-variant)] pt-6 text-body-large leading-7 text-[var(--reg-on-surface-variant)]">

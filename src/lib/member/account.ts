@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import type { EventLandingConfig, EventRow, LandingMemberConfig } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { perpanjangSesi, SESI_HARI } from "@/lib/member/masa-sesi";
 
 /**
  * Area peserta: akun email + kata sandi per acara.
@@ -23,7 +24,13 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 
 const COOKIE = "tally_peserta";
-const SESSION_DAYS = 30;
+/**
+ * Umur cookie, bukan umur sesi. Sesinya berlaku sampai `expires_at` di
+ * participant_sessions, yang diperpanjang getMemberSession (masa-sesi.ts).
+ * Cookie dibuat lebih panjang supaya perpanjangan itu tidak perlu menulis ulang
+ * cookie dari halaman server. 400 hari = batas Chrome.
+ */
+const COOKIE_DAYS = 400;
 /** Biaya bcrypt. Sama dengan PIN panitia; alasannya di login.ts. */
 export const HASH_ROUNDS = 10;
 /** bcrypt hanya membaca 72 bita pertama. */
@@ -119,7 +126,7 @@ export async function eligible(eventId: string, participantId: string, member: L
  */
 export async function startSession(accountId: string, cara?: "email_code" | "fields") {
   const token = randomBytes(32).toString("base64url");
-  const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const expires = new Date(Date.now() + SESI_HARI * 24 * 60 * 60 * 1000);
   const { error } = await getSupabaseServiceClient()
     .from("participant_sessions")
     .insert({ account_id: accountId, token_hash: hashToken(token), expires_at: expires.toISOString(), ...(cara ? { cara } : {}) } as never);
@@ -129,7 +136,7 @@ export async function startSession(accountId: string, cara?: "email_code" | "fie
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    expires,
+    expires: new Date(Date.now() + COOKIE_DAYS * 24 * 60 * 60 * 1000),
   });
 }
 
@@ -211,7 +218,7 @@ export async function loginMember(
  * Sesi peserta untuk acara ini, atau null. Sesi dari acara lain dianggap tidak
  * ada: cookie-nya satu, tetapi akunnya terikat pada satu acara.
  */
-export async function getMemberSession(event: Pick<EventRow, "id" | "landing_config">): Promise<MemberSession | null> {
+export async function getMemberSession(event: Pick<EventRow, "id" | "landing_config" | "event_date" | "end_date">): Promise<MemberSession | null> {
   const member = memberConfig(event);
   if (!member) return null;
   const token = (await cookies()).get(COOKIE)?.value;
@@ -228,6 +235,7 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
     .maybeSingle();
   const sesi = data as {
     id: string;
+    expires_at: string;
     cara?: string | null;
     created_at: string;
     participant_accounts: {
@@ -248,6 +256,11 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
     if (member.sign_in !== "fields") return null;
     // Sesi dari masa dua kolom sebelumnya (fields -> lain -> fields).
     if (member.sign_in_since && new Date(sesi.created_at).getTime() < new Date(member.sign_in_since).getTime()) return null;
+  }
+  const baru = perpanjangSesi(Date.now(), new Date(sesi.expires_at).getTime(), event);
+  if (baru !== null) {
+    // Gagal memperpanjang tidak menggagalkan halaman: sesinya masih berlaku.
+    await client.from("participant_sessions").update({ expires_at: new Date(baru).toISOString() } as never).eq("id", sesi.id);
   }
   const akun = sesi.participant_accounts;
   const dasar = {
@@ -280,6 +293,25 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
   const r = reg as { name: string; status: string } | null;
   if (!r) return null;
   return { ...dasar, name: r.name, status: r.status === "rejected" ? "rejected" : "pending", participant: null };
+}
+
+/**
+ * Tulis ulang cookie sesi dengan umur penuh. Cookie dari sebelum perpanjangan
+ * sesi (masa-sesi.ts) masih berumur 30 hari sejak masuk; tanpa ini cookie-nya
+ * hilang meski sesinya di basis data sudah diperpanjang. Hanya bisa dari Route
+ * Handler, jadi portal memanggil POST /api/peserta/sesi (segarkan-sesi.tsx).
+ */
+export async function segarkanCookieSesi() {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  if (!token || token.length > 100) return;
+  store.set(COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: new Date(Date.now() + COOKIE_DAYS * 24 * 60 * 60 * 1000),
+  });
 }
 
 export async function logoutMember() {
