@@ -373,7 +373,7 @@ export function StatusQrHalaman({ data }: { data: DataLapisanQr }) {
  * "Pindai QR checkpoint" di layar QR kehadiran: dua arah seperti layar QRIS
  * e-wallet. Kamera terbuka di atas QR; "Tidak bisa?" menutupnya kembali ke QR.
  * Sesudah tercatat, lapisan QR ditutup (halaman QR server: kembali ke portal)
- * supaya kabar hijau dan kartu checkpoint yang sudah diperbarui terlihat.
+ * supaya layar hasil dan kartu checkpoint yang sudah diperbarui terlihat.
  */
 export function TombolPindaiQr({
   slug,

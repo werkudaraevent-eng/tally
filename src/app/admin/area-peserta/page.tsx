@@ -21,7 +21,7 @@ import { OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, labelOutfit } from "@/lib/outfit
 import { FOTO_OUTFIT_SALAH, fotoOutfitSah, unggahFotoOutfit } from "@/lib/outfit-foto";
 import { bacaOutfitSetiapHari, drafSetiapHari, galatSetiapHari, kirimanSetiapHari, samaSetiapHari, type IsianSetiapHari } from "@/lib/outfit-setiap-hari";
 import { plural } from "@/lib/plural";
-import { BAGIAN_LOGISTIK, type BagianLogistik } from "@/lib/logistik/bagian-tampil";
+import { BAGIAN_LOGISTIK, bedaBagian, type BagianLogistik } from "@/lib/logistik/bagian-tampil";
 
 /**
  * Area peserta: siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di
@@ -244,8 +244,10 @@ export default function AreaPesertaPage() {
     if (samaSetiapHari(anggota.outfit_every_day, data?.member.outfit_every_day)) delete setelan.outfit_every_day;
     else setelan.outfit_every_day = kirimanSetiapHari(anggota.outfit_every_day);
     // Bagian Logistik juga bisa diubah dari Logistics > Vehicles: hanya
-    // dikirim bila diubah di sini, supaya tab yang basi tidak menimpanya.
-    if (samaBagian(anggota.hide_logistics, data?.member.hide_logistics)) delete setelan.hide_logistics;
+    // bagian yang diubah di sini yang dikirim, supaya tab basi tidak menimpanya.
+    // Dikirim per bagian, digabung server ke simpanan terkini (QA #331 M1).
+    delete setelan.hide_logistics;
+    const logistikBagian = bedaBagian(data?.member.hide_logistics, anggota.hide_logistics);
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
     delete setelan.show_bus_crew;
@@ -257,7 +259,7 @@ export default function AreaPesertaPage() {
       headers: { "Content-Type": "application/json" },
       // Mata blok khusus peserta yang dinyalakan di sini sejak dimuat: hanya
       // itu yang dinyalakan lagi di Page sections (lihat PATCH Area peserta).
-      body: JSON.stringify({ member: setelan, blok_nyala: blokDinyalakan(data, anggota) }),
+      body: JSON.stringify({ member: setelan, blok_nyala: blokDinyalakan(data, anggota), logistik_bagian: logistikBagian }),
     }).catch(() => null);
     setSimpan(false);
     if (!response) { toast.error("Connection failed", "Reload to see the current state."); return; }
@@ -728,12 +730,6 @@ const LABEL_BAGIAN: Record<BagianLogistik, { label: string; tab: string }> = {
   trains: { label: "Train tickets", tab: "kereta" },
   items: { label: "Kit items", tab: "barang" },
 };
-
-function samaBagian(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
-  const kiri = new Set(a ?? []);
-  const kanan = new Set(b ?? []);
-  return kiri.size === kanan.size && [...kiri].every((isi) => kanan.has(isi));
-}
 
 /**
  * Bagian Logistik yang sampai ke peserta (lib/logistik/bagian-tampil.ts).

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { terapkanBagian, type UbahBagian } from "@/lib/logistik/bagian-tampil";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { gatheringHorizon, landingBlockHasContent, landingBlockMemberOnly, landingBlockShownOn, normalizeLandingSections, sectionsDenganBlokPeserta, type EventLandingConfig, type LandingMemberConfig } from "@/lib/domain";
@@ -211,8 +212,11 @@ export async function GET(request: Request) {
  * menyalakan blok yang baru dimatikan di layar lain. Every day yang
  * dikosongkan dibuang dari simpanan, bukan disimpan null.
  */
-function gabung(landing: EventLandingConfig, patch: Partial<LandingMemberConfig>, nyalakan: string[]): EventLandingConfig {
-  const member = tanpaSetiapHariKosong({ ...(landing.member ?? {}), ...patch } as LandingMemberConfig);
+function gabung(landing: EventLandingConfig, patch: Partial<LandingMemberConfig>, nyalakan: string[], bagian: UbahBagian): EventLandingConfig {
+  const lama = landing.member ?? ({} as Partial<LandingMemberConfig>);
+  // Bagian Logistik digabung per bagian ke salinan terkini (QA #331 M1), tidak pernah diganti utuh.
+  const hide = Object.keys(bagian).length > 0 ? { hide_logistics: terapkanBagian(lama.hide_logistics, bagian) } : {};
+  const member = tanpaSetiapHariKosong({ ...lama, ...patch, ...hide } as LandingMemberConfig);
   const tersembunyi = patch.home?.hidden ?? landing.member?.home?.hidden ?? [];
   const sections = sectionsDenganBlokPeserta(landing.sections, landing.blocks, nyalakan.filter((id) => !tersembunyi.includes(id)));
   return { ...landing, member, ...(sections !== landing.sections ? { sections } : {}) };
@@ -229,6 +233,10 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const nyalakan = z.array(z.string().max(40)).max(60).safeParse(body?.blok_nyala ?? []);
   if (!nyalakan.success) return apiError("VALIDATION_ERROR", 422, nyalakan.error.flatten());
+  const bagian = z.object({ rooms: z.boolean(), vehicles: z.boolean(), trains: z.boolean(), items: z.boolean() }).partial().strict().safeParse(body?.logistik_bagian ?? {});
+  if (!bagian.success) return apiError("VALIDATION_ERROR", 422, bagian.error.flatten());
+  // Daftar utuh tidak diterima: hanya perubahan per bagian di atas.
+  delete parsed.data.hide_logistics;
 
   // Dua kolom wajib dipilih, dan keduanya masih ada di form, sebelum cara
   // dua kolom bisa disimpan. Tanpanya tidak ada peserta yang bisa masuk.
@@ -267,7 +275,7 @@ export async function PATCH(request: Request) {
       .from("events")
       // Digabung, bukan diganti: kunci yang tidak dikirim layar ini (mis.
       // show_roommates) tetap tersimpan.
-      .update({ landing_config: gabung(landing, { ...parsed.data, ...mulaiKolom }, nyalakan.data), updated_at: new Date().toISOString() } as never)
+      .update({ landing_config: gabung(landing, { ...parsed.data, ...mulaiKolom }, nyalakan.data, bagian.data), updated_at: new Date().toISOString() } as never)
       .eq("id", auth.scope.event.id)
       .eq("updated_at", baris.updated_at)
       .select("landing_config")
