@@ -27,6 +27,9 @@ import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQu
 import { warnaBilahPeramban } from "@/lib/landing-tokens";
 import { PanitiaPortal } from "@/components/member/panitia-portal";
 import { KartuPanitia } from "@/components/member/kartu-panitia";
+import { normalizeTimeZone } from "@/lib/timezone";
+import { KartuHadiah } from "@/components/member/kartu-hadiah";
+import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
 import { panitiaDiPortal } from "@/lib/member/panitia";
 import { POLA_KUNCI_TITIK_HARI } from "@/lib/member/akses-panitia";
 import { PANITIA_UI } from "@/lib/member/panitia-i18n";
@@ -193,6 +196,7 @@ export default async function AreaPesertaPage({
   }
   const agenda = tampilSusunan ? await loadAgendaPreview(event.id, "id", { acara: event, participantId: peserta?.id ?? null, tampilKamar: bagianTampil(member, "rooms") }) : [];
   const lengkapi = await kartuLengkapi(event, peserta?.id);
+  const hadiah = peserta ? await loadHadiahPeserta(event.id, peserta.id, member.prize, "id").catch(() => []) : [];
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
@@ -244,6 +248,12 @@ export default async function AreaPesertaPage({
         {panitiaDiPortal(event, member, sesi) ? (
           <div className="mt-6 max-w-[720px]">
             <KartuPanitia gaya="klasik" slug={event.slug} lang={lang} href={`${landingPath(event.slug, lang, utama)}/peserta?tab=panitia`} />
+          </div>
+        ) : null}
+
+        {hadiah.length ? (
+          <div className="mt-6 max-w-[720px]">
+            <KartuHadiah gaya="klasik" hadiah={hadiah} lang="id" zona={normalizeTimeZone(event.time_zone)} qrHref={null} />
           </div>
         ) : null}
 

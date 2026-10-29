@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { BAGIAN_LOGISTIK } from "@/lib/logistik/bagian-tampil";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
 import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
@@ -338,6 +339,15 @@ export const memberSchema = z.object({
         .max(KONTAK_DARURAT_MAX),
       /** Teks English (halaman /en), aturan yang sama dengan blok halaman acara. */
       en: z.object({ title: z.string().trim().max(KONTAK_DARURAT_BATAS.title).nullish(), note: z.string().trim().max(KONTAK_DARURAT_BATAS.catatan).nullish() }).nullish(),
+    })
+    .nullable()
+    .optional(),
+  /** Kartu Hadiah kamu di Beranda pemenang (lib/member/hadiah.ts). Bawaan mati. */
+  prize: z
+    .object({
+      enabled: z.boolean(),
+      note: z.string().trim().max(CATATAN_HADIAH_MAX).nullish(),
+      en: z.object({ note: z.string().trim().max(CATATAN_HADIAH_MAX).nullish() }).nullish(),
     })
     .nullable()
     .optional(),

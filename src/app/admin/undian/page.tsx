@@ -38,7 +38,7 @@ type Tab = ReadinessTab | "rules";
 
 function newPrizeDraft(): Omit<UndianPrize, "id"> {
   return {
-    name: "", description: null, image_url: null, sponsor_name: null,
+    name: "", description: null, image_url: null, sponsor_name: null, claim_note: null,
     winners_per_draw: 1, winner_quota: 1, backup_per_draw: 0,
     animation: "wheel", spin_mode: "timed", spin_seconds: 6,
     source: "participants", entry_group_id: null,

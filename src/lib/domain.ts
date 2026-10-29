@@ -1342,6 +1342,12 @@ export type LandingMemberConfig = {
     /** Teks English untuk halaman /en; kosong = teks Indonesia. */
     en?: { title?: string | null; note?: string | null } | null;
   } | null;
+  /**
+   * Kartu "Hadiah kamu" di Beranda pemenang undian (lib/member/hadiah.ts),
+   * Participant area > Lucky draw prize. Bawaan MATI. `note` = cara mengambil
+   * bawaan untuk hadiah yang catatannya sendiri kosong; `en.note` untuk /en.
+   */
+  prize?: { enabled: boolean; note?: string | null; en?: { note?: string | null } | null } | null;
 };
 
 /** `outfit` dan `help`: hanya Gathering Horizon (Beranda "Hari ini"). */
