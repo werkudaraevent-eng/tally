@@ -78,3 +78,30 @@ assert.equal(r3.sudah.length, hasil[3].sudah);
 assert.equal(rincianPantau(bahan, "cp-999"), null);
 
 console.log("pantau-checkin ok");
+
+// Checkpoint dengan baris Agenda di dua hari: satu titik per hari, hanya
+// pencatatan hari itu (zona acara), yang diharapkan dari baris hari itu.
+{
+  const agendaDua = new Map([
+    [20, { id: 20, tanggal: "2026-11-05", jam: "05:00:00", syarat: bacaSyaratBaris([{ field: "batch", values: ["Batch 1"] }]) }],
+    [21, { id: 21, tanggal: "2026-11-06", jam: "05:00:00", syarat: bacaSyaratBaris([{ field: "batch", values: ["Batch 2"] }]) }],
+  ]);
+  const cpDua = [{ id: 200, title: "Meet", place: null, session_id: 1, item_id: null, agenda_item_ids: [20, 21] }];
+  const scanDua = [
+    { kunci: 1, participant_id: "a", at: "2026-11-04T22:30:00Z" }, // 5 Nov 05.30 WIB
+    { kunci: 1, participant_id: "c", at: "2026-11-05T22:10:00Z" }, // 6 Nov 05.10 WIB
+    { kunci: 1, participant_id: "c", at: "2026-11-04T23:00:00Z" }, // Batch 2 datang 5 Nov: lainnya hari itu
+  ];
+  const bahanDua = { sesi, checkpoints: cpDua, agenda: agendaDua, peserta, scans: scanDua, pickups: [], barang: new Map(), sekarang, offset: "+07:00" };
+  const dua = hitungPantau(bahanDua);
+  assert.deepEqual(dua.filter((b) => b.key.startsWith("cp-")).map((b) => [b.key, b.tanggal, b.diharapkan, b.sudah, b.lainnya]), [
+    ["cp-200-20261105", "2026-11-05", 2, 1, 1],
+    ["cp-200-20261106", "2026-11-06", 1, 1, 0],
+  ]);
+  const rinciDua = rincianPantau(bahanDua, "cp-200-20261105");
+  assert.deepEqual(rinciDua?.belum, ["b"]);
+  // Satu hari saja: kunci tetap tanpa akhiran.
+  const satu = hitungPantau({ ...bahanDua, agenda: new Map([[20, agendaDua.get(20)!]]), checkpoints: [{ ...cpDua[0], agenda_item_ids: [20] }] });
+  assert.equal(satu.find((b) => b.key.startsWith("cp-"))?.key, "cp-200");
+}
+console.log("pantau-checkin per hari ok");

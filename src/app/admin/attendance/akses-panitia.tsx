@@ -47,7 +47,13 @@ export function AksesPanitia({ tipeAwal }: { tipeAwal: string[] | null }) {
       return;
     }
     setMuat(isiA);
-    setTitik(isiB.rows.map((baris) => ({ key: baris.key, nama: baris.nama, tempat: baris.tempat })));
+    // Checkpoint yang dipecah per hari ("cp-12-20261105") diatur sekali, dengan kunci dasarnya.
+    const dasar = new Map<string, Titik>();
+    for (const baris of isiB.rows) {
+      const key = baris.key.replace(/-\d{8}$/, "");
+      if (!dasar.has(key)) dasar.set(key, { key, nama: baris.nama, tempat: baris.tempat });
+    }
+    setTitik([...dasar.values()]);
     setTipe(isiA.committee?.types ?? []);
     setSembunyi(isiA.committee?.hidden ?? []);
     setTersimpan(isiA.committee?.types ?? []);

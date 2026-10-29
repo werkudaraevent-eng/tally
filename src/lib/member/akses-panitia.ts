@@ -28,6 +28,8 @@ export const PANITIA_TIPE_MAX = 10;
 export const PANITIA_TIPE_PANJANG = 80;
 export const PANITIA_SEMBUNYI_MAX = 200;
 export const POLA_KUNCI_TITIK = /^(cp|sesi)-\d{1,12}$/;
+/** Kunci di alamat halaman: kunci titik, atau checkpoint yang dipecah per hari ("cp-12-20261105"). */
+export const POLA_KUNCI_TITIK_HARI = /^(cp|sesi)-\d{1,12}(-\d{8})?$/;
 
 /** "Panitia ", "panitia", dan "PANITIA" sama: Tipe diketik tangan di spreadsheet impor. */
 export function kunciTipe(tipe: string): string {

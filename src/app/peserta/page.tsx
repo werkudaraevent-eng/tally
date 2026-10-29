@@ -28,7 +28,7 @@ import { warnaBilahPeramban } from "@/lib/landing-tokens";
 import { PanitiaPortal } from "@/components/member/panitia-portal";
 import { KartuPanitia } from "@/components/member/kartu-panitia";
 import { panitiaDiPortal } from "@/lib/member/panitia";
-import { POLA_KUNCI_TITIK } from "@/lib/member/akses-panitia";
+import { POLA_KUNCI_TITIK_HARI } from "@/lib/member/akses-panitia";
 import { PANITIA_UI } from "@/lib/member/panitia-i18n";
 
 /**
@@ -146,7 +146,7 @@ export default async function AreaPesertaPage({
   // Sebelum pengumuman dimuat: membukanya tidak menandai pengumuman terbaca.
   if (kueri.tab === "panitia") {
     if (!panitiaDiPortal(event, member, sesi)) redirect(`${landingPath(event.slug, lang, utama)}/peserta`);
-    const titik = typeof kueri.titik === "string" && POLA_KUNCI_TITIK.test(kueri.titik) ? kueri.titik : null;
+    const titik = typeof kueri.titik === "string" && POLA_KUNCI_TITIK_HARI.test(kueri.titik) ? kueri.titik : null;
     return <PanitiaPortal event={event} lang={lang} titik={titik} />;
   }
 
