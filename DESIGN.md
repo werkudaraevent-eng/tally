@@ -575,6 +575,17 @@ sebelum Assign. Panitia tidak perlu pindah tab untuk pengecualian. Nama benda
 memakai istilah umum ("Vehicles", bukan "Buses"), dan jenisnya ditulis di nama
 yang diketik panitia ("Hiace 2"), bukan kolom Jenis terpisah.
 
+**Rekap per tanggal** (Mas 29 Okt). Rooms dan Vehicles punya tampilan "By date"
+di SegmentedButton panelnya: hanya dibaca, dihitung dari data yang sudah ada
+(`src/lib/logistik/rekap.ts`). Kamar: tabel per stay (Hotel, Check-in, Check-out,
+Nights, Rooms, Guests, Without a room) lalu per malam (Rooms, Guests, Without a
+room per hotel, room-nights di baris hotelnya). Angka utama hotel adalah kamar;
+selama kamar menyusul, tamu tanpa kamar disebut di kolomnya sendiri, bukan
+disamarkan sebagai 0 kamar. Kendaraan: kendaraan × Trip, Trip urut jam dan
+dikelompokkan per hari, sel isi/kapasitas (merah bila lebih), baris Passengers,
+Vehicles used, Without a vehicle. Aturan tabel: angka rata kanan dengan digit
+sejajar, kolom pertama menempel saat digeser, en dash = tidak berlaku, 0 = kosong.
+
 **Satu fakta per kolom** (Mas 28 Okt). Tabel admin tidak menggabungkan dua
 fakta dalam satu sel ("1208 · Royal · 5–6 Nov"). Orang dengan beberapa stay
 mendapat satu baris sejajar per stay di dalam baris orangnya, di setiap kolom
