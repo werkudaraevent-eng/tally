@@ -723,11 +723,13 @@ pakaian sebelum berangkat, sering sebelum masuk portal).
 
 - Isinya dibaca dari Agenda > Dress code, tidak pernah diketik ulang di blok:
   halaman acara dan halaman Outfit peserta selalu sama.
-- Susunan sama dengan Susunan acara Horizon: kolom hari 4/12 ("Hari 01" dari
-  urutan tanggal, nama tab, tanggal sekali), kartu di 8/12; ponsel bertumpuk.
+- Susunan sama dengan Susunan acara Horizon: kolom hari 4/12 ("Hari 01" sama
+  dengan nomor tab itu di Susunan acara, nama tab, tanggal sekali), kartu di
+  8/12; ponsel bertumpuk.
 - Kartunya kartu halaman Outfit peserta (KartuOutfitHorizon), bukan kartu
   baru: label waktu, foto, pilihan gaya, dan penampil layar penuh sama persis.
-- Isian yang menaut ke baris Agenda tersembunyi tidak tampil; blok tanpa
+- Hanya hari yang tampil sebelum masuk (Show before sign-in), dan isian yang
+  menaut ke baris yang ditampilkan Susunan acara; blok tanpa
   dress code terbit tidak dirender dan tidak masuk menu atas.
 
 ### Area peserta

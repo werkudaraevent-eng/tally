@@ -238,7 +238,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const hotelInap = inap?.hotels ?? [];
   // Blok Dress code membaca Agenda > Dress code; acara tanpa blok itu tidak membaca apa pun.
   const blokDressCode = (config.blocks ?? []).filter((block) => block.type === "dress_code" && sections.some((section) => section.enabled && section.id === block.id));
-  const hariDressCode = new Map<string, HariDressCode[]>(await Promise.all(blokDressCode.map(async (block) => [block.id, await loadDressCodePublik(event.id, block.section_ids)] as const)));
+  const hariDressCode = new Map<string, HariDressCode[]>(await Promise.all(blokDressCode.map(async (block) => [block.id, await loadDressCodePublik(event.id, block.section_ids, agenda)] as const)));
   // Halaman Outfit peserta hanya ada di portal Horizon: kaki blok menyebutnya,
   // dan Setiap hari (Participant area) menjadi baris pertama, seperti di sana.
   const setiapHariDressCode = horizon && member ? bacaOutfitSetiapHari(member.outfit_every_day) : null;

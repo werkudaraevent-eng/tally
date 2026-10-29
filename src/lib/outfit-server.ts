@@ -1,4 +1,4 @@
-import { adaTautan, bacaOutfit, labelTabOutfit, segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, type BarisOutfit, type OutfitEntry } from "./outfit";
+import { adaTautan, bacaOutfit, kolomOutfitBelumAda, labelTabOutfit, segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, type BarisOutfit, type OutfitEntry } from "./outfit";
 import { hariDressCode, type BarisDressCode, type HariDressCode, type TabDressCode } from "./dress-code-publik";
 import { getSupabaseServiceClient } from "./supabase/service";
 
@@ -168,30 +168,31 @@ export async function loadOutfitBagian(eventId: string): Promise<Map<number, Out
 }
 
 /**
- * Hari blok Dress code di halaman acara (src/lib/dress-code-publik.ts). Baris
- * Agenda hanya dibaca untuk tab yang punya isian bertaut. Kosong pada galat apa
- * pun, termasuk kolom outfit yang belum ada: blok lalu tidak tampil.
+ * Hari blok Dress code di halaman acara (src/lib/dress-code-publik.ts).
+ * `agenda`: Susunan acara halaman ini (loadAgendaPreview tanpa penonton). Baris
+ * yang ditampilkannya adalah baris yang boleh disebut isian bertaut, dan
+ * urutannya memberi nomor "Hari 02" yang sama. Kosong pada galat apa pun,
+ * termasuk kolom yang belum ada: blok lalu tidak tampil.
  */
-export async function loadDressCodePublik(eventId: string, sectionIds?: readonly number[]): Promise<HariDressCode[]> {
+export async function loadDressCodePublik(eventId: string, sectionIds: readonly number[] | undefined, agenda: ReadonlyArray<{ id?: number; items: ReadonlyArray<{ id: number; title: string }> }>): Promise<HariDressCode[]> {
   try {
-    const client = getSupabaseServiceClient();
-    const { data, error } = await client
-      .from("rundown_sections")
-      .select("id,name,title,event_date,is_published,outfit")
-      .eq("event_id", eventId)
-      .eq("is_published", true)
-      .order("sort_order", { ascending: true })
-      .order("id", { ascending: true });
+    const bacaTab = (kolom: string) =>
+      getSupabaseServiceClient()
+        .from("rundown_sections")
+        .select(kolom)
+        .eq("event_id", eventId)
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
+    const KOLOM = "id,name,title,event_date,is_published,outfit";
+    const pertama = await bacaTab(`${KOLOM},show_before_sign_in`);
+    // Sebelum migrasi 202610260001 kolom show_before_sign_in belum ada: semua tab tampil sebelum masuk.
+    const { data, error } = kolomOutfitBelumAda(pertama.error) ? await bacaTab(KOLOM) : pertama;
     if (error || !data) return [];
-    const tabs = data as unknown as TabDressCode[];
-    const bertaut = tabs.filter((tab) => adaTautan(tab.outfit)).map((tab) => tab.id);
-    let baris: BarisDressCode[] = [];
-    if (bertaut.length > 0) {
-      const hasil = await client.from("rundown_items").select("id,section_id,title,is_published").eq("event_id", eventId).in("section_id", bertaut);
-      // Gagal dibaca: isian bertaut tidak tampil, isian lain tetap.
-      baris = hasil.error || !hasil.data ? [] : (hasil.data as unknown as BarisDressCode[]);
-    }
-    return hariDressCode(tabs, baris, sectionIds);
+    const tampil = agenda.filter((hari) => hari.id !== undefined);
+    const baris: BarisDressCode[] = tampil.flatMap((hari) => hari.items.map((item) => ({ id: item.id, section_id: hari.id as number, title: item.title, is_published: true })));
+    const nomor = new Map(tampil.map((hari, indeks) => [hari.id as number, indeks + 1]));
+    return hariDressCode(data as unknown as TabDressCode[], baris, sectionIds, nomor);
   } catch {
     return [];
   }

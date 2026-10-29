@@ -8,7 +8,8 @@ import { eventApiPath } from "@/lib/event-url";
 import { rundownHref } from "./pilih-sesi";
 
 type Tab = { id: number; name: string | null; title: string | null; is_published: boolean };
-type Hari = { id: number; nama: string; jumlah: number; terbit: boolean };
+/** `publik`: tab tampil sebelum masuk (Agenda > Show before sign-in). Mati = blok tidak menampilkannya. */
+type Hari = { id: number; nama: string; jumlah: number; terbit: boolean; publik: boolean };
 
 const PILIHAN: { value: "all" | "pick"; label: string }[] = [
   { value: "all", label: "All days" },
@@ -32,13 +33,14 @@ export function EditorDressCode({ block, ubah, alis, judul, pengantar }: {
   const [hari, setHari] = useState<Hari[] | "gagal" | null>(null);
   useEffect(() => {
     const baca = (path: string) => fetch(eventApiPath(path), { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
-    void Promise.all([baca("/api/admin/rundown/sections"), baca("/api/admin/rundown/sections/outfit")])
-      .then(([daftar, outfit]: [{ sections?: Tab[] }, { sections?: Array<{ id: number; outfit: unknown[] }> }]) => {
+    void Promise.all([baca("/api/admin/rundown/sections"), baca("/api/admin/rundown/sections/outfit"), baca("/api/admin/rundown/sections/publik")])
+      .then(([daftar, outfit, publik]: [{ sections?: Tab[] }, { sections?: Array<{ id: number; outfit: unknown[] }> }, { sections?: Array<{ id: number; show_before_sign_in: boolean }> }]) => {
         const jumlah = new Map((outfit.sections ?? []).map((isi) => [isi.id, isi.outfit.length]));
+        const tersembunyi = new Set((publik.sections ?? []).filter((isi) => !isi.show_before_sign_in).map((isi) => isi.id));
         setHari(
           (daftar.sections ?? [])
             .filter((tab) => (jumlah.get(tab.id) ?? 0) > 0)
-            .map((tab) => ({ id: tab.id, nama: tab.name?.trim() || tab.title?.trim() || `Tab ${tab.id}`, jumlah: jumlah.get(tab.id) ?? 0, terbit: tab.is_published })),
+            .map((tab) => ({ id: tab.id, nama: tab.name?.trim() || tab.title?.trim() || `Tab ${tab.id}`, jumlah: jumlah.get(tab.id) ?? 0, terbit: tab.is_published, publik: !tersembunyi.has(tab.id) })),
         );
       })
       .catch(() => setHari("gagal"));
@@ -80,7 +82,7 @@ export function EditorDressCode({ block, ubah, alis, judul, pengantar }: {
               options={PILIHAN}
             />
             {mode === "all" ? (
-              <p className="text-body-small text-on-surface-variant">Every published Agenda tab with a dress code, including tabs you add later.</p>
+              <p className="text-body-small text-on-surface-variant">Every published Agenda tab with a dress code that shows before sign-in, including tabs you add later.</p>
             ) : (
               <ul className="flex flex-col">
                 {daftar.map((isi) => {
@@ -98,7 +100,7 @@ export function EditorDressCode({ block, ubah, alis, judul, pengantar }: {
                           className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
                         />
                         <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{isi.nama}</span>
-                        <span className="shrink-0 text-body-small text-on-surface-variant">{isi.terbit ? (isi.jumlah === 1 ? "1 dress code" : `${isi.jumlah} dress codes`) : "Draft tab, hidden"}</span>
+                        <span className="shrink-0 text-body-small text-on-surface-variant">{!isi.terbit ? "Draft tab, hidden" : !isi.publik ? "Hidden before sign-in" : isi.jumlah === 1 ? "1 dress code" : `${isi.jumlah} dress codes`}</span>
                       </label>
                     </li>
                   );
