@@ -1,4 +1,5 @@
-import { adaTautan, bacaOutfit, labelTabOutfit, segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, type BarisOutfit, type OutfitEntry } from "./outfit";
+import { adaTautan, bacaOutfit, kolomOutfitBelumAda, labelTabOutfit, segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, type BarisOutfit, type OutfitEntry } from "./outfit";
+import { hariDressCode, type BarisDressCode, type HariDressCode, type TabDressCode } from "./dress-code-publik";
 import { getSupabaseServiceClient } from "./supabase/service";
 
 type TabDb = { id: number; name: string | null; title: string | null; event_date: string | null; is_published: boolean };
@@ -163,5 +164,36 @@ export async function loadOutfitBagian(eventId: string): Promise<Map<number, Out
     return new Map((data as unknown as Array<{ id: number; outfit?: unknown }>).map((baris) => [baris.id, bacaOutfit(baris.outfit)]));
   } catch {
     return new Map();
+  }
+}
+
+/**
+ * Hari blok Dress code di halaman acara (src/lib/dress-code-publik.ts).
+ * `agenda`: Susunan acara halaman ini (loadAgendaPreview tanpa penonton). Baris
+ * yang ditampilkannya adalah baris yang boleh disebut isian bertaut, dan
+ * urutannya memberi nomor "Hari 02" yang sama. Kosong pada galat apa pun,
+ * termasuk kolom yang belum ada: blok lalu tidak tampil.
+ */
+export async function loadDressCodePublik(eventId: string, sectionIds: readonly number[] | undefined, agenda: ReadonlyArray<{ id?: number; items: ReadonlyArray<{ id: number; title: string }> }>): Promise<HariDressCode[]> {
+  try {
+    const bacaTab = (kolom: string) =>
+      getSupabaseServiceClient()
+        .from("rundown_sections")
+        .select(kolom)
+        .eq("event_id", eventId)
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
+    const KOLOM = "id,name,title,event_date,is_published,outfit";
+    const pertama = await bacaTab(`${KOLOM},show_before_sign_in`);
+    // Sebelum migrasi 202610260001 kolom show_before_sign_in belum ada: semua tab tampil sebelum masuk.
+    const { data, error } = kolomOutfitBelumAda(pertama.error) ? await bacaTab(KOLOM) : pertama;
+    if (error || !data) return [];
+    const tampil = agenda.filter((hari) => hari.id !== undefined);
+    const baris: BarisDressCode[] = tampil.flatMap((hari) => hari.items.map((item) => ({ id: item.id, section_id: hari.id as number, title: item.title, is_published: true })));
+    const nomor = new Map(tampil.map((hari, indeks) => [hari.id as number, indeks + 1]));
+    return hariDressCode(data as unknown as TabDressCode[], baris, sectionIds, nomor);
+  } catch {
+    return [];
   }
 }

@@ -323,7 +323,7 @@ export function CeritaHorizon({
 }
 
 /** "2026-11-06" menjadi "Jumat, 6 November" (Indonesia) atau "Friday 6 November" (English). */
-function labelHari(tanggal: string | null, lang: LandingLang): string | null {
+export function labelHari(tanggal: string | null, lang: LandingLang): string | null {
   if (!tanggal || !/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) return null;
   const locale = lang === "en" ? "en-GB" : "id-ID";
   const d = new Date(`${tanggal}T00:00:00Z`);

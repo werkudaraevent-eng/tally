@@ -218,7 +218,7 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
  * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
  * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
  */
-export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route" | "countdown" | "dos_donts";
+export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route" | "countdown" | "dos_donts" | "dress_code";
 
 /**
  * Tempat blok tampil. `public` = halaman acara (bawaan, perilaku sebelum pilihan
@@ -392,6 +392,12 @@ export type LandingBlock = {
   audience?: { field: string; values: string[] };
   /** Rute: baris Agenda (rundown_items.id) yang diberi tautan "Cara ke sana" di Horizon. */
   agenda_item_ids?: number[];
+  /**
+   * Dress code: tab Agenda (rundown_sections.id) yang ditampilkan. Kosong =
+   * semua tab terbit yang punya dress code. Isinya dibaca dari Agenda >
+   * Dress code, tidak disimpan di blok (src/lib/dress-code-publik.ts).
+   */
+  section_ids?: number[];
   /** Halaman tempat blok tampil (LANDING_BLOCK_MEMBER_TYPES saja). Kosong = halaman acara. */
   show_on?: LandingBlockShowOn;
   /** Hitung mundur: label asal dan tujuan di gaya Tiket (bawaan "Hari ini" dan nama tempat acara). */
@@ -515,6 +521,7 @@ export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
   route: "Directions",
   countdown: "Countdown",
   dos_donts: "Do's and Don'ts",
+  dress_code: "Dress code",
 };
 
 export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
@@ -531,6 +538,7 @@ export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
   route: "How to get from one place to another, e.g. between two hotels, with a Google Maps button.",
   countdown: "Days, hours and minutes to the event start. Hides itself once the event is over.",
   dos_donts: "What to do and what to avoid, each with an icon: what to wear, what to bring, house rules.",
+  dress_code: "What to wear each day, taken from Agenda > Dress code, so guests can pack before they sign in.",
 };
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
@@ -554,6 +562,7 @@ export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTo
   route: "panel",
   countdown: "dark",
   dos_donts: "panel",
+  dress_code: "panel",
 };
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
@@ -715,6 +724,8 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
         item: { title: { max: 60, ideal: 44 }, body: { max: 120, ideal: 90 } },
         items: { max: DOS_DONTS_MAX },
       };
+    case "dress_code":
+      return { eyebrow: ALIS_BATAS, heading: { max: 60, ideal: 48 }, body: PENGANTAR_BATAS };
   }
 }
 
@@ -761,6 +772,9 @@ export function landingBlockHasContent(
     // selesai disaring saat render (src/lib/landing-hitung-mundur.ts).
     case "countdown": return true;
     case "dos_donts": return items.some((item) => item.title?.trim());
+    // Isinya dari Agenda > Dress code, bukan isian blok. Tanpa dress code yang
+    // terbit, halaman tidak merender dan tidak menautkannya (bagianModern).
+    case "dress_code": return true;
   }
 }
 

@@ -31,6 +31,11 @@ import { caraMasukPublik } from "@/lib/member/kolom-masuk";
 import type { MasukMode, MasukSandi } from "@/app/masuk/masuk-client";
 import { timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import { loadLandingLodging, type LandingHotel } from "@/lib/landing-hotel";
+import { loadDressCodePublik } from "@/lib/outfit-server";
+import type { HariDressCode } from "@/lib/dress-code-publik";
+import { labelOutfit } from "@/lib/outfit";
+import { bacaOutfitSetiapHari } from "@/lib/outfit-setiap-hari";
+import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import { AgendaPills } from "./modern/agenda-pills";
 import { HariGathering } from "./modern/hari-gathering";
 import { komponenIkonKartu } from "./modern/ikon-kartu";
@@ -231,12 +236,26 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const adaRute = (config.blocks ?? []).some((block) => block.type === "route");
   const inap = gaya || adaRute ? await loadLandingLodging(event.id) : null;
   const hotelInap = inap?.hotels ?? [];
+  // Blok Dress code membaca Agenda > Dress code; acara tanpa blok itu tidak membaca apa pun.
+  const blokDressCode = (config.blocks ?? []).filter((block) => block.type === "dress_code" && sections.some((section) => section.enabled && section.id === block.id));
+  const hariDressCode = new Map<string, HariDressCode[]>(await Promise.all(blokDressCode.map(async (block) => [block.id, await loadDressCodePublik(event.id, block.section_ids, agenda)] as const)));
+  // Halaman Outfit peserta hanya ada di portal Horizon: kaki blok menyebutnya,
+  // dan Setiap hari (Participant area) menjadi baris pertama, seperti di sana.
+  const setiapHariDressCode = horizon && member ? bacaOutfitSetiapHari(member.outfit_every_day) : null;
+  const labelOutfitPortal = horizon && member ? labelOutfit(member.outfit_label) : null;
+  const dressCodeBlok = (id: string): HariDressCode[] => {
+    const hari = hariDressCode.get(id) ?? [];
+    if (!setiapHariDressCode) return hari;
+    return [{ id: 0, nomor: null, judul: PORTAL_UI[lang].horizon.outfit.everyDay, tanggal: null, isian: [setiapHariDressCode] }, ...hari];
+  };
 
   const { tampil, tampilProgram, speakers, blokById, jangkar, navSections, mitra, kontak } = bagianModern(event, config, sections, agenda, lang, {
     gathering: gaya,
     adaHotel: hotelInap.length > 0,
     // Blok Rute yang hotelnya sudah dihapus tidak dirender, jadi juga tidak di menu.
     hotelIds: new Set(hotelInap.map((hotel) => hotel.id)),
+    // Blok Dress code tanpa dress code terbit tidak dirender, jadi juga tidak di menu.
+    blokKosong: new Set(blokDressCode.filter((block) => dressCodeBlok(block.id).length === 0).map((block) => block.id)),
   });
 
   const kv = config.banner_url ?? null;
@@ -1320,6 +1339,13 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           if (isPortalEntry(section)) return portalTampil ? <Fragment key="portal">{portal}</Fragment> : kosongPortal ? <Fragment key="portal">{kosongPortal}</Fragment> : null;
           if (isLandingBlockId(section.id)) {
             const block = blokById.get(section.id);
+            if (pratinjau && block?.type === "dress_code" && dressCodeBlok(block.id).length === 0) {
+              return (
+                <div key={section.id} id={block.id} className={`${SHELL} py-10`}>
+                  <KotakKosong slug={event.slug} judul={block.heading?.trim() || LANDING_BLOCK_LABELS[block.type]} chip="No dress code yet" teks="This block shows the dress code from Agenda > Dress code. Add one there, or publish its Agenda tab." aksi={{ label: "Open Agenda", href: "/admin/rundown" }} />
+                </div>
+              );
+            }
             if (pratinjau && block && !landingBlockHasContent(block)) {
               return (
                 <div key={section.id} id={block.id} className={`${SHELL} py-10`}>
@@ -1331,7 +1357,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               return <BagianRute key={section.id} block={block} hotels={hotelInap} lang={lang} shell={SHELL} section={SECTION} judulKelas={JUDUL} alisKelas={ALIS} muted={MUTED} />;
             }
             return block ? (
-              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled && !peserta ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} jadwal={event} warnaTema={{ brand: tokens.brand, accent: tokens.accent ?? null }} />
+              <LandingBlockView key={section.id} block={block} daftarUrl={event.registration_enabled && !peserta ? daftarUrl : null} daftarLabel={ctaLabel} jangkar={jangkar} lang={lang} jadwal={event} warnaTema={{ brand: tokens.brand, accent: tokens.accent ?? null }} dressCode={block.type === "dress_code" ? { hari: dressCodeBlok(block.id), labelOutfit: labelOutfitPortal } : undefined} />
             ) : null;
           }
           const kosong = pratinjau && !tampil(section.id) ? KOSONG[section.id] : undefined;
