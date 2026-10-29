@@ -6,6 +6,7 @@ import { kodeSah, rahasiaKodeQr } from "@/lib/checkpoint/kode-qr";
 import { kalimatTujuan } from "@/lib/checkpoint/tujuan";
 import { tanggalDiZona, teksSelesai, teksWaktu } from "@/lib/checkpoint/waktu";
 import { normalizeTimeZone } from "@/lib/timezone";
+import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
   // Kemajuan sesudah catatan ini. Gagal dibaca: catatannya tetap tersimpan,
   // ponsel cukup menyegarkan kartunya. Penontonnya sama dengan Beranda, jadi
   // tanggal langkah berikutnya hanya dari baris Agenda yang boleh ia lihat.
-  const penonton = { acara: event, participantId: sesi.participant.id, tampilKamar: member.show_logistics === true };
+  const penonton = { acara: event, participantId: sesi.participant.id, tampilKamar: bagianTampil(member, "rooms") };
   const kartu = await loadCheckpointPeserta(event.id, sesi.participant.id, lang, penonton).catch(() => null);
   const langkah = kartu?.steps.filter((step) => step.session_id === parsed.data.s) ?? [];
   const zona = normalizeTimeZone(event.time_zone);
