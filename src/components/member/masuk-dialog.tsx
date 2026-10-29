@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { EnvelopeSimple, X } from "@phosphor-icons/react";
+import { EnvelopeSimple, LockSimple, X } from "@phosphor-icons/react";
 import { REG_CONTROL } from "@/components/registration-field-input";
 import { kirimMasuk, modeAwalUntuk, modeDasar, pesanTautanTerkirim, type MasukMode, type MasukSandi } from "@/app/masuk/masuk-client";
 import type { CaraMasukPublik } from "@/lib/member/kolom-masuk";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { MASUK_UI } from "@/lib/member/masuk-i18n";
+import { KolomSandi } from "@/components/member/kolom-sandi";
 import { lingkupSalinanQr } from "@/lib/member/halaman-qr-luring";
 import { hapusSalinanQr } from "@/components/member/form-keluar";
 
@@ -600,30 +601,44 @@ export function MasukDialog({
             </label>
           ) : null}
 
+          {/* Dua kolom = nama pengguna + sandi bagi pengelola sandi HP: sesudah
+              masuk HP menawarkan simpan, sesudah Keluar mengisinya lagi. */}
           {mode === "kolom" && cara.jenis === "fields"
-            ? cara.kolom.map((kolom, indeks) => (
-              <label key={indeks} className={`${LABEL} mt-4`}>
-                {kolom.label}
-                <input
-                  ref={indeks === 0 ? kolomRef : undefined}
-                  type={kolom.jenis}
-                  name={`kolom-${indeks}`}
-                  required
-                  inputMode={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : undefined}
-                  autoComplete={kolom.jenis === "email" ? "email" : kolom.jenis === "tel" ? "tel" : "off"}
-                  enterKeyHint={indeks === 1 ? "go" : "next"}
-                  placeholder={kolom.contoh ?? undefined}
-                  value={nilai[indeks]}
-                  onChange={(event) => {
-                    const isi = event.target.value;
-                    setNilai((lama) => (indeks === 0 ? [isi, lama[1]] : [lama[0], isi]));
-                  }}
-                  aria-invalid={invalid}
-                  aria-describedby={describedGalat}
-                  className={KOLOM}
-                />
-              </label>
-            ))
+            ? cara.kolom.map((kolom, indeks) => {
+              const bersama = {
+                name: `kolom-${indeks}`,
+                required: true,
+                inputMode: kolom.jenis === "email" ? "email" as const : kolom.jenis === "tel" ? "tel" as const : undefined,
+                enterKeyHint: indeks === 1 ? "go" as const : "next" as const,
+                placeholder: kolom.contoh ?? undefined,
+                value: nilai[indeks],
+                onChange: (event: { target: { value: string } }) => {
+                  const isi = event.target.value;
+                  setNilai((lama) => (indeks === 0 ? [isi, lama[1]] : [lama[0], isi]));
+                },
+                "aria-invalid": invalid,
+                "aria-describedby": describedGalat,
+              };
+              return indeks === 0 ? (
+                <label key={indeks} className={`${LABEL} mt-4`}>
+                  {kolom.label}
+                  <input ref={kolomRef} type={kolom.jenis} autoComplete="username" {...bersama} className={KOLOM} />
+                </label>
+              ) : (
+                <div key={indeks} className="mt-4">
+                  <label htmlFor={`${judulId}-kolom-${indeks}`} className={LABEL}>{kolom.label}</label>
+                  <KolomSandi
+                    id={`${judulId}-kolom-${indeks}`}
+                    autoComplete="current-password"
+                    labelTampil={t.tampilkan(kolom.label)}
+                    labelSembunyi={t.sembunyikan(kolom.label)}
+                    {...bersama}
+                    kelasLuar="mt-2"
+                    className={`${KOLOM} mt-0!`}
+                  />
+                </div>
+              );
+            })
             : null}
 
           {/* "Lupa kata sandi?" di LUAR label: tombol di dalam <label> ikut
@@ -641,10 +656,11 @@ export function MasukDialog({
                   </button>
                 ) : null}
               </div>
-              <input
+              <KolomSandi
                 ref={sandiRef}
                 id={`${judulId}-sandi`}
-                type="password"
+                labelTampil={t.tampilkan(mode === "masuk" ? t.sandiLabel : t.sandiBaruLabel)}
+                labelSembunyi={t.sembunyikan(mode === "masuk" ? t.sandiLabel : t.sandiBaruLabel)}
                 name="password"
                 required
                 minLength={mode === "sandi" ? minPassword : undefined}
@@ -654,7 +670,8 @@ export function MasukDialog({
                 aria-describedby={[mode === "sandi" ? `${judulId}-catatan` : null, describedGalat].filter(Boolean).join(" ") || undefined}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className={KOLOM}
+                kelasLuar="mt-2"
+                className={`${KOLOM} mt-0!`}
               />
               {mode === "sandi" ? (
                 <span id={`${judulId}-catatan`} className="mt-2 block text-body-small text-[var(--reg-on-surface-variant)]">
@@ -686,6 +703,12 @@ export function MasukDialog({
                 {t.gantiEmail}
               </button>
             </div>
+          ) : null}
+          {!terkirim && mode !== "tautan" ? (
+            <p className="mt-4 flex gap-2 text-body-small text-[var(--reg-on-surface-variant)]">
+              <LockSimple size={16} aria-hidden className="mt-0.5 shrink-0" />
+              {t.tetapMasuk}
+            </p>
           ) : null}
         </form>
 

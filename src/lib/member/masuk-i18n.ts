@@ -45,9 +45,19 @@ export type MasukUiText = {
   kodeBaru: string;
   /** Cara masuk dua kolom data peserta. */
   kolomCatatan: string;
+  /** Tombol mata di kolom rahasia; `label` = nama kolomnya. */
+  tampilkan: (label: string) => string;
+  sembunyikan: (label: string) => string;
+  /** Di bawah tombol Masuk: sesi bertahan sampai acara selesai (masa-sesi.ts). */
+  tetapMasuk: string;
   /** English saja: pesan untuk kode galat API. Indonesia memakai pesan server. */
   galat?: (kode: string, mode: MasukMode, menit: number | null) => string;
 };
+
+/** "Kata sandi" -> "kata sandi", tetapi "NIK" tetap "NIK". */
+function kecilAwal(label: string) {
+  return /^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
+}
 
 export const MASUK_UI: Record<LandingLang, MasukUiText> = {
   id: {
@@ -83,6 +93,9 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     gantiEmail: "Ganti email",
     kodeBaru: "Bila email ini terdaftar, kode baru sedang dikirim. Pakai kode dari email terbaru.",
     kolomCatatan: "Isi sesuai data yang diberikan ke panitia.",
+    tampilkan: (label) => `Tampilkan ${kecilAwal(label)}`,
+    sembunyikan: (label) => `Sembunyikan ${kecilAwal(label)}`,
+    tetapMasuk: "Tetap masuk di perangkat ini sampai acara selesai. Memakai perangkat orang lain? Pilih Keluar sesudahnya.",
   },
   en: {
     judul: { masuk: "Sign in to My dashboard", tautan: "Email me a link", sandi: "Create a password", kode: "Sign in to My dashboard", verifikasi: "Check your email", kolom: "Sign in to My dashboard" },
@@ -115,6 +128,9 @@ export const MASUK_UI: Record<LandingLang, MasukUiText> = {
     gantiEmail: "Change email",
     kodeBaru: "If this email is registered, a new code is on its way. Use the code from the latest email.",
     kolomCatatan: "Enter the details you gave the organisers.",
+    tampilkan: (label) => `Show ${kecilAwal(label)}`,
+    sembunyikan: (label) => `Hide ${kecilAwal(label)}`,
+    tetapMasuk: "You stay signed in on this device until the event ends. Using someone else's device? Sign out when you're done.",
     galat: (kode, mode, menit) => {
       switch (kode) {
         case "RATE_LIMITED":

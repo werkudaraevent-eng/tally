@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SegarkanSesi } from "@/components/member/segarkan-sesi";
 import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { notFound, redirect } from "next/navigation";
 import { ArrowRight, ArrowSquareOut, CheckCircle, EnvelopeSimple, Hourglass, XCircle } from "@phosphor-icons/react/dist/ssr";
@@ -175,16 +176,27 @@ export default async function AreaPesertaPage({
     const dari =
       kueri.dari === "jadwal" || kueri.dari === "perjalanan" || kueri.dari === "outfit" || kueri.dari === "info" || kueri.dari === "profil" ? kueri.dari : null;
     const lihat = tab === "profil" && kueri.lihat === "data" ? "data" : null;
-    return <DashboardGathering event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} tab={tab} hari={hari} dari={dari} lihat={lihat} />;
+    return (
+      <>
+        <SegarkanSesi slug={event.slug} />
+        <DashboardGathering event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} tab={tab} hari={hari} dari={dari} lihat={lihat} />
+      </>
+    );
   }
   if (landing.layout === "modern") {
-    return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
+    return (
+      <>
+        <SegarkanSesi slug={event.slug} />
+        <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />
+      </>
+    );
   }
   const agenda = tampilSusunan ? await loadAgendaPreview(event.id, "id", { acara: event, participantId: peserta?.id ?? null, tampilKamar: bagianTampil(member, "rooms") }) : [];
   const lengkapi = await kartuLengkapi(event, peserta?.id);
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
+      <SegarkanSesi slug={event.slug} />
       <header className="border-b border-[var(--reg-outline-variant)]">
         <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center gap-4 px-5 sm:px-8 lg:min-h-[72px] lg:px-10">
           <Link
