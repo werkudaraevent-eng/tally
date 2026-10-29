@@ -24,7 +24,7 @@ import { plural } from "@/lib/plural";
 type Hasil = { masuk: number; dibuat: string[]; diubah?: number; gagal: Array<{ nama: string; alasan: string }> };
 
 const URAIAN: Record<JenisImpor, string> = {
-  kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created. A rooming list with its own room label (such as Kamar 01) can be imported as it is: roommates are paired now, and importing it again with room numbers filled in gives those rooms their numbers.",
+  kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
   bus: "One row per person: Vehicle, then QR code or Name. Vehicles that do not exist yet are created with no capacity limit. A \"Trip: …\" column sets a different vehicle for that Trip only.",
   kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
 };
@@ -360,6 +360,11 @@ function KolomDibaca({ kolom }: { kolom: NonNullable<Rencana["kolomDibaca"]> }) 
           </li>
         ))}
       </ul>
+      {kolom.some((k) => k.jadi === "Room label") ? (
+        <p className="text-body-small text-on-surface-variant">
+          Rows with the same room label share one room, even before the hotel gives room numbers. Import the list again once the numbers are filled in: those rooms get their numbers and nobody moves.
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -137,8 +137,12 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   const adaLabel = data.rooms.some((kamar) => kamar.label);
   const adaKasur = data.rooms.some((kamar) => kamar.bed_type);
   // Dengan Label dan Bed, daftar kamar terlalu sempit untuk semua kolom: Bed
-  // dan Type hanya di layar lebar, selalu ada di panel detail kamar.
-  const sempit = adaLabel || adaKasur ? "w-28 max-2xl:hidden" : "w-28 max-sm:hidden";
+  // dan Type tampil dari xl selama panel detail tertutup (2xl bila terbuka),
+  // dan selalu ada di panel detail kamar. Di bawah sm, Label dan Room
+  // menjadi satu kolom: nomor kamar, atau labelnya selama nomor menyusul.
+  const lebar = pilihan === null ? "max-xl:hidden" : "max-2xl:hidden";
+  const sempit = adaLabel || adaKasur ? `w-28 ${lebar}` : "w-28 max-sm:hidden";
+  const kolomLabel = "w-24 max-sm:hidden";
   const perluDicek = data.rooms.filter((kamar) => keadaan(kamar) === "perlu-dicek").length;
   const menyaring = Boolean(kata) || saringHotel.length > 0 || saringKeadaan.length > 0;
 
@@ -176,7 +180,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
       {data.rooms.length > 0 ? (
         <>
-          <KolomCari className="max-w-80" label="Search rooms or occupants" placeholder="Search room number or occupant name" value={cari} onChange={setCari} />
+          <KolomCari className="max-w-80" label="Search rooms or occupants" placeholder={adaLabel ? "Search room, label or occupant" : "Search room number or occupant name"} value={cari} onChange={setCari} />
           {data.hotels.length > 1 ? (
             <ChipMenu
               label="Hotel"
@@ -218,10 +222,10 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
         ) : (
           <>
             <KepalaKolom kolom={[
-              ...(adaLabel ? [["Label", "w-24"] as [string, string]] : []),
+              ...(adaLabel ? [["Label", kolomLabel] as [string, string]] : []),
               ["Room", "w-24"],
               ["Occupants", "min-w-0 flex-1"],
-              ...(adaKasur ? [["Bed", "w-20 max-2xl:hidden"] as [string, string]] : []),
+              ...(adaKasur ? [["Bed", `w-20 ${lebar}`] as [string, string]] : []),
               ["Type", sempit],
               ["Filled", "w-16 text-right"],
             ]} />
@@ -255,7 +259,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                     <Buildings size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-on-surface">{hotel.name}</span>
                     {menunggu.length > 0 ? <StatusChip dot tone="warning">{jumlahOrang(menunggu).toLocaleString("en-GB")} waiting for a room</StatusChip> : null}
-                    <span className="shrink-0 tabular-nums text-on-surface-variant">{plural(semuaKamar.length, "room")} · {terisi}/{tempat} places</span>
+                    <span className="shrink-0 tabular-nums text-on-surface-variant"><span className="max-sm:hidden">{plural(semuaKamar.length, "room")} · </span>{terisi}/{tempat} places</span>
                   </BarisKelompok>
                   {tampilTunggu ? (
                     <button
@@ -267,10 +271,10 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                         tungguDipilih ? "bg-accent-soft" : "hover:bg-panel-high",
                       )}
                     >
-                      {adaLabel ? <span className="w-24 shrink-0" /> : null}
+                      {adaLabel ? <span className={cx("shrink-0", kolomLabel)} /> : null}
                       <span className="w-24 shrink-0 truncate text-on-surface">To follow</span>
                       <span className="min-w-0 flex-1 truncate text-on-surface-variant">{[...new Set(menunggu.map(({ orang }) => orang.name))].join(", ")}</span>
-                      {adaKasur ? <span className="w-20 shrink-0 max-2xl:hidden" /> : null}
+                      {adaKasur ? <span className={cx("w-20 shrink-0", lebar)} /> : null}
                       <span className={cx("shrink-0", sempit)} />
                       <span className="w-16 shrink-0 text-right tabular-nums text-on-surface">{jumlahOrang(menunggu).toLocaleString("en-GB")}</span>
                     </button>
@@ -294,9 +298,14 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                           dipilih ? "bg-accent-soft" : "hover:bg-panel-high",
                         )}
                       >
-                        {adaLabel ? <span className="w-24 shrink-0 truncate text-on-surface">{kamar.label ?? EMPTY_VALUE}</span> : null}
-                        <span className="w-24 shrink-0 truncate tabular-nums text-on-surface">
-                          {kamar.room_number ?? <StatusChip dot tone="warning">To follow</StatusChip>}
+                        {adaLabel ? <span title={kamar.label ?? undefined} className={cx("shrink-0 truncate text-on-surface", kolomLabel)}>{kamar.label ?? EMPTY_VALUE}</span> : null}
+                        <span title={kamar.room_number === null ? undefined : kamar.room_number} className="w-24 shrink-0 truncate tabular-nums text-on-surface">
+                          {kamar.room_number ?? (
+                            <>
+                              <span className="sm:hidden">{kamar.label}</span>
+                              <span className="max-sm:hidden"><StatusChip dot tone="warning">To follow</StatusChip></span>
+                            </>
+                          )}
                         </span>
                         <span className="flex min-w-0 flex-1 items-center gap-2">
                           {lebih ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
@@ -305,7 +314,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                             {isi.length > 0 ? isi.map((orang) => orang.name).join(", ") : "Empty"}
                           </span>
                         </span>
-                        {adaKasur ? <span className="w-20 shrink-0 truncate text-on-surface-variant max-2xl:hidden">{kamar.bed_type ?? EMPTY_VALUE}</span> : null}
+                        {adaKasur ? <span className={cx("w-20 shrink-0 truncate text-on-surface-variant", lebar)}>{kamar.bed_type ?? EMPTY_VALUE}</span> : null}
                         <span className={cx("shrink-0 truncate text-on-surface-variant", sempit)}>{kamar.room_type ?? EMPTY_VALUE}</span>
                         <span className={cx("w-16 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>
                           {puncak}/{kamar.capacity}

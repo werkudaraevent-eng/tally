@@ -532,7 +532,7 @@ assert.deepEqual(roomingLabel.kolomDibaca, [
 assert.deepEqual(roomingLabel.baris.map((b) => `${b.status}:${b.tujuan}`), ["masuk:Kamar 01 · number to follow", "masuk:Kamar 01 · number to follow"]);
 assert.equal(roomingLabel.kamarBaru.length, 1);
 const [baruLabel] = roomingLabel.kamarBaru;
-assert.deepEqual({ ...baruLabel, kunci: undefined }, { kunci: undefined, hotel: "Mulia", nomor: null, label: "Kamar 01", tipe: "DELUXE", kasur: "TWIN", kapasitas: 2 });
+assert.deepEqual({ ...baruLabel, kunci: undefined }, { kunci: undefined, hotel: "Mulia", nomor: null, label: "Kamar 01", tipe: "Deluxe", kasur: "Twin", kapasitas: 2 });
 assert.deepEqual(roomingLabel.akhir.map((o) => [o.participant_id, o.stays[0].kamar]), [["a", { baru: baruLabel.kunci }], ["b", { baru: baruLabel.kunci }]]);
 assert.deepEqual(roomingLabel.kamarUbah, []);
 // Diimpor ulang dengan nomor terisi: kamar yang sama mendapat nomornya, tidak ada yang pindah.
@@ -546,7 +546,7 @@ assert.deepEqual(nomorDatang.kamarUbah, [{ id: 40, nama: "Kamar 01", hotel: "Mul
 // Nomor kosong lagi tidak menghapus nomor yang sudah ada; jenis yang berubah ikut diperbarui.
 const tanpaNomor = rencanaKamar(panitia("").map((b, i) => (i > 0 ? [b[0], b[1], "KING", ...b.slice(3)] : b)),
   { ...sudah, rooms: [...bebas.rooms, { ...sudah.rooms[1], room_number: "1301" }] });
-assert.deepEqual(tanpaNomor.kamarUbah, [{ id: 40, nama: "1301", hotel: "Mulia", bed_type: "KING" }]);
+assert.deepEqual(tanpaNomor.kamarUbah, [{ id: 40, nama: "1301", hotel: "Mulia", bed_type: "King" }]);
 // Nomor milik kamar lain: kamar ini ditolak, semua barisnya.
 const bentrok = rencanaKamar(panitia("", "1208"), sudah);
 assert.deepEqual(bentrok.baris.map((b) => b.status), ["tolak", "tolak"]);

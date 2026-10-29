@@ -344,7 +344,12 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara): Rencan
     return KAMAR_MENYUSUL.has(kunci(t)) ? "" : t;
   };
   const labelKamar = (b: string[]) => (kolom.label !== undefined ? rapi(b[kolom.label]).slice(0, 40) : "");
-  const isian = (b: string[], nama: "tipe" | "kasur", maks: number) => (kolom[nama] !== undefined ? rapi(b[kolom[nama]!]).slice(0, maks) || null : null);
+  // Rooming list hotel biasanya huruf besar semua ("DELUXE", "TWIN"); peserta
+  // membacanya sebagai "Deluxe · Twin". Singkatan pendek (VIP) dibiarkan.
+  const hurufWajar = (teks: string) => (teks.length > 3 && /\p{L}/u.test(teks) && teks === teks.toLocaleUpperCase("id")
+    ? teks.toLocaleLowerCase("id").replace(/(^|[\s/-])(\p{L})/gu, (_, awal: string, huruf: string) => awal + huruf.toLocaleUpperCase("id"))
+    : teks);
+  const isian = (b: string[], nama: "tipe" | "kasur", maks: number) => (kolom[nama] !== undefined ? hurufWajar(rapi(b[kolom[nama]!]).slice(0, maks)) || null : null);
   const adaNomorKamar = isi.some((b) => nomorKamar(b) || labelKamar(b));
   if (wajibSama && !fieldGender && adaNomorKamar) {
     return kosong("kamar", "Room rules are incomplete. Choose a gender field on the Rooms tab, or allow mixed rooms, then import again. Rows without a room number or room label can still be imported on their own.");
