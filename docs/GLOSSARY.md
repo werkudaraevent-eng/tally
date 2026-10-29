@@ -51,7 +51,7 @@ The code mixes Indonesian and English. Older modules and many folder, file and r
 | peran | role | `landing-peran-sesi.ts` |
 | pesan | message (email/WhatsApp blasts) | `src/lib/pesan`, `api/pesan` |
 | peserta | participant | `src/app/peserta`, `api/peserta` |
-| kendaraan (kode `bus`) | vehicle: the Logistics tab "Vehicles" (bus, Hiace, Elf). Admin says Vehicle / default vehicle; participants see "Kendaraan" / "Kendaraan utama" (id) or "Vehicle" / "Main vehicle" (en). Code, tables, URLs and import keys keep `bus` / `transport_vehicles` | `admin/logistik/tab-bus.tsx` |
+| kendaraan (kode `bus`) | vehicle: the Logistics tab "Vehicles" (bus, Hiace, Elf). Admin says Vehicle / default vehicle; participants see "Kendaraan" (id) or "Vehicle" (en), never "main vehicle": when their Trips use different vehicles, each Trip row names its own vehicle. Code, tables, URLs and import keys keep `bus` / `transport_vehicles` | `admin/logistik/tab-bus.tsx` |
 | pindah hotel | hotel change mid-event (stays) | `logistik/stay.ts` |
 | pindai | scan | `src/app/pindai` (participant self-scan) |
 | pratinjau | preview | `src/app/pratinjau` |

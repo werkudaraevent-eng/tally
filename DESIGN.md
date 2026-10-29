@@ -856,6 +856,11 @@ berubah (0 px), jadi semua aturan Trip hidup di `components/member/portal-trip.t
   kartunya di bawah 400 px. "Berikutnya" linimasa tiga butir, titik emas untuk butir
   pertama. "Perjalananmu" satu baris 72 px per pesanan menuju bagiannya di Perjalanan.
 - Perjalanan desktop 4/8: kolom kiri menempel (Rencana perjalananmu + bantuan).
+- Kendaraan peserta (Horizon dan Trip): perjalanan urut jam berangkat, bukan urutan
+  Trips di Logistics. Nama kendaraan jadi judul kartu hanya bila semua perjalanannya
+  satu kendaraan; bila berbeda, kartu tanpa judul kendaraan dan tiap baris membawa
+  label kendaraannya (ubin #F1F3F8, ikon bus, 14/20 600, plat ikut) seperti nomor
+  penerbangan per leg. Tidak ada label "Kendaraan utama" untuk peserta.
 - Susunan acara: desktop kartu hari (ubin hari dan tanggal, judul "Kamis, 5 Nov",
   jumlah kegiatan; hari terpilih emas) di kolom 360 px; ponsel tetap chip tanggal.
   Satu hari = satu kartu linimasa: jam 14/20 + selesai 12/16, rel dengan titik
