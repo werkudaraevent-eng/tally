@@ -734,9 +734,14 @@ pakaian sebelum berangkat, sering sebelum masuk portal).
 
 - Isinya dibaca dari Agenda > Dress code, tidak pernah diketik ulang di blok:
   halaman acara dan halaman Outfit peserta selalu sama.
-- Susunan sama dengan Susunan acara Horizon: kolom hari 4/12 ("Hari 01" sama
-  dengan nomor tab itu di Susunan acara, nama tab, tanggal sekali), kartu di
-  8/12; ponsel bertumpuk.
+- Chip tanggal di atas ("Jum 6 Nov", pola chip halaman Outfit peserta), satu
+  hari tampil selebar blok (revisi Mas 29 Okt: semua hari bertumpuk terlalu
+  panjang). Tanpa "Hari 01": nomor itu menghitung tab Agenda, termasuk hari
+  H-1 seperti pengambilan bagasi. Chip urut tanggal; dua tab di tanggal yang
+  sama memakai bagian dalam kurung nama tabnya ("Batch 2"). Hari awal: hari ini
+  atau hari berikutnya. Satu hari saja: tanpa chip.
+- Kartu dan grid pilihan gaya mengukur lebar blok (`@container`), bukan layar,
+  supaya pratinjau admin dan jendela sempit tidak menjepit teks.
 - Kartunya kartu halaman Outfit peserta (KartuOutfitHorizon), bukan kartu
   baru: label waktu, foto, pilihan gaya, dan penampil layar penuh sama persis.
 - Hanya hari yang tampil sebelum masuk (Show before sign-in), dan isian yang

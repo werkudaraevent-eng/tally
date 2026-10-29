@@ -472,6 +472,7 @@ export type LandingUiText = {
     inviteNote: (logistik: boolean) => string;
     /** Kaki blok Dress code: dress code sesuai jadwal peserta ada di halaman Outfit (label per acara). */
     dressCodeNote: (label: string) => string;
+    dressCodeDays: string;
     inviteCta: string;
     pass: string;
     passInfo: (logistik: boolean) => string;
@@ -646,6 +647,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       inviteEyebrow: "Setelah masuk, ceritanya jadi milikmu",
       signedInEyebrow: "Ceritamu sudah dimulai",
       inviteHeading: "Satu perjalanan.\nPunya tempatmu sendiri.",
+      dressCodeDays: "Pilih hari",
       dressCodeNote: (label) => `Sudah terdaftar? Dress code sesuai jadwalmu ada di halaman ${label} setelah masuk.`,
       inviteNote: (logistik) =>
         logistik
@@ -810,6 +812,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
       inviteEyebrow: "Sign in and the story is yours",
       signedInEyebrow: "Your story has already begun",
       inviteHeading: "One journey.\nA place of your own.",
+      dressCodeDays: "Choose a day",
       dressCodeNote: (label) => `Registered? The dress code for your own schedule is on the ${label} page after you sign in.`,
       inviteNote: (logistik) =>
         logistik
