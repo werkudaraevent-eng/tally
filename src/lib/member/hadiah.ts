@@ -60,12 +60,30 @@ export function catatanHadiah(catatanHadiahIni: string | null | undefined, setel
 
 export type NadaHadiah = "kamu" | "anda";
 
+/** Tanggal "YYYY-MM-DD" di zona acara. */
+function tanggalZona(waktu: Date, zona: string): string {
+  const bagian = new Intl.DateTimeFormat("en-CA", { timeZone: zona, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(waktu);
+  const ambil = (jenis: string) => bagian.find((isi) => isi.type === jenis)?.value ?? "";
+  return `${ambil("year")}-${ambil("month")}-${ambil("day")}`;
+}
+
+/**
+ * Kartu paling atas Beranda hanya pada hari hadiah dikonfirmasi (zona acara);
+ * sesudahnya turun di bawah Next up, seperti boarding pass aplikasi maskapai
+ * yang naik ke atas hanya di hari terbang (QA #336 M2).
+ */
+export function hadiahDiAtas(hadiah: readonly Pick<HadiahPeserta, "waktu">[], zona: string, kini: Date): boolean {
+  const hariIni = tanggalZona(kini, zona);
+  return hadiah.some((item) => tanggalZona(new Date(item.waktu), zona) === hariIni);
+}
+
 export const HADIAH_UI = {
   id: {
     judul: (nada: NadaHadiah) => (nada === "kamu" ? "Hadiah kamu" : "Hadiah Anda"),
     tanda: "Menang",
     dari: (sponsor: string) => `Dari ${sponsor}`,
     caraAmbil: "Cara mengambil",
+    dikonfirmasi: (waktu: string) => `Dikonfirmasi ${waktu}`,
     bukaQr: "Buka QR saya",
   },
   en: {
@@ -73,6 +91,7 @@ export const HADIAH_UI = {
     tanda: "Won",
     dari: (sponsor: string) => `From ${sponsor}`,
     caraAmbil: "How to collect it",
+    dikonfirmasi: (waktu: string) => `Confirmed ${waktu}`,
     bukaQr: "Open my QR",
   },
 } satisfies Record<LandingLang, Record<string, unknown>>;

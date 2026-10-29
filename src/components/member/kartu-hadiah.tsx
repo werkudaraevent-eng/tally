@@ -63,7 +63,7 @@ export function KartuHadiah({
       };
   const tanda = (
     <span
-      className={`inline-flex min-h-6 items-center rounded-full px-2.5 text-[12px] font-semibold leading-4 ${hz ? "bg-[var(--hz-navy)] text-[var(--hz-emas)]" : "bg-[color-mix(in_srgb,var(--reg-brand)_12%,white)] text-[var(--reg-brand)]"}`}
+      className={`inline-flex min-h-6 items-center rounded-full px-2.5 text-[12px] font-semibold leading-4 ${hz ? "bg-[var(--hz-navy)] text-[var(--hz-emas)]" : "bg-[color-mix(in_srgb,var(--reg-primary)_12%,white)] text-[var(--reg-primary)]"}`}
     >
       {t.tanda}
     </span>
@@ -75,7 +75,7 @@ export function KartuHadiah({
         <KepalaKartuHorizon Ikon={Gift} judul={judul} idJudul="hadiah-judul" meta={tanda} />
       ) : (
         <div className="flex items-center gap-3">
-          <Gift size={22} weight="bold" aria-hidden className="shrink-0 text-[var(--reg-brand)]" />
+          <Gift size={22} weight="bold" aria-hidden className="shrink-0 text-[var(--reg-primary)]" />
           <h2 id="hadiah-judul" className="min-w-0 flex-1 text-title-medium font-bold">
             {judul}
           </h2>
@@ -93,7 +93,7 @@ export function KartuHadiah({
               <div className="flex min-w-0 flex-col gap-1">
                 <h3 className={kelas.nama}>{item.nama}</h3>
                 {item.sponsor ? <p className={kelas.ket}>{t.dari(item.sponsor)}</p> : null}
-                <p className={`${kelas.ket} tabular-nums`}>{waktu(item.waktu, zona, lang)}</p>
+                <p className={`${kelas.ket} tabular-nums`}>{t.dikonfirmasi(waktu(item.waktu, zona, lang))}</p>
               </div>
             </div>
             {item.catatan ? (

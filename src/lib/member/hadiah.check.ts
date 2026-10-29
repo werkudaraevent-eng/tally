@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { barisTampil, catatanHadiah, kartuHadiahNyala } from "./hadiah.ts";
+import { barisTampil, catatanHadiah, hadiahDiAtas, kartuHadiahNyala } from "./hadiah.ts";
 
 assert.equal(kartuHadiahNyala(undefined), false);
 assert.equal(kartuHadiahNyala({ enabled: false }), false);
@@ -22,5 +22,11 @@ assert.equal(catatanHadiah(null, setelan, "en"), "Collect at the prize desk.");
 assert.equal(catatanHadiah(null, { enabled: true, note: "Ambil di meja hadiah." }, "en"), "Ambil di meja hadiah.");
 assert.equal(catatanHadiah(null, { enabled: true }, "id"), null);
 assert.equal(catatanHadiah(null, null, "id"), null);
+
+// Atas hanya pada hari dikonfirmasi, menurut zona acara (13.14Z = 20.14 WIB 7 Nov; 17.30Z = 00.30 WIB 8 Nov).
+assert.equal(hadiahDiAtas([{ waktu: "2026-11-07T13:14:00Z" }], "Asia/Jakarta", new Date("2026-11-07T15:00:00Z")), true);
+assert.equal(hadiahDiAtas([{ waktu: "2026-11-07T13:14:00Z" }], "Asia/Jakarta", new Date("2026-11-07T17:30:00Z")), false);
+assert.equal(hadiahDiAtas([{ waktu: "2026-11-06T13:14:00Z" }, { waktu: "2026-11-07T13:14:00Z" }], "Asia/Jakarta", new Date("2026-11-07T01:00:00Z")), true);
+assert.equal(hadiahDiAtas([], "Asia/Jakarta", new Date()), false);
 
 console.log("hadiah.check ok");

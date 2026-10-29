@@ -93,7 +93,7 @@ export function PrizeEditor({
               value={draft.claim_note ?? ""}
               onChange={(event) => onChange({ claim_note: event.target.value || null })}
               placeholder="Collect it at the prize desk by the stage before 22.00. Show your QR code."
-              hint="Shown to the winner on Participant home after you confirm them, in the event's language. Leave empty to use the default in Participant area › Lucky draw prize."
+              hint="Shown to the winner on Participant home after you confirm them, as typed on every language page. Leave empty to use the default in Participant area › Lucky draw prize."
             />
           </DetailSection>
 

@@ -124,6 +124,7 @@ import { rentangPerjalanan } from "@/lib/member/rentang-perjalanan";
 import { faseBeranda } from "@/lib/member/fase-beranda";
 import { KartuHadiah, type GayaKartuHadiah } from "@/components/member/kartu-hadiah";
 import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
+import { hadiahDiAtas } from "@/lib/member/hadiah";
 import { KartuPanitia, type GayaKartuPanitia } from "@/components/member/kartu-panitia";
 import { panitiaDiPortal } from "@/lib/member/panitia";
 import { KartuOutfitBerandaHorizon, KartuPerjalananmuHorizon, KartuQrSampingHorizon, KartuSekarangHorizon } from "@/components/member/beranda-horizon";
@@ -397,9 +398,14 @@ export async function DashboardGathering({
     : [null, null, null, [], []];
   const setelanCheckpoint = checkpointQr?.setelan ?? null;
   // Kartu Hadiah kamu (lib/member/hadiah.ts): paling atas Beranda, sesudah kartu panitia.
-  const kartuHadiah = (gayaKartu: GayaKartuHadiah) => {
-    const kartu = hadiah.length ? <KartuHadiah gaya={gayaKartu} hadiah={hadiah} lang={lang} zona={zona} qrHref={tampilKode ? keTab("qr") : null} /> : null;
-    return kartu && gayaKartu !== "gathering" ? <div className="order-[0] lg:order-none">{kartu}</div> : kartu;
+  // Paling atas hanya pada hari dikonfirmasi; sesudahnya di bawah Next up
+  // (hadiahDiAtas). Tanpa Next up di Beranda: selalu paling atas.
+  const hadiahAtas = hadiahDiAtas(hadiah, zona, sekarang);
+  const kartuHadiah = (gayaKartu: GayaKartuHadiah, posisi: "atas" | "bawah", adaNext: boolean) => {
+    if (!hadiah.length) return null;
+    if (posisi === "atas" ? adaNext && !hadiahAtas : !adaNext || hadiahAtas) return null;
+    const kartu = <KartuHadiah gaya={gayaKartu} hadiah={hadiah} lang={lang} zona={zona} qrHref={tampilKode ? keTab("qr") : null} />;
+    return gayaKartu !== "gathering" && posisi === "atas" ? <div className="order-[0] lg:order-none">{kartu}</div> : kartu;
   };
 
   const tanggal = formatEventDate(event, lang);
@@ -810,7 +816,7 @@ export async function DashboardGathering({
           {pitaEmail}
           <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
           {pantauPanitia("gathering")}
-          {kartuHadiah("gathering")}
+          {kartuHadiah("gathering", "atas", diBeranda("next"))}
           {beranda.order.map((id, index) => {
             // Status pendaftaran sebelum isi pertama selain Tautan cepat, seperti sebelum urutan ini ada.
             const status = index === beranda.order.findIndex((lain) => lain !== "quick") ? statusPendaftaran : null;
@@ -819,7 +825,10 @@ export async function DashboardGathering({
             ) : id === "announcements" ? (
               kartuPengumuman
             ) : id === "next" ? (
-              <div className="lg:hidden">{kartuSelanjutnya(false)}</div>
+              <>
+                <div className="lg:hidden">{kartuSelanjutnya(false)}</div>
+                {kartuHadiah("gathering", "bawah", true)}
+              </>
             ) : id === "checkpoints" ? (
               kartuCheckpoint()
             ) : id === "logistics" ? (
@@ -2362,11 +2371,17 @@ export async function DashboardGathering({
       const urutan = urutanHorizon(member.home, [...kartuBlok.keys()]).filter(
         (id) => id !== "roommates" && id !== "help" && (!kartuBlok.has(id) || (diBeranda(id) && !idRutePerjalanan.has(id))),
       );
+      const hadiahBawah = kartuHadiah(trip ? "trip" : "horizon", "bawah", urutan.includes("next"));
       const isiKartu = (id: string): ReactNode =>
         id === "announcements"
           ? kartuPengumumanHorizon
           : id === "next"
-            ? kartuSekarang
+            ? (hadiahBawah ? (
+                <div className="flex flex-col gap-6">
+                  {kartuSekarang}
+                  {hadiahBawah}
+                </div>
+              ) : kartuSekarang)
             : id === "outfit"
               ? kartuOutfit
               : id === "checkpoints"
@@ -2422,7 +2437,7 @@ export async function DashboardGathering({
               <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
                 {statusPendaftaran ? <div className="order-[0] lg:order-none">{statusPendaftaran}</div> : null}
                 {kartuPantau ? <div className="order-[0] lg:order-none">{kartuPantau}</div> : null}
-                {kartuHadiah(trip ? "trip" : "horizon")}
+                {kartuHadiah(trip ? "trip" : "horizon", "atas", urutan.includes("next"))}
                 {urutan.filter((id) => !SAMPING.has(id)).map(susun)}
                 {/* Bantuan selalu paling bawah: di ponsel dan di akhir kolom utama desktop. */}
                 {kartuBantuan ? (
