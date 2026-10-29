@@ -5,7 +5,7 @@ import { useMemo, type ReactNode } from "react";
 import {
   Banner, EmptyState, Pane, PaneBody, PaneHeader, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, EMPTY_VALUE,
 } from "@/components/m3";
-import { rekapInap, rekapKendaraan, type AngkaMalam } from "@/lib/logistik/rekap";
+import { MALAM_MAKS, rekapInap, rekapKendaraan, type AngkaMalam } from "@/lib/logistik/rekap";
 import { jamZona, labelTanggal } from "@/lib/logistik/stay";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
@@ -38,6 +38,27 @@ function Judul({ children, keterangan }: { children: ReactNode; keterangan: Reac
   );
 }
 
+/** Kolom pertama: cukup lebar untuk nama, tidak memakan layar ponsel. */
+const KOLOM_PERTAMA = "max-w-36 truncate sm:max-w-56";
+
+/**
+ * Tabel yang bergulir ke dua arah di wadahnya sendiri, dengan kepala yang
+ * menempel di atas dan kolom pertama yang menempel di kiri. `Table` dengan
+ * `minWidth` hanya bergulir mendatar, dan kepala tabelnya hilang begitu baris
+ * bawah (Passengers, All hotels) dibaca.
+ */
+function Kisi({ label, minWidth, children }: { label: string; minWidth: number; children: ReactNode }) {
+  return (
+    <div role="region" aria-label={label} tabIndex={0} className="max-h-[min(70vh,44rem)] overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      <div style={{ minWidth: `${minWidth}px` }}>
+        <Table density="compact" className="whitespace-nowrap [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-20 [&_thead_th]:bg-surface-container-lowest [&_thead_th]:shadow-[inset_0_-1px_0_var(--md-sys-color-outline-variant)]">
+          {children}
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 /* ================================================================ Rooms */
 
 export function RekapKamar({ data, atas }: { data: LogistikData; atas: ReactNode }) {
@@ -50,6 +71,8 @@ export function RekapKamar({ data, atas }: { data: LogistikData; atas: ReactNode
   const hotel = rekap.hotel.filter((h) => h.periode.length > 0);
   const banyakHotel = hotel.length > 1;
   const adaTanpaKamar = hotel.some((h) => h.periode.some((p) => p.tanpaKamar > 0));
+  // Tanggal yang hampir pasti salah ketik: check-out tidak sesudah check-in, atau lebih lama dari kolom malam.
+  const tanggalAneh = hotel.reduce((n, h) => n + h.periode.filter((p) => p.malam !== null && (p.malam === 0 || p.malam > MALAM_MAKS)).reduce((m, p) => m + p.tamu, 0), 0);
   const tanpaTanggal = hotel.reduce((n, h) => n + h.periode.filter((p) => p.malam === null).reduce((m, p) => m + p.tamu, 0), 0);
 
   const barisMalam = (label: string, angka: AngkaMalam[], kunci: keyof AngkaMalam, peringatan = false) => (
@@ -84,13 +107,21 @@ export function RekapKamar({ data, atas }: { data: LogistikData; atas: ReactNode
               </div>
             ) : null}
 
+            {tanggalAneh > 0 ? (
+              <div className="px-4 pt-4">
+                <Banner tone="warning">
+                  {`${plural(tanggalAneh, "guest has", "guests have")} a check-out on or before the check-in, or more than ${MALAM_MAKS} nights. Check their dates under Assignments; the nights below leave those out or cut them short.`}
+                </Banner>
+              </div>
+            ) : null}
+
             <Judul keterangan="One row for each check-in and check-out pair. Rooms counts rooms already set up in Logistics, numbered or labelled.">
               By stay
             </Judul>
-            <Table minWidth="720px" density="compact">
+            <Kisi label="Stays by check-in and check-out" minWidth={680}>
               <TableHead>
                 <tr>
-                  <TableHeaderCell sticky className={LATAR}>Hotel</TableHeaderCell>
+                  <TableHeaderCell sticky className={cx(LATAR, "!z-30 !shadow-[inset_0_-1px_0_var(--md-sys-color-outline-variant),1px_0_0_var(--md-sys-color-outline-variant)]")}>Hotel</TableHeaderCell>
                   <TableHeaderCell>Check-in</TableHeaderCell>
                   <TableHeaderCell>Check-out</TableHeaderCell>
                   <TableHeaderCell align="end">Nights</TableHeaderCell>
@@ -103,7 +134,7 @@ export function RekapKamar({ data, atas }: { data: LogistikData; atas: ReactNode
                 {hotel.flatMap((h) => h.periode.map((p, i) => (
                   <TableRow key={`${h.hotel.id}|${p.masuk}|${p.keluar}`}>
                     {/* Nama hotel yang sama dengan baris sebelumnya ditulis redup (DESIGN.md, Satu fakta per kolom). */}
-                    <TableCell sticky className={cx(LATAR, "max-w-64 truncate", i > 0 ? "text-on-surface-variant" : "font-medium text-on-surface")} title={h.hotel.name}>
+                    <TableCell sticky className={cx(LATAR, KOLOM_PERTAMA, i > 0 ? "text-on-surface-variant" : "font-medium text-on-surface")} title={h.hotel.name}>
                       {h.hotel.name}
                     </TableCell>
                     <TableCell className={cx(p.masuk === null && "text-on-surface-variant")}>{p.masuk ? labelTanggal(p.masuk) : "Not set"}</TableCell>
@@ -115,17 +146,17 @@ export function RekapKamar({ data, atas }: { data: LogistikData; atas: ReactNode
                   </TableRow>
                 )))}
               </TableBody>
-            </Table>
+            </Kisi>
 
             {rekap.malam.length > 0 ? (
               <>
                 <Judul keterangan={<>Each column is one night, from check-in day to the next morning. Room-nights are what the hotel bills.{adaTanpaKamar ? " Guests without a room are not in Rooms yet." : ""}</>}>
                   By night
                 </Judul>
-                <Table minWidth={`${200 + rekap.malam.length * 96}px`} density="compact">
+                <Kisi label="Rooms and guests by night" minWidth={180 + rekap.malam.length * 96}>
                   <TableHead>
                     <tr>
-                      <TableHeaderCell sticky className={LATAR}>Night of</TableHeaderCell>
+                      <TableHeaderCell sticky className={cx(LATAR, "!z-30 !shadow-[inset_0_-1px_0_var(--md-sys-color-outline-variant),1px_0_0_var(--md-sys-color-outline-variant)]")}>Night of</TableHeaderCell>
                       {rekap.malam.map((tanggal) => <TableHeaderCell key={tanggal} align="end">{labelTanggal(tanggal)}</TableHeaderCell>)}
                     </tr>
                   </TableHead>
@@ -139,7 +170,7 @@ export function RekapKamar({ data, atas }: { data: LogistikData; atas: ReactNode
                       </RekapMalamHotel>
                     ))}
                   </TableBody>
-                </Table>
+                </Kisi>
               </>
             ) : null}
             <div className="h-6" />
@@ -155,7 +186,7 @@ function RekapMalamHotel({ nama, roomNights, kolom, children }: { nama: string; 
     <>
       <TableRow className={LATAR_KELOMPOK}>
         <TableCell sticky strong className={LATAR_KELOMPOK} title={nama}>
-          <span className="block max-w-64 truncate">{nama}</span>
+          <span className={cx("block", KOLOM_PERTAMA)}>{nama}</span>
         </TableCell>
         <TableCell colSpan={kolom} className="text-on-surface-variant">
           <span className="sticky left-0">{plural(roomNights, "room-night")}</span>
@@ -180,6 +211,7 @@ export function RekapKendaraan({ data, atas }: { data: LogistikData; atas: React
   // Hanya kendaraan yang dipakai di salah satu Trip yang perlu kapasitas untuk dinilai penuh.
   const tanpaKapasitas = rekap.kendaraan.filter((v) => v.capacity === null && kolom.some((k) => rekap.isi(v.id, k.trip.id).load > 0)).length;
   const awalHari = new Set(rekap.hari.map((h) => h.trips[0].trip.id));
+  const hariTrip = new Map(rekap.hari.flatMap((h) => h.trips.map((k) => [k.trip.id, h.tanggal] as const)));
   const garis = (tripId: number) => (awalHari.has(tripId) ? "border-l border-outline-variant" : "");
 
   const barisTotal = (label: string, nilai: (k: (typeof kolom)[number]) => ReactNode) => (
@@ -211,24 +243,19 @@ export function RekapKendaraan({ data, atas }: { data: LogistikData; atas: React
                 </Banner>
               </div>
             ) : null}
-            <Judul keterangan="Passengers on each vehicle for each trip, grouped by day. With a capacity, cells show passengers/capacity and turn red when over.">
+            <Judul keterangan="Passengers on each vehicle for each trip, in departure order; a line separates the days. With a capacity, cells show passengers/capacity and turn red when over.">
               By trip
             </Judul>
-            <Table minWidth={`${180 + kolom.length * 136}px`} density="compact">
+            <Kisi label="Passengers by vehicle and trip" minWidth={160 + kolom.length * 136}>
               <TableHead>
-                <tr>
-                  <TableHeaderCell sticky className={LATAR} />
-                  {rekap.hari.map((h) => (
-                    <TableHeaderCell key={h.tanggal ?? "tanpa"} colSpan={h.trips.length} className="border-l border-outline-variant text-on-surface">
-                      <span className="sticky left-0">{h.tanggal ? labelTanggal(h.tanggal) : "No departure date"}</span>
-                    </TableHeaderCell>
-                  ))}
-                </tr>
                 <tr className="align-bottom">
-                  <TableHeaderCell sticky className={LATAR}>Vehicle</TableHeaderCell>
+                  <TableHeaderCell sticky className={cx(LATAR, "!z-30 !shadow-[inset_0_-1px_0_var(--md-sys-color-outline-variant),1px_0_0_var(--md-sys-color-outline-variant)]")}>Vehicle</TableHeaderCell>
+                  {/* Hari ada di setiap kolom, bukan di baris kelompok: digeser ke samping atau ke bawah, setiap kolom tetap menyebut harinya. */}
                   {kolom.map((k) => (
                     <TableHeaderCell key={k.trip.id} align="end" className={garis(k.trip.id)}>
-                      <span className="block tabular-nums text-on-surface">{k.trip.depart_at ? jamZona(k.trip.depart_at, offset) : EMPTY_VALUE}</span>
+                      <span className="block tabular-nums text-on-surface">
+                        {[hariTrip.get(k.trip.id) ? labelTanggal(hariTrip.get(k.trip.id)!) : "No date", k.trip.depart_at ? jamZona(k.trip.depart_at, offset) : null].filter(Boolean).join(", ")}
+                      </span>
                       <span className="ml-auto block max-w-40 whitespace-normal font-normal" title={k.trip.name}>{k.trip.name}</span>
                     </TableHeaderCell>
                   ))}
@@ -237,7 +264,7 @@ export function RekapKendaraan({ data, atas }: { data: LogistikData; atas: React
               <TableBody>
                 {rekap.kendaraan.map((v) => (
                   <TableRow key={v.id}>
-                    <TableCell sticky strong className={cx(LATAR, "max-w-48 truncate")} title={v.code}>{v.code}</TableCell>
+                    <TableCell sticky strong className={cx(LATAR, KOLOM_PERTAMA)} title={v.code}>{v.code}</TableCell>
                     {kolom.map((k) => {
                       const { load, lebih } = rekap.isi(v.id, k.trip.id);
                       return (
@@ -258,7 +285,7 @@ export function RekapKendaraan({ data, atas }: { data: LogistikData; atas: React
                     : <span className="font-normal text-on-surface-variant" title="Own list: only the people assigned ride on this trip">{EMPTY_VALUE}</span>
                 )) : null}
               </TableBody>
-            </Table>
+            </Kisi>
             <div className="h-6" />
           </>
         )}
