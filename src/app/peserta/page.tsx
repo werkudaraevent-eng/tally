@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { notFound, redirect } from "next/navigation";
 import { ArrowRight, ArrowSquareOut, CheckCircle, EnvelopeSimple, Hourglass, XCircle } from "@phosphor-icons/react/dist/ssr";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
@@ -179,7 +180,7 @@ export default async function AreaPesertaPage({
   if (landing.layout === "modern") {
     return <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />;
   }
-  const agenda = tampilSusunan ? await loadAgendaPreview(event.id, "id", { acara: event, participantId: peserta?.id ?? null, tampilKamar: member.show_logistics === true }) : [];
+  const agenda = tampilSusunan ? await loadAgendaPreview(event.id, "id", { acara: event, participantId: peserta?.id ?? null, tampilKamar: bagianTampil(member, "rooms") }) : [];
   const lengkapi = await kartuLengkapi(event, peserta?.id);
 
   return (

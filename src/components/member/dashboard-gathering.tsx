@@ -54,6 +54,7 @@ import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { jenisKamar } from "@/lib/logistik/nama-kamar";
 import { staySaatBerangkat } from "@/lib/member/hotel-trip";
 import { agendaBerikutnya, loadMemberLogistics, urutWaktuBerangkat, type LogistikKamar, type LogistikPeserta } from "@/lib/logistik/peserta";
+import { bagianTampil, bagianTersembunyi } from "@/lib/logistik/bagian-tampil";
 import { bagasiPeserta } from "@/lib/bagasi/server";
 import { FotoBagasi } from "@/components/member/foto-bagasi";
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
@@ -252,7 +253,7 @@ export async function DashboardGathering({
   // QR klien tanpa ke server sama sekali.
   if (tabDiminta === "qr" && horizon && tampilKode && peserta) {
     const [logistikQr, { setelan: setelanCheckpoint, pindai }, sasaranQr] = await Promise.all([
-      loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, undefined, true),
+      loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, undefined, true, bagianTersembunyi(member)),
       loadCheckpointQr(event.id),
       // Sama dengan lapisan QR di dalam portal: kelompok hanya bila Jadwal ditampilkan.
       member.show_schedule !== false ? loadSasaranPeserta(event.id, peserta.id) : null,
@@ -325,7 +326,7 @@ export async function DashboardGathering({
 
   const tampilSusunan = member.show_schedule !== false;
   // Who sees it per baris Agenda: baris bersyarat hanya untuk peserta yang cocok.
-  const penonton = { acara: event, participantId: peserta?.id ?? null, tampilKamar: member.show_logistics === true };
+  const penonton = { acara: event, participantId: peserta?.id ?? null, tampilKamar: bagianTampil(member, "rooms") };
   // Outfit per bagian Agenda (kolom rundown_sections.outfit): hanya Horizon,
   // kueri sendiri yang kembali kosong sebelum migrasinya dijalankan.
   const [agenda, petaOutfit, sasaranPeserta, slugLama] = await Promise.all([
@@ -381,7 +382,7 @@ export async function DashboardGathering({
   // dan tidak disembunyikan di Participant home.
   const [logistik, checkpoint, checkpointQr, bagasi] = peserta
     ? await Promise.all([
-        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }),
+        loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }, false, bagianTersembunyi(member)),
         (tab === "beranda" || (horizon && tab === "profil")) && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, penonton) : null,
         // Petunjuk layar QR menyebut checkpoint hanya bila fiturnya menyala.
         horizon && tampilKode ? loadCheckpointQr(event.id) : null,
@@ -404,7 +405,7 @@ export async function DashboardGathering({
   // Participant home (bawaannya tepat sebelum Rundown hari ini).
   const hotelIds = new Set(inap.hotels.map((hotel) => hotel.id));
   // Who sees it (src/lib/sasaran-blok.ts): blok bersasaran hanya untuk peserta yang cocok.
-  const blokPeserta = await saringBlokPeserta(landingMemberBlocks(config.sections, config.blocks, hotelIds), event, peserta?.id ?? null, member.show_logistics === true);
+  const blokPeserta = await saringBlokPeserta(landingMemberBlocks(config.sections, config.blocks, hotelIds), event, peserta?.id ?? null, bagianTampil(member, "rooms"));
   // Kartu darurat dan bantuan (E-03): blok Columns khusus peserta pilihan
   // panitia, di Menu tepat di bawah Perjalanan dan ditaut dari kartu bantuan
   // Perjalanan, jadi tidak ikut di Beranda. Jenis lain tidak punya baris yang
@@ -1161,7 +1162,7 @@ export async function DashboardGathering({
   } else if (tabAktif === "perjalanan") {
     // Hanya Horizon (preset lain sudah dialihkan ke Beranda di atas).
     const tv = tH.travel;
-    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note(singkatanZona) };
+    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note(singkatanZona, bagianTersembunyi(member).size > 0) };
     const petaHotel = (h: LogistikKamar["hotel"]) =>
       h.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([h.name, h.address].filter(Boolean).join(", "))}`;
     // Satu kartu per stay, berurutan tanggal. Peserta yang pindah hotel
@@ -2461,7 +2462,7 @@ export async function DashboardGathering({
     const kepalaTab: Record<string, KepalaTab> = {
       beranda: { alis: tanggalSapaan(kini.tanggal, lang), judul: tH.home.heading(namaLengkapSesi), judulPonsel: tH.home.heading(namaLengkapSesi), catatan: tH.home.timeNote(singkatanZona), jenis: "kartu", sapaan: true },
       jadwal: { alis: alisJadwal || nama, judul: t.schedule, judulPonsel: t.schedule, catatan: catatanJadwal, jenis: "jadwal" },
-      perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona), jenis: "kartu" },
+      perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona, bagianTersembunyi(member).size > 0), jenis: "kartu" },
       outfit: { alis: outfitDiAcara ? t.schedule : nama, judul: labelOutfitHalaman, judulPonsel: labelOutfitHalaman, catatan: tH.outfit.note, jenis: outfitDiAcara ? "jadwal" : "kartu" },
       info: { alis: nama, judul: tH.tabs.info, judulPonsel: tH.tabs.info, catatan: t.infoNote, jenis: "kartu" },
       profil: { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabs.profil, catatan: tH.profile.note, jenis: "kartu" },

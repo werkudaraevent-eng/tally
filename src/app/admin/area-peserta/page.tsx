@@ -21,6 +21,7 @@ import { OUTFIT_LABEL_BAWAAN, OUTFIT_LABEL_MAX, labelOutfit } from "@/lib/outfit
 import { FOTO_OUTFIT_SALAH, fotoOutfitSah, unggahFotoOutfit } from "@/lib/outfit-foto";
 import { bacaOutfitSetiapHari, drafSetiapHari, galatSetiapHari, kirimanSetiapHari, samaSetiapHari, type IsianSetiapHari } from "@/lib/outfit-setiap-hari";
 import { plural } from "@/lib/plural";
+import { BAGIAN_LOGISTIK, type BagianLogistik } from "@/lib/logistik/bagian-tampil";
 
 /**
  * Area peserta: siapa yang bisa masuk ke Dashboard saya dan apa yang tampil di
@@ -242,6 +243,9 @@ export default function AreaPesertaPage() {
     // sini. What to wear kosong dikirim sebagai null: server tidak menyimpan apa pun.
     if (samaSetiapHari(anggota.outfit_every_day, data?.member.outfit_every_day)) delete setelan.outfit_every_day;
     else setelan.outfit_every_day = kirimanSetiapHari(anggota.outfit_every_day);
+    // Bagian Logistik juga bisa diubah dari Logistics > Vehicles: hanya
+    // dikirim bila diubah di sini, supaya tab yang basi tidak menimpanya.
+    if (samaBagian(anggota.hide_logistics, data?.member.hide_logistics)) delete setelan.hide_logistics;
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
     delete setelan.show_bus_crew;
@@ -500,12 +504,17 @@ export default function AreaPesertaPage() {
                       <Switch checked={anggota.show_seat !== false} onChange={(value) => set({ show_seat: value })} label="Seat" description="From the Seating plan." />
                     ) : null}
                     <Switch checked={anggota.show_schedule !== false} onChange={(value) => set({ show_schedule: value })} label="Agenda" description="From the Agenda page." />
-                    <Switch
-                      checked={anggota.show_logistics === true}
-                      onChange={(value) => set({ show_logistics: value })}
-                      label="Room and vehicle"
-                      description="From Logistics: room, roommate, vehicle, train tickets and kit items. Turn this on once allocations are final."
-                    />
+                    <div className="flex flex-col gap-2">
+                      <Switch
+                        checked={anggota.show_logistics === true}
+                        onChange={(value) => set({ show_logistics: value })}
+                        label="Logistics"
+                        description="From Logistics. Turn this on once allocations are final, then choose which parts participants see."
+                      />
+                      {anggota.show_logistics === true ? (
+                        <BagianLogistikPilih hidden={anggota.hide_logistics ?? []} onChange={(hide_logistics) => set({ hide_logistics })} />
+                      ) : null}
+                    </div>
                     {data.layout !== "gathering" ? (
                       <>
                         <Switch checked={anggota.show_vote !== false} onChange={(value) => set({ show_vote: value })} label="Live voting" description="The participant code is filled in automatically on the voting page." />
@@ -670,5 +679,54 @@ function CaraMasuk({ anggota, set, data }: { anggota: LandingMemberConfig; set: 
         </>
       ) : null}
     </div>
+  );
+}
+
+const LABEL_BAGIAN: Record<BagianLogistik, { label: string; tab: string }> = {
+  rooms: { label: "Room and roommates", tab: "kamar" },
+  vehicles: { label: "Vehicle and trips", tab: "bus" },
+  trains: { label: "Train tickets", tab: "kereta" },
+  items: { label: "Kit items", tab: "barang" },
+};
+
+function samaBagian(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  const kiri = new Set(a ?? []);
+  const kanan = new Set(b ?? []);
+  return kiri.size === kanan.size && [...kiri].every((isi) => kanan.has(isi));
+}
+
+/**
+ * Bagian Logistik yang sampai ke peserta (lib/logistik/bagian-tampil.ts).
+ * Disimpan sebagai yang disembunyikan, jadi acara lama dan bagian baru tampil.
+ */
+function BagianLogistikPilih({ hidden, onChange }: { hidden: readonly string[]; onChange: (hidden: BagianLogistik[]) => void }) {
+  const semuaMati = BAGIAN_LOGISTIK.every((bagian) => hidden.includes(bagian));
+  return (
+    <fieldset className="flex flex-col gap-1 rounded-md bg-surface-container-low px-3 py-2">
+      <legend className="sr-only">Logistics parts participants see</legend>
+      <ul className="flex flex-col">
+        {BAGIAN_LOGISTIK.map((bagian) => (
+          <li key={bagian} className="flex min-h-10 items-center gap-3">
+            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-1 text-body-medium text-on-surface">
+              <input
+                type="checkbox"
+                checked={!hidden.includes(bagian)}
+                onChange={(event) => onChange(BAGIAN_LOGISTIK.filter((isi) => (isi === bagian ? !event.target.checked : hidden.includes(isi))))}
+                className="size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
+              />
+              <span className="min-w-0 flex-1">{LABEL_BAGIAN[bagian].label}</span>
+            </label>
+            <Link href={`/admin/logistik?tab=${LABEL_BAGIAN[bagian].tab}`} aria-label={`Edit ${LABEL_BAGIAN[bagian].label} in Logistics`} className="shrink-0 rounded-sm text-body-small font-medium text-primary hover:underline">
+              Edit in Logistics
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <p className="text-body-small text-on-surface-variant">
+        {semuaMati
+          ? "Every part is hidden, so participants see no Travel tab. Same as turning Logistics off."
+          : "A hidden part never reaches participants: no card, no Home row, no Next up reminder. Logistics data stays as it is."}
+      </p>
+    </fieldset>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { CaretRight, DotsSixVertical, Eye, EyeSlash, LockSimple, Plus } from "@phosphor-icons/react";
+import { adaLogistikTampil, bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { useRouter } from "next/navigation";
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import Link from "@/components/event-link";
@@ -126,7 +127,10 @@ export function SusunanBeranda({
   const logistikMati = member.show_logistics !== true;
   const alasanMati = (id: string): string | null => {
     if (id === "agenda" && member.show_schedule === false) return "Agenda is off below";
-    if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Room and vehicle is off below";
+    if ((id === "logistics" || id === "roommates" || (id === "next" && !gathering)) && logistikMati) return "Logistics is off below";
+    if (id === "logistics" && !adaLogistikTampil(member)) return "Every Logistics part is hidden below";
+    if (id === "roommates" && !bagianTampil(member, "rooms")) return "Room is hidden under Logistics below";
+    if (id === "next" && !gathering && !bagianTampil(member, "vehicles")) return "Vehicle is hidden under Logistics below";
     if (id === "roommates" && member.show_roommates === false) return "Roommates are off in Logistics";
     if (id === "checkpoints" && !checkpointsOn) return "Off in Check-in";
     if (id === "outfit" && outfitAda === false) return "No dress code yet in Agenda or Every day";

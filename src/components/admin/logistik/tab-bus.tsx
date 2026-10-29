@@ -70,6 +70,8 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
   const [cari, setCari] = useState("");
   const [tampilan, setTampilan] = useState(false);
   const tampil = data.bus_shown;
+  // Kendaraan sampai ke peserta: sakelar induk Logistics menyala dan bagian Vehicle tidak disembunyikan.
+  const kendaraanTampil = tampil.logistics && !(tampil.hidden ?? []).includes("vehicles");
 
   const penumpang = useMemo(() => {
     const peta = new Map<number, LogistikPeserta[]>();
@@ -96,7 +98,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           {atas}
           {/* Sama dengan Room rules di tab Rooms: disetel sekali, cukup terlihat. */}
           <Button variant="text" size="sm" className="ml-auto" icon={<Eye size={16} />} onClick={() => setTampilan(true)}>
-            {!tampil.logistics ? "Participants don't see vehicles yet" : tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see vehicle name only"}
+            {!tampil.logistics ? "Participants don't see vehicles yet" : !kendaraanTampil ? "Hidden from participants" : tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see vehicle name only"}
           </Button>
         </PaneHeader>
       ) : null}
@@ -188,7 +190,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         {bus.crew_contact ? (
           <DetailSection title="Crew">
             <p className="whitespace-pre-line text-body-medium text-on-surface">{bus.crew_contact}</p>
-            <p className="text-body-small text-on-surface-variant">{!tampil.crew ? "Not shown to participants." : tampil.logistics ? "Shown to this vehicle's passengers in their Participant area." : "Not shown yet: Room and vehicle is off in the Participant area."}</p>
+            <p className="text-body-small text-on-surface-variant">{!tampil.crew ? "Not shown to participants." : kendaraanTampil ? "Shown to this vehicle's passengers in their Participant area." : !tampil.logistics ? "Not shown yet: Logistics is off in the Participant area." : "Not shown: vehicles are hidden from participants."}</p>
           </DetailSection>
         ) : null}
         <DetailSection title="Default passengers">
@@ -252,9 +254,15 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         open={tampilan}
         onClose={() => setTampilan(false)}
         busy={busy}
-        awal={tampil}
+        awal={{ plate: tampil.plate, crew: tampil.crew, vehicles: !(tampil.hidden ?? []).includes("vehicles") }}
         logistik={tampil.logistics}
-        simpan={async (nilai) => Boolean(await kirim("/api/admin/area-peserta", "PATCH", { member: { show_bus_plate: nilai.plate, show_bus_crew: nilai.crew } }))}
+        simpan={async (nilai) => {
+          const lama = tampil.hidden ?? [];
+          // Bagian lain dibiarkan seperti yang dimuat; hanya Vehicle yang diubah di sini.
+          const hidden = nilai.vehicles ? lama.filter((bagian) => bagian !== "vehicles") : [...new Set([...lama, "vehicles"])];
+          const ubahBagian = nilai.vehicles === lama.includes("vehicles") ? { hide_logistics: hidden } : {};
+          return Boolean(await kirim("/api/admin/area-peserta", "PATCH", { member: { show_bus_plate: nilai.plate, show_bus_crew: nilai.crew, ...ubahBagian } }));
+        }}
       />
 
       <FormBus
@@ -824,6 +832,8 @@ function FormAgenda({ agenda, trips, siapTautan, agendaTrip, busy, zone, onClose
 
 /* ------------------------------------------------------------ Dialog */
 
+type Tampilan = { plate: boolean; crew: boolean; vehicles: boolean };
+
 /**
  * Yang peserta lihat tentang busnya, untuk seluruh acara (bukan per bus):
  * nama bus selalu, plat nomor dan kontak kru hanya bila dinyalakan. Disimpan
@@ -831,14 +841,14 @@ function FormAgenda({ agenda, trips, siapTautan, agendaTrip, busy, zone, onClose
  */
 function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
   open: boolean;
-  /** "Room and bus" di Participant area; mati = kartu Bus tidak tampil ke peserta sama sekali. */
+  /** Sakelar induk Logistics di Participant area; mati = kartu Bus tidak tampil ke peserta sama sekali. */
   logistik: boolean;
   onClose: () => void;
   busy: boolean;
-  awal: { plate: boolean; crew: boolean };
-  simpan: (nilai: { plate: boolean; crew: boolean }) => Promise<boolean>;
+  awal: Tampilan;
+  simpan: (nilai: Tampilan) => Promise<boolean>;
 }) {
-  const [draf, setDraf] = useState<{ plate: boolean; crew: boolean } | null>(null);
+  const [draf, setDraf] = useState<Tampilan | null>(null);
   const nilai = draf ?? awal;
   function tutup() { setDraf(null); onClose(); }
   return (
@@ -847,7 +857,7 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
       onClose={tutup}
       dismissible={!busy}
       title="What participants see"
-      description="Participants always see their vehicle name, such as Bus 3, on their vehicle card. These apply to every vehicle in this event, and only to the vehicles each participant rides."
+      description="These apply to every vehicle in this event, and only to the vehicles each participant rides."
       actions={
         <>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
@@ -858,18 +868,26 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
       <div className="flex flex-col gap-4">
         {!logistik ? (
           <p className="rounded-sm bg-surface-container-low px-3 py-2 text-body-small text-on-surface-variant">
-            Participants don&apos;t see their vehicle yet, because Room and vehicle is off. Turn it on in{" "}
+            Participants don&apos;t see their vehicle yet, because Logistics is off. Turn it on in{" "}
             <Link href="/admin/area-peserta" className="rounded-sm font-medium text-primary hover:underline">Participant area</Link>.
           </p>
         ) : null}
         <Switch
+          checked={nilai.vehicles}
+          onChange={(vehicles) => setDraf({ ...nilai, vehicles })}
+          label="Show vehicles to participants"
+          description="Their vehicle name, such as Bus 3, on each trip: on the Travel tab, Home and the Next up reminder. Same setting as Vehicle and trips under Logistics in the Participant area."
+        />
+        <Switch
           checked={nilai.plate}
+          disabled={!nilai.vehicles}
           onChange={(plate) => setDraf({ ...nilai, plate })}
           label="Plate number"
           description="Helps participants find their vehicle in the car park."
         />
         <Switch
           checked={nilai.crew}
+          disabled={!nilai.vehicles}
           onChange={(crew) => setDraf({ ...nilai, crew })}
           label="Crew contact"
           description="Shown as written, with Call and WhatsApp buttons for the phone number. Ask the crew before turning this on."

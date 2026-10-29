@@ -1251,6 +1251,12 @@ export type LandingMemberConfig = {
    * peserta sebagai kamar finalnya. Panitia menyalakannya saat siap.
    */
   show_logistics?: boolean;
+  /**
+   * Bagian Logistik yang disembunyikan walau show_logistics menyala: "rooms",
+   * "vehicles", "trains", "items" (lib/logistik/bagian-tampil.ts). Kosong =
+   * semua tampil.
+   */
+  hide_logistics?: string[];
   /** Teman sekamar di kartu Kamar (dibaca member_logistics). Bawaan tampil. */
   show_roommates?: boolean;
   /**

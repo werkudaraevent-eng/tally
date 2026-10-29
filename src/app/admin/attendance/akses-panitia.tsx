@@ -125,6 +125,10 @@ export function AksesPanitia({ tipeAwal }: { tipeAwal: string[] | null }) {
                   No participant has a type yet. Fill the Type column in Participants (edit or import), for example &quot;Committee&quot;, then come back.
                 </p>
               ) : (
+                <>
+                {tipe.length === 0 ? (
+                  <p className="text-body-medium text-on-surface">Tap a type to give it access. With none selected, Save turns access off.</p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   {muat.types.map((isi) => (
                     <FilterChip key={isi.type} selected={terpilih.has(kunciTipe(isi.type))} onClick={() => ubahTipe(isi.type)}>
@@ -139,6 +143,7 @@ export function AksesPanitia({ tipeAwal }: { tipeAwal: string[] | null }) {
                     </FilterChip>
                   ))}
                 </div>
+                </>
               )}
               <p className="text-body-small text-on-surface-variant">
                 Only admins set a participant&apos;s type, so registration answers can&apos;t grant access. Access ends one day after the event&apos;s last day.

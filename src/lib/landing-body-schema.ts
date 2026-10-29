@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BAGIAN_LOGISTIK } from "@/lib/logistik/bagian-tampil";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
 import { OUTFIT_LABEL_MAX } from "@/lib/outfit";
 import { SASARAN_NILAI_MAX, SASARAN_NILAI_PANJANG } from "@/lib/sasaran-bagian";
@@ -260,6 +261,8 @@ export const memberSchema = z.object({
   show_vote: z.boolean().optional(),
   /** Kamar, bus, dan barang dari Logistik di Dashboard saya. Bawaan mati. */
   show_logistics: z.boolean().optional(),
+  /** Bagian Logistik yang disembunyikan (lib/logistik/bagian-tampil.ts). Kosong = semua tampil. */
+  hide_logistics: z.array(z.enum(BAGIAN_LOGISTIK)).max(BAGIAN_LOGISTIK.length).optional(),
   /** Dibaca member_logistics di database; bawaan tampil. */
   show_roommates: z.boolean().optional(),
   /** Plat nomor dan kontak kru bus peserta (Logistics > Buses). Bawaan mati. */
