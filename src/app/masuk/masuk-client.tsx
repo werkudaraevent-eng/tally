@@ -233,13 +233,14 @@ export function MasukClient({
           return indeks === 0 ? (
             <label key={indeks} className={LABEL}>
               {kolom.label}
-              <input type={kolom.jenis} autoComplete="username" {...bersama} className={FIELD} />
+              <input type={kolom.jenis} name={`kolom-${indeks}`} autoComplete="username" {...bersama} className={FIELD} />
             </label>
           ) : (
             <div key={indeks} className="flex flex-col gap-2">
               <label htmlFor={`kolom-${indeks}`} className="text-body-large font-medium">{kolom.label}</label>
               <KolomSandi
                 id={`kolom-${indeks}`}
+                name={`kolom-${indeks}`}
                 autoComplete="current-password"
                 labelTampil={t.tampilkan(kolom.label)}
                 labelSembunyi={t.sembunyikan(kolom.label)}

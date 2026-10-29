@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type InputHTMLAttributes, type Ref } from "react";
+import { useEffect, useRef, useState, type InputHTMLAttributes, type Ref } from "react";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
 
 /**
@@ -28,8 +28,18 @@ export function KolomSandi({
   kelasLuar?: string;
 }) {
   const [lihat, setLihat] = useState(false);
+  const luarRef = useRef<HTMLDivElement>(null);
+  // Saat dikirim, kembali tersembunyi: kolom yang masih type=text membuat
+  // sebagian pengelola sandi tidak menawarkan simpan.
+  useEffect(() => {
+    const form = luarRef.current?.closest("form");
+    if (!form) return;
+    const sembunyikan = () => setLihat(false);
+    form.addEventListener("submit", sembunyikan);
+    return () => form.removeEventListener("submit", sembunyikan);
+  }, []);
   return (
-    <div className={`relative ${kelasLuar ?? ""}`}>
+    <div ref={luarRef} className={`relative ${kelasLuar ?? ""}`}>
       <input
         {...props}
         ref={ref}
@@ -45,7 +55,7 @@ export function KolomSandi({
         aria-controls={props.id}
         aria-label={lihat ? labelSembunyi : labelTampil}
         onClick={() => setLihat((lama) => !lama)}
-        className="m3-state absolute! inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-[var(--reg-on-surface-variant)]"
+        className="m3-state absolute! inset-y-0 right-0 flex w-12 items-center justify-center rounded-md text-[var(--reg-on-surface-variant)]"
       >
         {lihat ? <EyeSlash size={22} aria-hidden /> : <Eye size={22} aria-hidden />}
       </button>
