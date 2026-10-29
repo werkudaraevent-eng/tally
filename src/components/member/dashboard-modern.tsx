@@ -27,6 +27,9 @@ import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
+import { normalizeTimeZone } from "@/lib/timezone";
+import { KartuHadiah } from "@/components/member/kartu-hadiah";
+import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
 import { KartuPanitia } from "@/components/member/kartu-panitia";
 import { panitiaDiPortal } from "@/lib/member/panitia";
 import { kartuLengkapi, updatableFields } from "@/lib/member/lengkapi";
@@ -158,12 +161,14 @@ export async function DashboardModern({
   // Checkpoint (Check-in > Checkpoints), hanya bila dinyalakan dan tidak
   // disembunyikan di Participant home. Barang yang sudah menjadi checkpoint
   // tidak diulang di kartu "Barang yang disiapkan".
-  const [logistik, checkpoint] = peserta
+  const [logistik, checkpoint, hadiah] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }, false, bagianTersembunyi(member)),
         diBeranda("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, { acara: asli, participantId: peserta.id, tampilKamar: bagianTampil(member, "rooms") }) : null,
+        // Hadiah undian yang sudah dikonfirmasi (Participant area > Lucky draw prize).
+        loadHadiahPeserta(event.id, peserta.id, member.prize, lang).catch(() => []),
       ])
-    : [null, null];
+    : [null, null, []];
   const barangCheckpoint = new Set(checkpoint ? checkpoint.item_names : []);
   const sekarang = new Date();
   const berikutnya = logistik ? agendaBerikutnya(logistik, sekarang) : null;
@@ -295,6 +300,8 @@ export async function DashboardModern({
           <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--nav-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:self-start">
             {/* Kehadiran untuk panitia (lib/member/akses-panitia.ts): paling atas, hanya untuk Tipe terpilih. */}
             {panitiaDiPortal(asli, member, sesi, pratinjau) ? <KartuPanitia gaya="modern" slug={event.slug} lang={lang} href={`${halamanAcara}/peserta?tab=panitia`} /> : null}
+            {/* Hadiah undian (lib/member/hadiah.ts); QR ada di kartu tiket tepat di bawahnya, jadi tanpa tautan QR. */}
+            <KartuHadiah gaya="modern" hadiah={hadiah} lang={lang} zona={normalizeTimeZone(event.time_zone)} qrHref={null} />
             {berikutnya && nextDuluan ? (
               <BagianBeranda id="next" pratinjau={pratinjau}>
                 <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="lg:hidden" />

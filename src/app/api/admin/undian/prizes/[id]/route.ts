@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -63,6 +64,7 @@ const patchSchema = z.object({
   description: z.string().trim().max(400).nullable().optional(),
   image_url: z.string().trim().url().max(600).nullable().optional(),
   sponsor_name: z.string().trim().max(120).nullable().optional(),
+  claim_note: z.string().trim().max(CATATAN_HADIAH_MAX).nullish().transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
   winners_per_draw: z.number().int().min(1).max(50).optional(),
   winner_quota: z.number().int().min(1).max(500).optional(),
   backup_per_draw: z.number().int().min(0).max(20).optional(),

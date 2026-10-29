@@ -122,6 +122,8 @@ import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBag
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
 import { rentangPerjalanan } from "@/lib/member/rentang-perjalanan";
 import { faseBeranda } from "@/lib/member/fase-beranda";
+import { KartuHadiah, type GayaKartuHadiah } from "@/components/member/kartu-hadiah";
+import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
 import { KartuPanitia, type GayaKartuPanitia } from "@/components/member/kartu-panitia";
 import { panitiaDiPortal } from "@/lib/member/panitia";
 import { KartuOutfitBerandaHorizon, KartuPerjalananmuHorizon, KartuQrSampingHorizon, KartuSekarangHorizon } from "@/components/member/beranda-horizon";
@@ -380,7 +382,7 @@ export async function DashboardGathering({
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
   // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
   // dan tidak disembunyikan di Participant home.
-  const [logistik, checkpoint, checkpointQr, bagasi] = peserta
+  const [logistik, checkpoint, checkpointQr, bagasi, hadiah] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }, false, bagianTersembunyi(member)),
         (tab === "beranda" || (horizon && tab === "profil")) && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, penonton) : null,
@@ -389,9 +391,16 @@ export async function DashboardGathering({
         // Bagasi yang dicatat di meja bagasi (Check-in > Sessions > Record
         // luggage), di Perjalanan. Tautan fotonya hanya dibuat di tab itu.
         horizon ? bagasiPeserta(event.id, peserta.id, tab === "perjalanan").catch(() => []) : [],
+        // Hadiah undian yang sudah dikonfirmasi (Participant area > Lucky draw prize), hanya Beranda.
+        tab === "beranda" ? loadHadiahPeserta(event.id, peserta.id, member.prize, lang).catch(() => []) : [],
       ])
-    : [null, null, null, []];
+    : [null, null, null, [], []];
   const setelanCheckpoint = checkpointQr?.setelan ?? null;
+  // Kartu Hadiah kamu (lib/member/hadiah.ts): paling atas Beranda, sesudah kartu panitia.
+  const kartuHadiah = (gayaKartu: GayaKartuHadiah) => {
+    const kartu = hadiah.length ? <KartuHadiah gaya={gayaKartu} hadiah={hadiah} lang={lang} zona={zona} qrHref={tampilKode ? keTab("qr") : null} /> : null;
+    return kartu && gayaKartu !== "gathering" ? <div className="order-[0] lg:order-none">{kartu}</div> : kartu;
+  };
 
   const tanggal = formatEventDate(event, lang);
   const venue = event.venue_name?.trim() || null;
@@ -801,6 +810,7 @@ export async function DashboardGathering({
           {pitaEmail}
           <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
           {pantauPanitia("gathering")}
+          {kartuHadiah("gathering")}
           {beranda.order.map((id, index) => {
             // Status pendaftaran sebelum isi pertama selain Tautan cepat, seperti sebelum urutan ini ada.
             const status = index === beranda.order.findIndex((lain) => lain !== "quick") ? statusPendaftaran : null;
@@ -2412,6 +2422,7 @@ export async function DashboardGathering({
               <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
                 {statusPendaftaran ? <div className="order-[0] lg:order-none">{statusPendaftaran}</div> : null}
                 {kartuPantau ? <div className="order-[0] lg:order-none">{kartuPantau}</div> : null}
+                {kartuHadiah(trip ? "trip" : "horizon")}
                 {urutan.filter((id) => !SAMPING.has(id)).map(susun)}
                 {/* Bantuan selalu paling bawah: di ponsel dan di akhir kolom utama desktop. */}
                 {kartuBantuan ? (

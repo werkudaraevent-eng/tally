@@ -792,6 +792,8 @@ export type UndianPrize = {
   description: string | null;
   image_url: string | null;
   sponsor_name: string | null;
+  /** Cara mengambil hadiah, di kartu Hadiah kamu portal pemenang (lib/member/hadiah.ts). */
+  claim_note: string | null;
   winners_per_draw: number;
   winner_quota: number;
   backup_per_draw: number;
@@ -836,6 +838,7 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     description: (raw.description as string | null) ?? null,
     image_url: (raw.image_url as string | null) ?? null,
     sponsor_name: (raw.sponsor_name as string | null) ?? null,
+    claim_note: (raw.claim_note as string | null) ?? null,
     winners_per_draw: numeric(raw.winners_per_draw, 1),
     winner_quota: numeric(raw.winner_quota, 1),
     backup_per_draw: numeric(raw.backup_per_draw, 0),

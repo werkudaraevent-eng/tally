@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -9,7 +10,7 @@ import { buildPool, listAnswerFields, listAttendanceSessions, unknownAnswerError
 // CRUD hadiah undian. Admin saja.
 
 export const PRIZE_COLUMNS =
-  "id,name,description,image_url,sponsor_name,winners_per_draw,winner_quota,backup_per_draw," +
+  "id,name,description,image_url,sponsor_name,claim_note,winners_per_draw,winner_quota,backup_per_draw," +
   "animation,spin_mode,spin_seconds,source,entry_group_id,conditions,exclude_scope," +
   "weight_mode,weight_var,weight_divisor,weight_base,weight_max,bonus_rules,sort_order,is_active";
 
@@ -76,6 +77,8 @@ const bodySchema = z.object({
   description: z.string().trim().max(400).nullable().optional(),
   image_url: z.string().trim().url().max(600).nullable().optional(),
   sponsor_name: z.string().trim().max(120).nullable().optional(),
+  /** Cara mengambil, di kartu Hadiah kamu portal pemenang. Kosong disimpan null. */
+  claim_note: z.string().trim().max(CATATAN_HADIAH_MAX).nullish().transform((nilai) => nilai || null),
   winners_per_draw: z.number().int().min(1).max(50),
   winner_quota: z.number().int().min(1).max(500),
   backup_per_draw: z.number().int().min(0).max(20),
