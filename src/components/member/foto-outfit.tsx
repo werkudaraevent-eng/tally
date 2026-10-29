@@ -11,7 +11,7 @@ import { DialogGambar, usePenampilGambar } from "@/components/landing/modern/pen
  * Google Photos), jadi gambar dan catatannya terbaca tanpa keluar portal.
  * `children` = kolom teks kartu (waktu, judul, catatan) dari KartuOutfitHorizon.
  */
-export function KartuFotoOutfit({ kelas, warna, foto, kapan, apa, catatan, judul, teks, children }: {
+export function KartuFotoOutfit({ kelas, warna, foto, kapan, apa, catatan, judul, teks, wadah = false, children }: {
   kelas: string;
   warna: string;
   foto: string;
@@ -21,6 +21,12 @@ export function KartuFotoOutfit({ kelas, warna, foto, kapan, apa, catatan, judul
   /** Judul bilah atas penampil: label halaman per acara (bawaan "Outfit"). */
   judul: string;
   teks: { buka: string; lihat: string; perbesar: string; tutup: string };
+  /**
+   * Ukuran mengikuti lebar wadah (`@container` induk, 672 px), bukan layar.
+   * Untuk kolom sempit di layar lebar (blok Dress code di kolom 8/12 dan
+   * pratinjau admin): foto 320 px di kiri hanya bila teks masih muat di sampingnya.
+   */
+  wadah?: boolean;
   children: ReactNode;
 }) {
   const penampil = usePenampilGambar();
@@ -31,26 +37,26 @@ export function KartuFotoOutfit({ kelas, warna, foto, kapan, apa, catatan, judul
         onClick={penampil.buka}
         aria-label={teks.buka}
         aria-haspopup="dialog"
-        className="m3-state relative block w-full shrink-0 cursor-zoom-in overflow-hidden rounded-[16px] bg-[#EEF1F6] lg:w-80"
+        className={`m3-state relative block w-full shrink-0 cursor-zoom-in overflow-hidden rounded-[16px] bg-[#EEF1F6] ${wadah ? "@2xl:w-80" : "lg:w-80"}`}
       >
         {/* Foto dari unggahan admin, ukuran asli tidak diketahui. Ponsel dan tablet: rasio
             asli, utuh (papan dress code tidak terpotong), paling tinggi 560 px. Layar lebar:
             dipotong 4:5 di kolom 320 px. Hiasan: isi kartu sudah menyebut pakaiannya. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={foto} alt="" loading="lazy" decoding="async" className="mx-auto block h-auto max-h-[560px] w-auto max-w-full object-contain lg:aspect-[4/5] lg:max-h-none lg:w-full lg:object-cover" />
-        <span aria-hidden className="pointer-events-none absolute bottom-2.5 right-2.5 flex h-9 items-center gap-1.5 rounded-full bg-white/90 pl-2.5 pr-3 text-[13px] font-semibold text-[#1A2333] shadow-[0_1px_3px_rgb(16_24_40/0.18)] lg:bottom-3 lg:right-3 lg:size-10 lg:justify-center lg:p-0">
-          <ArrowsOut size={18} className="shrink-0 lg:size-5" />
-          <span className="lg:hidden">{teks.perbesar}</span>
+        <img src={foto} alt="" loading="lazy" decoding="async" className={`mx-auto block h-auto max-h-[560px] w-auto max-w-full object-contain ${wadah ? "@2xl:aspect-[4/5] @2xl:max-h-none @2xl:w-full @2xl:object-cover" : "lg:aspect-[4/5] lg:max-h-none lg:w-full lg:object-cover"}`} />
+        <span aria-hidden className={`pointer-events-none absolute bottom-2.5 right-2.5 flex h-9 items-center gap-1.5 rounded-full bg-white/90 pl-2.5 pr-3 text-[13px] font-semibold text-[#1A2333] shadow-[0_1px_3px_rgb(16_24_40/0.18)] ${wadah ? "@2xl:bottom-3 @2xl:right-3 @2xl:size-10 @2xl:justify-center @2xl:p-0" : "lg:bottom-3 lg:right-3 lg:size-10 lg:justify-center lg:p-0"}`}>
+          <ArrowsOut size={18} className={`shrink-0 ${wadah ? "@2xl:size-5" : "lg:size-5"}`} />
+          <span className={wadah ? "@2xl:hidden" : "lg:hidden"}>{teks.perbesar}</span>
         </span>
       </button>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 lg:pt-2">
+      <div className={`flex min-w-0 flex-1 flex-col gap-1.5 ${wadah ? "@2xl:pt-2" : "lg:pt-2"}`}>
         {children}
         {/* Layar lebar: tombol teks juga, karena foto besar tidak selalu terbaca sebagai bisa diklik. */}
         <button
           type="button"
           onClick={penampil.buka}
           aria-haspopup="dialog"
-          className="m3-state mt-3 hidden h-10 items-center gap-2 self-start rounded-full border border-[#C9CED8] px-4 text-[14px] font-semibold text-[#274FC0] lg:inline-flex"
+          className={`m3-state mt-3 hidden h-10 items-center gap-2 self-start rounded-full border border-[#C9CED8] px-4 text-[14px] font-semibold text-[#274FC0] ${wadah ? "@2xl:inline-flex" : "lg:inline-flex"}`}
         >
           <ArrowsOut size={18} aria-hidden />
           {teks.lihat}
