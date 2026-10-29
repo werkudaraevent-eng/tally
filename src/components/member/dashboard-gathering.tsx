@@ -51,6 +51,7 @@ import { inisialNama, muatNavPeserta, namaSapaan, waktuPengumuman } from "@/lib/
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { bantuanBahasa, barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
+import { jenisKamar } from "@/lib/logistik/nama-kamar";
 import { agendaBerikutnya, loadMemberLogistics, urutWaktuBerangkat, type LogistikKamar, type LogistikPeserta } from "@/lib/logistik/peserta";
 import { bagasiPeserta } from "@/lib/bagasi/server";
 import { FotoBagasi } from "@/components/member/foto-bagasi";
@@ -642,7 +643,7 @@ export async function DashboardGathering({
       // Hotel saja: nama hotel jadi isi utama kartu, nomor kamar menyusul.
       angka={kamar.room_number ?? kamar.hotel.name}
       catatan={kamar.room_number === null ? t.roomPending
-        : teman && teman.length > 0 ? t.withRoommate(teman.map((orang) => orang.name).join(", ")) : [kamar.floor ? t.floor(kamar.floor) : null, kamar.room_type].filter(Boolean).join(" · ") || kamar.hotel.name}
+        : teman && teman.length > 0 ? t.withRoommate(teman.map((orang) => orang.name).join(", ")) : [kamar.floor ? t.floor(kamar.floor) : null, jenisKamar(kamar)].filter(Boolean).join(" · ") || kamar.hotel.name}
     />
   ) : null;
   const kartuKereta = logistik && logistik.trains.length > 0 ? <KartuKereta logistik={logistik} lang={lang} kelas={KARTU} redup={MUTED} /> : null;
@@ -1189,7 +1190,7 @@ export async function DashboardGathering({
             >
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[12px] px-3 py-2" style={{ background: LATAR_STRIP }}>
                 <p className="text-[16px] font-semibold leading-6">{gabungMeta([stay.room_number ? `${tH.room} ${stay.room_number}` : tH.roomPending, stay.floor ? `${tv.floor} ${stay.floor}` : null])}</p>
-                {stay.room_type ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{stay.room_type}</p> : null}
+                {jenisKamar(stay) ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{jenisKamar(stay)}</p> : null}
               </div>
             </KartuInfoHorizon>
           );
@@ -1371,7 +1372,7 @@ export async function DashboardGathering({
               masuk: stay.check_in_at ? { label: tv.checkIn, hari: hariHorizon(stay.check_in_at, zona, lang), jam: jamHorizon(stay.check_in_at, zona, lang) } : null,
               keluar: stay.check_out_at ? { label: tv.checkOut, hari: hariHorizon(stay.check_out_at, zona, lang), jam: jamHorizon(stay.check_out_at, zona, lang) } : null,
               kamar: gabungMeta([stay.room_number ? `${tH.room} ${stay.room_number}` : tH.roomPending, stay.floor ? `${tv.floor} ${stay.floor}` : null]),
-              tipe: stay.room_type,
+              tipe: jenisKamar(stay),
               teman: stay.roommates && stay.roommates.length > 0 ? { label: tH.roommate(stay.roommates.length), nama: stay.roommates.map((orang) => orang.name) } : null,
             }}
           />
