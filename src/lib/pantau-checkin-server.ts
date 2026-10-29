@@ -103,6 +103,7 @@ export async function muatBahanPantau(
     pickups: pickups.map((isi): CatatanPantau => ({ kunci: Number(isi.item_id), participant_id: isi.participant_id, at: isi.picked_up_at })),
     barang: new Map(((barangHasil.data ?? []) as Array<{ id: number; name: string }>).map((isi) => [Number(isi.id), isi.name])),
     sekarang,
+    offset,
   };
   const orang = new Map<string, OrangPantau>(
     opsi.orang ? peserta.map((isi) => [isi.id, { name: isi.name ?? "", company: isi.company ?? null, extra: isi.extra }]) : [],

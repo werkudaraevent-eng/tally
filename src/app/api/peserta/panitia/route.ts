@@ -1,8 +1,8 @@
 import { getMemberSession } from "@/lib/member/account";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
-import { bolehPantau, POLA_KUNCI_TITIK } from "@/lib/member/akses-panitia";
+import { bolehPantau, POLA_KUNCI_TITIK_HARI } from "@/lib/member/akses-panitia";
 import { tanggalDiZona } from "@/lib/checkpoint/waktu";
-import { hitungPantau, rincianPantau } from "@/lib/pantau-checkin";
+import { hitungPantau, kunciDasar, rincianPantau } from "@/lib/pantau-checkin";
 import { muatBahanPantau } from "@/lib/pantau-checkin-server";
 import { jawabanPeserta } from "@/lib/sasaran-bagian";
 import { KOLOM_HOTEL } from "@/lib/sasaran-blok";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   if (!setelan) return memberError("FORBIDDEN", 403, lang === "en" ? "Attendance is only for the organising committee." : "Kehadiran hanya untuk panitia acara ini.");
 
   const titik = new URL(request.url).searchParams.get("titik");
-  if (titik !== null && (!POLA_KUNCI_TITIK.test(titik) || setelan.hidden.includes(titik))) {
+  if (titik !== null && (!POLA_KUNCI_TITIK_HARI.test(titik) || setelan.hidden.includes(kunciDasar(titik)))) {
     return memberError("NOT_FOUND", 404, lang === "en" ? "This check-in point is not available." : "Titik ini tidak tersedia.");
   }
 
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   if (!dimuat) return memberError("INTERNAL_ERROR", 500, lang === "en" ? "Attendance could not be loaded. Try again." : "Kehadiran belum bisa dimuat. Coba lagi.");
 
   const rows = hitungPantau(dimuat.bahan)
-    .filter((baris) => !setelan.hidden.includes(baris.key))
+    .filter((baris) => !setelan.hidden.includes(kunciDasar(baris.key)))
     .map((baris) => ({
       key: baris.key,
       nama: baris.nama,
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 
   // Kelompok = jawaban pertanyaan yang dipakai Who sees it baris Agenda titik
   // ini (Batch untuk titik kumpul per batch). Hotel tidak: itu data menginap.
-  const cp = titik.startsWith("cp-") ? dimuat.checkpoints.find((isi) => `cp-${isi.id}` === titik) : null;
+  const cp = titik.startsWith("cp-") ? dimuat.checkpoints.find((isi) => `cp-${isi.id}` === kunciDasar(titik)) : null;
   const kunciKelompok = [
     ...new Set(
       (cp?.agenda_item_ids ?? [])

@@ -77,7 +77,24 @@ export type BahanPantau = {
   /** Nama barang per id, untuk checkpoint barang. */
   barang: ReadonlyMap<number, string>;
   sekarang: Date;
+  /** Offset zona acara ("+07:00"), untuk tanggal pencatatan di titik yang dipecah per hari. */
+  offset?: string;
 };
+
+/**
+ * Kunci titik tanpa akhiran hari: "cp-12-20261105" menjadi "cp-12". Pengaturan
+ * (titik yang disembunyikan) memakai kunci dasar ini.
+ */
+export function kunciDasar(key: string): string {
+  return /^((?:cp|sesi)-\d+)-\d{8}$/.exec(key)?.[1] ?? key;
+}
+
+/** Tanggal (zona acara) sebuah waktu ISO, mis. "2026-11-05". */
+function tanggalPada(at: string, offset: string): string {
+  const cocok = /^([+-])(\d{2}):(\d{2})$/.exec(offset);
+  const menit = cocok ? (cocok[1] === "-" ? -1 : 1) * (Number(cocok[2]) * 60 + Number(cocok[3])) : 0;
+  return new Date(Date.parse(at) + menit * 60_000).toISOString().slice(0, 10);
+}
 
 /** Satu titik sebelum diringkas: siapa yang diharapkan dan pencatatan pertama tiap orang. */
 type TitikPantau = {
@@ -116,6 +133,25 @@ function titikPantau(input: BahanPantau): TitikPantau[] {
     terakhir: ringkas.terakhir.get(kunci) ?? null,
   });
 
+  // Checkpoint yang ditautkan ke baris Agenda di beberapa hari (titik kumpul
+  // Batch 0 tanggal 5, Batch 1-4 tanggal 6) dipecah satu titik per hari:
+  // yang diharapkan dari baris hari itu, dan hanya pencatatan pada hari itu
+  // (zona acara). Digabung, angkanya menjadi semua batch di hari pertama.
+  const offset = input.offset ?? "+00:00";
+  const perHari = (dasar: TitikPantau["dasar"], ids: readonly number[], catatan: readonly CatatanPantau[], semua: ReturnType<typeof ringkasCatatan>, kunci: number): TitikPantau[] => {
+    const hari = new Map<string, number[]>();
+    for (const id of ids) {
+      const tanggal = input.agenda.get(id)?.tanggal;
+      if (!tanggal) continue;
+      hari.set(tanggal, [...(hari.get(tanggal) ?? []), id]);
+    }
+    if (hari.size < 2) return [titik(dasar, ids, semua, kunci)];
+    return [...hari].map(([tanggal, idHari]) => {
+      const ringkas = ringkasCatatan(catatan.filter((isi) => isi.kunci === kunci && aktif.has(isi.participant_id) && tanggalPada(isi.at, offset) === tanggal));
+      return titik({ ...dasar, key: `${dasar.key}-${tanggal.replaceAll("-", "")}` }, idHari, ringkas, kunci);
+    });
+  };
+
   const hasil: TitikPantau[] = [];
   const dipakai = new Set<number>();
   for (const cp of input.checkpoints) {
@@ -123,9 +159,9 @@ function titikPantau(input: BahanPantau): TitikPantau[] {
       const sesi = sesiById.get(cp.session_id);
       if (!sesi) continue;
       dipakai.add(sesi.id);
-      hasil.push(titik({ key: `cp-${cp.id}`, jenis: "sesi", nama: cp.title, tempat: cp.place, aktif: sesi.is_active }, cp.agenda_item_ids, scan, sesi.id));
+      hasil.push(...perHari({ key: `cp-${cp.id}`, jenis: "sesi", nama: cp.title, tempat: cp.place, aktif: sesi.is_active }, cp.agenda_item_ids, input.scans, scan, sesi.id));
     } else if (cp.item_id !== null) {
-      hasil.push(titik({ key: `cp-${cp.id}`, jenis: "barang", nama: cp.title, tempat: cp.place ?? input.barang.get(cp.item_id) ?? null, aktif: true }, cp.agenda_item_ids, ambil, cp.item_id));
+      hasil.push(...perHari({ key: `cp-${cp.id}`, jenis: "barang", nama: cp.title, tempat: cp.place ?? input.barang.get(cp.item_id) ?? null, aktif: true }, cp.agenda_item_ids, input.pickups, ambil, cp.item_id));
     }
   }
   for (const sesi of input.sesi) {
