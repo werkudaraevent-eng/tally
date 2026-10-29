@@ -26,6 +26,33 @@ export function adaLogistikTampil(member: Setelan): boolean {
   return BAGIAN_LOGISTIK.some((bagian) => bagianTampil(member, bagian));
 }
 
+/** Perubahan per bagian dari satu layar: true = tampilkan, false = sembunyikan. */
+export type UbahBagian = Partial<Record<BagianLogistik, boolean>>;
+
+/**
+ * Terapkan perubahan per bagian ke simpanan TERKINI di server. Layar admin
+ * mengirim hanya bagian yang diubahnya, bukan seluruh daftar: dua tab
+ * (Participant area dan Logistics > Vehicles) yang dimuat pada waktu berbeda
+ * tidak saling menimpa bagian yang tidak mereka sentuh.
+ */
+export function terapkanBagian(sekarang: readonly string[] | null | undefined, ubah: UbahBagian): BagianLogistik[] {
+  const sembunyi = bagianTersembunyi({ hide_logistics: sekarang ?? [] });
+  for (const bagian of BAGIAN_LOGISTIK) {
+    if (ubah[bagian] === true) sembunyi.delete(bagian);
+    else if (ubah[bagian] === false) sembunyi.add(bagian);
+  }
+  return BAGIAN_LOGISTIK.filter((bagian) => sembunyi.has(bagian));
+}
+
+/** Bagian yang berbeda antara simpanan yang dimuat dan pilihan di layar. */
+export function bedaBagian(dimuat: readonly string[] | null | undefined, pilihan: readonly string[] | null | undefined): UbahBagian {
+  const lama = bagianTersembunyi({ hide_logistics: dimuat ?? [] });
+  const baru = bagianTersembunyi({ hide_logistics: pilihan ?? [] });
+  const ubah: UbahBagian = {};
+  for (const bagian of BAGIAN_LOGISTIK) if (lama.has(bagian) !== baru.has(bagian)) ubah[bagian] = !baru.has(bagian);
+  return ubah;
+}
+
 type Logistik = {
   lodging: unknown | null;
   stays: unknown[];

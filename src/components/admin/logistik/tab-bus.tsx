@@ -257,11 +257,9 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
         awal={{ plate: tampil.plate, crew: tampil.crew, vehicles: !(tampil.hidden ?? []).includes("vehicles") }}
         logistik={tampil.logistics}
         simpan={async (nilai) => {
-          const lama = tampil.hidden ?? [];
-          // Bagian lain dibiarkan seperti yang dimuat; hanya Vehicle yang diubah di sini.
-          const hidden = nilai.vehicles ? lama.filter((bagian) => bagian !== "vehicles") : [...new Set([...lama, "vehicles"])];
-          const ubahBagian = nilai.vehicles === lama.includes("vehicles") ? { hide_logistics: hidden } : {};
-          return Boolean(await kirim("/api/admin/area-peserta", "PATCH", { member: { show_bus_plate: nilai.plate, show_bus_crew: nilai.crew, ...ubahBagian } }));
+          // Hanya bagian Vehicle yang dikirim, dan hanya bila diubah: server menggabungkannya ke simpanan terkini.
+          const ubah = nilai.vehicles !== !(tampil.hidden ?? []).includes("vehicles") ? { logistik_bagian: { vehicles: nilai.vehicles } } : {};
+          return Boolean(await kirim("/api/admin/area-peserta", "PATCH", { member: { show_bus_plate: nilai.plate, show_bus_crew: nilai.crew }, ...ubah }));
         }}
       />
 
@@ -865,7 +863,7 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 pt-3">
         {!logistik ? (
           <p className="rounded-sm bg-surface-container-low px-3 py-2 text-body-small text-on-surface-variant">
             Participants don&apos;t see their vehicle yet, because Logistics is off. Turn it on in{" "}
@@ -879,14 +877,15 @@ function DialogTampilan({ open, onClose, busy, awal, logistik, simpan }: {
           description="Their vehicle name, such as Bus 3, on each trip: on the Travel tab, Home and the Next up reminder. Same setting as Vehicle and trips under Logistics in the Participant area."
         />
         <Switch
-          checked={nilai.plate}
+          // Mati selama kendaraan disembunyikan; pilihan tersimpan kembali saat dinyalakan lagi.
+          checked={nilai.vehicles && nilai.plate}
           disabled={!nilai.vehicles}
           onChange={(plate) => setDraf({ ...nilai, plate })}
           label="Plate number"
           description="Helps participants find their vehicle in the car park."
         />
         <Switch
-          checked={nilai.crew}
+          checked={nilai.vehicles && nilai.crew}
           disabled={!nilai.vehicles}
           onChange={(crew) => setDraf({ ...nilai, crew })}
           label="Crew contact"
