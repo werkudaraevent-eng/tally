@@ -590,7 +590,7 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara): Rencan
         }
       }
       if (bertanggal) {
-        const dilepas = stays.filter((s) => !dipadankan.has(s)).map((s) => `${s.room_id !== null ? `${kamarById.get(s.room_id)?.room_number ?? ""} · ` : ""}${namaHotel(s.hotel_id)}`);
+        const dilepas = stays.filter((s) => !dipadankan.has(s)).map((s) => `${s.room_id !== null ? `${namaKamar(kamarById.get(s.room_id) ?? { room_number: null })} · ` : ""}${namaHotel(s.hotel_id)}`);
         const pertama = daftar[0].baris;
         if (dilepas.length > 0) {
           pertama.alasan = [pertama.alasan, `Removes their stay at ${dilepas.join(", ")}`].filter(Boolean).join(". ");
