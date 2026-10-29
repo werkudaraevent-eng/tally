@@ -1,4 +1,5 @@
 import { apiError } from "@/lib/api";
+import { bagianTersembunyi } from "@/lib/logistik/bagian-tampil";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { EventLandingConfig, RegistrationFormConfig } from "@/lib/domain";
 import { bacaTiketKereta, klien, kolomBelumAda, semuaBaris } from "@/lib/logistik/server";
@@ -133,6 +134,7 @@ export async function GET(request: Request) {
       plate: anggota?.show_bus_plate === true,
       crew: anggota?.show_bus_crew === true,
       logistics: anggota?.show_logistics === true,
+      hidden: [...bagianTersembunyi(anggota)],
     },
   };
   return Response.json(body);

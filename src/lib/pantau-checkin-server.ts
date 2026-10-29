@@ -1,4 +1,5 @@
 import { loadDaftarCheckpoint } from "@/lib/checkpoint/server";
+import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { semuaBaris } from "@/lib/logistik/server";
 import { memberConfig } from "@/lib/member/account";
 import type { EventRow } from "@/lib/domain";
@@ -82,7 +83,7 @@ export async function muatBahanPantau(
   const syarat = [...agenda.values()].flatMap((isi) => isi.syarat ?? []);
   const kunci = [...new Set(syarat.map((isi) => isi.field).filter((field) => field !== KOLOM_HOTEL))];
   let stays: StayPeserta = new Map();
-  if (memberConfig(event)?.show_logistics === true && syarat.some((isi) => isi.field === KOLOM_HOTEL)) {
+  if (bagianTampil(memberConfig(event), "rooms") && syarat.some((isi) => isi.field === KOLOM_HOTEL)) {
     const dimuat = await muatStayPeserta(event.id);
     if (!dimuat) return null;
     stays = dimuat;

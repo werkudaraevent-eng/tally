@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { saringBagian, type BagianLogistik } from "@/lib/logistik/bagian-tampil";
 
 /**
  * Logistik yang boleh dilihat satu peserta di Dashboard saya: kamar, bus, dan
@@ -88,19 +89,21 @@ export async function loadMemberLogistics(
    * detail bus: layar QR yang dimuat ulang cukup tahu nama busnya (U-10).
    */
   ringan = false,
+  /** Bagian yang dimatikan di Participant area > Logistics: dikosongkan di sini, tidak pernah sampai ke HTML peserta. */
+  sembunyi: ReadonlySet<BagianLogistik> = new Set(),
 ): Promise<LogistikPeserta | null> {
   if (!tampil) return null;
   try {
     const db = getSupabaseServiceClient();
     const [{ data, error }, trains] = await Promise.all([
       db.rpc("member_logistics" as never, { p_event_id: eventId, p_participant_id: participantId } as never),
-      ringan ? Promise.resolve([]) : loadTrainTickets(eventId, participantId),
+      ringan || sembunyi.has("trains") ? Promise.resolve([]) : loadTrainTickets(eventId, participantId),
     ]);
     if (error || !data || typeof data !== "object") return null;
     const hasil = data as Partial<LogistikPeserta>;
-    const transport = hasil.transport ?? null;
+    const transport = sembunyi.has("vehicles") ? null : hasil.transport ?? null;
     const buses = ringan ? [] : await loadBusDetails(eventId, transport, bus);
-    return { lodging: hasil.lodging ?? null, stays: Array.isArray(hasil.stays) ? hasil.stays : [], transport, items: hasil.items ?? [], trains, buses };
+    return saringBagian({ lodging: hasil.lodging ?? null, stays: Array.isArray(hasil.stays) ? hasil.stays : [], transport, items: hasil.items ?? [], trains, buses }, sembunyi);
   } catch {
     return null;
   }

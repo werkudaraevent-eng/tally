@@ -1,6 +1,7 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
+import { adaLogistikTampil, bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
@@ -1186,7 +1187,7 @@ export default function LandingCmsPage() {
             <div className="min-w-0 flex-1">
               <dt className="text-body-medium font-semibold text-on-surface">Tiles</dt>
               <dd className="mt-0.5 text-body-medium text-on-surface-variant">
-                {landing.member?.show_logistics ? "Vehicle and Room, because Room and vehicle is on in the Participant area." : "Entry ticket and Announcements. Turn on Room and vehicle in the Participant area to show Vehicle and Room instead."}
+                {bagianTampil(landing.member, "rooms") && bagianTampil(landing.member, "vehicles") ? "Vehicle and Room, because both are shown under Logistics in the Participant area." : "Entry ticket and Announcements. Show Room and Vehicle under Logistics in the Participant area to show Vehicle and Room instead."}
               </dd>
             </div>
             {tautanSumberPortal("/admin/area-peserta", "Participant area")}
@@ -1241,7 +1242,7 @@ export default function LandingCmsPage() {
             data-kolom="portal_note"
             optional
             rows={3}
-            placeholder={LANDING_UI.id.horizon.inviteNote(landing.member?.show_logistics === true)}
+            placeholder={LANDING_UI.id.horizon.inviteNote(adaLogistikTampil(landing.member))}
             maxLength={HORIZON_TEXT_MAX.portal_note}
             counter
             value={landing.portal_note ?? ""}
