@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Ambulance, ArrowLeft, ArrowRight, ArrowsOut, Bell, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, FireTruck, Hospital, Bed, PoliceCar, Question, Siren, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { Ambulance, ArrowLeft, ArrowRight, ArrowsOut, Bell, Bus, CalendarBlank, CalendarDots, CalendarPlus, CaretDown, CaretRight, Check, Clock, CoatHanger, Compass, FireTruck, Hospital, Bed, PoliceCar, Question, Siren, EnvelopeSimple, Lifebuoy, List, MapPin, Phone, QrCode, SignOut, Suitcase, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { PortalTab } from "@/components/member/dashboard-gathering";
 import { GulirChipAktif, GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { CINCIN_NAVY } from "@/components/landing/modern/cincin-horizon";
@@ -1152,6 +1152,11 @@ export type BarisBusHorizon = {
   tanggal: string | null;
   jam: string | null;
   judul: string;
+  /**
+   * Kendaraan perjalanan ini, mis. "BUS 11 · AB 1234 CD". Hanya bila peserta
+   * naik lebih dari satu kendaraan; satu kendaraan sudah jadi nama kartunya.
+   */
+  kendaraan?: string | null;
   detail: string[];
   /** Titik kumpul dan tautan petanya (E-12). */
   titikKumpul: string | null;
@@ -1193,6 +1198,13 @@ export function PerjalananBusHorizon({
           </p>
           <div className="flex min-w-0 flex-col gap-1">
             <p className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.judul}</p>
+            {item.kendaraan ? (
+              // Label kendaraan per segmen, seperti nomor penerbangan di tiap leg itinerary maskapai.
+              <p className="flex w-fit max-w-full items-center gap-1.5 rounded-[8px] px-2 py-1 text-[14px] font-semibold leading-5 [overflow-wrap:anywhere]" style={{ background: LATAR_STRIP }}>
+                <Bus size={16} aria-hidden className="shrink-0" />
+                {item.kendaraan}
+              </p>
+            ) : null}
             {item.detail.map((teks) => (
               <p key={teks} className={KELAS_KET} style={{ color: REDUP }}>
                 {teks}

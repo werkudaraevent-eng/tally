@@ -51,7 +51,7 @@ import { inisialNama, muatNavPeserta, namaSapaan, waktuPengumuman } from "@/lib/
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { bantuanBahasa, barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
-import { agendaBerikutnya, loadMemberLogistics, type LogistikKamar, type LogistikPeserta } from "@/lib/logistik/peserta";
+import { agendaBerikutnya, loadMemberLogistics, urutWaktuBerangkat, type LogistikKamar, type LogistikPeserta } from "@/lib/logistik/peserta";
 import { bagasiPeserta } from "@/lib/bagasi/server";
 import { FotoBagasi } from "@/components/member/foto-bagasi";
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
@@ -592,7 +592,10 @@ export async function DashboardGathering({
   const teman = kamar?.roommates ?? null;
   // Horizon: halaman Perjalanan (dan menunya) hanya ada bila panitia membagikan
   // hotel, bus, atau tiket kereta peserta ini.
-  const perjalananBusHorizon = (logistik?.transport?.trips ?? []).filter((trip) => trip.bus);
+  // Peserta melihat perjalanannya urut waktu, apa pun urutan Trips di Logistics.
+  const perjalananBusHorizon = urutWaktuBerangkat((logistik?.transport?.trips ?? []).filter((trip) => trip.bus));
+  // Lebih dari satu kendaraan di perjalanan peserta: tiap perjalanan menyebut kendaraannya sendiri.
+  const banyakKendaraan = new Set(perjalananBusHorizon.map((trip) => trip.bus)).size > 1;
   const adaPerjalanan = horizon && Boolean(kamar || namaBus || perjalananBusHorizon.length > 0 || (logistik?.trains.length ?? 0) > 0 || bagasi.length > 0);
   // Semua rute tinggal di Perjalanan sebagai baris ringkas di bawah kartu
   // hotel, bus, dan kereta, seperti "Getting there" di halaman reservasi.
@@ -1206,7 +1209,11 @@ export async function DashboardGathering({
         })}
       </>
     ) : null;
-    const busUtama = logistik?.transport?.default_bus ?? namaBus;
+    // Nama kartu = kendaraan yang benar-benar dinaiki di semua perjalanannya.
+    // Kendaraan bawaan yang ditimpa per perjalanan tidak pernah jadi nama kartu;
+    // bila perjalanannya memakai kendaraan berbeda, kartu tanpa nama kendaraan
+    // dan tiap baris menyebut kendaraannya (pola itinerary multi-leg maskapai).
+    const busUtama = perjalananBusHorizon.length > 0 ? (banyakKendaraan ? null : perjalananBusHorizon[0]?.bus ?? null) : logistik?.transport?.default_bus ?? namaBus;
     // Plat dan kru hanya ada bila panitia menyalakannya di Logistics > Buses.
     const detailBus = new Map((logistik?.buses ?? []).map((bus) => [bus.code, bus]));
     const detailUtama = busUtama ? detailBus.get(busUtama) : undefined;
@@ -1218,8 +1225,6 @@ export async function DashboardGathering({
         aksi={{ call: tv.call, whatsapp: tv.whatsapp, callAria: tv.contactLabel(tv.call, bus), whatsappAria: tv.contactLabel(tv.whatsapp, bus) }}
       />
     );
-    // "Bus utama" hanya bila ada perjalanan dengan bus lain; selain itu cukup "Bus" (U-33).
-    const adaBusLain = perjalananBusHorizon.some((trip) => trip.bus && trip.bus !== busUtama);
     // Peta titik kumpul (E-12): titik kumpul di hotel peserta memakai peta hotelnya;
     // yang lain dicari di Google Maps bersama asal perjalanannya.
     const petaTrip = (trip: (typeof perjalananBusHorizon)[number]) => {
@@ -1233,9 +1238,8 @@ export async function DashboardGathering({
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(kueri)}`;
     };
     const barisBus = perjalananBusHorizon.map((trip, index) => {
-      // Bus lain dari bus utama: plat ditulis bersama namanya, kru di bawahnya.
-      // Bus yang sama dengan "Bus utama" tidak diulang (juga bila peserta
-      // tanpa bus bawaan, saat bus utama diambil dari agenda berikutnya).
+      // Kendaraan berbeda per perjalanan: label kendaraan dan platnya di baris
+      // itu, kru di bawahnya. Satu kendaraan sudah jadi nama kartu, tidak diulang.
       const lain = trip.bus && trip.bus !== busUtama ? trip.bus : null;
       const detail = lain ? detailBus.get(lain) : undefined;
       const petaHref = petaTrip(trip);
@@ -1244,11 +1248,8 @@ export async function DashboardGathering({
         tanggal: trip.depart_at ? hariHorizon(trip.depart_at, zona, lang) : null,
         jam: trip.depart_at ? jamHorizon(trip.depart_at, zona, lang) : null,
         judul: trip.name,
-        detail: [
-          [trip.origin?.trim(), trip.destination?.trim()].filter(Boolean).join(" → "),
-          // Nama bus dari Logistics sudah berbunyi "Bus 5"; hanya ditulis bila berbeda dari bus utama.
-          lain ? [lain, detail?.plate].filter(Boolean).join(" · ") : "",
-        ].filter(Boolean),
+        kendaraan: lain ? [lain, detail?.plate].filter(Boolean).join(" · ") : null,
+        detail: [[trip.origin?.trim(), trip.destination?.trim()].filter(Boolean).join(" → ")].filter(Boolean),
         titikKumpul: trip.meeting_point?.trim() ? `${tv.meetingPoint}: ${trip.meeting_point.trim()}` : null,
         peta: petaHref ? { href: petaHref, label: tv.openMeetingMap } : null,
         kru: lain && detail?.crew ? kontakKru(lain, detail.crew, null) : undefined,
@@ -1267,7 +1268,7 @@ export async function DashboardGathering({
           Ikon={Bus}
           // Nama bus jadi kepala isi kartu, tanpa label "Bus" kedua di bawah kepala "Bus".
           nama={busUtama || null}
-          alamat={busUtama ? gabungMeta([adaBusLain ? tv.mainBus : null, detailUtama?.plate ? `${tv.plate} ${detailUtama.plate}` : null]) || null : null}
+          alamat={detailUtama?.plate ? `${tv.plate} ${detailUtama.plate}` : null}
           tanpaKepala={trip}
         >
           <PerjalananBusHorizon
@@ -2265,7 +2266,9 @@ export async function DashboardGathering({
                       judul: labelBus(namaBus, tH.bus),
                       catatan:
                         gabungMeta([
-                          perjalananBusHorizon.length > 0 ? tH.travel.tripCount(perjalananBusHorizon.length) : null,
+                          // "ZENIX A · 2 perjalanan" terbaca dua-duanya naik ZENIX A; bila kendaraannya
+                          // berbeda, baris ini cukup kendaraan dan jam perjalanan berikutnya.
+                          perjalananBusHorizon.length > 0 && !banyakKendaraan ? tH.travel.tripCount(perjalananBusHorizon.length) : null,
                           perjalananBus?.depart_at ? gabungMeta([tanggalLeg(dinding(perjalananBus.depart_at).tanggal, lang), jamDariMenit(dinding(perjalananBus.depart_at).menit, lang)]) : null,
                         ]) || null,
                     },

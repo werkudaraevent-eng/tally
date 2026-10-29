@@ -80,8 +80,6 @@ export type PortalUiText = {
       checkOut: string;
       busTitle: string;
       meetingPoint: string;
-      /** Label bus di kartu Bus (judul kartunya sudah "Bus"). "Bus utama" hanya bila ada perjalanan dengan bus lain (U-33). */
-      mainBus: string;
       /** Di kanan kepala kartu Bus, mis. "4 perjalanan". */
       tripCount: (jumlah: number) => string;
       plate: string;
@@ -403,7 +401,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         checkOut: "Check-out",
         busTitle: "Kendaraan",
         meetingPoint: "Titik kumpul",
-        mainBus: "Kendaraan utama",
         tripCount: (jumlah) => `${jumlah} perjalanan`,
         plate: "Pelat nomor",
         crew: "Kru kendaraan",
@@ -670,7 +667,6 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         checkOut: "Check-out",
         busTitle: "Vehicle",
         meetingPoint: "Meeting point",
-        mainBus: "Main vehicle",
         tripCount: (jumlah) => `${jumlah} ${jumlah === 1 ? "trip" : "trips"}`,
         plate: "Plate number",
         crew: "Vehicle crew",

@@ -160,6 +160,16 @@ async function loadTrainTickets(eventId: string, participantId: string): Promise
 }
 
 /** Agenda bus terdekat yang belum berangkat, untuk kartu "Berikutnya". */
+/**
+ * Perjalanan urut jam berangkat (yang tanpa jam di akhir). Urutan Trips di
+ * Logistics (sort_order) untuk panitia; peserta selalu membaca itinerary urut
+ * waktu. Jam yang sama tetap memakai urutan panitia.
+ */
+export function urutWaktuBerangkat<T extends { depart_at: string | null }>(trips: T[]): T[] {
+  const waktu = (trip: T) => (trip.depart_at ? new Date(trip.depart_at).getTime() : Number.POSITIVE_INFINITY);
+  return [...trips].sort((a, b) => (waktu(a) === waktu(b) ? 0 : waktu(a) < waktu(b) ? -1 : 1));
+}
+
 export function agendaBerikutnya(logistik: LogistikPeserta, now: Date): LogistikAgenda | null {
   const trips = logistik.transport?.trips ?? [];
   return (
