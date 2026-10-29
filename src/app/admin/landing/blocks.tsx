@@ -7,6 +7,8 @@ import { Button, Dialog, IconButton, SegmentedButton, Skeleton, TextArea, TextFi
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { EditorRute, TampilDi } from "./editor-rute";
 import { EditorDosDonts } from "./editor-dos-donts";
+import { EditorDressCode } from "./editor-dress-code";
+import { ringkasanHariDressCode } from "@/lib/dress-code-publik";
 import { PilihLatar } from "./pilih-latar";
 import type { WarnaUbin } from "./pilih-ikon";
 import {
@@ -62,7 +64,7 @@ const EditorHitungMundur = dynamic(() => import("./editor-hitung-mundur").then((
  * menyebut rasio slotnya, karena gambar dipotong otomatis ke rasio itu.
  */
 
-const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "countdown", "gallery", "quote", "route", "dos_donts"];
+const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "countdown", "gallery", "quote", "route", "dos_donts", "dress_code"];
 
 export function buatBlok(type: LandingBlockType): LandingBlock {
   const acak = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 10);
@@ -100,6 +102,7 @@ export function ringkasanBlok(block: LandingBlock): string | null {
       const tidak = (block.items ?? []).filter((item) => item.kind === "dont").length;
       return jumlah ? `${jumlah - tidak} do · ${tidak} don\u2019t` : null;
     }
+    case "dress_code": return ringkasanHariDressCode(block.section_ids);
     case "route": return [jumlah ? plural(jumlah, "way") : null, LANDING_BLOCK_SHOW_ON_LABELS[block.show_on ?? "public"]].filter(Boolean).join(" · ");
     default: return block.heading?.trim() || null;
   }
@@ -125,6 +128,7 @@ function Sketsa({ type }: { type: LandingBlockType }) {
       {type === "cta" ? (<span className="flex flex-1 items-center gap-2"><span className="flex flex-1 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-2/3")}</span><span className="h-3 w-8 rounded-[2px] bg-white" /></span>) : null}
       {type === "route" ? (<><span className="flex w-10 flex-col justify-between rounded-[3px] bg-surface-container-lowest p-1.5"><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full border border-primary" />{garis("w-full")}</span><span className="ml-[2px] h-3 border-l border-dashed border-on-surface-variant/50" /><span className="flex items-center gap-1"><span className="size-1.5 shrink-0 rounded-full bg-primary" />{garis("w-full")}</span></span><span className="flex flex-1 flex-col gap-1">{[0, 1].map((key) => <span key={key} className="flex flex-1 items-center gap-1 rounded-[3px] bg-surface-container-lowest p-1"><span className="size-2.5 shrink-0 rounded-[2px] bg-primary/30" />{garis("w-full")}</span>)}</span></>) : null}
       {type === "dos_donts" ? (<span className="flex flex-1 flex-col gap-1.5">{["#1E7B45", "#B42318"].map((warna) => <span key={warna} className="flex flex-1 items-center gap-1">{[0, 1, 2].map((key) => <span key={key} className="relative flex h-full flex-1 items-center justify-center rounded-[3px] bg-surface-container-lowest"><span className="size-2.5 rounded-full bg-on-surface-variant/40" /><span className="absolute bottom-0.5 right-1 size-1.5 rounded-full" style={{ background: warna }} /></span>)}</span>)}</span>) : null}
+      {type === "dress_code" ? (<><span className="flex w-8 flex-col gap-1">{garis("w-full", "h-1.5")}{garis("w-3/4")}</span><span className="flex flex-1 flex-col gap-1">{[0, 1].map((key) => <span key={key} className="flex flex-1 gap-1 rounded-[3px] bg-surface-container-lowest p-1">{[0, 1, 2].map((foto) => <span key={foto} className="flex-1 rounded-[2px] bg-primary/25" />)}</span>)}</span></>) : null}
     </span>
   );
 }
@@ -778,6 +782,13 @@ export function BlockEditor({
             semuaBlok={semuaBlok}
             ubin={ubinRute}
           />
+          {latar}
+        </div>
+      );
+    case "dress_code":
+      return (
+        <div className="flex flex-col gap-4">
+          <EditorDressCode block={block} ubah={ubah} alis={alis} judul={judul("Heading", "e.g. Dress code")} pengantar={area("body", "Intro", { optional: true, rows: 2 })} />
           {latar}
         </div>
       );

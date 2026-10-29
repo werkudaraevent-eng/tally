@@ -1,4 +1,5 @@
 import { adaTautan, bacaOutfit, labelTabOutfit, segarkanIsianBaris, tabTerlihatOutfit, tanpaIsianBaris, type BarisOutfit, type OutfitEntry } from "./outfit";
+import { hariDressCode, type BarisDressCode, type HariDressCode, type TabDressCode } from "./dress-code-publik";
 import { getSupabaseServiceClient } from "./supabase/service";
 
 type TabDb = { id: number; name: string | null; title: string | null; event_date: string | null; is_published: boolean };
@@ -163,5 +164,35 @@ export async function loadOutfitBagian(eventId: string): Promise<Map<number, Out
     return new Map((data as unknown as Array<{ id: number; outfit?: unknown }>).map((baris) => [baris.id, bacaOutfit(baris.outfit)]));
   } catch {
     return new Map();
+  }
+}
+
+/**
+ * Hari blok Dress code di halaman acara (src/lib/dress-code-publik.ts). Baris
+ * Agenda hanya dibaca untuk tab yang punya isian bertaut. Kosong pada galat apa
+ * pun, termasuk kolom outfit yang belum ada: blok lalu tidak tampil.
+ */
+export async function loadDressCodePublik(eventId: string, sectionIds?: readonly number[]): Promise<HariDressCode[]> {
+  try {
+    const client = getSupabaseServiceClient();
+    const { data, error } = await client
+      .from("rundown_sections")
+      .select("id,name,title,event_date,is_published,outfit")
+      .eq("event_id", eventId)
+      .eq("is_published", true)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
+    if (error || !data) return [];
+    const tabs = data as unknown as TabDressCode[];
+    const bertaut = tabs.filter((tab) => adaTautan(tab.outfit)).map((tab) => tab.id);
+    let baris: BarisDressCode[] = [];
+    if (bertaut.length > 0) {
+      const hasil = await client.from("rundown_items").select("id,section_id,title,is_published").eq("event_id", eventId).in("section_id", bertaut);
+      // Gagal dibaca: isian bertaut tidak tampil, isian lain tetap.
+      baris = hasil.error || !hasil.data ? [] : (hasil.data as unknown as BarisDressCode[]);
+    }
+    return hariDressCode(tabs, baris, sectionIds);
+  } catch {
+    return [];
   }
 }

@@ -1441,13 +1441,14 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat
   foto: string | null;
   /** Pilihan gaya (Agenda > Dress code > Options): menggantikan foto tunggal. */
   pilihan?: OutfitPilihan[];
-  tingkat?: 2 | 3;
+  /** Tingkat judul pakaian: 4 di blok Dress code halaman acara (di bawah judul hari). */
+  tingkat?: 2 | 3 | 4;
   /** Judul bilah atas penampil foto (label halaman per acara). */
   judulFoto: string;
   teksFoto: { buka: string; lihat: string; perbesar: string; tutup: string };
   teksPilihan?: { pilih: string; buka: (nama: string) => string; tutup: string; sebelumnya: string; berikutnya: string };
 }) {
-  const Judul = tingkat === 2 ? "h2" : "h3";
+  const Judul = tingkat === 2 ? "h2" : tingkat === 4 ? "h4" : "h3";
   const teks = (
     <>
       {kapan ? <LabelWaktuOutfit kapan={kapan} /> : null}

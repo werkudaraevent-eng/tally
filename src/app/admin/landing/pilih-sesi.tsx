@@ -577,7 +577,7 @@ function kelompok(baris: BarisSesi[]): Array<{ bagian: string | null; isi: Baris
 }
 
 /** Rundown acara ini, dibuka di tab baru supaya suntingan halaman yang belum disimpan tidak hilang. */
-function rundownHref(): string {
+export function rundownHref(): string {
   if (typeof window === "undefined") return "/admin/rundown";
   const slug = window.location.pathname.match(/^\/e\/([^/]+)/)?.[1];
   return slug ? `/e/${slug}/admin/rundown` : "/admin/rundown";

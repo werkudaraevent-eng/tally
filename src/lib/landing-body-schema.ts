@@ -82,7 +82,7 @@ const ikonUrl = z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon
 const routeStop = z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown", "dos_donts"]),
+  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown", "dos_donts", "dress_code"]),
   show_on: z.enum(LANDING_BLOCK_SHOW_ON).optional(),
   route_from: routeStop.optional(),
   route_to: routeStop.optional(),
@@ -95,6 +95,8 @@ const blockSchema = z.object({
     values: z.array(z.string().trim().min(1).max(SASARAN_NILAI_PANJANG)).min(1).max(SASARAN_NILAI_MAX),
   }).refine((isi) => isi.field !== "@hotel" || isi.values.every((nilai) => /^[1-9]\d{0,17}$/.test(nilai)), "Hotel groups use hotel ids").optional(),
   agenda_item_ids: z.array(z.number().int().positive()).max(TAUTAN_AGENDA_MAX).optional(),
+  // Tab Agenda yang ditampilkan blok Dress code; 60 jauh di atas tab acara mana pun.
+  section_ids: z.array(z.number().int().positive()).max(60).optional(),
   tone: z.enum(["light", "panel", "dark"]).optional(),
   layout: z.enum(["featured", "overlay", "columns", "cards", "numbered", "list", "numbers", "board", "ticket", "strip", "photo", "journey", "tiles"]).optional(),
   eyebrow: teks(60),

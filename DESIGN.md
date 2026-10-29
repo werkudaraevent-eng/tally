@@ -716,6 +716,20 @@ saja.
 - Tidak dipakai: tab per topik dan "Tampilkan semua" (menyembunyikan jawaban),
   kolom cari (baru berguna di sekitar 30 pertanyaan).
 
+#### Blok Dress code
+
+Diputuskan 29 Oktober 2026 (halaman attire Zola/The Knot: tamu menyiapkan
+pakaian sebelum berangkat, sering sebelum masuk portal).
+
+- Isinya dibaca dari Agenda > Dress code, tidak pernah diketik ulang di blok:
+  halaman acara dan halaman Outfit peserta selalu sama.
+- Susunan sama dengan Susunan acara Horizon: kolom hari 4/12 ("Hari 01" dari
+  urutan tanggal, nama tab, tanggal sekali), kartu di 8/12; ponsel bertumpuk.
+- Kartunya kartu halaman Outfit peserta (KartuOutfitHorizon), bukan kartu
+  baru: label waktu, foto, pilihan gaya, dan penampil layar penuh sama persis.
+- Isian yang menaut ke baris Agenda tersembunyi tidak tampil; blok tanpa
+  dress code terbit tidak dirender dan tidak masuk menu atas.
+
 ### Area peserta
 
 `/e/<slug>/masuk` dan `/e/<slug>/peserta`, dinyalakan di CMS Halaman acara, tab

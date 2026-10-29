@@ -20,6 +20,8 @@ import { keadaanSaatIni, LAPISAN_FOTO, sekarangServer, TINTA, warnaHitungMundur,
 import { readableOn } from "@/lib/color";
 import { HitungMundurIsi } from "./hitung-mundur-lazy";
 import { BlokDosDonts } from "./blok-dos-donts";
+import { BlokDressCode } from "./blok-dress-code";
+import type { HariDressCode } from "@/lib/dress-code-publik";
 import { MUAT_IKON } from "./ikon-ssr";
 import { HEAD, JUDUL, LABEL_BAGIAN, MUTED, PIL, SHELL } from "./styles";
 
@@ -935,6 +937,7 @@ export function LandingBlockView({
   lang = "id",
   jadwal,
   warnaTema,
+  dressCode,
 }: {
   block: LandingBlock;
   daftarUrl: string | null;
@@ -946,6 +949,11 @@ export function LandingBlockView({
   jadwal?: AcaraHitungMundur;
   /** Warna merek dan aksen, untuk warna sorot yang dipilih admin. */
   warnaTema?: WarnaTemaBlok;
+  /**
+   * Blok Dress code: hari dari Agenda (loadDressCodePublik) dan label halaman
+   * Outfit peserta bila halaman itu ada. Tanpa hari blok itu tidak dirender.
+   */
+  dressCode?: { hari: HariDressCode[]; labelOutfit: string | null };
 }) {
   if (!landingBlockHasContent(asli)) return null;
   const block = denganLabelBawaan(tanpaJangkarMati(asli, jangkar), lang);
@@ -961,6 +969,7 @@ export function LandingBlockView({
     case "cta": return <Ajakan block={block} daftarUrl={daftarUrl} daftarLabel={daftarLabel} />;
     case "multicolumn": return <Kolom block={block} lang={lang} />;
     case "dos_donts": return <Wadah block={block}><BlokDosDonts block={block} lang={lang} kepala={<Kepala block={block} />} /></Wadah>;
+    case "dress_code": return dressCode?.hari.length ? <Wadah block={block}><BlokDressCode hari={dressCode.hari} lang={lang} labelOutfit={dressCode.labelOutfit} kepala={<Kepala block={block} />} /></Wadah> : null;
     case "countdown": return jadwal ? <HitungMundur block={block} acara={jadwal} lang={lang} warnaTema={warnaTema ?? { brand: "#1B2D57", accent: null }} /> : null;
   }
 }
