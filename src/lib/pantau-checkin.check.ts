@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { hitungPantau, type PesertaPantau } from "./pantau-checkin.ts";
+import { hitungPantau, rincianPantau, type PesertaPantau } from "./pantau-checkin.ts";
 import { bacaSyaratBaris } from "./sasaran-baris.ts";
 
 const kolom = [{ key: "batch", options: ["Batch 1", "Batch 2"] }];
@@ -30,7 +30,8 @@ const scans = [
 ];
 const pickups = [{ kunci: 7, participant_id: "b", at: "2026-11-05T23:58:00Z" }];
 
-const hasil = hitungPantau({ sesi, checkpoints, agenda, peserta, scans, pickups, barang: new Map([[7, "ID card"]]), sekarang });
+const bahan = { sesi, checkpoints, agenda, peserta, scans, pickups, barang: new Map([[7, "ID card"]]), sekarang };
+const hasil = hitungPantau(bahan);
 
 // Urut jam Agenda, tanpa tautan di belakang.
 assert.deepEqual(hasil.map((b) => b.key), ["cp-101", "cp-102", "cp-100", "sesi-3"]);
@@ -63,5 +64,17 @@ assert.equal(hasil[3].aktif, false);
 assert.equal(hasil[3].diharapkan, 4);
 assert.equal(hasil[3].sudah, 1);
 assert.equal(hasil[3].tanggal, null);
+
+// Rincian untuk panitia: angka dan orangnya cocok dengan baris ringkasan.
+const r1 = rincianPantau(bahan, "cp-101");
+assert.ok(r1);
+assert.deepEqual(r1.sudah, [{ id: "a", at: "2026-11-05T22:00:00Z" }]); // pencatatan pertama
+assert.deepEqual(r1.belum, ["b"]);
+assert.deepEqual(r1.lainnya.map((isi) => isi.id), ["c"]);
+const r3 = rincianPantau(bahan, "sesi-3");
+assert.ok(r3);
+assert.deepEqual(r3.belum, ["a", "b", "c"]);
+assert.equal(r3.sudah.length, hasil[3].sudah);
+assert.equal(rincianPantau(bahan, "cp-999"), null);
 
 console.log("pantau-checkin ok");

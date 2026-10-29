@@ -23,6 +23,11 @@ import { loadOutfitBagian } from "@/lib/outfit-server";
 import { bacaOutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { warnaBilahPeramban } from "@/lib/landing-tokens";
+import { PanitiaPortal } from "@/components/member/panitia-portal";
+import { KartuPanitia } from "@/components/member/kartu-panitia";
+import { panitiaDiPortal } from "@/lib/member/panitia";
+import { POLA_KUNCI_TITIK } from "@/lib/member/akses-panitia";
+import { PANITIA_UI } from "@/lib/member/panitia-i18n";
 
 /**
  * Area peserta: `/e/<slug>/peserta`.
@@ -86,6 +91,9 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 async function judulTabPortal(event: EventRow, lang: LandingLang, tab: string | string[] | undefined, lihat?: string | string[]): Promise<string> {
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   const teks = PORTAL_UI[lang];
+  // Halaman Kehadiran panitia ada di semua tata letak. Judulnya tidak membuka
+  // apa pun bagi yang bukan panitia: halamannya sendiri mengalihkan ke Beranda.
+  if (tab === "panitia") return PANITIA_UI[lang].halamanJudul;
   if (landing.layout !== "modern" || landing.gathering !== true) return LANDING_UI[lang].myDashboard;
   const horizon = gatheringHorizon(landing);
   const label = horizon ? teks.horizon.tabs : { ...teks.horizon.tabs, ...teks.tabs };
@@ -131,6 +139,14 @@ export default async function AreaPesertaPage({
   const sesi = await getMemberSession(event);
   // Belum masuk: dialog masuk di halaman acara dalam bahasa yang sama.
   if (!sesi) redirect(`${landingPath(event.slug, lang, utama)}/masuk`);
+
+  // Kehadiran untuk panitia (lib/member/akses-panitia.ts), di semua tata letak.
+  // Sebelum pengumuman dimuat: membukanya tidak menandai pengumuman terbaca.
+  if (kueri.tab === "panitia") {
+    if (!panitiaDiPortal(event, member, sesi)) redirect(`${landingPath(event.slug, lang, utama)}/peserta`);
+    const titik = typeof kueri.titik === "string" && POLA_KUNCI_TITIK.test(kueri.titik) ? kueri.titik : null;
+    return <PanitiaPortal event={event} lang={lang} titik={titik} />;
+  }
 
   const peserta = sesi.participant;
   const schedule = formatEventSchedule(event);
@@ -211,6 +227,12 @@ export default async function AreaPesertaPage({
         ) : null}
 
         <KartuLengkapi lang="id" href={`/e/${event.slug}/lengkapi`} fields={lengkapi} gaya="klasik" className="mt-6 max-w-[720px]" />
+
+        {panitiaDiPortal(event, member, sesi) ? (
+          <div className="mt-6 max-w-[720px]">
+            <KartuPanitia gaya="klasik" slug={event.slug} lang={lang} href={`${landingPath(event.slug, lang, utama)}/peserta?tab=panitia`} />
+          </div>
+        ) : null}
 
         <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-6">
           {!peserta ? (

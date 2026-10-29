@@ -3,6 +3,8 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { gatheringHorizon, landingBlockHasContent, landingBlockMemberOnly, landingBlockShownOn, normalizeLandingSections, sectionsDenganBlokPeserta, type EventLandingConfig, type LandingMemberConfig } from "@/lib/domain";
 import { memberSchema } from "@/lib/landing-body-schema";
+import { kunciTipe } from "@/lib/member/akses-panitia";
+import { semuaBaris } from "@/lib/logistik/server";
 import { loadSetelanCheckpoint } from "@/lib/checkpoint/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { isEmailConfigured } from "@/lib/email/client";
@@ -82,6 +84,29 @@ export async function GET(request: Request) {
     } catch {
       return apiError("INTERNAL_ERROR", 500);
     }
+  }
+
+  // Check-in > Checkpoints > Committee access: Tipe peserta yang ada, berapa
+  // orang, dan beberapa nama, supaya admin melihat siapa yang mendapat akses
+  // sebelum menyimpan (lib/member/akses-panitia.ts).
+  if (new URL(request.url).searchParams.get("panitia") !== null) {
+    const baris = await semuaBaris<{ name: string; participant_type: string | null }>(() =>
+      client.from("participants").select("id,name,participant_type").eq("event_id", eventId).is("source_removed_at", null).not("participant_type", "is", null).order("id"),
+    );
+    if (!baris) return apiError("INTERNAL_ERROR", 500);
+    const kelompok = new Map<string, { type: string; names: string[] }>();
+    for (const orang of baris) {
+      const tipe = orang.participant_type?.trim().replace(/\s+/g, " ");
+      if (!tipe) continue;
+      const kunci = kunciTipe(tipe);
+      const isi = kelompok.get(kunci) ?? { type: tipe, names: [] };
+      isi.names.push(orang.name);
+      kelompok.set(kunci, isi);
+    }
+    const types = [...kelompok.values()]
+      .map((isi) => ({ type: isi.type, count: isi.names.length, names: isi.names.sort((a, b) => a.localeCompare(b, "id")).slice(0, 8) }))
+      .sort((a, b) => a.type.localeCompare(b.type, "id"));
+    return Response.json({ committee: landing.member?.committee ?? null, member_enabled: landing.member?.enabled === true, types });
   }
 
   const cari = new URL(request.url).searchParams.get("cari");

@@ -38,6 +38,8 @@ export type MemberParticipant = {
   email: string | null;
   qr_code: string;
   seats: { subEventId?: string | number; subEventName?: string | null; label?: string | null }[] | null;
+  /** Diisi admin (import atau edit), tidak pernah oleh peserta: kunci akses panitia (lib/member/akses-panitia.ts). */
+  participant_type: string | null;
 };
 
 /**
@@ -62,7 +64,7 @@ export type MemberOutcome =
   | { status: "rate_limited"; retryAfterSeconds: number }
   | { status: "conflict" };
 
-const PARTICIPANT_COLUMNS = "id,name,company,title,email,qr_code,seats";
+const PARTICIPANT_COLUMNS = "id,name,company,title,email,qr_code,seats,participant_type";
 
 export function memberConfig(event: Pick<EventRow, "landing_config">): LandingMemberConfig | null {
   const member = ((event.landing_config ?? {}) as EventLandingConfig).member;

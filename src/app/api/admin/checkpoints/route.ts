@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bacaSetelanPanitia } from "@/lib/member/akses-panitia";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { adaKolomTujuan, bacaTujuan, kolomTujuanBelumAda, rapiTujuan, rewardEnBaru, TUJUAN_POIN_MAX, TUJUAN_TEKS_MAX, type TujuanPoin } from "@/lib/checkpoint/tujuan";
@@ -188,6 +189,8 @@ export async function GET(request: Request) {
     goal_ready: s ? adaKolomTujuan(s) : true,
     // Halaman peserta English menyala: teks English tujuan dipakai di sana.
     en_available: landingEnAvailable(landing),
+    // Check-in > Checkpoints > Committee access: Tipe yang tersimpan, untuk label tombolnya.
+    committee_types: bacaSetelanPanitia(landing?.member?.committee)?.types ?? [],
     checkpoints: barisCp.map((cp) => ({ ...rapiBaris(cp), done: progres?.done?.[String(cp.id)] ?? 0 })),
     // Kolom scan mandiri sudah ada (migrasi 202610180001). Tanpa checkpoint
     // belum bisa diketahui: dianggap siap, dan simpan yang gagal dijawab 409.
