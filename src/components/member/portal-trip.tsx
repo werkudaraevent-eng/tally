@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowSquareOut, ArrowsOut, Bell, CalendarPlus, CaretRight, Train } from "@phosphor-icons/react/dist/ssr";
+import { TeksKaya } from "@/components/landing/teks-kaya";
 import { GulirHariAktif } from "@/components/member/gulir-hari-aktif";
 import { PenandaTab } from "@/components/member/muat-portal";
 import { PemicuQr } from "@/components/member/qr-fokus";
@@ -539,6 +540,7 @@ export type ButirAgendaTrip = {
   jam: string;
   sampai: string | null;
   judul: string;
+  /** Details agenda apa adanya (bertanda **tebal**, *miring*, daftar); dirender TeksKaya. */
   catatan: string | null;
   jeda: boolean;
   /** "Sedang berlangsung" atau "Berikutnya"; titiknya emas. */
@@ -588,11 +590,7 @@ export function AgendaHariTrip({ judul, meta, butir }: { judul: string; meta: st
               <p className={`text-[16px] leading-6 [overflow-wrap:anywhere] ${item.jeda ? "font-medium" : "font-semibold"}`} style={item.jeda ? { color: REDUP } : undefined}>
                 {item.judul}
               </p>
-              {item.catatan ? (
-                <p className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
-                  {item.catatan}
-                </p>
-              ) : null}
+              {item.catatan ? <TeksKaya teks={item.catatan} warna={TINTA} className="whitespace-pre-line text-[14px] leading-5 text-[#526078] [overflow-wrap:anywhere]" /> : null}
               {item.pesanan ? (
                 <Link href={item.pesanan.href} className="m3-state mt-2 flex min-h-14 items-center gap-3 rounded-[12px] border px-3 py-2" style={{ borderColor: GARIS }}>
                   <UbinTrip Ikon={item.pesanan.Ikon} nada={item.pesanan.nada} kecil />
