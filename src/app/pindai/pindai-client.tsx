@@ -1,9 +1,9 @@
 "use client";
 
-import { CheckCircle, CircleNotch, WarningCircle } from "@phosphor-icons/react";
+import { CircleNotch, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { LandingLang } from "@/lib/landing-i18n";
-import { kirimQrCheckpoint, type KabarCheckpoint } from "@/components/member/pindai-checkpoint";
+import { kirimQrCheckpoint, LayarHasil, type KabarCheckpoint } from "@/components/member/pindai-checkpoint";
 
 const TEKS = {
   id: {
@@ -50,6 +50,16 @@ export function HalamanPindai({
   const portal = `/e/${encodeURIComponent(slug)}/peserta`;
   const pesan = !masuk ? t.masuk : sesi === null || kode === null ? t.rusak : null;
 
+  // Hasil dari server: layar penuh yang sama dengan kamera di portal. Di sini
+  // tidak ada portal di belakangnya, jadi tidak tutup sendiri; tombolnya ke portal.
+  if (hasil) {
+    return hasil.ok ? (
+      <LayarHasil lang={lang} kabar={hasil.kabar} utama={{ label: t.keHalaman, href: portal }} className="fixed inset-0" />
+    ) : (
+      <LayarHasil lang={lang} gagal={hasil.pesan} utama={{ label: t.keHalaman, href: portal }} className="fixed inset-0" />
+    );
+  }
+
   return (
     <main className="flex min-h-dvh items-center justify-center bg-[#F4F5F8] px-4 py-10 text-[#151A24]">
       <section className="w-full max-w-sm rounded-[20px] bg-white p-6 text-center shadow-[0_1px_2px_rgb(16_24_40/0.06)]">
@@ -59,21 +69,10 @@ export function HalamanPindai({
             <WarningCircle size={24} weight="fill" aria-hidden className="shrink-0 text-[#B3261E]" />
             {pesan}
           </p>
-        ) : !hasil ? (
+        ) : (
           <p role="status" className="mt-6 flex items-center justify-center gap-2 text-[16px]">
             <CircleNotch size={22} aria-hidden className="animate-spin motion-reduce:animate-none" />
             {t.mencatat}
-          </p>
-        ) : hasil.ok ? (
-          <div role="status" className="mt-5 flex flex-col items-center gap-2">
-            <CheckCircle size={56} weight="fill" aria-hidden className="text-[#1E8E4E]" />
-            <p className="text-[20px] font-semibold leading-7 [overflow-wrap:anywhere]">{hasil.kabar.judul}</p>
-            {hasil.kabar.rinci ? <p className="text-[15px] text-[#4A5568]">{hasil.kabar.rinci}</p> : null}
-          </div>
-        ) : (
-          <p role="alert" className="mt-5 flex items-start gap-2 text-left text-[16px] leading-6">
-            <WarningCircle size={24} weight="fill" aria-hidden className="shrink-0 text-[#B3261E]" />
-            {hasil.pesan}
           </p>
         )}
         <a href={portal} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#151A24] px-5 text-[15px] font-semibold text-white">

@@ -26,6 +26,10 @@ const teks = (max: number) => z.string().trim().max(max).nullish().transform((ni
 
 const rapi = rapiTujuan;
 
+/** Message after scan: tidak dikirim = tidak diubah, kosong = dihapus (null). */
+const PESAN_SCAN_MAX = 200;
+const pesanScan = z.string().trim().max(PESAN_SCAN_MAX).nullish().transform((nilai) => (nilai === undefined ? undefined : nilai || null));
+
 const tujuanSchema = z.object({
   points: z.number().int().min(1).max(TUJUAN_POIN_MAX),
   // Bahasa Indonesia, seperti teks dasar acara lain.
@@ -64,6 +68,10 @@ const isiSchema = z.object({
   // Baris Agenda yang memberi tanggal dan jam (migrasi 202610220001). Tidak
   // dikirim: tidak diubah. Kosong atau null: tanpa tanggal.
   agenda_item_ids: z.array(z.number().int().positive()).max(TAUTAN_AGENDA_MAX).nullish(),
+  // Pesan di layar hasil scan mandiri peserta (migrasi 202610290002). Tidak
+  // dikirim: tidak diubah.
+  scan_message: pesanScan,
+  scan_message_en: pesanScan,
 });
 
 const patchSchema = z.union([
@@ -77,7 +85,27 @@ const PILIH = "*";
 
 /** Baris checkpoint untuk CMS: `completion` selalu ada (kolom belum ada = staff), `agenda_item_ids` selalu larik. */
 function rapiBaris(baris: Record<string, unknown>) {
-  return { ...baris, completion: bacaPenyelesaian(baris.completion), agenda_item_ids: bacaTautanAgenda(baris.agenda_item_ids) };
+  return {
+    ...baris,
+    completion: bacaPenyelesaian(baris.completion),
+    agenda_item_ids: bacaTautanAgenda(baris.agenda_item_ids),
+    scan_message: typeof baris.scan_message === "string" ? baris.scan_message : null,
+    scan_message_en: typeof baris.scan_message_en === "string" ? baris.scan_message_en : null,
+  };
+}
+
+/** Kolom Message after scan belum ada di database ini (migrasi 202610290002 belum dijalankan). */
+function kolomPesanBelumAda(error: { code?: string; message?: string }) {
+  const kode = String(error.code ?? "");
+  return (kode === "42703" || kode === "PGRST204") && String(error.message ?? "").includes("scan_message");
+}
+
+/** Kolom pesan yang akan ditulis: hanya yang dikirim. `isi`: ada teks yang harus disimpan. */
+function kolomPesan(isi: { scan_message?: string | null; scan_message_en?: string | null }) {
+  const kolom: Record<string, string | null> = {};
+  if (isi.scan_message !== undefined) kolom.scan_message = isi.scan_message;
+  if (isi.scan_message_en !== undefined) kolom.scan_message_en = isi.scan_message_en;
+  return { kolom, isi: Object.values(kolom).some((nilai) => nilai !== null) };
 }
 
 /** Kolom `agenda_item_ids` belum ada di database ini (migrasi 202610220001 belum dijalankan). */
@@ -197,6 +225,8 @@ export async function GET(request: Request) {
     self_scan_ready: barisCp.length === 0 || Object.hasOwn(barisCp[0], "completion"),
     // Kolom When sudah ada (migrasi 202610220001), dengan cara yang sama.
     when_ready: barisCp.length === 0 || Object.hasOwn(barisCp[0], "agenda_item_ids"),
+    // Kolom Message after scan sudah ada (migrasi 202610290002), dengan cara yang sama.
+    message_ready: barisCp.length === 0 || Object.hasOwn(barisCp[0], "scan_message"),
     sessions: sesi.data ?? [],
     items: barang.data ?? [],
     finished_all: progres?.finished_all ?? null,
@@ -217,13 +247,16 @@ export async function POST(request: Request) {
   const bentrok = await bentrokSesi(db, eventId, parsed.data.session_id ?? null, parsed.data.completion ?? "staff", null);
   if (bentrok) return bentrok;
   const { data: akhir } = await db.from("checkpoints").select("sort_order").eq("event_id", eventId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
-  const { completion, agenda_item_ids, ...isi } = parsed.data;
+  const { completion, agenda_item_ids, scan_message, scan_message_en, ...isi } = parsed.data;
   const waktu = await periksaWaktu(db, eventId, agenda_item_ids);
   if ("galat" in waktu) return waktu.galat;
+  // Pesan hanya ditulis bila terisi, sama dengan When.
+  const pesan = kolomPesan({ scan_message, scan_message_en });
+  const kolomPesanBaru = pesan.isi ? Object.fromEntries(Object.entries(pesan.kolom).filter(([, nilai]) => nilai !== null)) : {};
   // When hanya ditulis bila terisi: menambah checkpoint tanpa tanggal tetap
   // jalan sebelum migrasi 202610220001.
   const kolomWaktu = waktu.kolom.agenda_item_ids ? waktu.kolom : {};
-  const baris = { ...isi, ...kolomWaktu, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, event_id: eventId, sort_order: ((akhir as { sort_order: number } | null)?.sort_order ?? -1) + 1 };
+  const baris = { ...isi, ...kolomWaktu, ...kolomPesanBaru, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, event_id: eventId, sort_order: ((akhir as { sort_order: number } | null)?.sort_order ?? -1) + 1 };
   // Staff adalah bawaan database, jadi kolomnya hanya ditulis untuk pilihan
   // lain: menambah checkpoint tetap jalan sebelum migrasi 202610180001.
   const { data, error } = await db
@@ -234,6 +267,7 @@ export async function POST(request: Request) {
   if (error) {
     if (kolomPenyelesaianBelumAda(error)) return apiError("CHECKPOINT_SELF_SCAN_NOT_READY", 409);
     if (kolomWaktuBelumAda(error)) return apiError("CHECKPOINT_WHEN_NOT_READY", 409);
+    if (kolomPesanBelumAda(error)) return apiError("CHECKPOINT_MESSAGE_NOT_READY", 409);
     return galat(error);
   }
   return Response.json(rapiBaris(data as Record<string, unknown>));
@@ -315,7 +349,7 @@ export async function PATCH(request: Request) {
     return Response.json({ ok: true });
   }
 
-  const { id, completion, agenda_item_ids, ...isi } = parsed.data;
+  const { id, completion, agenda_item_ids, scan_message, scan_message_en, ...isi } = parsed.data;
   if (!satuBukti(isi)) return apiError("VALIDATION_ERROR", 422, { message: "Pick exactly one: a scan session or a kit item." });
   // Sama dengan POST: barang dengan pilihan selain Staff ditolak. Pindah ke
   // barang tanpa menyebut pilihannya: checkpoint itu kembali dipindai panitia.
@@ -334,7 +368,8 @@ export async function PATCH(request: Request) {
   if (bentrok) return bentrok;
   const waktu = await periksaWaktu(db, eventId, agenda_item_ids);
   if ("galat" in waktu) return waktu.galat;
-  let ubah: Record<string, unknown> = { ...isi, ...waktu.kolom, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, updated_at: sekarang };
+  const pesan = kolomPesan({ scan_message, scan_message_en });
+  let ubah: Record<string, unknown> = { ...isi, ...waktu.kolom, ...pesan.kolom, session_id: isi.session_id ?? null, item_id: isi.item_id ?? null, updated_at: sekarang };
   const simpan = (dengan: boolean) =>
     db
       .from("checkpoints")
@@ -355,9 +390,21 @@ export async function PATCH(request: Request) {
     ({ data, error } = await simpan(penyelesaian !== undefined));
     if (error && kolomPenyelesaianBelumAda(error) && penyelesaian === "staff") ({ data, error } = await simpan(false));
   }
+  // Sebelum migrasi 202610290002: checkpoint tanpa pesan tetap tersimpan
+  // tanpa kolomnya; pesan yang terisi dijawab 409.
+  if (error && kolomPesanBelumAda(error) && !pesan.isi) {
+    ubah = Object.fromEntries(Object.entries(ubah).filter(([kunci]) => !kunci.startsWith("scan_message")));
+    ({ data, error } = await simpan(penyelesaian !== undefined));
+    if (error && kolomPenyelesaianBelumAda(error) && penyelesaian === "staff") ({ data, error } = await simpan(false));
+    if (error && kolomWaktuBelumAda(error) && waktu.kolom.agenda_item_ids === null) {
+      ubah = Object.fromEntries(Object.entries(ubah).filter(([kunci]) => kunci !== "agenda_item_ids"));
+      ({ data, error } = await simpan(penyelesaian !== undefined));
+    }
+  }
   if (error) {
     if (kolomPenyelesaianBelumAda(error)) return apiError("CHECKPOINT_SELF_SCAN_NOT_READY", 409);
     if (kolomWaktuBelumAda(error)) return apiError("CHECKPOINT_WHEN_NOT_READY", 409);
+    if (kolomPesanBelumAda(error)) return apiError("CHECKPOINT_MESSAGE_NOT_READY", 409);
     return galat(error);
   }
   if (!data) return apiError("VALIDATION_ERROR", 404, { message: "This checkpoint no longer exists. Reload the page." });

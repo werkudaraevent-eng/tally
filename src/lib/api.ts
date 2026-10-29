@@ -58,6 +58,7 @@ const messages: Record<ApiErrorCode, string> = {
   CHECKPOINT_GOAL_NOT_READY: "The points goal can't be saved yet: database migration 202610170001 has not been run.",
   CHECKPOINT_SELF_SCAN_NOT_READY: "Participant scanning can't be saved yet: database migration 202610180001 has not been run.",
   CHECKPOINT_WHEN_NOT_READY: "When can't be saved yet: database migration 202610220001 has not been run.",
+  CHECKPOINT_MESSAGE_NOT_READY: "Message after scan can't be saved yet: database migration 202610290002 has not been run.",
   UNDIAN_PRIZE_NOT_FOUND: "Hadiah undian tidak ditemukan.",
   UNDIAN_PRIZE_IN_USE: "Hadiah sudah punya pemenang. Matikan saja, jangan dihapus.",
   UNDIAN_NO_ACTIVE_PRIZE: "Belum ada hadiah yang dipilih untuk diundi.",
