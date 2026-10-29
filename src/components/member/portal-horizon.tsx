@@ -1434,7 +1434,7 @@ function LabelWaktuOutfit({ kapan, kecil = false }: { kapan: string; /** Ringkas
  * `tingkat`: judulnya h3 di bawah judul tanggal (h2); h2 bila kartu langsung di
  * bawah judul halaman (acara tanpa tab Agenda), supaya tidak melompat dari h1 ke h3.
  */
-export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat = 3, judulFoto, teksFoto, teksPilihan }: {
+export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat = 3, judulFoto, teksFoto, teksPilihan, wadah = false }: {
   kapan: string | null;
   apa: string;
   catatan: string | null;
@@ -1447,6 +1447,8 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat
   judulFoto: string;
   teksFoto: { buka: string; lihat: string; perbesar: string; tutup: string };
   teksPilihan?: { pilih: string; buka: (nama: string) => string; tutup: string; sebelumnya: string; berikutnya: string };
+  /** Kartu foto ikut lebar wadah `@container`, bukan layar (blok Dress code halaman acara). */
+  wadah?: boolean;
 }) {
   const Judul = tingkat === 2 ? "h2" : tingkat === 4 ? "h4" : "h3";
   const teks = (
@@ -1478,9 +1480,9 @@ export function KartuOutfitHorizon({ kapan, apa, catatan, foto, pilihan, tingkat
     // tablet: foto selebar kartu dengan rasio aslinya, teks di bawah (keputusan
     // 23 Okt; dulu foto 96 px yang terpotong 4:5). Layar lebar: foto 320 px di
     // kiri (keputusan 22 Okt). Ketuk foto untuk layar penuh beserta keterangannya.
-    const kelas = `${KARTU_HZ} flex min-w-0 flex-col gap-4 ${PAD_KARTU} lg:flex-row lg:items-start lg:gap-6`;
+    const kelas = `${KARTU_HZ} flex min-w-0 flex-col gap-4 ${PAD_KARTU} ${wadah ? "@2xl:flex-row @2xl:items-start @2xl:gap-6" : "lg:flex-row lg:items-start lg:gap-6"}`;
     return (
-      <KartuFotoOutfit kelas={kelas} warna={TINTA} foto={foto} kapan={kapan} apa={apa} catatan={catatan} judul={judulFoto} teks={teksFoto}>
+      <KartuFotoOutfit kelas={kelas} warna={TINTA} foto={foto} kapan={kapan} apa={apa} catatan={catatan} judul={judulFoto} teks={teksFoto} wadah={wadah}>
         {teks}
       </KartuFotoOutfit>
     );

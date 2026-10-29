@@ -40,7 +40,9 @@ export function BlokDressCode({ hari, lang, kepala, labelOutfit }: { hari: HariD
                 {judul ? <h3 className={`${HEAD} text-balance text-[22px] font-extrabold leading-[30px] [overflow-wrap:anywhere] md:text-[28px] md:leading-9`}>{judul}</h3> : null}
                 {tanggal ? <p className={`text-[14px] leading-5 ${MUTED}`}>{tanggal}</p> : null}
               </div>
-              <div className="flex min-w-0 flex-col gap-4">
+              {/* Kolom 8/12 bisa sempit di layar lebar (pratinjau admin, 768-1279): kartu foto
+                  mengukur lebar kolom ini, bukan layar, supaya teks tidak terjepit di samping foto. */}
+              <div className="@container flex min-w-0 flex-col gap-4">
                 {isi.isian.map((isian, index) => (
                   <KartuOutfitHorizon
                     key={index}
@@ -50,6 +52,7 @@ export function BlokDressCode({ hari, lang, kepala, labelOutfit }: { hari: HariD
                     foto={isian.photo_url ?? null}
                     pilihan={isian.options}
                     tingkat={judul ? 4 : 3}
+                    wadah
                     judulFoto={judul ?? "Dress code"}
                     teksFoto={{ buka: to.openPhoto(isian.what), lihat: to.viewPhoto, perbesar: to.enlarge, tutup: to.closePhoto }}
                     teksPilihan={{ pilih: to.options(isian.options?.length ?? 0), buka: to.openPhoto, tutup: to.closePhoto, sebelumnya: to.prevPhoto, berikutnya: to.nextPhoto }}
