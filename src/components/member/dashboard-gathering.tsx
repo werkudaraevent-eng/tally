@@ -75,6 +75,7 @@ import { bagianModern, gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD, SHELL } from "@/components/landing/modern/styles";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { LatarKv, inisialNama as inisialAcara } from "@/components/landing/modern/gathering-app";
+import { TeksKaya } from "@/components/landing/teks-kaya";
 import { teksPolos } from "@/lib/landing-teks-kaya";
 import { kontras } from "@/lib/landing-hitung-mundur";
 import { HORIZON_GOLD_DEFAULT, sorotHorizon } from "@/lib/landing-tokens";
@@ -163,6 +164,8 @@ export type PortalTab = "beranda" | "jadwal" | "perjalanan" | "outfit" | "info" 
 
 const KARTU = "rounded-[20px] bg-white p-5 shadow-[0_1px_2px_rgb(16_24_40/0.06)] sm:p-6";
 const MUTED = "text-[#5F6B7F]";
+/** Warna tanda ==warna== di Details agenda portal: tinta judul, bukan warna merek (kontras aman di kartu putih). */
+const TINTA_TANDA = "#1A2333";
 const LABEL = "text-[12px] font-bold uppercase tracking-[0.08em]";
 const PANEL = "#F4F6F8";
 /** Gradasi hero halaman acara (LATAR_HERO di gathering-app), dari `--latar-gathering`. */
@@ -716,7 +719,7 @@ export async function DashboardGathering({
                   {item.title}
                   {status ? <Chip nada="aksi">{status === "berlangsung" ? t.now : t.next}</Chip> : null}
                 </p>
-                {item.subtitle ? <p className={`text-body-medium ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
+                {item.subtitle ? <TeksKaya teks={item.subtitle} warna={TINTA_TANDA} className={`whitespace-pre-line text-body-medium ${MUTED}`} /> : null}
               </div>
             </li>
           );
@@ -975,7 +978,7 @@ export async function DashboardGathering({
                           jam: item.time,
                           sampai: item.end,
                           judul: tanpaLabelBagian(item.title, labelTerpilih),
-                          catatan: teksPolos(item.subtitle) || null,
+                          catatan: item.subtitle?.trim() ? item.subtitle : null,
                           jeda: item.jeda,
                           status: status ? (status === "berlangsung" ? t.now : t.next) : null,
                           pesanan: tripBaris?.bus
@@ -1016,7 +1019,7 @@ export async function DashboardGathering({
                             {tanpaLabelBagian(item.title, labelTerpilih)}
                             {status ? <Chip nada="aksi">{status === "berlangsung" ? t.now : t.next}</Chip> : null}
                           </p>
-                          {item.subtitle ? <p className={`mt-1 text-[14px] leading-5 ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
+                          {item.subtitle ? <TeksKaya teks={item.subtitle} warna={TINTA_TANDA} className={`mt-1 whitespace-pre-line text-[14px] leading-5 ${MUTED}`} /> : null}
                           {/* Tautan 4 px di bawah judul tanpa margin negatif (tetap benar bila teksnya dua baris);
                               lapisan ::before memberi area ketuk 48 px tanpa menggeser apa pun. */}
                           {ruteBaris.has(item.id) ? (
@@ -1138,7 +1141,7 @@ export async function DashboardGathering({
                           {item.title}
                           {status ? <Chip nada="aksi">{status === "berlangsung" ? t.now : t.next}</Chip> : null}
                         </p>
-                        {item.subtitle ? <p className={`${horizon ? "mt-1 text-[14px] leading-5" : "mt-0.5 text-body-medium"} ${MUTED}`}>{teksPolos(item.subtitle)}</p> : null}
+                        {item.subtitle ? <TeksKaya teks={item.subtitle} warna={TINTA_TANDA} className={`${horizon ? "mt-1 text-[14px] leading-5" : "mt-0.5 text-body-medium"} whitespace-pre-line ${MUTED}`} /> : null}
                       </div>
                     </li>
                   );
