@@ -52,6 +52,7 @@ import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { bantuanBahasa, barisKontakDarurat } from "@/lib/member/kontak-darurat";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { jenisKamar } from "@/lib/logistik/nama-kamar";
+import { staySaatBerangkat } from "@/lib/member/hotel-trip";
 import { agendaBerikutnya, loadMemberLogistics, urutWaktuBerangkat, type LogistikKamar, type LogistikPeserta } from "@/lib/logistik/peserta";
 import { bagasiPeserta } from "@/lib/bagasi/server";
 import { FotoBagasi } from "@/components/member/foto-bagasi";
@@ -1152,10 +1153,8 @@ export async function DashboardGathering({
     // Hanya Horizon (preset lain sudah dialihkan ke Beranda di atas).
     const tv = tH.travel;
     judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note(singkatanZona) };
-    const hotel = kamar?.hotel ?? null;
-    const peta = hotel
-      ? hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`
-      : null;
+    const petaHotel = (h: LogistikKamar["hotel"]) =>
+      h.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([h.name, h.address].filter(Boolean).join(", "))}`;
     // Satu kartu per stay, berurutan tanggal. Peserta yang pindah hotel
     // (GRAMM lalu RAY) melihat kartu kedua berjudul "Pindah hotel · Jum, 6 Nov",
     // seperti itinerary Booking.com; peserta satu hotel tetap satu kartu.
@@ -1166,7 +1165,7 @@ export async function DashboardGathering({
       <>
         {daftarStay.map((stay, urut) => {
           const h = stay.hotel;
-          const petaStay = h.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([h.name, h.address].filter(Boolean).join(", "))}`;
+          const petaStay = petaHotel(h);
           const temanStay = stay.roommates;
           // Stay yang sudah check-out dilipat jadi satu baris (pola penerbangan
           // selesai di aplikasi maskapai); ketuk untuk membuka kartunya lagi.
@@ -1227,14 +1226,24 @@ export async function DashboardGathering({
       />
     );
     // Peta titik kumpul (E-12): titik kumpul di hotel peserta memakai peta hotelnya;
-    // yang lain dicari di Google Maps bersama asal perjalanannya.
+    // yang lain dicari di Google Maps bersama asal perjalanannya. Asal "Hotel"
+    // berarti hotel yang ditempati saat berangkat (peserta pindah hotel naik
+    // perjalanan 7 Nov dari hotel keduanya); asal yang menyebut nama hotel
+    // memakai hotel itu.
+    const staysPeserta = logistik?.stays.length ? logistik.stays : kamar ? [kamar] : [];
     const petaTrip = (trip: (typeof perjalananBusHorizon)[number]) => {
       const titik = trip.meeting_point?.trim();
       if (!titik) return null;
       const asal = trip.origin?.trim() || null;
-      const namaHotel = hotel?.name?.trim().toLocaleLowerCase("id") || null;
-      const diHotel = (teks: string | null) => Boolean(teks && (teks.toLocaleLowerCase("id") === "hotel" || (namaHotel && teks.toLocaleLowerCase("id").includes(namaHotel))));
-      if (peta && diHotel(asal)) return peta;
+      const asalKecil = asal?.toLocaleLowerCase("id") ?? "";
+      const hotelDisebut = asalKecil
+        ? staysPeserta.find((stay) => {
+            const nama = stay.hotel?.name?.trim().toLocaleLowerCase("id");
+            return Boolean(nama && asalKecil.includes(nama));
+          })
+        : undefined;
+      const hotelAsal = hotelDisebut ?? (asalKecil === "hotel" ? staySaatBerangkat(staysPeserta, trip.depart_at) : null);
+      if (hotelAsal?.hotel) return petaHotel(hotelAsal.hotel);
       const kueri = asal && !titik.toLocaleLowerCase("id").includes(asal.toLocaleLowerCase("id")) ? `${titik}, ${asal}` : titik;
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(kueri)}`;
     };
@@ -1357,7 +1366,7 @@ export async function DashboardGathering({
       const totalMalam = daftarStay.reduce((jumlah, stay) => jumlah + (malam(stay) ?? 0), 0);
       const hotelTrip = daftarStay.map((stay, urut) => {
         const h = stay.hotel;
-        const petaStay = h.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([h.name, h.address].filter(Boolean).join(", "))}`;
+        const petaStay = petaHotel(h);
         const jumlahMalam = malam(stay);
         const selesai = Boolean(stay.check_out_at && new Date(stay.check_out_at).getTime() <= sekarang.getTime());
         const kartu = (
