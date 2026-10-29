@@ -656,7 +656,10 @@ function CaraMasuk({ anggota, set, data }: { anggota: LandingMemberConfig; set: 
           <div className="grid gap-3 sm:grid-cols-2">
             {([0, 1] as const).map((indeks) => {
               const id = kolom?.[indeks] ?? null;
-              const bawaan = pilihanKolom.find((pilihan) => pilihan.id === id)?.contoh;
+              const pilihanIni = pilihanKolom.find((pilihan) => pilihan.id === id);
+              const bawaan = pilihanIni?.contoh;
+              // Halaman English tanpa Example in English: Example, lalu bawaan English.
+              const bawaanEn = contoh?.[id ?? ""]?.text?.trim() || pilihanIni?.contoh_en;
               return (
                 <div key={indeks} className="flex min-w-0 flex-col gap-3">
                   <SelectField
@@ -686,7 +689,8 @@ function CaraMasuk({ anggota, set, data }: { anggota: LandingMemberConfig; set: 
                           label="Example in English"
                           optional
                           maxLength={CONTOH_KOLOM_MAX}
-                          hint="Empty = Example shows there too."
+                          placeholder={bawaanEn}
+                          hint={bawaanEn ? "Empty = the text shown here." : "Empty = no example."}
                           value={contoh?.[id]?.en ?? ""}
                           onChange={(event) => ubahContoh(id, { en: event.target.value })}
                         />

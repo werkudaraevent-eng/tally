@@ -57,6 +57,7 @@ assert.deepEqual(contoh(undefined, "en"), ["name@company.com", "16 digit"]);
 assert.deepEqual(contoh({ email: { text: "nama@scisi.com" }, "x:nik": { text: " ", en: "" } }, "en"), ["nama@scisi.com", "16 digit"]);
 assert.deepEqual(contoh({ email: { text: "nama@scisi.com", en: "name@scisi.com" } }, "en"), ["name@scisi.com", "16 digit"]);
 assert.deepEqual(pilihanKolomMasuk(fields).slice(0, 4).map((k) => k.contoh), ["nama@perusahaan.com", undefined, undefined, "16 digit"]);
+assert.deepEqual(pilihanKolomMasuk(fields).slice(0, 4).map((k) => k.contoh_en), ["name@company.com", undefined, undefined, "16 digit"]);
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "fields", sign_in_fields: ["phone", "x:dihapus"] }), "id"), { jenis: "password" });
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "fields", sign_in_fields: ["phone", "phone"] }), "id"), { jenis: "password" });
 assert.deepEqual(caraMasukPublik(acara({ enabled: true, sign_in: "fields" }), "id"), { jenis: "password" });

@@ -29,8 +29,8 @@ export const KOLOM_MASUK_POLA = /^(email|phone|name|x:[A-Za-z0-9_]{1,60})$/;
 
 export type JenisIsian = "email" | "tel" | "text";
 
-/** `contoh`: contoh isian bawaan kolom ini di halaman Indonesia (tampil samar di layar admin). */
-export type PilihanKolomMasuk = { id: KolomMasukId; label: string; jenis: JenisIsian; contoh?: string };
+/** `contoh` / `contoh_en`: contoh isian bawaan kolom ini di halaman Indonesia / English (tampil samar di layar admin). */
+export type PilihanKolomMasuk = { id: KolomMasukId; label: string; jenis: JenisIsian; contoh?: string; contoh_en?: string };
 
 const DASAR: Record<KolomMasukDasar, { admin: string; id: string; en: string; jenis: JenisIsian }> = {
   email: { admin: "Email", id: "Email", en: "Email", jenis: "email" },
@@ -55,7 +55,8 @@ function jenisPertanyaan(field: RegistrationField): JenisIsian {
 
 function bawaan(id: KolomMasukId, fields: RegistrationField[]) {
   const contoh = contohKolomMasuk(id, fields, "id", null);
-  return contoh ? { contoh } : {};
+  const contohEn = contohKolomMasuk(id, fields, "en", null);
+  return { ...(contoh ? { contoh } : {}), ...(contohEn ? { contoh_en: contohEn } : {}) };
 }
 
 /** Pilihan kolom di layar admin, dalam urutan: bawaan, lalu pertanyaan form. */
