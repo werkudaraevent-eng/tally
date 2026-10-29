@@ -1,7 +1,7 @@
 "use client";
 
 import { Bed, Buildings, MagnifyingGlass, SignOut, Warning } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Banner, Button, ChipMenu, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
   PaneHeader, SelectField, StatusChip, StatusDot, Switch, TextArea, TextField, EMPTY_VALUE,
@@ -45,7 +45,7 @@ type DialogHotel = { mode: "baru" } | { mode: "ubah"; hotel: Hotel } | null;
 /** Orang, bukan stay: yang pindah kamar menunggu dua kamar di hotel yang sama. */
 const jumlahOrang = (daftar: Array<{ orang: LogistikPeserta }>) => new Set(daftar.map((x) => x.orang.id)).size;
 
-export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupHotelBaru }: TabProps & { hotelBaru: boolean; tutupHotelBaru: () => void }) {
+export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupHotelBaru, atas }: TabProps & { hotelBaru: boolean; tutupHotelBaru: () => void; atas?: ReactNode }) {
   const { zone, abbr } = useEventTimeZone();
   const offset = timeZoneOffset(zone);
   const [pilihan, setPilihan] = useState<Pilihan>(null);
@@ -178,6 +178,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
 
   const saringan = (
     <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
+      {atas}
       {data.rooms.length > 0 ? (
         <>
           <KolomCari className="max-w-80" label="Search rooms or occupants" placeholder={adaLabel ? "Search room, label or occupant" : "Search room number or occupant name"} value={cari} onChange={setCari} />
@@ -463,6 +464,10 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     const menunggu = jumlahOrang(menungguHotel.get(hotelDipilih.id) ?? []);
     const terisi = semuaKamar.reduce((jumlah, kamar) => jumlah + masalah(kamar).puncak, 0);
     const tempat = semuaKamar.reduce((jumlah, kamar) => jumlah + kamar.capacity, 0);
+    // Tamu dengan tanggal stay sendiri (malam tambahan, pindah kamar): jam hotel
+    // bukan lagi jam semua orang, dan kalimatnya harus berkata begitu.
+    const tanggalSendiri = new Set(data.lodging.filter((stay) => stay.hotel_id === hotelDipilih.id && orangById.has(stay.participant_id) &&
+      (stay.check_in_at !== null || stay.check_out_at !== null)).map((stay) => stay.participant_id)).size;
     detail = (
       <Pane as="aside" aria-label={`Hotel ${hotelDipilih.name} details`}>
         <KepalaDetail
@@ -482,7 +487,11 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
               <KeyValue label="Hotel check-in">{hotelDipilih.check_in_at ? `${formatWaktu(hotelDipilih.check_in_at, zone)} ${abbr}` : EMPTY_VALUE}</KeyValue>
               <KeyValue label="Hotel check-out">{hotelDipilih.check_out_at ? `${formatWaktu(hotelDipilih.check_out_at, zone)} ${abbr}` : EMPTY_VALUE}</KeyValue>
             </dl>
-            <p className="text-body-small text-on-surface-variant">These times apply to every room in this hotel.</p>
+            <p className="text-body-small text-on-surface-variant">
+              {tanggalSendiri > 0
+                ? `Default for guests without their own dates. ${plural(tanggalSendiri, "guest has", "guests have")} their own dates; see Rooms > By date.`
+                : "These times apply to every room in this hotel."}
+            </p>
           </DetailSection>
         </PaneBody>
         <PaneFooter note={terisi + menunggu > 0 ? "A hotel with guests cannot be deleted." : undefined}>

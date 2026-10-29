@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button, MetaSeparator, Pane, SegmentedButton, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { Galat, Kerangka } from "@/components/admin/logistik/bersama";
 import { DialogImpor } from "@/components/admin/logistik/dialog-impor";
+import { RekapKamar, RekapKendaraan } from "@/components/admin/logistik/rekap-tanggal";
 import { TabBarang } from "@/components/admin/logistik/tab-barang";
 import { TabAgenda, TabBus } from "@/components/admin/logistik/tab-bus";
 import { TabKamar } from "@/components/admin/logistik/tab-kamar";
@@ -32,7 +33,9 @@ import { plural } from "@/lib/plural";
  */
 
 type Bagian = "penempatan" | "kamar" | "bus" | "kereta" | "barang";
-type BagianBus = "bus" | "agenda";
+type BagianBus = "bus" | "agenda" | "tanggal";
+/** Rooms: daftar kamar, atau rekap per tanggal (hanya dibaca). */
+type BagianKamar = "kamar" | "tanggal";
 /** Dialog "baru" yang dibuka dari kepala halaman. */
 type Baru = "kamar" | "bus" | "agenda" | "barang" | "kereta";
 
@@ -40,6 +43,7 @@ export default function LogistikPage() {
   const { data, error, busy, muat, kirim } = useLogistik();
   const [bagian, setBagian] = useState<Bagian>("penempatan");
   const [bagianBus, setBagianBus] = useState<BagianBus>("bus");
+  const [bagianKamar, setBagianKamar] = useState<BagianKamar>("kamar");
   const [baru, setBaru] = useState<Baru | null>(null);
   const [hotelBaru, setHotelBaru] = useState(false);
   const [impor, setImpor] = useState(false);
@@ -106,8 +110,10 @@ export default function LogistikPage() {
   const adaTrip = (data?.trips.length ?? 0) > 0;
 
   // Dialog "baru" milik bagian yang sedang tampil: Bus baru di Daftar bus,
-  // Agenda baru di bagian Agenda.
-  const aktifBaru: Baru | null = bagian === "penempatan" || (bagian === "kereta" && !data?.trains_ready) ? null : bagian === "bus" ? bagianBus : bagian;
+  // Agenda baru di bagian Agenda. Rekap By date hanya dibaca: tanpa dialog baru.
+  const aktifBaru: Baru | null = bagian === "penempatan" || (bagian === "kereta" && !data?.trains_ready) ? null
+    : bagian === "bus" ? (bagianBus === "tanggal" ? null : bagianBus)
+      : bagian === "kamar" && bagianKamar === "tanggal" ? null : bagian;
   const tabProps = data ? { data, kirim, busy, baru: baru !== null && baru === aktifBaru, tutupBaru: () => setBaru(null) } : null;
   const LABEL_BARU: Record<Baru, string> = { kamar: "Add room", bus: "Add vehicle", agenda: "Add trip", barang: "Add kit item", kereta: "Add ticket" };
 
@@ -119,6 +125,19 @@ export default function LogistikPage() {
       options={[
         { value: "bus", label: "Vehicles", badge: data?.vehicles.length || undefined },
         { value: "agenda", label: "Trips", badge: data?.trips.length || undefined },
+        { value: "tanggal", label: "By date" },
+      ]}
+    />
+  );
+
+  const pilihKamar = (
+    <SegmentedButton<BagianKamar>
+      label="Rooms section"
+      value={bagianKamar}
+      onChange={(nilai) => { setBagianKamar(nilai); setBaru(null); }}
+      options={[
+        { value: "kamar", label: "Rooms", badge: data?.rooms.length || undefined },
+        { value: "tanggal", label: "By date" },
       ]}
     />
   );
@@ -189,9 +208,12 @@ export default function LogistikPage() {
         ) : bagian === "penempatan" ? (
           <TabPenempatan data={tabProps.data} kirim={kirim} busy={busy} keTab={(tab) => { setBagian(tab); setBaru(null); }} />
         ) : bagian === "kamar" ? (
-          <TabKamar {...tabProps} hotelBaru={hotelBaru} tutupHotelBaru={() => setHotelBaru(false)} />
+          bagianKamar === "tanggal" ? <RekapKamar data={tabProps.data} atas={pilihKamar} />
+            : <TabKamar {...tabProps} atas={pilihKamar} hotelBaru={hotelBaru} tutupHotelBaru={() => setHotelBaru(false)} />
         ) : bagian === "bus" ? (
-          bagianBus === "bus" ? <TabBus {...tabProps} atas={pilihBus} /> : <TabAgenda {...tabProps} atas={pilihBus} pilihAwal={tripAwal} />
+          bagianBus === "bus" ? <TabBus {...tabProps} atas={pilihBus} />
+            : bagianBus === "tanggal" ? <RekapKendaraan data={tabProps.data} atas={pilihBus} />
+              : <TabAgenda {...tabProps} atas={pilihBus} pilihAwal={tripAwal} />
         ) : bagian === "kereta" ? (
           <TabKereta {...tabProps} />
         ) : (
