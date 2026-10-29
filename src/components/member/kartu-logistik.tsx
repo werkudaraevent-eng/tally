@@ -2,6 +2,7 @@ import { ArrowSquareOut, Bed, Bus, CheckCircle, Package, Phone, Train, WhatsappL
 import type { ReactNode } from "react";
 import type { EventTimeZone } from "@/lib/timezone";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
+import { jenisKamar } from "@/lib/logistik/nama-kamar";
 import type { LogistikAgenda, LogistikDetailBus, LogistikPeserta } from "@/lib/logistik/peserta";
 import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
 import { HEAD, LABEL_BAGIAN, MUTED } from "@/components/landing/modern/styles";
@@ -96,7 +97,10 @@ export function KartuKamar({ logistik, zona }: { logistik: LogistikPeserta; zona
             // Hotel sudah, kamar belum (Logistics > Hotel only).
             <div className="mt-4 rounded-md bg-[var(--reg-surface)] p-3">
               <p className="text-body-large font-semibold">Nomor kamar menyusul</p>
-              <p className={`text-body-medium ${MUTED}`}>Nomor kamar dan teman sekamar muncul di sini begitu panitia mengaturnya.</p>
+              {/* Kamar dari rooming list (jenis kamar atau teman sekamar sudah ada): yang menyusul hanya nomornya. */}
+              <p className={`text-body-medium ${MUTED}`}>
+                {jenisKamar(kamar) ?? (kamar.roommates ? "Nomor kamar muncul di sini begitu hotel membaginya." : "Nomor kamar dan teman sekamar muncul di sini begitu panitia mengaturnya.")}
+              </p>
             </div>
           ) : (
             <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-1">
@@ -104,8 +108,8 @@ export function KartuKamar({ logistik, zona }: { logistik: LogistikPeserta; zona
                 <p className={`text-body-medium ${MUTED}`}>Nomor kamar</p>
                 <p className="text-[40px] font-bold leading-[44px] tracking-[-0.01em] tabular-nums">{kamar.room_number}</p>
               </div>
-              {[kamar.floor ? `Lantai ${kamar.floor}` : null, kamar.room_type].some(Boolean) ? (
-                <p className={`pb-1 text-body-large ${MUTED}`}>{[kamar.floor ? `Lantai ${kamar.floor}` : null, kamar.room_type].filter(Boolean).join(" · ")}</p>
+              {[kamar.floor ? `Lantai ${kamar.floor}` : null, jenisKamar(kamar)].some(Boolean) ? (
+                <p className={`pb-1 text-body-large ${MUTED}`}>{[kamar.floor ? `Lantai ${kamar.floor}` : null, jenisKamar(kamar)].filter(Boolean).join(" · ")}</p>
               ) : null}
             </div>
           )}

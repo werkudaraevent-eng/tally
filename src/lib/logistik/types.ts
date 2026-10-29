@@ -39,8 +39,14 @@ export type Hotel = {
 export type Kamar = {
   id: number;
   hotel_id: number;
-  room_number: string;
+  /** null = nomor kamar menyusul; kamarnya dikenali lewat `label` (migrasi 202610290001). */
+  room_number: string | null;
+  /** Kode kamar milik panitia ("Kamar 01"), hanya untuk admin, tidak pernah ke peserta. */
+  label: string | null;
+  /** Jenis kamar: Deluxe, Superior. */
   room_type: string | null;
+  /** Jenis kasur: Twin, King. */
+  bed_type: string | null;
   capacity: number;
   floor: string | null;
   notes: string | null;

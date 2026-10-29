@@ -7,6 +7,7 @@ import {
   PaneHeader, SelectField, StatusChip, StatusDot, Switch, TextArea, TextField, EMPTY_VALUE,
 } from "@/components/m3";
 import { bertabrakan, labelRentang, puncakHuni, rentangStay, tanggalStay, type Stay } from "@/lib/logistik/stay";
+import { judulKamar, urutKamar } from "@/lib/logistik/nama-kamar";
 import { kunciGender, type Hotel, type Kamar, type LogistikData, type LogistikPeserta } from "@/lib/logistik/types";
 import { timeZoneOffset } from "@/lib/timezone";
 import { cx } from "@/lib/m3/cx";
@@ -43,8 +44,6 @@ type DialogHotel = { mode: "baru" } | { mode: "ubah"; hotel: Hotel } | null;
 
 /** Orang, bukan stay: yang pindah kamar menunggu dua kamar di hotel yang sama. */
 const jumlahOrang = (daftar: Array<{ orang: LogistikPeserta }>) => new Set(daftar.map((x) => x.orang.id)).size;
-
-const urutKamar = (a: Kamar, b: Kamar) => a.room_number.localeCompare(b.room_number, "id", { numeric: true });
 
 export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupHotelBaru }: TabProps & { hotelBaru: boolean; tutupHotelBaru: () => void }) {
   const { zone, abbr } = useEventTimeZone();
@@ -131,9 +130,15 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     if (saringHotel.length > 0 && !saringHotel.includes(String(kamar.hotel_id))) return false;
     if (saringKeadaan.length > 0 && !saringKeadaan.includes(keadaan(kamar))) return false;
     if (!kata) return true;
-    return kamar.room_number.toLowerCase().includes(kata) ||
+    return [kamar.room_number, kamar.label].some((teks) => teks?.toLowerCase().includes(kata)) ||
       (penghuniKamar.get(kamar.id) ?? []).some(({ orang }) => orang.name.toLowerCase().includes(kata));
   });
+  // Kolom Label dan Bed hanya ada bila salah satu kamar mengisinya: acara lama tidak berubah.
+  const adaLabel = data.rooms.some((kamar) => kamar.label);
+  const adaKasur = data.rooms.some((kamar) => kamar.bed_type);
+  // Dengan Label dan Bed, daftar kamar terlalu sempit untuk semua kolom: Bed
+  // dan Type hanya di layar lebar, selalu ada di panel detail kamar.
+  const sempit = adaLabel || adaKasur ? "w-28 max-2xl:hidden" : "w-28 max-sm:hidden";
   const perluDicek = data.rooms.filter((kamar) => keadaan(kamar) === "perlu-dicek").length;
   const menyaring = Boolean(kata) || saringHotel.length > 0 || saringKeadaan.length > 0;
 
@@ -212,7 +217,14 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
           />
         ) : (
           <>
-            <KepalaKolom kolom={[["Room", "w-24"], ["Occupants", "min-w-0 flex-1"], ["Type", "w-28 max-sm:hidden"], ["Filled", "w-16 text-right"]]} />
+            <KepalaKolom kolom={[
+              ...(adaLabel ? [["Label", "w-24"] as [string, string]] : []),
+              ["Room", "w-24"],
+              ["Occupants", "min-w-0 flex-1"],
+              ...(adaKasur ? [["Bed", "w-20 max-2xl:hidden"] as [string, string]] : []),
+              ["Type", sempit],
+              ["Filled", "w-16 text-right"],
+            ]} />
             {menyaring && kamarTampil.length === 0 ? (
               <EmptyState
                 plain
@@ -255,9 +267,11 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                         tungguDipilih ? "bg-accent-soft" : "hover:bg-panel-high",
                       )}
                     >
+                      {adaLabel ? <span className="w-24 shrink-0" /> : null}
                       <span className="w-24 shrink-0 truncate text-on-surface">To follow</span>
                       <span className="min-w-0 flex-1 truncate text-on-surface-variant">{[...new Set(menunggu.map(({ orang }) => orang.name))].join(", ")}</span>
-                      <span className="w-28 shrink-0 max-sm:hidden" />
+                      {adaKasur ? <span className="w-20 shrink-0 max-2xl:hidden" /> : null}
+                      <span className={cx("shrink-0", sempit)} />
                       <span className="w-16 shrink-0 text-right tabular-nums text-on-surface">{jumlahOrang(menunggu).toLocaleString("en-GB")}</span>
                     </button>
                   ) : null}
@@ -280,7 +294,10 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                           dipilih ? "bg-accent-soft" : "hover:bg-panel-high",
                         )}
                       >
-                        <span className="w-24 shrink-0 truncate tabular-nums text-on-surface">{kamar.room_number}</span>
+                        {adaLabel ? <span className="w-24 shrink-0 truncate text-on-surface">{kamar.label ?? EMPTY_VALUE}</span> : null}
+                        <span className="w-24 shrink-0 truncate tabular-nums text-on-surface">
+                          {kamar.room_number ?? <StatusChip dot tone="warning">To follow</StatusChip>}
+                        </span>
                         <span className="flex min-w-0 flex-1 items-center gap-2">
                           {lebih ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
                           {campuran ? <StatusChip dot tone="warning">Mixed gender</StatusChip> : null}
@@ -288,7 +305,8 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                             {isi.length > 0 ? isi.map((orang) => orang.name).join(", ") : "Empty"}
                           </span>
                         </span>
-                        <span className="w-28 shrink-0 truncate text-on-surface-variant max-sm:hidden">{kamar.room_type ?? EMPTY_VALUE}</span>
+                        {adaKasur ? <span className="w-20 shrink-0 truncate text-on-surface-variant max-2xl:hidden">{kamar.bed_type ?? EMPTY_VALUE}</span> : null}
+                        <span className={cx("shrink-0 truncate text-on-surface-variant", sempit)}>{kamar.room_type ?? EMPTY_VALUE}</span>
                         <span className={cx("w-16 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>
                           {puncak}/{kamar.capacity}
                         </span>
@@ -314,12 +332,15 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     const { semua, puncak, lebih, campuran, bergantian } = masalah(kamarDipilih);
     const hotel = hotelById.get(kamarDipilih.hotel_id);
     const sisa = kamarDipilih.capacity - puncak;
+    // Kamar dari rooming list (label, kasur, atau nomor menyusul): satu fakta
+    // per baris di "Room details", bukan digabung di bawah judul.
+    const rinci = kamarDipilih.label !== null || kamarDipilih.bed_type !== null || kamarDipilih.room_number === null;
     detail = (
-      <Pane as="aside" aria-label={`Room ${kamarDipilih.room_number} details`}>
+      <Pane as="aside" aria-label={`${judulKamar(kamarDipilih)} details`}>
         <KepalaDetail
-          nama={`Room ${kamarDipilih.room_number}`}
+          nama={judulKamar(kamarDipilih)}
           chip={lebih ? { tone: "error", teks: "Over capacity" } : campuran ? { tone: "warning", teks: "Mixed gender" } : null}
-          sub={[hotel?.name, kamarDipilih.room_type, kamarDipilih.floor ? `Floor ${kamarDipilih.floor}` : null].filter(Boolean).join(" · ")}
+          sub={rinci ? hotel?.name : [hotel?.name, kamarDipilih.room_type, kamarDipilih.floor ? `Floor ${kamarDipilih.floor}` : null].filter(Boolean).join(" · ")}
           angka={`${puncak}/${kamarDipilih.capacity}`}
           keterangan={bergantian ? "places filled on the busiest night" : "places filled"}
           onClose={() => setPilihan(null)}
@@ -333,6 +354,20 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
                   : "The occupants have different genders, usually because an answer changed after they were assigned. Move one of them."}
               </Banner>
             </div>
+          ) : null}
+          {rinci ? (
+            <DetailSection title="Room details">
+              <dl className="flex flex-col gap-2">
+                <KeyValue label="Room number">{kamarDipilih.room_number ?? <StatusChip dot tone="warning">To follow</StatusChip>}</KeyValue>
+                <KeyValue label="Label">{kamarDipilih.label ?? EMPTY_VALUE}</KeyValue>
+                <KeyValue label="Bed">{kamarDipilih.bed_type ?? EMPTY_VALUE}</KeyValue>
+                <KeyValue label="Room type">{kamarDipilih.room_type ?? EMPTY_VALUE}</KeyValue>
+                <KeyValue label="Floor">{kamarDipilih.floor ?? EMPTY_VALUE}</KeyValue>
+              </dl>
+              {kamarDipilih.room_number === null ? (
+                <p className="text-body-small text-on-surface-variant">Occupants see that their room number is still to follow, and who they share with. The label is never shown to them.</p>
+              ) : null}
+            </DetailSection>
           ) : null}
           <DetailSection title="Occupants">
             {semua.length === 0 ? (
@@ -465,7 +500,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
         <PilihPeserta
           open={tambahPenghuni}
           onClose={() => setTambahPenghuni(false)}
-          title={`Add occupants to room ${kamarDipilih.room_number}`}
+          title={`Add occupants to ${judulKamar(kamarDipilih, "room")}`}
           description={wajibSama && kunciField
             ? `Only participants of the same gender can be chosen${genderKamar ? "" : "; an empty room follows the first person chosen"}.`
             : undefined}
@@ -483,7 +518,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             const diSini = stays.find((s) => s.hotel_id === kamarDipilih.hotel_id);
             const lama = diSini?.room_id != null ? kamarById.get(diSini.room_id) : undefined;
             const status = diSini
-              ? lama ? `Now in room ${lama.room_number}` : "Waiting for a room here"
+              ? lama ? `Now in ${judulKamar(lama, "room")}` : "Waiting for a room here"
               : stays.length > 0 ? `Moves from ${stays.map((s) => hotelById.get(s.hotel_id)?.name ?? "another hotel").join(", ")}` : null;
             return [kunciField ? orang.gender ?? "No gender" : null, status].filter(Boolean).join(" · ") || null;
           }}
@@ -538,7 +573,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
         onClose={() => setHapus(null)}
         dismissible={!busy}
         tone="danger"
-        title={hapus?.jenis === "kamar" ? `Delete room ${hapus.kamar.room_number}?` : `Delete hotel ${hapus?.jenis === "hotel" ? hapus.hotel.name : ""}?`}
+        title={hapus?.jenis === "kamar" ? `Delete ${judulKamar(hapus.kamar, "room")}?` : `Delete hotel ${hapus?.jenis === "hotel" ? hapus.hotel.name : ""}?`}
         description={hapus?.jenis === "hotel"
           ? "Every empty room in this hotel is deleted too. This cannot be undone."
           : "This room is empty, so no assignments are lost. This cannot be undone."}
@@ -607,7 +642,7 @@ function DialogAturan({ open, onClose, busy, data, simpan }: {
   );
 }
 
-type NilaiKamar = { hotel_id: number; room_number: string; room_type: string | null; capacity: number; floor: string | null; notes: string | null };
+type NilaiKamar = { hotel_id: number; room_number: string | null; label: string | null; bed_type: string | null; room_type: string | null; capacity: number; floor: string | null; notes: string | null };
 
 function FormKamar({ state, hotels, busy, onClose, simpan }: {
   state: DialogKamar;
@@ -618,10 +653,11 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
 }) {
   const awal = state?.mode === "ubah"
     ? {
-      hotel_id: String(state.kamar.hotel_id), room_number: state.kamar.room_number, room_type: state.kamar.room_type ?? "",
+      hotel_id: String(state.kamar.hotel_id), room_number: state.kamar.room_number ?? "", label: state.kamar.label ?? "",
+      bed_type: state.kamar.bed_type ?? "", room_type: state.kamar.room_type ?? "",
       capacity: String(state.kamar.capacity), floor: state.kamar.floor ?? "", notes: state.kamar.notes ?? "",
     }
-    : { hotel_id: String(state?.hotelId ?? hotels[0]?.id ?? ""), room_number: "", room_type: "", capacity: "2", floor: "", notes: "" };
+    : { hotel_id: String(state?.hotelId ?? hotels[0]?.id ?? ""), room_number: "", label: "", bed_type: "", room_type: "", capacity: "2", floor: "", notes: "" };
   const [draf, setDraf] = useState<typeof awal | null>(null);
   const nilai = draf ?? awal;
   const ubah = (kolom: keyof typeof awal, isi: string) => setDraf({ ...nilai, [kolom]: isi });
@@ -629,12 +665,14 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
 
   const kapasitas = angkaAtauNull(nilai.capacity);
   const galatKapasitas = kapasitas === null || kapasitas < 1 || kapasitas > 20 ? "Enter 1 to 20." : undefined;
-  const sah = Boolean(nilai.hotel_id && nilai.room_number.trim()) && !galatKapasitas;
+  // Nomor kamar boleh menyusul selama labelnya ada.
+  const sah = Boolean(nilai.hotel_id && (nilai.room_number.trim() || nilai.label.trim())) && !galatKapasitas;
 
   async function kirimForm() {
     if (!sah || kapasitas === null) return;
     const ok = await simpan({
-      hotel_id: Number(nilai.hotel_id), room_number: nilai.room_number.trim(), room_type: nilai.room_type.trim() || null,
+      hotel_id: Number(nilai.hotel_id), room_number: nilai.room_number.trim() || null, label: nilai.label.trim() || null,
+      bed_type: nilai.bed_type.trim() || null, room_type: nilai.room_type.trim() || null,
       capacity: kapasitas, floor: nilai.floor.trim() || null, notes: nilai.notes.trim() || null,
     }, state?.mode === "ubah" ? state.kamar.id : undefined);
     if (ok) tutup();
@@ -645,7 +683,7 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
       open={state !== null}
       onClose={tutup}
       dismissible={!busy}
-      title={state?.mode === "ubah" ? `Edit room ${state.kamar.room_number}` : "New room"}
+      title={state?.mode === "ubah" ? `Edit ${judulKamar(state.kamar, "room")}` : "New room"}
       icon={<Bed size={20} />}
       actions={
         <>
@@ -658,9 +696,11 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
         <SelectField label="Hotel" className="col-span-2" value={nilai.hotel_id} onChange={(event) => ubah("hotel_id", event.target.value)}>
           {hotels.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}
         </SelectField>
-        <TextField label="Room number" placeholder="e.g. 1208" autoFocus value={nilai.room_number} onChange={(event) => ubah("room_number", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Room number" placeholder="e.g. 1208" hint="Leave empty if the hotel has not given it yet." autoFocus value={nilai.room_number} onChange={(event) => ubah("room_number", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Label" optional placeholder="e.g. Kamar 01" hint="Your own code from the rooming list. Not shown to participants." value={nilai.label} onChange={(event) => ubah("label", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Bed" optional placeholder="e.g. Twin, King" value={nilai.bed_type} onChange={(event) => ubah("bed_type", event.target.value)} className="max-sm:col-span-2" />
+        <TextField label="Room type" optional placeholder="e.g. Deluxe" value={nilai.room_type} onChange={(event) => ubah("room_type", event.target.value)} className="max-sm:col-span-2" />
         <TextField label="Capacity" type="number" inputMode="numeric" min={1} max={20} value={nilai.capacity} error={nilai.capacity ? galatKapasitas : undefined} onChange={(event) => ubah("capacity", event.target.value)} className="max-sm:col-span-2" />
-        <TextField label="Room type" optional placeholder="e.g. Twin, Deluxe" value={nilai.room_type} onChange={(event) => ubah("room_type", event.target.value)} className="max-sm:col-span-2" />
         <TextField label="Floor" optional value={nilai.floor} onChange={(event) => ubah("floor", event.target.value)} className="max-sm:col-span-2" />
         <TextArea label="Staff notes" optional rows={2} hint="Not shown to participants." value={nilai.notes} onChange={(event) => ubah("notes", event.target.value)} className="col-span-2" />
       </form>

@@ -125,7 +125,8 @@ async function muatKeadaan(eventId: string, denganKereta: boolean, offset: strin
     semuaBaris<{ id: string; name: string; qr_code: string; extra: Record<string, unknown> | null }>(() =>
       db.from("participants").select("id,name,qr_code,extra").eq("event_id", eventId).is("source_removed_at", null).order("id")),
     semuaBaris<KeadaanAcara["hotels"][number]>(() => db.from("lodging_hotels").select("id,name,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
-    semuaBaris<KeadaanAcara["rooms"][number]>(() => db.from("lodging_rooms").select("id,hotel_id,room_number,capacity").eq("event_id", eventId).order("id")),
+    // `*`: label, room_type, bed_type (label dan bed_type dari migrasi 202610290001).
+    semuaBaris<KeadaanAcara["rooms"][number]>(() => db.from("lodging_rooms").select("*").eq("event_id", eventId).order("id")),
     semuaBaris<KeadaanAcara["lodging"][number]>(() => db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
     semuaBaris<KeadaanAcara["vehicles"][number]>(() => db.from("transport_vehicles").select("id,code,capacity").eq("event_id", eventId).order("id")),
     semuaBaris<{ trip_id: number | null; participant_id: string; vehicle_id: number | null }>(() =>
@@ -162,8 +163,8 @@ async function muatStaySekarang(eventId: string, offset: string): Promise<string
       db.from("participants").select("id,name,qr_code").eq("event_id", eventId).is("source_removed_at", null).order("id")),
     semuaBaris<{ id: number; name: string; sort_order: number; check_in_at: string | null; check_out_at: string | null }>(() =>
       db.from("lodging_hotels").select("id,name,sort_order,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
-    semuaBaris<{ id: number; room_number: string; room_type: string | null; capacity: number }>(() =>
-      db.from("lodging_rooms").select("id,room_number,room_type,capacity").eq("event_id", eventId).order("id")),
+    semuaBaris<{ id: number; room_number: string | null; label?: string | null; room_type: string | null; capacity: number }>(() =>
+      db.from("lodging_rooms").select("*").eq("event_id", eventId).order("id")),
     semuaBaris<{ id: number; participant_id: string; hotel_id: number; room_id: number | null; check_in_at: string | null; check_out_at: string | null }>(() =>
       db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
   ]);
@@ -208,7 +209,8 @@ async function muatPesertaUnduh(event: { id: string; registration_form_config: u
   return barisPesertaBus({ peserta, info, vehicles, busBawaan, trips, busTrip, offset, kereta: [] });
 }
 
-type Hasil = { masuk: number; gagal: Array<{ nama: string; alasan: string }>; dibuat: string[] } | { galat: string };
+/** `diubah`: impor kamar, jumlah kamar yang sudah ada yang isiannya diubah (nomor, label, kasur, jenis). */
+type Hasil = { masuk: number; gagal: Array<{ nama: string; alasan: string }>; dibuat: string[]; diubah?: number } | { galat: string };
 
 async function simpanKamar(eventId: string, actor: string, rencana: Rencana, acara: KeadaanAcara): Promise<Hasil> {
   const db = klien();
@@ -224,24 +226,46 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
     dibuat.push(plural(rencana.hotelBaru.length, "hotel"));
   }
 
-  const kamarId = new Map(acara.rooms.map((kamar) => [`${kamar.hotel_id}\u0000${kunci(kamar.room_number)}`, kamar.id]));
+  // Kamar baru ditunjuk lewat kuncinya di rencana (belum punya id).
+  const kamarBaruId = new Map<string, number>();
   if (rencana.kamarBaru.length > 0) {
     const { data, error } = await db.from("lodging_rooms")
       .insert(rencana.kamarBaru.map((kamar) => ({
         event_id: eventId,
         hotel_id: hotelId.get(kunci(kamar.hotel)),
         room_number: kamar.nomor,
+        // Hanya dikirim bila terisi: impor tanpa label dan kasur tetap jalan sebelum migrasi 202610290001.
+        ...(kamar.label ? { label: kamar.label } : {}),
+        ...(kamar.kasur ? { bed_type: kamar.kasur } : {}),
         room_type: kamar.tipe,
         capacity: kamar.kapasitas,
       })) as never)
-      .select("id,hotel_id,room_number");
+      .select("*");
     if (error) {
       return { galat: error.code === "23505" ? "Someone else has just created a room from this file. Reload the page, then import again." : "New rooms could not be created." };
     }
-    for (const kamar of (data ?? []) as Array<{ id: number; hotel_id: number; room_number: string }>) {
-      kamarId.set(`${kamar.hotel_id}\u0000${kunci(kamar.room_number)}`, kamar.id);
+    const dibuatKamar = (data ?? []) as Array<{ id: number; hotel_id: number; room_number: string | null; label?: string | null }>;
+    for (const kamar of rencana.kamarBaru) {
+      const hotel = hotelId.get(kunci(kamar.hotel));
+      const baris = dibuatKamar.find((k) => k.hotel_id === hotel && (kamar.label ? kunci(k.label ?? "") === kunci(kamar.label) : kunci(k.room_number ?? "") === kunci(kamar.nomor ?? "")));
+      if (baris) kamarBaruId.set(kamar.kunci, baris.id);
     }
     dibuat.push(plural(rencana.kamarBaru.length, "room"));
+  }
+
+  // Kamar yang sudah ada: nomor yang baru datang, label, kasur, jenis kamar.
+  // Ditulis sebelum stay, supaya portal langsung menampilkan nomor barunya.
+  const kamarUbah = rencana.kamarUbah ?? [];
+  for (const ubah of kamarUbah) {
+    const { id, room_number, label, room_type, bed_type } = ubah;
+    const { error } = await db.from("lodging_rooms")
+      .update({ room_number, label, room_type, bed_type, updated_at: new Date().toISOString() } as never)
+      .eq("id", id).eq("event_id", eventId);
+    if (error) {
+      return { galat: error.code === "23505"
+        ? `Room ${room_number ?? label ?? ubah.nama} already exists in this hotel. Reload the page, then import again.`
+        : "Rooms could not be updated. Reload the page, then import again." };
+    }
   }
 
   // Semua stay akhir tiap orang ditulis dengan satu `replace_stays`: stay lama
@@ -255,7 +279,7 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
     const stays = [];
     for (const stay of orang.stays) {
       const hotel = hotelId.get(kunci(stay.hotel));
-      const room = stay.kamar === null ? null : kamarId.get(`${hotel}\u0000${kunci(stay.kamar)}`);
+      const room = stay.kamar === null ? null : "id" in stay.kamar ? stay.kamar.id : kamarBaruId.get(stay.kamar.baru);
       if (hotel === undefined || room === undefined) break;
       const malam = stay.asli ?? (stay.malam ? malamIso(hotelById.get(hotel), stay.malam.masuk, stay.malam.keluar, acara.offset) : null);
       stays.push({ hotel_id: hotel, room_id: room, check_in_at: malam?.check_in_at ?? null, check_out_at: malam?.check_out_at ?? null });
@@ -288,7 +312,7 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
       }
     }
   }
-  return { masuk, dibuat, gagal };
+  return { masuk, dibuat, gagal, diubah: kamarUbah.length };
 }
 
 async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara: KeadaanAcara): Promise<Hasil> {

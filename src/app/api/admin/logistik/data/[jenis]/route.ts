@@ -25,8 +25,10 @@ type Jenis = {
   tabel: string;
   kolom: string;
   skema: z.ZodObject<z.ZodRawShape>;
-  /** Kalimat saat indeks unik menolak (23505). */
-  ganda?: string;
+  /** Kalimat saat indeks unik menolak (23505), bisa per constraint (pesan galatnya menyebut namanya). */
+  ganda?: string | ((pesan: string) => string);
+  /** Kalimat saat check constraint lintas kolom menolak (23514). */
+  periksaGagal?: string;
   /** Kalimat saat FK komposit menolak (23503): induknya milik acara lain atau sudah dihapus. */
   indukHilang?: string;
   /**
@@ -75,16 +77,20 @@ const JENIS: Record<string, Jenis> = {
   },
   kamar: {
     tabel: "lodging_rooms",
-    kolom: "id,hotel_id,room_number,room_type,capacity,floor,notes",
+    kolom: "id,hotel_id,room_number,label,room_type,bed_type,capacity,floor,notes",
     skema: z.object({
       hotel_id: z.number().int().positive(),
-      room_number: z.string().trim().min(1).max(40),
+      // Kosong = nomor kamar menyusul; labelnya yang mengenali kamar (migrasi 202610290001).
+      room_number: teks(40),
+      label: teks(40),
       room_type: teks(60),
+      bed_type: teks(40),
       capacity: z.number().int().min(1).max(20),
       floor: teks(20),
       notes: teks(500),
     }),
-    ganda: "This room number already exists in the same hotel.",
+    ganda: (pesan) => (pesan.includes("label") ? "This label already exists in the same hotel." : "This room number already exists in the same hotel."),
+    periksaGagal: "Give the room a number or a label.",
     indukHilang: "The hotel was not found. Reload the page.",
     tahanHapus: async (eventId, id) => {
       const { count } = await klien().from("lodging_assignments").select("id", { head: true, count: "exact" })
@@ -189,11 +195,14 @@ async function jenisDari(context: Konteks) {
   return Object.hasOwn(JENIS, jenis) ? JENIS[jenis] : null;
 }
 
-function galatTulis(jenis: Jenis, error: { code?: string | number }, nilai: Record<string, unknown>) {
+function galatTulis(jenis: Jenis, error: { code?: string | number; message?: string }, nilai: Record<string, unknown>) {
   if (jenis.kolomBaru && kolomBelumAda(error) && jenis.kolomBaru.nama in nilai) {
     return apiError(jenis.kolomBaru.kode, 409);
   }
-  if (String(error.code) === "23505" && jenis.ganda) return apiError("VALIDATION_ERROR", 422, { message: jenis.ganda });
+  if (String(error.code) === "23505" && jenis.ganda) {
+    return apiError("VALIDATION_ERROR", 422, { message: typeof jenis.ganda === "string" ? jenis.ganda : jenis.ganda(String(error.message ?? "")) });
+  }
+  if (String(error.code) === "23514" && jenis.periksaGagal) return apiError("VALIDATION_ERROR", 422, { message: jenis.periksaGagal });
   if (String(error.code) === "23503" && jenis.indukHilang) return apiError("VALIDATION_ERROR", 422, { message: jenis.indukHilang });
   // Pelanggaran check constraint (kapasitas di luar rentang) sudah ditahan Zod;
   // yang lolos ke sini memang galat sistem.

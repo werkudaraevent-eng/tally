@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     db.from("lodging_settings").select("gender_field_key,enforce_same_gender").eq("event_id", eventId).maybeSingle(),
     db.from("lodging_hotels").select("id,name,address,map_url,check_in_at,check_out_at,sort_order").eq("event_id", eventId)
       .order("sort_order").order("id"),
-    db.from("lodging_rooms").select("id,hotel_id,room_number,room_type,capacity,floor,notes").eq("event_id", eventId)
+    // `*`: label dan bed_type (migrasi 202610290001) belum ada sebelum migrasinya.
+    db.from("lodging_rooms").select("*").eq("event_id", eventId)
       .order("hotel_id").order("room_number"),
     db.from("transport_vehicles").select("id,code,capacity,plate_number,crew_contact,sort_order").eq("event_id", eventId)
       .order("sort_order").order("id"),
@@ -98,7 +99,10 @@ export async function GET(request: Request) {
       };
     }),
     hotels: (hotels.data ?? []) as LogistikData["hotels"],
-    rooms: (rooms.data ?? []) as LogistikData["rooms"],
+    rooms: ((rooms.data ?? []) as Array<LogistikData["rooms"][number] & { created_at?: unknown; updated_at?: unknown; check_in_at?: unknown; check_out_at?: unknown }>)
+      .map(({ id, hotel_id, room_number, label, room_type, bed_type, capacity, floor, notes }) => ({
+        id, hotel_id, room_number, label: label ?? null, room_type, bed_type: bed_type ?? null, capacity, floor, notes,
+      })),
     lodging,
     vehicles: (vehicles.data ?? []) as LogistikData["vehicles"],
     trips: ((trips.data ?? []) as unknown as Array<Omit<Agenda, "rundown_item_id"> & { rundown_item_id?: number | null }>).map((trip) => ({

@@ -4,6 +4,7 @@ import { Bed, Plus, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Banner, Button, Dialog, SelectField, StatusChip, TextField } from "@/components/m3";
 import { bertabrakan, labelTanggal, malamIso, potonganStay, puncakHuni, rentangStay, tanggalStay, tanggalZona, type Stay } from "@/lib/logistik/stay";
+import { judulKamar, urutKamar } from "@/lib/logistik/nama-kamar";
 import type { Hotel, Kamar, LogistikPeserta } from "@/lib/logistik/types";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
@@ -302,12 +303,13 @@ export function DialogStays({ orang, stays, hotels, rooms, hunian, offset, busy,
               const rentang = rentangStay(stay, undefined, hotel);
               const kamarHotel = rooms
                 .filter((k) => k.hotel_id === stay.hotel_id)
-                .sort((a, b) => a.room_number.localeCompare(b.room_number, "id", { numeric: true }));
+                .sort(urutKamar);
               return (
                 <li key={stay.id} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-3 last:border-b-0">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="min-w-0 flex-1 truncate text-title-small font-semibold text-on-surface">{hotel?.name ?? "Hotel"}</span>
-                    {kamar ? <span className="tabular-nums text-body-medium text-on-surface">Room {kamar.room_number}</span> : <StatusChip dot tone="warning">Room to follow</StatusChip>}
+                    {kamar ? <span className="tabular-nums text-body-medium text-on-surface">{judulKamar(kamar)}</span> : <StatusChip dot tone="warning">Room to follow</StatusChip>}
+                    {kamar && kamar.room_number === null ? <StatusChip dot tone="warning">Number to follow</StatusChip> : null}
                   </div>
                   <p className="text-body-medium text-on-surface-variant">
                     {label ? (sendiri ? label : `Hotel dates · ${label}`) : "Hotel dates not set yet"}
@@ -327,7 +329,7 @@ export function DialogStays({ orang, stays, hotels, rooms, hunian, offset, busy,
                             const penuh = isi >= k.capacity && k.id !== stay.room_id;
                             return (
                               <option key={k.id} value={k.id} disabled={penuh || k.id === stay.room_id}>
-                                {[`Room ${k.room_number}`, k.room_type, k.id === stay.room_id ? "current" : penuh ? "full these nights" : `${k.capacity - isi} of ${k.capacity} free`].filter(Boolean).join(" · ")}
+                                {[judulKamar(k), k.room_type, k.id === stay.room_id ? "current" : penuh ? "full these nights" : `${k.capacity - isi} of ${k.capacity} free`].filter(Boolean).join(" · ")}
                               </option>
                             );
                           })}

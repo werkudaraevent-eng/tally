@@ -1,12 +1,12 @@
 "use client";
 
-import { DownloadSimple, FileXls, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowRight, DownloadSimple, FileXls, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Banner, Button, Dialog, SegmentedButton, StatusDot } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
-import type { BarisRencana, JenisImpor, Rencana, StatusBaris } from "@/lib/logistik/impor";
+import type { BarisRencana, JenisImpor, KamarUbah, Rencana, StatusBaris } from "@/lib/logistik/impor";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
@@ -21,10 +21,10 @@ import { plural } from "@/lib/plural";
  * server menempatkan orang yang tidak ada di berkas.
  */
 
-type Hasil = { masuk: number; dibuat: string[]; gagal: Array<{ nama: string; alasan: string }> };
+type Hasil = { masuk: number; dibuat: string[]; diubah?: number; gagal: Array<{ nama: string; alasan: string }> };
 
 const URAIAN: Record<JenisImpor, string> = {
-  kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
+  kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created. A rooming list with its own room label (such as Kamar 01) can be imported as it is: roommates are paired now, and importing it again with room numbers filled in gives those rooms their numbers.",
   bus: "One row per person: Vehicle, then QR code or Name. Vehicles that do not exist yet are created with no capacity limit. A \"Trip: …\" column sets a different vehicle for that Trip only.",
   kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
 };
@@ -113,9 +113,17 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     await onSelesai();
     setProses(null);
     const selesai = jawaban.hasil!;
-    const dibuat = selesai.dibuat.length > 0 ? `Created ${selesai.dibuat.join(" and ")}.` : "";
+    const dibuat = [
+      selesai.dibuat.length > 0 ? `Created ${selesai.dibuat.join(" and ")}.` : "",
+      selesai.diubah ? `Updated ${plural(selesai.diubah, "room")}.` : "",
+    ].filter(Boolean).join(" ");
     if (selesai.gagal.length === 0) {
-      toast.success(jenis === "kereta" ? `${plural(selesai.masuk, "ticket")} saved` : `${plural(selesai.masuk, "person", "people")} assigned`, dibuat || undefined);
+      toast.success(
+        jenis === "kereta" ? `${plural(selesai.masuk, "ticket")} saved`
+          : selesai.masuk === 0 && selesai.diubah ? `${plural(selesai.diubah, "room")} updated`
+          : `${plural(selesai.masuk, "person", "people")} assigned`,
+        dibuat || undefined,
+      );
       onClose();
       return;
     }
@@ -134,6 +142,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
         rencana.busBaru.length > 0 ? plural(rencana.busBaru.length, "vehicle") : null,
       ].filter(Boolean)
     : [];
+  const kamarDiubah = rencana?.kamarUbah?.length ?? 0;
   const tampil = (rencana?.baris ?? []).filter((b) => !hanyaTolak || b.status === "tolak");
   const sibuk = proses !== null;
 
@@ -154,10 +163,10 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
           <Button
             simpan
             loading={proses === "simpan"}
-            disabled={!rencana || proses === "baca" || (akanDitulis === 0 && dibuatNanti.length === 0)}
+            disabled={!rencana || proses === "baca" || (akanDitulis === 0 && dibuatNanti.length === 0 && kamarDiubah === 0)}
             onClick={() => void simpan()}
           >
-            {akanDitulis > 0 ? `Save ${plural(akanDitulis, jenis === "kereta" ? "ticket" : "assignment")}` : "Save"}
+            {akanDitulis > 0 ? `Save ${plural(akanDitulis, jenis === "kereta" ? "ticket" : "assignment")}` : kamarDiubah > 0 ? `Update ${plural(kamarDiubah, "room")}` : "Save"}
           </Button>
         </>
       )}
@@ -270,7 +279,10 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                   </span>
                 ) : null}
                 {dibuatNanti.length > 0 ? <span>Will be created: {dibuatNanti.join(", ")}</span> : null}
+                {kamarDiubah > 0 ? <span>Will be updated: {plural(kamarDiubah, "room")}</span> : null}
               </div>
+              {rencana.kolomDibaca && rencana.kolomDibaca.length > 0 ? <KolomDibaca kolom={rencana.kolomDibaca} /> : null}
+              {kamarDiubah > 0 ? <KamarDiubah kamar={rencana.kamarUbah!} /> : null}
 
               {rencana.baris.length === 0 ? (
                 <p className="rounded-md border border-outline-variant px-4 py-6 text-center text-body-medium text-on-surface-variant">
@@ -330,6 +342,52 @@ function ContohStay() {
       <p className="text-body-small text-on-surface-variant">
         Each person in the file gets exactly the hotels in their row. People who are not in the file are not changed, so you can import one batch at a time.
       </p>
+    </div>
+  );
+}
+
+/** Kolom berkas dan isian yang dibacanya, supaya judul yang berbeda dari templat terlihat sebelum disimpan. */
+function KolomDibaca({ kolom }: { kolom: NonNullable<Rencana["kolomDibaca"]> }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-body-small text-on-surface-variant">Columns read from your file</p>
+      <ul className="flex flex-wrap gap-2">
+        {kolom.map((k) => (
+          <li key={k.jadi} className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-outline-variant px-2 text-body-medium">
+            <span className="text-on-surface">{k.judul}</span>
+            <ArrowRight size={14} className="text-on-surface-variant" aria-label="read as" />
+            <span className="text-on-surface-variant">{k.jadi}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const ISIAN_KAMAR: Array<[keyof KamarUbah, string]> = [["room_number", "Room number"], ["label", "Label"], ["bed_type", "Bed"], ["room_type", "Room type"]];
+
+/** Kamar yang sudah ada dan isiannya diubah berkas, satu isian per kolom. */
+function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
+  const kolom = ISIAN_KAMAR.filter(([isian]) => kamar.some((k) => k[isian] !== undefined));
+  return (
+    <div className="max-h-[24dvh] overflow-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+      <table className="w-full border-collapse text-left text-body-medium">
+        <caption className="sr-only">Rooms that will be updated</caption>
+        <thead className="sticky top-0 bg-surface-container-lowest text-on-surface-variant">
+          <tr className="h-9 border-b border-outline-variant">
+            <th scope="col" className="px-4 font-normal">Room</th>
+            {kolom.map(([isian, label]) => <th key={isian} scope="col" className="px-4 font-normal">{label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {kamar.slice(0, BATAS_TAMPIL).map((k) => (
+            <tr key={k.id} className="h-9 border-b border-outline-variant last:border-b-0">
+              <td className="px-4 text-on-surface">{k.nama}</td>
+              {kolom.map(([isian]) => <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

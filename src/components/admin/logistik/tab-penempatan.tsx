@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Banner, Button, ChipMenu, Dialog, EmptyState, IconButton, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, SelectField, StatusChip, TextField, EMPTY_VALUE } from "@/components/m3";
 import { kurangKendaraan, labelTripPendek, lengkapKendaraan, petaKendaraan, ringkasKendaraan, TEKS_KURANG } from "@/lib/logistik/kendaraan-trip";
 import { bertabrakan, labelTanggal, rentangStay, stayPerPeserta, tanggalStay, tanggalZona, type Stay } from "@/lib/logistik/stay";
+import { judulKamar, urutKamar } from "@/lib/logistik/nama-kamar";
 import { kunciGender, type LogistikPeserta } from "@/lib/logistik/types";
 import { timeZoneOffset } from "@/lib/timezone";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
@@ -73,6 +74,8 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
     [data.transport],
   );
   const kamarById = useMemo(() => new Map(data.rooms.map((kamar) => [kamar.id, kamar])), [data.rooms]);
+  // Kolom Room label hanya bila rooming list memakai label: acara lain tidak berubah.
+  const adaLabel = data.rooms.some((kamar) => kamar.label);
   const busById = useMemo(() => new Map(data.vehicles.map((bus) => [bus.id, bus])), [data.vehicles]);
   // Kendaraan yang dinaiki di tiap Trip (pengecualian, atau kendaraan utama bila
   // trip mengikutinya). Tanpa Trip: kendaraan utama saja, seperti sebelumnya.
@@ -249,6 +252,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                   {kunciField ? <th scope="col" className={th}>Gender</th> : null}
                   <th scope="col" className={th}>Hotel</th>
                   <th scope="col" className={th}>Room</th>
+                  {adaLabel ? <th scope="col" className={th}>Room label</th> : null}
                   <th scope="col" className={th}>Check-in</th>
                   <th scope="col" className={th}>Check-out</th>
                   <th scope="col" className={th}>Vehicle</th>
@@ -288,7 +292,7 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                       </td>
                       <td className={cx(td, "max-w-[220px] truncate text-on-surface-variant")}>{orang.company || EMPTY_VALUE}</td>
                       {kunciField ? <td className={cx(td, "text-on-surface-variant")}>{orang.gender || EMPTY_VALUE}</td> : null}
-                      {(["hotel", "kamar", "masuk", "keluar"] as const).map((kolom) => (
+                      {(adaLabel ? (["hotel", "kamar", "label", "masuk", "keluar"] as const) : (["hotel", "kamar", "masuk", "keluar"] as const)).map((kolom) => (
                         <td key={kolom} className={cx(td, "whitespace-nowrap py-1", kolom === "hotel" && "max-w-[200px]")}>
                           <button
                             type="button"
@@ -307,7 +311,9 @@ export function TabPenempatan({ data, kirim, busy, keTab }: Pick<TabProps, "data
                                   {kolom === "hotel" ? (
                                     <span title={hotel?.name} className={cx("truncate", gantiKamar ? "text-on-surface-variant" : "text-on-surface")}>{hotel?.name}</span>
                                   ) : kolom === "kamar" ? (
-                                    kamar ? <span className="tabular-nums text-on-surface">{kamar.room_number}</span> : <StatusChip dot tone="warning">To follow</StatusChip>
+                                    kamar?.room_number ? <span className="tabular-nums text-on-surface">{kamar.room_number}</span> : <StatusChip dot tone="warning">To follow</StatusChip>
+                                  ) : kolom === "label" ? (
+                                    <span className="text-on-surface">{kamar?.label ?? EMPTY_VALUE}</span>
                                   ) : (
                                     <span className="tabular-nums text-on-surface-variant">{(() => { const v = kolom === "masuk" ? t.masuk : t.keluar; return v ? labelTanggal(tanggalZona(v, offset)).slice(4) : EMPTY_VALUE; })()}</span>
                                   )}
@@ -562,7 +568,7 @@ export function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, stay
   // Isi kamar per malam. Yang dipilih tidak dihitung: stay mereka diganti
   // seluruhnya, jadi tempatnya bebas.
   const hunian = useMemo(() => buatHunian(data.lodging, data.participants, data.hotels), [data.lodging, data.participants, data.hotels]);
-  const kamarUrut = useMemo(() => [...data.rooms].sort((a, b) => a.room_number.localeCompare(b.room_number, "id", { numeric: true })), [data.rooms]);
+  const kamarUrut = useMemo(() => [...data.rooms].sort(urutKamar), [data.rooms]);
 
   function ubah(kunci: number, isi: Partial<IsianStay>) {
     setStays((lama) => lama.map((s) => (s.kunci === kunci ? { ...s, ...isi } : s)));
@@ -726,7 +732,7 @@ export function DialogKamar({ open, orang, data, busy, onClose, keTabKamar, stay
                       <option value="">Room later</option>
                       {kamar.map((b) => (
                         <option key={b.kamar.id} value={b.kamar.id} disabled={Boolean(b.alasan)}>
-                          {[`Room ${b.kamar.room_number}`, b.kamar.room_type, b.alasan ?? `${b.sisa} free`].filter(Boolean).join(" · ")}
+                          {[judulKamar(b.kamar), b.kamar.room_type, b.alasan ?? `${b.sisa} free`].filter(Boolean).join(" · ")}
                         </option>
                       ))}
                     </SelectField>
