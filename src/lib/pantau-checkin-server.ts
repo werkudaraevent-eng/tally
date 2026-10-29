@@ -2,7 +2,7 @@ import { loadDaftarCheckpoint } from "@/lib/checkpoint/server";
 import { semuaBaris } from "@/lib/logistik/server";
 import { memberConfig } from "@/lib/member/account";
 import type { EventRow } from "@/lib/domain";
-import { hitungPantau, type AgendaPantau, type BarisPantau, type CatatanPantau, type SesiPantau } from "@/lib/pantau-checkin";
+import { hitungPantau, type AgendaPantau, type BahanPantau, type BarisPantau, type CatatanPantau, type SesiPantau } from "@/lib/pantau-checkin";
 import { jawabanPeserta, kolomSasaran } from "@/lib/sasaran-bagian";
 import { bacaSyaratBaris } from "@/lib/sasaran-baris";
 import { muatStayPeserta, type StayPeserta } from "@/lib/sasaran-baris-server";
@@ -22,6 +22,22 @@ import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
  * SaaS berskala besar hitungannya pindah ke fungsi database.
  */
 export async function muatPantauCheckin(event: EventRow, sekarang = new Date()): Promise<BarisPantau[] | null> {
+  const dimuat = await muatBahanPantau(event, sekarang);
+  return dimuat ? hitungPantau(dimuat.bahan) : null;
+}
+
+/** Peserta aktif dengan nama dan unit, hanya untuk halaman Kehadiran panitia. */
+export type OrangPantau = { name: string; company: string | null; extra: Record<string, unknown> | null };
+
+/**
+ * Bahan hitungPantau. `orang`: ikut membaca nama dan unit peserta aktif
+ * (halaman Kehadiran panitia di portal); Dashboard tidak memerlukannya.
+ */
+export async function muatBahanPantau(
+  event: EventRow,
+  sekarang = new Date(),
+  opsi: { orang?: boolean } = {},
+): Promise<{ bahan: BahanPantau; orang: Map<string, OrangPantau>; checkpoints: { id: number; agenda_item_ids: number[] }[] } | null> {
   const db = getSupabaseServiceClient();
   const [sesiHasil, checkpoints] = await Promise.all([
     db.from("attendance_sessions").select("id,name,is_active,sort_order").eq("event_id", event.id).order("sort_order").order("id"),
@@ -30,14 +46,16 @@ export async function muatPantauCheckin(event: EventRow, sekarang = new Date()):
   if (sesiHasil.error) return null;
   const sesi = (sesiHasil.data ?? []) as SesiPantau[];
   const daftar = checkpoints ?? [];
-  if (sesi.length === 0 && daftar.length === 0) return [];
+  if (sesi.length === 0 && daftar.length === 0) {
+    return { bahan: { sesi: [], checkpoints: [], agenda: new Map(), peserta: [], scans: [], pickups: [], barang: new Map(), sekarang }, orang: new Map(), checkpoints: [] };
+  }
 
   const agendaIds = [...new Set(daftar.flatMap((cp) => cp.agenda_item_ids))];
   const barangIds = [...new Set(daftar.map((cp) => cp.item_id).filter((id): id is number => id !== null))];
 
   const [peserta, scans, pickups, barangHasil, agendaHasil] = await Promise.all([
-    semuaBaris<{ id: string; extra: Record<string, unknown> | null }>(() =>
-      db.from("participants").select("id,extra").eq("event_id", event.id).is("source_removed_at", null).order("id")),
+    semuaBaris<{ id: string; extra: Record<string, unknown> | null; name?: string; company?: string | null }>(() =>
+      db.from("participants").select(opsi.orang ? "id,extra,name,company" : "id,extra").eq("event_id", event.id).is("source_removed_at", null).order("id")),
     sesi.length
       ? semuaBaris<{ id: number; session_id: number; participant_id: string; scanned_at: string }>(() =>
           db.from("attendance_scans").select("id,session_id,participant_id,scanned_at").eq("event_id", event.id).order("id"))
@@ -72,7 +90,7 @@ export async function muatPantauCheckin(event: EventRow, sekarang = new Date()):
   const offset = timeZoneOffset(normalizeTimeZone((event as { time_zone?: unknown }).time_zone));
   const kolom = kolomSasaran(event.registration_form_config);
 
-  return hitungPantau({
+  const bahan: BahanPantau = {
     sesi,
     checkpoints: daftar,
     agenda,
@@ -84,5 +102,9 @@ export async function muatPantauCheckin(event: EventRow, sekarang = new Date()):
     pickups: pickups.map((isi): CatatanPantau => ({ kunci: Number(isi.item_id), participant_id: isi.participant_id, at: isi.picked_up_at })),
     barang: new Map(((barangHasil.data ?? []) as Array<{ id: number; name: string }>).map((isi) => [Number(isi.id), isi.name])),
     sekarang,
-  });
+  };
+  const orang = new Map<string, OrangPantau>(
+    opsi.orang ? peserta.map((isi) => [isi.id, { name: isi.name ?? "", company: isi.company ?? null, extra: isi.extra }]) : [],
+  );
+  return { bahan, orang, checkpoints: daftar.map((cp) => ({ id: cp.id, agenda_item_ids: cp.agenda_item_ids })) };
 }

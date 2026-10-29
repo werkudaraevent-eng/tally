@@ -67,7 +67,7 @@ function ringkasCatatan(catatan: readonly CatatanPantau[]) {
   return { pertama, terakhir };
 }
 
-export function hitungPantau(input: {
+export type BahanPantau = {
   sesi: readonly SesiPantau[];
   checkpoints: readonly CheckpointPantau[];
   agenda: ReadonlyMap<number, AgendaPantau>;
@@ -77,12 +77,23 @@ export function hitungPantau(input: {
   /** Nama barang per id, untuk checkpoint barang. */
   barang: ReadonlyMap<number, string>;
   sekarang: Date;
-}): BarisPantau[] {
+};
+
+/** Satu titik sebelum diringkas: siapa yang diharapkan dan pencatatan pertama tiap orang. */
+type TitikPantau = {
+  dasar: Pick<BarisPantau, "key" | "jenis" | "nama" | "tempat" | "aktif">;
+  ids: readonly number[];
+  /** null = tanpa Who sees it: semua peserta aktif. */
+  harap: Set<string> | null;
+  orang: Map<string, string>;
+  terakhir: string | null;
+};
+
+function titikPantau(input: BahanPantau): TitikPantau[] {
   const aktif = new Set(input.peserta.map((orang) => orang.id));
   const sesiById = new Map(input.sesi.map((s) => [s.id, s]));
   const scan = ringkasCatatan(input.scans.filter((isi) => aktif.has(isi.participant_id)));
   const ambil = ringkasCatatan(input.pickups.filter((isi) => aktif.has(isi.participant_id)));
-  const batas = new Date(input.sekarang.getTime() - LIMA_BELAS_MENIT).toISOString();
 
   // Siapa yang diharapkan untuk satu set baris Agenda: yang melihat SALAH SATU
   // baris (KSO menautkan satu baris per Batch ke satu checkpoint).
@@ -97,15 +108,44 @@ export function hitungPantau(input: {
     return hasil;
   };
 
+  const titik = (dasar: TitikPantau["dasar"], ids: readonly number[], ringkas: ReturnType<typeof ringkasCatatan>, kunci: number): TitikPantau => ({
+    dasar,
+    ids,
+    harap: diharapkan(ids),
+    orang: ringkas.pertama.get(kunci) ?? new Map<string, string>(),
+    terakhir: ringkas.terakhir.get(kunci) ?? null,
+  });
+
+  const hasil: TitikPantau[] = [];
+  const dipakai = new Set<number>();
+  for (const cp of input.checkpoints) {
+    if (cp.session_id !== null) {
+      const sesi = sesiById.get(cp.session_id);
+      if (!sesi) continue;
+      dipakai.add(sesi.id);
+      hasil.push(titik({ key: `cp-${cp.id}`, jenis: "sesi", nama: cp.title, tempat: cp.place, aktif: sesi.is_active }, cp.agenda_item_ids, scan, sesi.id));
+    } else if (cp.item_id !== null) {
+      hasil.push(titik({ key: `cp-${cp.id}`, jenis: "barang", nama: cp.title, tempat: cp.place ?? input.barang.get(cp.item_id) ?? null, aktif: true }, cp.agenda_item_ids, ambil, cp.item_id));
+    }
+  }
+  for (const sesi of input.sesi) {
+    if (dipakai.has(sesi.id)) continue;
+    hasil.push(titik({ key: `sesi-${sesi.id}`, jenis: "sesi", nama: sesi.name, tempat: null, aktif: sesi.is_active }, [], scan, sesi.id));
+  }
+  return hasil;
+}
+
+export function hitungPantau(input: BahanPantau): BarisPantau[] {
+  const jumlahAktif = input.peserta.length;
+  const batas = new Date(input.sekarang.getTime() - LIMA_BELAS_MENIT).toISOString();
+
   const waktu = (ids: readonly number[]) => {
     const baris = ids.map((id) => input.agenda.get(id)).filter((isi): isi is AgendaPantau => Boolean(isi && isi.tanggal));
     baris.sort((a, b) => `${a.tanggal} ${a.jam ?? ""}`.localeCompare(`${b.tanggal} ${b.jam ?? ""}`));
     return baris[0] ? { tanggal: baris[0].tanggal, jam: baris[0].jam } : { tanggal: null, jam: null };
   };
 
-  const susun = (dasar: Pick<BarisPantau, "key" | "jenis" | "nama" | "tempat" | "aktif">, ids: readonly number[], ringkas: ReturnType<typeof ringkasCatatan>, kunci: number): BarisPantau => {
-    const harap = diharapkan(ids);
-    const orang = ringkas.pertama.get(kunci) ?? new Map<string, string>();
+  const susun = ({ dasar, ids, harap, orang, terakhir }: TitikPantau): BarisPantau => {
     let sudah = 0;
     let lainnya = 0;
     let baru = 0;
@@ -118,38 +158,40 @@ export function hitungPantau(input: {
       ...dasar,
       ...waktu(ids),
       menurut_agenda: harap !== null,
-      diharapkan: harap ? harap.size : aktif.size,
+      diharapkan: harap ? harap.size : jumlahAktif,
       sudah,
       lainnya,
-      terakhir: ringkas.terakhir.get(kunci) ?? null,
+      terakhir,
       baru_15: baru,
     };
   };
 
-  const baris: BarisPantau[] = [];
-  const dipakai = new Set<number>();
-  for (const cp of input.checkpoints) {
-    if (cp.session_id !== null) {
-      const sesi = sesiById.get(cp.session_id);
-      if (!sesi) continue;
-      dipakai.add(sesi.id);
-      baris.push(susun({ key: `cp-${cp.id}`, jenis: "sesi", nama: cp.title, tempat: cp.place, aktif: sesi.is_active }, cp.agenda_item_ids, scan, sesi.id));
-    } else if (cp.item_id !== null) {
-      baris.push(susun({ key: `cp-${cp.id}`, jenis: "barang", nama: cp.title, tempat: cp.place ?? input.barang.get(cp.item_id) ?? null, aktif: true }, cp.agenda_item_ids, ambil, cp.item_id));
-    }
-  }
-  for (const sesi of input.sesi) {
-    if (dipakai.has(sesi.id)) continue;
-    baris.push(susun({ key: `sesi-${sesi.id}`, jenis: "sesi", nama: sesi.name, tempat: null, aktif: sesi.is_active }, [], scan, sesi.id));
-  }
+  const baris = titikPantau(input).map(susun);
 
   // Urut jam Agenda; yang tanpa tautan di belakang, dengan urutan aslinya.
   return baris
     .map((isi, urutan) => ({ isi, urutan }))
     .sort((a, b) => {
-      const ka = a.isi.tanggal ? `${a.isi.tanggal} ${a.isi.jam ?? ""}` : "￿";
-      const kb = b.isi.tanggal ? `${b.isi.tanggal} ${b.isi.jam ?? ""}` : "￿";
+      const ka = a.isi.tanggal ? `${a.isi.tanggal} ${a.isi.jam ?? ""}` : "\uffff";
+      const kb = b.isi.tanggal ? `${b.isi.tanggal} ${b.isi.jam ?? ""}` : "\uffff";
       return ka === kb ? a.urutan - b.urutan : ka.localeCompare(kb);
     })
     .map(({ isi }) => isi);
+}
+
+/**
+ * Orang di satu titik, untuk halaman Kehadiran panitia di portal: yang sudah
+ * (jam pencatatan pertama di titik itu) dan yang belum dari yang diharapkan.
+ * "Sudah" memakai aturan yang sama dengan angka di atas: orang di luar yang
+ * diharapkan masuk `lainnya`, tidak ikut "sudah". Null bila kuncinya tidak ada.
+ */
+export function rincianPantau(input: BahanPantau, key: string): { sudah: { id: string; at: string }[]; belum: string[]; lainnya: { id: string; at: string }[] } | null {
+  const titik = titikPantau(input).find((isi) => isi.dasar.key === key);
+  if (!titik) return null;
+  const sudah: { id: string; at: string }[] = [];
+  const lainnya: { id: string; at: string }[] = [];
+  for (const [id, at] of titik.orang) (titik.harap && !titik.harap.has(id) ? lainnya : sudah).push({ id, at });
+  const diharap = titik.harap ? [...titik.harap] : input.peserta.map((orang) => orang.id);
+  const belum = diharap.filter((id) => !titik.orang.has(id));
+  return { sudah, belum, lainnya };
 }

@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Committee attendance in the portal (Mas 29 Oct): participants whose Type is chosen in Check-in > Checkpoints > Committee access get a "Pantau kehadiran" card on Beranda and a read-only page per check-in point (who has and hasn't checked in, search). Name, unit, group and time only; access ends one day after the event. No SQL. PR #329, QA GO; waiting on Mas's merge time.
 - Agenda Details formatting in the participant portal (Mas 29 Oct, KSO): Acara > Susunan acara (Horizon, Trip, classic Gathering) and the classic Beranda rundown now show bold, italic, theme-colour marks, lists and line breaks like the event page, instead of flattened text. One-line summaries (Beranda next-up, Trip Beranda rows) stay plain. No SQL; Details without marks look the same except typed line breaks now show. PR open, waiting on QA and Mas's merge time.
 - Logistics recap by date (Mas 29 Oct, KSO): Rooms > By date (per stay check-in/check-out and per night: rooms, guests, without a room, room-nights) and Vehicles > By date (passengers per vehicle per Trip, grouped by day). Hotel pane no longer says its times apply to every room when guests have their own dates. Admin only, no SQL. PR open, waiting on QA.
 - Room label for hotel rooming lists (Mas 29 Oct, KSO lists name rooms "Kamar 01" before the hotel gives numbers): rooms get an organiser Label and a Bed type beside Room type; Room number may stay empty. Import reads Room label / Room number / Bed / Room type as separate columns, pairs roommates by label, and a later import with numbers fills them in without moving anyone; all-caps bed and type become "Deluxe", "Twin". Participants see "Menyusul · Deluxe · Twin" and their roommate, never the label. SQL `202610290001_label_kamar` (review GO) to be run by Mas first; PR #322 merges after its post-check, QA GO, with Mas's merge time (before 3 Nov). Unlabelled events 0 px.
@@ -214,6 +215,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #202: the Agenda tab strip at 1280 px has no cue that more tabs are off-screen, and the Bus chip and note refresh on load and save only, so a trip changed in Logistics in another tab shows after a reload.
 
 ### Horizon portal
+- Committee attendance (#329): EN times mix "06.00" and "16:02"; API error responses lack Cache-Control (no data in them); the ended-event message says "only for committee"; a point with no Agenda link sends every name every 30 s, list not virtualised.
 - Emergency card contacts (#287 QA Lows): 1500xxx / 14xxx hotlines get no Call button; "021 1500 999" is grouped oddly; a local landline shows as +62 while its `tel:` link stays local. Other contact cards (Butuh bantuan, bus crew) do not follow the new contact-list rule yet.
 - #273 Low: the bus card "Selesai" head (every trip already left) was checked in code only, not on a render.
 - Portal card scale: Susunan acara rows (white, shadow instead of the card outline) and Directions cards in Perjalanan keep their own look; the QR page and the sign-in page are not cards and were not touched.

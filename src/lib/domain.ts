@@ -1291,6 +1291,12 @@ export type LandingMemberConfig = {
    */
   home?: { order?: string[]; hidden?: string[] };
   /**
+   * Kehadiran untuk panitia di portal (lib/member/akses-panitia.ts): Tipe
+   * peserta yang mendapat akses dan titik yang disembunyikan. Disunting di
+   * Check-in > Checkpoints > Committee access. Kosong = mati.
+   */
+  committee?: { types: string[]; hidden: string[] } | null;
+  /**
    * Label halaman Outfit di portal Gathering Horizon (judul halaman, strip di
    * Susunan acara, baris Beranda; bilah atas dan Menu bila Jadwal
    * disembunyikan). Kosong = "Outfit". Paling panjang 16 huruf.

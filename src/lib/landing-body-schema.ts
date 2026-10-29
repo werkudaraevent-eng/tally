@@ -7,6 +7,7 @@ import { outfitSetiapHariSchema } from "@/lib/outfit-setiap-hari";
 import { KOLOM_MASUK_POLA } from "@/lib/member/kolom-masuk";
 import { JENIS_DARURAT, KONTAK_DARURAT_BATAS, KONTAK_DARURAT_MAX } from "@/lib/member/kontak-darurat";
 import { KONTAK_PANITIA_MAX, KONTAK_PERAN_MAX } from "@/lib/kontak-panitia";
+import { PANITIA_SEMBUNYI_MAX, PANITIA_TIPE_MAX, PANITIA_TIPE_PANJANG, POLA_KUNCI_TITIK } from "@/lib/member/akses-panitia";
 import { LANDING_ABOUT_CARDS, LANDING_ABOUT_MEDIA, LANDING_SPEAKER_FRAMES, LANDING_FAQ_LAYOUTS, FAQ_GROUP_MAX, LANDING_AGENDA_SPEAKERS, LANDING_FORUM_ICON_KEYS, LANDING_IMAGE_ALT_MAX, LANDING_HEADING_FONT_KEYS, LANDING_BODY_FONTS, LANDING_CORNERS, LANDING_HEADING_SIZE, LANDING_HERO_HEIGHT_PX, LANDING_NAV_HEIGHT_MAX, LANDING_NAV_HEIGHT_MIN, LANDING_NAV_LABEL_MAX, LANDING_SECTION_TEXT_MAX, HORIZON_TEXT_MAX, EVENT_VENUE_MAX, LANDING_BLOCK_SHOW_ON, LANDING_ROUTE_MAPS_MODES, LANDING_ROUTE_STEPS_MAX, LANDING_ROUTE_STEP_TEXT_MAX, landingBlockLimits, type LandingTextLimit } from "@/lib/domain";
 
 const NADA_BAGIAN = z.enum(["light", "panel", "dark"]);
@@ -290,6 +291,14 @@ export const memberSchema = z.object({
     .transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
   /** Dresscode Setiap hari portal Horizon. Tidak dikirim = tidak diubah; kosong = tidak ada (disimpan null). */
   outfit_every_day: outfitSetiapHariSchema,
+  /** Kehadiran untuk panitia (lib/member/akses-panitia.ts). null = mati. */
+  committee: z
+    .object({
+      types: z.array(z.string().trim().min(1).max(PANITIA_TIPE_PANJANG)).max(PANITIA_TIPE_MAX),
+      hidden: z.array(z.string().regex(POLA_KUNCI_TITIK)).max(PANITIA_SEMBUNYI_MAX),
+    })
+    .nullable()
+    .optional(),
   /** Blok peserta yang tampil di Menu sebagai kartu darurat dan bantuan (portal Horizon). Kosong = tidak ada. */
   help_block: blockId.nullable().optional(),
   /**

@@ -27,6 +27,8 @@ import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
+import { KartuPanitia } from "@/components/member/kartu-panitia";
+import { panitiaDiPortal } from "@/lib/member/panitia";
 import { kartuLengkapi, updatableFields } from "@/lib/member/lengkapi";
 import { AgendaPills } from "@/components/landing/modern/agenda-pills";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
@@ -290,6 +292,8 @@ export async function DashboardModern({
         <div className="grid gap-10 pb-16 pt-8 lg:grid-cols-12 lg:gap-6 lg:pb-24">
           {/* Kanan di layar lebar, PERTAMA di ponsel: tiket lalu tautan cepat. */}
           <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--nav-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:self-start">
+            {/* Kehadiran untuk panitia (lib/member/akses-panitia.ts): paling atas, hanya untuk Tipe terpilih. */}
+            {panitiaDiPortal(asli, member, sesi, pratinjau) ? <KartuPanitia gaya="modern" slug={event.slug} lang={lang} href={`${halamanAcara}/peserta?tab=panitia`} /> : null}
             {berikutnya && nextDuluan ? (
               <BagianBeranda id="next" pratinjau={pratinjau}>
                 <KartuBerikutnya agenda={berikutnya} zona={event.time_zone} now={sekarang} className="lg:hidden" />

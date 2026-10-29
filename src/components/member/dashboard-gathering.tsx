@@ -121,6 +121,8 @@ import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBag
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
 import { rentangPerjalanan } from "@/lib/member/rentang-perjalanan";
 import { faseBeranda } from "@/lib/member/fase-beranda";
+import { KartuPanitia, type GayaKartuPanitia } from "@/components/member/kartu-panitia";
+import { panitiaDiPortal } from "@/lib/member/panitia";
 import { KartuOutfitBerandaHorizon, KartuPerjalananmuHorizon, KartuQrSampingHorizon, KartuSekarangHorizon } from "@/components/member/beranda-horizon";
 import { jenisBlokDarurat } from "@/lib/member/blok-darurat";
 import { HtmlLang } from "@/components/html-lang";
@@ -237,6 +239,9 @@ export async function DashboardGathering({
   const kini = sekarangDi(zona, sekarang);
   const gaya = gayaPortal(config, horizon);
   const peserta = sesi.participant;
+  // Kehadiran untuk panitia (lib/member/akses-panitia.ts): kartu paling atas Beranda.
+  const pantauPanitia = (gayaKartu: GayaKartuPanitia) =>
+    panitiaDiPortal(asli, member, sesi, pratinjau) ? <KartuPanitia gaya={gayaKartu} slug={event.slug} lang={lang} href={withQuery(dasar, { tab: "panitia" })} /> : null;
   const tampilKode = Boolean(peserta) && member.show_code !== false;
   const nama = publicEventName(event);
   const tH = t.horizon;
@@ -794,6 +799,7 @@ export async function DashboardGathering({
         <div className="flex min-w-0 flex-col gap-4">
           {pitaEmail}
           <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
+          {pantauPanitia("gathering")}
           {beranda.order.map((id, index) => {
             // Status pendaftaran sebelum isi pertama selain Tautan cepat, seperti sebelum urutan ini ada.
             const status = index === beranda.order.findIndex((lain) => lain !== "quick") ? statusPendaftaran : null;
@@ -2382,6 +2388,7 @@ export async function DashboardGathering({
         );
       };
       const kartuSamping = ["announcements", "outfit"].map(susun).filter(Boolean);
+      const kartuPantau = pantauPanitia(trip ? "trip" : "horizon");
       badan = (
         <>
           <SapaanHorizon
@@ -2403,6 +2410,7 @@ export async function DashboardGathering({
             <div className="flex flex-col gap-6 max-lg:[reading-flow:flex-visual] lg:grid lg:grid-cols-[minmax(0,790px)_minmax(320px,1fr)] lg:items-start lg:gap-x-8 lg:gap-y-6">
               <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
                 {statusPendaftaran ? <div className="order-[0] lg:order-none">{statusPendaftaran}</div> : null}
+                {kartuPantau ? <div className="order-[0] lg:order-none">{kartuPantau}</div> : null}
                 {urutan.filter((id) => !SAMPING.has(id)).map(susun)}
                 {/* Bantuan selalu paling bawah: di ponsel dan di akhir kolom utama desktop. */}
                 {kartuBantuan ? (
@@ -2586,7 +2594,7 @@ export async function DashboardGathering({
 }
 
 /** Warna dan huruf portal dari Tema acara; Horizon: navy dan emas, latar krem. */
-function gayaPortal(config: EventLandingConfig, horizon: boolean): CSSProperties {
+export function gayaPortal(config: EventLandingConfig, horizon: boolean): CSSProperties {
   const tokensTema = landingTokens(config, "modern");
   const latarHalaman = latarGathering(tokensTema.brand);
   const warna = gatheringColors(tokensTema.accent ?? undefined, tokensTema.brand, false, config.button_color);

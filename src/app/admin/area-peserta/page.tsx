@@ -245,6 +245,9 @@ export default function AreaPesertaPage() {
     // Sama untuk plat dan kru bus: disunting di Logistics > Buses.
     delete setelan.show_bus_plate;
     delete setelan.show_bus_crew;
+    // Akses panitia disunting di Check-in > Checkpoints > Committee access:
+    // salinan di layar ini bisa basi, jadi tidak pernah dikirim dari sini.
+    delete setelan.committee;
     const response = await fetch(eventApiPath("/api/admin/area-peserta"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

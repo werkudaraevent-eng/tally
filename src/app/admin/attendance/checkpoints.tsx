@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextField, Dialog } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { AksesPanitia } from "@/app/admin/attendance/akses-panitia";
 import { PilihBarisAgenda, useAgendaTrip } from "@/components/admin/logistik/pilih-baris-agenda";
 import { pesanGalatApi } from "@/lib/api-message";
 import { angkaTujuan, kalimatTujuan, rapiTujuan, TUJUAN_POIN_MAX, TUJUAN_TEKS_MAX, type TujuanPoin } from "@/lib/checkpoint/tujuan";
@@ -58,6 +59,8 @@ type Penyelesaian = "staff" | "self" | "both";
 
 type Muat = {
   settings: { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
+  /** Tipe peserta dengan akses panitia di portal (akses-panitia.tsx). */
+  committee_types?: string[];
   /** Kolom tujuan poin sudah ada (migrasi 202610170001). */
   goal_ready: boolean;
   /** Kolom scan mandiri sudah ada (migrasi 202610180001). */
@@ -317,6 +320,10 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
             label="Points"
           />
           {tombolTujuan ? <div className="flex @max-md:order-3 @max-md:basis-full">{tombolTujuan}</div> : null}
+        </div>
+        {/* Kehadiran untuk panitia di portal peserta (akses-panitia.tsx). */}
+        <div className="flex min-h-9 items-center @max-md:basis-full @md:@max-lg:order-2">
+          <AksesPanitia tipeAwal={data?.committee_types ?? null} />
         </div>
         <span className="ml-auto inline-flex min-h-9 items-center text-body-medium tabular-nums text-on-surface-variant @md:@max-lg:order-1">
           {data && daftar.length > 0 && data.finished_all != null && data.participants != null
