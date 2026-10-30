@@ -40,8 +40,10 @@ export async function GET() {
     // Peran DI ACARA ITU (seperti requireEventScope): admin acara A yang menjadi
     // petugas di acara B hanya mendapat baris daftar untuk acara B.
     const baris = (access as Array<{ event_id: string; role: UserRole }> | null) ?? [];
-    const idAdmin = baris.filter((row) => row.role === "admin").map((row) => row.event_id);
-    const idLain = baris.filter((row) => row.role !== "admin").map((row) => row.event_id);
+    // Akun kustom tidak pernah mendapat kolom admin, apa pun isi barisnya.
+    const adminDi = (row: { role: UserRole }) => row.role === "admin" && auth.user.role !== "custom";
+    const idAdmin = baris.filter(adminDi).map((row) => row.event_id);
+    const idLain = baris.filter((row) => !adminDi(row)).map((row) => row.event_id);
     if (baris.length === 0) return Response.json({ events: [] });
 
     const muat = (ids: string[], kolom: string) => ids.length === 0

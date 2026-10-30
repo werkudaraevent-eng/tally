@@ -43,6 +43,19 @@ async function logistikUntukEkspor(eventId: string): Promise<LogistikEkspor> {
  * template yang diunduh hari ini memuat pertanyaan yang ditambahkan admin
  * kemarin — tanpa ada yang perlu memperbarui daftar kolom di mana pun.
  */
+/**
+ * Berkas untuk akun berperan kustom: tanpa kolom QR (QR tidak pernah sampai ke
+ * akun non-admin), tanpa kolom Logistik (modul yang tidak diberikan), dan sel
+ * berawalan = + - @ dinetralkan seperti unduhan klien di /live.
+ */
+function untukKustom(headers: string[], rows: unknown[][]) {
+  const buang = new Set(headers.flatMap((header, indeks) => (header === "qr_code" ? [indeks] : [])));
+  return {
+    headers: headers.filter((_, indeks) => !buang.has(indeks)),
+    rows: rows.map((row) => row.filter((_, indeks) => !buang.has(indeks))),
+  };
+}
+
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"], { readOnly: true });
   if (auth.response) return auth.response;
@@ -53,17 +66,21 @@ export async function GET(request: Request) {
   // menghasilkan berkas dengan kolom yang harus tetap sepadan, dan endpoint
   // terpisah adalah tempat kedua yang bisa ketinggalan saat kolom bertambah.
   const isTemplate = params.get("template") === "1";
+  const kustom = auth.scope.role === "custom";
+  // Templat impor milik panitia: akun kustom tidak bisa mengimpor.
+  if (kustom && isTemplate) return apiError("FORBIDDEN", 403);
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
 
   try {
-    const [sesi, logistik] = isTemplate ? [[], undefined] : await Promise.all([sesiEkspor(auth.scope.event.id), logistikUntukEkspor(auth.scope.event.id)]);
-    const headers = isTemplate ? importHeaders(fields) : exportHeaders(fields, sesi, logistik);
+    const [sesi, logistik] = isTemplate ? [[], undefined] : await Promise.all([sesiEkspor(auth.scope.event.id), kustom ? undefined : logistikUntukEkspor(auth.scope.event.id)]);
+    const headersPenuh = isTemplate ? importHeaders(fields) : exportHeaders(fields, sesi, logistik);
     const zona = normalizeTimeZone(auth.scope.event.time_zone);
     // Saringan yang sedang dipakai di daftar ikut ke berkas: yang diunduh adalah
     // yang terlihat. Tanpa saringan, seluruh acara seperti sebelumnya.
-    const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona);
-    const rows = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi, logistik);
-    const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
+    const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona, kustom);
+    const rowsPenuh = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi, logistik);
+    const { headers, rows } = kustom ? untukKustom(headersPenuh, rowsPenuh) : { headers: headersPenuh, rows: rowsPenuh };
+    const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: kustom });
     return new Response(body as BodyInit, {
       headers: {
         "Content-Type": CONTENT_TYPES[format],
@@ -97,10 +114,12 @@ export async function POST(request: Request) {
 
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
   try {
-    const [sesi, logistik] = await Promise.all([sesiEkspor(auth.scope.event.id), logistikUntukEkspor(auth.scope.event.id)]);
-    const rows = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids), sesi, logistik);
-    const headers = exportHeaders(fields, sesi, logistik);
-    const isi = body.data.format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers);
+    const kustom = auth.scope.role === "custom";
+    const [sesi, logistik] = await Promise.all([sesiEkspor(auth.scope.event.id), kustom ? undefined : logistikUntukEkspor(auth.scope.event.id)]);
+    const rowsPenuh = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids), sesi, logistik);
+    const headersPenuh = exportHeaders(fields, sesi, logistik);
+    const { headers, rows } = kustom ? untukKustom(headersPenuh, rowsPenuh) : { headers: headersPenuh, rows: rowsPenuh };
+    const isi = body.data.format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: kustom });
     return new Response(isi as BodyInit, {
       headers: {
         "Content-Type": CONTENT_TYPES[body.data.format],

@@ -127,8 +127,11 @@ export function CommandPalette({
   eventPrefix,
   events,
   recents,
+  bolehHref,
 }: {
   onClose: () => void;
+  /** Peran kustom: hanya halaman yang lolos saringan ini. Tidak diisi = semua. */
+  bolehHref?: (href: string) => boolean;
   /** `/e/<slug>` atau string kosong. Hasil "Halaman" tetap di acara yang sedang dibuka. */
   eventPrefix: string;
   events: EventPilihan[];
@@ -153,6 +156,7 @@ export function CommandPalette({
     const terlihat = new Set<string>();
     const halaman: Hasil[] = [];
     const tambah = (item: { href: string; label: string; icon: NavIcon; alias?: string[]; global?: boolean }, konteks: string, aliasGrup: string[] = []) => {
+      if (bolehHref && !bolehHref(item.href)) return;
       if (terlihat.has(item.href)) {
         // Href kembar (induk dan sub-halaman pertamanya): baris yang tampil
         // tetap satu, tetapi alias keduanya ikut, supaya "hadiah" yang milik
@@ -209,7 +213,7 @@ export function CommandPalette({
     }));
 
     return [...terakhir, ...halaman, ...acara];
-  }, [eventPrefix, events, recents]);
+  }, [eventPrefix, events, recents, bolehHref]);
 
   const hasil = useMemo(() => {
     const cari = kueri.trim();

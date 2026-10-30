@@ -19,6 +19,7 @@ import {
   WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { useBatasPesan } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
 import { withEventPrefix } from "@/lib/event-path";
 import { plural } from "@/lib/plural";
@@ -131,6 +132,8 @@ function gelombangPertama(n: number) {
 export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () => void }) {
   const toast = useToast();
   const router = useRouter();
+  // Peran kustom: View hanya membaca draf; tombol kirim butuh "Can send emails".
+  const batas = useBatasPesan();
   const id = detail.blast.id;
   const [isi, setIsi] = useState<Isi>(() => ({
     title: detail.blast.title,
@@ -203,6 +206,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
   }, []);
 
   function ubah(next: Partial<Isi>) {
+    if (!batas.ubah) return;
     setIsi((lama) => ({ ...lama, ...next }));
     tertunda.current = { ...(tertunda.current ?? {}), ...next };
     if (pewaktu.current) clearTimeout(pewaktu.current);
@@ -389,11 +393,11 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
             </span>
           </>
         }
-        actions={
+        actions={batas.ubah ? (
           <Button variant="text" onClick={() => setDialog("hapus")} icon={<Trash size={16} />}>
             Delete draft
           </Button>
-        }
+        ) : undefined}
       />
 
       {!detail.email_configured ? (
@@ -409,6 +413,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
       <SupportingPane
         paneWidth={440}
         main={
+          <fieldset disabled={!batas.ubah} className="contents">
           <div className="self-start rounded-lg border border-outline-variant bg-surface-container-lowest">
             <Baris judul="Channel" id="saluran">
               <SegmentedButton
@@ -637,6 +642,7 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
               ) : null}
             </Baris>
           </div>
+          </fieldset>
         }
         pane={
           <div className="flex flex-col self-start overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
@@ -671,14 +677,19 @@ export function Penyusun({ detail, onSent }: { detail: DetailDraf; onSent: () =>
       <div className="sticky bottom-0 z-10 -mx-4 mt-auto flex flex-wrap items-center gap-3 border-t border-outline-variant bg-surface px-4 py-3 sm:-mx-6 sm:px-6">
         <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">
           <span className="font-semibold text-on-surface tabular-nums">{orang(counts.email)}</span> · email
-          {alasanTidakBoleh ? <span className="block text-body-small">{alasanTidakBoleh}</span> : null}
+          {!batas.kirim ? <span className="block text-body-small">{batas.ubah ? "Your role can write drafts. The organiser sends them." : "Your role can view this draft but not change it."}</span>
+            : alasanTidakBoleh ? <span className="block text-body-small">{alasanTidakBoleh}</span> : null}
         </p>
-        <Button variant="outlined" onClick={bukaTes}>
-          Send test…
-        </Button>
-        <Button onClick={() => void bukaKonfirmasi()} disabled={!bolehKirim} loading={sibuk && dialog === null}>
-          Review and send…
-        </Button>
+        {batas.kirim ? (
+          <>
+            <Button variant="outlined" onClick={bukaTes}>
+              Send test…
+            </Button>
+            <Button onClick={() => void bukaKonfirmasi()} disabled={!bolehKirim} loading={sibuk && dialog === null}>
+              Review and send…
+            </Button>
+          </>
+        ) : null}
       </div>
 
       <Dialog

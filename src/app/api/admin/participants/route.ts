@@ -3,9 +3,9 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { bentukLogistik, logistikPeserta } from "@/lib/logistik/server";
 import type { BentukLogistik } from "@/lib/logistik/ringkas";
-import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
-import { BATAS_BACA, TerlaluBanyak, argumenRpc, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
-import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
+import { cleanExtra, participantBodySchema, tanpaQr, toRpcArgs } from "@/lib/participant-input";
+import { BATAS_BACA, TerlaluBanyak, argumenRpc, cocokTanpaQr, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
+import { KOLOM_TERTUTUP_KUSTOM, kolomSaringanAdmin, kolomSaringanKustom } from "@/lib/saringan-kolom";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -60,17 +60,21 @@ export async function GET(request: Request) {
   const zona = normalizeTimeZone(auth.scope.event.time_zone);
   // Nama perusahaan bisa mengandung koma, jadi dikirim sebagai parameter berulang.
   const companies = new URL(request.url).searchParams.getAll("company").map((nama) => nama.trim()).slice(0, 50);
-  const argumen = argumenRpc(eventId, parsed.data, companies);
+  const kustom = auth.scope.role === "custom";
+  const cariKustom = kustom && parsed.data.q.length > 0;
+  // Urutan menurut QR atau kolom logistik membocorkan isinya, sedikit demi sedikit.
+  if (kustom && KOLOM_TERTUTUP_KUSTOM.has(parsed.data.sort)) return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
+  const argumen = argumenRpc(eventId, cariKustom ? { ...parsed.data, q: "" } : parsed.data, companies);
   // Sesi dibaca lebih dulu: kolom check-in per sesi adalah kunci saringan dan urutan yang sah.
   const daftarSesi = await sesiAcara(eventId);
-  const saringan = saringanAdmin(parsed.data.f, fields, daftarSesi);
+  const saringan = saringanAdmin(parsed.data.f, fields, daftarSesi, kustom);
   if (!saringan) return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
   const urut = pengurut(parsed.data.sort, fields, daftarSesi);
   if (!urut) return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
 
   // Daftar centang "+ Filter": nilai yang benar-benar ada di kolom itu.
   if (parsed.data.facet !== undefined) {
-    const kolom = kolomSaringanAdmin(fields, daftarSesi).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
+    const kolom = (kustom ? kolomSaringanKustom : kolomSaringanAdmin)(fields, daftarSesi).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
     if (!kolom) return apiError("VALIDATION_ERROR", 422, { message: "This column has no value list." });
     try {
       return Response.json({ key: kolom.key, values: await nilaiKolomAdmin(eventId, kolom.key, fields, zona) });
@@ -84,11 +88,11 @@ export async function GET(request: Request) {
   // yang lolos penyaring database, disaring dan diurutkan di sini, lalu
   // dipotong per halaman. Selain itu, urutannya tetap urutan RPC.
   let tersaring: Array<{ id: string }> | null = null;
-  if (saringan.length || urut === "js") {
+  if (saringan.length || urut === "js" || cariKustom) {
     try {
       const kunci = [...saringan.map((s) => s.k), ...(urut === "js" ? [parsed.data.sort] : [])];
       const [semuaBaris, konteks] = await Promise.all([semuaBarisRpc(argumen), muatKonteks(eventId, kunci, fields, zona)]);
-      const baris = saring(semuaBaris, saringan, konteks);
+      const baris = saring(cariKustom ? semuaBaris.filter(cocokTanpaQr(parsed.data.q)) : semuaBaris, saringan, konteks);
       tersaring = urut === "js" ? urutPeserta(baris, parsed.data.sort, parsed.data.dir, konteks) : baris;
     } catch (galat) {
       if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters and sorting work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
@@ -121,6 +125,9 @@ export async function GET(request: Request) {
       return apiError("INTERNAL_ERROR", 500);
     }
     const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
+    if (kustom) {
+      return Response.json({ total: hasil.total, limit: parsed.data.limit, offset: parsed.data.offset, participants: hasil.rows.map((baris) => ({ ...tanpaQr(baris), logistik: null })) });
+    }
     const logistik = await logistikPeserta(eventId, hasil.rows.map((baris) => baris.id));
     return Response.json({
       total: hasil.total,
@@ -158,7 +165,7 @@ export async function GET(request: Request) {
   ]);
   // Kolom logistik (slot stay, kereta, barang kit). Gagal baca = hanya kolom
   // Hotel dan Bus seperti dulu; daftar peserta tetap terbuka.
-  const bentuk: BentukLogistik = await bentukLogistik(eventId).catch(() => ({ stays: 1, kit: [], kereta: false }));
+  const bentuk: BentukLogistik = kustom ? { stays: 0, kit: [], kereta: false } : await bentukLogistik(eventId).catch(() => ({ stays: 1, kit: [], kereta: false }));
 
   if (halaman.error) {
     if (companies.length > 0) return apiError("VALIDATION_ERROR", 422, { message: "The organisation filter isn't available yet: migration 202609290001 hasn't been applied." });
@@ -166,7 +173,7 @@ export async function GET(request: Request) {
   }
 
   const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
-  const logistik = await logistikPeserta(eventId, hasil.rows.map((baris) => baris.id));
+  const logistik = kustom ? new Map() : await logistikPeserta(eventId, hasil.rows.map((baris) => baris.id));
   const totalSemua = semua.count ?? 0;
   const totalDihapus = dihapus.count ?? 0;
 
@@ -180,7 +187,7 @@ export async function GET(request: Request) {
     last_synced_at: (terakhir.data as { source_synced_at: string | null } | null)?.source_synced_at ?? null,
     limit: parsed.data.limit,
     offset: parsed.data.offset,
-    participants: hasil.rows.map((baris) => ({ ...baris, logistik: logistik.get(baris.id) ?? null })),
+    participants: hasil.rows.map((baris) => ({ ...(kustom ? tanpaQr(baris) : baris), logistik: logistik.get(baris.id) ?? null })),
     // Sesi yang SUDAH DITUTUP ikut dikirim. Kehadiran yang tercatat di sesi pagi
     // tidak hilang artinya sore hari, dan kolomnya yang menghilang begitu sesi
     // ditutup akan terbaca sebagai data yang lenyap.
@@ -207,7 +214,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
-  const body = participantBodySchema.safeParse(await request.json().catch(() => null));
+  const kustom = auth.scope.role === "custom";
+  const mentah = await request.json().catch(() => null);
+  // Akun kustom tidak melihat dan tidak mengetik QR: server membuatkannya,
+  // dengan bentuk yang sama dengan QR pendaftaran mandiri.
+  if (kustom && mentah && typeof mentah === "object") {
+    const { data: kode, error: galatKode } = await getSupabaseServiceClient().rpc("generate_registration_qr" as never, { p_event_id: auth.scope.event.id } as never);
+    if (galatKode || typeof kode !== "string") return apiError("INTERNAL_ERROR", 500);
+    (mentah as Record<string, unknown>).qr_code = kode;
+  }
+  const body = participantBodySchema.safeParse(mentah);
   if (!body.success) return apiError("VALIDATION_ERROR", 422, body.error.flatten());
 
   // Jawaban tambahan diperiksa terhadap konfigurasi form acara — dropdown yang
@@ -240,10 +256,10 @@ export async function POST(request: Request) {
   if (baru && kursi.length > 0) {
     try {
       const { freed } = await applyTallySeats(auth.scope.event.id, baru, kursi, auth.user.id);
-      return Response.json({ participant: data, freed }, { status: 201 });
+      return Response.json({ participant: kustom && data && typeof data === "object" ? tanpaQr(data) : data, freed }, { status: 201 });
     } catch {
       return apiError("INTERNAL_ERROR", 500, { seats: "Participant added, but the seat wasn't saved. Edit the participant to set it." });
     }
   }
-  return Response.json({ participant: data }, { status: 201 });
+  return Response.json({ participant: kustom && data && typeof data === "object" ? tanpaQr(data) : data }, { status: 201 });
 }

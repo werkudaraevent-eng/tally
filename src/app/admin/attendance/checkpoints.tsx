@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "@/components/event-link";
 import { Button, ButtonLink, DetailSection, EmptyState, IconButton, ListDetail, ListRow, Pane, PaneBody, PaneFooter, SelectField, Switch, TextArea, TextField, Dialog } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { useAdminPage } from "@/components/admin/page-context";
 import { AksesPanitia } from "@/app/admin/attendance/akses-panitia";
 import { PilihBarisAgenda, useAgendaTrip } from "@/components/admin/logistik/pilih-baris-agenda";
 import { pesanGalatApi } from "@/lib/api-message";
@@ -155,6 +156,8 @@ function keFormTujuan(goal: TujuanPoin | null, ditawarkan: number): FormTujuan {
 }
 
 export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
+  // Peran kustom: Check-in hanya View.
+  const hanyaLihat = Boolean(useAdminPage()?.hanyaLihat);
   const [data, setData] = useState<Muat | null>(null);
   const [galat, setGalat] = useState("");
   const [pilih, setPilih] = useState<number | "baru" | "tujuan" | null>(null);
@@ -334,7 +337,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
         </div>
         {/* Kehadiran untuk panitia di portal peserta (akses-panitia.tsx). */}
         <div className="flex min-h-9 items-center @max-md:basis-full @md:@max-lg:order-2">
-          <AksesPanitia tipeAwal={data?.committee_types ?? null} />
+          {hanyaLihat ? null : <AksesPanitia tipeAwal={data?.committee_types ?? null} />}
         </div>
         <span className="ml-auto inline-flex min-h-9 items-center text-body-medium tabular-nums text-on-surface-variant @md:@max-lg:order-1">
           {data && daftar.length > 0 && data.finished_all != null && data.participants != null
@@ -365,7 +368,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
             icon={<Flag size={40} />}
             title="No checkpoints yet"
             description="A checkpoint is a step participants tick off, such as collecting the ID card or dropping luggage. It is done when they are scanned at a session or an item is handed to them."
-            action={<Button icon={<Plus size={16} weight="bold" />} onClick={() => buka("baru")}>New checkpoint</Button>}
+            action={hanyaLihat ? undefined : <Button icon={<Plus size={16} weight="bold" />} onClick={() => buka("baru")}>New checkpoint</Button>}
           />
         ) : (
           daftar.map((cp, index) => {
@@ -391,7 +394,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
         )}
       </PaneBody>
       <PaneFooter note="Participants see this order. The scan desk never turns anyone away for skipping a step; it only shows what is still open.">
-        {daftar.length > 0 ? <Button icon={<Plus size={16} weight="bold" />} disabled={!data} onClick={() => buka("baru")}>New checkpoint</Button> : null}
+        {daftar.length > 0 && !hanyaLihat ? <Button icon={<Plus size={16} weight="bold" />} disabled={!data} onClick={() => buka("baru")}>New checkpoint</Button> : null}
       </PaneFooter>
     </Pane>
   );

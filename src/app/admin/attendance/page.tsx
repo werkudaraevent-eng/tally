@@ -7,7 +7,7 @@ import {
   Button, ButtonLink, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, MetaSeparator, Pane, PaneBody,
   PaneFooter, StatusChip, StatusDot, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
-import { useTerkunci } from "@/components/admin/page-context";
+import { useAdminPage, useTerkunci } from "@/components/admin/page-context";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
@@ -126,6 +126,8 @@ export default function AttendanceAdminPage() {
   const [ubahNama, setUbahNama] = useState<{ jenis: "sesi" | "meja"; id: number; name: string; slug: string } | null>(null);
   const [namaUbah, setNamaUbah] = useState("");
   const toast = useToast();
+  // Peran kustom: Check-in hanya View, jadi tombol yang membuka penyunting disembunyikan.
+  const hanyaLihat = Boolean(useAdminPage()?.hanyaLihat);
   const { zone, abbr } = useEventTimeZone();
   // `?tab=checkpoint`: tautan "Edit in Check-in" dari Participant home.
   useEffect(() => {
@@ -481,12 +483,12 @@ export default function AttendanceAdminPage() {
           satu-satunya bukti seseorang datang. */}
       {sesiTerpilih.total_scan > 0 ? (
         <PaneFooter note="Sudah ada catatan kehadiran, jadi sesi ini hanya bisa ditutup, tidak dihapus.">
-          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>
+          {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>}
         </PaneFooter>
       ) : (
         <PaneFooter note="Belum ada catatan kehadiran">
           <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Hapus sesi</Button>
-          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>
+          {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>}
         </PaneFooter>
       )}
     </Pane>
@@ -554,12 +556,12 @@ export default function AttendanceAdminPage() {
           paling panjang jam sembilan" kehilangan datanya tanpa satu pun jejak. */}
       {jalurTerpilih.total_scan > 0 ? (
         <PaneFooter note="Sudah dipakai memindai, jadi meja ini hanya bisa ditutup, tidak dihapus.">
-          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>
+          {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>}
         </PaneFooter>
       ) : (
         <PaneFooter note="Belum dipakai memindai">
           <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Hapus meja</Button>
-          <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>
+          {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>}
         </PaneFooter>
       )}
     </Pane>
@@ -627,8 +629,8 @@ export default function AttendanceAdminPage() {
             <ButtonLink href="/scan" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>
               Buka layar pemindai
             </ButtonLink>
-            {bagian === "sesi" ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setSesiBaru(true)}>Sesi baru</Button> : null}
-            {bagian === "meja" ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setJalurBaru(true)}>Meja baru</Button> : null}
+            {bagian === "sesi" && !hanyaLihat ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setSesiBaru(true)}>Sesi baru</Button> : null}
+            {bagian === "meja" && !hanyaLihat ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setJalurBaru(true)}>Meja baru</Button> : null}
           </>
         }
       />

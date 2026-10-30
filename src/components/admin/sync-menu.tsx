@@ -1,6 +1,6 @@
 "use client";
 
-import { KETERANGAN_KUNCI, useTerkunci } from "@/components/admin/page-context";
+import { useKeteranganKunci, useTerkunci } from "@/components/admin/page-context";
 import { ArrowsClockwise, CaretDown, GearSix } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
 import { useId, useState } from "react";
@@ -27,6 +27,7 @@ export type SyncMenuProps = {
 export function SyncMenu({ menit, gagal, terakhir, syncing, onSync }: SyncMenuProps) {
   // Sinkron menulis peserta ke acara: ikut terkunci seperti tombol simpan.
   const terkunci = useTerkunci(true);
+  const keteranganKunci = useKeteranganKunci();
   const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
@@ -61,7 +62,7 @@ export function SyncMenu({ menit, gagal, terakhir, syncing, onSync }: SyncMenuPr
             type="button"
             role="menuitem"
             disabled={syncing || terkunci}
-            title={terkunci ? KETERANGAN_KUNCI : undefined}
+            title={terkunci ? keteranganKunci : undefined}
             onClick={() => { onSync(); menu.tutup(); }}
             className="flex w-full items-center gap-3 border-b border-outline-variant p-3 text-left text-body-medium font-medium hover:bg-primary-soft disabled:opacity-50"
           >

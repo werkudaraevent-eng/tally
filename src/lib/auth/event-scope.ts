@@ -166,7 +166,9 @@ export async function requireEventScope(
     }
 
     const row = access as { role: UserRole; booth_id: number | null };
-    effectiveRole = row.role;
+    // Akun kustom tetap kustom di setiap acara, apa pun isi barisnya: baris lama
+    // yang masih berperan admin tidak boleh membuka seluruh workspace.
+    effectiveRole = user.role === "custom" ? "custom" : row.role;
     boothId = row.booth_id;
   }
 

@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import type { CurrentUser } from "./roles";
+import type { CurrentUser, UserRole } from "./roles";
 
 const SESSION_COOKIE = "tally_session";
 // Default menutupi durasi acara penuh (BR non-functional: jangan auto-logout
@@ -128,8 +128,11 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const raw = (await cookies()).get(SESSION_COOKIE)?.value;
   const id = raw ? validSession(raw) : null;
   if (!id) return null;
-  const { data: user } = await getSupabaseServiceClient().from("users").select("id,username,role,booth_id,is_active").eq("id", id).eq("is_active", true).single() as { data: { id: string; username: string; role: "booth" | "cashier" | "admin"; booth_id: number | null; is_active: boolean } | null };
-  return user ? { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id } : null;
+  // `*`, bukan daftar kolom: access_role_id datang dari migrasi 202610300003.
+  // Daftar kolom yang menyebutnya akan mengeluarkan SEMUA orang bila kode ini
+  // sampai lebih dulu daripada migrasinya.
+  const { data: user } = await getSupabaseServiceClient().from("users").select("*").eq("id", id).eq("is_active", true).single() as { data: { id: string; username: string; role: UserRole; booth_id: number | null; is_active: boolean; access_role_id?: string | null } | null };
+  return user ? { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id, access_role_id: user.access_role_id ?? null } : null;
 }
 
 export async function logout() {

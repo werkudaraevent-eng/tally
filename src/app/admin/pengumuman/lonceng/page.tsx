@@ -1,5 +1,6 @@
 "use client";
 
+import { useBatasPesan } from "@/components/admin/page-context";
 import Link from "next/link";
 import { EnvelopeSimple, Info, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
@@ -92,6 +93,8 @@ function keDraft(item: Item): Draft {
 
 export default function PengumumanPage() {
   const toast = useToast();
+  // Peran kustom: View hanya membaca; email butuh "Can send emails".
+  const batas = useBatasPesan();
   const [data, setData] = useState<Muat | null>(null);
   const [galatMuat, setGalatMuat] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -240,7 +243,7 @@ export default function PengumumanPage() {
             title="No announcements yet"
             description="Post news for participants: a room change, a schedule update or what to bring. Participants see it in the event page bell and in My dashboard."
             action={
-              data.ready ? (
+              data.ready && batas.ubah ? (
                 <Button size="sm" icon={<Plus size={16} weight="bold" />} onClick={() => setDraft({ ...KOSONG })}>
                   Write announcement
                 </Button>
@@ -330,6 +333,7 @@ export default function PengumumanPage() {
               if (draft.title.trim()) void simpanDraft();
             }}
           >
+            <fieldset disabled={!batas.ubah} className="contents">
             {galat ? (
               <p role="alert" className="mx-5 mt-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error">
                 <XCircle size={16} className="mt-0.5 shrink-0" />
@@ -408,7 +412,7 @@ export default function PengumumanPage() {
                         }`
                       : "Not sent by email yet. Participants still see it in the event page bell and My dashboard."}
                   </p>
-                  {data?.email_configured ? (
+                  {!batas.kirim ? null : data?.email_configured ? (
                     <Button
                       type="button"
                       variant="outlined"
@@ -426,21 +430,24 @@ export default function PengumumanPage() {
                 </div>
               </DetailSection>
             ) : null}
+            </fieldset>
           </form>
         </PaneBody>
 
         <PaneFooter>
-          {!baru ? (
+          {!baru && batas.ubah ? (
             <Button type="button" variant="text" size="sm" icon={<Trash size={16} />} disabled={simpan} onClick={() => setKonfirmasiHapus(true)} className="mr-auto">
               Delete
             </Button>
           ) : null}
           <Button type="button" variant="outlined" size="sm" disabled={simpan} onClick={tutup}>
-            Cancel
+            {batas.ubah ? "Cancel" : "Close"}
           </Button>
-          <Button type="submit" form="form-pengumuman" size="sm" loading={simpan} disabled={!draft.title.trim() || (!baru && !berubah)}>
-            {baru ? "Publish" : "Save changes"}
-          </Button>
+          {batas.ubah ? (
+            <Button type="submit" form="form-pengumuman" size="sm" loading={simpan} disabled={!draft.title.trim() || (!baru && !berubah)}>
+              {baru ? "Publish" : "Save changes"}
+            </Button>
+          ) : null}
         </PaneFooter>
       </Pane>
     );
@@ -460,7 +467,7 @@ export default function PengumumanPage() {
           ) : null
         }
         actions={
-          data?.ready ? (
+          data?.ready && batas.ubah ? (
             <Button variant={draft ? "outlined" : "filled"} onClick={() => setDraft({ ...KOSONG })} icon={<Plus size={16} weight="bold" />}>
               Write announcement
             </Button>

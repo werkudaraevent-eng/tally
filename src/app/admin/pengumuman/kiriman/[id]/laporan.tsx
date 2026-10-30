@@ -27,6 +27,7 @@ import {
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
 import { plural } from "@/lib/plural";
+import { useBatasPesan } from "@/components/admin/page-context";
 import { labelAlasan, labelAlasanJeda } from "@/lib/pesan/alasan";
 import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type BlastStatus } from "../../pesan-shared";
 
@@ -102,6 +103,8 @@ type Baris = {
 type Halaman = { rows: Baris[]; total: number; page: number; page_size: number };
 
 export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload: () => void }) {
+  // Peran kustom: View tanpa tombol; Lanjutkan dan Ulangi mengirim email.
+  const batas = useBatasPesan();
   const toast = useToast();
   const router = useRouter();
   const { blast, counts } = detail;
@@ -237,23 +240,27 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
         }
         actions={
           <>
+            {batas.ubah ? (
             <Button variant="outlined" onClick={() => void duplikat()} disabled={sibuk} icon={<Copy size={16} />}>
               Duplicate
             </Button>
-            {dijeda ? (
+            ) : null}
+            {!batas.ubah ? null : dijeda ? (
               <>
                 <Button variant="outlined" onClick={() => setDialog("batal")} icon={<XCircle size={16} />}>
                   Cancel the rest
                 </Button>
+                {batas.kirim ? (
                 <Button onClick={() => setDialog("lanjutkan")} icon={<Play size={16} />}>
                   Resume blast…
                 </Button>
+                ) : null}
               </>
             ) : blast.status === "terjadwal" ? (
               <Button variant="outlined" onClick={() => setDialog("batal")} icon={<XCircle size={16} />}>
                 Cancel schedule
               </Button>
-            ) : counts.gagal_sementara > 0 ? (
+            ) : counts.gagal_sementara > 0 && batas.kirim ? (
               <Button onClick={() => setDialog("ulang")} icon={<ArrowClockwise size={16} />}>
                 Retry ({counts.gagal_sementara})…
               </Button>

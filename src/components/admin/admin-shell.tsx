@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton, TopAppBar } from "@/components/m3";
 import { eventApiPath } from "@/lib/event-url";
+import { halamanPertama, modulHalaman, tingkatModul, type IzinPeran } from "@/lib/auth/izin-modul";
 import { klikUlang } from "@/lib/jaga-navigasi";
 import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
 import { cariHalaman, grupDari, navigation } from "@/components/admin/nav-config";
@@ -90,8 +91,11 @@ export function AdminShell({
   children,
   pinAwal = true,
   pinTersimpan = true,
+  peranKustom = null,
 }: Readonly<{
   children: React.ReactNode;
+  /** Akun berperan kustom: nama dan izinnya, dibaca layout di server. Null = admin. */
+  peranKustom?: { name: string; izin: IzinPeran } | null;
   /** Dibaca dari cookie oleh komponen server, supaya HTML pertama sudah selebar yang benar. */
   pinAwal?: boolean;
   /** Cookie sematan memang ada; tanpanya `pinAwal` hanya bawaan. */
@@ -306,7 +310,8 @@ export function AdminShell({
   const [boothAcara, setBoothAcara] = useState<{ slug: string; ada: boolean } | null>(null);
   const adaBooth = boothAcara && boothAcara.slug === eventSlug ? boothAcara.ada : null;
   useEffect(() => {
-    if (adaBooth === true) return;
+    // Peran kustom tidak punya modul booth; tanpa jawaban, menu booth tetap tersembunyi.
+    if (adaBooth === true || peranKustom) return;
     let batal = false;
     void fetch(eventApiPath("/api/admin/booths"), { cache: "no-store" })
       .then(async (response) => {
@@ -315,7 +320,7 @@ export function AdminShell({
       })
       .catch(() => { if (!batal) setBoothAcara({ slug: eventSlug, ada: true }); });
     return () => { batal = true; };
-  }, [eventSlug, logicalPathname, adaBooth]);
+  }, [eventSlug, logicalPathname, adaBooth, peranKustom]);
 
   /**
    * Laci hanya ada di bawah lg. DITURUNKAN dari lebar layar, bukan ditutup oleh
@@ -413,6 +418,22 @@ export function AdminShell({
    * entri "terakhir dibuka".
    */
   const currentPage = cariHalaman(logicalPathname);
+
+  // Peran kustom: menu, palet, dan halaman dibatasi ke modul yang diberikan.
+  // Hanya tampilan; setiap API memeriksa izinnya sendiri (request-event.ts).
+  const izin = peranKustom?.izin ?? null;
+  const bolehHref = useCallback((href: string) => {
+    if (!izin) return true;
+    const modul = modulHalaman(href);
+    return modul !== null && tingkatModul(izin, modul) !== "none";
+  }, [izin]);
+  const modulAktif = modulHalaman(logicalPathname);
+  const halamanTerlarang = Boolean(izin) && !bolehHref(logicalPathname);
+  const tujuanAman = izin ? halamanPertama(izin) : null;
+  useEffect(() => {
+    if (!halamanTerlarang) return;
+    router.replace(tujuanAman ? `${eventPrefix}${tujuanAman}` : "/events");
+  }, [halamanTerlarang, tujuanAman, eventPrefix, router]);
 
   // Kelompok yang berisi halaman aktif dibuka sendiri. Dihitung dari tabel menu,
   // bukan disimpan: kalau sub-halaman pindah induk, ini ikut tanpa disentuh.
@@ -567,13 +588,14 @@ export function AdminShell({
             eventPrefix={eventPrefix}
             path={logicalPathname}
             isOwner={isOwner}
+            bolehHref={izin ? bolehHref : undefined}
             adaBooth={adaBooth}
             onNavigate={onNavigate}
             grupTerbuka={grupTerbuka}
             onToggleGrup={toggleGrup}
             recentsTerbuka={recentsTerbuka}
             onToggleRecents={() => setRecentsTerbuka((terbuka) => !terbuka)}
-            recents={recents}
+            recents={izin ? recents.filter((item) => bolehHref(item.path)) : recents}
             onTogglePin={togglePinRecent}
           />
         </nav>
@@ -603,7 +625,7 @@ export function AdminShell({
             <SidebarSimple size={18} weight={pinned ? "fill" : "regular"} />
           </button>
 
-          <Link
+          {izin ? <span className="min-w-0 flex-1" /> : <Link
             href={`${eventPrefix}/admin/settings`}
             onClick={onNavigate}
             aria-current={logicalPathname.startsWith("/admin/settings") ? "page" : undefined}
@@ -614,7 +636,7 @@ export function AdminShell({
           >
             <GearSix size={18} className="shrink-0 text-on-surface-variant" />
             <span className="m3-nav-label min-w-0 flex-1 truncate text-left">Event settings</span>
-          </Link>
+          </Link>}
           <a
             href={`${eventPrefix}/panduan/sistem`}
             target="_blank"
@@ -662,7 +684,7 @@ export function AdminShell({
               <div ref={setSlotAksi} className="contents" />
               <UserMenu
                 username={akun?.username ?? null}
-                role={akun?.role ?? null}
+                role={peranKustom?.name ?? akun?.role ?? null}
                 version={versi}
                 onLogout={() => void logout()}
                 loggingOut={loggingOut}
@@ -698,11 +720,16 @@ export function AdminShell({
             kunci: eventAktif && (eventAktif.status === "completed" || eventAktif.status === "archived")
               ? { status: eventAktif.status, pemilik: isOwner }
               : null,
+            izin,
+            hanyaLihat: Boolean(izin && modulAktif && tingkatModul(izin, modulAktif) === "view"),
           }}
         >
           <AdminHeaderScrollProvider value={{ terlewat: judulTerlewat, amati: amatiJudul }}>
             <AdminBarSlotsProvider value={{ judul: slotJudul, aksi: slotAksi }}>
-              <div key={eventSlug || "event-tunggal"}>{children}</div>
+              {/* Halaman di luar modul peran kustom tidak dirender sama sekali
+                  sementara pengalihan berjalan: memasangnya berarti memanggil
+                  API-nya dan menampilkan galat 403 sesaat. */}
+              <div key={eventSlug || "event-tunggal"}>{halamanTerlarang ? null : children}</div>
             </AdminBarSlotsProvider>
           </AdminHeaderScrollProvider>
         </AdminPageProvider>
@@ -714,10 +741,11 @@ export function AdminShell({
           kesalahan. Melepasnya mengerjakan hal yang sama dengan lebih sedikit. */}
       {paletTerbuka ? (
         <CommandPalette
+          bolehHref={izin ? bolehHref : undefined}
           onClose={tutupPalet}
           eventPrefix={eventPrefix}
           events={events}
-          recents={recents}
+          recents={izin ? recents.filter((item) => bolehHref(item.path)) : recents}
         />
       ) : null}
     </div>

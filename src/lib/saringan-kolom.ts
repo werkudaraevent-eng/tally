@@ -87,6 +87,19 @@ export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaring
 }
 
 /**
+ * Kolom yang tidak boleh disaring atau diurutkan akun peran kustom. Saringan
+ * teks ("berisi") atas kolom yang tidak terlihat adalah tebakan bertahap: ada
+ * atau tidaknya baris membocorkan isinya (QA #341 H1). QR tidak pernah sampai
+ * ke peran kustom; Hotel, Vehicle, dan Lucky draw milik modul yang belum dibuka.
+ */
+export const KOLOM_TERTUTUP_KUSTOM = new Set(["qr_code", "kamar", "bus", "undian"]);
+
+/** `kolomSaringanAdmin` untuk akun peran kustom. */
+export function kolomSaringanKustom(fields: RegistrationField[], sesi: SesiSaringan[] = []): KolomSaringan[] {
+  return kolomSaringanAdmin(fields, sesi).filter((kolom) => !KOLOM_TERTUTUP_KUSTOM.has(kolom.key));
+}
+
+/**
  * Kolom layar klien yang bisa disaring: kolom yang memang tampil di sana
  * (KOLOM_KLIEN, tanpa Name yang sudah dicari lewat kotak cari) dan jawaban yang
  * dibagikan admin. Tidak ada QR code, tidak ada jawaban yang tidak disetujui.

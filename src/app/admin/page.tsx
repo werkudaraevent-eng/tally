@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState, type ComponentType, type ReactNode } 
 import { DashboardCheckins } from "@/components/admin/dashboard-checkins";
 import { DashboardEventActions } from "@/components/admin/dashboard-event-actions";
 import { ExportMenu } from "@/components/admin/export-menu";
+import { useBolehHalaman, useIzinKustom } from "@/components/admin/page-context";
 import { Banner, ButtonLink, LinearProgress, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
@@ -115,6 +116,10 @@ function KepalaKartu({ title, trailing }: { title: string; trailing?: ReactNode 
 }
 
 export default function AdminPage() {
+  // Peran kustom melihat angka dan check-in saja. Kesiapan, Perlu tindakan, dan
+  // peluncur layar adalah kerja panitia, dan tautannya ke halaman terlarang.
+  const kustom = Boolean(useIzinKustom());
+  const bolehHalaman = useBolehHalaman();
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
   const [sekarang, setSekarang] = useState<Date | null>(null);
@@ -229,8 +234,8 @@ export default function AdminPage() {
         actions={
           <>
             {data ? <ButtonLink native variant="outlined" href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" icon={<ArrowSquareOut size={16} />}>Halaman acara</ButtonLink> : null}
-            <ExportMenu />
-            {data ? <DashboardEventActions slug={data.event.slug} onChanged={() => void refresh()} /> : null}
+            {kustom ? null : <ExportMenu />}
+            {data && !kustom ? <DashboardEventActions slug={data.event.slug} onChanged={() => void refresh()} /> : null}
           </>
         }
       />
@@ -240,7 +245,7 @@ export default function AdminPage() {
       {/* Gagal sejak pemuatan pertama: tanpa kerangka "memuat" yang tidak akan pernah terisi. */}
       {error && !data ? null : <div className="grid grid-cols-12 gap-4 xl:gap-6">
         {/* Status dan satu aksi utama */}
-        <Kartu label="Status acara" className="col-span-12 lg:col-span-8">
+        <Kartu label="Status acara" className={cx("col-span-12", !kustom && "lg:col-span-8")}>
           <div className="flex flex-1 flex-col gap-6 px-6 py-6 sm:flex-row sm:items-center">
             <div className="shrink-0 sm:min-w-[200px]">
               <p className="text-body-medium font-medium text-on-surface-variant">{judul?.detail ?? "Memuat ringkasan acara"}</p>
@@ -272,7 +277,7 @@ export default function AdminPage() {
               </dl>
             )}
           </div>
-          {fase === "persiapan" && berikutnya ? (
+          {fase === "persiapan" && berikutnya && !kustom ? (
             <div className="flex flex-wrap items-center gap-3 border-t border-outline-variant bg-surface-container-high px-6 py-3.5">
               <div className="min-w-0 flex-1 text-body-medium">
                 <p className="font-medium">Langkah berikutnya: {berikutnya.label.toLowerCase()}</p>
@@ -288,7 +293,7 @@ export default function AdminPage() {
         </Kartu>
 
         {/* Yang menuntut keputusan */}
-        <Kartu label="Perlu tindakan" className="col-span-12 lg:col-span-4">
+        {kustom ? null : <Kartu label="Perlu tindakan" className="col-span-12 lg:col-span-4">
           <KepalaKartu title="Perlu tindakan" trailing={tindakan.length ? <StatusChip tone="warning">{tindakan.length}</StatusChip> : null} />
           {!data ? (
             <div className="flex flex-col gap-3 px-5 py-4"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /></div>
@@ -314,29 +319,36 @@ export default function AdminPage() {
               ))}
             </ul>
           )}
-        </Kartu>
+        </Kartu>}
 
         {/* Check-in per titik: sejak persiapan juga, supaya gladi bisa mengujinya. */}
         {data ? <DashboardCheckins className="col-span-12" /> : null}
 
         {/* Metrik */}
-        {data ? metrik.map((m) => (
-          <Link key={m.label} href={m.href} className="col-span-12 flex flex-col gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4 hover:bg-primary-soft sm:col-span-6 xl:col-span-3">
+        {data ? metrik.map((m) => {
+          const kelas = "col-span-12 flex flex-col gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4 sm:col-span-6 xl:col-span-3";
+          const isi = (
+            <>
             <span className="flex items-center gap-2 text-body-medium font-medium text-on-surface-variant">
               <span className="min-w-0 flex-1">{m.label}</span>
               {"chip" in m && m.chip ? <StatusChip dot tone={m.chip.tone}>{m.chip.teks}</StatusChip> : null}
             </span>
             <span className="text-headline-small font-semibold tabular-nums">{m.nilai}</span>
             <span className="text-body-medium text-on-surface-variant">{m.catatan}</span>
-          </Link>
-        )) : [0, 1, 2, 3].map((index) => (
+            </>
+          );
+          // Kartu tanpa tautan bila halamannya tertutup untuk peran kustom.
+          return bolehHalaman(m.href)
+            ? <Link key={m.label} href={m.href} className={cx(kelas, "hover:bg-primary-soft")}>{isi}</Link>
+            : <div key={m.label} className={kelas}>{isi}</div>;
+        }) : [0, 1, 2, 3].map((index) => (
           <div key={index} aria-hidden className="col-span-12 flex flex-col gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4 sm:col-span-6 xl:col-span-3">
             <Skeleton className="h-3.5 w-24" /><Skeleton className="h-7 w-20" /><Skeleton className="h-3.5 w-32" />
           </div>
         ))}
 
         {/* Kesiapan: yang belum di atas, yang sudah dilipat */}
-        {fase !== "selesai" ? (
+        {fase !== "selesai" && !kustom ? (
           <Kartu label="Kesiapan" className="col-span-12 lg:col-span-6">
             <KepalaKartu title={fase === "hari-h" ? "Wajib yang belum siap" : "Belum siap"} trailing={data ? <span className="text-body-medium text-on-surface-variant">{belumSiap.length} butir</span> : null} />
             {!data ? (
@@ -396,7 +408,7 @@ export default function AdminPage() {
         ) : null}
 
         {/* Peluncur layar */}
-        <Kartu label="Layar hari-H" className={cx("col-span-12", fase === "selesai" ? "" : "lg:col-span-6")}>
+        {kustom ? null : <Kartu label="Layar hari-H" className={cx("col-span-12", fase === "selesai" ? "" : "lg:col-span-6")}>
           <KepalaKartu title="Layar hari-H" trailing={<span className="text-body-medium text-on-surface-variant">dibuka di tab baru</span>} />
           <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
             {layarPanggung.map(({ href, label, icon: Icon }) => (
@@ -419,7 +431,7 @@ export default function AdminPage() {
               <Link href="/admin/booths" className="rounded-sm font-medium text-primary hover:underline">Booth &amp; item</Link>.
             </p>
           ) : null}
-        </Kartu>
+        </Kartu>}
       </div>}
     </WorkspacePage>
   );

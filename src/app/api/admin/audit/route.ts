@@ -52,7 +52,17 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "undian_session_start", "undian_session_close", "undian_session_delete",
     "undian_session_adopt",
   ],
-  users: ["user_create", "user_update"],
+  users: ["user_create", "user_update", "access_role_create", "access_role_update", "access_role_delete"],
+  // Siapa menambah, mengubah, atau menghapus peserta: pertanyaan pertama begitu
+  // akun klien boleh menyunting data peserta. `old` dan `new` ikut di payload.
+  participants: [
+    "participant_created", "participant_updated", "participant_deleted", "participant_walkin_created",
+    "registration_approved", "registration_rejected", "invitation_delete", "invitation_new_link",
+  ],
+  messages: [
+    "announcement_create", "announcement_update", "announcement_delete", "announcement_email",
+    "message_send", "message_schedule", "message_retry", "message_resume", "message_cancel",
+  ],
   // Reset check-in satu peserta (uji coba): isi scan dan barang kitnya tersalin di payload.
   danger: ["admin_reset_records", "participant_check_in_reset"],
   orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan", "admin_order_void"],
@@ -73,7 +83,7 @@ const CONFIG_ACTIONS = [
 ];
 
 const querySchema = z.object({
-  category: z.enum(["config", "settings", "offers", "booths", "payment_methods", "rundown", "undian", "users", "danger", "orders", "sync", "all"]).default("config"),
+  category: z.enum(["config", "settings", "offers", "booths", "payment_methods", "rundown", "undian", "users", "participants", "messages", "danger", "orders", "sync", "all"]).default("config"),
   actor: z.string().uuid().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),

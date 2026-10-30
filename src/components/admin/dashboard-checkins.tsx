@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EMPTY_VALUE, LinearProgress, SegmentedButton, StatusChip, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, type ChipTone } from "@/components/m3";
 import Link from "@/components/event-link";
+import { useBolehHalaman } from "@/components/admin/page-context";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import type { BarisPantau } from "@/lib/pantau-checkin";
@@ -36,6 +37,7 @@ const persen = (baris: BarisPantau) => (baris.diharapkan > 0 ? Math.min(100, Mat
 const angka = (nilai: number) => new Intl.NumberFormat("en-GB").format(nilai);
 
 export function DashboardCheckins({ className }: { className?: string }) {
+  const bolehHalaman = useBolehHalaman();
   const [data, setData] = useState<Data | null>(null);
   const [gagal, setGagal] = useState(false);
   const [hari, setHari] = useState<string | null>(null);
@@ -176,7 +178,7 @@ export function DashboardCheckins({ className }: { className?: string }) {
 
       <p className="border-t border-outline-variant px-5 py-3 text-body-medium text-on-surface-variant">
         Counts people, not scans. Expected is everyone who sees the checkpoint&apos;s linked Agenda row (Who sees it), or all active participants when it has no link. Refreshes every 30 seconds.{" "}
-        <Link href="/admin/attendance" className="rounded-sm font-medium text-primary hover:underline">Check-in</Link>
+        {bolehHalaman("/admin/attendance") ? <Link href="/admin/attendance" className="rounded-sm font-medium text-primary hover:underline">Check-in</Link> : null}
       </p>
     </section>
   );

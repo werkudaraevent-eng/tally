@@ -6,6 +6,8 @@ export type CurrentUser = {
   username: string;
   role: UserRole;
   booth_id: number | null;
+  /** Peran kustom; terisi hanya bila role = custom. */
+  access_role_id?: string | null;
 };
 
 export const roleRedirects: Record<UserRole, string> = {
@@ -15,11 +17,21 @@ export const roleRedirects: Record<UserRole, string> = {
   super_admin: "/admin",
   scanner: "/scan",
   viewer: "/events",
+  custom: "/events",
 };
 
 // Kedua role memakai workspace admin yang sama; yang membedakan hanya kewenangan
 // di bawah. Dikumpulkan di satu tempat supaya aturan izin tidak tersebar.
 export const ADMIN_ROLES: UserRole[] = ["admin", "super_admin"];
+
+/**
+ * Boleh masuk ruang kerja admin. Akun kustom ikut masuk, tetapi setiap halaman
+ * dan API-nya dibatasi per modul (izin-modul.ts); jangan pakai fungsi ini
+ * sebagai izin untuk MENGUBAH apa pun.
+ */
+export function canOpenAdminWorkspace(user: CurrentUser) {
+  return isAdminLevel(user) || user.role === "custom";
+}
 
 export function isAdminLevel(user: CurrentUser) {
   return user.role === "admin" || user.role === "super_admin";

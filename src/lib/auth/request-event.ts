@@ -2,6 +2,8 @@ import type { UserRole } from "./roles";
 import { getEventBySlugPublic, listActiveEvents, requireEventScope } from "./event-scope";
 import { eventSlugFromRequest } from "./event-slug";
 import { isWriteBlocked } from "./event-writable";
+import { izinApi } from "./izin-modul";
+import { muatPeranKustom } from "./izin-server";
 
 export { eventSlugFromRequest };
 
@@ -31,8 +33,32 @@ export async function requireRequestEvent(
     slug = active.length === 1 ? active[0].slug : undefined;
   }
 
-  const resolved = await requireEventScope(slug, roles);
+  // Akun kustom lolos di sini hanya untuk route yang menerima admin; izinnya
+  // per modul diperiksa tepat di bawah, dari satu tabel (izin-modul.ts).
+  const resolved = await requireEventScope(slug, roles?.includes("admin") ? [...roles, "custom"] : roles);
   if (resolved.response) return resolved;
+
+  if (resolved.scope.role === "custom") {
+    const peran = await muatPeranKustom(resolved.user);
+    const hasil = peran ? izinApi(peran.izin, new URL(request.url).pathname, request.method) : null;
+    if (!hasil?.boleh) {
+      return {
+        scope: null,
+        user: null,
+        response: Response.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: hasil && !hasil.boleh && hasil.alasan === "bendera"
+                ? "Your role doesn't allow this. Ask the organiser to turn it on."
+                : "Your role can't do this. Ask the organiser if you need it.",
+            },
+          },
+          { status: 403 },
+        ),
+      } as const;
+    }
+  }
 
   // Penjaga tulis ditempatkan DI SINI, bukan di tiap route. Pendahulunya
   // (ensureEventWritable) dibiarkan dipanggil masing-masing route dan hasilnya:

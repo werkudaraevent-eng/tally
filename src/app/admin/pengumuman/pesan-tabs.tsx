@@ -1,6 +1,7 @@
 "use client";
 
 import { LinkTabs } from "@/components/m3";
+import { useIzinKustom } from "@/components/admin/page-context";
 
 /**
  * Tab menu Pesan peserta. Satu baris menu untuk keduanya, supaya sidebar
@@ -14,13 +15,15 @@ import { LinkTabs } from "@/components/m3";
  * menyimpan alamat lama tetap sampai.
  */
 export function PesanTabs() {
+  // Email otomatis tetap milik panitia (lihat HALAMAN_PEMILIK di izin-modul).
+  const kustom = Boolean(useIzinKustom());
   return (
     <LinkTabs
       label="Messages"
       tabs={[
         { href: "/admin/pengumuman", label: "Blasts" },
         { href: "/admin/pengumuman/lonceng", label: "Announcements" },
-        { href: "/admin/pengumuman/otomatis", label: "Automated emails" },
+        ...(kustom ? [] : [{ href: "/admin/pengumuman/otomatis", label: "Automated emails" }]),
       ]}
     />
   );

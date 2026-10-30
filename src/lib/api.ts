@@ -26,6 +26,7 @@ const messages: Record<ApiErrorCode, string> = {
   DISCOUNT_NOT_OFFERED: "Booth ini tidak menyediakan item diskon.",
   USERNAME_TAKEN: "This username is taken. Choose another.",
   USER_NOT_FOUND: "User not found.",
+  ACCESS_ROLE_NOT_FOUND: "This role no longer exists. Reload the page.",
   BOOTH_NOT_FOUND: "Booth tidak ditemukan.",
   BOOTH_WITHOUT_TRANSACTIONS: "Booth ini disetel tanpa transaksi, jadi nominal item reguler harus Rp 0.",
   EMPTY_ORDER: "Order kosong. Isi nominal item reguler atau pilih minimal satu item.",

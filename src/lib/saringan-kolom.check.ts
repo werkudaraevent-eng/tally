@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien, urutKursi, urutMenurut } from "./saringan-kolom.ts";
+import { bacaSaringan, bacaSaringanMentah, cocokSatu, cocokSemua, hitungNilai, kolomSaringanAdmin, kolomSaringanKlien, kolomSaringanKustom, urutKursi, urutMenurut } from "./saringan-kolom.ts";
 
 const fields = [
   { key: "sesi", label: "Which breakout session?", type: "select" as const, required: true, options: ["BR 1", "BR 2"] },
@@ -85,3 +85,9 @@ assert.equal(denganStaf.find((c) => c.key === "field:sesi")?.grup, "jawaban");
 // Unggahan berkas selalu ditanyakan, jadi tetap jawaban formulir.
 assert.equal(kolomSaringanAdmin([{ ...fields[3], on_form: false }]).find((c) => c.key === "field:ktp")?.grup, "jawaban");
 console.log("saringan-kolom kelompok ok");
+
+// Peran kustom: tanpa QR dan kolom logistik, jadi saringan "berisi" tidak bisa menebaknya (QA #341 H1).
+const kustom = kolomSaringanKustom(fields, [{ id: 7, name: "Registration" }]).map((c) => c.key);
+for (const tertutup of ["qr_code", "kamar", "bus", "undian"]) assert.ok(!kustom.includes(tertutup), tertutup);
+assert.ok(kustom.includes("email") && kustom.includes("checkin:7"));
+assert.deepEqual(bacaSaringan(JSON.stringify([{ k: "qr_code", has: "A" }]), kolomSaringanKustom(fields)), [], "saringan QR dibuang, bukan dipakai");

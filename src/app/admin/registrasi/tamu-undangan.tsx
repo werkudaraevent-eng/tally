@@ -9,6 +9,8 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
+import { useAdminPage } from "@/components/admin/page-context";
+import { tingkatModul } from "@/lib/auth/izin-modul";
 import { MenuBlok } from "@/app/admin/landing/menu-blok";
 import { eventApiPath } from "@/lib/event-url";
 import { withEventPrefix } from "@/lib/event-path";
@@ -156,6 +158,11 @@ export function TamuUndangan({
   }
 
   /** Buka penyusun Pesan peserta dengan penerima tamu sudah terisi. */
+  // Peran kustom: View tidak mengubah tamu; kirim undangan butuh Messages Manage.
+  const halaman = useAdminPage();
+  const hanyaLihat = Boolean(halaman?.hanyaLihat);
+  const bolehPesan = !halaman?.izin || tingkatModul(halaman.izin, "messages") === "manage";
+
   async function bukaPenyusun(jenis: "belum_dikirim" | "belum_daftar" | "manual") {
     setBusy(true);
     const jawab = await fetch(eventApiPath("/api/admin/pesan"), {
@@ -195,10 +202,12 @@ export function TamuUndangan({
           </FilterChip>
         ))}
         <span className="flex-1" />
+        {bolehPesan ? <>
         <Button variant="outlined" disabled={busy || !data.sending.ready} onClick={() => void bukaPenyusun("belum_daftar")}>{TAMU.remind}</Button>
         <Button disabled={busy || !data.sending.ready} onClick={() => void bukaPenyusun(terpilih.length ? "manual" : "belum_dikirim")}>
           {terpilih.length ? TAMU.sendInviteSelected(terpilih.length) : TAMU.sendInvite}
         </Button>
+        </> : null}
       </div>
 
       {data.items.length === 0 ? (
@@ -265,10 +274,10 @@ export function TamuUndangan({
                       <MenuBlok
                         label={`Menu ${t.name}`}
                         items={[
-                          { label: TAMU.edit, icon: <PencilSimple size={18} />, onSelect: () => setUbah(t), disabled: Boolean(t.registration_id && t.status !== "ditolak") },
-                          { label: TAMU.copyLink, icon: <Copy size={18} />, onSelect: () => void salinTautan(t), disabled: t.status === "sudah_daftar" || t.status === "ditolak" || !data.link_ready },
-                          { label: TAMU.newLink, icon: <ArrowsClockwise size={18} />, onSelect: () => setTautanBaru(t), disabled: t.status === "sudah_daftar" || !data.link_ready },
-                          { label: TAMU.remove, icon: <Trash size={18} />, onSelect: () => setHapus(t), bahaya: true },
+                          { label: TAMU.edit, icon: <PencilSimple size={18} />, onSelect: () => setUbah(t), disabled: hanyaLihat || Boolean(t.registration_id && t.status !== "ditolak") },
+                          { label: TAMU.copyLink, icon: <Copy size={18} />, onSelect: () => void salinTautan(t), disabled: hanyaLihat || t.status === "sudah_daftar" || t.status === "ditolak" || !data.link_ready },
+                          { label: TAMU.newLink, icon: <ArrowsClockwise size={18} />, onSelect: () => setTautanBaru(t), disabled: hanyaLihat || t.status === "sudah_daftar" || !data.link_ready },
+                          { label: TAMU.remove, icon: <Trash size={18} />, onSelect: () => setHapus(t), bahaya: true, disabled: hanyaLihat },
                         ]}
                       />
                     </TableCell>

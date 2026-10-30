@@ -8,7 +8,10 @@ import type { RegistrationFormTheme } from "./registration-theme";
 // membuka layar /scan. Ada karena HP di pintu masuk sering dipegang bergantian,
 // dan akun yang juga membuka transaksi serta data peserta adalah risiko yang
 // tidak dibutuhkan di sana.
-export type UserRole = "booth" | "cashier" | "admin" | "super_admin" | "scanner" | "viewer";
+// `custom`: izin per modul dari peran buatan super admin (users.access_role_id,
+// lihat src/lib/auth/izin-modul.ts). Masuk ke ruang kerja admin yang sama,
+// tetapi hanya melihat modul yang diberikan perannya.
+export type UserRole = "booth" | "cashier" | "admin" | "super_admin" | "scanner" | "viewer" | "custom";
 
 /**
  * Nama peran yang boleh dilihat orang. SATU sumber.
@@ -29,6 +32,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   super_admin: "Super admin",
   scanner: "Scanner staff",
   viewer: "Viewer",
+  custom: "Custom role",
 };
 export type OrderStatus = "pending" | "paid" | "void" | "handed_over";
 export type PickupMode = "after_payment" | "immediate";
@@ -2031,6 +2035,7 @@ export type ApiErrorCode =
   | "DISCOUNT_QUOTA_REACHED"
   | "DISCOUNT_NOT_OFFERED"
   | "USERNAME_TAKEN"
+  | "ACCESS_ROLE_NOT_FOUND"
   | "USER_NOT_FOUND"
   | "BOOTH_NOT_FOUND"
   | "BOOTH_WITHOUT_TRANSACTIONS"
