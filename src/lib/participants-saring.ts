@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { logistikAcara, type LogistikRingkas } from "@/lib/logistik/server";
-import { LABEL_ASAL, LABEL_RSVP, bacaSaringan, cocokSemua, hariDiZona, hitungNilai, kolomSaringanAdmin, labelKursi, urutKursi, urutMenurut, type Saringan, type SesiSaringan } from "@/lib/saringan-kolom";
+import { LABEL_ASAL, LABEL_RSVP, bacaSaringan, cocokSemua, hariDiZona, hitungNilai, kolomSaringanAdmin, kolomSaringanKustom, labelKursi, urutKursi, urutMenurut, type Saringan, type SesiSaringan } from "@/lib/saringan-kolom";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -181,9 +181,25 @@ export async function sesiAcara(eventId: string): Promise<SesiSaringan[]> {
   return (data ?? []) as SesiSaringan[];
 }
 
-/** Saringan per kolom yang sah untuk acara ini, atau null bila `f` rusak. */
-export function saringanAdmin(f: string | undefined, fields: RegistrationField[], sesi: SesiSaringan[]): Saringan[] | null {
-  return bacaSaringan(f, kolomSaringanAdmin(fields, sesi));
+/**
+ * Saringan per kolom yang sah untuk acara ini, atau null bila `f` rusak. Akun
+ * peran kustom memakai daftar kolom tanpa QR dan logistik.
+ */
+export function saringanAdmin(f: string | undefined, fields: RegistrationField[], sesi: SesiSaringan[], kustom = false): Saringan[] | null {
+  return bacaSaringan(f, kustom ? kolomSaringanKustom(fields, sesi) : kolomSaringanAdmin(fields, sesi));
+}
+
+/**
+ * Pencarian akun kustom tanpa menyentuh QR. RPC mencari QR juga, dan pencarian
+ * bertahap ("A", "AB", ...) atas QR yang tidak terlihat tetap membocorkannya
+ * lewat ada-tidaknya baris di hasil (QA #100 H1, Viewer). Jadi RPC dipanggil
+ * tanpa kata kunci (`argumenRpc` dengan q kosong), lalu kata kuncinya
+ * dicocokkan di sini ke kolom yang terlihat. Dipakai daftar, ids_only, dan Export.
+ */
+export function cocokTanpaQr(q: string) {
+  const kata = q.trim().toLocaleLowerCase("id");
+  return (baris: { name?: unknown; company?: unknown; title?: unknown; email?: unknown; phone?: unknown }) =>
+    [baris.name, baris.company, baris.title, baris.email, baris.phone].some((nilai) => typeof nilai === "string" && nilai.toLocaleLowerCase("id").includes(kata));
 }
 
 /** Batas baca untuk saringan per kolom, jauh di atas acara terbesar sejauh ini. */
@@ -233,18 +249,19 @@ export async function nilaiKolomAdmin(eventId: string, kunci: string, fields: Re
  * Export. `null` bila tidak ada saringan apa pun: ekspor seluruh acara.
  * Melempar "VALIDATION" bila parameternya tidak sah.
  */
-export async function idsTersaring(eventId: string, params: URLSearchParams, fields: RegistrationField[], zona: string): Promise<string[] | null> {
+export async function idsTersaring(eventId: string, params: URLSearchParams, fields: RegistrationField[], zona: string, kustom = false): Promise<string[] | null> {
   const parsed = querySchema.safeParse(Object.fromEntries(params));
   if (!parsed.success) throw new Error("VALIDATION");
   const companies = params.getAll("company").map((nama) => nama.trim()).filter(Boolean).slice(0, 50);
-  const saringan = saringanAdmin(parsed.data.f, fields, await sesiAcara(eventId));
+  const saringan = saringanAdmin(parsed.data.f, fields, await sesiAcara(eventId), kustom);
   if (!saringan) throw new Error("VALIDATION");
   const d = parsed.data;
   const adaSaringan = Boolean(d.q || d.source || d.rsvp || (d.session && d.attended) || companies.length || saringan.length);
   if (!adaSaringan) return null;
+  const cariKustom = kustom && d.q.length > 0;
   const [semua, konteks] = await Promise.all([
-    semuaBarisRpc(argumenRpc(eventId, d, companies)),
+    semuaBarisRpc(argumenRpc(eventId, cariKustom ? { ...d, q: "" } : d, companies)),
     muatKonteks(eventId, saringan.map((s) => s.k), fields, zona),
   ]);
-  return saring(semua, saringan, konteks).map((b) => b.id);
+  return saring(cariKustom ? semua.filter(cocokTanpaQr(d.q)) : semua, saringan, konteks).map((b) => b.id);
 }

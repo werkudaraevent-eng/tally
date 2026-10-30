@@ -20,7 +20,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES, MAX_CUSTOM_FIELDS } from "@/lib/registration-fields";
-import { BATAS_SARINGAN, LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, type Saringan } from "@/lib/saringan-kolom";
+import { BATAS_SARINGAN, LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, kolomSaringanKustom, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { kolomLogistik, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
@@ -629,7 +629,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     window.history.replaceState(window.history.state, "", url);
   }, []);
 
-  const kolomSaringan = useMemo(() => kolomSaringanAdmin(fields, sessions), [fields, sessions]);
+  const kolomSaringan = useMemo(() => (kustom ? kolomSaringanKustom : kolomSaringanAdmin)(fields, sessions), [fields, sessions, kustom]);
   // "Filter this column…" dari menu judul kolom: membuka chip kolom itu di "+ Filter".
   const [mintaSaring, setMintaSaring] = useState<{ key: string; n: number } | null>(null);
 
@@ -1312,7 +1312,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }
 
   function textField(label: string, key: Exclude<keyof Draft, "extra">, options?: { locked?: boolean; value?: string; placeholder?: string; type?: string; hint?: string }) {
-    if (options?.locked) return field(label, <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{options.value || "Not set"}</p>);
+    if (options?.locked) return field(label, <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{options.value || "Not set"}</p>, options.hint);
     return field(label, (
       <input
         value={draft[key]}
@@ -1468,7 +1468,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                 <option value="confirmed">Confirmed</option>
               </select>
             ))}
-          {textField("Email", "email", { placeholder: "email@example.com", type: "email" })}
+          {/* Email adalah kunci masuk portal: peran kustom tidak menggantinya (QA #341 M1). */}
+          {kustom && mode?.kind !== "new"
+            ? textField("Email", "email", { locked: true, value: draft.email, hint: "Participants sign in with this email. Ask the organiser to change it." })
+            : textField("Email", "email", { placeholder: "email@example.com", type: "email" })}
           {textField("Phone", "phone", { placeholder: "08xx or +62xx" })}
           {bagianJawaban("formulir", "Registration form answers", null, jawaban.formulir)}
           {bagianJawaban("peserta", "Filled in by participants", "Not on the registration form. Participants fill it in later.", jawaban.peserta)}

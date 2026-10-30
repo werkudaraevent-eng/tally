@@ -4,8 +4,8 @@ import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { bentukLogistik, logistikPeserta } from "@/lib/logistik/server";
 import type { BentukLogistik } from "@/lib/logistik/ringkas";
 import { cleanExtra, participantBodySchema, tanpaQr, toRpcArgs } from "@/lib/participant-input";
-import { BATAS_BACA, TerlaluBanyak, argumenRpc, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
-import { kolomSaringanAdmin } from "@/lib/saringan-kolom";
+import { BATAS_BACA, TerlaluBanyak, argumenRpc, cocokTanpaQr, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
+import { KOLOM_TERTUTUP_KUSTOM, kolomSaringanAdmin, kolomSaringanKustom } from "@/lib/saringan-kolom";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -48,18 +48,6 @@ async function daftarPerusahaan(eventId: string): Promise<Array<{ company: strin
     .sort((a, b) => (a.company === "" ? 1 : b.company === "" ? -1 : a.company.localeCompare(b.company, "id")));
 }
 
-/**
- * Pencarian akun kustom tanpa menyentuh QR. RPC mencari QR juga, dan pencarian
- * bertahap ("A", "AB", ...) atas QR yang tidak terlihat tetap membocorkannya
- * lewat ada-tidaknya baris di hasil (QA #100 H1, Viewer). Jadi RPC dipanggil
- * tanpa kata kunci, lalu kata kuncinya dicocokkan di sini ke kolom yang terlihat.
- */
-function cocokTanpaQr(q: string) {
-  const kata = q.trim().toLocaleLowerCase("id");
-  return (baris: { name?: unknown; company?: unknown; title?: unknown; email?: unknown; phone?: unknown }) =>
-    [baris.name, baris.company, baris.title, baris.email, baris.phone].some((nilai) => typeof nilai === "string" && nilai.toLocaleLowerCase("id").includes(kata));
-}
-
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
@@ -74,19 +62,19 @@ export async function GET(request: Request) {
   const companies = new URL(request.url).searchParams.getAll("company").map((nama) => nama.trim()).slice(0, 50);
   const kustom = auth.scope.role === "custom";
   const cariKustom = kustom && parsed.data.q.length > 0;
-  // Urutan menurut QR membocorkan QR yang tidak terlihat, sedikit demi sedikit.
-  if (kustom && parsed.data.sort === "qr_code") return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
+  // Urutan menurut QR atau kolom logistik membocorkan isinya, sedikit demi sedikit.
+  if (kustom && KOLOM_TERTUTUP_KUSTOM.has(parsed.data.sort)) return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
   const argumen = argumenRpc(eventId, cariKustom ? { ...parsed.data, q: "" } : parsed.data, companies);
   // Sesi dibaca lebih dulu: kolom check-in per sesi adalah kunci saringan dan urutan yang sah.
   const daftarSesi = await sesiAcara(eventId);
-  const saringan = saringanAdmin(parsed.data.f, fields, daftarSesi);
+  const saringan = saringanAdmin(parsed.data.f, fields, daftarSesi, kustom);
   if (!saringan) return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
   const urut = pengurut(parsed.data.sort, fields, daftarSesi);
   if (!urut) return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
 
   // Daftar centang "+ Filter": nilai yang benar-benar ada di kolom itu.
   if (parsed.data.facet !== undefined) {
-    const kolom = kolomSaringanAdmin(fields, daftarSesi).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
+    const kolom = (kustom ? kolomSaringanKustom : kolomSaringanAdmin)(fields, daftarSesi).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
     if (!kolom) return apiError("VALIDATION_ERROR", 422, { message: "This column has no value list." });
     try {
       return Response.json({ key: kolom.key, values: await nilaiKolomAdmin(eventId, kolom.key, fields, zona) });

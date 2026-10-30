@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     const zona = normalizeTimeZone(auth.scope.event.time_zone);
     // Saringan yang sedang dipakai di daftar ikut ke berkas: yang diunduh adalah
     // yang terlihat. Tanpa saringan, seluruh acara seperti sebelumnya.
-    const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona);
+    const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona, kustom);
     const rowsPenuh = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi, logistik);
     const { headers, rows } = kustom ? untukKustom(headersPenuh, rowsPenuh) : { headers: headersPenuh, rows: rowsPenuh };
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: kustom });

@@ -169,6 +169,9 @@ begin
   return baru;
 end $$;
 
+-- SECURITY DEFINER: hanya server (service_role) yang memanggilnya.
+revoke all on function public.save_participant(uuid, uuid, text, text, text, text, text, text, text, text, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.save_participant(uuid, uuid, text, text, text, text, text, text, text, text, uuid, jsonb) to service_role;
 
 notify pgrst, 'reload schema';
 
