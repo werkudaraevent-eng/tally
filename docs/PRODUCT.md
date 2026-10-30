@@ -203,13 +203,14 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **CMS (Participant list):**
   - Add, import (CSV/XLSX with templates; preview first, then apply), export (follows filters), client view link.
   - Import matches on QR code; new rows get a code; duplicate email/phone is rejected; empty cells never erase data.
-  - Columns and filters: registration, RSVP, hotel, vehicle, seat, source, type, check-in, lucky draw, plus every form question. Logistics columns (hidden until chosen in Columns): Hotel, Room, Hotel check-in and Hotel check-out per stay (numbered Hotel 1, Hotel 2 only when someone moves hotels), each outbound and return train field, one column per kit item.
-  - Export follows the filters and adds the Logistics columns read-only (`logistics: Hotel 1`, ...) after the session columns; the importer skips them.
+  - Columns and filters: registration, RSVP, hotel, vehicle, seat, source, type, check-in, lucky draw, plus every form question. Logistics columns (hidden until chosen in Columns): Hotel, Room, Hotel check-in and Hotel check-out per stay (numbered Hotel 1, Hotel 2 only when someone moves hotels), each outbound and return train field, one column per kit item. Luggage column (only on events with a luggage desk or luggage records; hidden until chosen in Columns): total bags from every drop-off desk and the state, "3 · At the desk", "3 · Handed back" or "No luggage"; sorts by bag count and filters by state.
+  - Export follows the filters and adds the Logistics columns read-only (`logistics: Hotel 1`, ...) after the session columns; on events with luggage also `luggage: bags`, `luggage: status`, `luggage: dropped off at` and `luggage: photo` (Y when there is a photo; the photo itself is never in the file because its link only lives five minutes). The importer skips all of them.
   - Bulk: send message (opens a draft blast), export, delete, and a Logistics menu (Assign to hotel or room, Assign to vehicle, Remove from hotel, Remove from vehicle) that opens the same dialogs as the Logistics page.
   - Import asks what to import: Participant details, or Hotels, rooms, vehicles, train tickets (the Logistics import).
-  - Detail panel: check-in per session with reset, logistics (every stay with room and dates, vehicle, trains, kit collected; Edit stays and Change vehicle), seat, lucky-draw exclusion, contact, answers.
+  - Detail panel: check-in per session with reset, Luggage (on events with luggage: one row per drop-off with photo thumbnail that opens full size, count, At the desk / Handed back, desk, time and staff, and a reset per record), logistics (every stay with room and dates, vehicle, trains, kit collected; Edit stays and Change vehicle), seat, lucky-draw exclusion, contact, answers.
   - Sources: manual, external scanner system, public form, or both. The external sync is set in Event settings → Integrations (switch, slug, key, sync now, auto interval); a scheduled job also syncs every active or draft event that uses it. People removed at the source are kept and labelled.
-- **Reset check-in:** one session or all; previews what changes; winners already drawn stay; copied to the audit trail first.
+- **Reset check-in:** one session or all; previews what changes; kit items and luggage dropped off at that session (with its photo) are removed too; winners already drawn stay; copied to the audit trail first.
+- **Reset luggage:** in the detail panel, per drop-off record: removes the count, photo and hand-back, keeps the check-in; copied to the audit trail first (Danger zone).
 
 ### Registration
 - **For:** public visitors and invited guests; admins moderate.

@@ -63,8 +63,8 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "announcement_create", "announcement_update", "announcement_delete", "announcement_email",
     "message_send", "message_schedule", "message_retry", "message_resume", "message_cancel",
   ],
-  // Reset check-in satu peserta (uji coba): isi scan dan barang kitnya tersalin di payload.
-  danger: ["admin_reset_records", "participant_check_in_reset"],
+  // Reset check-in atau bagasi satu peserta (uji coba): isi yang dihapus tersalin di payload.
+  danger: ["admin_reset_records", "participant_check_in_reset", "participant_luggage_reset"],
   orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan", "admin_order_void"],
   sync: ["participant_sync", "participant_qr_archived"],
 };

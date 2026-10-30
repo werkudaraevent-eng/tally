@@ -1,6 +1,7 @@
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { adaBagasi, bagasiHalaman } from "@/lib/bagasi/server";
 import { bentukLogistik, logistikPeserta } from "@/lib/logistik/server";
 import type { BentukLogistik } from "@/lib/logistik/ringkas";
 import { cleanExtra, participantBodySchema, tanpaQr, toRpcArgs } from "@/lib/participant-input";
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
 
   // Daftar centang "+ Filter": nilai yang benar-benar ada di kolom itu.
   if (parsed.data.facet !== undefined) {
-    const kolom = (kustom ? kolomSaringanKustom : kolomSaringanAdmin)(fields, daftarSesi).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
+    const kolom = (kustom ? kolomSaringanKustom(fields, daftarSesi) : kolomSaringanAdmin(fields, daftarSesi, true)).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
     if (!kolom) return apiError("VALIDATION_ERROR", 422, { message: "This column has no value list." });
     try {
       return Response.json({ key: kolom.key, values: await nilaiKolomAdmin(eventId, kolom.key, fields, zona) });
@@ -126,18 +127,19 @@ export async function GET(request: Request) {
     }
     const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
     if (kustom) {
-      return Response.json({ total: hasil.total, limit: parsed.data.limit, offset: parsed.data.offset, participants: hasil.rows.map((baris) => ({ ...tanpaQr(baris), logistik: null })) });
+      return Response.json({ total: hasil.total, limit: parsed.data.limit, offset: parsed.data.offset, participants: hasil.rows.map((baris) => ({ ...tanpaQr(baris), logistik: null, bagasi: null })) });
     }
-    const logistik = await logistikPeserta(eventId, hasil.rows.map((baris) => baris.id));
+    const ids = hasil.rows.map((baris) => baris.id);
+    const [logistik, bagasi] = await Promise.all([logistikPeserta(eventId, ids), bagasiHalaman(eventId, ids)]);
     return Response.json({
       total: hasil.total,
       limit: parsed.data.limit,
       offset: parsed.data.offset,
-      participants: hasil.rows.map((baris) => ({ ...baris, logistik: logistik.get(baris.id) ?? null })),
+      participants: hasil.rows.map((baris) => ({ ...baris, logistik: logistik.get(baris.id) ?? null, bagasi: bagasi.get(baris.id) ?? null })),
     });
   }
 
-  const [halaman, sesi, semua, dihapus, dariScanner, terakhir, perusahaan] = await Promise.all([
+  const [halaman, sesi, semua, dihapus, dariScanner, terakhir, perusahaan, denganBagasi] = await Promise.all([
     halamanTersaring ?? client.rpc("list_event_participants" as never, argumen as never),
     client
       .from("attendance_sessions")
@@ -162,6 +164,8 @@ export async function GET(request: Request) {
     client.from("participants").select("id", { count: "exact", head: true }).eq("event_id", eventId).not("source_participant_id", "is", null),
     client.from("participants").select("source_synced_at").eq("event_id", eventId).order("source_synced_at", { ascending: false }).limit(1).maybeSingle(),
     daftarPerusahaan(eventId),
+    // Bagasi (kolom, saringan, panel detail) bukan bagian dari peran kustom.
+    kustom ? false : adaBagasi(eventId).catch(() => false),
   ]);
   // Kolom logistik (slot stay, kereta, barang kit). Gagal baca = hanya kolom
   // Hotel dan Bus seperti dulu; daftar peserta tetap terbuka.
@@ -173,7 +177,10 @@ export async function GET(request: Request) {
   }
 
   const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
-  const logistik = kustom ? new Map() : await logistikPeserta(eventId, hasil.rows.map((baris) => baris.id));
+  const ids = hasil.rows.map((baris) => baris.id);
+  const [logistik, bagasi] = kustom
+    ? [new Map(), new Map()]
+    : await Promise.all([logistikPeserta(eventId, ids), denganBagasi ? bagasiHalaman(eventId, ids) : new Map()]);
   const totalSemua = semua.count ?? 0;
   const totalDihapus = dihapus.count ?? 0;
 
@@ -187,7 +194,9 @@ export async function GET(request: Request) {
     last_synced_at: (terakhir.data as { source_synced_at: string | null } | null)?.source_synced_at ?? null,
     limit: parsed.data.limit,
     offset: parsed.data.offset,
-    participants: hasil.rows.map((baris) => ({ ...(kustom ? tanpaQr(baris) : baris), logistik: logistik.get(baris.id) ?? null })),
+    participants: hasil.rows.map((baris) => ({ ...(kustom ? tanpaQr(baris) : baris), logistik: logistik.get(baris.id) ?? null, bagasi: bagasi.get(baris.id) ?? null })),
+    // Kolom Luggage dan bagian Luggage di detail: hanya acara dengan meja bagasi.
+    luggage: denganBagasi,
     // Sesi yang SUDAH DITUTUP ikut dikirim. Kehadiran yang tercatat di sesi pagi
     // tidak hilang artinya sore hari, dan kolomnya yang menghilang begitu sesi
     // ditutup akan terbaca sebagai data yang lenyap.

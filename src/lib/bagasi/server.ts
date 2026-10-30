@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { ringkasBagasi, type BarisRingkasBagasi, type RingkasBagasi } from "@/lib/bagasi/ringkas";
 
 /**
  * Bagasi di meja checkpoint (Check-in > Sessions > Record luggage).
@@ -282,4 +283,73 @@ export async function totalAmbilBagasi(eventId: string): Promise<{ handedPeople:
   }
   for (const id of menunggu) sudah.delete(id);
   return { handedPeople: sudah.size, handedBags, waitingPeople: menunggu.size, waitingBags };
+}
+
+/**
+ * Apakah kolom Luggage tampil di daftar peserta dan Export: acara punya meja
+ * titip atau ambil, atau masih menyimpan catatan bagasi dari meja yang sudah
+ * dimatikan. Acara tanpa bagasi tidak berubah sama sekali.
+ */
+export async function adaBagasi(eventId: string): Promise<boolean> {
+  const db = getSupabaseServiceClient();
+  const [sesi, catatan] = await Promise.all([
+    db.from("attendance_sessions").select("*").eq("event_id", eventId),
+    db.from("luggage_drops").select("id", { head: true, count: "exact" }).eq("event_id", eventId),
+  ]);
+  const meja = ((sesi.data ?? []) as Array<{ records_luggage?: boolean; luggage_pickup?: boolean }>)
+    .some((item) => item.records_luggage === true || item.luggage_pickup === true);
+  return meja || (catatan.count ?? 0) > 0;
+}
+
+const KOLOM_RINGKAS = "id,participant_id,bag_count,recorded_at,photo_path,handed_over_at";
+
+/** Ringkasan bagasi semua peserta acara, untuk saringan, urutan dan Export. */
+export async function bagasiAcara(eventId: string): Promise<Map<string, RingkasBagasi>> {
+  const db = getSupabaseServiceClient();
+  const semua: BarisRingkasBagasi[] = [];
+  // Keyset id: PostgREST memotong satu jawaban di 1000.
+  for (let setelah = 0; ; ) {
+    const { data, error } = await db
+      .from("luggage_drops")
+      .select(KOLOM_RINGKAS)
+      .eq("event_id", eventId)
+      .gt("id", setelah)
+      .order("id", { ascending: true })
+      .limit(1000);
+    if (error) throw new Error("LUGGAGE_READ");
+    const baris = (data ?? []) as unknown as Array<BarisRingkasBagasi & { id: number }>;
+    semua.push(...baris);
+    if (baris.length < 1000) break;
+    setelah = baris[baris.length - 1].id;
+  }
+  return ringkasBagasi(semua);
+}
+
+/** Ringkasan bagasi untuk satu halaman daftar peserta. Galat = kolom kosong, daftar tetap terbuka. */
+export async function bagasiHalaman(eventId: string, ids: string[]): Promise<Map<string, RingkasBagasi>> {
+  const db = getSupabaseServiceClient();
+  const semua: BarisRingkasBagasi[] = [];
+  // Satu halaman paling banyak 200 orang; tiap orang beberapa meja saja.
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await db
+      .from("luggage_drops")
+      .select(KOLOM_RINGKAS)
+      .eq("event_id", eventId)
+      .in("participant_id", ids.slice(i, i + 100))
+      .limit(1000);
+    if (error) return new Map();
+    semua.push(...((data ?? []) as unknown as BarisRingkasBagasi[]));
+  }
+  return ringkasBagasi(semua);
+}
+
+/**
+ * Hapus foto catatan bagasi yang barisnya sudah dihapus. Gagal tidak
+ * dilaporkan: barisnya sudah hilang, dan penghapus foto (cron
+ * tally-bagasi-foto) tetap mengosongkan folder acaranya 30 hari setelah acara.
+ */
+export async function hapusFotoBagasi(paths: Array<string | null>): Promise<void> {
+  const daftar = paths.filter((path): path is string => Boolean(path));
+  if (daftar.length === 0) return;
+  await getSupabaseServiceClient().storage.from(BUCKET_BAGASI).remove(daftar).catch(() => null);
 }

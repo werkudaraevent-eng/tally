@@ -4,6 +4,7 @@ import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/tim
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { kolomImpor, normalizeHeader, type KolomImpor } from "./participants-kolom";
 import type { KolomLogistik, LogistikRingkas } from "./logistik/ringkas";
+import { statusBagasi, type RingkasBagasi } from "./bagasi/ringkas";
 
 // Impor dan ekspor peserta, CSV maupun XLSX.
 //
@@ -76,9 +77,13 @@ export function importHeaders(fields: RegistrationField[]): string[] {
  * suntingannya akan diabaikan tidak boleh menghalangi kolom yang tidak.
  * Jawaban berkas ikut di ekspor sebagai penanda ada/tidak, di antara keduanya.
  */
-export function exportHeaders(fields: RegistrationField[], sesi: SesiEkspor[] = [], logistik?: LogistikEkspor): string[] {
+export function exportHeaders(fields: RegistrationField[], sesi: SesiEkspor[] = [], logistik?: LogistikEkspor, bagasi?: BagasiEkspor): string[] {
   const berkas = fields.filter((field) => FILE_FIELD_TYPES.includes(field.type)).map((field) => field.key);
-  return [...importHeaders(fields), ...berkas, ...READONLY_HEADERS, ...sesi.map(kolomSesi), ...(logistik?.kolom ?? []).map((k) => `${AWALAN_LOGISTIK}${k.label}`)];
+  return [
+    ...importHeaders(fields), ...berkas, ...READONLY_HEADERS, ...sesi.map(kolomSesi),
+    ...(logistik?.kolom ?? []).map((k) => `${AWALAN_LOGISTIK}${k.label}`),
+    ...(bagasi ? KOLOM_BAGASI.map((nama) => `${AWALAN_BAGASI}${nama}`) : []),
+  ];
 }
 
 /** Sesi kehadiran (/scan) acara, urut seperti kolomnya di daftar peserta. */
@@ -102,6 +107,19 @@ const AWALAN_SESI = "check_in: ";
 const AWALAN_LOGISTIK = "logistics: ";
 
 export type LogistikEkspor = { kolom: KolomLogistik[]; data: Map<string, LogistikRingkas> };
+
+/**
+ * Kolom bagasi di ujung ekspor, baca-saja, hanya di acara yang punya meja
+ * bagasi: jumlah koper (dijumlahkan dari semua meja titip), status seperti
+ * kolom Luggage di daftar peserta, jam titip pertama, dan Y bila ada foto.
+ * Fotonya sendiri tidak ikut: tautannya hanya hidup lima menit, dan tautan
+ * permanen di spreadsheet bisa diteruskan ke mana saja. Foto dilihat di
+ * detail peserta. Importir melewati kolom berawalan ini.
+ */
+const AWALAN_BAGASI = "luggage: ";
+const KOLOM_BAGASI = ["bags", "status", "dropped off at", "photo"] as const;
+
+export type BagasiEkspor = Map<string, RingkasBagasi>;
 
 function kolomSesi(sesi: SesiEkspor): string {
   return `${AWALAN_SESI}${sesi.name}`;
@@ -176,7 +194,7 @@ export function mapRows(matrix: string[][], fields: RegistrationField[] = []) {
   // dinormalkan menjadi check_in_registration, dan pertanyaan form berlabel
   // "Check-in: Registration" akan tertimpa jam check-in saat berkas ekspor
   // diunggah ulang. Hanya ejaan ekspor persis; label buatan panitia tetap dibaca.
-  const columns = headerRow.map((cell) => ((cell ?? "").startsWith(AWALAN_SESI) || (cell ?? "").startsWith(AWALAN_LOGISTIK) ? null : kolomImpor(cell ?? "", byLabel)));
+  const columns = headerRow.map((cell) => ((cell ?? "").startsWith(AWALAN_SESI) || (cell ?? "").startsWith(AWALAN_LOGISTIK) || (cell ?? "").startsWith(AWALAN_BAGASI) ? null : kolomImpor(cell ?? "", byLabel)));
   // Kolom kursi "seat" tidak ikut ke RPC impor: kursi ditulis terpisah oleh
   // route lewat `seat-tally`. Kolom "kursi" milik ekspor SENGAJA tidak dibaca:
   // isinya gabungan kursi dari semua sumber (scanner, sesi lama) dan berkas
@@ -417,6 +435,7 @@ export async function loadParticipantExportRows(
   ids?: ReadonlySet<string>,
   sesi: SesiEkspor[] = [],
   logistik?: LogistikEkspor,
+  bagasi?: BagasiEkspor,
 ) {
   const [data, formDikirim, checkIn] = await Promise.all([
     semuaPeserta(eventId),
@@ -454,7 +473,13 @@ export async function loadParticipantExportRows(
     row.id,
     ...sesi.map((satu) => { const jam = checkIn.get(`${row.id}:${satu.id}`); return jam ? waktuZona(jam, zone) : ""; }),
     ...(logistik?.kolom ?? []).map((k) => k.nilai(logistik?.data.get(row.id), offset, "berkas")),
+    ...(bagasi ? kolomBagasi(bagasi.get(row.id), zone) : []),
   ]);
+}
+
+function kolomBagasi(ringkas: RingkasBagasi | undefined, zone: EventTimeZone): Array<string | number> {
+  if (!ringkas) return ["", "", "", ""];
+  return [ringkas.bags, statusBagasi(ringkas), waktuZona(ringkas.first, zone), ringkas.photos > 0 ? "Y" : ""];
 }
 
 /**

@@ -37,6 +37,8 @@ assert.equal(boleh("/api/admin/participants/scanner-config"), false);
 assert.equal(boleh("/api/admin/participants/scanner-config", "PATCH"), false);
 assert.equal(boleh("/api/admin/participants/3f2a/check-in"), true);
 assert.equal(boleh("/api/admin/participants/3f2a/check-in", "DELETE"), false, "reset check-in tetap milik panitia");
+assert.equal(boleh("/api/admin/participants/3f2a/luggage"), false, "bagasi bukan bagian dari peran kustom");
+assert.equal(boleh("/api/admin/participants/3f2a/luggage", "DELETE"), false);
 assert.equal(boleh("/api/admin/participants/export"), true);
 assert.equal(izinApi({ ...klien, participants_download: false }, "/api/admin/participants/export", "GET").boleh, false);
 
