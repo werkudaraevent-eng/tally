@@ -172,7 +172,7 @@ const KOLOM_TRIP = "id,name,depart_at,follows_default,sort_order";
  * Kueri kecil per tabel, bukan satu embed PostgREST: tabel logistik memakai
  * kunci asing komposit (event_id, id), dan embed di atasnya bergantung pada
  * nama relasi yang dipilih PostgREST sendiri. Daftar peserta memuat paling
- * banyak satu halaman (ratusan baris), jadi `.in()` cukup.
+ * banyak satu halaman (sampai 1000 baris), jadi `.in()` per potongan cukup.
  *
  * Galat ditelan dan menghasilkan peta kosong: kolom ini pelengkap, dan acara
  * di database yang belum punya tabel logistik (atau tiket kereta) tetap harus
@@ -181,14 +181,20 @@ const KOLOM_TRIP = "id,name,depart_at,follows_default,sort_order";
 export async function logistikPeserta(eventId: string, ids: string[]): Promise<Map<string, LogistikRingkas>> {
   if (ids.length === 0) return new Map();
   const db = klien();
-  // Satu halaman daftar bisa 200 peserta x 6 barang kit = 1.200 baris, di atas
-  // potongan 1000 PostgREST: semua dibaca per 1000. Galat tetap ditelan (sel kosong).
+  // Satu halaman daftar bisa 1000 peserta ("All"). Id dikirim per 150 supaya
+  // URL `.in()` tetap di bawah batas lazim 8 KB (150 uuid kira-kira 5,6 KB),
+  // dan tiap potongan dibaca per 1000 baris (150 peserta x 6 barang kit = 900,
+  // tapi kit bisa lebih). Galat tetap ditelan (sel kosong).
   const aman = <T,>(baca: Promise<T[]>) => baca.catch(() => [] as T[]);
+  const potongan: string[][] = [];
+  for (let i = 0; i < ids.length; i += 150) potongan.push(ids.slice(i, i + 150));
+  const perPotongan = <T,>(baca: (bagian: string[], dari: number) => PromiseLike<{ data: unknown; error: unknown }>) =>
+    aman(Promise.all(potongan.map((bagian) => bacaSemua<T>((dari) => baca(bagian, dari)))).then((semua) => semua.flat()));
   const [barisInap, barisAngkut, kereta, ambil, trips] = await Promise.all([
-    aman(bacaSemua<BarisInap>((dari) => db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", ids).order("participant_id").order("id").range(dari, dari + 999))),
-    aman(bacaSemua<BarisAngkut>((dari) => db.from("transport_assignments").select("trip_id,participant_id,vehicle_id").eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
-    aman(bacaSemua<TiketKereta>((dari) => db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
-    aman(bacaSemua<BarisAmbil>((dari) => db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).in("participant_id", ids).order("id").range(dari, dari + 999))),
+    perPotongan<BarisInap>((bagian, dari) => db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).in("participant_id", bagian).order("participant_id").order("id").range(dari, dari + 999)),
+    perPotongan<BarisAngkut>((bagian, dari) => db.from("transport_assignments").select("trip_id,participant_id,vehicle_id").eq("event_id", eventId).in("participant_id", bagian).order("id").range(dari, dari + 999)),
+    perPotongan<TiketKereta>((bagian, dari) => db.from("train_tickets").select(KOLOM_KERETA).eq("event_id", eventId).in("participant_id", bagian).order("id").range(dari, dari + 999)),
+    perPotongan<BarisAmbil>((bagian, dari) => db.from("item_pickups").select("participant_id,item_id,size").eq("event_id", eventId).in("participant_id", bagian).order("id").range(dari, dari + 999)),
     aman(bacaSemua<TripKendaraan>((dari) => db.from("transport_trips").select(KOLOM_TRIP).eq("event_id", eventId).order("id").range(dari, dari + 999))),
   ]);
   const hasil = await susunLogistik(eventId, barisInap, barisAngkut, trips, false);
