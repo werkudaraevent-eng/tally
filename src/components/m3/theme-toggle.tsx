@@ -57,7 +57,7 @@ export function ThemeToggle({ className = "", compact = false, menu = false }: {
 			// kalah rebutan ruang dengan judul yang `flex-1`. Grup kontrol yang
 			// labelnya terpotong lebih buruk daripada judul yang terpotong.
 			className={menu
-				? `flex shrink-0 items-center gap-0.5 rounded-md border border-outline-variant p-0.5 ${className}`
+				? `flex shrink-0 items-center gap-0.5 rounded-md bg-primary-soft p-0.5 ${className}`
 				: `flex shrink-0 items-center gap-1 rounded-2xl p-1 ${className}`}
 		>
 			{OPTIONS.map(({ value, label, Icon }) => {
@@ -78,9 +78,12 @@ export function ThemeToggle({ className = "", compact = false, menu = false }: {
 						// terbaca ketika warna gagal membedakan (kontras rendah, layar
 						// proyektor, penglihatan warna terbatas).
 						// Di menu: kepingan 32px, sebaris dengan barisnya (40px). Tombol 44px
-						// membuat satu baris menu setinggi dua.
+						// membuat satu baris menu setinggi dua. Yang terpilih adalah kepingan
+						// putih bertepi `outline` (3,2:1 di atas alas abu, ambang WCAG 1.4.11 3:1),
+						// terbaca juga di tema gelap tempat putihnya hilang; hover
+						// hanya menggelapkan ikon, jadi tidak pernah terlihat seperti terpilih.
 						className={menu
-							? `flex size-8 items-center justify-center rounded-sm transition-colors duration-150 ${selected ? "bg-primary-soft text-on-surface" : "text-on-surface-variant hover:bg-primary-soft hover:text-on-surface"}`
+							? `flex size-8 items-center justify-center rounded-sm border transition-colors duration-150 ${selected ? "border-outline bg-surface-container-lowest text-on-surface shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "border-transparent text-on-surface-variant hover:text-on-surface"}`
 							: `m3-state flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 px-2 text-label-large transition-[border-radius,background-color,color] duration-300 ease-emphasized ${
 							selected
 								? "rounded-md border border-outline-variant bg-surface-container text-on-surface"
