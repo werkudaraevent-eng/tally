@@ -135,7 +135,7 @@ function PilihKolom({ kolom, penuh, onPilih }: { kolom: KolomSaringan[]; penuh: 
         aria-controls={anchor.open ? id : undefined}
         onClick={() => { setCari(""); anchor.toggle(); }}
         className={cx(
-          "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-outline px-3 text-body-medium font-medium text-on-surface disabled:opacity-50",
+          "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-dashed border-outline px-3 text-body-medium font-medium text-on-surface disabled:opacity-50",
           anchor.open ? "bg-secondary-container" : "bg-surface-container-lowest hover:bg-primary-soft",
         )}
       >
@@ -221,7 +221,7 @@ function ChipSaringan({ kolom, saringan, bukaSaatMuncul, onDibuka, onUbah, onHap
   return (
     <div
       className={cx(
-        "inline-flex h-8 min-w-0 max-w-[320px] shrink items-center rounded-full border text-body-medium font-medium",
+        "inline-flex h-8 min-w-0 max-w-[320px] shrink items-center rounded-md border text-body-medium font-medium",
         aktif ? "border-primary bg-accent-soft text-primary" : "border-outline bg-surface-container-lowest text-on-surface",
       )}
     >
@@ -233,7 +233,7 @@ function ChipSaringan({ kolom, saringan, bukaSaatMuncul, onDibuka, onUbah, onHap
         aria-controls={anchor.open ? id : undefined}
         onClick={anchor.toggle}
         title={teks}
-        className="inline-flex h-full min-w-0 items-center gap-1.5 rounded-full pl-3 pr-1.5"
+        className="inline-flex h-full min-w-0 items-center gap-1.5 rounded-md pl-3 pr-1.5"
       >
         {/* Pertanyaan form bisa sepanjang kalimat: judulnya yang dipotong, nilainya tetap terbaca. */}
         <span className={cx("truncate", isi && "max-w-[150px] shrink-[2]")}>{kolom.label}{isi && !("has" in saringan || "kosong" in saringan) ? ":" : ""}</span>
@@ -244,7 +244,7 @@ function ChipSaringan({ kolom, saringan, bukaSaatMuncul, onDibuka, onUbah, onHap
         type="button"
         aria-label={`Remove filter ${kolom.label}`}
         onClick={onHapus}
-        className="mr-1 grid size-6 shrink-0 place-items-center rounded-full hover:bg-surface-container-high"
+        className="mr-1 grid size-6 shrink-0 place-items-center rounded-sm hover:bg-surface-container-high"
       >
         <X size={14} aria-hidden />
       </button>

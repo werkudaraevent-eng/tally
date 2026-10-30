@@ -1749,6 +1749,23 @@ html:hover {
 	line-height: 1.25rem;
 }
 
+/* Angka lebar tetap hanya di sel tabel, tidak di seluruh teks ruang kerja.
+ *
+ * `body` memasang `tabular-nums` untuk semua teks, dan di Inter fitur itu ikut
+ * melebarkan tanda hubung: "Check-in" terukur 72,1px dengan fitur itu dan
+ * 68,4px tanpanya, dan yang terbaca adalah "Check - in", "sign - in",
+ * "/e/qa - horizon" di menu, tab, dan judul. Dasbor acuan memakai angka lebar
+ * tetap hanya di kolom angka. Di sini: sel tabel, plus elemen yang memintanya
+ * sendiri lewat `tabular-nums` atau `ed-num`. Halaman tamu belum diubah; itu
+ * menyentuh tampilan acara yang sedang berjalan. */
+.press {
+	font-variant-numeric: normal;
+}
+
+.press td {
+	font-variant-numeric: tabular-nums;
+}
+
 /* ---- Kepadatan kontrol ruang kerja --------------------------------------
  *
  * Tinggi kontrol M3 adalah target SENTUH: 48px untuk tombol biasa, 56px untuk
