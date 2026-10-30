@@ -31,16 +31,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const tersimpan = lama as { qr_code: string; email: string | null } | null;
     if (!tersimpan?.qr_code) return apiError("PARTICIPANT_NOT_FOUND", 404);
     (mentah as Record<string, unknown>).qr_code = tersimpan.qr_code;
-    // Email adalah kunci masuk portal (kode email), dan portal menampilkan QR.
-    // Akun kustom yang mengganti email peserta ke alamatnya sendiri bisa masuk
-    // sebagai peserta itu (QA #341 M1), jadi emailnya tetap milik panitia.
-    const rapi = (nilai: unknown) => (typeof nilai === "string" ? nilai.trim().toLowerCase() : "");
+    // Email boleh diganti (data klien sering salah ketik), dan setiap gantinya
+    // tercatat di Audit trail dengan nama akunnya. Hanya yang tidak dikirim
+    // dibiarkan: simpan menimpa seluruh baris, jadi email kosong berarti terhapus.
     const emailBaru = (mentah as Record<string, unknown>).email;
-    if (emailBaru !== undefined && rapi(emailBaru) !== rapi(tersimpan.email)) {
-      return apiError("FORBIDDEN", 403, { message: "Your role can't change a participant's email. Ask the organiser." });
-    }
-    // Simpan menimpa seluruh baris: email yang tidak dikirim berarti tetap, bukan kosong.
-    if (emailBaru === undefined || emailBaru === null) (mentah as Record<string, unknown>).email = tersimpan.email;
+    if (emailBaru === undefined) (mentah as Record<string, unknown>).email = tersimpan.email;
   }
   const body = participantBodySchema.safeParse(mentah);
   if (!body.success) return apiError("VALIDATION_ERROR", 422, body.error.flatten());

@@ -1468,10 +1468,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                 <option value="confirmed">Confirmed</option>
               </select>
             ))}
-          {/* Email adalah kunci masuk portal: peran kustom tidak menggantinya (QA #341 M1). */}
-          {kustom && mode?.kind !== "new"
-            ? textField("Email", "email", { locked: true, value: draft.email, hint: "Participants sign in with this email. Ask the organiser to change it." })
-            : textField("Email", "email", { placeholder: "email@example.com", type: "email" })}
+          {textField("Email", "email", { placeholder: "email@example.com", type: "email" })}
           {textField("Phone", "phone", { placeholder: "08xx or +62xx" })}
           {bagianJawaban("formulir", "Registration form answers", null, jawaban.formulir)}
           {bagianJawaban("peserta", "Filled in by participants", "Not on the registration form. Participants fill it in later.", jawaban.peserta)}
