@@ -1375,7 +1375,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         <span className="hidden text-body-medium text-on-surface-variant sm:inline" aria-hidden>Rows per page</span>
         <SelectMenu
           label="Rows per page"
-          width="5.5rem"
+          width="6.5rem"
           value={String(perPage)}
           options={UKURAN_HALAMAN.map((ukuran) => ({ value: String(ukuran), label: ukuran === SEMUA_BARIS ? (total > SEMUA_BARIS ? "1,000" : "All") : String(ukuran) }))}
           onChange={(next) => { setPerPage(Number(next)); setPage(0); }}
