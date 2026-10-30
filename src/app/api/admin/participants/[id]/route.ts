@@ -39,6 +39,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (emailBaru !== undefined && rapi(emailBaru) !== rapi(tersimpan.email)) {
       return apiError("FORBIDDEN", 403, { message: "Your role can't change a participant's email. Ask the organiser." });
     }
+    // Simpan menimpa seluruh baris: email yang tidak dikirim berarti tetap, bukan kosong.
+    if (emailBaru === undefined || emailBaru === null) (mentah as Record<string, unknown>).email = tersimpan.email;
   }
   const body = participantBodySchema.safeParse(mentah);
   if (!body.success) return apiError("VALIDATION_ERROR", 422, body.error.flatten());
