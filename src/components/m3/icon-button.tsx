@@ -1,7 +1,7 @@
 "use client";
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { KETERANGAN_KUNCI, useTerkunci } from "@/components/admin/page-context";
+import { useKeteranganKunci, useTerkunci } from "@/components/admin/page-context";
 import { cx } from "@/lib/m3/cx";
 
 export type IconButtonVariant = "standard" | "filled" | "tonal" | "outlined";
@@ -58,13 +58,14 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "cla
  */
 export function IconButton({ label, children, variant = "standard", size = "md", selected, className, ref, simpan, ...rest }: IconButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
 	const terkunci = useTerkunci(simpan);
+	const keteranganKunci = useKeteranganKunci();
 	return (
 		<button
 			ref={ref}
 			{...rest}
 			disabled={rest.disabled || terkunci}
 			aria-label={label}
-			title={terkunci ? `${label}. ${KETERANGAN_KUNCI}` : label}
+			title={terkunci ? `${label}. ${keteranganKunci}` : label}
 			aria-pressed={selected === undefined ? undefined : selected}
 			data-size={size}
 			className={cx(

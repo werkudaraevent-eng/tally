@@ -12,7 +12,7 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { ResetCheckInDialog, type TargetReset } from "@/components/admin/reset-check-in-dialog";
-import { useTerkunci } from "@/components/admin/page-context";
+import { useIzinKustom, useTerkunci } from "@/components/admin/page-context";
 import Link from "@/components/event-link";
 import { withEventPrefix } from "@/lib/event-path";
 import { kelompokJawaban, kolomDariTautan, wajibDiisi, type AsalJawaban } from "@/lib/kolom-staf";
@@ -411,6 +411,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const router = useRouter();
   // Acara yang sudah ditutup: perubahan tidak tersimpan (sama dengan tombol `simpan`).
   const terkunci = useTerkunci(true);
+  // Akun berperan kustom (Users & roles > Roles): tanpa QR, tanpa Logistik,
+  // tanpa Lucky draw, dan tanpa reset check-in. Server menolak semuanya juga;
+  // di sini hanya supaya tidak ada kolom kosong dan tombol yang berakhir 403.
+  const izin = useIzinKustom();
+  const kustom = izin !== null;
+  const bolehPesan = !izin || izin.modules.messages === "manage";
   // Awalan id judul dan keterangan bagian jawaban di panel Edit (bagianJawaban).
   const idBagian = useId();
   const [query, setQuery] = useState("");
@@ -540,6 +546,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void (async () => {
+        if (kustom) return;
         const response = await fetch("/api/admin/undian/exclusions", { cache: "no-store" }).catch(() => null);
         if (!response?.ok) return;
         const data = await response.json();
@@ -547,7 +554,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       })();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [reloadKey]);
+  }, [reloadKey, kustom]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -928,7 +935,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       { key: "rsvp", label: "RSVP", sort: "rsvp_status", saring: "rsvp", width: 128, cell: (p) => p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell /> },
       // Satu fakta satu kolom: Hotel/Room/check-in/check-out per stay, Bus, tiket kereta per isian, kit per barang.
       // Hanya "kamar" (Hotel pertama) dan "bus" yang bisa diurutkan dan disaring, sama dengan sebelumnya.
-      ...kolomLogistik(bentukLog).map<Kolom>((k) => {
+      ...(kustom ? [] : kolomLogistik(bentukLog)).map<Kolom>((k) => {
         const bisa = k.key === "kamar" || k.key === "bus";
         return {
           key: k.key,
@@ -971,8 +978,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         { key: "scans", label: "Scans", sort: "source_total_scans", urutJenis: "angka", width: 88, align: "right", cell: (p) => <span className="tabular-nums">{p.source_total_scans}</span> },
       );
     }
-    return daftar;
-  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona]);
+    return kustom ? daftar.filter((item) => item.key !== "qr" && item.key !== "undian") : daftar;
+  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona, kustom]);
 
   // Bawaan harus muat di layar 1280 tanpa gulir mendatar (panel ±960 px):
   // Nama 240 + Organisation 200 + check-in 140 + Registered 152 + RSVP 128.
@@ -1050,7 +1057,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   // penuh (Add question di Edit form mati dengan "20 of 20"), dan tidak selama
   // panel Edit/Add participant terbuka: pindah halaman membuang isiannya tanpa
   // bertanya, sama seperti baris lain yang tidak bisa dipilih selama menyunting.
-  const bolehTambahKolom = !terkunci && fields.length < MAX_CUSTOM_FIELDS && mode?.kind !== "edit" && mode?.kind !== "new";
+  const bolehTambahKolom = !terkunci && !kustom && fields.length < MAX_CUSTOM_FIELDS && mode?.kind !== "edit" && mode?.kind !== "new";
 
   // ---- Panel daftar --------------------------------------------------------
   const list = (
@@ -1065,7 +1072,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search name, organisation, QR code…"
+            placeholder={kustom ? "Search name, organisation, email…" : "Search name, organisation, QR code…"}
             className="h-8 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
           />
         </label>
@@ -1149,9 +1156,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               </button>
             ) : null}
             <span className="ml-auto flex min-h-12 items-center gap-2">
-              <Button simpan variant="outlined" size="sm" className="target-48" aria-label="Send message" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}><span className="max-sm:hidden">Send message</span></Button>
-              <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} />
-              <MenuLogistik onPick={(jenis) => setAksiLog({ jenis, ids: [...pilih] })} />
+              {bolehPesan ? <Button simpan variant="outlined" size="sm" className="target-48" aria-label="Send message" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}><span className="max-sm:hidden">Send message</span></Button> : null}
+              {!izin || izin.participants_download ? <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} /> : null}
+              {kustom ? null : <MenuLogistik onPick={(jenis) => setAksiLog({ jenis, ids: [...pilih] })} />}
               <Button
                 simpan
                 variant="outlined"
@@ -1187,8 +1194,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             plain
             icon={<UsersThree size={40} />}
             title={adaFilter || debouncedQuery ? "No matching participants" : "No participants yet"}
-            description={adaFilter || debouncedQuery ? "Loosen a filter or change the search." : "Add participants one by one, or import a CSV or XLSX file."}
-            action={adaFilter ? <Button variant="outlined" size="sm" onClick={resetFilter}>Clear all filters</Button> : !debouncedQuery ? <Button size="sm" onClick={startAdd}>Add participant</Button> : undefined}
+            description={adaFilter || debouncedQuery ? "Loosen a filter or change the search." : kustom ? "Add participants one by one." : "Add participants one by one, or import a CSV or XLSX file."}
+            action={adaFilter ? <Button variant="outlined" size="sm" onClick={resetFilter}>Clear all filters</Button> : !debouncedQuery ? <Button simpan size="sm" onClick={startAdd}>Add participant</Button> : undefined}
           />
         ) : (
           <table
@@ -1444,7 +1451,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           {textField("Full name", "name", { locked: editingLocked, value: editingRow?.name, placeholder: "Participant name" })}
           {textField("Organisation", "company", { locked: editingLocked, value: editingRow?.company ?? "", placeholder: "Optional" })}
           {textField("Job title", "title", { locked: editingLocked, value: editingRow?.title ?? "", placeholder: "Optional" })}
-          {editingLocked
+          {kustom
+            // Peran kustom tidak melihat QR. Peserta baru mendapat QR dari server.
+            ? null
+            : editingLocked
             ? field("QR code", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{editingRow?.qr_code}</p>)
             : field("QR code", <input value={draft.qr_code} onChange={(event) => setDraft({ ...draft, qr_code: event.target.value })} className={`${inputClass} tabular-nums`} placeholder="REG000000" required />, "Must be unique in this event. Booths and cashiers scan this code.")}
           {textField("Participant type", "participant_type", { locked: editingLocked, value: editingRow?.participant_type ?? "", placeholder: "e.g. VIP, regular" })}
@@ -1467,7 +1477,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       </PaneBody>
       <PaneFooter>
         <Button type="button" variant="outlined" size="sm" disabled={saving} onClick={cancelEdit}>Cancel</Button>
-        <Button simpan type="submit" form="form-peserta" size="sm" loading={saving} disabled={!draft.name.trim() || !draft.qr_code.trim()} icon={<Check size={16} weight="bold" />}>
+        <Button simpan type="submit" form="form-peserta" size="sm" loading={saving} disabled={!draft.name.trim() || (!kustom && !draft.qr_code.trim())} icon={<Check size={16} weight="bold" />}>
           {mode?.kind === "new" ? "Add participant" : "Save changes"}
         </Button>
       </PaneFooter>
@@ -1497,19 +1507,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             {p.source_removed_at ? <StatusChip tone="warning">Deleted at source</StatusChip> : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outlined" size="sm" icon={<PencilSimple size={16} />} onClick={() => startEdit(p)}>{fromSource ? "Edit contact" : "Edit"}</Button>
+            <Button simpan variant="outlined" size="sm" icon={<PencilSimple size={16} />} onClick={() => startEdit(p)}>{fromSource ? "Edit contact" : "Edit"}</Button>
             {!fromSource ? <Button simpan variant="text" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmDelete(p)}>Delete</Button> : null}
           </div>
         </div>
         <PaneBody>
           <dl>
             <DetailSection title="Invitation">
-              <KeyValue label="QR code">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="tabular-nums">{p.qr_code}</span>
-                  <IconButton size="sm" label="Copy QR code" onClick={() => void salinKode(p.qr_code)}><Copy size={14} /></IconButton>
-                </span>
-              </KeyValue>
+              {kustom ? null : (
+                <KeyValue label="QR code">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="tabular-nums">{p.qr_code}</span>
+                    <IconButton size="sm" label="Copy QR code" onClick={() => void salinKode(p.qr_code)}><Copy size={14} /></IconButton>
+                  </span>
+                </KeyValue>
+              )}
               <KeyValue label="Type">{p.participant_type ?? <EmptyCell />}</KeyValue>
               <KeyValue label="RSVP">{p.rsvp_status ? <StatusChip dot tone={RSVP_TONE[p.rsvp_status] ?? "neutral"}>{LABEL_RSVP[p.rsvp_status] ?? p.rsvp_status}</StatusChip> : <EmptyCell />}</KeyValue>
               <KeyValue label="Registered">
@@ -1521,7 +1533,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             {sessions.length > 0 ? (
               <DetailSection
                 title="Check-in"
-                action={sessions.some((sesi) => p.attendance?.[String(sesi.id)])
+                action={!kustom && sessions.some((sesi) => p.attendance?.[String(sesi.id)])
                   ? <Button simpan variant="text" size="sm" className="text-error" onClick={() => setResetCheckIn({ participant: { id: p.id, name: p.name, scannerCheckedIn: p.source_checked_in }, session: null })}>Reset all</Button>
                   : undefined}
               >
@@ -1532,7 +1544,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                       {catatan ? (
                         <span className="flex items-center gap-1">
                           <StatusChip dot tone="success" title={catatan.count > 1 ? `Scanned ${catatan.count} times` : undefined}>Checked in {jam(catatan.first)}</StatusChip>
-                          <IconButton simpan size="sm" className="-my-2" label={`Reset check-in at ${sesi.name}`} title="Reset check-in" onClick={() => setResetCheckIn({ participant: { id: p.id, name: p.name, scannerCheckedIn: p.source_checked_in }, session: sesi })}><ArrowCounterClockwise size={16} /></IconButton>
+                          {kustom ? null : <IconButton simpan size="sm" className="-my-2" label={`Reset check-in at ${sesi.name}`} title="Reset check-in" onClick={() => setResetCheckIn({ participant: { id: p.id, name: p.name, scannerCheckedIn: p.source_checked_in }, session: sesi })}><ArrowCounterClockwise size={16} /></IconButton>}
                         </span>
                       ) : <StatusChip dot>Not checked in</StatusChip>}
                     </KeyValue>
@@ -1540,7 +1552,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                 })}
               </DetailSection>
             ) : null}
-            <DetailSection
+            {kustom ? null : <DetailSection
               title="Logistics"
               action={
                 <span className="flex gap-1">
@@ -1550,11 +1562,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               }
             >
               <RincianLogistik logistik={p.logistik} bentuk={bentukLog} offset={offsetZona} />
-            </DetailSection>
+            </DetailSection>}
             <DetailSection title="Seating">
               {p.seats?.length ? p.seats.map((seat) => <KeyValue key={`${seat.subEventId}-${seat.label}`} label={seat.subEventName}>{seat.label}</KeyValue>) : <p className="text-body-medium text-on-surface-variant">No seat yet.</p>}
             </DetailSection>
-            <DetailSection
+            {kustom ? null : <DetailSection
               title="Lucky draw"
               action={
                 <Button simpan variant="text" size="sm" loading={togglingExclusion === p.id} onClick={() => void toggleExclusion(p)}>
@@ -1565,7 +1577,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               <p className="text-body-medium">
                 {excluded.has(p.id) ? <StatusChip tone="warning">Excluded from all draws</StatusChip> : <span className="text-on-surface-variant">Included in draws when they meet the prize rules.</span>}
               </p>
-            </DetailSection>
+            </DetailSection>}
             <DetailSection title="Contact">
               <KeyValue label="Email">{p.email ?? <EmptyCell />}</KeyValue>
               <KeyValue label="Phone">{p.phone ?? <EmptyCell />}</KeyValue>

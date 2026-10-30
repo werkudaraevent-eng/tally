@@ -146,7 +146,9 @@ export async function GET(request: Request) {
   const rows = (result.data ?? []) as Array<{ participant_id: string | null }>;
   const ids = rows.map((row) => row.participant_id).filter((id): id is string => id !== null);
   let kode = new Map<string, string>();
-  if (ids.length > 0) {
+  // Akun berperan kustom tidak pernah menerima QR (aturan data yang sama
+  // dengan Viewer di /live): kodenya dibacakan panitia, bukan klien.
+  if (ids.length > 0 && auth.scope.role !== "custom") {
     const { data: peserta } = await client.from("participants").select("id,qr_code").in("id", ids);
     kode = new Map(((peserta as Array<{ id: string; qr_code: string }> | null) ?? []).map((p) => [p.id, p.qr_code]));
   }
@@ -438,5 +440,5 @@ export async function POST(request: Request) {
   // sudah tersimpan dan pesertanya sudah ada; membalas 5xx karena emailnya
   // gagal akan membuat admin menekan Setujui lagi dan menabrak
   // REGISTRATION_ALREADY_REVIEWED.
-  return Response.json({ ...hasil, email: kirim });
+  return Response.json({ ...hasil, qr_code: auth.scope.role === "custom" ? null : hasil.qr_code, email: kirim });
 }

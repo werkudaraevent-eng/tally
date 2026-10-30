@@ -16,7 +16,7 @@ import { aksesPerUser, akunTerlihat, bolehResetPin, periksaAkses, type AcaraRing
 // kolom enum di database sudah memilikinya sejak migrasi 202607300001. Tanpa ini
 // setiap penyimpanan akun super admin (termasuk sekadar ganti PIN, karena PATCH
 // dari UI selalu menyertakan role) ditolak sebagai VALIDATION_ERROR.
-const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin", "scanner", "viewer"]);
+const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin", "scanner", "viewer", "custom"]);
 
 const aksesSchema = z.array(z.object({
   event_id: z.string().uuid(),
@@ -27,6 +27,8 @@ const createSchema = z.object({
   username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i, "Use letters, numbers, dots, dashes and underscores."),
   pin: z.string().regex(/^\d{6}$/, "The PIN must be 6 digits."),
   role: roleSchema,
+  /** Wajib tepat ketika role = custom (users_custom_role_check). */
+  access_role_id: z.string().uuid().nullable().optional(),
   is_active: z.boolean().optional(),
   events: aksesSchema,
 });
@@ -36,13 +38,16 @@ const updateSchema = z.object({
   username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i).optional(),
   pin: z.string().regex(/^\d{6}$/).optional(),
   role: roleSchema.optional(),
+  access_role_id: z.string().uuid().nullable().optional(),
   booth_id: z.number().int().positive().nullable().optional(),
   is_active: z.boolean().optional(),
   // Bila ada: pengganti SELURUH daftar acara akun ini.
   events: aksesSchema.optional(),
 });
 
-type UserRow = { id: string; username: string; role: string; booth_id: number | null; is_active: boolean };
+type UserRow = { id: string; username: string; role: string; booth_id: number | null; is_active: boolean; access_role_id: string | null };
+
+const KOLOM_AKUN = "id,username,role,booth_id,is_active,access_role_id";
 
 /**
  * Membaca semua baris, per halaman 1000. PostgREST memotong setiap respons di
@@ -135,6 +140,18 @@ function boothLama(role: string, baris: AksesMasuk[]): number | null {
   return role === "booth" ? baris[0]?.booth_id ?? null : null;
 }
 
+/**
+ * Peran kustom yang dipilih untuk akun: wajib ada bila role = custom, dan
+ * dibuang untuk peran lain. Mengembalikan pesan galat atau id yang sah.
+ */
+async function periksaPeranKustom(client: Klien, role: UserRole, id: string | null | undefined): Promise<{ id: string | null } | { galat: string }> {
+  if (role !== "custom") return { id: null };
+  if (!id) return { galat: "Choose a custom role for this account." };
+  const { data, error } = await client.from("access_roles" as never).select("id").eq("id", id).maybeSingle();
+  if (error) return { galat: "Roles could not be checked. Try again." };
+  return data ? { id } : { galat: "That role no longer exists. Reload and try again." };
+}
+
 export async function GET() {
   // Klien (`admin`) boleh MELIHAT daftar operator, tapi tidak mengubahnya.
   // `can_manage` dikirim agar UI tahu harus menampilkan mode baca saja.
@@ -143,7 +160,7 @@ export async function GET() {
   const client = getSupabaseServiceClient();
   const akun = await client
     .from("users")
-    .select("id,username,role,booth_id,is_active")
+    .select(KOLOM_AKUN)
     .order("role", { ascending: true })
     .order("username", { ascending: true });
   if (akun.error) return apiError("INTERNAL_ERROR", 500);
@@ -216,6 +233,8 @@ export async function POST(request: Request) {
   const client = getSupabaseServiceClient();
   const galatAcara = await periksaAcaraBooth(client, parsed.data.events);
   if (galatAcara) return apiError("VALIDATION_ERROR", 422, { message: galatAcara });
+  const peranKustom = await periksaPeranKustom(client, parsed.data.role, parsed.data.access_role_id);
+  if ("galat" in peranKustom) return apiError("VALIDATION_ERROR", 422, { access_role_id: peranKustom.galat, message: peranKustom.galat });
 
   // Username yang sudah dipakai ditolak, KECUALI sisa pembuatan yang gagal di
   // tengah jalan: akun nonaktif, tanpa acara, tanpa catatan user_create (baru
@@ -248,7 +267,7 @@ export async function POST(request: Request) {
   if (galatMulai) return apiError("INTERNAL_ERROR", 500);
   const { data: dibuat, error } = await client
     .from("users")
-    .insert({ username: parsed.data.username, pin_hash: pinHash, role: parsed.data.role, booth_id: boothLama(parsed.data.role, parsed.data.events), is_active: false } as never)
+    .insert({ username: parsed.data.username, pin_hash: pinHash, role: parsed.data.role, booth_id: boothLama(parsed.data.role, parsed.data.events), is_active: false, ...(peranKustom.id ? { access_role_id: peranKustom.id } : {}) } as never)
     .select("id")
     .single();
   if (error || !dibuat) return apiError("INTERNAL_ERROR", 500);
@@ -263,7 +282,7 @@ export async function POST(request: Request) {
     .from("users")
     .update({ is_active: parsed.data.is_active ?? true } as never)
     .eq("id", id)
-    .select("id,username,role,booth_id,is_active")
+    .select(KOLOM_AKUN)
     .single();
   if (galatAktif) return apiError("INTERNAL_ERROR", 500, { message: "The account was created but could not be activated. Open it and turn Active on." });
   await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_create", payload: { user: data, events: parsed.data.events } } as never);
@@ -277,7 +296,7 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const client = getSupabaseServiceClient();
 
-  const { data: current } = await client.from("users").select("id,username,role,booth_id,is_active").eq("id", parsed.data.id).maybeSingle() as { data: UserRow | null };
+  const { data: current } = await client.from("users").select(KOLOM_AKUN).eq("id", parsed.data.id).maybeSingle() as { data: UserRow | null };
   // Bagi yang bukan pengelola akun, id tak dikenal dijawab sama dengan id di luar
   // cakupannya (403), supaya tanggapannya tidak membocorkan id mana yang ada.
   if (!current) return canManageUsers(auth.user) ? apiError("USER_NOT_FOUND", 404) : apiError("FORBIDDEN", 403);
@@ -310,7 +329,7 @@ export async function PATCH(request: Request) {
     // Reset PIN menulis PIN SAJA. Menulis ulang peran dan booth di sini membuat
     // akun booth lama tanpa users.booth_id gagal direset.
     const pinHash = await bcrypt.hash(parsed.data.pin as string, PIN_HASH_ROUNDS);
-    const { data, error } = await client.from("users").update({ pin_hash: pinHash } as never).eq("id", current.id).select("id,username,role,booth_id,is_active").single();
+    const { data, error } = await client.from("users").update({ pin_hash: pinHash } as never).eq("id", current.id).select(KOLOM_AKUN).single();
     if (error) return apiError("INTERNAL_ERROR", 500);
     await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_pin_reset", payload: { user: { id: current.id, username: current.username } } } as never);
     return Response.json({ user: data });
@@ -360,9 +379,16 @@ export async function PATCH(request: Request) {
     if (taken) return apiError("USERNAME_TAKEN", 409, { field: "username", message: "This username is taken. Choose another." });
   }
 
+  // Peran kustom ikut berganti bersama perannya dalam SATU update: CHECK
+  // users_custom_role_check menolak keadaan antara (custom tanpa peran, atau
+  // peran tersisa di akun non-custom).
+  const peranKustom = await periksaPeranKustom(client, nextRole, parsed.data.access_role_id === undefined ? current.access_role_id : parsed.data.access_role_id);
+  if ("galat" in peranKustom) return apiError("VALIDATION_ERROR", 422, { access_role_id: peranKustom.galat, message: peranKustom.galat });
+
   const update: Record<string, unknown> = {
     role: nextRole,
     booth_id: nextBoothId,
+    access_role_id: peranKustom.id,
   };
   if (parsed.data.username) update.username = parsed.data.username;
   if (typeof parsed.data.is_active === "boolean") update.is_active = parsed.data.is_active;
@@ -374,7 +400,7 @@ export async function PATCH(request: Request) {
   const salinan = await client.from("user_event_access").select("user_id,event_id,role,booth_id,granted_at,granted_by").eq("user_id", current.id);
   if (salinan.error) return apiError("INTERNAL_ERROR", 500);
   const barisAwal = (salinan.data ?? []) as { event_id: string; booth_id: number | null }[];
-  const { data, error } = await client.from("users").update(update as never).eq("id", parsed.data.id).select("id,username,role,booth_id,is_active").single();
+  const { data, error } = await client.from("users").update(update as never).eq("id", parsed.data.id).select(KOLOM_AKUN).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   let barisOk = true;
@@ -402,7 +428,7 @@ export async function PATCH(request: Request) {
     }
   }
   if (!barisOk) {
-    await client.from("users").update({ role: current.role, booth_id: current.booth_id, username: current.username, is_active: current.is_active } as never).eq("id", current.id);
+    await client.from("users").update({ role: current.role, booth_id: current.booth_id, access_role_id: current.access_role_id, username: current.username, is_active: current.is_active } as never).eq("id", current.id);
     const { error: galatKosong } = await client.from("user_event_access").delete().eq("user_id", current.id);
     const { error: galatPulih } = galatKosong || salinan.data?.length === 0 ? { error: galatKosong } : await client.from("user_event_access").insert(salinan.data as never);
     if (galatKosong || galatPulih) {

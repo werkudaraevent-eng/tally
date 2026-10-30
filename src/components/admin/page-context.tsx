@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ComponentType, type ReactNode, type RefCallback } from "react";
 import { createPortal } from "react-dom";
+import { modulHalaman, tingkatModul, type IzinPeran } from "@/lib/auth/izin-modul";
 
 /**
  * Identitas halaman ruang kerja yang sedang dibuka.
@@ -38,6 +39,10 @@ export type AdminPageMeta = {
 	 * dari super_admin (`isWriteBlocked`), jadi `pemilik` membedakan penandanya.
 	 */
 	kunci?: { status: "completed" | "archived"; pemilik: boolean } | null;
+	/** Izin akun berperan kustom. Null = admin biasa, tanpa batas modul. */
+	izin?: IzinPeran | null;
+	/** Peran kustom hanya boleh MELIHAT halaman ini (View, bukan Manage). */
+	hanyaLihat?: boolean;
 };
 
 const AdminPageContext = createContext<AdminPageMeta | null>(null);
@@ -60,13 +65,29 @@ export function useAdminPage() {
  * kerja admin konteksnya tidak ada dan hasilnya selalu false.
  */
 export function useTerkunci(simpan?: boolean) {
-	const kunci = useContext(AdminPageContext)?.kunci;
-	return Boolean(simpan && kunci && !kunci.pemilik);
+	const halaman = useContext(AdminPageContext);
+	const kunci = halaman?.kunci;
+	// Peran kustom dengan View memakai jalur yang sama: kontrol yang sudah
+	// ditandai `simpan` untuk acara selesai ikut nonaktif, tanpa daftar kedua.
+	return Boolean(simpan && ((kunci && !kunci.pemilik) || halaman?.hanyaLihat));
 }
 
 /** Keterangan pada kontrol yang nonaktif karena acaranya terkunci. */
 export const KETERANGAN_KUNCI = "This event is closed; changes are not saved."
 ;
+
+/** Keterangan pada kontrol yang nonaktif karena peran kustomnya hanya View. */
+export const KETERANGAN_LIHAT = "Your role can view this page but not change it.";
+
+/** Keterangan yang cocok untuk kontrol yang dinonaktifkan `useTerkunci`. */
+export function useKeteranganKunci() {
+	return useContext(AdminPageContext)?.hanyaLihat ? KETERANGAN_LIHAT : KETERANGAN_KUNCI;
+}
+
+/** Izin akun kustom, atau null untuk admin biasa (semua boleh). */
+export function useIzinKustom() {
+	return useContext(AdminPageContext)?.izin ?? null;
+}
 
 
 /**
@@ -123,4 +144,24 @@ export function AdminBarPortal({ judul, aksi }: { judul?: ReactNode; aksi?: Reac
 			{slot.aksi && aksi ? createPortal(aksi, slot.aksi) : null}
 		</>
 	);
+}
+
+/**
+ * Batas peran kustom di Messages. `ubah`: boleh menulis (Manage), `kirim`: boleh
+ * mengirim email (sakelar "Can send emails"). Admin biasa selalu true keduanya.
+ */
+export function useBatasPesan() {
+	const halaman = useContext(AdminPageContext);
+	const izin = halaman?.izin;
+	return { ubah: !halaman?.hanyaLihat, kirim: !izin || izin.messages_send_email };
+}
+
+/** Apakah tautan ke halaman admin ini boleh dibuka. Admin biasa: selalu. */
+export function useBolehHalaman() {
+	const izin = useContext(AdminPageContext)?.izin;
+	return (href: string) => {
+		if (!izin) return true;
+		const modul = modulHalaman(href);
+		return modul !== null && tingkatModul(izin, modul) !== "none";
+	};
 }

@@ -178,13 +178,15 @@ function BarisRecent({
 /* ---- Daftar lengkap ------------------------------------------------------ */
 
 export function SidebarNav({
-  eventPrefix, path, isOwner, adaBooth, onNavigate,
+  eventPrefix, path, isOwner, bolehHref, adaBooth, onNavigate,
   grupTerbuka, onToggleGrup, recentsTerbuka, onToggleRecents, recents, onTogglePin,
 }: {
   eventPrefix: string;
   /** Path tanpa prefiks `/e/<slug>`. */
   path: string;
   isOwner: boolean;
+  /** Peran kustom: hanya menu yang lolos saringan ini. Tidak diisi = semua. */
+  bolehHref?: (href: string) => boolean;
   /** Acara punya booth? null = belum diketahui. */
   adaBooth: boolean | null;
   onNavigate: () => void;
@@ -202,6 +204,7 @@ export function SidebarNav({
   // yang sedang dibuka tidak boleh hilang dari bawah kursor.
   const tampil = (item: NavItem) =>
     (!item.ownerOnly || isOwner) &&
+    (!bolehHref || bolehHref(item.href)) &&
     (adaBooth === true || !HREF_BOOTH.has(item.href) || hrefAktif(item.href, path));
   const terlihat = navigation
     .map((group) => ({ ...group, items: group.items.filter(tampil) }))

@@ -28,6 +28,8 @@ const CATEGORIES: Array<{ value: string; label: string }> = [
   { value: "payment_methods", label: "Metode pembayaran" },
   { value: "rundown", label: "Rundown acara" },
   { value: "undian", label: "Undian" },
+  { value: "participants", label: "Peserta & registrasi" },
+  { value: "messages", label: "Pesan" },
   { value: "users", label: "User & role" },
   { value: "danger", label: "Danger zone" },
   { value: "orders", label: "Transaksi" },
@@ -89,6 +91,26 @@ const ACTION_LABEL: Record<string, string> = {
   undian_session_adopt: "Mengarsipkan hasil undian lama ke sesi",
   user_create: "Membuat akun",
   user_update: "Mengubah akun",
+  access_role_create: "Membuat peran kustom",
+  access_role_update: "Mengubah peran kustom",
+  access_role_delete: "Menghapus peran kustom",
+  participant_created: "Menambah peserta",
+  participant_updated: "Mengubah data peserta",
+  participant_deleted: "Menghapus peserta",
+  participant_walkin_created: "Menambah peserta walk-in",
+  registration_approved: "Menyetujui pendaftaran",
+  registration_rejected: "Menolak pendaftaran",
+  invitation_delete: "Menghapus tamu undangan",
+  invitation_new_link: "Membuat tautan undangan baru",
+  announcement_create: "Membuat pengumuman",
+  announcement_update: "Mengubah pengumuman",
+  announcement_delete: "Menghapus pengumuman",
+  announcement_email: "Mengirim pengumuman lewat email",
+  message_send: "Mengirim email",
+  message_schedule: "Menjadwalkan email",
+  message_retry: "Mengirim ulang email yang gagal",
+  message_resume: "Melanjutkan pengiriman email",
+  message_cancel: "Membatalkan pengiriman email",
   admin_reset_records: "Mengosongkan data pencatatan",
   participant_sync: "Sync peserta dari Scanner API",
   participant_qr_archived: "Mengarsipkan kode badge peserta",
@@ -134,6 +156,15 @@ const FIELD_LABEL: Record<string, string> = {
   discount_limit_per_participant: "Maks item diskon per peserta",
   code: "Kode",
   label: "Label",
+  // Data peserta (participant_updated).
+  company: "Organisasi",
+  title: "Jabatan",
+  email: "Email",
+  phone: "Telepon",
+  participant_type: "Tipe peserta",
+  rsvp_status: "RSVP",
+  qr_code: "Kode QR",
+  extra: "Jawaban formulir",
   requires_reference: "Butuh nomor referensi",
   reference_digits: "Jumlah digit referensi",
   // Setelan checkpoint (checkpoint_settings_update).
@@ -163,7 +194,7 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 // Field yang tidak berarti bagi pembaca audit, atau selalu berubah tanpa makna.
-const HIDDEN_FIELDS = new Set(["id", "updated_at", "updated_by", "created_at", "created_by", "pin_hash", "is_builtin"]);
+const HIDDEN_FIELDS = new Set(["id", "event_id", "updated_at", "updated_by", "created_at", "created_by", "pin_hash", "is_builtin", "source_synced_at"]);
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "kosong";
@@ -211,6 +242,10 @@ function summarise(entry: Entry): string {
   if (entry.action === "participant_qr_archived") {
     return `${payload.old_qr_code ?? "?"} → ${payload.new_qr_code ?? "?"}`;
   }
+  // Peserta, pendaftaran, dan peran kustom menaruh namanya di tingkat atas payload atau di `role`.
+  if (typeof payload.name === "string") return payload.name;
+  const peran = payload.role as Record<string, unknown> | undefined;
+  if (peran && typeof peran.name === "string") return peran.name;
   if (subject) {
     const name = subject.username ?? subject.name ?? subject.label ?? subject.code;
     return name ? String(name) : "";

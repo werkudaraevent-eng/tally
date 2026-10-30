@@ -103,3 +103,13 @@ export function toRpcArgs(body: ParticipantBody, extra: Record<string, string> |
     p_extra: extra,
   };
 }
+
+/**
+ * Baris peserta untuk akun berperan kustom: tanpa QR. Aturan data: QR tidak
+ * pernah sampai ke akun non-admin, karena QR adalah kunci masuk dan check-in.
+ */
+export function tanpaQr<T extends object>(baris: T): Omit<T, "qr_code"> {
+  const { qr_code: _qr, ...sisa } = baris as T & { qr_code?: unknown };
+  void _qr;
+  return sisa;
+}

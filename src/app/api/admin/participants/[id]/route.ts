@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { cleanExtra, participantBodySchema, toRpcArgs } from "@/lib/participant-input";
+import { cleanExtra, participantBodySchema, tanpaQr, toRpcArgs } from "@/lib/participant-input";
 import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -20,10 +20,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const id = paramsSchema.safeParse((await context.params).id);
-  const body = participantBodySchema.safeParse(await request.json().catch(() => null));
-  if (!id.success || !body.success) return apiError("VALIDATION_ERROR", 422, body.success ? undefined : body.error.flatten());
-
+  if (!id.success) return apiError("VALIDATION_ERROR", 422);
+  const kustom = auth.scope.role === "custom";
   const client = getSupabaseServiceClient();
+  const mentah = await request.json().catch(() => null);
+  // Akun kustom tidak pernah melihat QR, jadi tidak bisa mengirimnya kembali:
+  // QR yang tersimpan dipakai apa adanya, apa pun isi permintaannya.
+  if (kustom && mentah && typeof mentah === "object") {
+    const { data: lama } = await client.from("participants").select("qr_code").eq("id", id.data).eq("event_id", auth.scope.event.id).maybeSingle();
+    const qr = (lama as { qr_code: string } | null)?.qr_code;
+    if (!qr) return apiError("PARTICIPANT_NOT_FOUND", 404);
+    (mentah as Record<string, unknown>).qr_code = qr;
+  }
+  const body = participantBodySchema.safeParse(mentah);
+  if (!body.success) return apiError("VALIDATION_ERROR", 422, body.error.flatten());
 
   // Jawaban berkas yang sudah tersimpan dibaca dulu supaya tidak ikut terhapus:
   // modal sunting tidak bisa menuliskannya kembali, dan penyimpanan yang
@@ -61,7 +71,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   try {
     const { freed } = await applyTallySeats(auth.scope.event.id, id.data, kursi, auth.user.id);
-    return Response.json({ participant: data, freed });
+    return Response.json({ participant: kustom && data && typeof data === "object" ? tanpaQr(data) : data, freed });
   } catch {
     return apiError("INTERNAL_ERROR", 500, { seats: "Participant saved, but the seat wasn't. Try saving again." });
   }

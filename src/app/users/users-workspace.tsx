@@ -2,7 +2,8 @@
 
 import { Storefront } from "@phosphor-icons/react";
 import { useState } from "react";
-import { CONTAINER_PADDING } from "@/components/m3";
+import { CONTAINER_PADDING, SegmentedButton } from "@/components/m3";
+import { RolesPanel } from "@/components/admin/roles-panel";
 import { UsersPanel } from "@/components/admin/users-panel";
 import { UserMenu } from "@/components/admin/user-menu";
 import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
@@ -10,6 +11,19 @@ import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
 /** Bilah atas yang sama dengan /events, supaya berpindah di antara keduanya tidak menggeser apa pun. */
 export function UsersWorkspace({ username, role }: { username: string | null; role: string | null }) {
   const [keluar, setKeluar] = useState(false);
+  // Akun dan peran kustom di satu halaman: peran dibuat untuk dipasang ke akun,
+  // dan keduanya dikelola orang yang sama (pola Users / Roles di Google
+  // Workspace dan Atlassian).
+  const [tampilan, setTampilan] = useState<"akun" | "peran">("akun");
+  const pengalih = (
+    <SegmentedButton<"akun" | "peran">
+      label="Users and roles view"
+      value={tampilan}
+      onChange={setTampilan}
+      className="self-start"
+      options={[{ value: "akun", label: "Accounts" }, { value: "peran", label: "Roles" }]}
+    />
+  );
   async function logout() {
     setKeluar(true);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
@@ -34,7 +48,7 @@ export function UsersWorkspace({ username, role }: { username: string | null; ro
         </div>
       </header>
       <div className={`mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col py-4 ${CONTAINER_PADDING}`}>
-        <UsersPanel />
+        {tampilan === "akun" ? <UsersPanel pengalih={pengalih} /> : <RolesPanel pengalih={pengalih} />}
       </div>
     </div>
   );

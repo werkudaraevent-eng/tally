@@ -14,6 +14,7 @@ import {
 import { RegistrationFormBuilder } from "@/components/admin/registration-form-builder";
 import { AKSES, TAMU } from "@/lib/pesan/label";
 import { TambahTamu, TamuUndangan } from "./tamu-undangan";
+import { useIzinKustom } from "@/components/admin/page-context";
 import { FormPreview } from "@/components/admin/form-preview";
 import Link from "@/components/event-link";
 import { CHOICE_FIELD_TYPES, type RegistrationFormConfig } from "@/lib/domain";
@@ -125,6 +126,7 @@ export default function RegistrasiAdminPage() {
   const router = useRouter();
   const { zone, abbr } = useEventTimeZone();
   const toast = useToast();
+  const kustom = Boolean(useIzinKustom());
 
   const load = useCallback(async () => {
     // eventApiPath WAJIB di ketiga pemanggilan. `/api/...` absolut hanya membawa
@@ -722,7 +724,7 @@ export default function RegistrasiAdminPage() {
                 ) : null}
                 <MetaSeparator />
                 <span>Auto-approve: {config.registration_auto_approve ? "on" : "off"}</span>
-                <button type="button" onClick={() => setSetelanOpen(true)} className="rounded-sm font-medium text-primary hover:underline">{config.undangan ? AKSES.change : "Edit"}</button>
+                {kustom ? null : <button type="button" onClick={() => setSetelanOpen(true)} className="rounded-sm font-medium text-primary hover:underline">{config.undangan ? AKSES.change : "Edit"}</button>}
                 <MetaSeparator />
                 {config.undangan?.access === "undangan" ? (
                   // Khusus undangan: tautan umum hanya membuka halaman Khusus undangan.
@@ -741,7 +743,7 @@ export default function RegistrasiAdminPage() {
                 <span>
                   Registration confirmation: {emailAktif ? config.email_konfirmasi.preset ?? "default from Theme" : "email not enabled on the server"}
                 </span>
-                <Link href="/admin/pengumuman/otomatis" className="rounded-sm font-medium text-primary hover:underline">Edit email</Link>
+                {kustom ? null : <Link href="/admin/pengumuman/otomatis" className="rounded-sm font-medium text-primary hover:underline">Edit email</Link>}
               </>
             ) : null}
           </>
@@ -749,10 +751,11 @@ export default function RegistrasiAdminPage() {
         actions={
           <>
             {config?.undangan ? (
-              <Button icon={<Plus size={16} weight="bold" />} onClick={() => setImporOpen(true)}>{TAMU.addButton}</Button>
+              <Button simpan icon={<Plus size={16} weight="bold" />} onClick={() => setImporOpen(true)}>{TAMU.addButton}</Button>
             ) : null}
-            <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Edit form</Button>
-            {config ? (
+            {/* Formulir dan buka/tutup pendaftaran tetap milik panitia. */}
+            {kustom ? null : <Button variant="outlined" disabled={!config} icon={<PencilSimple size={16} />} onClick={() => setTampilan("formulir")}>Edit form</Button>}
+            {config && !kustom ? (
               <Button
                 variant="outlined"
                 className={config.registration_enabled ? "text-error" : undefined}

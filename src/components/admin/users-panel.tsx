@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle, Copy, Plus, ShieldCheck, Warning, X, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ROLE_LABEL } from "@/lib/domain";
 import {
   Button,
@@ -26,14 +26,16 @@ import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 import { AksesAcaraEditor, type AksesBaris, type DaftarBooth, type EventRole } from "./akses-acara-editor";
 
-type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner" | "viewer";
+type Role = "booth" | "cashier" | "admin" | "super_admin" | "scanner" | "viewer" | "custom";
 type UserEvent = { id: string; slug: string; name: string; role: EventRole; booth_id?: number | null; booth_code?: string | null; archived?: boolean };
-type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; events?: UserEvent[] };
+type User = { id: string; username: string; role: Role; booth_id: number | null; is_active: boolean; access_role_id?: string | null; events?: UserEvent[] };
+/** Peran kustom (Users & roles > Roles), dibaca untuk pilihan dan nama di tabel. */
+type PeranKustom = { id: string; name: string };
 type EventOption = { id: string; slug: string; name: string; status: string; archived_at?: string | null };
-type Draft = { id: string | null; username: string; pin: string; role: Role; is_active: boolean; rows: AksesBaris[]; arsip: { id: string; name: string }[] };
-type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "viewer" | "admin";
+type Draft = { id: string | null; username: string; pin: string; role: Role; access_role_id: string | null; is_active: boolean; rows: AksesBaris[]; arsip: { id: string; name: string }[] };
+type RoleTab = "semua" | "booth" | "cashier" | "scanner" | "viewer" | "custom" | "admin";
 
-const blank: Draft = { id: null, username: "", pin: "", role: "booth", is_active: true, rows: [], arsip: [] };
+const blank: Draft = { id: null, username: "", pin: "", role: "booth", access_role_id: null, is_active: true, rows: [], arsip: [] };
 
 /**
  * Satu peran per akun, berlaku di setiap acaranya. Satu kalimat per peran,
@@ -45,9 +47,10 @@ const ROLE_HELP: Record<Role, string> = {
   cashier: "Takes payments and voids orders.",
   scanner: "Checks participants in at the entrance and sessions.",
   viewer: "For clients. Sees the live registration list, counts and download. Can't change anything.",
+  custom: "Opens only the pages its custom role allows, with View or Manage on each.",
   super_admin: "Opens every event, including new ones, and manages users and roles.",
 };
-const ROLE_ORDER: Role[] = ["admin", "booth", "cashier", "scanner", "viewer", "super_admin"];
+const ROLE_ORDER: Role[] = ["admin", "booth", "cashier", "scanner", "viewer", "custom", "super_admin"];
 
 const BATAS_ACARA = 2;
 
@@ -124,6 +127,7 @@ const ROLE_TABS: Array<{ value: RoleTab; label: string; roles: Role[] | null }> 
   { value: "cashier", label: ROLE_LABEL.cashier, roles: ["cashier"] },
   { value: "scanner", label: ROLE_LABEL.scanner, roles: ["scanner"] },
   { value: "viewer", label: ROLE_LABEL.viewer, roles: ["viewer"] },
+  { value: "custom", label: "Custom", roles: ["custom"] },
   { value: "admin", label: "Admin", roles: ["admin", "super_admin"] },
 ];
 
@@ -133,6 +137,7 @@ function dariUser(user: User): Draft {
     username: user.username,
     pin: "",
     role: user.role,
+    access_role_id: user.access_role_id ?? null,
     is_active: user.is_active,
     rows: (user.events ?? []).filter((event) => !event.archived).map((event) => ({ event_id: event.id, booth_id: event.booth_id ?? null })),
     // Acara terarsip tetap tersimpan di server (tidak ikut diganti saat simpan);
@@ -153,7 +158,7 @@ function dariUser(user: User): Draft {
  * Klien (`admin`) hanya boleh melihat akun yang berbagi acara dengannya dan
  * mereset PIN operator booth & kasir. Nilai `can_manage` datang dari server.
  */
-export function UsersPanel() {
+export function UsersPanel({ pengalih }: { pengalih?: ReactNode } = {}) {
   const [users, setUsers] = useState<User[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   // Booth per acara, dimuat saat dibutuhkan (peran Booth staff + acara dicentang).
@@ -169,12 +174,24 @@ export function UsersPanel() {
   const [dibuat, setDibuat] = useState<{ username: string; pin: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [canManage, setCanManage] = useState(false);
+  const [peranKustom, setPeranKustom] = useState<PeranKustom[]>([]);
   const toast = useToast();
+
+  /** Akun kustom menampilkan nama perannya, bukan "Custom role". */
+  function labelPeran(user: { role: Role; access_role_id?: string | null }) {
+    if (user.role !== "custom") return ROLE_LABEL[user.role];
+    return peranKustom.find((peran) => peran.id === user.access_role_id)?.name ?? ROLE_LABEL.custom;
+  }
 
   const load = useCallback(async () => {
     setLoadError("");
     try {
-      const [usersResponse, eventsResponse] = await Promise.all([fetch("/api/admin/users", { cache: "no-store" }), fetch("/api/events", { cache: "no-store" })]);
+      const [usersResponse, eventsResponse, peranResponse] = await Promise.all([
+        fetch("/api/admin/users", { cache: "no-store" }),
+        fetch("/api/events", { cache: "no-store" }),
+        fetch("/api/admin/access-roles", { cache: "no-store" }),
+      ]);
+      if (peranResponse.ok) setPeranKustom(((await peranResponse.json()).roles ?? []) as PeranKustom[]);
       if (usersResponse.ok) {
         const data = await usersResponse.json();
         setUsers(data.users ?? []);
@@ -247,6 +264,7 @@ export function UsersPanel() {
   const peranAsal = draft?.id ? users.find((user) => user.id === draft.id)?.role : undefined;
   const arsipHilang = draft && draft.role === "booth" && peranAsal !== undefined && peranAsal !== "booth" ? draft.arsip : [];
   const tanpaAcaraAktif = arsipHilang.length > 0 && draft?.rows.length === 0;
+  const peranKosong = Boolean(draft && draft.role === "custom" && !draft.access_role_id);
 
   async function save() {
     if (!draft) return;
@@ -260,11 +278,12 @@ export function UsersPanel() {
     // atau status Active tidak menyentuh akses acaranya sama sekali.
     const asal = draft.id ? users.find((user) => user.id === draft.id) : undefined;
     const kunci = (daftar: { event_id: string; booth_id: number | null }[]) => JSON.stringify([...daftar].sort((a, b) => a.event_id.localeCompare(b.event_id)));
-    const tetap = asal !== undefined && asal.role === draft.role && kunci(events) === kunci(dariUser(asal).rows.map((row) => ({ event_id: row.event_id, booth_id: draft.role === "booth" ? row.booth_id : null })));
+    const tetap = asal !== undefined && asal.role === draft.role && (asal.access_role_id ?? null) === draft.access_role_id && kunci(events) === kunci(dariUser(asal).rows.map((row) => ({ event_id: row.event_id, booth_id: draft.role === "booth" ? row.booth_id : null })));
     const payload: Record<string, unknown> = canManage
       ? {
           username: draft.username,
           role: draft.role,
+          access_role_id: draft.role === "custom" ? draft.access_role_id : null,
           is_active: draft.is_active,
           ...(tetap ? {} : { events }),
         }
@@ -289,7 +308,7 @@ export function UsersPanel() {
     toast.success(`${saved.username} saved`, canManage ? "Changes applied." : "The new PIN works now.");
     // Respons PATCH hanya membawa akun, tanpa acara. Draft yang baru disimpan
     // sudah sama dengan isi server, jadi cukup disamakan field akunnya.
-    setDraft((current) => current && { ...current, username: saved.username, role: saved.role, is_active: saved.is_active, pin: "" });
+    setDraft((current) => current && { ...current, username: saved.username, role: saved.role, access_role_id: saved.access_role_id ?? null, is_active: saved.is_active, pin: "" });
   }
 
   const saring = (roles: Role[] | null) => (roles ? users.filter((user) => roles.includes(user.role)) : users);
@@ -353,7 +372,7 @@ export function UsersPanel() {
                         {user.username}
                       </button>
                     </td>
-                    <td className="border-b border-outline-variant px-3 py-2.5">{ROLE_LABEL[user.role]}</td>
+                    <td className="border-b border-outline-variant px-3 py-2.5">{labelPeran(user)}</td>
                     <td className="max-w-[360px] border-b border-outline-variant px-3 py-2.5">
                       <AksesAcara user={user} />
                     </td>
@@ -383,11 +402,11 @@ export function UsersPanel() {
     const isNew = !draft.id;
     const editable = isNew ? canManage : canEdit(selectedUser ?? draft);
     const saveDisabled = canManage
-      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && draft.rows.length + draft.arsip.length === 0) || tanpaAcaraAktif || boothKurang
+      ? draft.username.length < 3 || (isNew && draft.pin.length !== 6) || (perluAcara && draft.rows.length + draft.arsip.length === 0) || tanpaAcaraAktif || boothKurang || peranKosong
       : !draft.id || draft.pin.length !== 6;
 
     const ringkasanAcara = (selectedUser?.events ?? []).map((event) => event.name).join(", ");
-    const catatanSimpan = canManage && perluAcara && draft.rows.length + draft.arsip.length === 0 ? "Add at least one event." : canManage && tanpaAcaraAktif ? "Add an active event first." : boothKurang ? "Choose a booth for each event." : undefined;
+    const catatanSimpan = canManage && peranKosong ? "Choose a custom role." : canManage && perluAcara && draft.rows.length + draft.arsip.length === 0 ? "Add at least one event." : canManage && tanpaAcaraAktif ? "Add an active event first." : boothKurang ? "Choose a booth for each event." : undefined;
 
     const bagianMasuk = (
       <DetailSection title="Sign-in">
@@ -458,6 +477,17 @@ export function UsersPanel() {
         >
           {ROLE_ORDER.map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
         </SelectField>
+        {draft.role === "custom" ? (
+          <SelectField
+            label="Custom role"
+            value={draft.access_role_id ?? ""}
+            hint={peranKustom.length === 0 ? "No custom roles yet. Create one in the Roles tab first." : "Set what this role can open in the Roles tab."}
+            onChange={(change) => setDraft((current) => current && { ...current, access_role_id: change.target.value || null })}
+          >
+            <option value="">Choose a role…</option>
+            {peranKustom.map((peran) => <option key={peran.id} value={peran.id}>{peran.name}</option>)}
+          </SelectField>
+        ) : null}
         {isiAkses}
       </DetailSection>
     );
@@ -515,7 +545,7 @@ export function UsersPanel() {
               <h2 className="min-w-0 truncate text-title-medium font-semibold leading-6">{selectedUser?.username ?? draft.username}</h2>
               {selectedUser ? (selectedUser.is_active ? <StatusChip dot tone="success">Active</StatusChip> : <StatusChip dot tone="neutral">Inactive</StatusChip>) : null}
             </div>
-            <p className="text-body-medium text-on-surface-variant">{ROLE_LABEL[selectedUser?.role ?? draft.role]}</p>
+            <p className="text-body-medium text-on-surface-variant">{labelPeran(selectedUser ?? draft)}</p>
           </div>
           <IconButton size="sm" label="Close" onClick={close} disabled={saving}><X size={16} /></IconButton>
         </div>
@@ -535,7 +565,7 @@ export function UsersPanel() {
               <>
                 <DetailSection>
                   <dl className="flex flex-col gap-2.5">
-                    <KeyValue label="Role">{ROLE_LABEL[draft.role]}</KeyValue>
+                    <KeyValue label="Role">{labelPeran(draft)}</KeyValue>
                     <KeyValue label="Events">{ringkasanAcara || <span className="text-on-surface-variant">No events yet</span>}</KeyValue>
                     <KeyValue label="Status">{draft.is_active ? "Active" : "Inactive"}</KeyValue>
                   </dl>
@@ -589,6 +619,8 @@ export function UsersPanel() {
           <Button variant={draft?.id ? "outlined" : "filled"} onClick={startNew} icon={<Plus size={16} weight="bold" />}>Add user</Button>
         ) : undefined}
       />
+
+      {pengalih}
 
       {loadError && users.length > 0 ? (
         <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{loadError}</p>

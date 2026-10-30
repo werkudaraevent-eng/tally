@@ -1,5 +1,6 @@
 "use client";
 
+import { useBatasPesan } from "@/components/admin/page-context";
 import { useRouter } from "next/navigation";
 import { EnvelopeSimple, Plus, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
@@ -56,6 +57,7 @@ type Muat = { ready: boolean; items: Item[]; email_configured: boolean; member_e
 const SALURAN: Record<Item["channel"], string> = { email: "Email", whatsapp: "WhatsApp", keduanya: "Email + WhatsApp" };
 
 export default function KirimanPage() {
+  const batas = useBatasPesan();
   const toast = useToast();
   const router = useRouter();
   const [data, setData] = useState<Muat | null>(null);
@@ -108,7 +110,7 @@ export default function KirimanPage() {
           ) : null
         }
         actions={
-          data?.ready ? (
+          data?.ready && batas.ubah ? (
             <Button onClick={() => void buat()} loading={membuat} icon={<Plus size={16} weight="bold" />}>
               New blast
             </Button>
@@ -136,11 +138,11 @@ export default function KirimanPage() {
           icon={<EnvelopeSimple size={28} />}
           title="No blasts yet"
           description="Email a sign-in link to participants who have never signed in, or an update to all participants."
-          action={
+          action={batas.ubah ? (
             <Button onClick={() => void buat()} loading={membuat} icon={<Plus size={16} weight="bold" />}>
               New blast
             </Button>
-          }
+          ) : undefined}
         />
       ) : data.ready ? (
         <TableCard>

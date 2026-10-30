@@ -3,6 +3,7 @@
 import { ArrowsClockwise, CaretDown, CheckCircle, DownloadSimple, FileArrowUp, Plus, SuitcaseRolling, UsersThree, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { ParticipantList, type ParticipantListHandle, type ParticipantStats } from "@/components/admin/participant-list";
+import { useIzinKustom } from "@/components/admin/page-context";
 import { ExportMenu } from "@/components/admin/export-menu";
 import { SyncMenu } from "@/components/admin/sync-menu";
 import { useAutoSync, useScannerConfig, useScannerSync } from "@/components/admin/scanner-panel";
@@ -37,6 +38,8 @@ export default function ParticipantsAdminPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const daftar = useRef<ParticipantListHandle>(null);
   const toast = useToast();
+  // Akun peran kustom: tanpa impor, tanpa Scanner API, unduhan hanya bila diizinkan.
+  const izin = useIzinKustom();
   const { zone, abbr } = useEventTimeZone();
   const [stats, setStats] = useState<ParticipantStats | null>(null);
   // Saringan daftar yang sedang berlaku; Export mengikutinya.
@@ -106,7 +109,7 @@ export default function ParticipantsAdminPage() {
         meta={<>
           <span>{stats ? plural(stats.activeTotal, "active participant") : "Loading participants"}</span>
           {/* Layar akun Viewer: admin bisa memeriksa persis apa yang dilihat klien. */}
-          {tautanKlien ? (
+          {tautanKlien && !izin ? (
             <>
               <MetaSeparator />
               <a href={tautanKlien} className="text-primary hover:underline">Client view</a>
@@ -124,13 +127,13 @@ export default function ParticipantsAdminPage() {
                 onSync={() => void sync()}
               />
             ) : null}
-            <MenuImpor onPeserta={() => setImportOpen(true)} onLogistik={() => daftar.current?.imporLogistik()} />
-            <ExportMenu
+            {izin ? null : <MenuImpor onPeserta={() => setImportOpen(true)} onLogistik={() => daftar.current?.imporLogistik()} />}
+            {izin && !izin.participants_download ? null : <ExportMenu
               endpoint={saringanEkspor ? `/api/admin/participants/export?${saringanEkspor}` : "/api/admin/participants/export"}
               label="Export"
               note={saringanEkspor ? (stats ? `Only the ${plural(stats.total, "participant")} matching your search and filters.` : "Only participants matching your search and filters.") : undefined}
-            />
-            <Button onClick={() => daftar.current?.tambah()} icon={<Plus size={16} weight="bold" />}>Add participant</Button>
+            />}
+            <Button simpan onClick={() => daftar.current?.tambah()} icon={<Plus size={16} weight="bold" />}>Add participant</Button>
           </>
         }
       />
