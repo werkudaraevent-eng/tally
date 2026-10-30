@@ -19,6 +19,7 @@ import Link from "@/components/event-link";
 import { withEventPrefix } from "@/lib/event-path";
 import { kelompokJawaban, kolomDariTautan, wajibDiisi, type AsalJawaban } from "@/lib/kolom-staf";
 import { cx } from "@/lib/m3/cx";
+import { cocokCari, kataCari, kolomCari, kunciTelepon } from "@/lib/cari-peserta";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES, MAX_CUSTOM_FIELDS } from "@/lib/registration-fields";
@@ -1038,6 +1039,38 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
   const jabatanDiBawahNama = !visible.includes("title");
 
+  // Hasil cari yang cocok di kolom yang tidak tampil: tulis kolomnya di bawah
+  // nama, supaya jelas kenapa baris itu muncul (seperti cuplikan hasil Gmail).
+  const cocokTersembunyi = useMemo(() => {
+    const kata = kataCari(debouncedQuery);
+    if (!kata.length) return null;
+    const kolomDicari = kolomCari(fields, { qr: !kustom });
+    const telepon = kunciTelepon(fields);
+    const perKunci = new Map(fields.map((item) => [item.key, item]));
+    const nilai = (p: Participant, kunci: string): string => {
+      if (kunci.startsWith("field:")) {
+        const item = perKunci.get(kunci.slice(6));
+        const v = p.extra?.[kunci.slice(6)];
+        return item && v !== null && v !== undefined ? teksJawaban(item, String(v)) : "";
+      }
+      const v = p[kunci as "name" | "company" | "title" | "email" | "phone" | "participant_type" | "qr_code"];
+      return typeof v === "string" ? v.trim() : "";
+    };
+    // Kunci kolom tabel untuk tiap kolom yang dicari.
+    const kolomTabel: Record<string, string> = { company: "company", title: "title", email: "email", phone: "phone", participant_type: "type", qr_code: "qr" };
+    const terlihat = (kunci: string) => kunci === "name" || (kunci === "title" && jabatanDiBawahNama) || visible.includes(kolomTabel[kunci] ?? kunci);
+    // Hanya kata yang tidak ketemu di kolom yang tampil: "budi" yang cocok di
+    // nama tidak perlu cuplikan, walau email tersembunyinya juga memuat "budi".
+    return (p: Participant) => {
+      for (const satu of kata) {
+        const kena = cocokCari(p, [satu], kolomDicari, nilai, telepon);
+        if (!kena || kena.some((k) => terlihat(k.key))) continue;
+        return { label: kena[0].label, nilai: nilai(p, kena[0].key) };
+      }
+      return null;
+    };
+  }, [debouncedQuery, fields, kustom, visible, jabatanDiBawahNama]);
+
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length || saringan.length);
   // Saringan yang sedang berlaku, disebut di bilah pilihan karena barisnya tertutup.
   const jumlahSaringan = [filterAsal, filterHadir, filterRsvp].filter(Boolean).length + (filterPerusahaan.length ? 1 : 0)
@@ -1111,7 +1144,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={kustom ? "Search name, organisation, email…" : "Search name, organisation, QR code…"}
+            placeholder={kustom ? "Search name, email, phone, answers…" : "Search name, email, QR code, answers…"}
             className="h-8 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
           />
         </label>
@@ -1296,7 +1329,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                           <span className="truncate font-medium text-on-surface" title={participant.name}>{participant.name}</span>
                           {participant.source_removed_at ? <StatusChip tone="warning" className="shrink-0">Deleted at source</StatusChip> : null}
                         </span>
-                        {jabatanDiBawahNama ? <span className="block truncate text-on-surface-variant">{participant.title || " "}</span> : null}
+                        {(() => {
+                          const cocok = cocokTersembunyi?.(participant);
+                          if (cocok) return <span className="block truncate text-on-surface-variant" title={`${cocok.label}: ${cocok.nilai}`}>{cocok.label}: <span className="text-on-surface">{cocok.nilai}</span></span>;
+                          return jabatanDiBawahNama ? <span className="block truncate text-on-surface-variant">{participant.title || " "}</span> : null;
+                        })()}
                       </button>
                     </td>
                     {kolomTampil.map((item) => (
