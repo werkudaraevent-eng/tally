@@ -2,6 +2,7 @@
 
 import { ArrowCounterClockwise, SuitcaseRolling, XCircle } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button, DetailSection, Dialog, IconButton, Skeleton, StatusChip } from "@/components/m3";
 import { plural } from "@/lib/plural";
 
@@ -113,7 +114,9 @@ export function BagasiPeserta({ participant, versi, waktu, onReset }: {
           </IconButton>
         </div>
       ))}
-      <Dialog
+      {/* Ke body: panel detail ada di bawah tabel yang kepalanya sticky, dan
+          dialog di dalam panel tertutup tabel itu. */}
+      {typeof document !== "undefined" ? createPortal(<Dialog
         open={target !== null}
         onClose={() => { if (!menghapus) setTarget(null); }}
         dismissible={!menghapus}
@@ -135,7 +138,7 @@ export function BagasiPeserta({ participant, versi, waktu, onReset }: {
           </ul>
         ) : null}
         {galatHapus ? <p role="alert" className="mt-3 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{galatHapus}</p> : null}
-      </Dialog>
+      </Dialog>, document.body) : null}
     </DetailSection>
   );
 }
