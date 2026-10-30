@@ -7,6 +7,7 @@ import { logistikAcara, type LogistikRingkas } from "@/lib/logistik/server";
 import { jejakPortal, type JejakPortal } from "@/lib/member/jejak-portal";
 import { LABEL_ASAL, LABEL_PORTAL, LABEL_RSVP, bacaSaringan, cocokSemua, hariDiZona, hitungNilai, kolomSaringanAdmin, kolomSaringanKustom, labelKursi, urutKursi, urutMenurut, type Saringan, type SesiSaringan } from "@/lib/saringan-kolom";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { cocokCari, kataCari, kolomCari, kunciTelepon } from "@/lib/cari-peserta";
 
 /**
  * Penyaring daftar peserta admin, satu definisi untuk tabel, "Pilih semua yang
@@ -68,6 +69,7 @@ export type QueryPeserta = z.infer<typeof querySchema>;
 export type BarisPeserta = {
   id: string;
   qr_code: string;
+  name?: string | null;
   company?: string | null;
   rsvp_status?: string | null;
   source?: string | null;
@@ -159,7 +161,7 @@ export function nilaiAdmin({ fields, zona, logistik, dikecualikan, bagasi, porta
       if (FILE_FIELD_TYPES.includes(field.type)) return v ? "File attached" : "";
       return v === null || v === undefined ? "" : String(v).trim();
     }
-    const v = baris[kunci as "title" | "email" | "phone" | "participant_type" | "qr_code"];
+    const v = baris[kunci as "name" | "title" | "email" | "phone" | "participant_type" | "qr_code"];
     return typeof v === "string" ? v.trim() : "";
   };
 }
@@ -203,16 +205,18 @@ export function saringanAdmin(f: string | undefined, fields: RegistrationField[]
 }
 
 /**
- * Pencarian akun kustom tanpa menyentuh QR. RPC mencari QR juga, dan pencarian
- * bertahap ("A", "AB", ...) atas QR yang tidak terlihat tetap membocorkannya
- * lewat ada-tidaknya baris di hasil (QA #100 H1, Viewer). Jadi RPC dipanggil
- * tanpa kata kunci (`argumenRpc` dengan q kosong), lalu kata kuncinya
- * dicocokkan di sini ke kolom yang terlihat. Dipakai daftar, ids_only, dan Export.
+ * Kotak cari: semua kata harus ketemu di kolom yang boleh dilihat akun itu,
+ * termasuk jawaban form (lihat `kolomCari`). Dikerjakan di sini, bukan di RPC:
+ * RPC hanya mencari nama, QR, dan organisasi, dan jawaban ada di `extra`.
+ * Akun kustom tidak pernah mencari QR. Dipakai daftar, ids_only, dan Export.
  */
-export function cocokTanpaQr(q: string) {
-  const kata = q.trim().toLocaleLowerCase("id");
-  return (baris: { name?: unknown; company?: unknown; title?: unknown; email?: unknown; phone?: unknown }) =>
-    [baris.name, baris.company, baris.title, baris.email, baris.phone].some((nilai) => typeof nilai === "string" && nilai.toLocaleLowerCase("id").includes(kata));
+export function penyaringCari(q: string, fields: RegistrationField[], kustom: boolean) {
+  const kata = kataCari(q);
+  const kolom = kolomCari(fields, { qr: !kustom });
+  const telepon = kunciTelepon(fields);
+  // Kolom yang dicari tidak memakai zona atau logistik.
+  const nilai = nilaiAdmin({ fields, zona: "UTC" });
+  return (baris: BarisPeserta) => cocokCari(baris, kata, kolom, nilai, telepon) !== null;
 }
 
 /** Batas baca untuk saringan per kolom, jauh di atas acara terbesar sejauh ini. */
@@ -271,10 +275,16 @@ export async function idsTersaring(eventId: string, params: URLSearchParams, fie
   const d = parsed.data;
   const adaSaringan = Boolean(d.q || d.source || d.rsvp || (d.session && d.attended) || companies.length || saringan.length);
   if (!adaSaringan) return null;
-  const cariKustom = kustom && d.q.length > 0;
-  const [semua, konteks] = await Promise.all([
-    semuaBarisRpc(argumenRpc(eventId, cariKustom ? { ...d, q: "" } : d, companies)),
-    muatKonteks(eventId, saringan.map((s) => s.k), fields, zona),
-  ]);
-  return saring(cariKustom ? semua.filter(cocokTanpaQr(d.q)) : semua, saringan, konteks).map((b) => b.id);
+  const cari = d.q.length > 0;
+  let semua: BarisPeserta[];
+  try {
+    semua = await semuaBarisRpc(argumenRpc(eventId, cari ? { ...d, q: "" } : d, companies));
+  } catch (galat) {
+    // Acara di atas BATAS_BACA: admin tanpa saringan per kolom tetap bisa
+    // mencari lewat RPC (nama, QR, organisasi), seperti sebelumnya.
+    if (!(galat instanceof TerlaluBanyak) || kustom || saringan.length || !cari) throw galat;
+    return (await semuaBarisRpc(argumenRpc(eventId, d, companies))).map((b) => b.id);
+  }
+  const konteks = await muatKonteks(eventId, saringan.map((s) => s.k), fields, zona);
+  return saring(cari ? semua.filter(penyaringCari(d.q, fields, kustom)) : semua, saringan, konteks).map((b) => b.id);
 }

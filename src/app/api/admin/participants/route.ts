@@ -6,7 +6,7 @@ import { bentukLogistik, logistikPeserta } from "@/lib/logistik/server";
 import { jejakPortal, pakaiPortal, portalTanpaEmail, type JejakPortal } from "@/lib/member/jejak-portal";
 import type { BentukLogistik } from "@/lib/logistik/ringkas";
 import { cleanExtra, participantBodySchema, tanpaQr, toRpcArgs } from "@/lib/participant-input";
-import { BATAS_BACA, TerlaluBanyak, argumenRpc, cocokTanpaQr, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
+import { BATAS_BACA, TerlaluBanyak, argumenRpc, muatKonteks, penyaringCari, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
 import { KOLOM_TERTUTUP_KUSTOM, kolomSaringanAdmin, kolomSaringanKustom } from "@/lib/saringan-kolom";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
@@ -76,10 +76,12 @@ export async function GET(request: Request) {
   // Nama perusahaan bisa mengandung koma, jadi dikirim sebagai parameter berulang.
   const companies = new URL(request.url).searchParams.getAll("company").map((nama) => nama.trim()).slice(0, 50);
   const kustom = auth.scope.role === "custom";
-  const cariKustom = kustom && parsed.data.q.length > 0;
+  // Kata kunci dicocokkan di sini ke semua kolom yang boleh dilihat akun ini,
+  // termasuk jawaban form (penyaringCari); RPC dipanggil tanpa kata kunci.
+  const cari = parsed.data.q.length > 0;
   // Urutan menurut QR atau kolom logistik membocorkan isinya, sedikit demi sedikit.
   if (kustom && KOLOM_TERTUTUP_KUSTOM.has(parsed.data.sort)) return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
-  const argumen = argumenRpc(eventId, cariKustom ? { ...parsed.data, q: "" } : parsed.data, companies);
+  let argumen = argumenRpc(eventId, cari ? { ...parsed.data, q: "" } : parsed.data, companies);
   // Sesi dibaca lebih dulu: kolom check-in per sesi adalah kunci saringan dan urutan yang sah.
   const daftarSesi = await sesiAcara(eventId);
   // Kolom Portal hanya ada di acara yang memakai area peserta.
@@ -105,15 +107,19 @@ export async function GET(request: Request) {
   // yang lolos penyaring database, disaring dan diurutkan di sini, lalu
   // dipotong per halaman. Selain itu, urutannya tetap urutan RPC.
   let tersaring: Array<{ id: string }> | null = null;
-  if (saringan.length || urut === "js" || cariKustom) {
+  if (saringan.length || urut === "js" || cari) {
     try {
       const kunci = [...saringan.map((s) => s.k), ...(urut === "js" ? [parsed.data.sort] : [])];
       const [semuaBaris, konteks] = await Promise.all([semuaBarisRpc(argumen), muatKonteks(eventId, kunci, fields, zona)]);
-      const baris = saring(cariKustom ? semuaBaris.filter(cocokTanpaQr(parsed.data.q)) : semuaBaris, saringan, konteks);
+      const baris = saring(cari ? semuaBaris.filter(penyaringCari(parsed.data.q, fields, kustom)) : semuaBaris, saringan, konteks);
       tersaring = urut === "js" ? urutPeserta(baris, parsed.data.sort, parsed.data.dir, konteks) : baris;
     } catch (galat) {
-      if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters and sorting work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
-      return apiError("INTERNAL_ERROR", 500);
+      // Acara di atas BATAS_BACA: admin yang hanya mencari tetap dilayani RPC
+      // (nama, QR, organisasi per halaman), seperti sebelum jawaban form ikut dicari.
+      if (galat instanceof TerlaluBanyak && cari && !kustom && !saringan.length && urut === "rpc") {
+        argumen = argumenRpc(eventId, parsed.data, companies);
+      } else if (galat instanceof TerlaluBanyak) return apiError("VALIDATION_ERROR", 422, { message: `Column filters and sorting work on up to ${BATAS_BACA.toLocaleString("en-GB")} participants. Narrow the list with search or the other filters first.` });
+      else return apiError("INTERNAL_ERROR", 500);
     }
   }
 
