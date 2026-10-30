@@ -173,11 +173,11 @@ export default function PengumumanPage() {
     }
     setData(body as Muat);
     const muatan = body as Muat;
-    if (muatan.ready && muatan.targeting_ready) {
-      const titipan = ambilTitipan();
-      if (titipan) setDraft({ ...KOSONG, audience: "pilih", audience_ids: titipan });
-    }
-  }, []);
+    const titipan = ambilTitipan();
+    if (titipan && muatan.ready && muatan.targeting_ready) setDraft({ ...KOSONG, audience: "pilih", audience_ids: titipan });
+    // Sebelum migrasi 202610300004: katakan kenapa tidak ada yang terbuka.
+    else if (titipan) toast.error("Can't announce to chosen participants yet", "This needs a database update first (migration 202610300004).");
+  }, [toast]);
 
   useEffect(() => {
     // Muat awal dari server, sekali saat halaman dibuka.

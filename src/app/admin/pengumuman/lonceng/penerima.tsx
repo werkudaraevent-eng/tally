@@ -229,7 +229,7 @@ function KalimatHitung({ draf, hitung, info }: { draf: DrafPenerima; hitung: Ret
             {draf.audience === "pilih" ? `${plural(data.matches, "participant")} chosen.` : `Matches ${data.matches.toLocaleString("en-GB")} of ${data.total.toLocaleString("en-GB")} participants.`}
           </span>{" "}
           {data.matches - data.accounts > 0
-            ? `${data.accounts.toLocaleString("en-GB")} can see it now; the other ${(data.matches - data.accounts).toLocaleString("en-GB")} see it when they first sign in.`
+            ? `${data.accounts.toLocaleString("en-GB")} can see it now; the other ${(data.matches - data.accounts).toLocaleString("en-GB")} ${data.matches - data.accounts === 1 ? "sees" : "see"} it when they first sign in.`
             : "All of them can see it now."}
           {pakaiHotel && info && !info.rooms_shown ? " Rooms aren’t shown to participants in Participant area yet, so nobody matches the hotel condition until they are." : ""}
         </>
