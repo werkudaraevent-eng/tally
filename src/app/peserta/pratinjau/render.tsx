@@ -21,7 +21,7 @@ export async function renderBerandaPratinjau(event: EventRow, member: LandingMem
   const lang = landingDefaultLang(landing);
   // Area peserta yang masih tertutup tetap bisa dipratinjau sebelum dibuka.
   const setelan = { ...member, enabled: true };
-  const pengumuman = await loadMemberAnnouncements(event.id, sesi);
+  const pengumuman = await loadMemberAnnouncements(event, sesi);
   return landing.gathering === true ? (
     <DashboardGathering event={event} lang={lang} member={setelan} sesi={sesi} pengumuman={pengumuman} konfirmasi={null} tab={tab} hari={null} pratinjau waktuPratinjau={waktu} />
   ) : (

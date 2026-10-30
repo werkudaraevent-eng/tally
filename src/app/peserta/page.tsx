@@ -167,7 +167,7 @@ export default async function AreaPesertaPage({
   // kode, nama, dan bus: pengumuman tidak dibaca di sana, jadi tidak ditunggu
   // (U-10). Sama dengan syarat jalur QR di DashboardGathering.
   const hanyaQr = gathering && gatheringHorizon(landing) && kueri.tab === "qr" && tampilKode;
-  const pengumuman = hanyaQr ? { ready: false, items: [], unread: 0, seenAt: null } : await loadMemberAnnouncements(event.id, sesi);
+  const pengumuman = hanyaQr ? { ready: false, items: [], unread: 0, seenAt: null } : await loadMemberAnnouncements(event, sesi);
   if (!gathering && pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
 
   // Preset Gathering: portal bergaya aplikasi dengan tab (rancangan 2026-10-07).

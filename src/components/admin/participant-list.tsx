@@ -2,7 +2,7 @@
 
 import {
   ArrowCounterClockwise, ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
-  Bed, Bus as IkonBus, Funnel, MagnifyingGlass, Package, Paperclip, PencilSimple, Plus, SuitcaseRolling, Trash, UsersThree, X, XCircle,
+  Bed, Bus as IkonBus, Funnel, MagnifyingGlass, Megaphone, Package, Paperclip, PencilSimple, Plus, SuitcaseRolling, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
@@ -21,6 +21,7 @@ import { kelompokJawaban, kolomDariTautan, wajibDiisi, type AsalJawaban } from "
 import { cx } from "@/lib/m3/cx";
 import { cocokCari, kataCari, kolomCari, kunciTelepon } from "@/lib/cari-peserta";
 import { plural } from "@/lib/plural";
+import { KUNCI_UMUMKAN, PILIH_MAX } from "@/lib/sasaran-pengumuman";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES, MAX_CUSTOM_FIELDS } from "@/lib/registration-fields";
 import { BATAS_SARINGAN, LABEL_ASAL, LABEL_PORTAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, kolomSaringanKustom, type Saringan } from "@/lib/saringan-kolom";
@@ -863,6 +864,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     router.push(withEventPrefix(`/admin/pengumuman/kiriman/${body.id}`, window.location.pathname));
   }
 
+  /** Buka Announcements dengan pengumuman baru untuk yang dicentang (Send to: Specific participants). */
+  function umumkan() {
+    if (pilih.size > PILIH_MAX) {
+      toast.error(`Pick up to ${PILIH_MAX} for one announcement`, "For larger groups use Participants who match in Announcements.");
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(KUNCI_UMUMKAN, JSON.stringify({ ids: [...pilih], waktu: Date.now() }));
+    } catch {
+      toast.error("Couldn't open Announcements", "Your browser blocked it. Choose the participants in Announcements instead.");
+      return;
+    }
+    router.push(withEventPrefix("/admin/pengumuman/lonceng", window.location.pathname));
+  }
+
   async function eksporTerpilih(format: "xlsx" | "csv") {
     setBulk("ekspor");
     const response = await fetch("/api/admin/participants/export", {
@@ -1262,6 +1278,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             ) : null}
             <span className="ml-auto flex min-h-12 items-center gap-2">
               {bolehPesan ? <Button simpan variant="outlined" size="sm" className="target-48" aria-label="Send message" loading={bulk === "pesan"} icon={<EnvelopeSimple size={16} />} onClick={() => void kirimPesan()}><span className="max-sm:hidden">Send message</span></Button> : null}
+              {bolehPesan ? <Button simpan variant="outlined" size="sm" className="target-48" aria-label="Announce" icon={<Megaphone size={16} />} onClick={umumkan}><span className="max-sm:hidden">Announce</span></Button> : null}
               {!izin || izin.participants_download ? <EksporTerpilih busy={bulk === "ekspor"} onPick={(format) => void eksporTerpilih(format)} /> : null}
               {kustom ? null : <MenuLogistik onPick={(jenis) => setAksiLog({ jenis, ids: [...pilih] })} />}
               <Button

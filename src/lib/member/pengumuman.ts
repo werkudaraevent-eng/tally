@@ -1,4 +1,8 @@
-import type { MemberSession } from "@/lib/member/account";
+import type { EventRow } from "@/lib/domain";
+import { bagianTampil } from "@/lib/logistik/bagian-tampil";
+import { memberConfig, type MemberSession } from "@/lib/member/account";
+import { muatDataSasaran } from "@/lib/sasaran-blok-server";
+import { pengumumanUntuk, syaratKolom, type AudiensPengumuman } from "@/lib/sasaran-pengumuman";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -11,7 +15,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * itu belum ada; halaman acara tetap harus tampil, hanya tanpa pengumuman.
  */
 
-export type AnnouncementAudience = "semua" | "disetujui";
+export type AnnouncementAudience = AudiensPengumuman;
 
 export type Announcement = {
   id: string;
@@ -39,36 +43,86 @@ export type MemberAnnouncements = {
 };
 
 export const ANNOUNCEMENT_COLUMNS = "id,title,body,link_url,link_label,audience,pinned,published_at";
+/** Kolom penerima dari migrasi 202610300004 (Send to per syarat atau per peserta). */
+const KOLOM_PENERIMA = "audience_rules,audience_ids";
+
+/**
+ * Pengumuman bersasaran yang dibaca sebelum disaring. Jauh di atas jumlah
+ * pengumuman satu acara sejauh ini; pengumuman untuk orang lain tidak boleh
+ * mendorong keluar pengumuman milik peserta ini dari `limit`.
+ */
+const BACA_MAX = 200;
+
+type AcaraPengumuman = Pick<EventRow, "id" | "registration_form_config" | "time_zone" | "landing_config">;
+type BarisPengumuman = Announcement & { audience_rules?: unknown; audience_ids?: unknown };
 
 /** Pengumuman yang boleh dilihat peserta ini, disematkan dulu lalu yang terbaru. */
 export async function loadMemberAnnouncements(
-  eventId: string,
-  sesi: Pick<MemberSession, "accountId" | "status">,
+  event: AcaraPengumuman,
+  sesi: Pick<MemberSession, "accountId" | "status" | "participant">,
   limit = 20,
 ): Promise<MemberAnnouncements> {
   const client = getSupabaseServiceClient();
-  let query = client
-    .from("event_announcements")
-    .select(ANNOUNCEMENT_COLUMNS)
-    .eq("event_id", eventId)
-    .lte("published_at", new Date().toISOString())
-    .order("pinned", { ascending: false })
-    .order("published_at", { ascending: false })
-    .limit(limit);
   // "disetujui" = akun yang sudah tertaut ke peserta, sama dengan status
-  // "approved" di getMemberSession.
-  if (sesi.status !== "approved") query = query.eq("audience", "semua");
+  // "approved" di getMemberSession. Yang belum disetujui hanya membaca "semua".
+  const disetujui = sesi.status === "approved";
+  const kueri = (kolom: string) => {
+    let query = client
+      .from("event_announcements")
+      .select(kolom)
+      .eq("event_id", event.id)
+      .lte("published_at", new Date().toISOString())
+      .order("pinned", { ascending: false })
+      .order("published_at", { ascending: false })
+      .limit(disetujui ? BACA_MAX : limit);
+    if (!disetujui) query = query.eq("audience", "semua");
+    return query;
+  };
 
-  const [{ data, error }, akun] = await Promise.all([
-    query,
+  const [hasil, akun] = await Promise.all([
+    kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA}`),
     client.from("participant_accounts").select("announcements_seen_at").eq("id", sesi.accountId).maybeSingle(),
   ]);
+  let { data, error } = hasil;
+  // Sebelum migrasi 202610300004 kolom penerima belum ada: baca seperti dulu.
+  if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data, error } = await kueri(ANNOUNCEMENT_COLUMNS));
   if (error || !data) return { ready: false, items: [], unread: 0, seenAt: null };
 
-  const items = data as unknown as Announcement[];
+  const items = (await saringUntukPeserta(event, sesi, data as unknown as BarisPengumuman[])).slice(0, limit);
   const seenAt = (akun.data as { announcements_seen_at?: string | null } | null)?.announcements_seen_at ?? null;
   const unread = items.filter((item) => isUnread(item, seenAt)).length;
   return { ready: true, items, unread, seenAt };
+}
+
+/**
+ * Hanya pengumuman untuk peserta ini (sasaran-pengumuman.ts), tanpa kolom
+ * penerimanya. Jawaban dan hotel peserta dimuat sekali, hanya bila ada
+ * pengumuman bersyarat kolom. Hotel hanya terbaca bila kamar ditampilkan ke
+ * peserta, seperti Who sees it di Agenda dan Rute.
+ */
+async function saringUntukPeserta(
+  event: AcaraPengumuman,
+  sesi: Pick<MemberSession, "status" | "participant">,
+  baris: BarisPengumuman[],
+): Promise<Announcement[]> {
+  const peserta = sesi.participant;
+  const kolom = syaratKolom(baris);
+  const data = peserta && sesi.status === "approved" && kolom.length > 0
+    ? await muatDataSasaran(event, peserta.id, kolom, bagianTampil(memberConfig(event), "rooms")).catch(() => null)
+    : null;
+  const penonton = { disetujui: sesi.status === "approved", participantId: peserta?.id ?? null, company: peserta?.company ?? null, data };
+  return baris
+    .filter((item) => pengumumanUntuk(item, penonton))
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      body: item.body,
+      link_url: item.link_url,
+      link_label: item.link_label,
+      audience: item.audience,
+      pinned: item.pinned,
+      published_at: item.published_at,
+    }));
 }
 
 export function isUnread(item: Pick<Announcement, "published_at">, seenAt: string | null) {

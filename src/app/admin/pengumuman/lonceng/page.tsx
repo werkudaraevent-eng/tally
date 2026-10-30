@@ -3,7 +3,7 @@
 import { useBatasPesan } from "@/components/admin/page-context";
 import Link from "next/link";
 import { EnvelopeSimple, Info, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banner,
   Button,
@@ -16,7 +16,6 @@ import {
   Pane,
   PaneBody,
   PaneFooter,
-  SelectField,
   StatusChip,
   Switch,
   TextArea,
@@ -27,7 +26,9 @@ import {
 import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
+import { KUNCI_UMUMKAN, PILIH_MAX, type AudiensPengumuman } from "@/lib/sasaran-pengumuman";
 import { PesanTabs } from "../pesan-tabs";
+import { kirimanPenerima, penerimaLengkap, PilihPenerima, ringkasPenerima, useHitungPenerima, type DrafSyarat, type InfoPenerima, type Orang } from "./penerima";
 
 /**
  * Pengumuman panitia untuk peserta (tab Pengumuman di menu Pesan peserta).
@@ -41,7 +42,7 @@ import { PesanTabs } from "../pesan-tabs";
  * lagi, email yang sudah terkirim tidak bisa ditarik.
  */
 
-type Audience = "semua" | "disetujui";
+type Audience = AudiensPengumuman;
 type Ringkasan = { terkirim: number; gagal: number; galat?: string | null; waktu: string };
 type Item = {
   id: string;
@@ -50,6 +51,9 @@ type Item = {
   link_url: string | null;
   link_label: string | null;
   audience: Audience;
+  /** Ada setelah migrasi 202610300004. */
+  audience_rules?: DrafSyarat | null;
+  audience_ids?: string[] | null;
   pinned: boolean;
   published_at: string;
   email_summary: Ringkasan | null;
@@ -59,20 +63,51 @@ type Item = {
 type Muat = {
   ready: boolean;
   items: Item[];
-  recipients: Record<Audience, number>;
+  recipients: { semua: number; disetujui: number };
   email_configured: boolean;
   test_mode?: "off" | "list" | "blocked";
   member_enabled?: boolean;
   time_zone?: string;
+  targeting_ready?: boolean;
 };
-type Draft = { id: string | null; title: string; body: string; link_url: string; link_label: string; audience: Audience; pinned: boolean };
+type Draft = {
+  id: string | null;
+  title: string;
+  body: string;
+  link_url: string;
+  link_label: string;
+  audience: Audience;
+  audience_rules: DrafSyarat | null;
+  audience_ids: string[];
+  pinned: boolean;
+};
 
-const KOSONG: Draft = { id: null, title: "", body: "", link_url: "", link_label: "", audience: "semua", pinned: false };
+const KOSONG: Draft = { id: null, title: "", body: "", link_url: "", link_label: "", audience: "semua", audience_rules: null, audience_ids: [], pinned: false };
 
 const PENERIMA: Record<Audience, string> = {
   semua: "All participant accounts",
   disetujui: "Approved participants only",
+  syarat: "Participants who match",
+  pilih: "Specific participants",
 };
+
+/**
+ * Id peserta titipan Participant list > Announce, sekali pakai. Titipan lebih
+ * dari 10 menit dianggap basi (tab lama yang dibuka lagi).
+ */
+function ambilTitipan(): string[] | null {
+  try {
+    const mentah = window.sessionStorage.getItem(KUNCI_UMUMKAN);
+    if (!mentah) return null;
+    window.sessionStorage.removeItem(KUNCI_UMUMKAN);
+    const isi = JSON.parse(mentah) as { ids?: unknown; waktu?: unknown };
+    if (typeof isi.waktu !== "number" || Date.now() - isi.waktu > 10 * 60_000 || !Array.isArray(isi.ids)) return null;
+    const ids = [...new Set(isi.ids.filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))].slice(0, PILIH_MAX);
+    return ids.length ? ids : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Jam di zona waktu acara, sama dengan yang dilihat peserta, bukan zona peramban admin. */
 function waktu(iso: string, timeZone?: string) {
@@ -87,7 +122,19 @@ function keDraft(item: Item): Draft {
     link_url: item.link_url ?? "",
     link_label: item.link_label ?? "",
     audience: item.audience,
+    // Hanya penerima yang berlaku; sisa pilihan lain tidak ikut dibandingkan.
+    audience_rules: item.audience === "syarat" ? item.audience_rules ?? [] : null,
+    audience_ids: item.audience === "pilih" ? item.audience_ids ?? [] : [],
     pinned: item.pinned,
+  };
+}
+
+/** Draf tanpa sisa pilihan penerima lain, untuk dibandingkan dengan yang tersimpan. */
+function bersih(draft: Draft): Draft {
+  return {
+    ...draft,
+    audience_rules: draft.audience === "syarat" ? draft.audience_rules ?? [] : null,
+    audience_ids: draft.audience === "pilih" ? draft.audience_ids : [],
   };
 }
 
@@ -103,6 +150,18 @@ export default function PengumumanPage() {
   const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
   const [konfirmasiEmail, setKonfirmasiEmail] = useState(false);
   const [kirim, setKirim] = useState(false);
+  const [info, setInfo] = useState<InfoPenerima | null>(null);
+  const [infoGagal, setInfoGagal] = useState(false);
+  // Nama peserta terpilih, dari pencarian dan dari hitungan pengumuman tersimpan.
+  const [nama, setNama] = useState<Map<string, Orang>>(new Map());
+  const tambahNama = useCallback((orang: Orang[]) => {
+    setNama((lama) => {
+      if (orang.every((o) => lama.get(o.id)?.name === o.name)) return lama;
+      const baru = new Map(lama);
+      for (const o of orang) baru.set(o.id, o);
+      return baru;
+    });
+  }, []);
 
   const muat = useCallback(async () => {
     setGalatMuat("");
@@ -113,6 +172,11 @@ export default function PengumumanPage() {
       return;
     }
     setData(body as Muat);
+    const muatan = body as Muat;
+    if (muatan.ready && muatan.targeting_ready) {
+      const titipan = ambilTitipan();
+      if (titipan) setDraft({ ...KOSONG, audience: "pilih", audience_ids: titipan });
+    }
   }, []);
 
   useEffect(() => {
@@ -121,13 +185,30 @@ export default function PengumumanPage() {
     void muat();
   }, [muat]);
 
+  // Pilihan syarat (kolom, hotel, organisasi): untuk penyunting dan ringkasan di daftar.
+  useEffect(() => {
+    void fetch("/api/admin/pengumuman/sasaran", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("info"))))
+      .then((body: InfoPenerima) => setInfo(body))
+      .catch(() => setInfoGagal(true));
+  }, []);
+
   const items = data?.items ?? [];
   const terpilih = draft?.id ? items.find((item) => item.id === draft.id) ?? null : null;
   const berubah = draft
     ? terpilih
-      ? JSON.stringify(keDraft(terpilih)) !== JSON.stringify(draft)
+      ? JSON.stringify(keDraft(terpilih)) !== JSON.stringify(bersih(draft))
       : Boolean(draft.title.trim() || draft.body.trim())
     : false;
+  const hitung = useHitungPenerima(draft, Boolean(data?.targeting_ready));
+  const orangHitung = hitung && "data" in hitung ? hitung.data?.people : undefined;
+  const namaLengkap = useMemo(() => {
+    if (!orangHitung?.length) return nama;
+    const gabung = new Map(nama);
+    for (const orang of orangHitung) if (!gabung.has(orang.id)) gabung.set(orang.id, orang);
+    return gabung;
+  }, [nama, orangHitung]);
+  const penerimaSiap = draft ? penerimaLengkap(draft) : false;
 
   function tutup() {
     setDraft(null);
@@ -136,6 +217,8 @@ export default function PengumumanPage() {
 
   async function simpanDraft() {
     if (!draft) return;
+    const tersimpan = terpilih ? keDraft(terpilih) : null;
+    const penerimaBerubah = !tersimpan || JSON.stringify(kirimanPenerima(tersimpan)) !== JSON.stringify(kirimanPenerima(bersih(draft)));
     setSimpan(true);
     setGalat("");
     const isi = {
@@ -143,7 +226,10 @@ export default function PengumumanPage() {
       body: draft.body,
       link_url: draft.link_url,
       link_label: draft.link_label,
-      audience: draft.audience,
+      // Penerima hanya dikirim bila berubah: menyunting judul pengumuman lama
+      // tidak memeriksa ulang syaratnya (mis. Hotel, yang tidak boleh diubah
+      // akun peran kustom).
+      ...(penerimaBerubah ? kirimanPenerima(draft) : {}),
       pinned: draft.pinned,
     };
     const response = await fetch("/api/admin/pengumuman", {
@@ -211,7 +297,13 @@ export default function PengumumanPage() {
     void muat();
   }
 
-  const jumlahPenerima = draft ? data?.recipients[draft.audience] ?? 0 : 0;
+  // Salinan email ke akun yang melihatnya sekarang. Untuk syarat dan peserta
+  // tertentu dari hitungan server; 0 selama belum terhitung.
+  const jumlahPenerima = !draft
+    ? 0
+    : draft.audience === "semua" || draft.audience === "disetujui"
+      ? data?.recipients[draft.audience] ?? 0
+      : hitung && "data" in hitung && hitung.data ? hitung.data.accounts : 0;
 
   // ---- Daftar --------------------------------------------------------------
   const list = (
@@ -285,7 +377,9 @@ export default function PengumumanPage() {
                       </button>
                       {disunting ? <span className="text-body-small text-on-surface-variant">Edited {waktu(item.updated_at, data?.time_zone)}</span> : null}
                     </td>
-                    <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5">{item.audience === "semua" ? "All accounts" : "Approved"}</td>
+                    <td className="max-w-[200px] truncate whitespace-nowrap border-b border-outline-variant px-3 py-2.5">
+                      {ringkasPenerima({ audience: item.audience, audience_rules: item.audience_rules ?? null, audience_ids: item.audience_ids ?? [] }, info)}
+                    </td>
                     <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5 tabular-nums">{waktu(item.published_at, data?.time_zone)}</td>
                     <td className="border-b border-outline-variant px-3 py-2.5">
                       {item.email_summary ? (
@@ -330,7 +424,7 @@ export default function PengumumanPage() {
             id="form-pengumuman"
             onSubmit={(event) => {
               event.preventDefault();
-              if (draft.title.trim()) void simpanDraft();
+              if (draft.title.trim() && penerimaLengkap(draft)) void simpanDraft();
             }}
           >
             <fieldset disabled={!batas.ubah} className="contents">
@@ -380,19 +474,17 @@ export default function PengumumanPage() {
                     hint="Leave empty to show the link address."
                   />
                 ) : null}
-                <SelectField
-                  label="Send to"
-                  value={draft.audience}
-                  onChange={(event) => setDraft((kini) => kini && { ...kini, audience: event.target.value as Audience })}
-                  hint={
-                    draft.audience === "semua"
-                      ? `${plural(data?.recipients.semua ?? 0, "account")}, including registrants not yet approved.`
-                      : `${plural(data?.recipients.disetujui ?? 0, "account")} already approved as participants.`
-                  }
-                >
-                  <option value="semua">{PENERIMA.semua}</option>
-                  <option value="disetujui">{PENERIMA.disetujui}</option>
-                </SelectField>
+                <PilihPenerima
+                  draf={draft}
+                  onChange={(penerima) => setDraft((kini) => kini && { ...kini, ...penerima })}
+                  info={info}
+                  infoGagal={infoGagal}
+                  siap={Boolean(data?.targeting_ready)}
+                  akun={data?.recipients ?? { semua: 0, disetujui: 0 }}
+                  hitung={hitung}
+                  nama={namaLengkap}
+                  onNama={tambahNama}
+                />
                 <Switch
                   checked={draft.pinned}
                   onChange={(pinned) => setDraft((kini) => kini && { ...kini, pinned })}
@@ -444,7 +536,7 @@ export default function PengumumanPage() {
             {batas.ubah ? "Cancel" : "Close"}
           </Button>
           {batas.ubah ? (
-            <Button type="submit" form="form-pengumuman" size="sm" loading={simpan} disabled={!draft.title.trim() || (!baru && !berubah)}>
+            <Button type="submit" form="form-pengumuman" size="sm" loading={simpan} disabled={!draft.title.trim() || !penerimaSiap || (!baru && !berubah)}>
               {baru ? "Publish" : "Save changes"}
             </Button>
           ) : null}
@@ -526,7 +618,9 @@ export default function PengumumanPage() {
       >
         {draft ? (
           <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4">
-            <p className="text-body-small text-on-surface-variant">{PENERIMA[draft.audience]}</p>
+            <p className="text-body-small text-on-surface-variant">
+              {draft.audience === "syarat" || draft.audience === "pilih" ? `${PENERIMA[draft.audience]}: ${ringkasPenerima(draft, info)}` : PENERIMA[draft.audience]}
+            </p>
             <p className="mt-1 text-title-small font-semibold">{draft.title}</p>
             {draft.body ? <p className="mt-1 line-clamp-4 whitespace-pre-line text-body-medium text-on-surface-variant">{draft.body}</p> : null}
           </div>
