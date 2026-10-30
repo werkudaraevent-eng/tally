@@ -13,7 +13,9 @@ import { formatEventDateTime } from "@/lib/datetime";
 import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
+import type { PilihanInfo } from "@/lib/info-scan";
 import { CheckpointsTab } from "./checkpoints";
+import { InfoScanSesi } from "./info-scan-sesi";
 
 /**
  * CMS sesi kehadiran.
@@ -45,6 +47,8 @@ type Sesi = {
   luggage_pickup?: boolean;
   /** Kemajuan meja ambil se-acara, hanya bila sesinya meja ambil. */
   ambil_bagasi?: { handedPeople: number; handedBags: number; waitingPeople: number; waitingBags: number };
+  /** Shown after scan. Tidak ada sebelum migrasi 202610300001; null = Company · Job title. */
+  scan_fields?: unknown;
 };
 
 type ModeBagasi = "off" | "dropoff" | "pickup";
@@ -97,6 +101,7 @@ export default function AttendanceAdminPage() {
   const [pasangan, setPasangan] = useState<Pasangan[]>([]);
   const [allowWalkIn, setAllowWalkIn] = useState(false);
   const [walkInCount, setWalkInCount] = useState(0);
+  const [infoPilihan, setInfoPilihan] = useState<PilihanInfo[]>([]);
   const [nama, setNama] = useState("");
   const [slug, setSlug] = useState("");
   const [namaJalur, setNamaJalur] = useState("");
@@ -141,6 +146,7 @@ export default function AttendanceAdminPage() {
     setSessions(body.sessions ?? []);
     setAllowWalkIn(Boolean(body.allow_walk_in));
     setWalkInCount(body.walk_in_count ?? 0);
+    setInfoPilihan(body.info_pilihan ?? []);
     if (jalur?.ok) { setLanes((await jalur.json()).lanes ?? []); setErrorJalur(""); }
     else setErrorJalur("Daftar meja gagal dimuat.");
     if (item?.ok) {
@@ -453,6 +459,14 @@ export default function AttendanceAdminPage() {
             <p className="text-body-medium text-on-surface-variant">Counts cover every drop-off desk in this event. Each drop-off can be handed over once; staff can undo their own handover.</p>
           ) : null}
         </DetailSection>
+        <InfoScanSesi
+          key={sesiTerpilih.id}
+          scanFields={"scan_fields" in sesiTerpilih ? sesiTerpilih.scan_fields ?? null : undefined}
+          pilihan={infoPilihan}
+          busy={busy}
+          terkunci={terkunci}
+          onSimpan={(daftar) => kirim("PATCH", { id: sesiTerpilih.id, scan_fields: daftar })}
+        />
         <DetailSection title="Layar pemindai">
           <dl className="flex flex-col gap-2">
             <KeyValue label="Alamat"><span className="select-all">/scan?sesi={sesiTerpilih.slug}</span></KeyValue>

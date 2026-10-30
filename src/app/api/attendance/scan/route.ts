@@ -4,6 +4,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { ADMIN_ROLES } from "@/lib/auth/roles";
 import { cetakSetelahHadir } from "@/lib/badge/stasiun-server";
 import { catatanCheckpointScan } from "@/lib/checkpoint/server";
+import { infoTamu } from "@/lib/info-scan-server";
 import { loadLabelSettings } from "@/lib/label/load";
 import { loadKursiPeserta, tulisKursi } from "@/lib/member/kursi-peserta";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -111,7 +112,8 @@ export async function POST(request: Request) {
     const label = await loadLabelSettings(auth.scope.event.id).catch(() => null);
     if (!label?.enabled) delete hasil.participant.qr_code;
   }
-  const [badgeCetak, kursi, checkpoint] = await Promise.all([cetakSetelahHadir({
+  const hadir = Boolean(hasil?.participant?.id) && (hasil?.status === "recorded" || hasil?.status === "duplicate");
+  const [badgeCetak, kursi, checkpoint, info] = await Promise.all([cetakSetelahHadir({
     eventId: auth.scope.event.id,
     cetak: parsed.data.cetak,
     status: hasil?.status ?? "",
@@ -124,11 +126,14 @@ export async function POST(request: Request) {
     // satu checkpoint dan fiturnya dinyalakan. Acara lain tidak mendapat kunci ini.
     hasil?.participant?.id && (hasil.status === "recorded" || hasil.status === "duplicate")
       ? catatanCheckpointScan(auth.scope.event.id, hasil.participant.id, { sessionId: parsed.data.session_id })
-      : Promise.resolve(null)]);
+      : Promise.resolve(null),
+    // Shown after scan (Check-in > Sessions): hanya sesi yang diatur panitia.
+    hadir ? infoTamu(auth.scope.event, parsed.data.session_id, hasil!.participant!.id!) : Promise.resolve(null)]);
   const tambahan = {
     ...(badgeCetak ? { badge_cetak: badgeCetak } : {}),
     ...(kursi.length > 0 ? { kursi } : {}),
     ...(checkpoint ? { checkpoint } : {}),
+    ...(info ? { info } : {}),
   };
   return Response.json(Object.keys(tambahan).length > 0 ? { ...(data as object), ...tambahan } : data);
 }
