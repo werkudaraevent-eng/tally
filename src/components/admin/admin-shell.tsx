@@ -568,6 +568,7 @@ export function AdminShell({
               events={events}
               activeSlug={eventAktif?.slug ?? null}
               isOwner={isOwner}
+              tampilPengguna={!peranKustom}
               onOpenChange={onPopoverChange}
             />
           </div>

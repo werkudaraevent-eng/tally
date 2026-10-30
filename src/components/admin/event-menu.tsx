@@ -53,12 +53,15 @@ export function EventMenu({
   events,
   activeSlug,
   isOwner = false,
+  tampilPengguna = true,
   onOpenChange,
 }: {
   events: EventPilihan[];
   activeSlug: string | null;
   /** Hanya pemilik sistem yang boleh membuat acara, jadi hanya ia yang melihat aksinya. */
   isOwner?: boolean;
+  /** Akun peran kustom tidak membuka Users & roles, jadi tautannya tidak ditampilkan. */
+  tampilPengguna?: boolean;
   /**
    * Diberitahukan ke rangka saat panel dibuka atau ditutup.
    *
@@ -262,10 +265,12 @@ export function EventMenu({
                 <ListDashes size={16} className="shrink-0 text-on-surface-variant" />
                 All events
               </Link>
-              <Link href="/users" className={POPOVER_ITEM}>
-                <ShieldCheck size={16} className="shrink-0 text-on-surface-variant" />
-                Users &amp; roles
-              </Link>
+              {tampilPengguna ? (
+                <Link href="/users" className={POPOVER_ITEM}>
+                  <ShieldCheck size={16} className="shrink-0 text-on-surface-variant" />
+                  Users &amp; roles
+                </Link>
+              ) : null}
               {isOwner ? (
                 <Link href="/events?buat=1" className={POPOVER_ITEM}>
                   <Plus size={16} className="shrink-0 text-on-surface-variant" />
