@@ -2,7 +2,9 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { totalAmbilBagasi, totalBagasiSesi } from "@/lib/bagasi/server";
-import { semuaBaris } from "@/lib/logistik/server";
+import type { RegistrationFormConfig } from "@/lib/domain";
+import { BATAS_INFO_SCAN, pilihanInfo, type PilihanInfo } from "@/lib/info-scan";
+import { kolomBelumAda, semuaBaris } from "@/lib/logistik/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -27,6 +29,11 @@ const sessionSchema = z.object({
   records_luggage: z.boolean().optional(),
   /** Luggage: Pick-up (migrasi 202610240001). Tidak boleh bersamaan dengan records_luggage. */
   luggage_pickup: z.boolean().optional(),
+  /**
+   * Shown after scan (migrasi 202610300001): info di bawah nama pada hasil scan
+   * petugas, urut. Null = Company · Title seperti sebelumnya (lib/info-scan.ts).
+   */
+  scan_fields: z.array(z.string().regex(/^(base|extra|logistik):[a-z0-9_]{1,64}$/)).max(BATAS_INFO_SCAN).nullable().optional(),
 });
 
 const patchSchema = sessionSchema.partial().extend({ id: z.number().int().positive() });
@@ -85,6 +92,7 @@ export async function GET(request: Request) {
   ]);
 
   return Response.json({
+    info_pilihan: await pilihanInfoAcara(eventId, auth.scope.event.registration_form_config as RegistrationFormConfig | null),
     sessions: daftar.map((row) => ({
       ...row,
       ...(row.records_luggage === true ? { bagasi: bagasi?.get(row.id) ?? { bags: 0, people: 0, photos: 0 } } : {}),
@@ -96,6 +104,21 @@ export async function GET(request: Request) {
     allow_walk_in: auth.scope.event.attendance_allow_walk_in,
     walk_in_count: walkIn ?? 0,
   });
+}
+
+/**
+ * Pilihan Shown after scan untuk acara ini: kolom peserta, Logistik yang
+ * memang dipakai acara (ada hotel, kendaraan, atau tiket kereta), dan
+ * pertanyaan registrasi. Tabel yang belum ada atau galat = bagian itu tidak ditawarkan.
+ */
+async function pilihanInfoAcara(eventId: string, config: RegistrationFormConfig | null): Promise<PilihanInfo[]> {
+  const client = getSupabaseServiceClient();
+  const ada = async (tabel: string) => {
+    const { count, error } = await client.from(tabel as never).select("id", { head: true, count: "exact" }).eq("event_id", eventId);
+    return !error && (count ?? 0) > 0;
+  };
+  const [hotel, vehicle, train] = await Promise.all([ada("lodging_hotels"), ada("transport_vehicles"), ada("train_tickets")]);
+  return pilihanInfo(config?.fields ?? [], { hotel, vehicle, train });
 }
 
 export async function POST(request: Request) {
@@ -164,6 +187,10 @@ export async function PATCH(request: Request) {
     }
     // Satu saklar dikirim sendirian ke sesi yang saklar lainnya menyala: CHECK
     // database yang menolak, tetap dijawab sebagai salah isi, bukan 500.
+    // Sebelum migrasi 202610300001 kolomnya belum ada.
+    if ("scan_fields" in patch && kolomBelumAda(error)) {
+      return apiError("VALIDATION_ERROR", 422, { message: "Shown after scan can't be saved yet: the database update for it hasn't been run." });
+    }
     if (String(error.code) === "23514" && String(error.message ?? "").includes("attendance_sessions_luggage_mode_check")) {
       return apiError("VALIDATION_ERROR", 422, { message: "A session either takes luggage in or hands it back, not both." });
     }

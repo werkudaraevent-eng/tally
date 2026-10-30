@@ -16,7 +16,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Dialog } from "@/components/m3";
 import { standard } from "@/lib/m3/motion";
 import { ItemChecklist } from "./item-checklist";
@@ -290,7 +290,24 @@ export function ResultSheet({
               <p className="mt-4 line-clamp-3 text-headline-medium font-semibold [overflow-wrap:anywhere] max-[400px]:text-headline-small [@media(max-height:700px)]:mt-3 [@media(max-height:700px)]:text-headline-small">
                 {peserta ? peserta.name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Code ${hasil.qr}` : "Code ?"}
               </p>
-              {peserta ? (
+              {/* Shown after scan: sesi yang diatur panitia mendapat daftar
+                  pilihannya (hotel, kendaraan, jawaban form) menggantikan baris
+                  Company · Title. Yang kosong ditulis "Not set", tidak
+                  disembunyikan: petugas perlu tahu datanya belum ada. */}
+              {peserta && hadir && hasil.info && hasil.info.length > 0 ? (
+                <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-xl bg-black/15 px-3 py-2.5">
+                  {hasil.info.map((baris, index) => (
+                    <Fragment key={`${index}-${baris.label}`}>
+                      <dt className="max-w-32 text-body-medium leading-6 opacity-80 [overflow-wrap:anywhere]">{baris.label}</dt>
+                      {baris.nilai ? (
+                        <dd className="min-w-0 text-title-medium font-semibold leading-6 [overflow-wrap:anywhere]">{baris.nilai}</dd>
+                      ) : (
+                        <dd className="min-w-0 text-body-large italic leading-6 opacity-80">Not set</dd>
+                      )}
+                    </Fragment>
+                  ))}
+                </dl>
+              ) : peserta ? (
                 <p className="mt-1 line-clamp-2 text-body-large opacity-90">
                   {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "No organisation"}
                 </p>

@@ -90,6 +90,12 @@ export type Hasil = {
   kursi?: { sesi: string | null; tulisan: string }[];
   /** Badge kertas di stasiun cetak: pekerjaan yang diantrekan, atau yang terakhir untuk pemindaian ulang. */
   badge_cetak?: HasilCetakMeja;
+  /**
+   * Shown after scan (Check-in > Sessions): info pilihan panitia untuk sesi ini,
+   * urut. Menggantikan baris Company · Title. `nilai` null = datanya belum ada.
+   * Tidak ada = sesi belum diatur.
+   */
+  info?: { label: string; nilai: string | null }[];
   /** Checkpoint yang selesai di pemindaian ini (lihat CatatanCheckpoint). */
   checkpoint?: CatatanCheckpoint;
   /** Walk-in baru: email Sign-in link (Participant area > Email a sign-in link to walk-ins). */
