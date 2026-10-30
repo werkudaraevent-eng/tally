@@ -3,6 +3,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
 import { adaBagasi, bagasiHalaman } from "@/lib/bagasi/server";
 import { bentukLogistik, logistikPeserta } from "@/lib/logistik/server";
+import { jejakPortal, pakaiPortal, portalTanpaEmail, type JejakPortal } from "@/lib/member/jejak-portal";
 import type { BentukLogistik } from "@/lib/logistik/ringkas";
 import { cleanExtra, participantBodySchema, tanpaQr, toRpcArgs } from "@/lib/participant-input";
 import { BATAS_BACA, TerlaluBanyak, argumenRpc, cocokTanpaQr, muatKonteks, nilaiKolomAdmin, pengurut, querySchema, saring, saringanAdmin, semuaBarisRpc, sesiAcara, urutPeserta } from "@/lib/participants-saring";
@@ -49,6 +50,19 @@ async function daftarPerusahaan(eventId: string): Promise<Array<{ company: strin
     .sort((a, b) => (a.company === "" ? 1 : b.company === "" ? -1 : a.company.localeCompare(b.company, "id")));
 }
 
+/**
+ * Jejak portal untuk satu halaman baris. Gagal baca = kolom Portal kosong
+ * ("Not signed in" tidak boleh tampil untuk yang sebenarnya sudah masuk), daftar
+ * peserta tetap terbuka.
+ */
+async function portalHalaman(eventId: string, ids: string[], aktif: boolean): Promise<Map<string, JejakPortal> | null> {
+  if (!aktif || ids.length === 0) return new Map();
+  return jejakPortal(eventId, ids).catch(() => null);
+}
+
+/** `portal` per baris: jejaknya, null = belum pernah masuk, undefined = tidak diketahui. */
+const denganPortal = (peta: Map<string, JejakPortal> | null, id: string) => (peta ? { portal: peta.get(id) ?? null } : {});
+
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
@@ -68,14 +82,16 @@ export async function GET(request: Request) {
   const argumen = argumenRpc(eventId, cariKustom ? { ...parsed.data, q: "" } : parsed.data, companies);
   // Sesi dibaca lebih dulu: kolom check-in per sesi adalah kunci saringan dan urutan yang sah.
   const daftarSesi = await sesiAcara(eventId);
-  const saringan = saringanAdmin(parsed.data.f, fields, daftarSesi, kustom);
+  // Kolom Portal hanya ada di acara yang memakai area peserta.
+  const portal = pakaiPortal(auth.scope.event);
+  const saringan = saringanAdmin(parsed.data.f, fields, daftarSesi, kustom, portal);
   if (!saringan) return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
   const urut = pengurut(parsed.data.sort, fields, daftarSesi);
   if (!urut) return apiError("VALIDATION_ERROR", 422, { message: "This column can't be sorted." });
 
   // Daftar centang "+ Filter": nilai yang benar-benar ada di kolom itu.
   if (parsed.data.facet !== undefined) {
-    const kolom = (kustom ? kolomSaringanKustom(fields, daftarSesi) : kolomSaringanAdmin(fields, daftarSesi, true)).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
+    const kolom = (kustom ? kolomSaringanKustom(fields, daftarSesi, portal) : kolomSaringanAdmin(fields, daftarSesi, true, portal)).find((item) => item.key === parsed.data.facet && item.jenis === "pilihan");
     if (!kolom) return apiError("VALIDATION_ERROR", 422, { message: "This column has no value list." });
     try {
       return Response.json({ key: kolom.key, values: await nilaiKolomAdmin(eventId, kolom.key, fields, zona) });
@@ -126,8 +142,9 @@ export async function GET(request: Request) {
       return apiError("INTERNAL_ERROR", 500);
     }
     const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
+    const jejak = await portalHalaman(eventId, hasil.rows.map((baris) => baris.id), portal);
     if (kustom) {
-      return Response.json({ total: hasil.total, limit: parsed.data.limit, offset: parsed.data.offset, participants: hasil.rows.map((baris) => ({ ...tanpaQr(baris), logistik: null, bagasi: null })) });
+      return Response.json({ total: hasil.total, limit: parsed.data.limit, offset: parsed.data.offset, participants: hasil.rows.map((baris) => ({ ...tanpaQr(baris), logistik: null, bagasi: null, ...denganPortal(jejak, baris.id) })) });
     }
     const ids = hasil.rows.map((baris) => baris.id);
     const [logistik, bagasi] = await Promise.all([logistikPeserta(eventId, ids), bagasiHalaman(eventId, ids)]);
@@ -135,7 +152,7 @@ export async function GET(request: Request) {
       total: hasil.total,
       limit: parsed.data.limit,
       offset: parsed.data.offset,
-      participants: hasil.rows.map((baris) => ({ ...baris, logistik: logistik.get(baris.id) ?? null, bagasi: bagasi.get(baris.id) ?? null })),
+      participants: hasil.rows.map((baris) => ({ ...baris, logistik: logistik.get(baris.id) ?? null, bagasi: bagasi.get(baris.id) ?? null, ...denganPortal(jejak, baris.id) })),
     });
   }
 
@@ -178,9 +195,12 @@ export async function GET(request: Request) {
 
   const hasil = (halaman.data ?? { rows: [], total: 0 }) as { rows: Array<{ id: string }>; total: number };
   const ids = hasil.rows.map((baris) => baris.id);
-  const [logistik, bagasi] = kustom
-    ? [new Map(), new Map()]
-    : await Promise.all([logistikPeserta(eventId, ids), denganBagasi ? bagasiHalaman(eventId, ids) : new Map()]);
+  const [[logistik, bagasi], jejak] = await Promise.all([
+    kustom
+      ? [new Map(), new Map()]
+      : Promise.all([logistikPeserta(eventId, ids), denganBagasi ? bagasiHalaman(eventId, ids) : new Map()]),
+    portalHalaman(eventId, ids, portal),
+  ]);
   const totalSemua = semua.count ?? 0;
   const totalDihapus = dihapus.count ?? 0;
 
@@ -194,9 +214,12 @@ export async function GET(request: Request) {
     last_synced_at: (terakhir.data as { source_synced_at: string | null } | null)?.source_synced_at ?? null,
     limit: parsed.data.limit,
     offset: parsed.data.offset,
-    participants: hasil.rows.map((baris) => ({ ...(kustom ? tanpaQr(baris) : baris), logistik: logistik.get(baris.id) ?? null, bagasi: bagasi.get(baris.id) ?? null })),
+    participants: hasil.rows.map((baris) => ({ ...(kustom ? tanpaQr(baris) : baris), logistik: logistik.get(baris.id) ?? null, bagasi: bagasi.get(baris.id) ?? null, ...denganPortal(jejak, baris.id) })),
     // Kolom Luggage dan bagian Luggage di detail: hanya acara dengan meja bagasi.
     luggage: denganBagasi,
+    // Kolom Portal: ada bila acara memakai area peserta. `tanpa_email`: cara
+    // masuk dua kolom, jadi peserta tanpa email tetap bisa masuk.
+    portal: { aktif: portal, tanpa_email: portalTanpaEmail(auth.scope.event) },
     // Sesi yang SUDAH DITUTUP ikut dikirim. Kehadiran yang tercatat di sesi pagi
     // tidak hilang artinya sore hari, dan kolomnya yang menghilang begitu sesi
     // ditutup akan terbaca sebagai data yang lenyap.

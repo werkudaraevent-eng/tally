@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     denah,
     orders,
     pemindaian,
+    masukPortal,
   ] = await Promise.all([
     // Peserta aktif: yang dihapus dari sumber sync tidak lagi diharapkan datang.
     hitung("participants").is("source_removed_at", null),
@@ -71,6 +72,13 @@ export async function GET(request: Request) {
       .select("id,attendance_scans!inner(id)", { head: true, count: "exact" })
       .eq("event_id", event.id)
       .is("source_removed_at", null),
+    // Peserta aktif yang pernah masuk area peserta, per ORANG seperti di atas.
+    client
+      .from("participants")
+      .select("id,participant_accounts!inner(id)", { head: true, count: "exact" })
+      .eq("event_id", event.id)
+      .is("source_removed_at", null)
+      .not("participant_accounts.last_login_at", "is", null),
   ]);
 
   const hadir = pemindaian.count ?? 0;
@@ -119,6 +127,8 @@ export async function GET(request: Request) {
     kehadiran: {
       hadir,
     },
+    // Null bila acara tidak memakai area peserta, atau hitungannya gagal.
+    portal: landing.member?.enabled === true && !masukPortal.error ? { masuk: masukPortal.count ?? 0 } : null,
     transaksi: {
       // Nol order BUKAN kegagalan: acara yang belum berjalan memang belum punya
       // transaksi. Yang tidak boleh terjadi adalah menampilkan angka yang tidak

@@ -22,7 +22,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES, MAX_CUSTOM_FIELDS } from "@/lib/registration-fields";
-import { BATAS_SARINGAN, LABEL_ASAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, kolomSaringanKustom, type Saringan } from "@/lib/saringan-kolom";
+import { BATAS_SARINGAN, LABEL_ASAL, LABEL_PORTAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, kolomSaringanKustom, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { kolomLogistik, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
@@ -64,6 +64,11 @@ type Participant = {
   logistik: LogistikRingkas | null;
   /** Bagasi dari meja titip, dijumlahkan. Null bila belum pernah ke meja bagasi. */
   bagasi?: RingkasBagasi | null;
+  /**
+   * Area peserta: kapan masuk dan terakhir membuka portal. Null = belum pernah
+   * masuk; tidak ada = acara tanpa area peserta, atau gagal dibaca.
+   */
+  portal?: { masuk: string; buka: string } | null;
 };
 type SesiKehadiran = { id: number; name: string; is_active: boolean };
 /** Jawaban /api/admin/participants/seat-options. Kosong bila tidak ada sesi denah "Set in Tally". */
@@ -435,6 +440,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [companies, setCompanies] = useState<FacetPerusahaan[]>([]);
   const [scannerColumns, setScannerColumns] = useState(false);
   const [bentukLog, setBentukLog] = useState<BentukLogistik>({ stays: 1, kit: [], kereta: false });
+  /** Kolom Portal: acara memakai area peserta; `tanpa_email` = cara masuk dua kolom. */
+  const [infoPortal, setInfoPortal] = useState({ aktif: false, tanpa_email: false });
   // Dialog Logistik yang sedang dibuka dari sini (menu bilah pilihan, panel detail, Import).
   const [aksiLog, setAksiLog] = useState<AksiLogistik | null>(null);
   const [filterAsal, setFilterAsal] = useState("");
@@ -535,6 +542,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setScannerColumns(Boolean(data.scanner_columns));
       setAdaBagasi(Boolean(data.luggage));
       if (data.logistik_bentuk) setBentukLog(data.logistik_bentuk as BentukLogistik);
+      setInfoPortal({ aktif: data.portal?.aktif === true, tanpa_email: data.portal?.tanpa_email === true });
       setRemovedCount(data.removed_count ?? 0);
       const stats = { total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null };
       statsTerakhir.current = stats;
@@ -619,8 +627,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }, []);
 
   // `?kolom=<kunci>`: kembali dari Save form di mode Add a column (Registration >
-  // Edit form). Kolom pertanyaan barunya dicentang di menu Columns, sekali;
-  // kuncinya dibuang dari alamat supaya memuat ulang tidak mencentangnya lagi.
+  // Edit form), atau dari kartu Portal di Dashboard (`kolom=portal`). Kolomnya
+  // dicentang di menu Columns, sekali; kuncinya dibuang dari alamat supaya memuat ulang tidak mencentangnya lagi.
   const kolomDariAlamat = useRef<string | null>(null);
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -639,7 +647,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     window.history.replaceState(window.history.state, "", url);
   }, []);
 
-  const kolomSaringan = useMemo(() => (kustom ? kolomSaringanKustom(fields, sessions) : kolomSaringanAdmin(fields, sessions, adaBagasi)), [fields, sessions, kustom, adaBagasi]);
+  const kolomSaringan = useMemo(() => (kustom ? kolomSaringanKustom(fields, sessions, infoPortal.aktif) : kolomSaringanAdmin(fields, sessions, adaBagasi, infoPortal.aktif)), [fields, sessions, kustom, adaBagasi, infoPortal.aktif]);
   // "Filter this column…" dari menu judul kolom: membuka chip kolom itu di "+ Filter".
   const [mintaSaring, setMintaSaring] = useState<{ key: string; n: number } | null>(null);
 
@@ -943,6 +951,23 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
             : <StatusChip dot tone="neutral">Not checked in</StatusChip>;
         },
       })),
+      // Area peserta: siapa yang belum pernah masuk, untuk dikejar sebelum acara.
+      ...(infoPortal.aktif ? [{
+        key: "portal",
+        label: "Portal",
+        // Menurut terakhir membuka portal; yang belum pernah masuk selalu di akhir.
+        sort: "portal",
+        urutJenis: "waktu",
+        saring: "portal",
+        width: 176,
+        cell: (p) => {
+          if (p.portal === undefined) return <EmptyCell />;
+          if (p.portal) return <StatusChip dot tone="success" className="tabular-nums" title={`Signed in ${tanggalJam(p.portal.masuk)}. Last opened the portal ${tanggalJam(p.portal.buka)}.`}>{tanggalJam(p.portal.buka)}</StatusChip>;
+          // Tanpa email, tautan masuk tidak bisa dikirim (kecuali cara masuk dua kolom).
+          if (!p.email?.trim() && !infoPortal.tanpa_email) return <StatusChip dot tone="warning" title="Not signed in. No email, so a sign-in link can't be sent.">No email</StatusChip>;
+          return <StatusChip dot tone="neutral">{LABEL_PORTAL.belum}</StatusChip>;
+        },
+      } satisfies Kolom] : []),
       {
         key: "registered",
         label: "Registered",
@@ -1018,7 +1043,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       );
     }
     return kustom ? daftar.filter((item) => item.key !== "qr" && item.key !== "undian") : daftar;
-  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona, kustom, adaBagasi]);
+  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona, kustom, adaBagasi, infoPortal]);
 
   // Bawaan harus muat di layar 1280 tanpa gulir mendatar (panel ±960 px):
   // Nama 240 + Organisation 200 + check-in 140 + Registered 152 + RSVP 128.
@@ -1031,9 +1056,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     const diminta = kolomDariAlamat.current;
     if (diminta === null || loading) return;
     kolomDariAlamat.current = null;
-    const baru = kolomDariTautan(diminta, fields).filter((kunci) => !visible.includes(kunci));
+    // `kolom=portal` datang dari kartu Portal di Dashboard.
+    const baru = [...kolomDariTautan(diminta, fields), ...(diminta.split(",").includes("portal") && infoPortal.aktif ? ["portal"] : [])].filter((kunci) => !visible.includes(kunci));
     if (baru.length) setVisible([...visible, ...baru]);
-  }, [loading, fields, visible, setVisible]);
+  }, [loading, fields, visible, setVisible, infoPortal.aktif]);
   const kolomTampil = kolom.filter((item) => visible.includes(item.key));
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
   const jabatanDiBawahNama = !visible.includes("title");

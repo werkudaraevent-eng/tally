@@ -214,6 +214,9 @@ export async function loginMember(
   return { status: "ok" };
 }
 
+/** Jeda menulis `last_seen_at` sesi peserta. */
+const JEDA_BUKA_MS = 60 * 60 * 1000;
+
 /**
  * Sesi peserta untuk acara ini, atau null. Sesi dari acara lain dianggap tidak
  * ada: cookie-nya satu, tetapi akunnya terikat pada satu acara.
@@ -236,6 +239,7 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
   const sesi = data as {
     id: string;
     expires_at: string;
+    last_seen_at?: string | null;
     cara?: string | null;
     created_at: string;
     participant_accounts: {
@@ -257,10 +261,17 @@ export async function getMemberSession(event: Pick<EventRow, "id" | "landing_con
     // Sesi dari masa dua kolom sebelumnya (fields -> lain -> fields).
     if (member.sign_in_since && new Date(sesi.created_at).getTime() < new Date(member.sign_in_since).getTime()) return null;
   }
-  const baru = perpanjangSesi(Date.now(), new Date(sesi.expires_at).getTime(), event);
-  if (baru !== null) {
+  const sekarang = Date.now();
+  const baru = perpanjangSesi(sekarang, new Date(sesi.expires_at).getTime(), event);
+  // "Terakhir membuka portal" untuk kolom Portal di daftar peserta, paling
+  // sering sekali per jam supaya membuka halaman tidak selalu menulis.
+  const catatBuka = !sesi.last_seen_at || sekarang - Date.parse(sesi.last_seen_at) > JEDA_BUKA_MS;
+  if (baru !== null || catatBuka) {
     // Gagal memperpanjang tidak menggagalkan halaman: sesinya masih berlaku.
-    await client.from("participant_sessions").update({ expires_at: new Date(baru).toISOString() } as never).eq("id", sesi.id);
+    await client.from("participant_sessions").update({
+      ...(baru !== null ? { expires_at: new Date(baru).toISOString() } : {}),
+      ...(catatBuka ? { last_seen_at: new Date(sekarang).toISOString() } : {}),
+    } as never).eq("id", sesi.id);
   }
   const akun = sesi.participant_accounts;
   const dasar = {

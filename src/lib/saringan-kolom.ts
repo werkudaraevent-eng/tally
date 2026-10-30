@@ -52,6 +52,8 @@ export function jenisPertanyaan(type: RegistrationFieldType): JenisSaringan {
 
 /** Label RSVP dan asal peserta, sama dengan yang tampil di tabel admin. */
 export const LABEL_RSVP: Record<string, string> = { confirmed: "Confirmed", invited: "Awaiting reply", declined: "Declined" };
+/** Nilai saringan kolom Portal, sama dengan yang tampil di tabel admin. */
+export const LABEL_PORTAL = { masuk: "Signed in", belum: "Not signed in" } as const;
 export const LABEL_ASAL: Record<string, string> = { walkin: "Walk-in", registration: "Self-registered", manual: "Manual", scanner: "Scanner API" };
 
 /** Sesi kehadiran yang punya kolom check-in di tabel. */
@@ -64,14 +66,17 @@ export type SesiSaringan = { id: number; name: string };
  * Check-in per sesi memakai nama sesinya saja, sama dengan judul kolomnya
  * ("Registration: Checked in"). Organisation, Check-in, Source, dan RSVP juga punya chip sendiri di baris
  * saringan; keduanya berlaku bersamaan (DAN), seperti saringan lain. Room dan
- * Bus dibaca dari Logistik, Lucky draw dari daftar pengecualian undian.
+ * Bus dibaca dari Logistik, Lucky draw dari daftar pengecualian undian, Portal
+ * dari akun area peserta (lib/member/jejak-portal.ts).
  * Luggage (status bagasi) hanya di acara yang punya meja bagasi; server selalu
  * menerimanya, supaya tautan lama tidak ditolak setelah mejanya dimatikan.
  */
-export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaringan[] = [], bagasi = false): KolomSaringan[] {
+export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaringan[] = [], bagasi = false, portal = false): KolomSaringan[] {
   return [
     { key: "company", label: "Organisation", jenis: "pilihan", grup: "kolom" },
     ...sesi.map<KolomSaringan>((item) => ({ key: `checkin:${item.id}`, label: item.name, jenis: "pilihan", grup: "kolom" })),
+    // Hanya di acara yang memakai area peserta.
+    ...(portal ? [{ key: "portal", label: "Portal", jenis: "pilihan", grup: "kolom" } satisfies KolomSaringan] : []),
     { key: "rsvp", label: "RSVP", jenis: "pilihan", grup: "kolom" },
     { key: "title", label: "Job title", jenis: "teks", grup: "kolom" },
     { key: "registered_at", label: "Registered", jenis: "tanggal", grup: "kolom" },
@@ -98,8 +103,8 @@ export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaring
 export const KOLOM_TERTUTUP_KUSTOM = new Set(["qr_code", "kamar", "bus", "undian", "bagasi"]);
 
 /** `kolomSaringanAdmin` untuk akun peran kustom. */
-export function kolomSaringanKustom(fields: RegistrationField[], sesi: SesiSaringan[] = []): KolomSaringan[] {
-  return kolomSaringanAdmin(fields, sesi).filter((kolom) => !KOLOM_TERTUTUP_KUSTOM.has(kolom.key));
+export function kolomSaringanKustom(fields: RegistrationField[], sesi: SesiSaringan[] = [], portal = false): KolomSaringan[] {
+  return kolomSaringanAdmin(fields, sesi, false, portal).filter((kolom) => !KOLOM_TERTUTUP_KUSTOM.has(kolom.key));
 }
 
 /**
