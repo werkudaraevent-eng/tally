@@ -1202,8 +1202,9 @@ Aturan yang mengikat semuanya:
   kolom) dan tombol Columns sama-sama 32px dengan sudut `rounded-md`. Chip
   berbentuk pil di sebelah kolom bersudut terbaca sebagai dua komponen berbeda.
 - Sel nama di Participant list memuat paling banyak satu baris kedua, dan
-  isinya SATU kolom untuk seluruh halaman (jabatan bila kolomnya tersembunyi,
-  kalau tidak email), bukan campuran per baris dan bukan baris kosong. Kode QR
+  isinya SATU kolom untuk seluruh halaman (jabatan bila kolomnya tersembunyi
+  dan setidaknya separuh baris mengisinya, kalau tidak email dengan aturan yang
+  sama), bukan campuran per baris dan bukan baris yang kebanyakan kosong. Kode QR
   tidak pernah tampil di sana: peran kustom tidak boleh melihatnya. Export dan
   pencarian tidak terpengaruh, keduanya bekerja per kolom data.
 - Tanpa em dash di teks antarmuka. Sel kosong memakai en dash (`EMPTY_VALUE`).
