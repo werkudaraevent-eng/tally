@@ -65,8 +65,10 @@ export type SesiSaringan = { id: number; name: string };
  * ("Registration: Checked in"). Organisation, Check-in, Source, dan RSVP juga punya chip sendiri di baris
  * saringan; keduanya berlaku bersamaan (DAN), seperti saringan lain. Room dan
  * Bus dibaca dari Logistik, Lucky draw dari daftar pengecualian undian.
+ * Luggage (status bagasi) hanya di acara yang punya meja bagasi; server selalu
+ * menerimanya, supaya tautan lama tidak ditolak setelah mejanya dimatikan.
  */
-export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaringan[] = []): KolomSaringan[] {
+export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaringan[] = [], bagasi = false): KolomSaringan[] {
   return [
     { key: "company", label: "Organisation", jenis: "pilihan", grup: "kolom" },
     ...sesi.map<KolomSaringan>((item) => ({ key: `checkin:${item.id}`, label: item.name, jenis: "pilihan", grup: "kolom" })),
@@ -82,6 +84,7 @@ export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaring
     { key: "bus", label: "Vehicle", jenis: "pilihan", grup: "kolom" },
     { key: "source", label: "Source", jenis: "pilihan", grup: "kolom" },
     { key: "undian", label: "Lucky draw", jenis: "pilihan", grup: "kolom" },
+    ...(bagasi ? [{ key: "bagasi", label: "Luggage", jenis: "pilihan", grup: "kolom" } satisfies KolomSaringan] : []),
     ...fields.map<KolomSaringan>((field) => ({ key: `field:${field.key}`, label: field.label, jenis: jenisPertanyaan(field.type), grup: GRUP_JAWABAN[asalJawaban(field)] })),
   ];
 }
@@ -90,9 +93,9 @@ export function kolomSaringanAdmin(fields: RegistrationField[], sesi: SesiSaring
  * Kolom yang tidak boleh disaring atau diurutkan akun peran kustom. Saringan
  * teks ("berisi") atas kolom yang tidak terlihat adalah tebakan bertahap: ada
  * atau tidaknya baris membocorkan isinya (QA #341 H1). QR tidak pernah sampai
- * ke peran kustom; Hotel, Vehicle, dan Lucky draw milik modul yang belum dibuka.
+ * ke peran kustom; Hotel, Vehicle, Lucky draw dan Luggage milik modul yang belum dibuka.
  */
-export const KOLOM_TERTUTUP_KUSTOM = new Set(["qr_code", "kamar", "bus", "undian"]);
+export const KOLOM_TERTUTUP_KUSTOM = new Set(["qr_code", "kamar", "bus", "undian", "bagasi"]);
 
 /** `kolomSaringanAdmin` untuk akun peran kustom. */
 export function kolomSaringanKustom(fields: RegistrationField[], sesi: SesiSaringan[] = []): KolomSaringan[] {

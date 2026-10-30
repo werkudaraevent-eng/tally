@@ -12,6 +12,8 @@ import {
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { ResetCheckInDialog, type TargetReset } from "@/components/admin/reset-check-in-dialog";
+import { BagasiPeserta } from "@/components/admin/bagasi-peserta";
+import { labelBagasi, statusBagasi, type RingkasBagasi } from "@/lib/bagasi/ringkas";
 import { useIzinKustom, useTerkunci } from "@/components/admin/page-context";
 import Link from "@/components/event-link";
 import { withEventPrefix } from "@/lib/event-path";
@@ -60,6 +62,8 @@ type Participant = {
   seats: ParticipantSeat[] | null;
   /** Hotel, kamar, bus bawaan, tiket kereta dan kit dari Logistik. Null bila belum ada sama sekali. */
   logistik: LogistikRingkas | null;
+  /** Bagasi dari meja titip, dijumlahkan. Null bila belum pernah ke meja bagasi. */
+  bagasi?: RingkasBagasi | null;
 };
 type SesiKehadiran = { id: number; name: string; is_active: boolean };
 /** Jawaban /api/admin/participants/seat-options. Kosong bila tidak ada sesi denah "Set in Tally". */
@@ -458,6 +462,11 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [kursiAwal, setKursiAwal] = useState<Record<number, string>>({});
   const [confirmDelete, setConfirmDelete] = useState<Participant | null>(null);
   const [resetCheckIn, setResetCheckIn] = useState<TargetReset | null>(null);
+  // Acara punya meja bagasi: kolom Luggage dan bagiannya di detail. Server
+  // mengirim false untuk peran kustom.
+  const [adaBagasi, setAdaBagasi] = useState(false);
+  // Naik setelah reset check-in, yang juga menghapus bagasi sesi itu.
+  const [versiBagasi, setVersiBagasi] = useState(0);
   // Pilihan bertahan lintas halaman. Saringan dan pencarian tidak bisa diubah
   // selama ada pilihan, karena bilah pilihan menutupi barisnya (pola bilah
   // kontekstual M3), jadi yang tercentang selalu yang cocok dengan saringan.
@@ -524,6 +533,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setSessions((data.sessions ?? []) as SesiKehadiran[]);
       setCompanies((data.companies ?? []) as FacetPerusahaan[]);
       setScannerColumns(Boolean(data.scanner_columns));
+      setAdaBagasi(Boolean(data.luggage));
       if (data.logistik_bentuk) setBentukLog(data.logistik_bentuk as BentukLogistik);
       setRemovedCount(data.removed_count ?? 0);
       const stats = { total: data.total ?? 0, activeTotal: data.active_total ?? data.total ?? 0, removedCount: data.removed_count ?? 0, lastSyncedAt: data.last_synced_at ?? null };
@@ -629,7 +639,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     window.history.replaceState(window.history.state, "", url);
   }, []);
 
-  const kolomSaringan = useMemo(() => (kustom ? kolomSaringanKustom : kolomSaringanAdmin)(fields, sessions), [fields, sessions, kustom]);
+  const kolomSaringan = useMemo(() => (kustom ? kolomSaringanKustom(fields, sessions) : kolomSaringanAdmin(fields, sessions, adaBagasi)), [fields, sessions, kustom, adaBagasi]);
   // "Filter this column…" dari menu judul kolom: membuka chip kolom itu di "+ Filter".
   const [mintaSaring, setMintaSaring] = useState<{ key: string; n: number } | null>(null);
 
@@ -772,7 +782,17 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       delete sisa[String(sessionId)];
       return { ...p, attendance: sisa };
     }));
+    // Bagasi sesi itu ikut terhapus: kolom Luggage dan bagian detailnya dimuat ulang.
+    if (adaBagasi) { setVersiBagasi((n) => n + 1); void load(debouncedQuery, page, sort, dir, perPage, false); }
     setNotice(`${nama} reset.`);
+    onChanged?.();
+  }
+
+  /** Setelah reset bagasi di detail: kolom Luggage baris ini dimuat ulang. */
+  function bagasiDireset(participantId: string) {
+    const nama = participants.find((p) => p.id === participantId)?.name ?? "This participant";
+    setNotice(`${nama}'s luggage reset.`);
+    void load(debouncedQuery, page, sort, dir, perPage, false);
     onChanged?.();
   }
 
@@ -897,6 +917,10 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone,
   }), [timeZone]);
 
+  const tanggalPendek = useCallback((iso: string) => new Date(iso).toLocaleString("en-GB", {
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone,
+  }), [timeZone]);
+
   const adaRegistered = participants.some((p) => p.registered_at !== undefined);
 
   // ---- Kolom -------------------------------------------------------------
@@ -956,6 +980,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       { key: "email", label: "Email", sort: "email", saring: "email", width: 220, cell: (p) => p.email ? <span className="block truncate" title={p.email}>{p.email}</span> : <EmptyCell /> },
       { key: "phone", label: "Phone", sort: "phone", saring: "phone", width: 140, cell: (p) => p.phone ?? <EmptyCell /> },
       { key: "undian", label: "Lucky draw", sort: "undian", saring: "undian", width: 128, cell: (p) => excluded.has(p.id) ? <StatusChip tone="warning">Excluded</StatusChip> : <span className="text-on-surface-variant">Included</span> },
+      // Jumlah koper dan status dari meja bagasi; urut menurut jumlah koper. Fotonya di detail peserta.
+      ...(adaBagasi && !kustom ? [{
+        key: "bagasi",
+        label: "Luggage",
+        sort: "bagasi",
+        urutJenis: "angka",
+        saring: "bagasi",
+        width: 152,
+        cell: (p) => {
+          const status = statusBagasi(p.bagasi ?? undefined);
+          if (!status) return <EmptyCell />;
+          if (status === "No luggage") return <span className="text-on-surface-variant">No luggage</span>;
+          return <StatusChip dot tone={status === "Handed back" ? "success" : "neutral"} className="tabular-nums">{labelBagasi(p.bagasi ?? undefined)}</StatusChip>;
+        },
+      } satisfies Kolom] : []),
       ...fields.map<Kolom>((item) => ({
         key: `field:${item.key}`,
         label: item.label,
@@ -979,7 +1018,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       );
     }
     return kustom ? daftar.filter((item) => item.key !== "qr" && item.key !== "undian") : daftar;
-  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona, kustom]);
+  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona, kustom, adaBagasi]);
 
   // Bawaan harus muat di layar 1280 tanpa gulir mendatar (panel ±960 px):
   // Nama 240 + Organisation 200 + check-in 140 + Registered 152 + RSVP 128.
@@ -1551,6 +1590,15 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                   );
                 })}
               </DetailSection>
+            ) : null}
+            {adaBagasi && !kustom ? (
+              <BagasiPeserta
+                key={p.id}
+                participant={{ id: p.id, name: p.name }}
+                versi={versiBagasi}
+                waktu={tanggalPendek}
+                onReset={bagasiDireset}
+              />
             ) : null}
             {kustom ? null : <DetailSection
               title="Logistics"

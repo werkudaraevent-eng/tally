@@ -15,6 +15,8 @@ export type TargetReset = {
 type Pratinjau = {
   scans: Array<{ session_id: number; count: number; first: string }>;
   pickups: Array<{ item: string; size: string | null; session_id: number | null }>;
+  /** Bagasi yang dititipkan di sesi itu; ikut terhapus bersama fotonya. */
+  luggage?: Array<{ session_id: number; bag_count: number; photo: boolean }>;
 };
 
 /**
@@ -66,7 +68,9 @@ export function ResetCheckInDialog({ target, sessions, jam, onClose, onDone }: {
 
   const namaSesi = (id: number | null) => sessions.find((sesi) => sesi.id === id)?.name ?? "a deleted session";
   const jumlahScan = pratinjau?.scans.reduce((n, baris) => n + baris.count, 0) ?? 0;
-  const kosong = pratinjau !== null && jumlahScan === 0 && pratinjau.pickups.length === 0;
+  const bagasi = pratinjau?.luggage ?? [];
+  const jumlahKoper = bagasi.reduce((n, baris) => n + baris.bag_count, 0);
+  const kosong = pratinjau !== null && jumlahScan === 0 && pratinjau.pickups.length === 0 && bagasi.length === 0;
   const title = target?.session ? `Reset check-in at ${target.session.name}?` : `Reset all check-ins for ${target?.participant.name ?? "this participant"}?`;
 
   return (
@@ -96,7 +100,10 @@ export function ResetCheckInDialog({ target, sessions, jam, onClose, onDone }: {
           {pratinjau.pickups.length > 0
             ? <li>Kit items count as not handed out again: {pratinjau.pickups.map((item) => item.size ? `${item.item} (${item.size})` : item.item).join(", ")}.</li>
             : null}
-          {kosong ? <li>Nothing to reset: no scans or kit hand-outs are recorded{target?.session ? " here" : ""}.</li> : null}
+          {bagasi.length > 0
+            ? <li>Luggage record removed: {jumlahKoper === 0 ? "no luggage" : plural(jumlahKoper, "bag")}{bagasi.some((baris) => baris.photo) ? " and the photo" : ""}{target?.session ? "" : ` (${bagasi.map((baris) => namaSesi(baris.session_id)).join(", ")})`}.</li>
+            : null}
+          {kosong ? <li>Nothing to reset: no scans, kit hand-outs or luggage are recorded{target?.session ? " here" : ""}.</li> : null}
           <li>Checkpoints, points and lucky draw rules that use this check-in update straight away. Lucky draw winners already drawn stay.</li>
           {target?.participant.scannerCheckedIn
             ? <li>The check-in from Scanner API stays: the lucky draw and Client view still count it until it changes in Scanner API.</li>

@@ -40,6 +40,7 @@ const CATEGORIES: Array<{ value: string; label: string }> = [
 const ACTION_LABEL: Record<string, string> = {
   settings_update: "Mengubah settings acara",
   participant_check_in_reset: "Mereset check-in peserta",
+  participant_luggage_reset: "Mereset bagasi peserta",
   display_settings_update: "Mengubah Papan peringkat",
   display_background_upload: "Mengganti latar Papan peringkat",
   leaderboard_reveal_config: "Mengatur reveal bertahap",
@@ -233,7 +234,12 @@ function summarise(entry: Entry): string {
   if (entry.action === "participant_check_in_reset") {
     const scans = Array.isArray(payload.scans) ? payload.scans.length : 0;
     const pickups = Array.isArray(payload.pickups) ? payload.pickups.length : 0;
-    return `${payload.participant_name ?? "?"} · ${payload.session_id ? "satu sesi" : "semua sesi"} · ${scans} scan, ${pickups} barang kit dihapus`;
+    const bagasi = Array.isArray(payload.luggage) ? payload.luggage.length : 0;
+    return `${payload.participant_name ?? "?"} · ${payload.session_id ? "satu sesi" : "semua sesi"} · ${scans} scan, ${pickups} barang kit${bagasi ? `, ${bagasi} catatan bagasi` : ""} dihapus`;
+  }
+  if (entry.action === "participant_luggage_reset") {
+    const catatan = Array.isArray(payload.luggage) ? (payload.luggage as Array<{ bag_count?: number }>) : [];
+    return `${payload.participant_name ?? "?"} · ${catatan.reduce((n, item) => n + (item.bag_count ?? 0), 0)} koper dihapus`;
   }
   if (entry.action === "participant_sync") {
     const synced = payload.synced as Record<string, unknown> | undefined;

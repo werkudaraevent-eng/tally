@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-29.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-10-30.
 
 ## How to update this file
 
@@ -15,6 +15,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## In flight
 
+- Luggage per participant in the CMS (Mas 30 Oct: the photo and count were saved but nowhere to see or reset per person): Participant list detail panel gets a Luggage section (photo, count, At the desk / Handed back, desk, time, staff) with reset per record; Luggage column (sort by bags, filter by state) and four `luggage:` export columns, only on events with a luggage desk or records; Reset check-in at a luggage session also removes that session's luggage and photo. Admin only, no SQL. PR open, waiting on QA and Mas's merge time.
 - Check-ins split per day (Mas 29 Oct): a checkpoint linked to Agenda rows on several days (one meeting point, a batch per day) shows one row per day, expected from that day's rows and scans from that day only, on the Dashboard and the committee page. Before, the batches were summed under the first day (441 instead of 52). No SQL. PR #337, QA GO; waiting on Mas's merge time.
 - Lucky draw prize on the winner's Participant home (Mas 29 Oct, from the mockup): a "Hadiah kamu" card at the top of Beranda on the day it is confirmed, below Next up after that (Horizon, Trip, Gathering, Modern, Classic) with prize, image, sponsor, time and how to collect it, plus Buka QR saya. Shown only after the operator taps Confirm; never while the name is on stage, after Absent, or in rehearsal; only to that participant, read on the server. Participant area > Lucky draw prize: switch (default off) and default collection note (with English); each prize gets "How winners collect it" in Prizes & rules. Needs migration `202610290003_undian_catatan_ambil` (one nullable column) before the code merges: the prize list selects `claim_note`. PR open, waiting on SQL run, QA and Mas's merge time. Not built: a push/WhatsApp message to the winner, a public winners list. QA GO at 4d4a1d6.
 - Participants stay signed in until the event ends, and phones remember the second sign-in field (Mas 29 Oct, KSO signs in with Email + NIK/Passport): the session is extended each time the portal opens (at least 30 days, and at least 2 days after the event, at most 90 days ahead); before, it ended exactly 30 days after sign-in, so early sign-ins expired just before the event. The sign-in boxes mark Email (first field) as the username and the password or second participant field as the password, with a Show/Hide eye button, so Google Password Manager / iCloud Keychain offer to save it and fill it in after Keluar; Tally stores nothing on the phone. One line under Masuk says the device stays signed in and to choose Keluar on someone else's device. No SQL, no CMS setting. PR open, waiting on QA and Mas's merge time (visible on KSO, before 3 Nov).

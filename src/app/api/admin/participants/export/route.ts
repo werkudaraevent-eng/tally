@@ -16,14 +16,20 @@ import {
 } from "@/lib/participants-io";
 import { BATAS_BACA, TerlaluBanyak, idsTersaring } from "@/lib/participants-saring";
 import { normalizeTimeZone } from "@/lib/timezone";
+import { adaBagasi, bagasiAcara } from "@/lib/bagasi/server";
 import { bentukLogistik, logistikEkspor } from "@/lib/logistik/server";
 import { kolomLogistik } from "@/lib/logistik/ringkas";
-import type { LogistikEkspor } from "@/lib/participants-io";
+import type { BagasiEkspor, LogistikEkspor } from "@/lib/participants-io";
 
 /** Kolom dan isi Logistik untuk ekspor (bukan template). */
 async function logistikUntukEkspor(eventId: string): Promise<LogistikEkspor> {
   const [bentuk, data] = await Promise.all([bentukLogistik(eventId), logistikEkspor(eventId)]);
   return { kolom: kolomLogistik(bentuk), data };
+}
+
+/** Kolom bagasi hanya untuk acara yang punya meja bagasi. */
+async function bagasiUntukEkspor(eventId: string): Promise<BagasiEkspor | undefined> {
+  return (await adaBagasi(eventId)) ? bagasiAcara(eventId) : undefined;
 }
 
 /**
@@ -72,13 +78,13 @@ export async function GET(request: Request) {
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
 
   try {
-    const [sesi, logistik] = isTemplate ? [[], undefined] : await Promise.all([sesiEkspor(auth.scope.event.id), kustom ? undefined : logistikUntukEkspor(auth.scope.event.id)]);
-    const headersPenuh = isTemplate ? importHeaders(fields) : exportHeaders(fields, sesi, logistik);
+    const [sesi, logistik, bagasi] = isTemplate ? [[], undefined, undefined] : await Promise.all([sesiEkspor(auth.scope.event.id), kustom ? undefined : logistikUntukEkspor(auth.scope.event.id), kustom ? undefined : bagasiUntukEkspor(auth.scope.event.id)]);
+    const headersPenuh = isTemplate ? importHeaders(fields) : exportHeaders(fields, sesi, logistik, bagasi);
     const zona = normalizeTimeZone(auth.scope.event.time_zone);
     // Saringan yang sedang dipakai di daftar ikut ke berkas: yang diunduh adalah
     // yang terlihat. Tanpa saringan, seluruh acara seperti sebelumnya.
     const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona, kustom);
-    const rowsPenuh = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi, logistik);
+    const rowsPenuh = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi, logistik, bagasi);
     const { headers, rows } = kustom ? untukKustom(headersPenuh, rowsPenuh) : { headers: headersPenuh, rows: rowsPenuh };
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: kustom });
     return new Response(body as BodyInit, {
@@ -115,9 +121,9 @@ export async function POST(request: Request) {
   const fields = ((auth.scope.event.registration_form_config as RegistrationFormConfig | null)?.fields ?? []) as RegistrationField[];
   try {
     const kustom = auth.scope.role === "custom";
-    const [sesi, logistik] = await Promise.all([sesiEkspor(auth.scope.event.id), kustom ? undefined : logistikUntukEkspor(auth.scope.event.id)]);
-    const rowsPenuh = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids), sesi, logistik);
-    const headersPenuh = exportHeaders(fields, sesi, logistik);
+    const [sesi, logistik, bagasi] = await Promise.all([sesiEkspor(auth.scope.event.id), kustom ? undefined : logistikUntukEkspor(auth.scope.event.id), kustom ? undefined : bagasiUntukEkspor(auth.scope.event.id)]);
+    const rowsPenuh = await loadParticipantExportRows(auth.scope.event.id, fields, normalizeTimeZone(auth.scope.event.time_zone), new Set(body.data.ids), sesi, logistik, bagasi);
+    const headersPenuh = exportHeaders(fields, sesi, logistik, bagasi);
     const { headers, rows } = kustom ? untukKustom(headersPenuh, rowsPenuh) : { headers: headersPenuh, rows: rowsPenuh };
     const isi = body.data.format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: kustom });
     return new Response(isi as BodyInit, {
