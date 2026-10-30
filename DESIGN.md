@@ -229,7 +229,10 @@ Skala tipe M3: lima peran × tiga ukuran.
   dikerjakan dengan menaikkan bobot, bukan dengan pasangan gaya tersendiri.
 - Ukuran ditulis dalam `rem` supaya ikut membesar saat pengguna menaikkan ukuran
   huruf peramban.
-- Angka memakai `font-variant-numeric: tabular-nums` (sudah global di `body`).
+- Angka memakai `font-variant-numeric: tabular-nums` (global di `body`). Ruang kerja
+  (`.press`) membatasinya ke sel tabel dan elemen yang memintanya (`tabular-nums`,
+  `ed-num`): di Inter fitur itu ikut melebarkan tanda hubung, jadi "Check-in"
+  terbaca "Check - in". Halaman tamu menyusul setelah KSO.
 - Ukuran bawaan Tailwind (`text-sm`, `text-base`, …) masih hidup untuk layar yang
   belum dipindahkan. Layar baru memakai skala M3.
 - Hindari huruf berkait dan huruf dekoratif di layar operasional.
@@ -1195,6 +1198,14 @@ Aturan yang mengikat semuanya:
   `accent-soft` + `primary`. `primary` biru (`#1a56c4` terang, `#6699ff` gelap) adalah
   satu-satunya warna aksen.
 - Status: `StatusChip` setinggi 20px, radius 4px, bertitik.
+- Toolbar daftar: kolom cari, chip saringan (`ChipMenu`, "+ Filter", chip
+  kolom) dan tombol Columns sama-sama 32px dengan sudut `rounded-md`. Chip
+  berbentuk pil di sebelah kolom bersudut terbaca sebagai dua komponen berbeda.
+- Sel nama di Participant list memuat paling banyak satu baris kedua, dan
+  isinya SATU kolom untuk seluruh halaman (jabatan bila kolomnya tersembunyi,
+  kalau tidak email), bukan campuran per baris dan bukan baris kosong. Kode QR
+  tidak pernah tampil di sana: peran kustom tidak boleh melihatnya. Export dan
+  pencarian tidak terpengaruh, keduanya bekerja per kolom data.
 - Tanpa em dash di teks antarmuka. Sel kosong memakai en dash (`EMPTY_VALUE`).
 - Acara berstatus selesai atau arsip memasang penanda di bawah `WorkspaceHeader`
   setiap halaman (`kunci` di konteks halaman admin): `Banner` info untuk admin

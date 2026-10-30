@@ -471,7 +471,7 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 	return (
 		<div
 			className={cx(
-				"inline-flex h-8 shrink-0 items-center rounded-full border text-body-medium font-medium",
+				"inline-flex h-8 shrink-0 items-center rounded-md border text-body-medium font-medium",
 				aktif ? "border-primary bg-accent-soft text-primary" : "border-outline bg-surface-container-lowest text-on-surface",
 			)}
 		>
@@ -482,7 +482,7 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 				aria-expanded={anchor.open}
 				aria-controls={anchor.open ? id : undefined}
 				onClick={anchor.toggle}
-				className={cx("inline-flex h-full items-center gap-1.5 whitespace-nowrap rounded-full pl-3", aktif ? "pr-1.5" : "pr-2.5 hover:bg-primary-soft")}
+				className={cx("inline-flex h-full items-center gap-1.5 whitespace-nowrap rounded-md pl-3", aktif ? "pr-1.5" : "pr-2.5 hover:bg-primary-soft")}
 			>
 				{teks}
 				{aktif ? null : <CaretDown size={14} aria-hidden className="text-on-surface-variant" />}
@@ -492,7 +492,7 @@ export function ChipMenu({ label, options, selected, onChange, multiple, searcha
 					type="button"
 					aria-label={`Clear filter ${label}`}
 					onClick={() => onChange([])}
-					className="mr-1 grid size-6 place-items-center rounded-full hover:bg-surface-container-high"
+					className="mr-1 grid size-6 place-items-center rounded-sm hover:bg-surface-container-high"
 				>
 					<X size={14} aria-hidden />
 				</button>

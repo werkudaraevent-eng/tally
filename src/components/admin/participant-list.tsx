@@ -1086,7 +1086,16 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   }, [loading, fields, visible, setVisible, infoPortal.aktif]);
   const kolomTampil = kolom.filter((item) => visible.includes(item.key));
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
-  const jabatanDiBawahNama = !visible.includes("title");
+  // Baris kedua di bawah nama: SATU kolom untuk seluruh halaman, bukan campuran
+  // per baris. Jabatan bila kolomnya tersembunyi dan ada yang mengisinya, kalau
+  // tidak email dengan aturan yang sama. Kalau keduanya kosong di halaman ini,
+  // baris kedua hilang: dulu ia diisi spasi kosong, jadi setiap baris memesan
+  // satu baris teks tanpa isi dan nama tidak sejajar dengan kolom di sebelahnya.
+  // Kode QR tidak pernah di sini: peran kustom tidak boleh melihatnya.
+  const barisKedua: "title" | "email" | null =
+    !visible.includes("title") && participants.some((p) => p.title?.trim()) ? "title"
+    : !visible.includes("email") && participants.some((p) => p.email?.trim()) ? "email"
+    : null;
 
   // Hasil cari yang cocok di kolom yang tidak tampil: tulis kolomnya di bawah
   // nama, supaya jelas kenapa baris itu muncul (seperti cuplikan hasil Gmail).
@@ -1107,7 +1116,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     };
     // Kunci kolom tabel untuk tiap kolom yang dicari.
     const kolomTabel: Record<string, string> = { company: "company", title: "title", email: "email", phone: "phone", participant_type: "type", qr_code: "qr" };
-    const terlihat = (kunci: string) => kunci === "name" || (kunci === "title" && jabatanDiBawahNama) || visible.includes(kolomTabel[kunci] ?? kunci);
+    const terlihat = (kunci: string) => kunci === "name" || kunci === barisKedua || visible.includes(kolomTabel[kunci] ?? kunci);
     // Hanya kata yang tidak ketemu di kolom yang tampil: "budi" yang cocok di
     // nama tidak perlu cuplikan, walau email tersembunyinya juga memuat "budi".
     return (p: Participant) => {
@@ -1118,7 +1127,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       }
       return null;
     };
-  }, [debouncedQuery, fields, kustom, visible, jabatanDiBawahNama]);
+  }, [debouncedQuery, fields, kustom, visible, barisKedua]);
 
   const adaFilter = Boolean(filterAsal || filterHadir || filterRsvp || filterPerusahaan.length || saringan.length);
   // Saringan yang sedang berlaku, disebut di bilah pilihan karena barisnya tertutup.
@@ -1382,7 +1391,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
                         {(() => {
                           const cocok = cocokTersembunyi?.(participant);
                           if (cocok) return <span className="block truncate text-on-surface-variant" title={`${cocok.label}: ${cocok.nilai}`}>{cocok.label}: <span className="text-on-surface">{cocok.nilai}</span></span>;
-                          return jabatanDiBawahNama ? <span className="block truncate text-on-surface-variant">{participant.title || " "}</span> : null;
+                          return barisKedua ? <span className="block truncate text-on-surface-variant">{participant[barisKedua]?.trim() || "\u00a0"}</span> : null;
                         })()}
                       </button>
                     </td>
