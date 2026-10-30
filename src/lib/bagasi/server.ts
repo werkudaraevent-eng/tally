@@ -329,7 +329,8 @@ export async function bagasiAcara(eventId: string): Promise<Map<string, RingkasB
 export async function bagasiHalaman(eventId: string, ids: string[]): Promise<Map<string, RingkasBagasi>> {
   const db = getSupabaseServiceClient();
   const semua: BarisRingkasBagasi[] = [];
-  // Satu halaman paling banyak 200 orang; tiap orang beberapa meja saja.
+  // Satu halaman paling banyak 1000 orang ("All"), per 100 id supaya URL
+  // tetap pendek; tiap orang beberapa meja saja.
   for (let i = 0; i < ids.length; i += 100) {
     const { data, error } = await db
       .from("luggage_drops")

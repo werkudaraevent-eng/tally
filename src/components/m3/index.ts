@@ -60,7 +60,7 @@ export { ThemeToggle } from "./theme-toggle";
 
 export {
 	ChipMenu, ColumnMenu, DetailSection, KeyValue, ListDetail, ListRow, MetaSeparator, Pane, PaneBody, PaneFooter, PaneHeader,
-	StatusDot, SupportingPane, useColumnPrefs, WorkspaceHeader, WorkspacePage,
+	StatusDot, SupportingPane, useColumnPrefs, usePageSizePref, WorkspaceHeader, WorkspacePage,
 } from "./workspace";
 export type { ChipMenuOption, ChipMenuProps, ColumnOption, ListDetailProps, WorkspaceHeaderProps, WorkspacePageProps } from "./workspace";
 

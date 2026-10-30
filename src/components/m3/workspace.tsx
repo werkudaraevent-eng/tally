@@ -331,6 +331,26 @@ export function useColumnPrefs(table: string, defaults: string[]) {
 	return { visible: nilai ?? defaults, setVisible, isDefault: nilai == null };
 }
 
+/**
+ * Jumlah baris per halaman tabel, disimpan per akun di peramban (sama untuk
+ * semua acara: kebiasaan membaca daftar milik orangnya, bukan milik acaranya).
+ * Nilai yang tidak ada di `pilihan` diabaikan.
+ */
+export function usePageSizePref(table: string, pilihan: number[], bawaan: number) {
+	const page = useAdminPage();
+	const kunci = `tally:baris:${table}:${page?.username ?? "anon"}`;
+	const mentah = useSyncExternalStore(langgananKolom, () => bacaPenyimpanan(kunci), () => null);
+	const angka = Number(mentah);
+	const setPageSize = (next: number) => {
+		try {
+			if (next === bawaan) window.localStorage.removeItem(kunci);
+			else window.localStorage.setItem(kunci, String(next));
+		} catch { /* penyimpanan peramban diblokir: pilihan tidak tersimpan */ }
+		window.dispatchEvent(new Event(PERISTIWA_KOLOM));
+	};
+	return { pageSize: pilihan.includes(angka) ? angka : bawaan, setPageSize };
+}
+
 export function ColumnMenu({ columns, visible, onChange, onReset, isDefault, action }: {
 	columns: ColumnOption[];
 	visible: string[];
