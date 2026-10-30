@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { hitungPantau, kunciDasar, rincianPantau, type PesertaPantau } from "./pantau-checkin.ts";
+import { hitungPantau, kunciDasar, rincianPantau, ringkasAcara, type PesertaPantau } from "./pantau-checkin.ts";
 import { bacaSyaratBaris } from "./sasaran-baris.ts";
 
-const kolom = [{ key: "batch", options: ["Batch 1", "Batch 2"] }];
+const kolom = [{ key: "batch", label: "Batch", options: ["Batch 1", "Batch 2"] }];
 const orang = (id: string, batch?: string): PesertaPantau => ({ id, data: { jawaban: batch ? { batch } : {}, stays: [], offset: "+07:00", kolom } });
 const peserta = [orang("a", "Batch 1"), orang("b", "Batch 1"), orang("c", "Batch 2"), orang("d")];
 const sekarang = new Date("2026-11-06T00:00:00Z");
@@ -108,3 +108,40 @@ console.log("pantau-checkin per hari ok");
 assert.equal(kunciDasar("cp-12345678"), "cp-12345678");
 assert.equal(kunciDasar("cp-12345678-20261105"), "cp-12345678");
 assert.equal(kunciDasar("sesi-4"), "sesi-4");
+
+// Kolom For: teks pilihan dari Who sees it, null = semua.
+assert.equal(hasil[0].untuk, "Batch 1");
+assert.equal(hasil[1].untuk, "Batch 1 / Batch 2");
+assert.equal(hasil[2].untuk, null);
+assert.equal(hasil[3].untuk, null);
+
+// Ringkasan atas Dashboard. 6 Nov 07.05 WIB: Batch 1 05.00 dan Batch 2 06.00 sudah lewat, gala 19.00 berikutnya.
+{
+  const kini = new Date("2026-11-06T00:05:00Z");
+  const scanHari = [
+    { kunci: 1, participant_id: "a", at: "2026-11-05T22:00:00Z" }, // 05.00 WIB
+    { kunci: 2, participant_id: "a", at: "2026-11-05T23:58:00Z" }, // bukan yang pertama hari ini
+    { kunci: 1, participant_id: "c", at: "2026-11-05T23:55:00Z" }, // 06.55, dalam 15 menit
+    { kunci: 1, participant_id: "b", at: "2026-11-04T23:00:00Z" }, // kemarin
+  ];
+  const r = ringkasAcara({ ...bahan, scans: scanHari, sekarang: kini, offset: "+07:00" }, new Set(["a", "b"]));
+  assert.equal(r.hari_ini, "2026-11-06");
+  assert.equal(r.datang_hari_ini, 2);
+  assert.equal(r.datang_15, 1);
+  assert.equal(r.diharapkan_hari_ini, 4); // gala tanpa Who sees it: semua
+  assert.equal(r.berikutnya, "cp-100");
+  assert.deepEqual(r.kedatangan[0], { mulai: "05:00", jumlah: 1 });
+  assert.deepEqual(r.kedatangan.at(-1), { mulai: "07:00", jumlah: 0 });
+  assert.deepEqual(r.kedatangan.find((k) => k.mulai === "06:45"), { mulai: "06:45", jumlah: 1 });
+  assert.equal(r.kelompok?.kolom, "Batch");
+  assert.deepEqual(r.kelompok?.baris, [
+    { nilai: "Batch 1", total: 2, masuk: 2, datang: 1 },
+    { nilai: "Batch 2", total: 1, masuk: 0, datang: 1 },
+    { nilai: null, total: 1, masuk: 0, datang: 0 },
+  ]);
+  // Tanpa area peserta: masuk null.
+  assert.equal(ringkasAcara({ ...bahan, scans: [], sekarang: kini, offset: "+07:00" }, null).kelompok?.baris[0].masuk, null);
+  // Tanpa Who sees it di baris mana pun: tanpa kelompok.
+  assert.equal(ringkasAcara({ ...bahan, agenda: new Map([[12, agenda.get(12)!]]), sekarang: kini }, null).kelompok, null);
+}
+console.log("pantau-checkin ringkas ok");
