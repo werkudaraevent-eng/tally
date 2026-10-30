@@ -1087,14 +1087,16 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const kolomTampil = kolom.filter((item) => visible.includes(item.key));
   const opsiKolom: ColumnOption[] = [{ key: "name", label: "Name", locked: true }, ...kolom.map((item) => ({ key: item.key, label: item.label }))];
   // Baris kedua di bawah nama: SATU kolom untuk seluruh halaman, bukan campuran
-  // per baris. Jabatan bila kolomnya tersembunyi dan ada yang mengisinya, kalau
-  // tidak email dengan aturan yang sama. Kalau keduanya kosong di halaman ini,
-  // baris kedua hilang: dulu ia diisi spasi kosong, jadi setiap baris memesan
-  // satu baris teks tanpa isi dan nama tidak sejajar dengan kolom di sebelahnya.
+  // per baris. Jabatan bila kolomnya tersembunyi dan setidaknya separuh baris di
+  // halaman ini mengisinya, kalau tidak email dengan aturan yang sama, kalau
+  // tidak baris kedua hilang. Separuh, bukan "ada satu": di acara yang jabatannya
+  // hanya diisi segelintir orang, aturan "ada satu" memilih jabatan dan hampir
+  // semua baris memesan satu baris teks kosong (dilihat di akun klien KSO).
   // Kode QR tidak pernah di sini: peran kustom tidak boleh melihatnya.
+  const terisiSeparuh = (kunci: "title" | "email") => participants.length > 0 && participants.filter((p) => p[kunci]?.trim()).length * 2 >= participants.length;
   const barisKedua: "title" | "email" | null =
-    !visible.includes("title") && participants.some((p) => p.title?.trim()) ? "title"
-    : !visible.includes("email") && participants.some((p) => p.email?.trim()) ? "email"
+    !visible.includes("title") && terisiSeparuh("title") ? "title"
+    : !visible.includes("email") && terisiSeparuh("email") ? "email"
     : null;
 
   // Hasil cari yang cocok di kolom yang tidak tampil: tulis kolomnya di bawah
