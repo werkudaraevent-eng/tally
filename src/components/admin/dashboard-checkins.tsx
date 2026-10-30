@@ -69,20 +69,21 @@ export const labelHari = (tanggal: string, opsi: Intl.DateTimeFormatOptions = { 
   new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", ...opsi }).format(new Date(`${tanggal}T00:00:00Z`));
 
 /** Waktu titik relatif ke sekarang, dari tanggal dan jam Agenda di zona acara. */
-function sudahLewat(baris: BarisPantau, hariIni: string, jamKini: string): boolean {
-  if (!baris.tanggal) return true;
+function sudahLewat(baris: BarisPantau, hariIni: string, jamKini: string, mulai: string | null): boolean {
+  // Titik tanpa hari ("Any day") baru dianggap berjalan sejak hari pertama acara.
+  if (!baris.tanggal) return !mulai || hariIni >= mulai;
   if (baris.tanggal !== hariIni) return baris.tanggal < hariIni;
   return !baris.jam || baris.jam.slice(0, 5) <= jamKini;
 }
 
-function status(baris: BarisPantau, hariIni: string, jamKini: string): { tone: ChipTone; teks: string; nanti: boolean } {
+function status(baris: BarisPantau, hariIni: string, jamKini: string, mulai: string | null): { tone: ChipTone; teks: string; nanti: boolean } {
   // Belum waktunya dan belum ada yang tercatat: "N expected" tanpa bar kosong.
-  const belumWaktunya = baris.sudah === 0 && !sudahLewat(baris, hariIni, jamKini);
+  const belumWaktunya = baris.sudah === 0 && !sudahLewat(baris, hariIni, jamKini, mulai);
   if (!baris.aktif) return { tone: "neutral", teks: "Closed", nanti: belumWaktunya };
   if (baris.diharapkan > 0 && baris.sudah >= baris.diharapkan) return { tone: "success", teks: "Complete", nanti: false };
   if (baris.baru_15 > 0) return { tone: "primary", teks: "Scanning", nanti: false };
   if (baris.sudah > 0) return { tone: "primary", teks: "Open", nanti: false };
-  if (!sudahLewat(baris, hariIni, jamKini)) return { tone: "neutral", teks: "Upcoming", nanti: true };
+  if (!sudahLewat(baris, hariIni, jamKini, mulai)) return { tone: "neutral", teks: "Upcoming", nanti: true };
   return { tone: "neutral", teks: "No scans yet", nanti: false };
 }
 
@@ -191,7 +192,7 @@ export function DashboardCheckpoints({ data, gagal, eventDate, endDate, client, 
           <div key={isi.tanggal ?? "semua"} className="border-t border-outline-variant">
             {kepalaHari(isi)}
             {terbuka(isi.tanggal) ? isi.baris.map((baris) => {
-              const s = status(baris, hariIni, jamKini);
+              const s = status(baris, hariIni, jamKini, eventDate);
               const p = persenTeks(baris.sudah, baris.diharapkan);
               return (
                 <div key={baris.key} className="flex flex-col gap-3 border-t border-outline-variant px-5 py-4">
@@ -240,7 +241,7 @@ export function DashboardCheckpoints({ data, gagal, eventDate, endDate, client, 
               <HariBaris key={isi.tanggal ?? "semua"}>
                 {kepalaHari(isi, 5)}
                 {terbuka(isi.tanggal) ? isi.baris.map((baris) => {
-                  const s = status(baris, hariIni, jamKini);
+                  const s = status(baris, hariIni, jamKini, eventDate);
                   const p = persenTeks(baris.sudah, baris.diharapkan);
                   return (
                     <TableRow key={baris.key}>

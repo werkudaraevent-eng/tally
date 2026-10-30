@@ -107,8 +107,9 @@ function UbinKpi({ kpi, boleh }: { kpi: Kpi; boleh: (href: string) => boolean })
         <span className="min-w-0 flex-1">{kpi.label}</span>
         {kpi.chip ? <StatusChip dot tone={kpi.chip.tone}>{kpi.chip.teks}</StatusChip> : null}
       </span>
-      <span className="mt-1 flex items-baseline gap-1 tabular-nums">
-        <span className="text-display-small [overflow-wrap:anywhere]">{kpi.nilai}</span>
+      <span className="mt-1 flex flex-wrap items-baseline gap-x-1 tabular-nums">
+        {/* Angka tidak boleh terpotong di tengah; bagian "/ N" yang turun baris. */}
+        <span className={cx("text-display-small", /^[+\d.,%<]+$/.test(kpi.nilai) ? "whitespace-nowrap" : "[overflow-wrap:anywhere]")}>{kpi.nilai}</span>
         {kpi.dari ? <span className="text-body-medium">{kpi.dari}</span> : null}
       </span>
       {typeof kpi.meter === "number" ? <LinearProgress className="mt-3" value={kpi.meter} label={kpi.label} /> : null}
@@ -243,7 +244,7 @@ export default function AdminPage() {
       dari: `/ ${angka(total)}`,
       meter: persenTeks(portal.masuk, total).nilai,
       keterangan: `Participant area · ${angka(Math.max(0, total - portal.masuk))} not yet`,
-      aksi: !kustom && portal.masuk < total ? { teks: "See who hasn't", href: BELUM_MASUK_PORTAL } : undefined,
+      aksi: portal.masuk < total ? { teks: "See who hasn't", href: BELUM_MASUK_PORTAL } : undefined,
     } : null;
     const ubinPeserta: Kpi = {
       label: "Participants",
