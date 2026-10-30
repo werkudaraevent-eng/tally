@@ -38,10 +38,14 @@ export function kataCari(q: string): string[] {
   return q.trim().toLocaleLowerCase("id").split(/\s+/).filter(Boolean).slice(0, 8);
 }
 
-/** Angka saja, dengan awalan 0 dibaca sebagai 62: "0812-3" dan "+62 8123" sama. */
+/**
+ * Angka saja, dengan awalan 0 dibaca sebagai 62: "0812-3" dan "+62 8123" sama.
+ * Awalan 8 juga: Excel membuang 0 di depan, jadi "81299887766" tersimpan apa adanya.
+ */
 export function angkaTelepon(teks: string): string {
   const angka = teks.replace(/\D/g, "");
-  return angka.startsWith("0") ? `62${angka.slice(1)}` : angka;
+  if (angka.startsWith("0")) return `62${angka.slice(1)}`;
+  return angka.startsWith("8") ? `62${angka}` : angka;
 }
 
 /** Kata yang tampak seperti potongan nomor telepon. */
@@ -62,16 +66,18 @@ export function cocokCari<T>(
   const isi = kolom.map((k) => nilai(baris, k.key).toLocaleLowerCase("id"));
   const kena = new Set<number>();
   for (const satu of kata) {
-    const angka = MIRIP_TELEPON.test(satu) && satu.replace(/\D/g, "").length >= 4 ? angkaTelepon(satu) : null;
-    // Kata 1-2 huruf hanya cocok di awal kata: "2" pada "batch 2" tidak boleh
-    // ketemu di "+62 812…" atau "Batch 12".
-    const awal = satu.length <= 2 ? new RegExp(`(^|[^\\p{L}\\p{N}])${satu.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "u") : null;
+    const mentah = satu.replace(/\D/g, "");
+    const angka = MIRIP_TELEPON.test(satu) && mentah.length >= 4 ? angkaTelepon(satu) : null;
+    // Kata 1-2 huruf hanya cocok di awal kata, dan angka pendek harus utuh:
+    // "2" pada "batch 2" tidak boleh ketemu di "+62 812…", "Batch 12", atau "Batch 21".
+    const utuh = /^\d+$/.test(satu) ? "(?!\\p{N})" : "";
+    const awal = satu.length <= 2 ? new RegExp(`(^|[^\\p{L}\\p{N}])${satu.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}${utuh}`, "u") : null;
     let ketemu = false;
     isi.forEach((teks, i) => {
       // Nomor telepon tidak dicari dengan potongan 1-3 huruf: "2" di "batch 2"
       // akan ketemu di hampir semua nomor.
       if (!teks || (satu.length < 4 && telepon.has(kolom[i].key))) return;
-      const cocok = (awal ? awal.test(teks) : teks.includes(satu)) || (angka !== null && telepon.has(kolom[i].key) && angkaTelepon(teks).includes(angka));
+      const cocok = (awal ? awal.test(teks) : teks.includes(satu)) || (angka !== null && telepon.has(kolom[i].key) && (angkaTelepon(teks).includes(angka) || angkaTelepon(teks).includes(mentah)));
       if (cocok) {
         ketemu = true;
         kena.add(i);

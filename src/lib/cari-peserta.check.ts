@@ -39,6 +39,10 @@ assert.deepEqual(cari("VEGETARIAN"), ["field:diet"]);
 // nomor telepon: "2" ketemu "Batch 2", bukan "+62", "2222", atau "0042".
 assert.deepEqual(cari("batch 2"), ["field:batch"]);
 assert.equal(cari("batch 12"), null);
+// Angka pendek harus utuh: "batch 1" bukan Batch 12 (QA #344 M2).
+const b12 = { ...budi, name: "Ani 15", extra: { ...budi.extra, batch: "Batch 12" } };
+assert.equal(cocokCari(b12, kataCari("batch 1"), admin, nilai, telp), null);
+assert.deepEqual(cocokCari(b12, kataCari("batch 12"), admin, nilai, telp)?.map((k) => k.key), ["field:batch"]);
 assert.deepEqual(cari("bu"), ["name", "email"]);
 assert.equal(cari("di"), null);
 assert.equal(cari("+6"), null);
@@ -59,6 +63,15 @@ assert.equal(cari("0042", kustom), null);
 // Telepon dicocokkan angkanya: 0812 = +62 812, spasi dan strip diabaikan.
 assert.equal(angkaTelepon("0812-3456"), "628123456");
 assert.equal(angkaTelepon("+62 812"), "62812");
+// Excel membuang 0 di depan: "81299887766" tersimpan tanpa 0 (QA #344 M1).
+assert.equal(angkaTelepon("81299887766"), "6281299887766");
+const tanpaNol = { ...budi, phone: "81299887766" };
+for (const q of ["081299887766", "0812 9988 7766", "+6281299887766", "9988", "8877"]) {
+  assert.deepEqual(cocokCari(tanpaNol, kataCari(q), admin, nilai, telp)?.map((k) => k.key), ["phone"], q);
+}
+// Potongan tengah nomor tetap ketemu walau diawali 8.
+assert.deepEqual(cari("8901"), null);
+assert.deepEqual(cari("8123"), ["phone"]);
 assert.deepEqual(cari("08123456"), ["phone"]);
 assert.deepEqual(cari("+6281311112222"), ["field:wa"]);
 assert.deepEqual(cari("3456-7890"), ["phone"]);
