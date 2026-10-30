@@ -14,7 +14,7 @@ import { AdminBarSlotsProvider, AdminHeaderScrollProvider, AdminPageProvider } f
 import { CommandPalette, QuickSearchButton } from "@/components/admin/quick-search";
 import { SidebarNav } from "@/components/admin/sidebar-nav";
 import { useOpenGroups, usePinnedSidebar, useRecents } from "@/components/admin/sidebar-store";
-import { UserMenu } from "@/components/admin/user-menu";
+import { cakupanAkses, UserMenu } from "@/components/admin/user-menu";
 
 /**
  * Rangka ruang kerja: rel navigasi, bilah atas, dan konteks halaman.
@@ -110,6 +110,9 @@ export function AdminShell({
   const [loggingOut, setLoggingOut] = useState(false);
   const [akun, setAkun] = useState<{ username: string; role: string } | null>(null);
   const [events, setEvents] = useState<EventPilihan[]>([]);
+  // Daftar kosong dan daftar yang belum dimuat terlihat sama; menu akun baru
+  // menyebut jumlah acara setelah jawabannya benar-benar datang.
+  const [eventsDimuat, setEventsDimuat] = useState(false);
 
   const desktop = useSyncExternalStore(langganLebar, bacaLebar, () => true);
   const bisaHover = useSyncExternalStore(langganHover, bacaHover, () => true);
@@ -280,7 +283,7 @@ export function AdminShell({
     void fetch("/api/events", { cache: "no-store" }).then(async (response) => {
       if (!response.ok || batal) return;
       const daftar = ((await response.json()).events ?? []) as EventPilihan[];
-      if (!batal) setEvents(daftar);
+      if (!batal) { setEvents(daftar); setEventsDimuat(true); }
     });
     return () => { batal = true; };
   }, []);
@@ -607,7 +610,7 @@ export function AdminShell({
             persiapan, dan menaruhnya di daftar akan mendorong Participant area
             ke bawah lipatan 1280x588. Baris ini sudah ada, jadi biayanya 0px.
             Nomor versi (pertanyaan pertama saat panitia melaporkan masalah lewat
-            WhatsApp) pindah ke tooltip panduan dan kepala menu akun. */}
+            WhatsApp) pindah ke tooltip panduan. */}
         <div className="m3-drawer-foot flex shrink-0 items-center gap-1 border-t border-outline-variant px-2">
           <button
             type="button"
@@ -644,7 +647,7 @@ export function AdminShell({
             rel="noreferrer"
             // Dibuka di tab baru: panitia yang membacanya sedang berdiri di meja
             // registrasi dengan halaman kerja yang belum selesai di tab sebelah.
-            // Nomor versi menumpang di tooltip ini dan di kepala menu akun.
+            // Nomor versi menumpang di tooltip ini (dan kaki halaman panduannya).
             aria-label="System guide (opens in a new tab)"
             title={`System guide · Tally v${versi}`}
             className="m3-rail-hide flex size-8 shrink-0 items-center justify-center rounded-sm text-on-surface-variant hover:bg-[var(--press-hover)]"
@@ -686,7 +689,7 @@ export function AdminShell({
               <UserMenu
                 username={akun?.username ?? null}
                 role={peranKustom?.name ?? akun?.role ?? null}
-                version={versi}
+                scope={cakupanAkses(akun?.role ?? null, eventsDimuat ? events.length : null)}
                 onLogout={() => void logout()}
                 loggingOut={loggingOut}
               />
