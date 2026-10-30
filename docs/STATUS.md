@@ -47,6 +47,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- Who has signed in to the participant portal (#345, 30 Oct): Participant list Portal column (last opened, Not signed in, No email; sort and filter) and Dashboard card "Masuk portal" linking to the Not signed in list; the session records its last visit at most once an hour. No SQL; custom roles see it with Participants. QA GO.
 - #346 Participant list rows per page (merged 30 Oct, QA GO): footer menu 25/100/500/All, All = up to 1,000 rows ("1,000" on bigger events), remembered per account in the browser. API `limit` max 200 -> 1,000; logistics reads for a page chunk ids per 150. Custom roles unchanged (no qr_code, no logistics). No SQL.
 - #338 Scanner info after scan, per session (merged 30 Oct): Check-in > Sessions > "Shown after scan" picks up to 4 items staff see under the name on the green and orange result: Company, Job title, Participant type, Logistics (Hotel and room on the scan date, both hotels on a move day; Vehicle of the trip on the scan date, else default vehicle; Train ticket on the scan date) and any registration question incl. staff-only columns. Email, phone and file questions are never offered. Unset sessions keep "Company · Title" (0 px). Empty value shows "Not set". Values are built on the server (`src/lib/info-scan.ts`, `info-scan-server.ts`), not tied to the participant-area Logistics switches. Migration `202610300001_info_hasil_scan` run by Mas 30 Oct (post-check true). Scanner guide sentence updated. Walk-in results keep Company · Title.
 - #334 Sign-in examples for Participant fields (merged 29 Oct, QA GO): Participant area > How participants sign in > Participant fields has an optional Example per field (ID, plus English when the English page is on), shown as the faded text in the sign-in box. Empty = Email shows "nama@perusahaan.com" / "name@company.com", registration questions show their Registration form placeholder. No SQL. Parked Low: an Example stays stored after its field is unpicked (comes back if picked again).
@@ -290,6 +291,8 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #154 L2/L4/L5/L7-L9/L13: the Room filter decides hotel names event-wide, number answers sort as text, events over 20,000 get the 422 cap on every new sort, a deleted sort column errors until reload, check-in filter names lack "(closed)", "Registered" without sort has no filter menu, and Export and Select all ignore the on-screen sort.
 
 ### Participant sign-in
+- #345 Low: the "No email" chip shows inside the "Not signed in" filter, so the chip label differs from the filter value.
+- #345 Low: Keluar or a password reset deletes the sessions, so the Portal column's "last opened" falls back to the last sign-in time.
 - #77 R2: on EN-primary events the unprefixed /peserta and /masuk titles are Indonesian.
 - #49 L1-L4/L6/L7/L10: the Tampilkan button radius and size are off, aria-pressed is used together with a label change, there is no "change email" after a link is sent, the confirmation email wording is off, and old sign-in token rows are not pruned yet.
 - #162 L3: the "Hubungi panitia" help line needs the Contact section switched on, not only contact details (confirm intent).

@@ -4,7 +4,8 @@ import { FILE_FIELD_TYPES } from "@/lib/registration-fields";
 import { bagasiAcara } from "@/lib/bagasi/server";
 import { statusBagasi, type RingkasBagasi } from "@/lib/bagasi/ringkas";
 import { logistikAcara, type LogistikRingkas } from "@/lib/logistik/server";
-import { LABEL_ASAL, LABEL_RSVP, bacaSaringan, cocokSemua, hariDiZona, hitungNilai, kolomSaringanAdmin, kolomSaringanKustom, labelKursi, urutKursi, urutMenurut, type Saringan, type SesiSaringan } from "@/lib/saringan-kolom";
+import { jejakPortal, type JejakPortal } from "@/lib/member/jejak-portal";
+import { LABEL_ASAL, LABEL_PORTAL, LABEL_RSVP, bacaSaringan, cocokSemua, hariDiZona, hitungNilai, kolomSaringanAdmin, kolomSaringanKustom, labelKursi, urutKursi, urutMenurut, type Saringan, type SesiSaringan } from "@/lib/saringan-kolom";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { cocokCari, kataCari, kolomCari, kunciTelepon } from "@/lib/cari-peserta";
 
@@ -21,13 +22,13 @@ import { cocokCari, kataCari, kolomCari, kunciTelepon } from "@/lib/cari-peserta
  *
  * Urutan juga begitu: kolom yang dikenal `list_event_participants` diurutkan
  * database; kolom lain (Seat, check-in per sesi, Room, Bus, Source, Email,
- * Phone, Lucky draw, Luggage, jawaban form) diurutkan di sini atas seluruh baris.
+ * Phone, Lucky draw, Luggage, Portal, jawaban form) diurutkan di sini atas seluruh baris.
  */
 
 /** Kolom yang diurutkan oleh RPC. Nama kolom TIDAK BOLEH diteruskan mentah ke SQL. */
 const URUT_RPC = new Set(["name", "company", "title", "qr_code", "participant_type", "rsvp_status", "source_checked_in", "source_total_scans", "registered_at"]);
 /** Kolom tetap yang diurutkan di sini; ditambah `checkin:<sesi>` dan `field:<kunci>`. */
-const URUT_JS = new Set(["seat", "email", "phone", "source", "kamar", "bus", "undian", "bagasi"]);
+const URUT_JS = new Set(["seat", "email", "phone", "source", "kamar", "bus", "undian", "bagasi", "portal"]);
 
 /**
  * Siapa yang mengurutkan kolom `sort`: "rpc", "js", atau null bila kuncinya
@@ -114,14 +115,16 @@ export type KonteksNilai = {
   logistik?: Map<string, LogistikRingkas>;
   dikecualikan?: Set<string>;
   bagasi?: Map<string, RingkasBagasi>;
+  portal?: Map<string, JejakPortal>;
 };
 
-/** Baca Logistik, pengecualian undian dan bagasi bila salah satu kunci memakainya. */
+/** Baca Logistik, pengecualian undian, bagasi dan jejak portal bila salah satu kunci memakainya. */
 export async function muatKonteks(eventId: string, kunci: string[], fields: RegistrationField[], zona: string): Promise<KonteksNilai> {
   const konteks: KonteksNilai = { fields, zona };
   const perlu = new Set(kunci);
   if (perlu.has("kamar") || perlu.has("bus")) konteks.logistik = await logistikAcara(eventId);
   if (perlu.has("bagasi")) konteks.bagasi = await bagasiAcara(eventId);
+  if (perlu.has("portal")) konteks.portal = await jejakPortal(eventId);
   if (perlu.has("undian")) {
     const client = getSupabaseServiceClient();
     const ids = new Set<string>();
@@ -137,7 +140,7 @@ export async function muatKonteks(eventId: string, kunci: string[], fields: Regi
 }
 
 /** Teks sel yang dibandingkan saringan: sama dengan yang tampil di tabel admin. "" = kosong. */
-export function nilaiAdmin({ fields, zona, logistik, dikecualikan, bagasi }: KonteksNilai) {
+export function nilaiAdmin({ fields, zona, logistik, dikecualikan, bagasi, portal }: KonteksNilai) {
   const perKunci = new Map(fields.map((field) => [field.key, field]));
   return (baris: BarisPeserta, kunci: string): string => {
     if (kunci === "seat") return labelKursi(baris).join(", ");
@@ -149,6 +152,7 @@ export function nilaiAdmin({ fields, zona, logistik, dikecualikan, bagasi }: Kon
     if (kunci === "bus") return logistik?.get(baris.id)?.bus ?? "";
     if (kunci === "undian") return dikecualikan?.has(baris.id) ? "Excluded" : "Included";
     if (kunci === "bagasi") return statusBagasi(bagasi?.get(baris.id));
+    if (kunci === "portal") return portal?.has(baris.id) ? LABEL_PORTAL.masuk : LABEL_PORTAL.belum;
     if (kunci.startsWith("checkin:")) return baris.attendance?.[kunci.slice(8)] ? "Checked in" : "Not checked in";
     if (kunci.startsWith("field:")) {
       const field = perKunci.get(kunci.slice(6));
@@ -166,13 +170,15 @@ export function nilaiAdmin({ fields, zona, logistik, dikecualikan, bagasi }: Kon
 /**
  * Urutkan seluruh baris menurut kolom yang tidak dikenal RPC. Seat menurut
  * kursi pertama, check-in menurut jam scan pertama di sesi itu (yang belum
- * check-in di akhir), lainnya menurut teks yang tampil dengan urutan alami.
+ * check-in di akhir), Portal menurut terakhir membuka portal (yang belum
+ * pernah masuk di akhir), lainnya menurut teks yang tampil dengan urutan alami.
  */
 export function urutPeserta<T extends BarisPeserta>(baris: T[], sort: string, dir: "asc" | "desc", konteks: KonteksNilai): T[] {
   if (sort === "seat") return urutKursi(baris, dir);
   if (sort.startsWith("checkin:")) return urutMenurut(baris, (b) => b.attendance?.[sort.slice(8)]?.first ?? "", dir);
   // Luggage menurut jumlah koper; yang tidak pernah ke meja bagasi di akhir.
   if (sort === "bagasi") return urutMenurut(baris, (b) => { const r = konteks.bagasi?.get(b.id); return r ? String(r.bags) : ""; }, dir);
+  if (sort === "portal") return urutMenurut(baris, (b) => konteks.portal?.get(b.id)?.buka ?? "", dir);
   const nilai = nilaiAdmin(konteks);
   // Kotak centang yang tidak dicentang tampil kosong di tabel, jadi ikut di
   // akhir. Hanya kotak centang: pilihan yang memang bernama "No" tetap diurutkan.
@@ -195,8 +201,8 @@ export async function sesiAcara(eventId: string): Promise<SesiSaringan[]> {
  * Saringan per kolom yang sah untuk acara ini, atau null bila `f` rusak. Akun
  * peran kustom memakai daftar kolom tanpa QR dan logistik.
  */
-export function saringanAdmin(f: string | undefined, fields: RegistrationField[], sesi: SesiSaringan[], kustom = false): Saringan[] | null {
-  return bacaSaringan(f, kustom ? kolomSaringanKustom(fields, sesi) : kolomSaringanAdmin(fields, sesi, true));
+export function saringanAdmin(f: string | undefined, fields: RegistrationField[], sesi: SesiSaringan[], kustom = false, portal = false): Saringan[] | null {
+  return bacaSaringan(f, kustom ? kolomSaringanKustom(fields, sesi, portal) : kolomSaringanAdmin(fields, sesi, true, portal));
 }
 
 /**
@@ -261,11 +267,11 @@ export async function nilaiKolomAdmin(eventId: string, kunci: string, fields: Re
  * Export. `null` bila tidak ada saringan apa pun: ekspor seluruh acara.
  * Melempar "VALIDATION" bila parameternya tidak sah.
  */
-export async function idsTersaring(eventId: string, params: URLSearchParams, fields: RegistrationField[], zona: string, kustom = false): Promise<string[] | null> {
+export async function idsTersaring(eventId: string, params: URLSearchParams, fields: RegistrationField[], zona: string, kustom = false, portal = false): Promise<string[] | null> {
   const parsed = querySchema.safeParse(Object.fromEntries(params));
   if (!parsed.success) throw new Error("VALIDATION");
   const companies = params.getAll("company").map((nama) => nama.trim()).filter(Boolean).slice(0, 50);
-  const saringan = saringanAdmin(parsed.data.f, fields, await sesiAcara(eventId), kustom);
+  const saringan = saringanAdmin(parsed.data.f, fields, await sesiAcara(eventId), kustom, portal);
   if (!saringan) throw new Error("VALIDATION");
   const d = parsed.data;
   const adaSaringan = Boolean(d.q || d.source || d.rsvp || (d.session && d.attended) || companies.length || saringan.length);

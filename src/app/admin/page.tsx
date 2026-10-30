@@ -14,6 +14,7 @@ import { useBolehHalaman, useIzinKustom } from "@/components/admin/page-context"
 import { Banner, ButtonLink, LinearProgress, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
+import { LABEL_PORTAL } from "@/lib/saringan-kolom";
 import { formatEventSchedule, daysUntil } from "@/lib/event-datetime";
 import { eventApiPath } from "@/lib/event-url";
 import { Skeleton } from "@/components/m3/skeleton";
@@ -34,6 +35,8 @@ type Overview = {
   };
   peserta: { total: number; menunggu: number; disetujui: number; ditolak: number };
   kehadiran: { hadir: number };
+  /** Null bila acara tidak memakai area peserta. */
+  portal?: { masuk: number } | null;
   transaksi: { total: number; lunas: number; omzet: number; menunggu: number };
   kesiapan: {
     deskripsi: boolean;
@@ -57,6 +60,9 @@ type Overview = {
 
 type Fase = "persiapan" | "hari-h" | "selesai";
 type Ikon = ComponentType<{ size?: number; className?: string }>;
+
+/** Daftar peserta yang belum pernah masuk portal, dengan kolom Portal tercentang. */
+const BELUM_MASUK_PORTAL = `/admin/participants?kolom=portal&f=${encodeURIComponent(JSON.stringify([{ k: "portal", in: [LABEL_PORTAL.belum] }]))}`;
 
 const formatRupiah = (amount: number) => `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
 const NADA_STATUS: Record<EventStatus, "success" | "neutral"> = { active: "success", draft: "neutral", completed: "neutral", archived: "neutral" };
@@ -198,6 +204,14 @@ export default function AdminPage() {
       catatan: data.peserta.total > 0 ? `${Math.round((data.kehadiran.hadir / data.peserta.total) * 100)}% dari ${data.peserta.total} terdaftar` : "Belum ada peserta",
     }] : []),
     { href: "/admin/participants", label: "Peserta", nilai: String(data.peserta.total), catatan: data.peserta.total === 0 ? "Belum ada peserta" : "Terdaftar di acara ini" },
+    // Sebelum dan selama acara: yang belum pernah masuk masih bisa dikejar.
+    // Kartunya membuka daftar yang belum, siap dipilih lalu dikirimi pesan.
+    ...(data.portal && fase !== "selesai" && data.peserta.total > 0 ? [{
+      href: BELUM_MASUK_PORTAL,
+      label: "Masuk portal",
+      nilai: String(data.portal.masuk),
+      catatan: `dari ${data.peserta.total}, ${Math.max(0, data.peserta.total - data.portal.masuk)} belum pernah masuk`,
+    }] : []),
     ...(pakaiPendaftaran ? [{
       href: "/admin/registrasi",
       label: "Pendaftaran",

@@ -91,3 +91,10 @@ const kustom = kolomSaringanKustom(fields, [{ id: 7, name: "Registration" }]).ma
 for (const tertutup of ["qr_code", "kamar", "bus", "undian"]) assert.ok(!kustom.includes(tertutup), tertutup);
 assert.ok(kustom.includes("email") && kustom.includes("checkin:7"));
 assert.deepEqual(bacaSaringan(JSON.stringify([{ k: "qr_code", has: "A" }]), kolomSaringanKustom(fields)), [], "saringan QR dibuang, bukan dipakai");
+
+// Portal: hanya di acara yang memakai area peserta; peran kustom ikut melihatnya.
+assert.ok(!kolomSaringanAdmin(fields).some((c) => c.key === "portal"));
+assert.equal(kolomSaringanAdmin(fields, [], false, true).find((c) => c.key === "portal")?.jenis, "pilihan");
+assert.ok(kolomSaringanKustom(fields, [], true).some((c) => c.key === "portal"));
+assert.deepEqual(bacaSaringan(JSON.stringify([{ k: "portal", in: ["Not signed in"] }]), kolomSaringanAdmin(fields)), [], "tanpa area peserta, saringan Portal dibuang");
+console.log("saringan-kolom portal ok");

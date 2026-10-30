@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { pakaiPortal } from "@/lib/member/jejak-portal";
 import {
   CONTENT_TYPES,
   buildCsv,
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
     const zona = normalizeTimeZone(auth.scope.event.time_zone);
     // Saringan yang sedang dipakai di daftar ikut ke berkas: yang diunduh adalah
     // yang terlihat. Tanpa saringan, seluruh acara seperti sebelumnya.
-    const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona, kustom);
+    const ids = isTemplate ? null : await idsTersaring(auth.scope.event.id, params, fields, zona, kustom, pakaiPortal(auth.scope.event));
     const rowsPenuh = isTemplate ? templateRows(fields) : await loadParticipantExportRows(auth.scope.event.id, fields, zona, ids ? new Set(ids) : undefined, sesi, logistik, bagasi);
     const { headers, rows } = kustom ? untukKustom(headersPenuh, rowsPenuh) : { headers: headersPenuh, rows: rowsPenuh };
     const body = format === "xlsx" ? await buildXlsx(rows, headers) : buildCsv(rows, headers, { netralkanRumus: kustom });
