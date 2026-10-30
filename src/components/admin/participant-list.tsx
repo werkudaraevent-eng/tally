@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
-  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, StatusChip, useColumnPrefs, usePopoverAnchor, type ColumnOption,
+  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, SelectMenu, StatusChip, useColumnPrefs, usePageSizePref, usePopoverAnchor, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { ResetCheckInDialog, type TargetReset } from "@/components/admin/reset-check-in-dialog";
@@ -159,6 +159,13 @@ function lebarLogistik(key: string): number {
 }
 
 const PAGE_SIZE = 25;
+/**
+ * Pilihan baris per halaman. 1000 = "All", sama dengan batas `limit` di server:
+ * di atas itu tabel DOM tanpa virtualisasi mulai berat, jadi acara yang lebih
+ * besar tetap berhalaman per 1000 dan pilihannya ditulis "1,000", bukan "All".
+ */
+const UKURAN_HALAMAN = [25, 100, 500, 1000];
+const SEMUA_BARIS = 1000;
 /** Umur maksimum hitungan acara, sesi dan organisasi sebelum dimuat ulang saat mencari. */
 const UMUR_META_MS = 45_000;
 const LEBAR_NAMA = 240;
@@ -427,7 +434,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [perPage] = useState(PAGE_SIZE);
+  const { pageSize: perPage, setPageSize: setPerPage } = usePageSizePref("participants", UKURAN_HALAMAN, PAGE_SIZE);
   const [sort, setSort] = useState<SortKey>("name");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -1365,6 +1372,14 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           </span>
         }
       >
+        <span className="hidden text-body-medium text-on-surface-variant sm:inline" aria-hidden>Rows per page</span>
+        <SelectMenu
+          label="Rows per page"
+          width="6.5rem"
+          value={String(perPage)}
+          options={UKURAN_HALAMAN.map((ukuran) => ({ value: String(ukuran), label: ukuran === SEMUA_BARIS ? (total > SEMUA_BARIS ? "1,000" : "All") : String(ukuran) }))}
+          onChange={(next) => { setPerPage(Number(next)); setPage(0); }}
+        />
         <IconButton size="sm" variant="outlined" label="Previous page" disabled={page === 0 || loading} onClick={() => setPage((current) => Math.max(0, current - 1))}><CaretLeft size={16} /></IconButton>
         <span className="min-w-14 text-center text-body-medium tabular-nums text-on-surface-variant">{page + 1} / {totalPages}</span>
         <IconButton size="sm" variant="outlined" label="Next page" disabled={page + 1 >= totalPages || loading || Boolean(error)} onClick={() => setPage((current) => current + 1)}><CaretRight size={16} /></IconButton>
