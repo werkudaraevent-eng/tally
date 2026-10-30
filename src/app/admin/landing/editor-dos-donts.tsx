@@ -136,7 +136,11 @@ export function EditorDosDonts({
           >
             <Plus size={16} aria-hidden /> Add a {nama} item
           </button>
-        ) : null}
+        ) : (
+          <p className="text-body-medium text-on-surface-variant">
+            All {DOS_DONTS_MAX} items are used across Do and Don’t. Remove an item to add another.
+          </p>
+        )}
       </div>
     );
   };

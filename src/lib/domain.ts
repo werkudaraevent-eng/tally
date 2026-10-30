@@ -730,7 +730,7 @@ export function landingBlockLimits(block: Pick<LandingBlock, "type" | "layout" |
 }
 
 /** Batas butir blok Do's and Don'ts (gabungan anjuran dan larangan). */
-export const DOS_DONTS_MAX = 16;
+export const DOS_DONTS_MAX = 20;
 
 /** Jumlah kolom blok Kolom, dengan bawaan untuk data lama atau rusak. */
 export function landingColumnCount(block: Pick<LandingBlock, "columns">): LandingColumnCount {
