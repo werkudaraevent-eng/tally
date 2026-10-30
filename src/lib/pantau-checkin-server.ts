@@ -2,8 +2,9 @@ import { loadDaftarCheckpoint } from "@/lib/checkpoint/server";
 import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { semuaBaris } from "@/lib/logistik/server";
 import { memberConfig } from "@/lib/member/account";
+import { jejakPortal, pakaiPortal } from "@/lib/member/jejak-portal";
 import type { EventRow } from "@/lib/domain";
-import { hitungPantau, type AgendaPantau, type BahanPantau, type BarisPantau, type CatatanPantau, type SesiPantau } from "@/lib/pantau-checkin";
+import { hitungPantau, ringkasAcara, type AgendaPantau, type RingkasAcara, type BahanPantau, type BarisPantau, type CatatanPantau, type SesiPantau } from "@/lib/pantau-checkin";
 import { jawabanPeserta, kolomSasaran } from "@/lib/sasaran-bagian";
 import { bacaSyaratBaris } from "@/lib/sasaran-baris";
 import { muatStayPeserta, type StayPeserta } from "@/lib/sasaran-baris-server";
@@ -25,6 +26,21 @@ import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
 export async function muatPantauCheckin(event: EventRow, sekarang = new Date()): Promise<BarisPantau[] | null> {
   const dimuat = await muatBahanPantau(event, sekarang);
   return dimuat ? hitungPantau(dimuat.bahan) : null;
+}
+
+/**
+ * Baris check-in plus ringkasan atas Dashboard (kedatangan hari ini, titik
+ * berikutnya, kelompok Who sees it). Jejak portal hanya dibaca bila acara
+ * memakai area peserta; gagal membacanya tidak menggagalkan baris check-in.
+ */
+export async function muatRingkasCheckin(event: EventRow, sekarang = new Date()): Promise<{ rows: BarisPantau[]; ringkas: RingkasAcara } | null> {
+  const dimuat = await muatBahanPantau(event, sekarang);
+  if (!dimuat) return null;
+  let masuk: Set<string> | null = null;
+  if (pakaiPortal(event)) {
+    masuk = await jejakPortal(event.id).then((peta) => new Set(peta.keys())).catch(() => null);
+  }
+  return { rows: hitungPantau(dimuat.bahan), ringkas: ringkasAcara(dimuat.bahan, masuk) };
 }
 
 /** Peserta aktif dengan nama dan unit, hanya untuk halaman Kehadiran panitia. */

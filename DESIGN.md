@@ -593,6 +593,26 @@ mendapat satu baris sejajar per stay di dalam baris orangnya, di setiap kolom
 sama dengan stay sebelumnya ditulis redup (pindah kamar). Kolom bernomor
 ("Hotel 1", "Hotel 2") hanya untuk Daftar peserta dan ekspornya.
 
+**Dashboard: angka dulu, tinta untuk data** (Mas 30 Okt, "font, ketebalan,
+jarak masih slop dan bikin mata lelah"). Diukur di render lama: ±74% huruf
+abu-abu, tiga bobot (400/500/600) di 14 px, dan ukuran langsung loncat dari 14
+ke 30. Aturannya, berlaku untuk Dashboard dan halaman ringkasan berikutnya:
+
+- Abu-abu (`on-surface-variant`) hanya untuk label, keterangan, dan judul
+  kolom. Data (jam, nama, jawaban, angka, "/ 471") memakai tinta `on-surface`.
+- Dua bobot di isi: 400, dan 500 untuk nama atau angka utama di baris. 600
+  hanya lewat kelas peran (judul halaman, judul panel, angka kunci).
+- Tangga: 12 chip, 13 kepala kolom, 14 isi, 16 judul panel (`text-title-large`),
+  28 angka kunci (`text-display-small`), 30 judul halaman.
+- Angka kunci dalam satu panel bergaris tipis antarubin (pola Cloudflare),
+  bukan kartu terpisah; label → angka 4, angka → bar → keterangan 12.
+- Judul panel tanpa garis di bawahnya; tabel memakai kepadatan bawaan (baris
+  12 px), nama dan tempat berjarak 2 px.
+- Baris yang belum waktunya menulis "N expected", bukan bar kosong dan 0%; di
+  atas nol tapi di bawah 1% ditulis "<1%".
+- Isi mengikuti fase acara dan diturunkan dari data (Agenda, Who sees it,
+  Check-in, area peserta); akun klien melihat angka yang sama tanpa Setup.
+
 ### Layar sapa
 
 TV atau proyektor di dekat pintu masuk, **melintang atau berdiri** — orientasinya

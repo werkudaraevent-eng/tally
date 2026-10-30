@@ -2,16 +2,16 @@
 
 import { plural } from "@/lib/plural";
 import {
-  ArrowRight, ArrowSquareOut, CalendarBlank, CaretDown, CaretRight, CheckCircle, Circle, CreditCard, Gift, Info,
-  ListChecks, MapPin, MonitorPlay, QrCode, Storefront, UsersThree, Warning, XCircle,
+  ArrowSquareOut, CalendarBlank, CaretDown, Clock, CreditCard, Gift,
+  ListChecks, MapPin, MonitorPlay, QrCode, Storefront, UsersThree, XCircle,
 } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
-import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { DashboardCheckins } from "@/components/admin/dashboard-checkins";
+import { useCallback, useEffect, useState } from "react";
+import { ArrivalsChart, DashboardCheckpoints, GroupPanel, Panel, angka, labelHari, persenTeks, useDataCheckin, useFormatJam, type DataCheckin } from "@/components/admin/dashboard-checkins";
 import { DashboardEventActions } from "@/components/admin/dashboard-event-actions";
 import { ExportMenu } from "@/components/admin/export-menu";
 import { useBolehHalaman, useIzinKustom } from "@/components/admin/page-context";
-import { Banner, ButtonLink, LinearProgress, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { Banner, ButtonLink, LinearProgress, StatusChip, WorkspaceHeader, WorkspacePage, type ChipTone } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
 import { LABEL_PORTAL } from "@/lib/saringan-kolom";
@@ -59,7 +59,6 @@ type Overview = {
 };
 
 type Fase = "persiapan" | "hari-h" | "selesai";
-type Ikon = ComponentType<{ size?: number; className?: string }>;
 
 /** Daftar peserta yang belum pernah masuk portal, dengan kolom Portal tercentang. */
 const BELUM_MASUK_PORTAL = `/admin/participants?kolom=portal&f=${encodeURIComponent(JSON.stringify([{ k: "portal", in: [LABEL_PORTAL.belum] }]))}`;
@@ -76,66 +75,103 @@ function faseAcara(event: Overview["event"], now: Date): Fase {
   return akhir !== null && akhir < 0 ? "selesai" : "hari-h";
 }
 
-function judulFase(fase: Fase, event: Overview["event"], now: Date) {
+/** Satu fakta waktu untuk baris meta: "Starts in 7 days", "Day 2 of 3", "Ended 3 days ago". */
+function waktuFase(fase: Fase, event: Overview["event"], now: Date): string | null {
   const mulai = daysUntil(event.event_date, now);
   if (fase === "selesai") {
     const akhir = daysUntil(event.end_date ?? event.event_date, now);
-    if (akhir === null || akhir >= 0) return { utama: "Selesai", detail: "Ditandai selesai oleh panitia" };
-    return { utama: "Selesai", detail: `${Math.abs(akhir)} hari lalu` };
+    if (akhir === null || akhir >= 0) return "Marked completed";
+    return akhir === -1 ? "Ended yesterday" : `Ended ${Math.abs(akhir)} days ago`;
   }
   if (fase === "hari-h") {
-    const hariKe = mulai === null ? 1 : Math.abs(mulai) + 1;
-    const multiHari = event.end_date && event.end_date !== event.event_date;
-    return { utama: multiHari ? `Hari ke-${hariKe}` : "Hari ini", detail: "Acara berlangsung" };
+    const total = event.end_date && event.event_date ? (daysUntil(event.end_date, now) ?? 0) - (mulai ?? 0) + 1 : 1;
+    return total > 1 ? `Day ${Math.abs(mulai ?? 0) + 1} of ${total}` : "Today";
   }
-  if (mulai === null) return { utama: "Tanggal belum diisi", detail: "Set it in Edit details" };
-  if (mulai === 1) return { utama: "Besok", detail: "Menuju hari acara" };
-  return { utama: `${mulai} hari lagi`, detail: "Menuju hari acara" };
+  if (mulai === null) return "No date yet";
+  return mulai === 1 ? "Starts tomorrow" : `Starts in ${mulai} days`;
 }
 
-/** Nama modul untuk tombol "Buka ...", dari tautan butir kesiapan. */
 // Status email dibaca dari variabel lingkungan server, bukan dari setelan acara.
-const CATATAN_EMAIL = "Diatur di server, bukan dari aplikasi: isi RESEND_API_KEY dan EMAIL_FROM di Vercel.";
+const CATATAN_EMAIL = "Set on the server, not in the app: RESEND_API_KEY and EMAIL_FROM in Vercel.";
 
-const NAMA_MODUL: Record<string, string> = {
-  "/admin/landing": "Halaman acara",
-  "/admin/rundown": "Rundown",
-  "/admin/seat-map": "Denah kursi",
-  "/admin/booths": "Booth & item",
-  "/admin/registrasi": "Pendaftaran",
-  "/admin/settings": "Pengaturan",
-  "/admin/undian": "Undian",
-  "/admin/vote": "Voting",
-};
+/**
+ * Satu angka kunci. Ukuran 28 px untuk angka, 14 px untuk label dan
+ * keterangan; "/ 471" bertinta gelap karena itu data, bukan label.
+ */
+type Kpi = { label: string; nilai: string; dari?: string; meter?: number; keterangan: string; href?: string; aksi?: { teks: string; href: string }; chip?: { tone: ChipTone; teks: string } };
 
-function Kartu({ children, className, label }: { children: ReactNode; className?: string; label?: string }) {
-  return <section aria-label={label} className={cx("flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest", className)}>{children}</section>;
+function UbinKpi({ kpi, boleh }: { kpi: Kpi; boleh: (href: string) => boolean }) {
+  const isi = (
+    <>
+      <span className="flex items-center gap-2 text-body-medium text-on-surface-variant">
+        <span className="min-w-0 flex-1">{kpi.label}</span>
+        {kpi.chip ? <StatusChip dot tone={kpi.chip.tone}>{kpi.chip.teks}</StatusChip> : null}
+      </span>
+      <span className="mt-1 flex flex-wrap items-baseline gap-x-1 tabular-nums">
+        {/* Angka tidak boleh terpotong di tengah; bagian "/ N" yang turun baris. */}
+        <span className={cx("text-display-small", /^[+\d.,%<]+$/.test(kpi.nilai) ? "whitespace-nowrap" : "[overflow-wrap:anywhere]")}>{kpi.nilai}</span>
+        {kpi.dari ? <span className="text-body-medium">{kpi.dari}</span> : null}
+      </span>
+      {typeof kpi.meter === "number" ? <LinearProgress className="mt-3" value={kpi.meter} label={kpi.label} /> : null}
+      <span className="mt-3 text-body-medium text-on-surface-variant">{kpi.keterangan}</span>
+    </>
+  );
+  const kelas = "flex min-w-0 flex-col bg-surface-container-lowest px-4 py-4 sm:px-5";
+  // Ubin dengan aksi sendiri tidak dijadikan tautan utuh: dua tautan bersarang.
+  if (kpi.aksi) {
+    return (
+      <div className={kelas}>
+        {isi}
+        {boleh(kpi.aksi.href) ? <Link href={kpi.aksi.href} className="mt-1 w-fit rounded-sm text-body-medium font-medium text-primary hover:underline">{kpi.aksi.teks}</Link> : null}
+      </div>
+    );
+  }
+  return kpi.href && boleh(kpi.href)
+    ? <Link href={kpi.href} className={cx(kelas, "hover:bg-primary-soft")}>{isi}</Link>
+    : <div className={kelas}>{isi}</div>;
 }
 
-function KepalaKartu({ title, trailing }: { title: string; trailing?: ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 border-b border-outline-variant px-5 py-3.5">
-      <h2 className="min-w-0 flex-1 text-body-medium font-semibold">{title}</h2>
-      {trailing}
-    </div>
-  );
+const KOLOM_LG: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3", 4: "lg:grid-cols-4", 5: "lg:grid-cols-5", 6: "lg:grid-cols-6" };
+
+/** Waktu titik berikutnya: jam saja bila hari ini, "Wed 09:00" bila hari lain. */
+function ubinBerikutnya(data: DataCheckin, jam: Intl.DateTimeFormat): Kpi | null {
+  const baris = data.rows.find((isi) => isi.key === data.ringkas.berikutnya);
+  if (!baris?.tanggal) return null;
+  const pukul = baris.jam ? baris.jam.slice(0, 5) : "";
+  const hariIni = baris.tanggal === data.ringkas.hari_ini;
+  const selisihHari = Math.round((Date.parse(`${baris.tanggal}T00:00:00Z`) - Date.parse(`${data.ringkas.hari_ini}T00:00:00Z`)) / 86_400_000);
+  let kapan: string;
+  if (hariIni) {
+    const kini = jam.format(new Date(data.updated_at));
+    const menit = (Number(pukul.slice(0, 2)) * 60 + Number(pukul.slice(3))) - (Number(kini.slice(0, 2)) * 60 + Number(kini.slice(3)));
+    kapan = menit < 60 ? `in ${Math.max(1, menit)} min` : `in ${Math.floor(menit / 60)} h ${menit % 60} min`;
+  } else {
+    kapan = selisihHari === 1 ? "tomorrow" : `in ${selisihHari} days`;
+  }
+  return {
+    label: "Next checkpoint",
+    nilai: hariIni ? pukul : `${labelHari(baris.tanggal, { weekday: "short" })} ${pukul}`.trim(),
+    keterangan: `${baris.nama} · ${kapan}`,
+  };
 }
 
 export default function AdminPage() {
-  // Peran kustom melihat angka dan check-in saja. Kesiapan, Perlu tindakan, dan
-  // peluncur layar adalah kerja panitia, dan tautannya ke halaman terlarang.
+  // Peran kustom (akun klien) melihat angka dan check-in saja. Setup, tugas
+  // panitia, dan peluncur layar adalah kerja panitia, dan tautannya ke halaman terlarang.
   const kustom = Boolean(useIzinKustom());
   const bolehHalaman = useBolehHalaman();
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
   const [sekarang, setSekarang] = useState<Date | null>(null);
-  const [tampilkanSelesai, setTampilkanSelesai] = useState(false);
+  const [tampilkanSetup, setTampilkanSetup] = useState(false);
+  const checkin = useDataCheckin();
+  const jam = useFormatJam(checkin.data?.time_zone);
 
   const refresh = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/overview"), { cache: "no-store" }).catch(() => null);
     if (!response?.ok) {
       const body = await response?.json().catch(() => null);
-      setError(`${body?.error?.message ?? "Ringkasan acara gagal dimuat."} Halaman mencoba lagi setiap menit.`);
+      setError(`${body?.error?.message ?? "The event summary couldn't load."} Retrying every minute.`);
       return;
     }
     setData(await response.json());
@@ -150,7 +186,7 @@ export default function AdminPage() {
   }, [refresh]);
 
   const fase: Fase = data && sekarang ? faseAcara(data.event, sekarang) : "persiapan";
-  const judul = data && sekarang ? judulFase(fase, data.event, sekarang) : null;
+  const waktu = data && sekarang ? waktuFase(fase, data.event, sekarang) : null;
   const jadwal = data ? formatEventSchedule({
     event_date: data.event.event_date,
     end_date: data.event.end_date,
@@ -161,76 +197,135 @@ export default function AdminPage() {
 
   const adaBooth = (data?.kesiapan.booth ?? 0) > 0;
   const pakaiPendaftaran = data ? data.event.registration_enabled || data.event.participant_source === "public_form" || data.event.participant_source === "hybrid" : false;
+  const ringkas = checkin.data?.ringkas ?? null;
+  const kelompok = ringkas?.kelompok ?? null;
+  const tanpaJawaban = kelompok?.baris.find((isi) => isi.nilai === null)?.total ?? 0;
 
   // Undian dan voting tidak wajib: banyak acara tidak memakainya.
   // `href: null` = tidak bisa diatur dari aplikasi; `catatan` menjelaskan di mana.
   const kesiapan: Array<{ siap: boolean; label: string; href: string | null; wajib: boolean; catatan?: string }> = data ? [
-    { siap: data.kesiapan.jadwal, label: "Tanggal & jam acara", href: "/admin/landing", wajib: true },
-    { siap: data.kesiapan.venue, label: "Lokasi acara", href: "/admin/landing", wajib: true },
-    { siap: data.kesiapan.deskripsi, label: "Deskripsi di halaman acara", href: "/admin/landing", wajib: true },
-    { siap: data.kesiapan.agenda > 0, label: "Rundown acara", href: "/admin/rundown", wajib: true },
+    { siap: data.kesiapan.jadwal, label: "Event date and time", href: "/admin/landing", wajib: true },
+    { siap: data.kesiapan.venue, label: "Venue", href: "/admin/landing", wajib: true },
+    { siap: data.kesiapan.deskripsi, label: "Event page description", href: "/admin/landing", wajib: true },
+    { siap: data.kesiapan.agenda > 0, label: "Agenda", href: "/admin/rundown", wajib: true },
     ...((data.kesiapan.seksi_luar_tanggal ?? 0) > 0
       ? [{ siap: false, label: `${plural(data.kesiapan.seksi_luar_tanggal ?? 0, "Agenda section")} dated outside the event`, href: "/admin/rundown", wajib: false }]
       : []),
     ...(data.kesiapan.area_peserta ? [{ siap: data.kesiapan.kontak_panitia === true, label: "Organiser phone for the Participant area", href: "/admin/settings", wajib: false }] : []),
-    { siap: data.kesiapan.email_aktif, label: "Pengiriman email kode peserta", href: null, wajib: true, catatan: CATATAN_EMAIL },
-    { siap: data.kesiapan.banner, label: data.kesiapan.banner_gathering ? "Gambar pratinjau tautan (Theme › Page)" : "Banner halaman acara", href: "/admin/landing", wajib: false },
-    { siap: data.kesiapan.denah > 0, label: "Denah kursi", href: "/admin/seat-map", wajib: false },
-    { siap: data.kesiapan.booth_aktif > 0, label: "Booth aktif", href: "/admin/booths", wajib: false },
-    { siap: data.event.registration_enabled, label: "Pendaftaran dibuka", href: "/admin/registrasi", wajib: false },
-    { siap: data.kesiapan.hadiah_undian > 0, label: "Hadiah undian", href: "/admin/undian", wajib: false },
-    { siap: data.kesiapan.pertanyaan_vote > 0, label: "Pertanyaan voting", href: "/admin/vote", wajib: false },
+    { siap: data.kesiapan.email_aktif, label: "Email delivery of participant codes", href: null, wajib: true, catatan: CATATAN_EMAIL },
+    { siap: data.kesiapan.banner, label: data.kesiapan.banner_gathering ? "Link preview image (Theme › Page)" : "Event page banner", href: "/admin/landing", wajib: false },
+    { siap: data.kesiapan.denah > 0, label: "Seating plan", href: "/admin/seat-map", wajib: false },
+    { siap: data.kesiapan.booth_aktif > 0, label: "Active booth", href: "/admin/booths", wajib: false },
+    { siap: data.event.registration_enabled, label: "Registration open", href: "/admin/registrasi", wajib: false },
+    { siap: data.kesiapan.hadiah_undian > 0, label: "Lucky draw prizes", href: "/admin/undian", wajib: false },
+    { siap: data.kesiapan.pertanyaan_vote > 0, label: "Voting questions", href: "/admin/vote", wajib: false },
   ] : [];
   const wajib = kesiapan.filter((baris) => baris.wajib);
-  const wajibSiap = wajib.filter((baris) => baris.siap).length;
-  const persen = wajib.length ? Math.round((wajibSiap / wajib.length) * 100) : 0;
-  const belumSiap = fase === "hari-h" ? wajib.filter((baris) => !baris.siap) : kesiapan.filter((baris) => !baris.siap);
-  const sudahSiap = kesiapan.filter((baris) => baris.siap);
-  const langkahWajib = wajib.filter((baris) => !baris.siap);
-  const berikutnya = langkahWajib[0];
-  const sesudahnya = langkahWajib[1];
+  const opsional = kesiapan.filter((baris) => !baris.wajib);
+  const wajibBelum = wajib.filter((baris) => !baris.siap);
 
-  const tindakan: Array<{ icon: Ikon; nada: string; teks: string; aksi: string; href: string | null; catatan?: string }> = data ? [
-    ...(data.peserta.menunggu > 0 ? [{ icon: Warning, nada: "text-warning", teks: `${data.peserta.menunggu} pendaftar menunggu moderasi`, aksi: "Periksa", href: "/admin/registrasi" }] : []),
-    ...(pakaiPendaftaran && !data.kesiapan.email_aktif ? [{ icon: Info, nada: "text-primary", teks: "Email kode peserta belum aktif", aksi: "", href: null, catatan: CATATAN_EMAIL }] : []),
-    ...(adaBooth && data.transaksi.menunggu > 0 ? [{ icon: Info, nada: "text-primary", teks: `${data.transaksi.menunggu} order belum dibayar di kasir`, aksi: "Lihat", href: "/admin/orders" }] : []),
+  // Yang menunggu panitia: dari data, bukan daftar per acara.
+  const tugas: Array<{ teks: string; aksi: string; href: string | null; catatan?: string }> = data ? [
+    ...wajibBelum.map((baris) => ({ teks: `${baris.label} is not set up`, aksi: "Open", href: baris.href, catatan: baris.catatan })),
+    ...(data.peserta.menunggu > 0 ? [{ teks: `${plural(data.peserta.menunggu, "registration")} waiting for review`, aksi: "Review", href: "/admin/registrasi" }] : []),
+    ...(kelompok && tanpaJawaban > 0 ? [{ teks: `${plural(tanpaJawaban, "participant")} without a ${kelompok.kolom} answer, so Who sees it can't place them`, aksi: "Participants", href: "/admin/participants" }] : []),
+    ...(adaBooth && data.transaksi.menunggu > 0 ? [{ teks: `${plural(data.transaksi.menunggu, "order")} not yet paid at the cashier`, aksi: "View", href: "/admin/orders" }] : []),
   ] : [];
 
-  const metrik = data ? [
-    ...(fase !== "persiapan" ? [{
-      href: "/admin/attendance",
-      label: "Hadir",
-      nilai: String(data.kehadiran.hadir),
-      catatan: data.peserta.total > 0 ? `${Math.round((data.kehadiran.hadir / data.peserta.total) * 100)}% dari ${data.peserta.total} terdaftar` : "Belum ada peserta",
-    }] : []),
-    { href: "/admin/participants", label: "Peserta", nilai: String(data.peserta.total), catatan: data.peserta.total === 0 ? "Belum ada peserta" : "Terdaftar di acara ini" },
-    // Sebelum dan selama acara: yang belum pernah masuk masih bisa dikejar.
-    // Kartunya membuka daftar yang belum, siap dipilih lalu dikirimi pesan.
-    ...(data.portal && fase !== "selesai" && data.peserta.total > 0 ? [{
-      href: BELUM_MASUK_PORTAL,
-      label: "Masuk portal",
-      nilai: String(data.portal.masuk),
-      catatan: `dari ${data.peserta.total}, ${Math.max(0, data.peserta.total - data.portal.masuk)} belum pernah masuk`,
-    }] : []),
-    ...(pakaiPendaftaran ? [{
-      href: "/admin/registrasi",
-      label: "Pendaftaran",
-      nilai: String(data.peserta.disetujui),
-      catatan: `disetujui, ${data.peserta.ditolak} ditolak`,
-      chip: data.event.registration_enabled ? { tone: "success" as const, teks: "Dibuka" } : { tone: "neutral" as const, teks: "Ditutup" },
-    }] : []),
-    ...(adaBooth ? [{ href: "/admin/orders", label: "Transaksi", nilai: formatRupiah(data.transaksi.omzet), catatan: `${data.transaksi.lunas} lunas, ${data.transaksi.menunggu} menunggu` }] : []),
-  ] : [];
+  // Angka kunci per fase. Sebelum acara: siapa yang sudah siap datang;
+  // hari-H: siapa yang sudah datang; sesudah: berapa yang hadir.
+  const total = data?.peserta.total ?? 0;
+  const kpi: Kpi[] = [];
+  if (data) {
+    const portal = data.portal && total > 0 ? data.portal : null;
+    const ubinPortal: Kpi | null = portal ? {
+      label: "Signed in",
+      nilai: angka(portal.masuk),
+      dari: `/ ${angka(total)}`,
+      meter: persenTeks(portal.masuk, total).nilai,
+      keterangan: `Participant area · ${angka(Math.max(0, total - portal.masuk))} not yet`,
+      aksi: portal.masuk < total ? { teks: "See who hasn't", href: BELUM_MASUK_PORTAL } : undefined,
+    } : null;
+    const ubinPeserta: Kpi = {
+      label: "Participants",
+      nilai: angka(total),
+      keterangan: total === 0 ? "No participants yet" : kelompok && tanpaJawaban > 0 ? `Active · ${angka(tanpaJawaban)} without a ${kelompok.kolom} answer` : "Active participants",
+      href: "/admin/participants",
+    };
+    const berikutnya = checkin.data && fase !== "selesai" ? ubinBerikutnya(checkin.data, jam) : null;
+
+    if (fase === "hari-h" && ringkas) {
+      const dari = ringkas.diharapkan_hari_ini ?? total;
+      const sibuk = ringkas.kedatangan.reduce<{ mulai: string; jumlah: number } | null>((a, b) => (!a || b.jumlah > a.jumlah ? b : a), null);
+      kpi.push({
+        label: "Arrived today",
+        nilai: angka(ringkas.datang_hari_ini),
+        dari: `/ ${angka(dari)}${ringkas.diharapkan_hari_ini !== null ? " expected" : ""}`,
+        meter: persenTeks(ringkas.datang_hari_ini, dari).nilai,
+        keterangan: `${persenTeks(ringkas.datang_hari_ini, dari).teks} · first check-in of the day`,
+        href: "/admin/attendance",
+      });
+      kpi.push({
+        label: "Last 15 minutes",
+        nilai: `+${angka(ringkas.datang_15)}`,
+        keterangan: sibuk && sibuk.jumlah > 0 ? `Busiest ${sibuk.mulai} (${angka(sibuk.jumlah)})` : "No arrivals yet today",
+      });
+      kpi.push(ubinPortal ?? ubinPeserta);
+    } else if (fase === "selesai") {
+      kpi.push({
+        label: "Attended",
+        nilai: angka(data.kehadiran.hadir),
+        dari: `/ ${angka(total)}`,
+        meter: persenTeks(data.kehadiran.hadir, total).nilai,
+        keterangan: `${persenTeks(data.kehadiran.hadir, total).teks} checked in at least once`,
+        href: "/admin/attendance",
+      });
+      kpi.push(ubinPeserta);
+    } else {
+      kpi.push(ubinPeserta);
+      if (ubinPortal) kpi.push(ubinPortal);
+      kpi.push({
+        label: "Checked in",
+        nilai: angka(data.kehadiran.hadir),
+        dari: `/ ${angka(total)}`,
+        keterangan: data.kehadiran.hadir > 0 ? "At any checkpoint" : "No check-ins yet",
+        href: "/admin/attendance",
+      });
+    }
+    if (berikutnya) kpi.push(berikutnya);
+    if (pakaiPendaftaran) {
+      kpi.push({
+        label: "Registration",
+        nilai: angka(data.peserta.disetujui),
+        keterangan: `approved, ${angka(data.peserta.ditolak)} declined`,
+        href: "/admin/registrasi",
+        chip: data.event.registration_enabled ? { tone: "success", teks: "Open" } : { tone: "neutral", teks: "Closed" },
+      });
+    }
+    if (adaBooth) kpi.push({ label: "Transactions", nilai: formatRupiah(data.transaksi.omzet), keterangan: `${angka(data.transaksi.lunas)} paid, ${angka(data.transaksi.menunggu)} pending`, href: "/admin/orders" });
+  }
 
   const layarPanggung = [
-    { href: "/display", label: "Papan peringkat", icon: MonitorPlay, tampil: adaBooth },
-    { href: "/sapa", label: "Layar sapa", icon: UsersThree, tampil: true },
-    { href: "/undian", label: "Layar undian", icon: Gift, tampil: true },
-    { href: "/vote/layar", label: "Layar voting", icon: ListChecks, tampil: true },
-    { href: "/scan", label: "Pemindai kehadiran", icon: QrCode, tampil: true },
+    { href: "/display", label: "Leaderboard", icon: MonitorPlay, tampil: adaBooth },
+    { href: "/sapa", label: "Welcome screen", icon: UsersThree, tampil: true },
+    { href: "/undian", label: "Lucky draw screen", icon: Gift, tampil: true },
+    { href: "/vote/layar", label: "Voting screen", icon: ListChecks, tampil: true },
+    { href: "/scan", label: "Attendance scanner", icon: QrCode, tampil: true },
     { href: "/booth", label: "Booth", icon: Storefront, tampil: adaBooth },
-    { href: "/cashier", label: "Kasir", icon: CreditCard, tampil: adaBooth },
+    { href: "/cashier", label: "Cashier", icon: CreditCard, tampil: adaBooth },
   ].filter((layar) => layar.tampil);
+
+  // Panel kelompok: sebelum acara siapa yang sudah masuk portal, hari-H siapa
+  // yang sudah datang. Tanpa kolom Who sees it, atau tanpa portal sebelum acara: tidak ada.
+  const panelKelompok = kelompok && fase !== "selesai"
+    ? fase === "hari-h"
+      ? { title: "Arrived today", baris: kelompok.baris.map((isi) => ({ nilai: isi.nilai, sudah: isi.datang, total: isi.total })) }
+      : kelompok.baris.every((isi) => isi.masuk !== null)
+        ? { title: "Signed in to the Participant area", baris: kelompok.baris.map((isi) => ({ nilai: isi.nilai, sudah: isi.masuk ?? 0, total: isi.total })) }
+        : null
+    : null;
+  const panelSetup = !kustom && data && fase !== "selesai" && (fase === "persiapan" || tugas.length > 0);
+  const panelGrafik = fase === "hari-h" && checkin.data && checkin.data.rows.length > 0;
 
   return (
     <WorkspacePage width="wide">
@@ -243,11 +338,12 @@ export default function AdminPage() {
             {/* Nama tempat bisa 200 karakter tanpa spasi; tanpa pemecah kata,
                 baris ini melebarkan tata letak ponsel. */}
             {data.event.venue_name ? <span className="inline-flex min-w-0 items-start gap-1.5"><MapPin size={16} aria-hidden className="mt-0.5 shrink-0" /><span className="min-w-0 [overflow-wrap:anywhere]">{data.event.venue_name}</span></span> : null}
+            {waktu ? <span className="inline-flex items-center gap-1.5"><Clock size={16} aria-hidden />{waktu}</span> : null}
           </>
         ) : error ? null : <Skeleton className="h-4 w-72" />}
         actions={
           <>
-            {data ? <ButtonLink native variant="outlined" href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" icon={<ArrowSquareOut size={16} />}>Halaman acara</ButtonLink> : null}
+            {data ? <ButtonLink native variant="outlined" href={`/e/${data.event.slug}`} target="_blank" rel="noreferrer" icon={<ArrowSquareOut size={16} />}>Event page</ButtonLink> : null}
             {kustom ? null : <ExportMenu />}
             {data && !kustom ? <DashboardEventActions slug={data.event.slug} onChanged={() => void refresh()} /> : null}
           </>
@@ -258,194 +354,109 @@ export default function AdminPage() {
 
       {/* Gagal sejak pemuatan pertama: tanpa kerangka "memuat" yang tidak akan pernah terisi. */}
       {error && !data ? null : <div className="grid grid-cols-12 gap-4 xl:gap-6">
-        {/* Status dan satu aksi utama */}
-        <Kartu label="Status acara" className={cx("col-span-12", !kustom && "lg:col-span-8")}>
-          <div className="flex flex-1 flex-col gap-6 px-6 py-6 sm:flex-row sm:items-center">
-            <div className="shrink-0 sm:min-w-[200px]">
-              <p className="text-body-medium font-medium text-on-surface-variant">{judul?.detail ?? "Memuat ringkasan acara"}</p>
-              {judul ? <p className="text-[1.875rem] font-semibold leading-10 tabular-nums">{judul.utama}</p> : <Skeleton className="mt-2 h-8 w-40" />}
-            </div>
-            {!data ? null : fase === "persiapan" ? (
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-body-medium font-medium text-on-surface-variant">Kesiapan</p>
-                  <p className="text-body-medium text-on-surface-variant">{wajibSiap} dari {wajib.length} wajib</p>
+        {/* Angka kunci: satu panel, garis tipis di antara ubin (Cloudflare). */}
+        <section aria-label="Key numbers" className="col-span-12 overflow-hidden rounded-lg border border-outline-variant bg-outline-variant">
+          {data ? (
+            <div className={cx("grid grid-cols-2 gap-px", KOLOM_LG[Math.min(6, kpi.length)])}>
+              {kpi.map((isi, i) => (
+                <div key={isi.label} className={cx("flex", i === kpi.length - 1 && kpi.length % 2 === 1 && "col-span-2 lg:col-span-1")}>
+                  <div className="flex flex-1 flex-col [&>*]:flex-1"><UbinKpi kpi={isi} boleh={bolehHalaman} /></div>
                 </div>
-                <p className="text-[1.875rem] font-semibold leading-10 tabular-nums">{persen}%</p>
-                <LinearProgress className="mt-2" value={persen} label="Kesiapan acara" />
-              </div>
-            ) : fase === "hari-h" ? (
-              <div className="min-w-0 flex-1">
-                <p className="text-body-medium font-medium text-on-surface-variant">Sudah masuk</p>
-                <p className="flex items-baseline gap-2 tabular-nums">
-                  <span className="text-[1.875rem] font-semibold leading-10">{data.kehadiran.hadir}</span>
-                  <span className="text-body-medium text-on-surface-variant">dari {data.peserta.total} terdaftar</span>
-                </p>
-                <LinearProgress className="mt-2" value={data.peserta.total > 0 ? (data.kehadiran.hadir / data.peserta.total) * 100 : 0} label="Kehadiran" />
-              </div>
-            ) : (
-              <dl className="flex min-w-0 flex-1 flex-wrap gap-x-8 gap-y-4">
-                <div><dt className="text-body-medium text-on-surface-variant">Hadir</dt><dd className="whitespace-nowrap text-title-large font-semibold tabular-nums">{data.kehadiran.hadir} / {data.peserta.total}</dd></div>
-                <div><dt className="text-body-medium text-on-surface-variant">Peserta</dt><dd className="whitespace-nowrap text-title-large font-semibold tabular-nums">{data.peserta.total}</dd></div>
-                {adaBooth ? <div><dt className="text-body-medium text-on-surface-variant">Transaksi</dt><dd className="whitespace-nowrap text-title-large font-semibold tabular-nums">{formatRupiah(data.transaksi.omzet)}</dd></div> : null}
-              </dl>
-            )}
-          </div>
-          {fase === "persiapan" && berikutnya && !kustom ? (
-            <div className="flex flex-wrap items-center gap-3 border-t border-outline-variant bg-surface-container-high px-6 py-3.5">
-              <div className="min-w-0 flex-1 text-body-medium">
-                <p className="font-medium">Langkah berikutnya: {berikutnya.label.toLowerCase()}</p>
-                {sesudahnya ? <p className="text-on-surface-variant">Setelah itu: {sesudahnya.label.toLowerCase()}</p> : null}
-              </div>
-              {berikutnya.href ? (
-                <ButtonLink href={berikutnya.href} icon={<ArrowRight size={16} />}>Buka {NAMA_MODUL[berikutnya.href] ?? berikutnya.label}</ButtonLink>
-              ) : berikutnya.catatan ? (
-                <p className="basis-full text-body-medium text-on-surface-variant">{berikutnya.catatan}</p>
-              ) : null}
+              ))}
             </div>
-          ) : null}
-        </Kartu>
-
-        {/* Yang menuntut keputusan */}
-        {kustom ? null : <Kartu label="Perlu tindakan" className="col-span-12 lg:col-span-4">
-          <KepalaKartu title="Perlu tindakan" trailing={tindakan.length ? <StatusChip tone="warning">{tindakan.length}</StatusChip> : null} />
-          {!data ? (
-            <div className="flex flex-col gap-3 px-5 py-4"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /></div>
-          ) : tindakan.length === 0 ? (
-            <p className="flex flex-1 items-center gap-2 px-5 py-6 text-body-medium text-on-surface-variant"><CheckCircle size={18} className="shrink-0 text-success" />Tidak ada yang menunggu panitia.</p>
           ) : (
-            <ul>
-              {tindakan.map(({ icon: Icon, nada, teks, aksi, href, catatan }) => (
-                <li key={teks} className="border-b border-outline-variant last:border-b-0">
-                  {href ? (
-                    <Link href={href} className="flex items-center gap-2.5 px-5 py-3 text-body-medium hover:bg-primary-soft">
-                      <Icon size={16} className={cx("shrink-0", nada)} />
-                      <span className="min-w-0 flex-1">{teks}</span>
-                      <span className="font-medium text-primary">{aksi}</span>
-                    </Link>
-                  ) : (
-                    <div className="flex items-start gap-2.5 px-5 py-3 text-body-medium">
-                      <Icon size={16} className={cx("mt-0.5 shrink-0", nada)} />
-                      <span className="min-w-0 flex-1">{teks}<span className="block text-on-surface-variant">{catatan}</span></span>
-                    </div>
-                  )}
+            <div className="grid grid-cols-2 gap-px lg:grid-cols-4">
+              {[0, 1, 2, 3].map((index) => (
+                <div key={index} aria-hidden className="flex flex-col gap-2 bg-surface-container-lowest px-5 py-4">
+                  <Skeleton className="h-3.5 w-24" /><Skeleton className="h-7 w-20" /><Skeleton className="h-3.5 w-32" />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {panelGrafik && checkin.data ? <ArrivalsChart data={checkin.data} className={cx("col-span-12", panelKelompok && "lg:col-span-8")} /> : null}
+
+        {fase === "hari-h" && panelKelompok && kelompok ? (
+          <GroupPanel
+            title={panelKelompok.title}
+            kolom={kelompok.kolom}
+            baris={panelKelompok.baris}
+            lebar={!panelGrafik}
+            className={cx("col-span-12", panelGrafik && "lg:col-span-4")}
+          />
+        ) : null}
+
+        {panelSetup ? (
+          <Panel title="Setup" sub={wajibBelum.length === 0 ? "Everything required is set up" : `${wajibBelum.length} of ${wajib.length} required not set up yet`} className={cx("col-span-12", panelKelompok && fase !== "hari-h" && "lg:col-span-8")}>
+            <ul className="pb-2">
+              {wajibBelum.length === 0 ? (
+                <li className="flex flex-wrap items-center gap-3 px-5 py-3 text-body-medium">
+                  <StatusChip dot tone="success">Done</StatusChip>
+                  <span className="min-w-0 flex-1">{wajib.length} of {wajib.length} required, {opsional.filter((baris) => baris.siap).length} of {opsional.length} optional</span>
+                  <button type="button" aria-expanded={tampilkanSetup} onClick={() => setTampilkanSetup((buka) => !buka)} className="inline-flex items-center gap-1 rounded-sm font-medium text-primary hover:underline">
+                    {tampilkanSetup ? "Hide" : "View"}<CaretDown size={14} aria-hidden className={cx("transition-transform", tampilkanSetup && "rotate-180")} />
+                  </button>
+                </li>
+              ) : null}
+              {tugas.map((isi) => (
+                <li key={isi.teks} className="flex flex-wrap items-start gap-3 border-t border-outline-variant px-5 py-3 text-body-medium first:border-t-0">
+                  <StatusChip dot tone="warning">To do</StatusChip>
+                  <span className="min-w-0 flex-1">
+                    {isi.teks}
+                    {isi.catatan ? <span className="mt-0.5 block text-on-surface-variant">{isi.catatan}</span> : null}
+                  </span>
+                  {isi.href && bolehHalaman(isi.href) ? <Link href={isi.href} className="rounded-sm font-medium text-primary hover:underline">{isi.aksi}</Link> : null}
                 </li>
               ))}
+              {tampilkanSetup ? kesiapan.map((baris) => (
+                <li key={baris.label} className="flex items-center gap-3 border-t border-outline-variant px-5 py-2.5 text-body-medium">
+                  <StatusChip dot tone={baris.siap ? "success" : "neutral"}>{baris.siap ? "Done" : baris.wajib ? "Required" : "Optional"}</StatusChip>
+                  <span className="min-w-0 flex-1">{baris.label}</span>
+                  {baris.href && bolehHalaman(baris.href) ? <Link href={baris.href} className="rounded-sm font-medium text-primary hover:underline">Open</Link> : null}
+                </li>
+              )) : null}
             </ul>
-          )}
-        </Kartu>}
+          </Panel>
+        ) : null}
 
-        {/* Check-in per titik: sejak persiapan juga, supaya gladi bisa mengujinya. */}
-        {data ? <DashboardCheckins className="col-span-12" /> : null}
+        {fase !== "hari-h" && panelKelompok && kelompok ? (
+          <GroupPanel
+            title={panelKelompok.title}
+            kolom={kelompok.kolom}
+            baris={panelKelompok.baris}
+            lebar={!panelSetup}
+            className={cx("col-span-12", panelSetup && "lg:col-span-4")}
+          />
+        ) : null}
 
-        {/* Metrik */}
-        {data ? metrik.map((m) => {
-          const kelas = "col-span-12 flex flex-col gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4 sm:col-span-6 xl:col-span-3";
-          const isi = (
-            <>
-            <span className="flex items-center gap-2 text-body-medium font-medium text-on-surface-variant">
-              <span className="min-w-0 flex-1">{m.label}</span>
-              {"chip" in m && m.chip ? <StatusChip dot tone={m.chip.tone}>{m.chip.teks}</StatusChip> : null}
-            </span>
-            <span className="text-headline-small font-semibold tabular-nums">{m.nilai}</span>
-            <span className="text-body-medium text-on-surface-variant">{m.catatan}</span>
-            </>
-          );
-          // Kartu tanpa tautan bila halamannya tertutup untuk peran kustom.
-          return bolehHalaman(m.href)
-            ? <Link key={m.label} href={m.href} className={cx(kelas, "hover:bg-primary-soft")}>{isi}</Link>
-            : <div key={m.label} className={kelas}>{isi}</div>;
-        }) : [0, 1, 2, 3].map((index) => (
-          <div key={index} aria-hidden className="col-span-12 flex flex-col gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4 sm:col-span-6 xl:col-span-3">
-            <Skeleton className="h-3.5 w-24" /><Skeleton className="h-7 w-20" /><Skeleton className="h-3.5 w-32" />
-          </div>
-        ))}
-
-        {/* Kesiapan: yang belum di atas, yang sudah dilipat */}
-        {fase !== "selesai" && !kustom ? (
-          <Kartu label="Kesiapan" className="col-span-12 lg:col-span-6">
-            <KepalaKartu title={fase === "hari-h" ? "Wajib yang belum siap" : "Belum siap"} trailing={data ? <span className="text-body-medium text-on-surface-variant">{belumSiap.length} butir</span> : null} />
-            {!data ? (
-              <div className="flex flex-col gap-3 px-5 py-4"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-4/5" /></div>
-            ) : (
-              <ul>
-                {belumSiap.length === 0 ? (
-                  <li className="flex items-center gap-2 px-5 py-4 text-body-medium text-on-surface-variant"><CheckCircle size={18} className="text-success" />Semua butir {fase === "hari-h" ? "wajib " : ""}sudah siap.</li>
-                ) : belumSiap.map((baris) => (
-                  <li key={baris.label} className="border-b border-outline-variant">
-                    {baris.href ? (
-                      <Link href={baris.href} className="flex items-center gap-2.5 px-5 py-2.5 text-body-medium hover:bg-primary-soft">
-                        <Circle size={16} className="shrink-0 text-on-surface-variant" />
-                        <span className={cx("min-w-0 flex-1", baris.wajib && "font-medium")}>{baris.label}</span>
-                        {!baris.wajib ? <span className="text-on-surface-variant">opsional</span> : null}
-                        <CaretRight size={14} className="shrink-0 text-on-surface-variant" />
-                      </Link>
-                    ) : (
-                      <div className="flex items-start gap-2.5 px-5 py-2.5 text-body-medium">
-                        <Circle size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />
-                        <span className="min-w-0 flex-1">
-                          <span className={cx(baris.wajib && "font-medium")}>{baris.label}</span>
-                          {baris.catatan ? <span className="block text-on-surface-variant">{baris.catatan}</span> : null}
-                        </span>
-                      </div>
-                    )}
-                  </li>
-                ))}
-                {fase === "persiapan" && sudahSiap.length > 0 ? (
-                  <li>
-                    <button type="button" aria-expanded={tampilkanSelesai} onClick={() => setTampilkanSelesai((buka) => !buka)} className="flex w-full items-center gap-2.5 px-5 py-2.5 text-left text-body-medium text-on-surface-variant hover:bg-primary-soft">
-                      <CheckCircle size={16} weight="fill" className="shrink-0 text-success" />
-                      <span className="flex-1">{sudahSiap.length} sudah siap</span>
-                      <CaretDown size={14} className={cx("shrink-0 transition-transform", tampilkanSelesai && "rotate-180")} />
-                    </button>
-                    {tampilkanSelesai ? (
-                      <ul className="border-t border-outline-variant">
-                        {sudahSiap.map((baris) => (
-                          <li key={baris.label}>
-                            {baris.href ? (
-                              <Link href={baris.href} className="flex items-center gap-2.5 py-2 pl-11 pr-5 text-body-medium text-on-surface-variant hover:bg-primary-soft">
-                                <span className="flex-1">{baris.label}</span>
-                                <CaretRight size={14} className="shrink-0" />
-                              </Link>
-                            ) : (
-                              <p className="py-2 pl-11 pr-5 text-body-medium text-on-surface-variant">{baris.label}</p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </li>
-                ) : null}
-              </ul>
-            )}
-          </Kartu>
+        {checkin.data && data ? (
+          <DashboardCheckpoints data={checkin.data} gagal={checkin.gagal} eventDate={data.event.event_date} endDate={data.event.end_date} client={kustom} className="col-span-12" />
         ) : null}
 
         {/* Peluncur layar */}
-        {kustom ? null : <Kartu label="Layar hari-H" className={cx("col-span-12", fase === "selesai" ? "" : "lg:col-span-6")}>
-          <KepalaKartu title="Layar hari-H" trailing={<span className="text-body-medium text-on-surface-variant">dibuka di tab baru</span>} />
-          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
-            {layarPanggung.map(({ href, label, icon: Icon }) => (
-              <Link key={href} href={href} target="_blank" rel="noreferrer" className="flex flex-col gap-3 rounded-md border border-outline-variant p-3 hover:bg-primary-soft">
-                <span className="flex items-center justify-between">
-                  <Icon size={20} className="text-on-surface" />
-                  <ArrowSquareOut size={14} className="text-on-surface-variant" aria-label="Tab baru" />
-                </span>
-                <span className="text-body-medium font-medium">{label}</span>
-              </Link>
-            ))}
-          </div>
-          {/* Satu-satunya pintu yang selalu terlihat ke Booth & item di acara
-              tanpa booth: menunya di sidebar sengaja disembunyikan sampai booth
-              pertama dibuat, dan baris "Booth aktif" di Kesiapan hanya tampil
-              selama persiapan. */}
-          {data && !adaBooth ? (
-            <p className="border-t border-outline-variant px-5 py-3 text-body-medium text-on-surface-variant">
-              Menjual di booth? Layar booth, kasir, dan papan peringkat muncul setelah booth pertama dibuat di{" "}
-              <Link href="/admin/booths" className="rounded-sm font-medium text-primary hover:underline">Booth &amp; item</Link>.
-            </p>
-          ) : null}
-        </Kartu>}
+        {kustom ? null : (
+          <Panel title="Event-day screens" trailing={<span className="text-body-medium text-on-surface-variant">Open in a new tab</span>} className="col-span-12">
+            <div className="grid grid-cols-2 gap-3 px-5 pb-5 pt-2 sm:grid-cols-3 lg:grid-cols-5">
+              {layarPanggung.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-md border border-outline-variant px-3 py-3 hover:bg-primary-soft">
+                  <Icon size={20} aria-hidden className="shrink-0 text-on-surface" />
+                  <span className="min-w-0 flex-1 text-body-medium font-medium">{label}</span>
+                  <ArrowSquareOut size={14} className="shrink-0 text-on-surface-variant" aria-label="New tab" />
+                </Link>
+              ))}
+            </div>
+            {/* Satu-satunya pintu yang selalu terlihat ke Booth & item di acara
+                tanpa booth: menunya di sidebar sengaja disembunyikan sampai booth
+                pertama dibuat. */}
+            {data && !adaBooth ? (
+              <p className="border-t border-outline-variant px-5 py-3 text-body-medium text-on-surface-variant">
+                Selling at booths? Booth, cashier, and leaderboard screens appear after you create the first booth in{" "}
+                <Link href="/admin/booths" className="rounded-sm font-medium text-primary hover:underline">Booths &amp; items</Link>.
+              </p>
+            ) : null}
+          </Panel>
+        )}
       </div>}
     </WorkspacePage>
   );
