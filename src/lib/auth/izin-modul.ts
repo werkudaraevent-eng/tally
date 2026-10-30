@@ -181,6 +181,7 @@ const ATURAN: Aturan[] = [
   { pola: /^\/api\/admin\/pesan\/tes$/, metode: ["POST"], modul: ["messages"], perlu: "manage", bendera: "messages_send_email" },
   { pola: /^\/api\/admin\/pengumuman$/, metode: BACA, modul: ["messages"], perlu: "view" },
   { pola: /^\/api\/admin\/pengumuman$/, metode: ["POST", "PATCH", "DELETE"], modul: ["messages"], perlu: "manage" },
+  { pola: /^\/api\/admin\/pengumuman\/sasaran$/, metode: [...BACA, "POST"], modul: ["messages"], perlu: "view" },
   { pola: /^\/api\/admin\/pengumuman\/email$/, metode: ["POST"], modul: ["messages"], perlu: "manage", bendera: "messages_send_email" },
   { pola: /^\/api\/settings$/, metode: BACA, modul: ["messages"], perlu: "view" },
 ];

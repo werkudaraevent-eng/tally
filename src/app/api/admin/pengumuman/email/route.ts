@@ -6,6 +6,8 @@ import { sendEmailBatch } from "@/lib/email/client";
 import { emailPengumuman } from "@/lib/email/pengumuman";
 import { tabelBelumAda } from "@/lib/member/pengumuman";
 import { allowedByList, messagingAllowlist } from "@/lib/pesan/alamat";
+import { akunPenerima } from "@/lib/pengumuman-penerima-server";
+import { bacaSyaratPengumuman } from "@/lib/sasaran-pengumuman";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { linkOrigin } from "@/lib/domain-klien/asal";
 
@@ -30,28 +32,34 @@ export async function POST(request: Request) {
 
   const event = auth.scope.event;
   const client = getSupabaseServiceClient();
-  const { data: baris, error } = await client
-    .from("event_announcements")
-    .select("id,title,body,link_url,link_label,audience")
-    .eq("id", parsed.data.id)
-    .eq("event_id", event.id)
-    .maybeSingle();
+  const baca = (kolom: string) => client.from("event_announcements").select(kolom).eq("id", parsed.data.id).eq("event_id", event.id).maybeSingle();
+  let { data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids");
+  // Sebelum migrasi 202610300004 kolom penerima belum ada.
+  if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience"));
   if (tabelBelumAda(error)) return apiError("ANNOUNCEMENTS_NOT_READY", 409);
   if (error) return apiError("INTERNAL_ERROR", 500);
   if (!baris) return apiError("ANNOUNCEMENT_NOT_FOUND", 404);
-  const item = baris as { id: string; title: string; body: string; link_url: string | null; link_label: string | null; audience: string };
+  const item = baris as unknown as {
+    id: string; title: string; body: string; link_url: string | null; link_label: string | null; audience: string; audience_rules?: unknown; audience_ids?: unknown;
+  };
 
-  let kueri = client.from("participant_accounts").select("email").eq("event_id", event.id);
-  if (item.audience === "disetujui") kueri = kueri.not("participant_id", "is", null);
-  const { data: akun, error: galatAkun } = await kueri;
-  if (galatAkun) return apiError("INTERNAL_ERROR", 500);
+  // Penerima yang sama dengan portal, saat ini: syarat dicek terhadap data
+  // peserta sekarang. Penerima yang tidak dikenal tidak dikirimi siapa pun.
+  const audience = item.audience;
+  if (audience !== "semua" && audience !== "disetujui" && audience !== "syarat" && audience !== "pilih") return apiError("INTERNAL_ERROR", 500);
+  const akun = await akunPenerima(event, {
+    audience,
+    audience_rules: audience === "syarat" ? bacaSyaratPengumuman(item.audience_rules) : null,
+    audience_ids: audience === "pilih" && Array.isArray(item.audience_ids) ? (item.audience_ids as string[]) : null,
+  });
+  if (!akun) return apiError("INTERNAL_ERROR", 500);
   // Daftar uji yang sama dengan Kiriman: di luar produksi hanya alamat di
   // MESSAGING_ALLOWLIST yang menerima, dan tanpa daftar itu tidak ada yang
   // dikirim. Preview memakai database produksi.
   const daftarUji = messagingAllowlist();
   if (daftarUji.mode === "blocked") return apiError("MESSAGING_BLOCKED", 403);
   const penerima = [
-    ...new Set(((akun ?? []) as { email: string }[]).map((baris) => baris.email?.trim().toLowerCase()).filter((email): email is string => Boolean(email) && allowedByList(email, daftarUji))),
+    ...new Set(akun.map((baris) => baris.email?.trim().toLowerCase() ?? "").filter((email): email is string => Boolean(email) && allowedByList(email, daftarUji))),
   ];
 
   const origin = await linkOrigin(request, event.id);

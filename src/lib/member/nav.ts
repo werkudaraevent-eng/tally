@@ -75,12 +75,12 @@ export function itemLonceng(
  * yang sedang menampilkan semua pengumuman.
  */
 export async function muatNavPeserta(
-  event: Pick<EventRow, "id" | "slug" | "time_zone" | "landing_config">,
+  event: Pick<EventRow, "id" | "slug" | "time_zone" | "landing_config" | "registration_form_config">,
   sesi: MemberSession,
   lang: LandingLang,
   opsi: { data?: MemberAnnouncements; unread?: number } = {},
 ): Promise<NavPeserta> {
-  const data = opsi.data ?? (await loadMemberAnnouncements(event.id, sesi));
+  const data = opsi.data ?? (await loadMemberAnnouncements(event, sesi));
   const slug = encodeURIComponent(event.slug);
   // Dashboard dalam bahasa halaman yang sedang dibuka: `/e/<slug>/en/peserta`
   // dari halaman acara English, `/e/<slug>/peserta` dari bahasa utama.
