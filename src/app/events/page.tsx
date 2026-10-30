@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, TextField, usePopoverAnchor } from "@/components/m3";
 import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
-import { UserMenu } from "@/components/admin/user-menu";
+import { cakupanAkses, UserMenu } from "@/components/admin/user-menu";
 import { EventDetailsDialog, galatKolomDari, type GalatKolom } from "@/components/admin/event-details-dialog";
 import { ACTIONS, CONFIRM_TEXT, DuplicateEventDialog, type Action } from "@/components/admin/event-actions";
 import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
@@ -535,7 +535,7 @@ export default function EventsPage() {
           <UserMenu
             username={username}
             role={role}
-            version={process.env.NEXT_PUBLIC_APP_VERSION}
+            scope={cakupanAkses(role, loading || error ? null : events.length)}
             onLogout={() => void logout()}
             loggingOut={pending}
           />

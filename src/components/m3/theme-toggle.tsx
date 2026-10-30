@@ -32,14 +32,17 @@ function subscribe(onChange: () => void) {
  * pengguna yang sudah mengunci terang tidak punya jalan kembali selain menebak
  * berapa kali harus menekan.
  */
-export function ThemeToggle({ className = "", compact = false }: { className?: string; compact?: boolean }) {
+export function ThemeToggle({ className = "", compact = false, menu = false }: { className?: string; compact?: boolean; menu?: boolean }) {
 	// Snapshot server selalu "system": di server tidak ada <html> untuk dibaca,
 	// dan menebak akan membuat markup server berbeda dari klien.
 	const preference = useSyncExternalStore(subscribe, readTheme, () => "system" as ThemePreference);
 
 	return (
 		<div
-			role="radiogroup"
+			// `menu`: duduk di dalam menu akun (role="menu"). Anak menu hanya boleh
+			// item menu atau grup, jadi peran radio ditukar dengan padanannya di menu
+			// (`group` + `menuitemradio`); pembaca layar tetap mengumumkan "terpilih".
+			role={menu ? "group" : "radiogroup"}
 			aria-label="Theme"
 
 			// Warna latar TIDAK ditetapkan di sini. Komponen ini duduk di dua tier
@@ -53,7 +56,9 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 			// adalah "Tera…" dan "Siste…" di layar 1300px — bukan sempit, hanya
 			// kalah rebutan ruang dengan judul yang `flex-1`. Grup kontrol yang
 			// labelnya terpotong lebih buruk daripada judul yang terpotong.
-			className={`flex shrink-0 items-center gap-1 rounded-2xl p-1 ${className}`}
+			className={menu
+				? `flex shrink-0 items-center gap-0.5 rounded-md border border-outline-variant p-0.5 ${className}`
+				: `flex shrink-0 items-center gap-1 rounded-2xl p-1 ${className}`}
 		>
 			{OPTIONS.map(({ value, label, Icon }) => {
 				const selected = preference === value;
@@ -61,7 +66,7 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 					<button
 						key={value}
 						type="button"
-						role="radio"
+						role={menu ? "menuitemradio" : "radio"}
 						aria-checked={selected}
 						onClick={() => applyTheme(value)}
 						// Label tetap ada untuk pembaca layar walau teksnya disembunyikan;
@@ -72,13 +77,17 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 						// Ini penanda kedua di samping warna, jadi statusnya masih
 						// terbaca ketika warna gagal membedakan (kontras rendah, layar
 						// proyektor, penglihatan warna terbatas).
-						className={`m3-state flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 px-2 text-label-large transition-[border-radius,background-color,color] duration-300 ease-emphasized ${
+						// Di menu: kepingan 32px, sebaris dengan barisnya (40px). Tombol 44px
+						// membuat satu baris menu setinggi dua.
+						className={menu
+							? `flex size-8 items-center justify-center rounded-sm transition-colors duration-150 ${selected ? "bg-primary-soft text-on-surface" : "text-on-surface-variant hover:bg-primary-soft hover:text-on-surface"}`
+							: `m3-state flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 px-2 text-label-large transition-[border-radius,background-color,color] duration-300 ease-emphasized ${
 							selected
 								? "rounded-md border border-outline-variant bg-surface-container text-on-surface"
 								: "rounded-2xl text-on-surface-variant"
 						}`}
 					>
-						<Icon size={18} weight="regular" className="shrink-0" aria-hidden />
+						<Icon size={menu ? 16 : 18} weight="regular" className="shrink-0" aria-hidden />
 						{/* Ikon saja di ruang sempit. Tiga label penuh butuh ~306px; rel
 						    navigasi admin hanya menyediakan 248px, dan teksnya keluar dari
 						    tepi rel alih-alih terpotong.
@@ -87,7 +96,7 @@ export function ThemeToggle({ className = "", compact = false }: { className?: s
 						    komponen berbeda per lebar layar: dua radiogroup di DOM berarti
 						    pembaca layar menemukan dua pemilih tema, dan yang satu tidak
 						    pernah terlihat. */}
-						<span className={compact ? "sr-only" : "hidden truncate sm:inline"}>{label}</span>
+						<span className={compact || menu ? "sr-only" : "hidden truncate sm:inline"}>{label}</span>
 					</button>
 				);
 			})}

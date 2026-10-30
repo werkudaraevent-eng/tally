@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CONTAINER_PADDING, SegmentedButton } from "@/components/m3";
 import { RolesPanel } from "@/components/admin/roles-panel";
 import { UsersPanel } from "@/components/admin/users-panel";
-import { UserMenu } from "@/components/admin/user-menu";
+import { cakupanAkses, UserMenu } from "@/components/admin/user-menu";
 import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
 
 /** Bilah atas yang sama dengan /events, supaya berpindah di antara keduanya tidak menggeser apa pun. */
@@ -40,7 +40,7 @@ export function UsersWorkspace({ username, role }: { username: string | null; ro
             <UserMenu
               username={username}
               role={role}
-              version={process.env.NEXT_PUBLIC_APP_VERSION}
+              scope={cakupanAkses(role, null)}
               onLogout={() => void logout()}
               loggingOut={keluar}
             />
