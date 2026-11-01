@@ -1,29 +1,32 @@
 "use client";
 
-import { ArrowSquareOut, LinkSimple, MagnifyingGlass, Plus, Trash, Warning } from "@phosphor-icons/react";
+import { ArrowSquareOut, LinkSimple, MagnifyingGlass, Plus, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import {
-  Banner, Button, ButtonLink, Dialog, EmptyState, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
-  SegmentedButton, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
+  Banner, Button, ButtonLink, ChipMenu, Dialog, EmptyState, ListDetail, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
+  StatusChip, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import type { EventLandingConfig, LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
-import { SOROTAN_MAKS, sesiDariRundown, speakerTabs } from "@/lib/landing-speaker-tabs";
+import { labelSesi, SOROTAN_MAKS, sesiDariRundown, speakerTabs } from "@/lib/landing-speaker-tabs";
+import { useJagaNavigasi } from "@/lib/jaga-navigasi";
 import { samaJson } from "@/lib/landing-speakers-sama";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
-import { barisSesiDariAdmin, KolomPeran, petakanSesiLama, PilihSesi, type BarisSesi } from "../landing/pilih-sesi";
+import { barisSesiDariAdmin, KolomPeran, petakanSesiLama, PilihSesi, sesiHilang, type BarisSesi } from "../landing/pilih-sesi";
 import { agendaDariBaris, BINGKAI_KECIL, inisial, UrutanPembicara } from "../landing/urutan-pembicara";
 
-// Halaman Speakers: daftar pembicara satu acara, dipindah dari panel sempit
-// Halaman acara (24 pembicara x 7 kolom bertumpuk di satu panel). Pola Agenda:
-// tab di atas, daftar di panel utama, penyunting satu orang di panel kanan.
+// Halaman Speakers: daftar pembicara satu acara. List-detail (DESIGN.md, "Tata
+// letak M3, tampilan Cloudflare"): tabel selebar halaman, panel sunting hanya
+// saat seseorang dipilih.
 //
-// Tab sama dengan tab bagian Pembicara di halaman acara. "All" berisi semua
-// orang dengan pencarian; tab lain berisi urutan tampil tab itu, yang diatur
-// dengan pegangan geser seperti sebelumnya (UrutanPembicara).
+// Tab bagian Pembicara di halaman acara (Highlights, satu per sesi, Other
+// speakers) menjadi saringan Session dan Highlights, bukan tab halaman: jumlah
+// sesi ikut data, jadi tab tumbuh tanpa batas (9 tab sudah terpotong di 1280).
+// Saringan yang memilih tepat satu tab itu menampilkan urutan tampilnya, yang
+// diatur dengan pegangan geser seperti sebelumnya (UrutanPembicara).
 //
 // Penyimpanan: satu pembicara per Simpan, dan setiap geseran urutan langsung
 // tersimpan. Server menulis hanya `landing_config.speakers` dan menolak (409)
@@ -32,20 +35,42 @@ import { agendaDariBaris, BINGKAI_KECIL, inisial, UrutanPembicara } from "../lan
 type Payload = { speakers: LandingSpeaker[]; speaker_frame: LandingSpeakerFrame; layout: string; en_enabled: boolean };
 type Pilihan = number | "baru" | null;
 type Bahasa = "id" | "en";
+type Perhatian = "foto" | "sesi" | "hilang";
 
-const SEMUA = "semua";
+const SOROT = "sorotan";
+const PERHATIAN: { value: Perhatian; label: string }[] = [
+  { value: "foto", label: "No photo" },
+  { value: "sesi", label: "No session" },
+  { value: "hilang", label: "Session removed" },
+];
 /** Sama dengan batas skema (SPEAKERS_MAX). */
 const MAKS = 60;
 
-function Wajah({ speaker, bingkai, besar = false }: { speaker: LandingSpeaker; bingkai: LandingSpeakerFrame; besar?: boolean }) {
+function Wajah({ speaker, bingkai, ukuran = "baris" }: { speaker: LandingSpeaker; bingkai: LandingSpeakerFrame; ukuran?: "baris" | "pratinjau" }) {
   return (
-    <span aria-hidden className={cx("relative shrink-0 overflow-hidden bg-surface-container-high", besar ? "w-10" : "w-8", BINGKAI_KECIL[bingkai] ?? BINGKAI_KECIL.portrait)}>
+    <span aria-hidden className={cx("relative shrink-0 overflow-hidden bg-surface-container-high", ukuran === "pratinjau" ? "w-16" : "w-8", BINGKAI_KECIL[bingkai] ?? BINGKAI_KECIL.portrait)}>
       {speaker.photo_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={speaker.photo_url} alt="" className={cx("absolute inset-0 size-full object-cover", bingkai === "circle" ? "object-top" : "object-[50%_20%]")} />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center text-label-small font-semibold text-primary">{inisial(speaker.name)}</span>
       )}
+    </span>
+  );
+}
+
+/** Satu sesi di kolom "Sessions and role": label pendek, lalu peran di sesi itu. */
+function ChipSesi({ label, peran, hilang }: { label: string; peran: string; hilang: boolean }) {
+  return (
+    <span
+      title={hilang ? `${label}: no longer shown in the agenda` : [label, peran].filter(Boolean).join(" · ")}
+      className={cx(
+        "inline-flex h-5 max-w-full items-center gap-1 overflow-hidden whitespace-nowrap rounded border px-1.5 text-label-medium",
+        hilang ? "border-error text-error" : "border-outline-variant text-on-surface",
+      )}
+    >
+      <span className="min-w-0 truncate">{label}</span>
+      {peran ? <span className="min-w-0 truncate text-on-surface-variant">· {peran}</span> : null}
     </span>
   );
 }
@@ -152,7 +177,9 @@ export default function SpeakersAdminPage() {
   const [enAktif, setEnAktif] = useState(false);
   const [baris, setBaris] = useState<BarisSesi[] | null>(null);
   const [sesiMemuat, setSesiMemuat] = useState(true);
-  const [tabKey, setTabKey] = useState<string>(SEMUA);
+  const [saringSesi, setSaringSesi] = useState<string[]>([]);
+  const [saringSorot, setSaringSorot] = useState<string[]>([]);
+  const [saringPerhatian, setSaringPerhatian] = useState<string[]>([]);
   const [pilihan, setPilihan] = useState<Pilihan>(null);
   const [draf, setDraf] = useState<LandingSpeaker | null>(null);
   const [bahasa, setBahasa] = useState<Bahasa>("id");
@@ -216,13 +243,9 @@ export default function SpeakersAdminPage() {
   const asli = typeof pilihan === "number" ? tersimpan?.[pilihan] ?? null : null;
   const berubah = draf !== null && (pilihan === "baru" ? Boolean(draf.name.trim() || draf.photo_url || draf.title || draf.company) : !samaJson(draf, asli));
 
-  // Peringatan bawaan peramban saat meninggalkan halaman dengan suntingan.
-  useEffect(() => {
-    if (!berubah) return;
-    const tahan = (event: BeforeUnloadEvent) => { event.preventDefault(); };
-    window.addEventListener("beforeunload", tahan);
-    return () => window.removeEventListener("beforeunload", tahan);
-  }, [berubah]);
+  // Menutup tab ditanyakan peramban; pindah halaman lewat rel, palet perintah
+  // atau pemilih acara ditanyakan dialog Discard yang sama (pola Agenda, #245).
+  useJagaNavigasi(berubah, (lanjut) => lindungi(lanjut));
 
   // Daftar yang dilihat: tersimpan, dengan suntingan yang sedang dibuka di
   // tempatnya, supaya tab dan sesi di daftar ikut berubah selagi mengetik.
@@ -238,8 +261,16 @@ export default function SpeakersAdminPage() {
     const bertanda = daftar.map((speaker, i) => ({ ...speaker, _i: i }));
     return speakerTabs(bertanda, agendaDariBaris(baris), { highlights: "Highlights", others: "Other speakers" });
   }, [daftar, baris]);
-  const tabAktif = tabs.find((tab) => tab.key === tabKey) ?? null;
-  const kunciTab = tabAktif ? tabAktif.key : SEMUA;
+  // Urutan tampil terbuka bila saringan memilih tepat satu tab halaman acara:
+  // satu sesi (atau Other speakers) saja, atau Highlights saja, tanpa cari.
+  const kunciUrutan = cari.trim() || saringPerhatian.length
+    ? null
+    : saringSesi.length === 1 && saringSorot.length === 0
+      ? saringSesi[0]
+      : saringSesi.length === 0 && saringSorot.length === 1
+        ? SOROT
+        : null;
+  const tabAktif = (kunciUrutan && tabs.find((tab) => tab.key === kunciUrutan)) || null;
 
   /** Jalankan `aksi`, atau tanya dulu bila suntingan yang terbuka belum disimpan. */
   function lindungi(aksi: () => void) {
@@ -253,10 +284,6 @@ export default function SpeakersAdminPage() {
       setKonflik("");
       setPilihan(indeks);
       setDraf(tersimpan?.[indeks] ?? null);
-      // Di layar sempit panel sunting ada di bawah daftar: dibawa ke layar.
-      if (window.matchMedia("(max-width: 1023px)").matches) {
-        window.setTimeout(() => document.querySelector('[aria-label="Speaker editor"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-      }
     });
   }
 
@@ -264,7 +291,11 @@ export default function SpeakersAdminPage() {
     lindungi(() => {
       setKonflik("");
       setPilihan("baru");
-      setDraf({ name: "" });
+      // Ditambah saat saringan menunjuk satu sesi agenda: orangnya langsung di
+      // sesi itu, supaya muncul di daftar yang sedang dilihat setelah disimpan.
+      const idSesi = tabAktif?.key.startsWith("sesi-") ? Number(tabAktif.key.slice(5)) : NaN;
+      const barisSesi = Number.isInteger(idSesi) ? baris?.find((item) => item.id === idSesi) : undefined;
+      setDraf(barisSesi ? { name: "", session_refs: [{ id: barisSesi.id, label: labelSesi(barisSesi.title) }] } : { name: "" });
       setBahasa("id");
       window.setTimeout(() => document.querySelector<HTMLInputElement>("[data-nama-pembicara]")?.focus(), 0);
     });
@@ -409,125 +440,218 @@ export default function SpeakersAdminPage() {
   const terisi = daftar.filter((speaker) => speaker.name?.trim());
   const tanpaFoto = terisi.filter((speaker) => !speaker.photo_url).length;
   const disorot = daftar.filter((speaker, i) => speaker.featured && i !== pilihan).length;
+  const terbuka = draf !== null;
 
-  // ---- Panel utama ----------------------------------------------------------
+  /** Yang perlu dibereskan pada satu orang, urut seperti di saringan. */
+  function perhatian(speaker: LandingSpeaker): Perhatian[] {
+    const hasil: Perhatian[] = [];
+    if (!speaker.photo_url) hasil.push("foto");
+    if (!labelSesiPembicara(speaker)) hasil.push("sesi");
+    if (sesiHilang(speaker, baris).length) hasil.push("hilang");
+    return hasil;
+  }
+
+  // ---- Saringan --------------------------------------------------------------
+  const opsiSesi = tabs.filter((tab) => tab.key !== SOROT).map((tab) => ({ value: tab.key, label: tab.label, count: tab.speakers.length }));
+  const opsiPerhatian = PERHATIAN.map((item) => ({ ...item, count: terisi.filter((speaker) => perhatian(speaker).includes(item.value)).length })).filter((item) => item.count > 0);
+  const jumlahPerhatian = terisi.filter((speaker) => perhatian(speaker).length > 0).length;
+  const anggotaTab = (kunci: string) => new Set((tabs.find((tab) => tab.key === kunci)?.speakers ?? []).map((speaker) => (speaker as LandingSpeaker & { _i: number })._i));
   const kataCari = cari.trim().toLowerCase();
+  const sesiTerpilih = saringSesi.length ? anggotaTab(saringSesi[0]!) : null;
+  const sorotTerpilih = saringSorot.length ? anggotaTab(SOROT) : null;
   const hasilCari = daftar
     .map((speaker, i) => ({ speaker, i }))
+    .filter(({ speaker }) => speaker.name.trim() || pilihan === "baru")
+    .filter(({ i }) => !sesiTerpilih || sesiTerpilih.has(i))
+    .filter(({ i }) => !sorotTerpilih || sorotTerpilih.has(i))
+    .filter(({ speaker }) => !saringPerhatian.length || perhatian(speaker).some((item) => saringPerhatian.includes(item)))
     .filter(({ speaker }) => !kataCari || [speaker.name, speaker.title, speaker.company].some((teks) => teks?.toLowerCase().includes(kataCari)));
-  const tombolTambah = (
-    <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiBaru} disabled={daftar.length >= MAKS}>Add speaker</Button>
+  const adaSaringan = Boolean(kataCari || saringSesi.length || saringSorot.length || saringPerhatian.length);
+  const hapusSaringan = () => { setCari(""); setSaringSesi([]); setSaringSorot([]); setSaringPerhatian([]); };
+
+  // ---- Panel daftar -----------------------------------------------------------
+  const toolbar = (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-3 py-3">
+      <label className="relative min-w-[200px] flex-1">
+        <span className="sr-only">Search name, job title or organisation</span>
+        <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+        <input
+          type="search"
+          value={cari}
+          onChange={(event) => setCari(event.target.value)}
+          placeholder="Search name, job title, organisation…"
+          className="h-8 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
+        />
+      </label>
+      {opsiSesi.length ? <ChipMenu label="Session" options={opsiSesi} selected={saringSesi} onChange={setSaringSesi} searchable={opsiSesi.length > 8} /> : null}
+      {tabs.some((tab) => tab.key === SOROT) ? (
+        <ChipMenu label="Highlights" options={[{ value: "ya", label: "In Highlights", count: anggotaTab(SOROT).size }]} selected={saringSorot} onChange={setSaringSorot} summary={() => "In Highlights"} />
+      ) : null}
+      {/* Panel sunting terbuka: daftar menyempit dan kolom Status disembunyikan, jadi saringannya juga, kecuali sedang dipakai. */}
+      {opsiPerhatian.length && (!terbuka || saringPerhatian.length) ? (
+        <ChipMenu
+          label={`Needs attention ${jumlahPerhatian}`}
+          options={opsiPerhatian}
+          selected={saringPerhatian}
+          onChange={setSaringPerhatian}
+          multiple
+          summary={(pilih) => (pilih.length === 1 ? pilih[0]!.label : `Needs attention: ${pilih.length}`)}
+        />
+      ) : null}
+    </div>
   );
 
-  const utama = !tabAktif ? (
-    <Pane aria-label="All speakers">
-      <PaneHeader>
-        <h2 className="text-body-medium font-semibold text-on-surface">All speakers</h2>
-        <span className="tabular-nums text-body-medium text-on-surface-variant">{terisi.length}</span>
-        {daftar.length > 6 ? (
-          <label className="flex h-9 min-w-0 max-w-56 flex-1 items-center gap-2 rounded-lg border border-outline-variant px-2.5 text-on-surface-variant focus-within:border-primary">
-            <MagnifyingGlass size={16} aria-hidden />
-            <input
-              type="search"
-              value={cari}
-              onChange={(event) => setCari(event.target.value)}
-              placeholder="Search"
-              aria-label="Search name, job title or organisation"
-              className="min-w-0 flex-1 bg-transparent text-body-medium text-on-surface outline-none placeholder:text-on-surface-variant"
+  const tabelPembicara = (
+    <div className="relative min-h-0 flex-1 overflow-auto">
+      <table className="w-full table-fixed border-separate border-spacing-0 text-left text-body-medium">
+        <colgroup>
+          <col />
+          {terbuka ? null : <col className="w-[22%] max-md:hidden" />}
+          <col className={terbuka ? "w-[45%] max-sm:hidden" : "w-[30%] max-sm:hidden"} />
+          {terbuka ? null : <col className="w-44 max-md:hidden" />}
+        </colgroup>
+        <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
+          <tr>
+            <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Speaker</th>
+            {terbuka ? null : <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium max-md:hidden">Organisation</th>}
+            <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium max-sm:hidden">Sessions and role</th>
+            {terbuka ? null : <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium max-md:hidden">Status</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {hasilCari.map(({ speaker, i }) => {
+            const hilang = new Set(sesiHilang(speaker, baris).map((ref) => ref.id));
+            const sesi = sesiDariRundown(speaker)
+              ? (speaker.session_refs ?? []).map((ref) => ({ kunci: String(ref.id), label: ref.label || "Session", peran: ref.role?.trim() || speaker.role?.trim() || "", hilang: hilang.has(ref.id) }))
+              : speaker.session?.trim() ? [{ kunci: "lama", label: speaker.session.trim(), peran: speaker.role?.trim() || "", hilang: false }] : [];
+            const masalah = perhatian(speaker);
+            const status = (
+              <>
+                {speaker.featured ? <StatusChip tone="primary" dot>Highlights</StatusChip> : null}
+                {masalah.includes("foto") ? <StatusChip tone="warning" dot>No photo</StatusChip> : null}
+                {masalah.includes("sesi") ? <StatusChip tone="error" dot>No session</StatusChip> : null}
+                {masalah.includes("hilang") ? <StatusChip tone="error" dot>Session removed</StatusChip> : null}
+              </>
+            );
+            const kosong = !speaker.featured && masalah.length === 0;
+            return (
+              <tr
+                key={i}
+                aria-selected={pilihan === i}
+                onClick={() => buka(i)}
+                className={cx("cursor-pointer", pilihan === i ? "bg-secondary-container" : "bg-surface-container-lowest hover:bg-primary-soft")}
+              >
+                <td className="border-b border-outline-variant px-4 py-2.5 align-middle">
+                  <button
+                    type="button"
+                    aria-pressed={pilihan === i}
+                    onClick={(event) => { event.stopPropagation(); buka(i); }}
+                    className="flex w-full min-w-0 items-center gap-3 rounded-sm text-left"
+                  >
+                    <Wajah speaker={speaker} bingkai={bingkai} />
+                    <span className="min-w-0 flex-1">
+                      <span className={cx("block truncate font-medium", speaker.name.trim() ? "text-on-surface" : "text-on-surface-variant")} title={speaker.name}>{speaker.name.trim() || "Unnamed"}</span>
+                      {speaker.title?.trim() ? <span className="block truncate text-on-surface-variant" title={speaker.title}>{speaker.title.trim()}</span> : null}
+                    </span>
+                  </button>
+                  {/* Di ponsel sesi dan status pindah ke bawah nama: kolomnya disembunyikan. */}
+                  <span className="mt-1.5 flex flex-wrap gap-1 pl-11 sm:hidden">
+                    {sesi.map((item) => <ChipSesi key={item.kunci} {...item} />)}
+                    {status}
+                  </span>
+                  {terbuka ? null : <span className="mt-1.5 hidden flex-wrap gap-1 pl-11 empty:hidden max-md:flex max-sm:hidden">{status}</span>}
+                </td>
+                {terbuka ? null : (
+                  <td className="border-b border-outline-variant px-3 py-2.5 align-middle max-md:hidden">
+                    {speaker.company?.trim() ? <span className="block truncate" title={speaker.company}>{speaker.company.trim()}</span> : <span className="text-on-surface-variant" aria-label="no value">–</span>}
+                  </td>
+                )}
+                <td className="border-b border-outline-variant px-3 py-2.5 align-middle max-sm:hidden">
+                  {sesi.length ? <span className="flex flex-wrap gap-1">{sesi.map((item) => <ChipSesi key={item.kunci} {...item} />)}</span> : <span className="text-on-surface-variant" aria-label="no session">–</span>}
+                </td>
+                {terbuka ? null : (
+                  <td className="border-b border-outline-variant px-3 py-2.5 align-middle max-md:hidden">
+                    {kosong ? <span className="text-on-surface-variant" aria-label="no value">–</span> : <span className="flex flex-wrap gap-1">{status}</span>}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const daftarPanel = (
+    <Pane aria-label="Speakers">
+      {daftar.length ? toolbar : null}
+      {tabAktif ? (
+        <>
+          {tabAktif.note ? (
+            <p className="shrink-0 truncate border-b border-outline-variant bg-surface-container-high px-4 py-2 text-body-medium text-on-surface-variant">
+              <span className="font-medium text-on-surface">{tabAktif.label}</span> · {tabAktif.note}
+            </p>
+          ) : null}
+          <PaneBody className="px-2 py-2">
+            <UrutanPembicara
+              speakers={daftar}
+              baris={baris}
+              bingkai={bingkai}
+              tab={tabAktif.key}
+              terpilih={typeof pilihan === "number" ? pilihan : null}
+              onPilih={buka}
+              terkunci={berubah ? "Save or discard the open speaker first to change the order." : menyimpan ? "Saving…" : null}
+              onChange={(next) => void aturUrutan(next)}
             />
-          </label>
-        ) : null}
-        {daftar.length > 0 ? tombolTambah : null}
-      </PaneHeader>
-      <PaneBody>
-        {daftar.length === 0 ? (
+          </PaneBody>
+        </>
+      ) : daftar.length === 0 ? (
+        <PaneBody>
           <EmptyState
             plain
             title="No speakers yet"
             description="Speakers appear in the Speakers section of the event page and next to their sessions in the agenda."
             action={<Button size="sm" icon={<Plus size={16} />} onClick={mulaiBaru}>Add speaker</Button>}
           />
-        ) : hasilCari.length === 0 ? (
-          <p className="px-4 py-6 text-body-medium text-on-surface-variant">No speaker matches &ldquo;{cari.trim()}&rdquo;.</p>
-        ) : (
-          <ul aria-label="Speakers">
-            {hasilCari.map(({ speaker, i }) => {
-              const sesi = labelSesiPembicara(speaker);
-              const keterangan = [speaker.title?.trim(), speaker.company?.trim()].filter(Boolean).join(" · ");
-              return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={() => buka(i)}
-                    aria-current={pilihan === i ? "true" : undefined}
-                    className={cx(
-                      // Cincin fokus ke dalam: di tepi panel cincin luar terpotong.
-                      "flex min-h-13 w-full items-center gap-3 border-b border-outline-variant px-4 py-2 text-left text-body-medium focus-visible:shadow-none! focus-visible:-outline-offset-2!",
-                      pilihan === i ? "bg-secondary-container" : "hover:bg-primary-soft",
-                    )}
-                  >
-                    <Wajah speaker={speaker} bingkai={bingkai} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className={cx("min-w-0 truncate font-medium", speaker.name.trim() ? "text-on-surface" : "text-on-surface-variant")}>{speaker.name.trim() || "Unnamed"}</span>
-                        {speaker.featured ? <span className="shrink-0 text-body-small text-on-surface-variant">Highlights</span> : null}
-                      </span>
-                      {keterangan ? <span className="block truncate text-body-small text-on-surface-variant">{keterangan}</span> : null}
-                    </span>
-                    {!speaker.photo_url ? <span className="shrink-0 text-body-small font-medium text-on-surface-variant max-sm:hidden">No photo</span> : null}
-                    <span className={cx("w-32 shrink-0 truncate text-right text-body-small max-sm:hidden", sesi ? "text-on-surface-variant" : "text-error")}>{sesi || "No session"}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </PaneBody>
-    </Pane>
-  ) : (
-    <Pane aria-label={`Order in ${tabAktif.label}`}>
-      <PaneHeader>
-        <h2 className="min-w-0 truncate text-body-medium font-semibold text-on-surface">Order in {tabAktif.label}</h2>
-        <span className="shrink-0 tabular-nums text-body-medium text-on-surface-variant">{plural(tabAktif.speakers.length, "speaker")}</span>
-        {tombolTambah}
-      </PaneHeader>
-      <PaneBody className="px-2 py-2">
-        <UrutanPembicara
-          speakers={daftar}
-          baris={baris}
-          bingkai={bingkai}
-          tab={tabAktif.key}
-          terpilih={typeof pilihan === "number" ? pilihan : null}
-          onPilih={buka}
-          terkunci={berubah ? "Save or discard the open speaker first to change the order." : menyimpan ? "Saving…" : null}
-          onChange={(next) => void aturUrutan(next)}
-        />
-      </PaneBody>
+        </PaneBody>
+      ) : hasilCari.length === 0 ? (
+        <PaneBody>
+          <div className="flex flex-col items-start gap-2 px-4 py-6 text-body-medium text-on-surface-variant">
+            <p>{kataCari ? <>No speaker matches &ldquo;{cari.trim()}&rdquo;.</> : "No speaker matches these filters."}</p>
+            <Button variant="text" size="sm" onClick={hapusSaringan}>Clear filters</Button>
+          </div>
+        </PaneBody>
+      ) : tabelPembicara}
+      {daftar.length ? (
+        <div className="shrink-0 border-t border-outline-variant bg-surface-container-high px-4 py-2 text-body-small text-on-surface-variant">
+          {adaSaringan ? `${hasilCari.length} of ${plural(terisi.length, "speaker")}` : plural(terisi.length, "speaker")}
+          {" · "}{anggotaTab(SOROT).size} in Highlights (up to {SOROTAN_MAKS}) · {MAKS} at most
+        </div>
+      ) : null}
     </Pane>
   );
 
-  // ---- Panel samping --------------------------------------------------------
-  let isiSamping: ReactNode;
-  if (!draf) {
-    isiSamping = (
-      <EmptyState
-        plain
-        title="Choose a speaker"
-        description="Pick someone in the list to edit their photo, details and sessions, or add a new speaker."
-      />
-    );
-  } else if (bahasa === "id") {
+  // ---- Panel sunting ----------------------------------------------------------
+  let isiSamping: ReactNode = null;
+  if (draf && bahasa === "id") {
+    const peranUtama = draf.role?.trim();
     isiSamping = (
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <h3 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">{pilihan === "baru" ? "New speaker" : "Edit speaker"}</h3>
-          <Button variant="text" size="sm" onClick={tutup}>Close</Button>
+        <div className="flex items-start gap-3 rounded-lg border border-outline-variant p-3">
+          <Wajah speaker={draf} bingkai={bingkai} ukuran="pratinjau" />
+          <div className="min-w-0 flex-1">
+            <p className="text-body-small text-on-surface-variant">Card preview</p>
+            <p className={cx("truncate font-semibold", draf.name.trim() ? "text-on-surface" : "text-on-surface-variant")}>{draf.name.trim() || "Name"}</p>
+            {peranUtama || draf.title?.trim() ? <p className="line-clamp-2 text-body-small text-on-surface-variant">{[peranUtama, draf.title?.trim()].filter(Boolean).join(" · ")}</p> : null}
+            {draf.company?.trim() ? <p className="truncate text-body-small font-medium text-primary">{draf.company.trim()}</p> : null}
+          </div>
         </div>
         <ImageUploadField
           label="Photo"
           kind="landing"
           fit="cover"
-          previewClassName="size-16 rounded-full"
+          // Fotonya sudah tampil di pratinjau kartu di atas, dalam bingkai halaman acara.
+          previewClassName="hidden"
           hint="Square, at least 400×400. Without a photo, initials are used."
           value={draf.photo_url ?? null}
           disabled={menyimpan}
@@ -576,11 +700,11 @@ export default function SpeakersAdminPage() {
           label="Feature this speaker"
           description={!draf.featured && disorot >= SOROTAN_MAKS
             ? `Highlights already has ${SOROTAN_MAKS} speakers. Turn one off first.`
-            : `Goes in the Highlights tab (up to ${SOROTAN_MAKS}), for officials giving remarks or keynote speakers.`}
+            : `Goes in the Highlights tab (${disorot} of ${SOROTAN_MAKS} used), for officials giving remarks or keynote speakers.`}
         />
       </div>
     );
-  } else {
+  } else if (draf) {
     const peranSesi = (draf.session_refs ?? []).filter((ref) => ref.role?.trim());
     const kolomEn = (label: string, sumber: string | undefined, value: string | undefined, max: number, onChange: (value: string) => void) =>
       sumber?.trim() ? (
@@ -608,10 +732,6 @@ export default function SpeakersAdminPage() {
     ].filter(Boolean);
     isiSamping = (
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <h3 className="min-w-0 flex-1 truncate text-body-medium font-semibold text-on-surface">{draf.name.trim() || "New speaker"} in English</h3>
-          <Button variant="text" size="sm" onClick={tutup}>Close</Button>
-        </div>
         {!enAktif ? (
           <p className="text-body-small text-on-surface-variant">The English event page is off. Translations are kept and show once it is turned on.</p>
         ) : null}
@@ -621,38 +741,37 @@ export default function SpeakersAdminPage() {
     );
   }
 
-  const samping = (
+  const samping = draf ? (
     <Pane as="aside" aria-label="Speaker editor">
-      {draf ? (
-        <div className="shrink-0 border-b border-outline-variant px-4 py-3">
-          <SegmentedButton<Bahasa>
-            label="Language"
-            value={bahasa}
-            onChange={setBahasa}
-            className="w-full"
-            options={[{ value: "id", label: "Indonesian" }, { value: "en", label: "English" }]}
-          />
-        </div>
-      ) : null}
-      {draf && konflik ? (
+      <PaneHeader>
+        <h2 className="min-w-0 flex-1 truncate text-title-large text-on-surface">{pilihan === "baru" ? "New speaker" : draf.name.trim() || "Unnamed"}</h2>
+        <Button variant="text" size="sm" onClick={tutup}>Close</Button>
+      </PaneHeader>
+      <Tabs<Bahasa>
+        label="Language"
+        idPrefix="bahasa-pembicara"
+        value={bahasa}
+        onChange={setBahasa}
+        className="px-2"
+        options={[{ value: "id", label: "Details" }, { value: "en", label: "English" }]}
+      />
+      {konflik ? (
         <p role="alert" className="flex shrink-0 items-start gap-2 border-b border-outline-variant bg-error-soft/40 px-4 py-2.5 text-body-small font-medium text-error">
           <Warning size={16} weight="fill" className="mt-px shrink-0" aria-hidden />
           {konflik}
         </p>
       ) : null}
-      <PaneBody className="px-4 py-4">{isiSamping}</PaneBody>
-      {draf ? (
-        <PaneFooter note={berubah ? "Unsaved changes" : null}>
-          {typeof pilihan === "number" ? (
-            <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} disabled={menyimpan} onClick={() => setKonfirmasiHapus(true)}>Delete</Button>
-          ) : null}
-          <Button simpan size="sm" loading={menyimpan} disabled={!berubah} onClick={() => void simpanPembicara()}>
-            {pilihan === "baru" ? "Add speaker" : "Save speaker"}
-          </Button>
-        </PaneFooter>
-      ) : null}
+      <PaneBody role="tabpanel" id={`bahasa-pembicara-panel-${bahasa}`} aria-labelledby={`bahasa-pembicara-tab-${bahasa}`} className="px-4 py-4">{isiSamping}</PaneBody>
+      <PaneFooter note={berubah ? "Unsaved changes" : null}>
+        {typeof pilihan === "number" ? (
+          <Button simpan variant="text" size="sm" className="text-error" disabled={menyimpan} onClick={() => setKonfirmasiHapus(true)}>Delete</Button>
+        ) : null}
+        <Button simpan size="sm" loading={menyimpan} disabled={!berubah} onClick={() => void simpanPembicara()}>
+          {pilihan === "baru" ? "Add speaker" : "Save speaker"}
+        </Button>
+      </PaneFooter>
     </Pane>
-  );
+  ) : null;
 
   const namaTerbuka = (typeof pilihan === "number" ? tersimpan?.[pilihan]?.name : draf?.name)?.trim() || "this speaker";
 
@@ -668,7 +787,14 @@ export default function SpeakersAdminPage() {
               <span>Shown in the Speakers section and next to their agenda items</span>
             </>
           ) : null}
-          actions={halamanAcara ? <ButtonLink href={halamanAcara} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open event page</ButtonLink> : null}
+          actions={
+            <>
+              {halamanAcara ? <ButtonLink href={halamanAcara} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open event page</ButtonLink> : null}
+              {tersimpan ? (
+                <Button icon={<Plus size={16} />} onClick={mulaiBaru} disabled={daftar.length >= MAKS} title={daftar.length >= MAKS ? `An event can have up to ${MAKS} speakers.` : undefined}>Add speaker</Button>
+              ) : null}
+            </>
+          }
         />
 
         {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
@@ -689,24 +815,7 @@ export default function SpeakersAdminPage() {
         ) : null}
 
         {!tersimpan ? (error ? null : <PageLoading />) : (
-          <>
-            <div className="min-w-0 shrink-0 border-b border-outline-variant">
-              <Tabs
-                label="Speaker tabs"
-                idPrefix="tab-pembicara"
-                value={kunciTab}
-                onChange={(value) => setTabKey(value)}
-                className="border-b-0"
-                options={[
-                  { value: SEMUA, label: "All", badge: terisi.length },
-                  ...tabs.map((tab) => ({ value: tab.key, label: tab.label, badge: tab.speakers.length })),
-                ]}
-              />
-            </div>
-            <div role="tabpanel" id={`tab-pembicara-panel-${kunciTab}`} aria-labelledby={`tab-pembicara-tab-${kunciTab}`} className="flex min-h-0 flex-1 flex-col">
-              <SupportingPane main={utama} pane={samping} paneWidth={420} />
-            </div>
-          </>
+          <ListDetail list={daftarPanel} detail={samping} detailWidth={420} />
         )}
 
         <Dialog

@@ -1201,6 +1201,10 @@ Aturan yang mengikat semuanya:
 - Toolbar daftar: kolom cari, chip saringan (`ChipMenu`, "+ Filter", chip
   kolom) dan tombol Columns sama-sama 32px dengan sudut `rounded-md`. Chip
   berbentuk pil di sebelah kolom bersudut terbaca sebagai dua komponen berbeda.
+- Daftar yang jumlah kelompoknya ikut data (sesi, hari, hotel) disaring dengan
+  `ChipMenu`, bukan dibagi ke `Tabs` halaman: tab yang tumbuh per sesi sudah
+  terpotong di 1280 dengan tujuh sesi (Speakers, Nov 2026). Urutan tampil per
+  kelompok muncul saat saringan memilih tepat satu kelompok.
 - Sel nama di Participant list memuat paling banyak satu baris kedua, dan
   isinya SATU kolom untuk seluruh halaman (jabatan bila kolomnya tersembunyi
   dan setidaknya separuh baris mengisinya, kalau tidak email dengan aturan yang
