@@ -2317,6 +2317,40 @@ html:hover {
 		--cincin-fokus: #8ab4ff;
 	}
 }
+/* Isi layar pemindai ponsel di luar kamera (Find name, History, kartu angka):
+ * peran gelap lengkap supaya kartu, kolom cari, dan teks status tetap terbaca
+ * di kanvas hitam. Lembar hasil dan dialog dirender di luar pembungkus ini
+ * (portal ke body), jadi warnanya tidak berubah. */
+@media (width < 64rem) {
+	.gelap-ponsel-isi {
+		--surface: #000000;
+		--surface-muted: #1f1f1f;
+		--md-sys-color-surface: #000000;
+		--md-sys-color-surface-container-low: #131313;
+		--md-sys-color-surface-container-high: #1f1f1f;
+		--md-sys-color-surface-container-highest: #262626;
+		--md-sys-color-surface-variant: #262626;
+		--md-sys-color-error: #ff6e84;
+		--md-sys-color-success: #7ad8bd;
+		--md-sys-color-warning: #ffb68c;
+		--md-sys-color-error-soft: #67001f;
+		--md-sys-color-on-error-soft: #ffdadc;
+		--md-sys-color-success-soft: #00382c;
+		--md-sys-color-on-success-soft: #96f4d9;
+		--md-sys-color-warning-soft: #522300;
+		--md-sys-color-on-warning-soft: #ffdbc9;
+	}
+	/* Lembar hasil tetap memakai warna status terang yang sudah disetujui
+	 * (#270): putih di atas hijau, oranye, merah yang pekat. */
+	.gelap-ponsel-isi .hasil-nada {
+		--md-sys-color-success: #006b58;
+		--md-sys-color-on-success: #ffffff;
+		--md-sys-color-warning: #934b18;
+		--md-sys-color-on-warning: #ffffff;
+		--md-sys-color-error: #b41340;
+		--md-sys-color-on-error: #ffefef;
+	}
+}
 .hasil-ikon {
 	background: color-mix(in srgb, currentColor 16%, transparent);
 }
