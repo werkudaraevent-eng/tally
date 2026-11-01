@@ -82,6 +82,13 @@ const postSchema = z.object({
   winner_id: z.number().int().positive().optional(),
   status: z.enum(["confirmed", "rejected"]).optional(),
   reason: z.string().trim().max(200).optional(),
+  /**
+   * Untuk aksi `draw`: jumlah nama yang diundi, di bawah "per undi" hadiahnya.
+   * Dipakai "Tidak hadir, undi pengganti": satu kursi kosong diisi satu nama,
+   * bukan satu rombongan penuh, dan tanpa cadangan (cadangan sudah diundi
+   * bersama rombongan awal).
+   */
+  count: z.number().int().min(1).max(60).optional(),
 });
 
 async function loadState(eventId: string): Promise<StateRow | null> {
@@ -225,18 +232,9 @@ export async function POST(request: Request) {
       // kebetulan sudah penuh — justru hadiah yang paling perlu diuji ulang.
       let confirmed = 0;
       if (!state.rehearsal) {
-        let quotaQuery = client
-          .from("undian_winners")
-          .select("id", { count: "exact", head: true })
-          .eq("event_id", eventId)
-          .eq("prize_id", prizeId)
-          .eq("is_backup", false)
-          .neq("status", "rejected");
-        quotaQuery = sessionId === null
-          ? quotaQuery.is("session_id", null)
-          : quotaQuery.eq("session_id", sessionId);
-        const { count } = await quotaQuery;
-        confirmed = count ?? 0;
+        const taken = await seatsTaken(eventId, prizeId, sessionId);
+        if (taken === null) return apiError("INTERNAL_ERROR", 500);
+        confirmed = taken;
         if (confirmed >= prize.winner_quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
       }
 
@@ -248,8 +246,9 @@ export async function POST(request: Request) {
       // Jumlah pemenang dijepit ke sisa kuota. Hadiah dengan kuota 10 dan 3 orang
       // per undi tidak boleh mengeluarkan 3 nama pada undian keempat, karena hanya
       // 1 kursi tersisa dan dua orang akan dipanggil untuk hadiah yang tidak ada.
-      const mainCount = Math.min(prize.winners_per_draw, prize.winner_quota - confirmed);
-      const picked = drawWinners(pool.candidates, mainCount + prize.backup_per_draw);
+      const requested = parsed.data.count;
+      const mainCount = Math.min(requested ?? prize.winners_per_draw, prize.winners_per_draw, prize.winner_quota - confirmed);
+      const picked = drawWinners(pool.candidates, mainCount + (requested ? 0 : prize.backup_per_draw));
 
       const round = state.draw_round + 1;
       const pending: PendingDraw = {
@@ -404,16 +403,43 @@ export async function POST(request: Request) {
       if (!parsed.data.winner_id || !parsed.data.status) return apiError("VALIDATION_ERROR", 422);
       const { data: winner } = await client
         .from("undian_winners")
-        .select("id,prize_id,display_name,status")
+        .select("id,prize_id,session_id,display_name,status")
         .eq("event_id", eventId)
         .eq("id", parsed.data.winner_id)
         .maybeSingle();
       if (!winner) return apiError("UNDIAN_WINNER_NOT_FOUND", 404);
-      const current = winner as { id: number; prize_id: number; display_name: string; status: string };
+      const current = winner as { id: number; prize_id: number; session_id: number | null; display_name: string; status: string };
       // Sudah diputuskan berarti hadiahnya sudah diserahkan atau sudah diundi
       // ulang. Membalik keputusan lewat endpoint ini akan membuat dua orang
       // memegang klaim atas satu hadiah yang sama.
       if (current.status !== "pending") return apiError("UNDIAN_WINNER_DECIDED", 409);
+
+      // Pengaman kuota di server. Cadangan yang disahkan juga memegang hadiah:
+      // tanpa pemeriksaan ini, "sahkan semua" (atau dua operator di dua tab)
+      // bisa mengesahkan pemenang utama DAN cadangannya untuk hadiah berkuota 1.
+      if (parsed.data.status === "confirmed") {
+        const { data: prizeRow } = await client
+          .from("undian_prizes")
+          .select("winner_quota")
+          .eq("event_id", eventId)
+          .eq("id", current.prize_id)
+          .maybeSingle();
+        const quota = (prizeRow as { winner_quota: number } | null)?.winner_quota;
+        if (typeof quota === "number") {
+          let confirmedQuery = client
+            .from("undian_winners")
+            .select("id")
+            .eq("event_id", eventId)
+            .eq("prize_id", current.prize_id)
+            .eq("status", "confirmed");
+          confirmedQuery = current.session_id === null
+            ? confirmedQuery.is("session_id", null)
+            : confirmedQuery.eq("session_id", current.session_id);
+          const { data: confirmedRows, error: countError } = await confirmedQuery;
+          if (countError) return apiError("INTERNAL_ERROR", 500);
+          if ((confirmedRows ?? []).length >= quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
+        }
+      }
 
       const { error } = await client
         .from("undian_winners")
@@ -535,4 +561,27 @@ export async function POST(request: Request) {
 
 async function audit(eventId: string, userId: string, action: string, payload: unknown) {
   await getSupabaseServiceClient().from("audit_logs").insert({ event_id: eventId, user_id: userId, action, payload } as never);
+}
+
+/**
+ * Kursi hadiah yang sudah terpakai di satu sesi.
+ *
+ * Pemenang utama terhitung selama belum dibatalkan (yang masih menunggu sudah
+ * memegang kursinya). Cadangan baru terhitung setelah DISAHKAN: saat itu ia
+ * menggantikan pemenang utama yang tidak hadir dan memegang hadiahnya. Tanpa
+ * cadangan di hitungan ini, kursi yang diisi cadangan terbaca kosong dan bisa
+ * diundi sekali lagi.
+ */
+async function seatsTaken(eventId: string, prizeId: number, sessionId: number | null): Promise<number | null> {
+  let query = getSupabaseServiceClient()
+    .from("undian_winners")
+    .select("is_backup,status")
+    .eq("event_id", eventId)
+    .eq("prize_id", prizeId)
+    .neq("status", "rejected");
+  query = sessionId === null ? query.is("session_id", null) : query.eq("session_id", sessionId);
+  const { data, error } = await query;
+  if (error) return null;
+  return ((data ?? []) as { is_backup: boolean; status: string }[])
+    .filter((row) => !row.is_backup || row.status === "confirmed").length;
 }

@@ -71,6 +71,7 @@ const ACTION_LABEL: Record<string, string> = {
   undian_prize_create: "Menambah hadiah undian",
   undian_prize_update: "Mengubah hadiah undian",
   undian_prize_delete: "Menghapus hadiah undian",
+  undian_prize_reorder: "Mengubah urutan hadiah undian",
   undian_draw: "Mengundi pemenang",
   undian_winner_confirm: "Mengesahkan pemenang",
   undian_winner_reject: "Membatalkan pemenang",

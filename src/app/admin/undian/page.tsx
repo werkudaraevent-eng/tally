@@ -69,6 +69,7 @@ export default function UndianAdminPage() {
   const [editingId, setEditingId] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<Omit<UndianPrize, "id">>(newPrizeDraft);
   const [savingPrize, setSavingPrize] = useState(false);
+  const [movingPrize, setMovingPrize] = useState(false);
   const [confirmPrize, setConfirmPrize] = useState<UndianPrize | null>(null);
   const [deletingPrize, setDeletingPrize] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -194,7 +195,9 @@ export default function UndianAdminPage() {
 
   function openEditor(prize: UndianPrize | null) {
     setEditingId(prize ? prize.id : "new");
-    setDraft(prize ? { ...prize } : newPrizeDraft());
+    // Hadiah baru masuk di urutan terakhir, bukan nomor 0: dengan 0 ia akan
+    // melompat ke paling atas daftar dan ke paling atas panel operator.
+    setDraft(prize ? { ...prize } : { ...newPrizeDraft(), sort_order: prizes.reduce((max, item) => Math.max(max, item.sort_order + 1), prizes.length) });
     setPreview(null);
     setPreviewFailed(false);
     setError("");
@@ -224,6 +227,25 @@ export default function UndianAdminPage() {
     setEditingId(null);
     await load();
     toast.success("Prize saved", isNew ? "The new prize is ready to draw." : "Changes apply to the next draw.");
+  }
+
+  async function movePrize(id: number, move: "up" | "down") {
+    setMovingPrize(true);
+    const response = await fetch("/api/admin/undian/prizes/order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, move }),
+    }).catch(() => null);
+    setMovingPrize(false);
+    if (!response?.ok) { toast.error("Could not change the draw order", "Check your connection, then try again."); return; }
+    const data = (await response.json()) as { order: number[] };
+    // Hanya urutan dan nomor yang diganti; draf yang sedang disunting tetap.
+    setPrizes((current) => data.order
+      .map((prizeId, index) => { const prize = current.find((item) => item.id === prizeId); return prize ? { ...prize, sort_order: index } : null; })
+      .filter((prize): prize is UndianPrize => prize !== null));
+    // Simpan hadiah mengirim seluruh draf, termasuk sort_order. Tanpa baris ini
+    // Save sesudah Move up menulis kembali nomor lama dan urutannya rusak.
+    if (editingId === id) updateDraft({ sort_order: data.order.indexOf(id) });
   }
 
   async function deletePrize(id: number) {
@@ -433,7 +455,7 @@ export default function UndianAdminPage() {
                   </span>
                 ) : null}
               </span>
-              <span className="hidden w-32 shrink-0 text-right tabular-nums sm:block">
+              <span className={cx("hidden w-32 shrink-0 text-right tabular-nums", editingId === null && "sm:block")}>
                 <span className="block">{won} / {prize.winner_quota}</span>
                 <span
                   className="block text-on-surface-variant"
@@ -503,6 +525,12 @@ export default function UndianAdminPage() {
       onClose={() => { setEditingId(null); setError(""); }}
       onUpload={(file) => void uploadImage(file, "prize")}
       onDelete={typeof editingId === "number" ? () => setConfirmPrize(prizes.find((prize) => prize.id === editingId) ?? null) : undefined}
+      order={typeof editingId === "number" ? {
+        position: prizes.findIndex((prize) => prize.id === editingId) + 1,
+        total: prizes.length,
+        moving: movingPrize,
+        onMove: (move) => void movePrize(editingId, move),
+      } : undefined}
     />
   ) : null;
 

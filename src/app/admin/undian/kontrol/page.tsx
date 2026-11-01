@@ -4,14 +4,14 @@ import {
   ArrowSquareOut, ArrowsClockwise, CaretLeft, Check, Flask, Gift, Power, SkipForward, Sparkle, Stop, Trophy, Warning, X, XCircle,
 } from "@phosphor-icons/react";
 import Link from "@/components/event-link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { useToast } from "@/components/toast";
 import { ANIMATIONS, type UndianPrize, normalizePrize, ruleBrokenMessage } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneHeader,
-  StatusChip, StatusDot, WorkspaceHeader, WorkspacePage,
+  StatusChip, StatusDot, Switch, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 
 // Kontrol undian, dipakai di atas panggung.
@@ -79,6 +79,8 @@ export default function UndianControlPage() {
   // sepuluh pemenang sekaligus tidak boleh terjadi karena satu ketukan tak
   // sengaja di atas panggung.
   const [confirmRedraw, setConfirmRedraw] = useState(false);
+  // "Tidak hadir" langsung mengundi satu pengganti, kecuali operator mematikannya.
+  const [drawReplacement, setDrawReplacement] = useState(true);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState("");
   const toast = useToast();
@@ -202,6 +204,137 @@ export default function UndianControlPage() {
   // hadiah yang kuotanya kebetulan sudah penuh; justru hadiah itulah yang paling
   // perlu diuji ulang.
   const drawBlocked = quotaFull && !rehearsal;
+
+  // Pemenang undian ini yang belum diputuskan hadir atau tidak.
+  //
+  // Selama masih ada, aksi utama panel adalah memutuskan, BUKAN mengundi lagi.
+  // Dulu tombol besar tetap "Draw now" setelah nama keluar, dan satu ketukan
+  // terburu-buru mengundi rombongan baru sementara pemenang sebelumnya masih
+  // berjalan ke panggung.
+  const ronde = state && !spinning && !rehearsal ? state.winners.filter((winner) => winner.id !== undefined) : [];
+  // Hanya pemenang UTAMA. Cadangan bukan pemenang kedua: ia baru dipakai bila
+  // pemenang utama tidak hadir. Memasukkannya ke "sahkan semua" membuat hadiah
+  // berkuota 1 punya dua pemenang sah setelah tiga ketukan klik presenter.
+  const belumDiputuskan = ronde.filter((winner) => winner.status === "pending" && !winner.is_backup);
+  const cadanganMenunggu = ronde
+    .filter((winner) => winner.status === "pending" && winner.is_backup)
+    .sort((a, b) => a.slot_order - b.slot_order);
+  // Kursi yang kosong di undian ini: pemenang utama yang tidak hadir dan belum
+  // digantikan cadangan yang sudah disahkan.
+  const kursiKosong = Math.max(
+    0,
+    ronde.filter((winner) => !winner.is_backup && winner.status === "rejected").length
+      - ronde.filter((winner) => winner.is_backup && winner.status === "confirmed").length,
+  );
+
+  // Langkah keputusan sesudah nama keluar, berurutan. Semua pemenang undian ini
+  // diputuskan dulu, baru undian pengganti; mengundi pengganti di tengah jalan
+  // mengganti tampilan layar dan menelantarkan nama yang belum diputuskan.
+  type Langkah = { key: string; label: string; hint: React.ReactNode; run: () => void };
+  let langkah: Langkah | null = null;
+  if (belumDiputuskan.length > 0) {
+    langkah = {
+      key: "present-all",
+      label: belumDiputuskan.length === 1 ? "Mark present" : `Mark all ${belumDiputuskan.length} present`,
+      hint: belumDiputuskan.length === 1
+        ? <>Waiting for <span className="font-medium text-on-surface">{belumDiputuskan[0].name}</span>. Decide before the next draw.</>
+        : <>{belumDiputuskan.length} winners waiting. Mark anyone who is not here as Absent in the list below, then mark the rest present.</>,
+      run: () => void sahkan(belumDiputuskan, "present-all"),
+    };
+  } else if (cadanganMenunggu.length > 0 && kursiKosong > 0) {
+    const cadangan = cadanganMenunggu[0];
+    langkah = {
+      key: "present-all",
+      label: `Mark Backup ${cadangan.slot_order} present`,
+      hint: <><span className="font-medium text-on-surface">{cadangan.name}</span> (Backup {cadangan.slot_order}) takes the place of the absent winner. If they are not here either, mark them Absent in the list below.</>,
+      run: () => void sahkan([cadangan], "present-all"),
+    };
+  } else if (cadanganMenunggu.length > 0) {
+    langkah = {
+      key: "release",
+      label: cadanganMenunggu.length === 1 ? "Release the backup" : `Release ${cadanganMenunggu.length} backups`,
+      hint: <>Every winner is decided, so the {cadanganMenunggu.length === 1 ? "backup is" : "backups are"} not needed. Releasing returns them to the pool for the next prizes.</>,
+      run: () => void lepaskan(cadanganMenunggu),
+    };
+  } else if (kursiKosong > 0 && !(quotaFull && !rehearsal)) {
+    langkah = {
+      key: "draw",
+      label: kursiKosong === 1 ? "Draw 1 replacement" : `Draw ${kursiKosong} replacements`,
+      hint: <>{kursiKosong === 1 ? "One winner was" : `${kursiKosong} winners were`} absent. The replacement draw fills only {kursiKosong === 1 ? "that place" : "those places"}, without backups.</>,
+      run: () => void send({ action: "draw", count: kursiKosong }, "draw"),
+    };
+  }
+
+  // Hadiah berikutnya menurut urutan undi (Prizes & rules > Draw order): yang
+  // pertama sesudah hadiah ini yang kuotanya masih tersisa di sesi ini.
+  const urutan = prizes;
+  const posisi = activePrize ? urutan.findIndex((prize) => prize.id === activePrize.id) : -1;
+  const hadiahBerikutnya = urutan.slice(posisi + 1).find((prize) => (winnerCounts[prize.id] ?? 0) < prize.winner_quota) ?? null;
+
+  async function sahkan(winners: Winner[], key: string) {
+    for (const winner of winners) {
+      const ok = await send({ action: "decide", winner_id: winner.id, status: "confirmed" }, key);
+      if (!ok) return;
+    }
+  }
+
+  async function lepaskan(winners: Winner[]) {
+    for (const winner of winners) {
+      const ok = await send({ action: "decide", winner_id: winner.id, status: "rejected", reason: "Backup not needed" }, "release");
+      if (!ok) return;
+    }
+  }
+
+  // Satu aksi utama untuk papan ketik dan klik presenter (PageDown / panah kanan
+  // / spasi). Sengaja tidak mencakup menyalakan layar, latihan, atau tidak hadir:
+  // tombol yang tertekan tanpa sengaja tidak boleh mengubah sesuatu yang tidak
+  // bisa dibatalkan atau yang tidak terlihat dari tempat operator berdiri.
+  let aksiUtama: { label: string; run: () => void } | null = null;
+  if (live && state?.prize && !busy) {
+    if (manualSpin) aksiUtama = { label: tombolAkhiri, run: () => void send({ action: "reveal" }, "reveal") };
+    else if (spinning) aksiUtama = null;
+    else if (langkah) aksiUtama = { label: langkah.label, run: langkah.run };
+    else if (!drawBlocked) aksiUtama = { label: rehearsal ? "Draw (rehearsal)" : "Draw now", run: () => void send({ action: "draw" }, "draw") };
+    else if (pendingHere === 0 && hadiahBerikutnya) {
+      const next = hadiahBerikutnya;
+      aksiUtama = { label: `Next prize: ${next.name}`, run: () => void send({ action: "select", prize_id: next.id }, `select-${next.id}`) };
+    }
+  }
+  const aksiRef = useRef(aksiUtama);
+  const dialogTerbuka = rejecting !== null || confirmRedraw;
+  useEffect(() => { aksiRef.current = dialogTerbuka ? null : aksiUtama; });
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+      const key = event.key;
+      if (key !== "PageDown" && key !== "ArrowRight" && key !== " ") return;
+      const target = event.target as HTMLElement | null;
+      // Di kolom isian tombol-tombol ini milik kolomnya. Spasi pada tombol yang
+      // sedang fokus sudah menekan tombol itu sendiri; PageDown dan panah kanan
+      // tidak, jadi keduanya tetap berlaku (fokus tertinggal di tombol setelah
+      // operator mengeklik dengan tetikus, lalu beralih ke klik presenter).
+      if (target?.closest("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      if (key === " " && target?.closest("button, a")) return;
+      const action = aksiRef.current;
+      if (!action) return;
+      event.preventDefault();
+      action.run();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Pengganti hanya untuk pemenang undian yang sedang tampil, dan bukan cadangan:
+  // cadangan yang tidak hadir tidak membuka kursi baru.
+  //
+  // Ditawarkan hanya bila nama ini pemenang utama TERAKHIR yang belum diputuskan
+  // dan tidak ada cadangan yang menunggu. Undian pengganti adalah undian baru
+  // yang mengganti tampilan; bila masih ada nama lain yang belum diputuskan,
+  // nama-nama itu hilang dari layar dan panel lalu tertinggal "pending".
+  const bisaGanti = rejecting !== null && !rejecting.is_backup && state?.prize !== null && !rehearsal
+    && cadanganMenunggu.length === 0
+    && belumDiputuskan.length === 1 && belumDiputuskan[0].id === rejecting.id;
+  const cadanganPengganti = rejecting !== null && !rejecting.is_backup ? cadanganMenunggu[0] ?? null : null;
 
   const sah = state?.winners.filter((winner) => winner.status === "confirmed").length ?? 0;
   const menunggu = state?.winners.filter((winner) => winner.status === "pending").length ?? 0;
@@ -357,6 +490,33 @@ export default function UndianControlPage() {
               Reveal now
             </Button>
           )
+        ) : langkah ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-body-medium text-on-surface-variant">{langkah.hint}</p>
+            <Button
+              size="xl"
+              block
+              className="h-16 text-title-medium"
+              icon={langkah.key === "draw" ? <Sparkle size={22} weight="fill" /> : <Check size={22} weight="bold" />}
+              loading={busy === langkah.key}
+              disabled={busy !== null}
+              onClick={langkah.run}
+            >
+              {langkah.label}
+            </Button>
+            {belumDiputuskan.length === 1 ? (
+              <Button
+                variant="outlined"
+                block
+                className="text-error"
+                icon={<XCircle size={16} />}
+                disabled={busy !== null}
+                onClick={() => { setRejecting(belumDiputuskan[0]); setRejectReason(""); setDrawReplacement(true); }}
+              >
+                {cadanganMenunggu.length > 0 ? "Absent" : "Absent, draw a replacement"}
+              </Button>
+            ) : null}
+          </div>
         ) : drawBlocked ? (
           // Kuota penuh: JALAN KELUAR, bukan kalimat buntu. Jalan keluarnya ada
           // tiga (batalkan pemenang, tutup sesi lalu buka baru, atau hapus
@@ -383,7 +543,21 @@ export default function UndianControlPage() {
               </p>
             )}
           </div>
-        ) : (
+        ) : null}
+        {!spinning && drawBlocked && !langkah && pendingHere === 0 && hadiahBerikutnya ? (
+          <Button
+            size="xl"
+            block
+            className="h-16 text-title-medium"
+            icon={<Gift size={22} />}
+            loading={busy === `select-${hadiahBerikutnya.id}`}
+            disabled={busy !== null}
+            onClick={() => void send({ action: "select", prize_id: hadiahBerikutnya.id }, `select-${hadiahBerikutnya.id}`)}
+          >
+            <span className="truncate">Next prize: {hadiahBerikutnya.name}</span>
+          </Button>
+        ) : null}
+        {spinning || langkah || drawBlocked ? null : (
           <div className="flex flex-col gap-2">
             <Button
               size="xl"
@@ -412,14 +586,15 @@ export default function UndianControlPage() {
           <p className="text-body-medium text-on-surface-variant">The actual quota is full, but rehearsal mode does not use the quota.</p>
         ) : null}
 
-        <button
-          type="button"
-          onClick={() => void send({ action: "reset" }, "reset")}
-          disabled={busy !== null}
-          className="self-start rounded-sm text-body-medium font-medium text-on-surface-variant hover:underline disabled:opacity-50"
-        >
+        {aksiUtama ? (
+          <p className="text-body-medium text-on-surface-variant">
+            Presenter clicker, → or Space: <span className="font-medium text-on-surface">{aksiUtama.label}</span>
+          </p>
+        ) : null}
+
+        <Button variant="text" size="sm" className="-ml-3 self-start" disabled={busy !== null} onClick={() => void send({ action: "reset" }, "reset")}>
           Clear screen (winners stay on record)
-        </button>
+        </Button>
       </div>
     );
   }
@@ -466,7 +641,7 @@ export default function UndianControlPage() {
                       className="text-error"
                       icon={<XCircle size={16} />}
                       disabled={busy !== null}
-                      onClick={() => { setRejecting(winner); setRejectReason(""); }}
+                      onClick={() => { setRejecting(winner); setRejectReason(""); setDrawReplacement(true); }}
                     >
                       Absent
                     </Button>
@@ -474,7 +649,11 @@ export default function UndianControlPage() {
                       variant="tonal"
                       icon={<Check size={16} weight="bold" />}
                       loading={busy === `confirm-${winner.id}`}
-                      disabled={busy !== null}
+                      // Cadangan hanya bisa disahkan untuk kursi yang sudah
+                      // kosong. Mengesahkannya lebih dulu membuat pemenang utama
+                      // yang sedang berjalan ke panggung tertolak kuota.
+                      disabled={busy !== null || (winner.is_backup && kursiKosong === 0)}
+                      title={winner.is_backup && kursiKosong === 0 ? "Available when a main winner is absent" : undefined}
                       onClick={() => void send({ action: "decide", winner_id: winner.id, status: "confirmed" }, `confirm-${winner.id}`)}
                     >
                       Present
@@ -564,7 +743,9 @@ export default function UndianControlPage() {
         <Banner tone="error" icon={<Warning size={18} />} className="shrink-0" actions={<IconButton size="sm" label="Dismiss message" onClick={() => setError("")}><X size={16} /></IconButton>}>{error}</Banner>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+      {/* Di ponsel panel undi di atas daftar hadiah: operator berdiri di samping MC
+          dan aksi berikutnya harus terlihat tanpa menggulir melewati semua hadiah. */}
+      <div className="flex min-h-0 flex-1 flex-col-reverse justify-end gap-6 lg:flex-row lg:justify-start">
         {daftarHadiah}
         {panelUndi}
       </div>
@@ -606,7 +787,7 @@ export default function UndianControlPage() {
         actions={
           <>
             <Button variant="outlined" disabled={busy !== null} onClick={() => setRejecting(null)}>Cancel</Button>
-            <Button type="submit" form="form-tidak-hadir" variant="danger" loading={busy === `reject-${rejecting?.id}`} disabled={busy !== null}>Mark absent</Button>
+            <Button type="submit" form="form-tidak-hadir" variant="danger" loading={busy === `reject-${rejecting?.id}`} disabled={busy !== null}>{bisaGanti && drawReplacement ? "Mark absent and draw" : "Mark absent"}</Button>
           </>
         }
       >
@@ -617,7 +798,17 @@ export default function UndianControlPage() {
             event.preventDefault();
             if (!rejecting) return;
             const ok = await send({ action: "decide", winner_id: rejecting.id, status: "rejected", reason: rejectReason }, `reject-${rejecting.id}`);
-            if (ok) { setRejecting(null); toast.info("Winner cancelled", "The participant returns to the pool for the next draw."); }
+            if (!ok) return;
+            setRejecting(null);
+            if (bisaGanti && drawReplacement) {
+              // Satu nama, tanpa cadangan: hanya kursi yang kosong yang diisi.
+              const drawn = await send({ action: "draw", count: 1 }, "draw");
+              if (drawn) toast.info("Winner cancelled", "One replacement is being drawn on the stage screen.");
+            } else if (cadanganPengganti) {
+              toast.info("Winner cancelled", `Backup ${cadanganPengganti.slot_order} takes this place.`);
+            } else {
+              toast.info("Winner cancelled", "The participant returns to the pool for the next draw.");
+            }
           }}
         >
           <label htmlFor="reject-reason" className="block text-body-medium font-medium">Reason <span className="font-normal text-on-surface-variant">optional</span></label>
@@ -629,6 +820,20 @@ export default function UndianControlPage() {
             placeholder="Not present at the venue"
             className="mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary"
           />
+          {cadanganPengganti ? (
+            <p className="mt-4 rounded-md bg-surface-container-high p-3 text-body-medium">
+              <span className="font-medium">{cadanganPengganti.name}</span> (Backup {cadanganPengganti.slot_order}) takes this place. Mark them present next.
+            </p>
+          ) : null}
+          {bisaGanti ? (
+            <Switch
+              className="mt-4"
+              checked={drawReplacement}
+              onChange={setDrawReplacement}
+              label="Draw a replacement now"
+              description="Draws one name for this prize as soon as this winner is cancelled."
+            />
+          ) : null}
         </form>
       </Dialog>
     </WorkspacePage>

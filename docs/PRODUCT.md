@@ -304,7 +304,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 ### Lucky draw
 - **For:** admins set up and run it; the audience watches the stage screen.
 - **CMS (Lucky draw → Prizes & rules):**
-  - Prize: name, sponsor, description, image, how winners collect it (shown on the winner's Participant home when Participant area > Lucky draw prize is on), animation (wheel, slot machine, card, digits, dart, instant), automatic or manual stop, winners per draw, total quota, backups.
+  - Prize: draw order (Move up / Move down; new prizes go last), name, sponsor, description, image, how winners collect it (shown on the winner's Participant home when Participant area > Lucky draw prize is on), animation (wheel, slot machine, card, digits, dart, instant), automatic or manual stop, winners per draw, total quota, backups.
   - Name source: event participants or an entry list (pasted from Excel).
   - Eligibility conditions with AND/OR groups: organisation, name, job title, type, RSVP, check-in (any or one session), seat, spend, booths visited, scans, checkpoint points/goal, form answers; with a pool preview.
   - Win again: can win many times, not this prize twice, or excluded from all prizes after one win (default).
@@ -312,7 +312,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Exclusion rules and per-person exclusions.
   - Stage display: title, name display, organisation, seat, sound, confetti, reveal delay, colours, background.
   - Sessions & results: start/close a session, export, delete results (owner only).
-- **Operator panel:** stage screen on/off, choose prize, draw, stop, confirm or mark absent, redraw, rehearsal (nothing recorded).
+- **Operator panel:** stage screen on/off, prizes in draw order, draw, stop, then decide each winner (the main button becomes "Mark present" until everyone is decided), backups only replace an absent winner (unused ones are released), "Draw N replacements" for absent seats once every name is decided (no backups), "Next prize" when the quota is full, redraw, rehearsal (nothing recorded). Presenter clicker, → or Space runs the main action (never turns the screen on or marks absent). On phones the draw panel is above the prize list.
 - **Shows at:** `/e/<slug>/undian`.
 - **Rules:** the prize being drawn decides who may win again; absent winners return to the pool; winners from closed sessions no longer block; if past winners can't be read, the draw refuses to run.
 
