@@ -799,7 +799,9 @@ export default function ScanClient() {
     bunyikan(beres ? "ok" : data.status === "duplicate" ? "ulang" : "galat", suaraRef.current);
     const waktu = new Date().toISOString();
     setRiwayat((current) => [
-      { nama: data.participant?.name ?? data.qr ?? "Unknown", status: beres ? "recorded" : data.status, waktu },
+      // Kode mentah tidak disimpan: bisa jadi QR asli peserta yang dibatalkan,
+      // dan History bertahan di ponsel sampai akhir hari.
+      { nama: data.participant?.name ?? (data.status === "not_found" ? "Unknown code" : "Unknown"), status: beres ? "recorded" : data.status, waktu },
       ...current,
     ].slice(0, BATAS_RIWAYAT));
     if (beres && data.participant) {
@@ -1358,6 +1360,16 @@ export default function ScanClient() {
   async function keluar() {
     setKeluarJalan(true);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    // Ponsel scanner sering dipakai bergantian: History petugas sebelumnya
+    // (nama peserta) tidak ikut terbaca oleh petugas berikutnya.
+    try {
+      for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+        const kunci = window.localStorage.key(i);
+        if (kunci?.startsWith("scan-riwayat:")) window.localStorage.removeItem(kunci);
+      }
+    } catch {
+      // Penyimpanan diblokir: tidak ada yang perlu dihapus.
+    }
     router.replace("/login");
     router.refresh();
   }
@@ -1568,7 +1580,7 @@ export default function ScanClient() {
   };
 
   return (
-    <div lang="en" className={`scan-teks warna-pemindai min-h-dvh bg-surface text-on-surface lg:pb-12 ${gelap ? "gelap-ponsel gelap-ponsel-isi max-lg:bg-black" : ""} ${imersif ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : "pb-24"}`}>
+    <div lang="en" className={`scan-teks warna-pemindai min-h-dvh bg-surface text-on-surface lg:pb-12 ${imersif ? "max-lg:bg-black" : gelap ? "gelap-ponsel gelap-ponsel-isi max-lg:bg-black" : ""} ${imersif ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : "pb-24"}`}>
       <div ref={penandaAtas} aria-hidden className="h-0" />
       {/* -------------------------------------------------------------------
           Bilah atas.

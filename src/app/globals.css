@@ -2317,10 +2317,11 @@ html:hover {
 		--cincin-fokus: #8ab4ff;
 	}
 }
-/* Isi layar pemindai ponsel di luar kamera (Find name, History, kartu angka):
- * peran gelap lengkap supaya kartu, kolom cari, dan teks status tetap terbaca
- * di kanvas hitam. Lembar hasil dan dialog dirender di luar pembungkus ini
- * (portal ke body), jadi warnanya tidak berubah. */
+/* Isi layar pemindai ponsel Find name dan History (bukan layar Scan, yang tetap
+ * seperti #270): peran gelap lengkap supaya kartu, kolom cari, dan teks status
+ * tetap terbaca di kanvas hitam. Lembar hasil TIDAK di-portal, jadi warnanya
+ * dikembalikan lewat .hasil-nada di bawah. Dialog yang dibuka dari layar ini
+ * ikut gelap. */
 @media (width < 64rem) {
 	.gelap-ponsel-isi {
 		--surface: #000000;
