@@ -561,6 +561,8 @@ export default function LandingCmsPage() {
     facts: null, landing: {}, formInherit: true, formSeed: DEFAULT_REGISTRATION_SEED, tersimpan: null,
   });
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
+  // Add block below: blok baru disisipkan sesudah baris ini (indeks di `sections`). Kosong = di akhir isi.
+  const [sisipSesudah, setSisipSesudah] = useState<{ indeks: number; judul: string } | null>(null);
   // Baris tersembunyi tetap di tempatnya; penyaring ini hanya menyembunyikannya dari daftar.
   const [tampilTersembunyi, setTampilTersembunyi] = useState(true);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState<{ ids: string[]; judul: string } | null>(null);
@@ -2639,9 +2641,14 @@ export default function LandingCmsPage() {
 
   function tambahBlok(type: LandingBlockType, showOn?: LandingBlockShowOn) {
     const blok: LandingBlock = { ...buatBlok(type), ...(showOn ? { show_on: showOn } : {}) };
-    // Blok baru masuk di akhir isi, tetap di atas Portal peserta yang ada di ujung.
+    // Blok baru masuk di akhir isi, tetap di atas Portal peserta yang ada di ujung,
+    // atau tepat di bawah baris yang dipilih lewat "Add block below".
     const ujungPortal = sections.length > 0 && isPortalEntry(sections[sections.length - 1]);
-    const next = ujungPortal ? [...sections.slice(0, -1), { id: blok.id, enabled: true }, sections[sections.length - 1]] : [...sections, { id: blok.id, enabled: true }];
+    const sisip = sisipSesudah && sisipSesudah.indeks < sections.length ? sisipSesudah.indeks + 1 : null;
+    const next = sisip !== null
+      ? [...sections.slice(0, sisip), { id: blok.id, enabled: true }, ...sections.slice(sisip)]
+      : ujungPortal ? [...sections.slice(0, -1), { id: blok.id, enabled: true }, sections[sections.length - 1]] : [...sections, { id: blok.id, enabled: true }];
+    setSisipSesudah(null);
     setLanding({ ...landing, sections: next, blocks: [...(landing.blocks ?? []), blok] });
     setTambahTerbuka(false);
     setBagian("susunan");
@@ -2904,6 +2911,9 @@ export default function LandingCmsPage() {
       { label: "Move up", icon: <ArrowUp size={18} />, disabled: index === 0, onSelect: () => moveSection(index, -1) },
       { label: "Move down", icon: <ArrowDown size={18} />, disabled: index === sections.length - 1, onSelect: () => moveSection(index, 1) },
     ];
+    if (!forum && modern) {
+      items.push({ label: "Add block below", icon: <Plus size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => { setSisipSesudah({ indeks: index, judul }); setTambahTerbuka(true); } });
+    }
     if (blok) {
       items.push({ label: "Duplicate", icon: <CopySimple size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => duplikatBlok(index, blok) });
     }
@@ -3160,13 +3170,17 @@ export default function LandingCmsPage() {
         })}
       </ol>
       {terbuka === null ? (
-        <div className="px-4 py-4">
-          <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
+        // Menempel di kaki panel: menambah blok tidak perlu menggulir melewati semua baris.
+        // -bottom-40: bidang gulir Sections punya pb-40 (ruang toast galat), dan
+        // sticky dihitung dari dalam padding itu; tanpanya bilah melayang 160 px di atas kaki.
+        <div className="sticky -bottom-40 z-10 flex items-center gap-3 border-t border-outline-variant bg-surface-container-lowest px-4 py-3">
+          <Button variant="outlined" icon={<Plus size={18} />} onClick={() => { setSisipSesudah(null); setTambahTerbuka(true); }} disabled={(landing.blocks ?? []).length >= 30}>
             Add block
           </Button>
+          <span className="min-w-0 truncate text-body-small text-on-surface-variant max-sm:hidden">or ⋯ › Add block below on any row</span>
         </div>
       ) : null}
-      <TambahBlokDialog open={tambahTerbuka} onClose={() => setTambahTerbuka(false)} onPick={tambahBlok} />
+      <TambahBlokDialog open={tambahTerbuka} onClose={() => { setTambahTerbuka(false); setSisipSesudah(null); }} onPick={(type) => { const id = tambahBlok(type); gulirKeBaris(id); }} tujuan={sisipSesudah?.judul ?? null} />
     </div>
   ) : null;
 
