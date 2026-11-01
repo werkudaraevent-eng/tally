@@ -38,11 +38,11 @@ import {
 } from "@/lib/domain";
 import { DAFTAR_JENIS_BLOK, LABEL_KELOMPOK_BLOK, definisiBlok, petaJenisBlok, type KelompokBlok } from "@/lib/blok/jenis";
 import { IKON_BLOK } from "./ikon-bagian";
+import { cx } from "@/lib/m3/cx";
+import { plural } from "@/lib/plural";
 
 /** Urutan kelompok di dialog Tambah blok. */
 const URUTAN_KELOMPOK: readonly KelompokBlok[] = ["media", "daftar", "data", "panduan", "ajakan"];
-import { cx } from "@/lib/m3/cx";
-import { plural } from "@/lib/plural";
 
 // Editor Hitung mundur dimuat hanya saat blok itu dibuka. `loading` wajib ada:
 // tanpa itu next/dynamic tidak memasang Suspense sendiri, jadi seluruh editor
@@ -173,6 +173,9 @@ export function TambahBlokDialog({
   // Pilihan yang tersaring keluar pindah ke hasil pertama, supaya tombol Add tidak menambah yang tidak terlihat.
   const aktif = cocok.includes(pilih) ? pilih : cocok[0] ?? null;
   const kelompok = URUTAN_KELOMPOK.map((k) => ({ k, isi: cocok.filter((type) => definisiBlok(type).kelompok === k) })).filter((g) => g.isi.length > 0);
+  // Urutan panah = urutan yang terlihat (per kelompok), bukan urutan registri (QA #359 M1).
+  const urutTampil = kelompok.flatMap((g) => g.isi);
+  const tambahAktif = () => { if (aktif) { setCari(""); onPick(aktif); } };
   const tutup = () => { setCari(""); onClose(); };
   return (
     <Dialog
@@ -184,7 +187,7 @@ export function TambahBlokDialog({
       actions={
         <>
           <Button variant="text" onClick={tutup}>Cancel</Button>
-          <Button disabled={!aktif} onClick={() => { if (aktif) { setCari(""); onPick(aktif); } }}>
+          <Button disabled={!aktif} onClick={tambahAktif}>
             {aktif ? `Add ${LANDING_BLOCK_LABELS[aktif]}` : "Add block"}
           </Button>
         </>
@@ -197,6 +200,8 @@ export function TambahBlokDialog({
           placeholder="Search, e.g. logo, map, countdown"
           value={cari}
           onChange={(event) => setCari(event.target.value)}
+          // Enter di kotak cari menambah pilihan yang tersorot (QA #359 L2).
+          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); tambahAktif(); } }}
         />
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_15rem]">
           <div role="radiogroup" aria-label="Block type" className="flex max-h-[min(26rem,55vh)] flex-col gap-1 overflow-y-auto pr-1">
@@ -221,8 +226,8 @@ export function TambahBlokDialog({
                       onKeyDown={(event) => {
                         if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
                         event.preventDefault();
-                        const posisi = cocok.indexOf(type) + (event.key === "ArrowDown" ? 1 : -1);
-                        const berikut = cocok[(posisi + cocok.length) % cocok.length];
+                        const posisi = urutTampil.indexOf(type) + (event.key === "ArrowDown" ? 1 : -1);
+                        const berikut = urutTampil[(posisi + urutTampil.length) % urutTampil.length];
                         setPilih(berikut);
                         (event.currentTarget.closest('[role="radiogroup"]')?.querySelector(`[data-jenis="${berikut}"]`) as HTMLElement | null)?.focus();
                       }}
