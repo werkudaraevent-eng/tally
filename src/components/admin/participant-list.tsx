@@ -626,6 +626,15 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     return () => window.clearTimeout(timer);
   }, [participants, loading]);
 
+  // `?hadir=<id sesi>:no|yes`: tautan "Show who is not here yet" dari Check-in.
+  // Memasang chip Check-in yang sama dengan yang dipilih tangan.
+  useEffect(() => {
+    const nilai = new URLSearchParams(window.location.search).get("hadir") ?? "";
+    if (!/^\d+:(yes|no)$/.test(nilai)) return;
+    const pewaktu = window.setTimeout(() => setFilterHadir(nilai), 0);
+    return () => window.clearTimeout(pewaktu);
+  }, []);
+
   // `?f=` saat halaman dibuka, supaya tampilan bisa dibagikan sebagai tautan.
   // Kunci yang tidak dikenal dibuang server dan tidak mendapat chip.
   useEffect(() => {
