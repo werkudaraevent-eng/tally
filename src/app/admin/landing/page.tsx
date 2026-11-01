@@ -2852,7 +2852,9 @@ export default function LandingCmsPage() {
             <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title={alasanTitik} aria-hidden />
           ) : null}
           {lencana ? <StatusChip tone="warning" className="shrink-0 max-sm:hidden">{lencana}</StatusChip> : null}
-          {sumber && !buka ? (
+          {/* Saat lencana tampil, tombol sumber disembunyikan supaya judul tidak terpotong
+              ("Spea…", QA #355 M1); tombol yang sama ada di dalam bagian saat dibuka. */}
+          {sumber && !buka && !lencana ? (
             <ButtonLink href={sumber.href} target="_blank" rel="noreferrer" variant="outlined" size="sm" trailingIcon={<ArrowUpRight size={14} />} className="shrink-0 max-sm:hidden" aria-label={`Edit in ${sumber.label}, opens in a new tab`}>
               {sumber.label}
             </ButtonLink>
