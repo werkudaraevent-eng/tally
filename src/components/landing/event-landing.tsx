@@ -147,8 +147,9 @@ function inisial(nama: string): string {
 
 /** Kartu tata letak klasik: bisa diketuk bila ada profil, selain itu div biasa (0 px). */
 function KartuKlasik({ speaker, className, children }: { speaker: LandingSpeaker; className: string; children: ReactNode }) {
-  if (!punyaProfil(speaker)) return <div className={className}>{children}</div>;
-  return <BukaProfil speaker={speaker} teks={TEKS_PROFIL_ID} className={className}>{children}</BukaProfil>;
+  // h-full: dulu kartu adalah <li> di grid dan ikut setinggi tetangganya.
+  if (!punyaProfil(speaker)) return <div className={`h-full ${className}`}>{children}</div>;
+  return <BukaProfil speaker={speaker} teks={TEKS_PROFIL_ID} className={`h-full ${className}`}>{children}</BukaProfil>;
 }
 
 function Wajah({ speaker, size }: { speaker: LandingSpeaker; size: "lg" | "sm" }) {
