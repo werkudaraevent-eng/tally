@@ -372,13 +372,15 @@ export default function RundownAdminPage() {
     let respon = await kirim(pembicara, next);
     let isi = respon ? await respon.json().catch(() => null) : null;
     if (respon?.status === 409 && Array.isArray(isi?.error?.details?.speakers)) {
-      // Hanya baris ini yang diubah di sini: tautan baris ini dari `next` dipasang ke daftar terbaru.
+      // Ulangi hanya pembicara yang tadi ditambah atau dilepas di baris ini, di atas daftar
+      // terbaru. Tautan orang lain ke baris ini (dari tab lain) tetap seperti di server.
       const terbaru = isi.error.details.speakers as LandingSpeaker[];
       const id = selectedItemId;
+      const punya = (orang: LandingSpeaker | undefined) => !!orang?.session_refs?.some((r) => r.id === id);
+      const diubah = new Map(next.flatMap((orang, i) => (punya(orang) !== punya(pembicara[i]) ? [[orang.name, orang.session_refs?.find((r) => r.id === id) ?? null] as const] : [])));
       const pasang = terbaru.map((orang) => {
-        const sama = next.find((x) => x.name === orang.name);
-        if (!sama || id === null) return orang;
-        const mau = sama.session_refs?.find((r) => r.id === id);
+        if (id === null || !diubah.has(orang.name)) return orang;
+        const mau = diubah.get(orang.name);
         const lain = (orang.session_refs ?? []).filter((r) => r.id !== id);
         return { ...orang, session_refs: mau ? [...lain, mau] : lain };
       });
@@ -664,8 +666,9 @@ export default function RundownAdminPage() {
   }
 
   /** Salin satu baris tersimpan ke bagian `ke`: jam, judul, Details, Break, English, Published dan Who sees it. */
-  async function salinBaris(item: ItemAgenda, ke: number): Promise<number | null> {
+  async function salinBaris(item: ItemAgenda, ke: number): Promise<{ id: number } | { galat: string }> {
     const syarat = syaratInfo?.available ? syaratSaved[item.id] ?? null : null;
+    // Satu INSERT membawa semuanya (draf, teks English): salinan draf tidak pernah sesaat tampil.
     const response = await fetch("/api/admin/rundown/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -676,19 +679,17 @@ export default function RundownAdminPage() {
         title: item.title,
         subtitle: item.subtitle,
         is_break: item.is_break,
+        is_published: item.is_published,
+        ...(item.title_en ? { title_en: item.title_en } : {}),
+        ...(item.subtitle_en ? { subtitle_en: item.subtitle_en } : {}),
         ...(syarat ? { audience: syarat } : {}),
       }),
     }).catch(() => null);
-    const data = response?.ok ? ((await response.json().catch(() => null)) as { id?: number } | null) : null;
-    if (!data || typeof data.id !== "number") return null;
-    if (item.title_en || !item.is_published) {
-      await fetch("/api/admin/rundown/items", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: data.id, ...(item.title_en ? { title_en: item.title_en } : {}), ...(!item.is_published ? { is_published: false } : {}) }),
-      }).catch(() => null);
-    }
-    return data.id;
+    if (!response) return { galat: PUTUS };
+    const data = (await response.json().catch(() => null)) as { id?: number; error?: { details?: { message?: string } } } | null;
+    if (response.ok && typeof data?.id === "number") return { id: data.id };
+    if (response.status === 422) return { galat: data?.error?.details?.message ?? "Its Who sees it condition is no longer valid. Fix it on the original item, then duplicate again." };
+    return { galat: "The server did not save the copy. Try again." };
   }
 
   /** Row menu > Duplicate (same day or another day). Opens the copy in Edit item. */
@@ -696,9 +697,10 @@ export default function RundownAdminPage() {
     if (duplicating) return;
     const asli = barisTersimpan.get(item.id) ?? item;
     setDuplicating(true);
-    const id = await salinBaris(asli, ke);
+    const hasil = await salinBaris(asli, ke);
     setDuplicating(false);
-    if (id === null) { toast.error("Item not duplicated", "Check your connection and try again."); return; }
+    if ("galat" in hasil) { toast.error("Item not duplicated", hasil.galat); return; }
+    const id = hasil.id;
     await load();
     await loadSyarat();
     const hari = sections.find((row) => row.id === ke)?.name ?? "";
@@ -723,7 +725,7 @@ export default function RundownAdminPage() {
     }
     const sumber = items.filter((row) => row.section_id === section.id).sort(bandingkanBaris);
     let gagal = 0;
-    for (const row of sumber) if ((await salinBaris(row, data.id)) === null) gagal += 1;
+    for (const row of sumber) if ("galat" in (await salinBaris(row, data.id))) gagal += 1;
     setDuplicating(false);
     setPanel("baris");
     setActiveId(data.id);
@@ -1520,7 +1522,7 @@ export default function RundownAdminPage() {
   const jadwal = active ? (
     <Pane aria-label={`${active.name} schedule`} className={cx(layarEditor && "max-lg:hidden")}>
       <PaneHeader className="flex-wrap">
-        <h2 className="min-w-0 flex-1 truncate text-body-medium font-semibold text-on-surface" title={adaSlotParalel ? "Drag to reorder same-time items" : "Sorted by start time automatically"}>
+        <h2 className="min-w-0 flex-1 truncate max-sm:basis-full text-body-medium font-semibold text-on-surface" title={adaSlotParalel ? "Drag to reorder same-time items" : "Sorted by start time automatically"}>
           <span className="tabular-nums">{hitungLihat === null ? plural(activeItems.length, "item") : `${namaLihat} sees ${hitungLihat} of ${plural(activeItems.length, "item")}`}</span>
         </h2>
         {opsiMenuLihat.length > 1 ? (
@@ -2359,6 +2361,7 @@ export default function RundownAdminPage() {
         open={panelAktif === "bagian" && Boolean(active)}
         onClose={() => pindah({ panel: "baris" })}
         dismissible={!savingSection}
+        scrollBody
         title={`Day settings · ${(tabDc?.name ?? active?.name ?? "").trim()}`}
         actions={
           <>
