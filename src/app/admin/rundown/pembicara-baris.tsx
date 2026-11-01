@@ -6,6 +6,7 @@ import Link from "@/components/event-link";
 import { IconButton, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import type { LandingSpeaker } from "@/lib/domain";
+import { labelSesi } from "@/lib/landing-speaker-tabs";
 
 /**
  * Agenda > Edit item > Speakers (audit Agenda A3, 1 Nov).
@@ -29,7 +30,7 @@ export function tautkan(daftar: LandingSpeaker[], indeks: number, id: number, la
   return daftar.map((orang, i) => {
     if (i !== indeks) return orang;
     const refs = orang.session_refs ?? [];
-    if (pasang) return refs.some((r) => r.id === id) ? orang : { ...orang, session_refs: [...refs, { id, label: label.slice(0, 120) }] };
+    if (pasang) return refs.some((r) => r.id === id) ? orang : { ...orang, session_refs: [...refs, { id, label: labelSesi(label) }] };
     return { ...orang, session_refs: refs.filter((r) => r.id !== id) };
   });
 }
