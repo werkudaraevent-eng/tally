@@ -27,7 +27,9 @@ export function parseCsv(text: string) {
       }
       continue;
     }
-    if (char === '"') { quoted = true; continue; }
+    // Petik hanya membuka sel berpetik di awal sel; di tengah sel ia huruf
+    // biasa (`Layar 5" HD`), seperti Excel dan RFC 4180.
+    if (char === '"' && cell === "") { quoted = true; continue; }
     if (char === delimiter) { row.push(cell); cell = ""; continue; }
     if (char === "\r") continue;
     if (char === "\n") { row.push(cell); matrix.push(row); row = []; cell = ""; continue; }

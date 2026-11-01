@@ -64,4 +64,7 @@ if (!("galat" in penuh)) {
 const tab = imporPembicara(parseCsv("Nama\tJabatan\nCitra\tMenteri"), [], agenda, opsi);
 if (!("galat" in tab)) assert.equal(tab.hasil[0]?.title, "Menteri");
 
+// Petik di tengah sel tanpa petik tetap huruf biasa.
+assert.deepEqual(parseCsv('Name,Job title\nAndi,Layar 5" HD'), [["Name", "Job title"], ["Andi", 'Layar 5" HD']]);
+
 console.log("speakers-impor OK");

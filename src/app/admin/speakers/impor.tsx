@@ -48,27 +48,28 @@ export function DialogImpor({ open, onClose, daftar, agenda, maks, sorotanMaks, 
   const berkas = useRef<HTMLInputElement | null>(null);
   const [tempel, setTempel] = useState("");
   const [namaBerkas, setNamaBerkas] = useState("");
-  const [hasil, setHasil] = useState<HasilImporPembicara | null>(null);
-  const [galat, setGalat] = useState("");
+  // Teks sumber yang disimpan, bukan hasilnya: pratinjau dihitung ulang dari
+  // daftar terbaru setiap render. Sesudah 409 daftar berganti, jadi Import
+  // berikutnya menyimpan di atas suntingan orang lain, bukan menimpanya.
+  const [sumber, setSumber] = useState<string | null>(null);
+  const [galatBerkas, setGalatBerkas] = useState("");
 
   function baca(teks: string, nama: string) {
     setNamaBerkas(nama);
-    const r = imporPembicara(parseCsv(teks), daftar, agenda, { maks, sorotanMaks, labelSesi });
-    if ("galat" in r) {
-      setHasil(null);
-      setGalat(r.galat);
-    } else {
-      setGalat("");
-      setHasil(r);
-    }
+    setGalatBerkas("");
+    setSumber(teks);
   }
+
+  const r = sumber === null ? null : imporPembicara(parseCsv(sumber), daftar, agenda, { maks, sorotanMaks, labelSesi });
+  const hasil: HasilImporPembicara | null = r && !("galat" in r) ? r : null;
+  const galat = galatBerkas || (r && "galat" in r ? r.galat : "");
 
   function tutup() {
     if (menyimpan) return;
     setTempel("");
     setNamaBerkas("");
-    setHasil(null);
-    setGalat("");
+    setSumber(null);
+    setGalatBerkas("");
     onClose();
   }
 
@@ -121,8 +122,8 @@ export function DialogImpor({ open, onClose, daftar, agenda, maks, sorotanMaks, 
               event.target.value = "";
               if (!file) return;
               if (file.size > 2_000_000) {
-                setHasil(null);
-                setGalat("The file is larger than 2 MB.");
+                setSumber(null);
+                setGalatBerkas("The file is larger than 2 MB.");
                 return;
               }
               baca(await file.text(), file.name);
@@ -138,7 +139,7 @@ export function DialogImpor({ open, onClose, daftar, agenda, maks, sorotanMaks, 
           onChange={(event) => {
             setTempel(event.target.value);
             if (event.target.value.trim()) baca(event.target.value, "");
-            else { setHasil(null); setGalat(""); }
+            else { setSumber(null); setGalatBerkas(""); }
           }}
         />
         {galat ? <Banner tone="error">{galat}</Banner> : null}
