@@ -649,7 +649,11 @@ export default function UndianControlPage() {
                       variant="tonal"
                       icon={<Check size={16} weight="bold" />}
                       loading={busy === `confirm-${winner.id}`}
-                      disabled={busy !== null}
+                      // Cadangan hanya bisa disahkan untuk kursi yang sudah
+                      // kosong. Mengesahkannya lebih dulu membuat pemenang utama
+                      // yang sedang berjalan ke panggung tertolak kuota.
+                      disabled={busy !== null || (winner.is_backup && kursiKosong === 0)}
+                      title={winner.is_backup && kursiKosong === 0 ? "Available when a main winner is absent" : undefined}
                       onClick={() => void send({ action: "decide", winner_id: winner.id, status: "confirmed" }, `confirm-${winner.id}`)}
                     >
                       Present
