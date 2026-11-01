@@ -3,7 +3,7 @@ import type { CheckpointPeserta, LangkahPeserta } from "@/lib/checkpoint/server"
 import { tanggalDiZona, teksSelesai, teksWaktu } from "@/lib/checkpoint/waktu";
 import type { LandingLang } from "@/lib/landing-i18n";
 import type { EventTimeZone } from "@/lib/timezone";
-import { SEPARATOR, gabungMeta } from "@/lib/typography";
+import { gabungMeta } from "@/lib/typography";
 import { BarisTujuanPoin } from "@/components/member/baris-tujuan-poin";
 import { CheckpointLipat } from "@/components/member/checkpoint-lipat";
 import { KARTU_HZ, KELAS_ALIS, KELAS_JUDUL_ISI, KELAS_KET, KepalaKartuHorizon, PAD_KARTU } from "@/components/member/portal-horizon";
@@ -178,7 +178,7 @@ export function KartuCheckpointHorizon({
           <>
             <span className="sr-only">{t.kemajuan(data.done, total)}</span>
             <span aria-hidden>{`${data.done}/${total}`}</span>
-            {data.points ? <span>{` ${SEPARATOR} ${t.poin(data.earned, data.total_points)}`}</span> : null}
+            {data.points ? <span>{`, ${t.poin(data.earned, data.total_points)}`}</span> : null}
           </>
         }
       />

@@ -334,7 +334,7 @@ export function SapaanHorizon({
       </h1>
       {catatan ? (
         <p className={`text-[16px] leading-6 md:mt-[14px] md:block lg:short:mt-2 ${catatanPonsel ? "mt-1.5 text-[14px] leading-5 md:text-[16px] md:leading-6" : "mt-[14px] hidden"}`} style={{ color: REDUP }}>
-          {alisDiCatatan && alis ? <span className="hidden lg:short:inline">{`${alis}, `}</span> : null}
+          {alisDiCatatan && alis ? <span className="hidden lg:short:inline">{`${alis}. `}</span> : null}
           {catatan}
         </p>
       ) : null}
@@ -1773,7 +1773,7 @@ export function DataDiriHorizon({
             {bantuan.teks}
           </p>
           {bantuan.tautan ? (
-            <a href={bantuan.tautan.href} className={`${KELAS_TAUTAN} underline-offset-2 hover:underline`} style={{ color: TINTA }}>
+            <a href={bantuan.tautan.href} className={KELAS_TAUTAN} style={{ color: TINTA }}>
               {bantuan.tautan.label}
             </a>
           ) : null}
