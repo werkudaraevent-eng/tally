@@ -2,11 +2,11 @@
 
 import { pesanGalatApi } from "@/lib/api-message";
 import { adaLogistikTampil, bagianTampil } from "@/lib/logistik/bagian-tampil";
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, ArrowUpRight, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
-  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, PageLoading, PaneBody, Pane, SegmentedButton, segmentTabId,
+  Banner, Button, ButtonLink, Dialog, FilterChip, IconButton, PageLoading, PaneBody, Pane, SegmentedButton, Tabs,
   StatusChip, Switch, TextArea, TextField,
 } from "@/components/m3";
 import { AdminBarPortal, useAdminPage } from "@/components/admin/page-context";
@@ -85,6 +85,7 @@ import { PilihLatar } from "./pilih-latar";
 import { BlockEditor, butirBerlebih, isianButirTampil, kolomBlokTampil, labelIsianButir, labelKolomBlok, namaButirBlok, ringkasanBlok, TambahBlokDialog, tautanBlokSalah, buatBlok, type KolomButir } from "./blocks";
 import { ForumSusunan, forumTautanSalah, halamanBagianForum } from "./forum-editor";
 import { MenuBlok, type ItemMenuBlok } from "./menu-blok";
+import { IKON_BAGIAN, IKON_BLOK } from "./ikon-bagian";
 import { BentukBingkai } from "./urutan-pembicara";
 import { pakaiPreset } from "./theme-presets";
 import { TabTema } from "./theme-tab";
@@ -102,6 +103,8 @@ import { cocokSesi, sesiDariRundown } from "@/lib/landing-speaker-tabs";
 // Berkas isi halaman (Ekspor/Impor). Hanya kolom yang disunting di layar ini:
 // tanggal acara, rundown, dan peserta tetap di tempatnya masing-masing.
 const BERKAS_FORMAT = "tally-landing";
+/** Tajuk kelompok di daftar Sections: abu, bobot 500, 16 px di atas (pola tajuk rel navigasi). */
+const TAJUK_KELOMPOK = "px-4 pb-1 pt-4 text-body-small font-medium text-on-surface-variant";
 const KOLOM_FAKTA = ["description", "tagline", "start_time", "end_time", "end_date", "venue_name", "venue_address", "venue_map_url"] as const;
 type BerkasIsi = {
   format: typeof BERKAS_FORMAT;
@@ -124,7 +127,7 @@ type Facts = {
   venue_map_url: string | null;
 };
 
-type Bagian = "susunan" | "tema" | "peserta";
+type Bagian = "susunan" | "tema";
 
 /** "09:00:00" → "09:00". Kolom <input type="time"> menolak bentuk berdetik. */
 const jamInput = (value: string | null) => (value ? value.slice(0, 5) : "");
@@ -483,6 +486,8 @@ export default function LandingCmsPage() {
   // Susunan halaman, mis. klik bagian di pratinjau).
   const hanyaFormulir = landing.tayang === "formulir";
   const bagian: Bagian = hanyaFormulir && bagianDipilih === "susunan" ? "tema" : bagianDipilih;
+  // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
+  const [terbuka, setTerbuka] = useState<string | null>(null);
   // `?bagian=tema|peserta`: tautan "Ubah di Tema" dan "Atur di Peserta" dari
   // Atur formulir membuka langsung tab yang dimaksud.
   // Dibaca setelah hidrasi (bukan di penginisialisasi useState): server tidak
@@ -490,13 +495,15 @@ export default function LandingCmsPage() {
   useEffect(() => {
     const diminta = new URLSearchParams(window.location.search).get("bagian");
     if (diminta !== "tema" && diminta !== "peserta") return;
-    const timer = window.setTimeout(() => setBagian(diminta), 0);
+    // "peserta": tab Participants sudah tidak ada; saklarnya (Invite only) kini di baris Hero.
+    const timer = window.setTimeout(() => {
+      if (diminta === "tema") setBagian("tema");
+      else { setBagian("susunan"); setTerbuka("pembuka"); }
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
   // Lipatan "Judul bagian" yang terbuka (satu bagian), awalnya tertutup.
   const [judulTerbuka, setJudulTerbuka] = useState<LandingHeadedSection | null>(null);
-  // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
-  const [terbuka, setTerbuka] = useState<string | null>(null);
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
   // pada baris yang sama tetap menggulir pratinjau ke sana.
   const [sorot, setSorot] = useState<{ id: string; n: number; diam?: boolean } | null>(null);
@@ -1613,6 +1620,19 @@ export default function LandingCmsPage() {
           value={landing.cta_label ?? ""}
           onChange={(event) => setLanding({ ...landing, cta_label: event.target.value })}
         />
+        {/* Pindah dari tab Participants (yang hanya memuat saklar ini): yang
+            diubahnya adalah tombol hero saat pendaftaran tutup, jadi tempatnya
+            di sini dan pratinjaunya langsung terlihat. */}
+        {modern ? (
+          <Switch
+            checked={landing.invite_only === true}
+            onChange={(value) => setLanding({ ...landing, invite_only: value })}
+            disabled={busy}
+            label="Invite only"
+            description="While registration is closed, the page asks invited guests to sign in instead of saying registration is closed. The sign-in banner above the footer uses standard text. Works only while the participant area is open."
+            note={landing.member?.enabled === true ? undefined : <span className="text-body-medium text-on-surface-variant">The participant area is closed, so this has no effect now.</span>}
+          />
+        ) : null}
       </Kelompok>
 
       <Kelompok
@@ -2539,31 +2559,6 @@ export default function LandingCmsPage() {
   // ---- Peserta (area peserta) -------------------------------------------------
   // Setelannya pindah ke halaman sendiri, di samping Daftar peserta dan
   // Pengumuman. Tab ini tinggal penunjuk bagi yang terbiasa mencarinya di sini.
-  const isiPeserta = (
-    <div className="flex flex-col gap-4">
-      <Kelompok title="Participant area" first>
-        <p className="text-body-medium text-on-surface-variant">
-          {landing.member?.enabled ? "The participant area is open." : "The participant area is closed."} Its settings, including who can sign in and what shows on My dashboard, are now on the Participant area page.
-        </p>
-        <div>
-          <ButtonLink href="/admin/area-peserta" variant="outlined" size="sm">Open Participant area</ButtonLink>
-        </div>
-      </Kelompok>
-      {/* Sebelumnya hanya bisa dinyalakan lewat preset Gathering (CMS mudah, butir 11). */}
-      {modern ? (
-        <Kelompok>
-          <Switch
-            checked={landing.invite_only === true}
-            onChange={(value) => setLanding({ ...landing, invite_only: value })}
-            disabled={busy}
-            label="Invite only"
-            description="While registration is closed, the page asks invited guests to sign in instead of saying registration is closed. The sign-in banner above the footer uses standard text. Works only while the participant area is open."
-            note={landing.member?.enabled === true ? undefined : <span className="text-body-medium text-on-surface-variant">The participant area is closed, so this has no effect now.</span>}
-          />
-        </Kelompok>
-      ) : null}
-    </div>
-  );
 
   /**
    * Menghapus blok dari DRAF. Belum ada yang hilang dari server sampai Simpan,
@@ -2683,6 +2678,7 @@ export default function LandingCmsPage() {
     isi,
     menu,
     titik = false,
+    sumber,
   }: {
     id: string;
     /** Angka urutan, atau ikon untuk baris otomatis yang tidak punya tempat di `sections`. */
@@ -2700,13 +2696,17 @@ export default function LandingCmsPage() {
      * belum diterjemahkan; teks = alasan lain, dibacakan apa adanya.
      */
     titik?: boolean | string;
+    /** Bagian yang isinya disunting di modul lain: tautan "Agenda ↗" di baris. */
+    sumber?: { label: string; href: string };
   }) {
     const buka = terbuka === id;
     const tersembunyi = saklar ? !saklar.checked : false;
+    const blokIni = isLandingBlockId(id) ? blokById.get(id) : undefined;
+    const Ikon = blokIni ? IKON_BLOK[blokIni.type] : forum ? undefined : IKON_BAGIAN[id as keyof typeof IKON_BAGIAN];
     const alasanTitik = typeof titik === "string" ? titik : "Some text isn't translated yet.";
     // Yang bisa diseret hanya pegangannya: kalau seluruh baris draggable,
     // memblok teks di kolom isian ikut memulai seretan. Pegangannya selebar
-    // seluruh tinggi baris (24x56), bukan ikon 16px.
+    // seluruh tinggi baris (24x48), bukan ikon 16px.
     const bisaSeret = indeks !== undefined;
     return (
       <li
@@ -2725,7 +2725,7 @@ export default function LandingCmsPage() {
             "flex items-center gap-2 pr-2",
             // Terbuka: kepala menempel di atas panel, supaya blok yang panjang
             // bisa ditutup tanpa menggulir balik ke atas.
-            buka ? "sticky top-0 z-10 min-h-14 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-14",
+            buka ? "sticky top-0 z-10 min-h-12 bg-primary-soft py-2 shadow-[inset_3px_0_0_var(--color-primary)]" : "h-12",
           )}
         >
           {bisaSeret ? (
@@ -2733,7 +2733,7 @@ export default function LandingCmsPage() {
               draggable
               onDragStart={(event) => { setSeret(indeks); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", judul); }}
               onDragEnd={() => { setSeret(null); setSasaran(null); }}
-              className="flex h-14 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-80 hover:opacity-100"
+              className="flex h-12 w-6 shrink-0 cursor-grab items-center justify-center self-stretch text-on-surface-variant opacity-80 hover:opacity-100"
               title="Drag to move"
             >
               <DotsSixVertical size={16} aria-hidden />
@@ -2750,7 +2750,9 @@ export default function LandingCmsPage() {
             )}
             aria-hidden
           >
-            {nomor}
+            {/* Ikon jenis, bukan nomor urut: urutan sudah terbaca dari posisi
+                barisnya. Nomor tinggal untuk baris tanpa ikon (Forum). */}
+            {Ikon ? <Ikon size={16} /> : nomor}
           </span>
           <button
             type="button"
@@ -2784,6 +2786,11 @@ export default function LandingCmsPage() {
             <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title={alasanTitik} aria-hidden />
           ) : null}
           {lencana ? <StatusChip tone="warning" className="shrink-0 max-sm:hidden">{lencana}</StatusChip> : null}
+          {sumber && !buka ? (
+            <ButtonLink href={sumber.href} target="_blank" rel="noreferrer" variant="outlined" size="sm" trailingIcon={<ArrowUpRight size={14} />} className="shrink-0 max-sm:hidden" aria-label={`Edit in ${sumber.label}, opens in a new tab`}>
+              {sumber.label}
+            </ButtonLink>
+          ) : null}
           {saklar ? (
             <IconButton
               size="sm"
@@ -2991,7 +2998,11 @@ export default function LandingCmsPage() {
         </div>
       ) : null}
       <ol className="flex flex-col">
+        {/* Tajuk kelompok: menjelaskan kenapa Hero dan Footer tidak bisa diseret.
+            aria-hidden: pembaca layar mendengar daftarnya, bukan tajuknya. */}
+        <li aria-hidden className={TAJUK_KELOMPOK}>Top of page</li>
         {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: horizon ? "Top bar, title, button, hero image" : gathering ? "Top bar, title, portal preview, buttons" : modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
+        <li aria-hidden className={TAJUK_KELOMPOK}>Page content</li>
         {sections.map((section, index) => {
           // Blok khusus peserta tidak tampil di halaman ini; matanya ada di
           // Participant area > Participant home, jadi tidak ikut disaring di sini.
@@ -3048,12 +3059,15 @@ export default function LandingCmsPage() {
             sub: subBawaan(id),
             lencana: kosong ? (id === "agenda" ? lencanaRundown : "No content yet") : null,
             titik: id === "speakers" && sesiPerluDipilih > 0 ? "Some speaker sessions need to be chosen again." : false,
+            // Isinya disunting di modul lain (CLAUDE.md: "Edit in Agenda ↗"); tab baru, supaya draf di sini tidak hilang.
+            sumber: id === "agenda" ? { label: "Agenda", href: `/e/${facts.slug}/admin/rundown` } : id === "speakers" ? { label: "Speakers", href: `/e/${facts.slug}/admin/speakers` } : undefined,
             saklar,
             indeks: index,
             menu: menuBaris(index, LANDING_SECTION_ADMIN_LABELS[id]),
             isi: isiBawaan(id),
           });
         })}
+        <li aria-hidden className={TAJUK_KELOMPOK}>Bottom of page</li>
         {barisSusunan({
           id: "kaki",
           nomor: sections.length + 2,
@@ -3133,23 +3147,21 @@ export default function LandingCmsPage() {
     // overflow-visible di bawah lg: `overflow-hidden` bawaan Pane memutus
     // sticky bilah pratinjau dari gulir halaman.
     <Pane as="aside" id="panel-setelan" aria-label="Event page settings" className="max-lg:overflow-visible">
-      <div className="flex h-12 shrink-0 items-center border-b border-outline-variant px-3">
-        <SegmentedButton<Bagian>
-          label="Settings tabs"
-          panel="isi-setelan"
-          value={bagian}
-          onChange={setBagian}
-          className="w-full"
-          options={[
-            ...(hanyaFormulir ? [] : [{ value: "susunan" as const, label: "Page sections" }]),
-            { value: "tema", label: "Theme" },
-            { value: "peserta", label: "Participants" },
-          ]}
-        />
-      </div>
+      {/* Tabs, bukan SegmentedButton: isinya berganti (DESIGN.md "Primitif"). */}
+      <Tabs<Bagian>
+        label="Settings tabs"
+        idPrefix="isi-setelan"
+        value={bagian}
+        onChange={setBagian}
+        className="px-3"
+        options={[
+          ...(hanyaFormulir ? [] : [{ value: "susunan" as const, label: "Sections" }]),
+          { value: "tema", label: "Theme" },
+        ]}
+      />
       {/* Satu tabpanel memuat baris saringan dan isinya, supaya Tab sesudah
           daftar tab langsung masuk ke panel yang dipilih (pola tabs WAI-ARIA). */}
-      <div id="isi-setelan" role="tabpanel" aria-labelledby={segmentTabId("isi-setelan", bagian)} className="flex min-h-0 flex-1 flex-col">
+      <div id={`isi-setelan-panel-${bagian}`} role="tabpanel" aria-labelledby={`isi-setelan-tab-${bagian}`} className="flex min-h-0 flex-1 flex-col">
         {saringan}
         {/* Bilah konteks pratinjau preset berdiri di luar bidang gulir, tepat di
             bawah tab: tidak ada celah dari padding bidang gulir dan tidak ada isi
@@ -3172,12 +3184,12 @@ export default function LandingCmsPage() {
           key={`${bagian}-${modeEn ? "en" : "id"}`}
           tabIndex={bagian === "susunan" ? undefined : 0}
           role={bagian === "susunan" ? undefined : "group"}
-          aria-labelledby={bagian === "susunan" ? undefined : segmentTabId("isi-setelan", bagian)}
+          aria-labelledby={bagian === "susunan" ? undefined : `isi-setelan-tab-${bagian}`}
           onScroll={(event) => { gulirTerakhir.current = event.currentTarget.scrollTop; }}
           // `!`: aturan :focus-visible global tidak berlapis, jadi mengalahkan utilitas biasa.
           // pb-40 di Susunan: kolom terbawah tetap bisa digulir ke atas toast galat.
           className={bagian === "susunan" ? "scroll-pt-22 pb-40" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
-          {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : bagian === "tema" ? isiTema : isiPeserta}
+          {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : isiTema}
         </PaneBody>
       </div>
     </Pane>
