@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 
 const STATE_ROW = "mode,rehearsal,active_prize_id,phase,draw_round,spin_started_at,reveal_at,pending,pool,pool_size,updated_at";
 const SETTINGS_ROW =
-  `page_title,page_subtitle,name_display,show_company,show_seat,sound_enabled,confetti_enabled,` +
+  `page_title,page_subtitle,name_display,show_company,show_seat,show_lineup,sound_enabled,confetti_enabled,` +
   `reveal_delay_seconds,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
 const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
 
@@ -60,6 +60,7 @@ const DEFAULT_SETTINGS = {
   page_subtitle: null,
   show_company: true,
   show_seat: true,
+  show_lineup: false,
   sound_enabled: true,
   confetti_enabled: true,
   background_color: null,
@@ -85,6 +86,7 @@ export async function GET(request: Request) {
     page_subtitle: (settingsRow.page_subtitle as string | null) ?? null,
     show_company: settingsRow.show_company !== false,
     show_seat: settingsRow.show_seat !== false,
+    show_lineup: settingsRow.show_lineup === true,
     sound_enabled: settingsRow.sound_enabled !== false,
     confetti_enabled: settingsRow.confetti_enabled !== false,
     background_color: (settingsRow.background_color as string | null) ?? null,
@@ -102,7 +104,7 @@ export async function GET(request: Request) {
   if (!state || state.mode === "off") {
     return Response.json({
       mode: "off", rehearsal: false, phase: "idle", draw_round: 0, prize: null, roster: [], pool_size: 0,
-      spin_started_at: null, reveal_at: null, winners: [], confirmed: [],
+      spin_started_at: null, reveal_at: null, winners: [], confirmed: [], lineup: [],
       settings, branding, updated_at: new Date().toISOString(),
     } satisfies UndianState & { branding: unknown });
   }
@@ -262,8 +264,42 @@ export async function GET(request: Request) {
     reveal_at: state.reveal_at,
     winners,
     confirmed,
+    lineup: settings.show_lineup ? await lineupFor(eventId) : [],
     settings,
     branding,
     updated_at: new Date().toISOString(),
   });
+}
+
+/**
+ * Daftar hadiah untuk layar tunggu: hadiah aktif sesuai urutan undi, dan
+ * apakah kuotanya di sesi aktif sudah terisi. Hitungannya sama dengan kursi di
+ * /api/undian/control: pemenang utama yang belum dibatalkan, ditambah cadangan
+ * yang sudah disahkan.
+ *
+ * Gagal membaca = daftar kosong, bukan galat: layar panggung tidak boleh
+ * menampilkan pesan galat di depan penonton.
+ */
+async function lineupFor(eventId: string): Promise<UndianState["lineup"]> {
+  const client = getSupabaseServiceClient();
+  const [prizesResult, sessionResult] = await Promise.all([
+    client.from("undian_prizes").select("id,name,image_url,winner_quota").eq("event_id", eventId).eq("is_active", true).order("sort_order").order("id"),
+    client.from("undian_sessions").select("id").eq("event_id", eventId).eq("status", "active").maybeSingle(),
+  ]);
+  if (prizesResult.error || !prizesResult.data) return [];
+  const sessionId = (sessionResult.data as { id: number } | null)?.id ?? null;
+  let winnersQuery = client.from("undian_winners").select("prize_id,is_backup,status").eq("event_id", eventId).neq("status", "rejected");
+  winnersQuery = sessionId === null ? winnersQuery.is("session_id", null) : winnersQuery.eq("session_id", sessionId);
+  const { data: winnerRows } = await winnersQuery;
+  const taken: Record<number, number> = {};
+  for (const row of (winnerRows ?? []) as { prize_id: number; is_backup: boolean; status: string }[]) {
+    if (row.is_backup && row.status !== "confirmed") continue;
+    taken[row.prize_id] = (taken[row.prize_id] ?? 0) + 1;
+  }
+  return (prizesResult.data as { id: number; name: string; image_url: string | null; winner_quota: number }[]).map((row) => ({
+    id: Number(row.id),
+    name: String(row.name),
+    image_url: row.image_url ?? null,
+    done: (taken[row.id] ?? 0) >= Number(row.winner_quota),
+  }));
 }

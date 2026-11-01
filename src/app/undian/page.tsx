@@ -36,11 +36,13 @@ const DEFAULT_STATE: UndianState & { branding: Branding } = {
   reveal_at: null,
   winners: [],
   confirmed: [],
+  lineup: [],
   settings: {
     page_title: "Undian Berhadiah",
     page_subtitle: null,
     show_company: true,
     show_seat: true,
+    show_lineup: false,
     sound_enabled: true,
     confetti_enabled: true,
     background_color: null,
@@ -68,6 +70,8 @@ async function loadInitial(eventId: string): Promise<UndianState & { branding: B
         page_subtitle: (raw.page_subtitle as string | null) ?? null,
         show_company: raw.show_company !== false,
         show_seat: raw.show_seat !== false,
+        // Daftar hadiah datang dari polling /api/undian/state, bukan render awal.
+        show_lineup: false,
         sound_enabled: raw.sound_enabled !== false,
         confetti_enabled: raw.confetti_enabled !== false,
         background_color: (raw.background_color as string | null) ?? null,

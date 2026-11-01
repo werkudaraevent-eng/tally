@@ -960,6 +960,12 @@ export type UndianState = {
   winners: UndianWinner[];
   /** Pemenang yang sudah dikonfirmasi untuk hadiah aktif, untuk papan rekap. */
   confirmed: UndianWinner[];
+  /**
+   * Hadiah aktif sesuai urutan undi, hanya bila show_lineup menyala. `done` =
+   * kuota sesi aktif sudah terisi. Tanpa jumlah pemenang atau syarat: penonton
+   * cukup tahu hadiah apa yang masih menunggu.
+   */
+  lineup: { id: number; name: string; image_url: string | null; done: boolean }[];
   settings: UndianDisplaySettings;
   updated_at: string;
 };
@@ -969,6 +975,8 @@ export type UndianDisplaySettings = {
   page_subtitle: string | null;
   show_company: boolean;
   show_seat: boolean;
+  /** Daftar hadiah di layar tunggu (Stage display > Show the prize lineup). */
+  show_lineup: boolean;
   sound_enabled: boolean;
   confetti_enabled: boolean;
   background_color: string | null;

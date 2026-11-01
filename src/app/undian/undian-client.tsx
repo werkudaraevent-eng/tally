@@ -217,7 +217,9 @@ export default function UndianClient({ initial }: Props) {
       {/* Menunggu adalah bagian dari acara di layar panggung, jadi ia boleh
           terasa hidup: indikator morph ekspresif M3, bukan teks diam yang
           terbaca seperti layar yang gagal memuat. */}
-      {state.mode === "off" || !state.prize ? <div className="flex flex-col items-center gap-[2.4vh] text-center">
+      {state.mode === "live" && !state.prize && state.lineup.length > 0 ? (
+        <LineupBoard lineup={state.lineup} currentId={null} accent={accent} text={text} fontFamily={headingFont} />
+      ) : state.mode === "off" || !state.prize ? <div className="flex flex-col items-center gap-[2.4vh] text-center">
         <LoadingIndicator size="min(9vh, 96px)" color={accent} label="Menunggu sesi undian" />
         <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.35 }}>
           Menunggu sesi undian
@@ -274,7 +276,9 @@ export default function UndianClient({ initial }: Props) {
           <AnimatePresence mode="wait" initial={false}>
             {state.phase === "idle" ? (
               <motion.div key="diam" className="flex flex-col items-center gap-[2vh] text-center" {...TUKAR_PANGGUNG}>
-                <LoadingIndicator size="min(7vh, 72px)" color={accent} label="Bersiap mengundi" />
+                {state.lineup.length > 0
+                  ? <LineupBoard lineup={state.lineup} currentId={state.prize.id} accent={accent} text={text} fontFamily={headingFont} compact />
+                  : <LoadingIndicator size="min(7vh, 72px)" color={accent} label="Bersiap mengundi" />}
                 <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.4vw, 34px)", opacity: 0.4 }}>
                   {state.pool_size > 0 ? `${state.pool_size} peserta siap diundi` : "Bersiap"}
                 </p>
@@ -374,4 +378,61 @@ function playFanfare() {
   } catch {
     // Diam. Undian tetap jalan tanpa suara.
   }
+}
+
+/**
+ * Daftar hadiah di layar tunggu (Stage display > Show the prize lineup).
+ *
+ * Seperti susunan acara: ruangan melihat apa saja yang akan diundi, mana yang
+ * sudah, dan mana yang sedang. Tanpa hadiah terpilih ia mengisi layar; dengan
+ * hadiah terpilih ia menjadi deretan ringkas di bawah kartu hadiah.
+ *
+ * Mati secara bawaan: sebagian klien ingin hadiahnya tetap kejutan.
+ */
+function LineupBoard({ lineup, currentId, accent, text, fontFamily, compact = false }: {
+  lineup: UndianState["lineup"];
+  currentId: number | null;
+  accent: string;
+  text: string;
+  fontFamily: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="flex w-full max-w-[88vw] flex-col items-center gap-[1.6vh] text-center">
+      <p style={{ fontFamily, fontSize: compact ? "clamp(9px, 1.1vw, 15px)" : "clamp(11px, 1.5vw, 22px)", letterSpacing: "0.22em", opacity: 0.55 }}>
+        DAFTAR HADIAH
+      </p>
+      <ol className={`flex flex-wrap justify-center ${compact ? "gap-[0.8vw]" : "gap-[1.2vw]"}`}>
+        {lineup.map((item, index) => {
+          const current = item.id === currentId;
+          return (
+            <motion.li
+              key={item.id}
+              className="flex items-center gap-[0.8vw] rounded-full"
+              style={{
+                padding: compact ? "0.7vh 1.3vw" : "1.2vh 1.8vw",
+                border: `2px solid ${current ? accent : `${text}33`}`,
+                background: current ? `${accent}26` : "transparent",
+                opacity: item.done && !current ? 0.45 : 1,
+              }}
+              initial={{ opacity: 0, y: "1vh" }}
+              animate={{ opacity: item.done && !current ? 0.45 : 1, y: 0 }}
+              transition={{ ...expressive.spatial.default, delay: Math.min(index * 0.06, 0.6) }}
+            >
+              {!compact && item.image_url ? (
+                // `img` biasa: URL Storage dari CMS, sama dengan kartu hadiah.
+                <motion.img src={item.image_url} alt="" aria-hidden="true" style={{ height: "min(5vh, 56px)", width: "auto", objectFit: "contain" }} />
+              ) : null}
+              <span
+                className="font-semibold"
+                style={{ fontFamily, fontSize: compact ? "clamp(11px, 1.4vw, 20px)" : "clamp(13px, 2vw, 30px)", color: current ? accent : text, textDecoration: item.done && !current ? "line-through" : "none" }}
+              >
+                {item.done && !current ? "✓ " : ""}{item.name}
+              </span>
+            </motion.li>
+          );
+        })}
+      </ol>
+    </div>
+  );
 }

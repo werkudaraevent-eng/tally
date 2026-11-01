@@ -11,7 +11,14 @@
 --   stage_note  teks pengganti kalimat bawaannya. Null = kalimat bawaan.
 --               Teks biasa, 1..120 karakter sesudah trim.
 --
--- Hanya menambah kolom dengan default 'none' dan null. Tidak ada data yang
+-- Satu kolom di undian_settings (Lucky draw > Stage display), diminta Hanung
+-- 2026-11-01 di utas yang sama:
+--
+--   show_lineup  daftar hadiah sesuai urutan undi di layar tunggu, sebelum dan
+--                di antara undian. Bawaan false: sebagian klien tidak mau
+--                hadiahnya terlihat sejak awal.
+--
+-- Hanya menambah kolom dengan default 'none', null dan false. Tidak ada data yang
 -- diubah: setiap acara berubah 0 px sampai panitia memilih sendiri. Hak akses
 -- tabel yang sudah ada (service_role saja) berlaku untuk kolom baru. Duplikat
 -- acara ikut menyalinnya (duplicate_event menyalin baris lewat to_jsonb).
@@ -37,6 +44,12 @@ alter table public.undian_prizes drop constraint if exists undian_prizes_stage_n
 alter table public.undian_prizes
   add constraint undian_prizes_stage_note_check
   check (stage_note is null or char_length(btrim(stage_note)) between 1 and 120);
+
+alter table public.undian_settings
+  add column if not exists show_lineup boolean not null default false;
+
+comment on column public.undian_settings.show_lineup is
+  'Tampilkan daftar hadiah (urutan undi) di layar tunggu panggung. Bawaan false.';
 
 comment on column public.undian_prizes.after_win is
   'Tulisan di layar panggung setelah pemenang keluar: none, stage (maju ke panggung), desk (ambil di meja panitia).';
