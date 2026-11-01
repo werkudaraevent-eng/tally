@@ -85,6 +85,7 @@ Read `docs/STATUS.md` before you start: it says what is in flight, what waits on
 - The editor follows the chosen preset: show only fields the layout renders, and every option must show in preview and live.
 - Material 3, Inter, 4/8 grid. Admin is dense: 36 px controls. Public UI wears the event's look, tap targets ≥ 48 px. Primary screen size to check: 1280×588 and 390 wide (also 768-1279).
 - Mockup on a real render before writing UI code, and ground proposals in how well-known apps solve the same problem.
+- A new Event page block type starts with one entry in `src/lib/blok/jenis.ts`; TypeScript then points at every place that must handle it.
 - Ideas already rejected are listed under "Decided against" in `docs/PRODUCT.md`. Don't propose them again without a new reason.
 
 ## Working with Mas

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DAFTAR_JENIS_BLOK } from "@/lib/blok/jenis";
 import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { BAGIAN_LOGISTIK } from "@/lib/logistik/bagian-tampil";
 import { LANDING_CARD_ICON_POLA, LANDING_CARD_TONES } from "@/lib/landing-card-icons";
@@ -85,7 +86,7 @@ const ikonUrl = z.string().trim().max(600).regex(/^https:\/\/[^\s"'<>]+$/, "Icon
 const routeStop = z.object({ hotel_id: z.number().int().positive().optional(), name: teks(120), address: teks(300) });
 const blockSchema = z.object({
   id: blockId,
-  type: z.enum(["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown", "dos_donts", "dress_code"]),
+  type: z.enum(DAFTAR_JENIS_BLOK),
   show_on: z.enum(LANDING_BLOCK_SHOW_ON).optional(),
   route_from: routeStop.optional(),
   route_to: routeStop.optional(),
