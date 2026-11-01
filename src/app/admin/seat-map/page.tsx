@@ -17,7 +17,7 @@ import {
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
   Banner, Button, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter,
-  Popover, POPOVER_ITEM, SegmentedButton, usePopoverAnchor, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
+  Popover, SegmentedButton, usePopoverAnchor, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { INPUT, Field, Kelompok } from "@/components/admin/compact-form";
 
@@ -494,7 +494,7 @@ export default function SeatMapAdminPage() {
             ))}
           </>
         ) : <span>Sample occupancy: table 1 checked in, table 2 occupied.</span>}
-        {tampilan === "ruangan" ? <span className="ml-auto">Sample occupancy. The map follows your changes as you type.</span> : null}
+        {tampilan === "ruangan" ? <span className="ml-auto">Sample occupancy. Updates as you type.</span> : null}
       </div>
       {/* Pratinjau memakai renderer publik, yang teksnya berbahasa Indonesia. */}
       <div
@@ -536,7 +536,7 @@ export default function SeatMapAdminPage() {
             </span>
           </>
         ) : (
-          <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}{tampilan === "ruangan" ? " when saved." : ". Seat matching appears once the session has a seat source."}</span>
+          <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}{tampilan === "ruangan" ? "" : ". Seat matching appears once the session has a seat source."}</span>
         )}
       </div>
     </Pane>
@@ -799,7 +799,7 @@ export default function SeatMapAdminPage() {
   ) : null;
 
   const isiLayar = layarDraft ? (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 pt-4">
       <Kelompok title="Session shown" first>
         <Field label="Default session" htmlFor="default-session" hint={layarDraft.default_session_id ? "Screens with no session in their address show this session." : "On automatic, screens show the first public session in the list."}>
           <select id="default-session" value={layarDraft.default_session_id ?? ""} onChange={(event) => setLayarDraft({ ...layarDraft, default_session_id: event.target.value ? Number(event.target.value) : null })} className={INPUT}>
@@ -1004,17 +1004,17 @@ export default function SeatMapAdminPage() {
                 Open public page<CaretDown size={14} aria-hidden />
               </Button>
             </span>
-            <Popover anchor={menuBuka} id={menuBukaId} label="Open public page" width={280}>
+            <Popover anchor={menuBuka} id={menuBukaId} label="Open public page" width={280} className="p-0">
               {[
                 { href: "/denah", label: "Name search page", detail: "Phones and touch screens" },
                 { href: "/denah?mode=qr", label: "LED screen", detail: "Large QR code, no names" },
               ].map((item) => (
-                <a key={item.href} role="menuitem" href={item.href} target="_blank" rel="noreferrer" className={cx(POPOVER_ITEM, "justify-between")} onClick={() => menuBuka.tutup()}>
-                  <span className="min-w-0">
-                    <span className="block">{item.label}</span>
-                    <span className="block text-body-small text-on-surface-variant">{item.detail}</span>
+                <a key={item.href} role="menuitem" href={item.href} target="_blank" rel="noreferrer" className="flex items-start gap-3 border-b border-outline-variant p-3 text-left last:border-b-0 hover:bg-primary-soft" onClick={() => menuBuka.tutup()}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-body-medium font-medium">{item.label}</span>
+                    <span className="mt-0.5 block text-body-small text-on-surface-variant">{item.detail}</span>
                   </span>
-                  <ArrowSquareOut size={14} aria-hidden className="shrink-0 text-on-surface-variant" />
+                  <ArrowSquareOut size={16} aria-hidden className="mt-0.5 shrink-0 text-on-surface-variant" />
                 </a>
               ))}
             </Popover>
@@ -1079,6 +1079,8 @@ export default function SeatMapAdminPage() {
         open={layarOpen}
         onClose={() => setLayarOpen(false)}
         dismissible={!savingConfig}
+        scrollBody
+        fullScreenOnMobile
         title="Screen settings"
         description="Applies to every screen that opens the seating plan page."
         actions={
