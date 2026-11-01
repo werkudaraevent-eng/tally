@@ -1,6 +1,7 @@
 import type { LandingCardTone } from "@/lib/landing-card-icons";
 import type { EventTimeZone } from "./timezone";
 import type { RegistrationFormTheme } from "./registration-theme";
+import { JENIS_BLOK, petaJenisBlok, type JenisBlok } from "./blok/jenis.ts";
 
 // super_admin = pemilik sistem. Memegang operasi yang tidak dapat dibalik (reset
 // data, kelola user/role) yang tidak dibutuhkan klien untuk menjalankan acara.
@@ -222,7 +223,8 @@ export function isLandingBlockId(id: string): id is LandingBlockId {
  * Satu bentuk data untuk semua jenis, dengan kolom opsional. Tiap jenis hanya
  * membaca kolom miliknya; editor CMS hanya menampilkan kolom itu.
  */
-export type LandingBlockType = "text_image" | "cards" | "points" | "gallery" | "stats" | "quote" | "logos" | "download" | "cta" | "multicolumn" | "route" | "countdown" | "dos_donts" | "dress_code";
+/** Jenisnya didaftar sekali di src/lib/blok/jenis.ts. */
+export type LandingBlockType = JenisBlok;
 
 /**
  * Tempat blok tampil. `public` = halaman acara (bawaan, perilaku sebelum pilihan
@@ -239,7 +241,7 @@ export const LANDING_BLOCK_SHOW_ON_LABELS: Record<LandingBlockShowOn, string> = 
  * belum punya kartu tidak masuk daftar ini, supaya "Participant page" tidak
  * sama dengan menghapusnya.
  */
-export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = ["text_image", "cards", "points", "gallery", "stats", "quote", "logos", "download", "cta", "multicolumn", "route", "countdown"];
+export const LANDING_BLOCK_MEMBER_TYPES: readonly LandingBlockType[] = JENIS_BLOK.filter((jenis) => jenis.peserta).map((jenis) => jenis.type);
 
 /** Apakah blok tampil di halaman ini. Jenis tanpa tampilan peserta selalu halaman acara saja. */
 export function landingBlockShownOn(block: Pick<LandingBlock, "type" | "show_on" | "audience">, page: "public" | "member"): boolean {
@@ -511,39 +513,9 @@ export const HORIZON_TEXT_MAX = { hero_button_label: 40, hero_index: 40, portal_
 /** Panjang label menu atas: satu atau dua kata pendek, supaya menu muat satu baris. */
 export const LANDING_NAV_LABEL_MAX = 16;
 
-export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = {
-  text_image: "Text and image",
-  cards: "Image cards",
-  points: "Point cards",
-  gallery: "Photo gallery",
-  stats: "Figures strip",
-  quote: "Quote",
-  logos: "Partner logos",
-  download: "Downloads",
-  cta: "Call-to-action strip",
-  multicolumn: "Columns",
-  route: "Directions",
-  countdown: "Countdown",
-  dos_donts: "Do's and Don'ts",
-  dress_code: "Dress code",
-};
+export const LANDING_BLOCK_LABELS: Record<LandingBlockType, string> = petaJenisBlok("label");
 
-export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = {
-  text_image: "A short story with one photo on the left or right.",
-  cards: "Sessions, topics or reading, each with a photo.",
-  points: "Points without photos: definitions, goals or who should attend.",
-  gallery: "3 to 12 photos of the event.",
-  stats: "2 to 4 real figures with their source, on a dark background.",
-  quote: "One real quote with a name and job title.",
-  logos: "Organiser, partner or sponsor logos.",
-  download: "Links to terms of reference, brochures or PDF materials.",
-  cta: "A call to register, with or without a background photo.",
-  multicolumn: "1 to 4 columns, each with an image, title, text and link.",
-  route: "How to get from one place to another, e.g. between two hotels, with a Google Maps button.",
-  countdown: "Days, hours and minutes to the event start. Hides itself once the event is over.",
-  dos_donts: "What to do and what to avoid, each with an icon: what to wear, what to bring, house rules.",
-  dress_code: "What to wear each day, taken from Agenda > Dress code, so guests can pack before they sign in.",
-};
+export const LANDING_BLOCK_DESCRIPTIONS: Record<LandingBlockType, string> = petaJenisBlok("description");
 
 export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
   light: "Light",
@@ -552,22 +524,7 @@ export const LANDING_BLOCK_TONE_LABELS: Record<LandingBlockTone, string> = {
 };
 
 /** Latar bawaan tiap jenis blok saat baru ditambahkan. */
-export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTone> = {
-  text_image: "light",
-  cards: "light",
-  points: "light",
-  gallery: "panel",
-  stats: "dark",
-  quote: "light",
-  logos: "light",
-  download: "panel",
-  cta: "light",
-  multicolumn: "light",
-  route: "panel",
-  countdown: "dark",
-  dos_donts: "panel",
-  dress_code: "panel",
-};
+export const LANDING_BLOCK_DEFAULT_TONE: Record<LandingBlockType, LandingBlockTone> = petaJenisBlok("latar");
 
 export const LANDING_BLOCK_LAYOUTS: Partial<Record<LandingBlockType, { value: LandingBlockLayout; label: string; hint: string }[]>> = {
   cards: [
