@@ -251,7 +251,7 @@ export default function AttendanceAdminPage() {
     setBusy(false);
     if (!response?.ok) {
       setPasangan(lama);
-      toast.error("Gagal disimpan", pesanGalatApi(await response?.json().catch(() => ({}))) ?? "The items did not change. Try again.");
+      toast.error("Not saved", pesanGalatApi(await response?.json().catch(() => ({}))) ?? "The items did not change. Try again.");
     }
   }
 

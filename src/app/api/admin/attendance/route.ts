@@ -82,13 +82,14 @@ export async function GET(request: Request) {
       .select("id", { head: true, count: "exact" })
       .eq("event_id", eventId)
       .not("walk_in_at", "is", null),
-    // Peserta aktif (bukan yang dihapus di sumber), untuk "N not here yet".
-    // Aturan yang sama dengan pemindaian: yang dihapus tidak bisa check-in.
+    // Semua peserta acara, untuk "N not here yet". Sama dengan total yang
+    // dihitung Participant list (termasuk yang dihapus di sumber), karena
+    // angka "hadir" juga menghitung mereka bila sempat check-in; dengan begitu
+    // angkanya sama dengan daftar yang dibuka tautan "Show who is not here yet".
     client
       .from("participants")
       .select("id", { head: true, count: "exact" })
-      .eq("event_id", eventId)
-      .is("source_removed_at", null),
+      .eq("event_id", eventId),
   ]);
 
   // Total bagasi untuk sesi yang mencatatnya (muat truk per batch). Dibaca
