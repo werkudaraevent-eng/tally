@@ -93,7 +93,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 | --- | --- | --- | --- |
 | QR check-in, walk-ins, badge and sticker printing | Yes | | Cvent OnArrival |
 | Welcome screen, checkpoints, participant self-scan | Yes | | Bizzabo Klik |
-| Staff scanners keep working when the venue internet drops, and sync later | Partly | P1 | Cvent OnArrival, Swapcard offline scan |
+| Staff scanners keep working when the venue internet drops, and sync later | Done, per session (check-in audit 1 Nov: record now, verify when the signal is back; no participant list on the phone) | P1 | Cvent OnArrival, Swapcard offline scan |
 | Self check-in kiosk with badge printing | No | P2 | Cvent OnArrival kiosk |
 | Booth sales and cashier | Yes | | |
 
