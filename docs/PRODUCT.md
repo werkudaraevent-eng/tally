@@ -191,6 +191,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **CMS (Speakers):** name, job title, organisation, main role, photo, featured, sessions (linked to agenda items, with a role per session), English fields, order per tab, photo frame (Modern).
 - **Shows at:** event page Speakers section (tabs: featured, one per session, others) and next to sessions in the agenda (text, names, or names with photos).
 - **Limits:** 60 speakers, 8 featured.
+- **Admin page:** one table of speakers with Session, Highlights and Needs attention filters; picking a row opens the editor beside it. Filtering to one session (or Highlights) shows that tab's order on the event page, reordered by dragging. Adding a speaker while one session is filtered puts them in that session.
 
 ### Seating plan
 - **For:** participants and public screens find their seat; admins assign seats.
