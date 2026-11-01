@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUpRight, X } from "@phosphor-icons/react/dist/ssr";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
 import type { SpeakerTab } from "@/lib/landing-speaker-tabs";
+import { punyaProfil, TEKS_PROFIL_ID, type TeksProfil } from "@/lib/landing-speaker-profil";
 import { JUDUL_BUTIR } from "./styles";
 
 /**
@@ -56,14 +57,6 @@ const LETAK_FOTO: Record<LandingSpeakerFrame, string> = {
   arch: "object-[50%_20%]",
 };
 
-/** Teks bawaan dialog profil, dalam bahasa halaman. */
-export type TeksProfil = { profil: string; tutup: string; tautan: string };
-export const TEKS_PROFIL_ID: TeksProfil = { profil: "Lihat profil", tutup: "Tutup", tautan: "Profil lengkap" };
-
-/** Kartu bisa dibuka bila ada profil atau tautan; tanpa keduanya kartu tetap seperti dulu (0 px). */
-export function punyaProfil(speaker: LandingSpeaker): boolean {
-  return Boolean(speaker.bio?.trim() || speaker.link?.trim());
-}
 
 // Peran umum ("Pembicara", "Speaker") tidak ditulis: di bagian Pembicara
 // semua orang pembicara. Yang ditulis hanya peran pembeda, mis. Moderator.

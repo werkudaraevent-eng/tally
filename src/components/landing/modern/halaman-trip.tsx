@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { BukaProfil, punyaProfil, TandaProfil, type TeksProfil } from "./speaker-tabs";
+import { BukaProfil, TandaProfil } from "./speaker-tabs";
+import { punyaProfil, type TeksProfil } from "@/lib/landing-speaker-profil";
 import {
   ArrowRight,
   ArrowUpRight,

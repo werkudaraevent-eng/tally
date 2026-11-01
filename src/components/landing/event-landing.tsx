@@ -18,7 +18,8 @@ import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { AgendaTabs } from "./agenda-tabs";
-import { BukaProfil, punyaProfil, TandaProfil, TEKS_PROFIL_ID } from "./modern/speaker-tabs";
+import { BukaProfil, TandaProfil } from "./modern/speaker-tabs";
+import { punyaProfil, TEKS_PROFIL_ID } from "@/lib/landing-speaker-profil";
 import { warnaTandaHalaman } from "@/lib/registration-theme-css";
 import { LandingNav } from "./landing-nav";
 
