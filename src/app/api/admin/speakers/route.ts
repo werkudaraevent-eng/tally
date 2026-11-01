@@ -31,6 +31,7 @@ export async function GET(request: Request) {
     speaker_frame: landing.speaker_frame ?? "portrait",
     layout: landing.layout ?? "modern",
     en_enabled: Boolean(landing.en_enabled),
+    default_lang: landing.default_lang === "en" ? "en" : "id",
   });
 }
 

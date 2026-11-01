@@ -112,7 +112,7 @@ export function SeatsPanel({
                   <span className="block truncate text-body-medium font-medium text-on-surface">{orang.name}</span>
                   {kedua ? <span className="block truncate text-body-small text-on-surface-variant">{kedua}</span> : null}
                 </span>
-                {aktif ? <span className="shrink-0 text-body-small font-medium text-primary">Pick a seat</span> : null}
+                {aktif ? <span className="shrink-0 text-body-small text-on-surface-variant">Pick a seat</span> : null}
               </button>
               {aktif ? (
                 <div className="flex flex-wrap items-center gap-2 bg-secondary-container px-3 pb-2.5">

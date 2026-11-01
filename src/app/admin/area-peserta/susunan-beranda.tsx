@@ -7,7 +7,7 @@ import { useState, type DragEvent, type KeyboardEvent } from "react";
 import Link from "@/components/event-link";
 import { Button } from "@/components/m3";
 import { useToast } from "@/components/toast";
-import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
+import { LANDING_BLOCK_LABELS, LANDING_BLOCK_MEMBER_TYPES, MEMBER_HOME_BUILTINS, memberHomeOrder, type LandingBlockShowOn, type MemberHomeSource, type LandingBlockType, type LandingMemberConfig } from "@/lib/domain";
 import { TETAP_HORIZON, pindahHorizon, urutanHorizon } from "@/lib/member/susunan-horizon";
 import { withEventPrefix } from "@/lib/event-path";
 import { cx } from "@/lib/m3/cx";
@@ -356,6 +356,7 @@ export function SusunanBeranda({
         open={tambahTerbuka}
         onClose={() => setTambahTerbuka(false)}
         description="Only signed-in participants see it. You fill it in on the Event page and save there; it then joins your blocks in this list."
+        jenis={LANDING_BLOCK_MEMBER_TYPES}
         onPick={(type) => {
           setTambahTerbuka(false);
           router.push(withEventPrefix(`/admin/landing?tambah=${type}&untuk=peserta`, window.location.pathname));
