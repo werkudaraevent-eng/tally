@@ -211,9 +211,59 @@ export default function UndianControlPage() {
   // Dulu tombol besar tetap "Draw now" setelah nama keluar, dan satu ketukan
   // terburu-buru mengundi rombongan baru sementara pemenang sebelumnya masih
   // berjalan ke panggung.
-  const belumDiputuskan = state && !spinning && !rehearsal
-    ? state.winners.filter((winner) => winner.status === "pending" && winner.id !== undefined)
-    : [];
+  const ronde = state && !spinning && !rehearsal ? state.winners.filter((winner) => winner.id !== undefined) : [];
+  // Hanya pemenang UTAMA. Cadangan bukan pemenang kedua: ia baru dipakai bila
+  // pemenang utama tidak hadir. Memasukkannya ke "sahkan semua" membuat hadiah
+  // berkuota 1 punya dua pemenang sah setelah tiga ketukan klik presenter.
+  const belumDiputuskan = ronde.filter((winner) => winner.status === "pending" && !winner.is_backup);
+  const cadanganMenunggu = ronde
+    .filter((winner) => winner.status === "pending" && winner.is_backup)
+    .sort((a, b) => a.slot_order - b.slot_order);
+  // Kursi yang kosong di undian ini: pemenang utama yang tidak hadir dan belum
+  // digantikan cadangan yang sudah disahkan.
+  const kursiKosong = Math.max(
+    0,
+    ronde.filter((winner) => !winner.is_backup && winner.status === "rejected").length
+      - ronde.filter((winner) => winner.is_backup && winner.status === "confirmed").length,
+  );
+
+  // Langkah keputusan sesudah nama keluar, berurutan. Semua pemenang undian ini
+  // diputuskan dulu, baru undian pengganti; mengundi pengganti di tengah jalan
+  // mengganti tampilan layar dan menelantarkan nama yang belum diputuskan.
+  type Langkah = { key: string; label: string; hint: React.ReactNode; run: () => void };
+  let langkah: Langkah | null = null;
+  if (belumDiputuskan.length > 0) {
+    langkah = {
+      key: "present-all",
+      label: belumDiputuskan.length === 1 ? "Mark present" : `Mark all ${belumDiputuskan.length} present`,
+      hint: belumDiputuskan.length === 1
+        ? <>Waiting for <span className="font-medium text-on-surface">{belumDiputuskan[0].name}</span>. Decide before the next draw.</>
+        : <>{belumDiputuskan.length} winners waiting. Mark anyone who is not here as Absent in the list below, then mark the rest present.</>,
+      run: () => void sahkan(belumDiputuskan, "present-all"),
+    };
+  } else if (cadanganMenunggu.length > 0 && kursiKosong > 0) {
+    const cadangan = cadanganMenunggu[0];
+    langkah = {
+      key: "present-all",
+      label: `Mark Backup ${cadangan.slot_order} present`,
+      hint: <><span className="font-medium text-on-surface">{cadangan.name}</span> (Backup {cadangan.slot_order}) takes the place of the absent winner. If they are not here either, mark them Absent in the list below.</>,
+      run: () => void sahkan([cadangan], "present-all"),
+    };
+  } else if (cadanganMenunggu.length > 0) {
+    langkah = {
+      key: "release",
+      label: cadanganMenunggu.length === 1 ? "Release the backup" : `Release ${cadanganMenunggu.length} backups`,
+      hint: <>Every winner is decided, so the {cadanganMenunggu.length === 1 ? "backup is" : "backups are"} not needed. Releasing returns them to the pool for the next prizes.</>,
+      run: () => void lepaskan(cadanganMenunggu),
+    };
+  } else if (kursiKosong > 0 && !(quotaFull && !rehearsal)) {
+    langkah = {
+      key: "draw",
+      label: kursiKosong === 1 ? "Draw 1 replacement" : `Draw ${kursiKosong} replacements`,
+      hint: <>{kursiKosong === 1 ? "One winner was" : `${kursiKosong} winners were`} absent. The replacement draw fills only {kursiKosong === 1 ? "that place" : "those places"}, without backups.</>,
+      run: () => void send({ action: "draw", count: kursiKosong }, "draw"),
+    };
+  }
 
   // Hadiah berikutnya menurut urutan undi (Prizes & rules > Draw order): yang
   // pertama sesudah hadiah ini yang kuotanya masih tersisa di sesi ini.
@@ -221,9 +271,16 @@ export default function UndianControlPage() {
   const posisi = activePrize ? urutan.findIndex((prize) => prize.id === activePrize.id) : -1;
   const hadiahBerikutnya = urutan.slice(posisi + 1).find((prize) => (winnerCounts[prize.id] ?? 0) < prize.winner_quota) ?? null;
 
-  async function hadirSemua() {
-    for (const winner of belumDiputuskan) {
-      const ok = await send({ action: "decide", winner_id: winner.id, status: "confirmed" }, "present-all");
+  async function sahkan(winners: Winner[], key: string) {
+    for (const winner of winners) {
+      const ok = await send({ action: "decide", winner_id: winner.id, status: "confirmed" }, key);
+      if (!ok) return;
+    }
+  }
+
+  async function lepaskan(winners: Winner[]) {
+    for (const winner of winners) {
+      const ok = await send({ action: "decide", winner_id: winner.id, status: "rejected", reason: "Backup not needed" }, "release");
       if (!ok) return;
     }
   }
@@ -236,7 +293,7 @@ export default function UndianControlPage() {
   if (live && state?.prize && !busy) {
     if (manualSpin) aksiUtama = { label: tombolAkhiri, run: () => void send({ action: "reveal" }, "reveal") };
     else if (spinning) aksiUtama = null;
-    else if (belumDiputuskan.length > 0) aksiUtama = { label: belumDiputuskan.length === 1 ? "Mark present" : `Mark all ${belumDiputuskan.length} present`, run: () => void hadirSemua() };
+    else if (langkah) aksiUtama = { label: langkah.label, run: langkah.run };
     else if (!drawBlocked) aksiUtama = { label: rehearsal ? "Draw (rehearsal)" : "Draw now", run: () => void send({ action: "draw" }, "draw") };
     else if (pendingHere === 0 && hadiahBerikutnya) {
       const next = hadiahBerikutnya;
@@ -269,7 +326,15 @@ export default function UndianControlPage() {
 
   // Pengganti hanya untuk pemenang undian yang sedang tampil, dan bukan cadangan:
   // cadangan yang tidak hadir tidak membuka kursi baru.
-  const bisaGanti = rejecting !== null && !rejecting.is_backup && state?.prize !== null && !rehearsal;
+  //
+  // Ditawarkan hanya bila nama ini pemenang utama TERAKHIR yang belum diputuskan
+  // dan tidak ada cadangan yang menunggu. Undian pengganti adalah undian baru
+  // yang mengganti tampilan; bila masih ada nama lain yang belum diputuskan,
+  // nama-nama itu hilang dari layar dan panel lalu tertinggal "pending".
+  const bisaGanti = rejecting !== null && !rejecting.is_backup && state?.prize !== null && !rehearsal
+    && cadanganMenunggu.length === 0
+    && belumDiputuskan.length === 1 && belumDiputuskan[0].id === rejecting.id;
+  const cadanganPengganti = rejecting !== null && !rejecting.is_backup ? cadanganMenunggu[0] ?? null : null;
 
   const sah = state?.winners.filter((winner) => winner.status === "confirmed").length ?? 0;
   const menunggu = state?.winners.filter((winner) => winner.status === "pending").length ?? 0;
@@ -425,23 +490,19 @@ export default function UndianControlPage() {
               Reveal now
             </Button>
           )
-        ) : belumDiputuskan.length > 0 ? (
+        ) : langkah ? (
           <div className="flex flex-col gap-2">
-            <p className="text-body-medium text-on-surface-variant">
-              {belumDiputuskan.length === 1
-                ? <>Waiting for <span className="font-medium text-on-surface">{belumDiputuskan[0].name}</span>. Decide before the next draw.</>
-                : <>{belumDiputuskan.length} winners waiting. Mark anyone who is not here as Absent in the list below, then mark the rest present.</>}
-            </p>
+            <p className="text-body-medium text-on-surface-variant">{langkah.hint}</p>
             <Button
               size="xl"
               block
               className="h-16 text-title-medium"
-              icon={<Check size={22} weight="bold" />}
-              loading={busy === "present-all"}
+              icon={langkah.key === "draw" ? <Sparkle size={22} weight="fill" /> : <Check size={22} weight="bold" />}
+              loading={busy === langkah.key}
               disabled={busy !== null}
-              onClick={() => void hadirSemua()}
+              onClick={langkah.run}
             >
-              {belumDiputuskan.length === 1 ? "Mark present" : `Mark all ${belumDiputuskan.length} present`}
+              {langkah.label}
             </Button>
             {belumDiputuskan.length === 1 ? (
               <Button
@@ -452,7 +513,7 @@ export default function UndianControlPage() {
                 disabled={busy !== null}
                 onClick={() => { setRejecting(belumDiputuskan[0]); setRejectReason(""); setDrawReplacement(true); }}
               >
-                Absent, draw a replacement
+                {cadanganMenunggu.length > 0 ? "Absent" : "Absent, draw a replacement"}
               </Button>
             ) : null}
           </div>
@@ -483,7 +544,7 @@ export default function UndianControlPage() {
             )}
           </div>
         ) : null}
-        {!spinning && drawBlocked && belumDiputuskan.length === 0 && pendingHere === 0 && hadiahBerikutnya ? (
+        {!spinning && drawBlocked && !langkah && pendingHere === 0 && hadiahBerikutnya ? (
           <Button
             size="xl"
             block
@@ -496,7 +557,7 @@ export default function UndianControlPage() {
             <span className="truncate">Next prize: {hadiahBerikutnya.name}</span>
           </Button>
         ) : null}
-        {spinning || belumDiputuskan.length > 0 || drawBlocked ? null : (
+        {spinning || langkah || drawBlocked ? null : (
           <div className="flex flex-col gap-2">
             <Button
               size="xl"
@@ -580,7 +641,7 @@ export default function UndianControlPage() {
                       className="text-error"
                       icon={<XCircle size={16} />}
                       disabled={busy !== null}
-                      onClick={() => { setRejecting(winner); setRejectReason(""); }}
+                      onClick={() => { setRejecting(winner); setRejectReason(""); setDrawReplacement(true); }}
                     >
                       Absent
                     </Button>
@@ -739,6 +800,8 @@ export default function UndianControlPage() {
               // Satu nama, tanpa cadangan: hanya kursi yang kosong yang diisi.
               const drawn = await send({ action: "draw", count: 1 }, "draw");
               if (drawn) toast.info("Winner cancelled", "One replacement is being drawn on the stage screen.");
+            } else if (cadanganPengganti) {
+              toast.info("Winner cancelled", `Backup ${cadanganPengganti.slot_order} takes this place.`);
             } else {
               toast.info("Winner cancelled", "The participant returns to the pool for the next draw.");
             }
@@ -753,6 +816,11 @@ export default function UndianControlPage() {
             placeholder="Not present at the venue"
             className="mt-1.5 h-9 w-full rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium text-on-surface outline-none focus:border-primary"
           />
+          {cadanganPengganti ? (
+            <p className="mt-4 rounded-md bg-surface-container-high p-3 text-body-medium">
+              <span className="font-medium">{cadanganPengganti.name}</span> (Backup {cadanganPengganti.slot_order}) takes this place. Mark them present next.
+            </p>
+          ) : null}
           {bisaGanti ? (
             <Switch
               className="mt-4"

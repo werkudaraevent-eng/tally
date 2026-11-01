@@ -73,7 +73,7 @@ export function PrizeEditor({
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-body-medium font-medium">Draw order</p>
-                  <p className="text-body-medium tabular-nums text-on-surface-variant">{order.position} of {order.total} in the operator panel</p>
+                  <p className="text-body-medium tabular-nums text-on-surface-variant">{order.position} of {order.total} prizes{draft.is_active ? "" : ", hidden while inactive"}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button simpan variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>

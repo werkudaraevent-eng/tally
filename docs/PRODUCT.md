@@ -312,7 +312,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Exclusion rules and per-person exclusions.
   - Stage display: title, name display, organisation, seat, sound, confetti, reveal delay, colours, background.
   - Sessions & results: start/close a session, export, delete results (owner only).
-- **Operator panel:** stage screen on/off, prizes in draw order, draw, stop, then decide each winner (the main button becomes "Mark present" until everyone is decided), "Absent, draw a replacement" (one name, no backups), "Next prize" when the quota is full, redraw, rehearsal (nothing recorded). Presenter clicker, → or Space runs the main action (never turns the screen on or marks absent). On phones the draw panel is above the prize list.
+- **Operator panel:** stage screen on/off, prizes in draw order, draw, stop, then decide each winner (the main button becomes "Mark present" until everyone is decided), backups only replace an absent winner (unused ones are released), "Draw N replacements" for absent seats once every name is decided (no backups), "Next prize" when the quota is full, redraw, rehearsal (nothing recorded). Presenter clicker, → or Space runs the main action (never turns the screen on or marks absent). On phones the draw panel is above the prize list.
 - **Shows at:** `/e/<slug>/undian`.
 - **Rules:** the prize being drawn decides who may win again; absent winners return to the pool; winners from closed sessions no longer block; if past winners can't be read, the draw refuses to run.
 
