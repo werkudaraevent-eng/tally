@@ -180,6 +180,7 @@ export function BagianPembicara({ tabs, label }: { tabs: SpeakerTab[]; label: Fo
         heading={label.pembicara}
         eyebrowClassName=""
         headingClassName={`${H_BAGIAN} text-center text-[var(--f-ink)]`}
+        teksProfil={{ profil: label.lihatProfil, tutup: label.tutup, tautan: label.profilLengkap }}
       />
     </section>
   );

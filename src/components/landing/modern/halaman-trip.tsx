@@ -1,5 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
+import { BukaProfil, TandaProfil } from "./speaker-tabs";
+import { punyaProfil, type TeksProfil } from "@/lib/landing-speaker-profil";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -137,14 +139,14 @@ export function TentangTrip({ judul, isi, foto }: { judul: string; isi: string |
   );
 }
 
-export function PembicaraTrip({ judul, orang }: { judul: string; orang: LandingSpeaker[] }) {
+export function PembicaraTrip({ judul, orang, teksProfil }: { judul: string; orang: LandingSpeaker[]; teksProfil: TeksProfil }) {
   return (
     <BagianTrip id="speakers" judul={judul}>
       <ul className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:-mx-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0">
         {orang.map((item, index) => {
           const ket = [item.title, item.company].filter(Boolean).join(" · ");
-          return (
-            <li key={`${item.name}-${index}`} className="flex w-40 shrink-0 snap-start flex-col gap-2 lg:w-auto">
+          const isi = (
+            <>
               {item.photo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.photo_url} alt="" loading="lazy" className="aspect-[4/5] w-full rounded-[12px] object-cover" style={{ background: "#EEF1F6" }} />
@@ -165,7 +167,13 @@ export function PembicaraTrip({ judul, orang }: { judul: string; orang: LandingS
                     {ket}
                   </span>
                 ) : null}
+                {punyaProfil(item) ? <TandaProfil teks={teksProfil} className="mt-1 text-[14px] leading-5" /> : null}
               </div>
+            </>
+          );
+          return (
+            <li key={`${item.name}-${index}`} className={punyaProfil(item) ? "w-40 shrink-0 snap-start lg:w-auto" : "flex w-40 shrink-0 snap-start flex-col gap-2 lg:w-auto"}>
+              {punyaProfil(item) ? <BukaProfil speaker={item} teks={teksProfil} className="flex flex-col gap-2 rounded-[12px]">{isi}</BukaProfil> : isi}
             </li>
           );
         })}

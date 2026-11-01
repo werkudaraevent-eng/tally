@@ -6,7 +6,7 @@
 export type ForumLabels = Record<
   | "beranda" | "program" | "info" | "masuk" | "areaPeserta" | "daftar" | "tentang" | "tentangSingkat" | "selengkapnya"
   | "lihatSelengkapnya" | "susunan" | "waktu" | "sesi" | "pembicara" | "sorotanPembicara" | "pembicaraLain" | "lokasi" | "buatPeta" | "galeri"
-  | "dresscode" | "bukaGoogleMaps" | "menu" | "subjudulProgram" | "remah",
+  | "dresscode" | "bukaGoogleMaps" | "menu" | "subjudulProgram" | "remah" | "lihatProfil" | "profilLengkap" | "tutup",
   string
 >;
 
@@ -36,6 +36,9 @@ export const FORUM_LABELS: Record<"id" | "en", ForumLabels> = {
     menu: "Menu",
     subjudulProgram: "Informasi umum tentang acara, susunan acara, dan program.",
     remah: "Navigasi remah roti",
+    lihatProfil: "Lihat profil",
+    profilLengkap: "Profil lengkap",
+    tutup: "Tutup",
   },
   en: {
     beranda: "Home",
@@ -62,5 +65,8 @@ export const FORUM_LABELS: Record<"id" | "en", ForumLabels> = {
     menu: "Menu",
     subjudulProgram: "General information about the event, agenda, and program.",
     remah: "Breadcrumb",
+    lihatProfil: "View profile",
+    profilLengkap: "Full profile",
+    tutup: "Close",
   },
 };

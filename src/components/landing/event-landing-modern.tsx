@@ -831,6 +831,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               headingClassName={JUDUL}
               tablistLabel={t.speakersBySession}
               bingkai={config.speaker_frame}
+              teksProfil={t.speakerProfile}
             />
           </section>
         ) : null}
@@ -1008,7 +1009,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
             <AgendaTrip agenda={agenda} lang={lang} />
           </BagianTrip>
         ) : null,
-        speakers: tampil("speakers") ? <PembicaraTrip judul={judulTrip("speakers")} orang={speakers} /> : null,
+        speakers: tampil("speakers") ? <PembicaraTrip judul={judulTrip("speakers")} orang={speakers} teksProfil={t.speakerProfile} /> : null,
         ...(hotelInap.length > 0
           ? {}
           : {

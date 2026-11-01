@@ -321,7 +321,7 @@ export function landingUntranslated(event: Partial<LandingHeadingFacts> & {
   if (bagian("contact")) periksa(config.contact_name, en.contact_name, "contact_name", "contact");
   if (bagian("speakers")) {
     config.speakers?.forEach((speaker, index) => {
-      (["title", "role"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
+      (["title", "role", "bio"] as const).forEach((key) => periksa(speaker[key], speaker.en?.[key], `speakers.${index}.${key}`, "speakers"));
     });
     // Satu sesi dihitung sekali, berapa pun pembicaranya. Hanya sesi teks lama:
     // sesi dari rundown diterjemahkan di kartu rundown English.
@@ -505,6 +505,8 @@ export type LandingUiText = {
   /** Judul Pembicara bila pembicara datang dari 3 lembaga atau lebih. */
   speakersFrom: (speakers: number, institutions: number) => string;
   speakersBySession: string;
+  /** Tautan kecil di kartu pembicara yang punya profil, dan teks dialognya. */
+  speakerProfile: { profil: string; tutup: string; tautan: string };
   speakerHighlights: string;
   otherSpeakers: string;
   agendaParts: string;
@@ -680,6 +682,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     part: (n) => `Bagian ${n}`,
     speakersFrom: (speakers, institutions) => `${speakers} pembicara dari ${institutions} lembaga`,
     speakersBySession: "Pembicara per sesi",
+    speakerProfile: { profil: "Lihat profil", tutup: "Tutup", tautan: "Profil lengkap" },
     speakerHighlights: "Sorotan",
     otherSpeakers: "Pembicara lain",
     agendaParts: "Bagian acara",
@@ -845,6 +848,7 @@ export const LANDING_UI: Record<LandingLang, LandingUiText> = {
     part: (n) => `Part ${n}`,
     speakersFrom: (speakers, institutions) => `${speakers} speakers from ${institutions} institutions`,
     speakersBySession: "Speakers by session",
+    speakerProfile: { profil: "View profile", tutup: "Close", tautan: "Full profile" },
     speakerHighlights: "Highlights",
     otherSpeakers: "Other speakers",
     agendaParts: "Event parts",

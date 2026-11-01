@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowSquareOut, LinkSimple, MagnifyingGlass, Plus, Warning } from "@phosphor-icons/react";
+import { ArrowSquareOut, LinkSimple, MagnifyingGlass, Plus, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import {
   Banner, Button, ButtonLink, ChipMenu, Dialog, EmptyState, ListDetail, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
-  StatusChip, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
+  StatusChip, Switch, Tabs, TextArea, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import type { EventLandingConfig, LandingSpeaker, LandingSpeakerFrame } from "@/lib/domain";
 import { eventApiPath } from "@/lib/event-url";
@@ -14,6 +14,7 @@ import { labelSesi, SOROTAN_MAKS, sesiDariRundown, speakerTabs } from "@/lib/lan
 import { useJagaNavigasi } from "@/lib/jaga-navigasi";
 import { samaJson } from "@/lib/landing-speakers-sama";
 import { cx } from "@/lib/m3/cx";
+import { DialogImpor } from "./impor";
 import { plural } from "@/lib/plural";
 import { barisSesiDariAdmin, KolomPeran, petakanSesiLama, PilihSesi, sesiHilang, type BarisSesi } from "../landing/pilih-sesi";
 import { agendaDariBaris, BINGKAI_KECIL, inisial, UrutanPembicara } from "../landing/urutan-pembicara";
@@ -44,7 +45,9 @@ const PERHATIAN: { value: Perhatian; label: string }[] = [
   { value: "hilang", label: "Session removed" },
 ];
 /** Sama dengan batas skema (SPEAKERS_MAX). */
-const MAKS = 60;
+const MAKS = 150;
+/** Sama dengan SPEAKER_BIO_MAX. */
+const BIO_MAKS = 1200;
 
 function Wajah({ speaker, bingkai, ukuran = "baris" }: { speaker: LandingSpeaker; bingkai: LandingSpeakerFrame; ukuran?: "baris" | "pratinjau" }) {
   return (
@@ -90,6 +93,9 @@ const NAMA_KOLOM: Record<string, string> = {
   featured: "Highlights",
   session_refs: "sessions",
   session: "old session",
+  bio: "bio",
+  link: "profile link",
+  "en.bio": "English bio",
   "en.title": "English job title",
   "en.company": "English organisation",
   "en.role": "English main role",
@@ -189,6 +195,7 @@ export default function SpeakersAdminPage() {
   // ikut orang yang dipindah. Kembali ke tersimpan bila gagal.
   const [urutanSementara, setUrutanSementara] = useState<LandingSpeaker[] | null>(null);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
+  const [imporBuka, setImporBuka] = useState(false);
   const [tertunda, setTertunda] = useState<(() => void) | null>(null);
   const [error, setError] = useState("");
   // Pesan 409 di panel sunting (bukan toast: toast menutupi Save dan Delete).
@@ -395,6 +402,10 @@ export default function SpeakersAdminPage() {
 
   async function simpanPembicara() {
     if (!draf || !tersimpan || menyimpan) return;
+    if (draf.link?.trim() && !/^https:\/\/[^\s"'<>\\]+\.[^\s"'<>\\]+$/i.test(draf.link.trim())) {
+      toast.error("Check the profile link", "It must start with https://.");
+      return;
+    }
     if (!draf.name.trim()) {
       toast.error("Name required", "Fill in the speaker's name.");
       document.querySelector<HTMLInputElement>("[data-nama-pembicara]")?.focus();
@@ -712,6 +723,29 @@ export default function SpeakersAdminPage() {
           onMuatUlang={() => void muatBaris()}
           onChange={(next) => setDraf(next)}
         />
+        <TextArea
+          label="Bio"
+          optional
+          rows={5}
+          maxLength={BIO_MAKS}
+          counter
+          placeholder="A short profile: current role, past roles, what they will talk about."
+          hint="With a bio or a profile link, visitors can tap the card on the event page to read it. Leave a blank line between paragraphs."
+          value={draf.bio ?? ""}
+          onChange={(event) => ubah({ bio: event.target.value })}
+        />
+        <TextField
+          label="Profile link"
+          optional
+          type="url"
+          inputMode="url"
+          placeholder="https://www.linkedin.com/in/…"
+          maxLength={600}
+          error={draf.link?.trim() && !/^https:\/\/[^\s"'<>\\]+\.[^\s"'<>\\]+$/i.test(draf.link.trim()) ? "Start with https://" : undefined}
+          hint="LinkedIn, the organisation's page or a personal site. Opens in a new tab."
+          value={draf.link ?? ""}
+          onChange={(event) => ubah({ link: event.target.value })}
+        />
         <Switch
           checked={Boolean(draf.featured)}
           onChange={(value) => ubah({ featured: value })}
@@ -742,6 +776,19 @@ export default function SpeakersAdminPage() {
       kolomEn("Job title", draf.title, draf.en?.title, 200, (title) => ubahEn({ title })),
       kolomEn("Organisation", draf.company, draf.en?.company, 120, (company) => ubahEn({ company })),
       kolomEn("Main role", draf.role, draf.en?.role, 60, (role) => ubahEn({ role })),
+      draf.bio?.trim() ? (
+        <TextArea
+          key="bio"
+          label="Bio"
+          optional
+          rows={5}
+          maxLength={BIO_MAKS}
+          counter
+          hint="Leave empty to show the Indonesian bio."
+          value={draf.en?.bio ?? ""}
+          onChange={(event) => ubahEn({ bio: event.target.value })}
+        />
+      ) : null,
       !sesiDariRundown(draf) ? kolomEn("Session", draf.session, draf.en?.session, 40, (session) => ubahEn({ session })) : null,
       ...peranSesi.map((ref) =>
         kolomEn(`Role in ${ref.label || "a session"}`, ref.role, ref.en?.role, 60, (role) =>
@@ -810,6 +857,9 @@ export default function SpeakersAdminPage() {
             <>
               {halamanAcara ? <ButtonLink href={halamanAcara} target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open event page</ButtonLink> : null}
               {tersimpan ? (
+                <Button variant="outlined" icon={<UploadSimple size={16} />} onClick={() => setImporBuka(true)}>Import</Button>
+              ) : null}
+              {tersimpan ? (
                 <Button icon={<Plus size={16} />} onClick={mulaiBaru} disabled={daftar.length >= MAKS} title={daftar.length >= MAKS ? `An event can have up to ${MAKS} speakers.` : undefined}>Add speaker</Button>
               ) : null}
             </>
@@ -836,6 +886,26 @@ export default function SpeakersAdminPage() {
         {!tersimpan ? (error ? null : <PageLoading />) : (
           <ListDetail list={daftarPanel} detail={samping} detailWidth={420} />
         )}
+
+        {tersimpan ? (
+          <DialogImpor
+            open={imporBuka}
+            onClose={() => setImporBuka(false)}
+            daftar={tersimpan}
+            agenda={(baris ?? []).map((item) => ({ id: item.id, title: item.title }))}
+            maks={MAKS}
+            sorotanMaks={SOROTAN_MAKS}
+            menyimpan={menyimpan}
+            terkunci={berubah}
+            onSimpan={async (next, ringkas) => {
+              const hasil = await kirim(next);
+              if (!hasil) return false;
+              if (typeof pilihan === "number" && draf) setDraf(hasil[pilihan] ?? null);
+              toast.success("Speakers imported", ringkas.charAt(0).toUpperCase() + ringkas.slice(1));
+              return true;
+            }}
+          />
+        ) : null}
 
         <Dialog
           open={konfirmasiHapus}
