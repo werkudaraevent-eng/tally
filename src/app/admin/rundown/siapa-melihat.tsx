@@ -58,6 +58,41 @@ export function syaratMati(syarat: DrafSyarat | null, info: InfoSiapaMelihat | n
   });
 }
 
+/**
+ * Agenda > View as (audit A5): satu kelompok peserta, dipilih dari kolom yang
+ * sama dengan Who sees it. `kunci` "f:<kolom>:<jawaban>".
+ */
+export type LihatSebagai = { kunci: string; label: string; field: string; value: string };
+
+export function opsiLihatSebagai(info: InfoSiapaMelihat | null): LihatSebagai[] {
+  if (!info?.available) return [];
+  const kolom = daftarKolom(info);
+  const satuKolom = kolom.length === 1;
+  return kolom.flatMap((k) => k.options.map((o) => ({
+    kunci: `f:${k.key}:${o.value}`,
+    label: k.key === KOLOM_HOTEL ? `Guests of ${o.label}` : satuKolom || o.label.toLowerCase().startsWith(k.label.toLowerCase()) ? o.label : `${k.label}: ${o.label}`,
+    field: k.key,
+    value: o.value,
+  })));
+}
+
+/**
+ * Apakah kelompok `pilih` melihat baris bersyarat `syarat`: "ya" semua
+ * anggotanya, "sebagian" (ada syarat di kolom lain), atau "tidak". Syarat yang
+ * mati tidak dilihat siapa pun.
+ */
+export function dilihatKelompok(syarat: DrafSyarat | null, pilih: LihatSebagai, info: InfoSiapaMelihat | null): "ya" | "sebagian" | "tidak" {
+  if (!syarat || syarat.length === 0) return "ya";
+  if (syaratMati(syarat, info)) return "tidak";
+  let sebagian = false;
+  for (const isi of syarat) {
+    if (isi.field === pilih.field) {
+      if (!isi.values.some((v) => samaJawaban(v, pilih.value))) return "tidak";
+    } else sebagian = true;
+  }
+  return sebagian ? "sebagian" : "ya";
+}
+
 /** "Batch 2 · Gramm Hotel": ringkasan untuk chip baris di daftar jadwal. */
 export function ringkasSyarat(syarat: DrafSyarat, info: InfoSiapaMelihat | null): string {
   const kolom = info ? daftarKolom(info) : [];

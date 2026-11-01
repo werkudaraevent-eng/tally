@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { MENU_MOTION } from "@/lib/m3/menu-motion";
 import { cx } from "@/lib/m3/cx";
 
@@ -186,6 +186,17 @@ export function Popover({ anchor, label, role = "menu", id, align = "end", width
 			document.removeEventListener("pointerdown", onPointer);
 		};
 	}, [open, tutup, fokus, berisi]);
+
+	// Panel selebar isinya (tanpa `width`) yang disejajarkan di tepi kiri pemicu
+	// belum diketahui lebarnya sebelum digambar. Pemicu di kanan layar ponsel
+	// membuatnya keluar layar; sesudah diukur, panel digeser ke dalam.
+	useLayoutEffect(() => {
+		const el = panel.current;
+		if (!el || !rect || align !== "start" || typeof width === "number") return;
+		const batas = Math.min(document.documentElement.clientWidth, document.documentElement.getBoundingClientRect().width) - PADDING;
+		const kiri = Math.max(PADDING, rect.left);
+		if (kiri + el.offsetWidth > batas) el.style.left = `${Math.max(PADDING, batas - el.offsetWidth)}px`;
+	});
 
 	if (!rect) return null;
 
