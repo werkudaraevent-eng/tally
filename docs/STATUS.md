@@ -56,6 +56,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #364 Seating plan layout field registry (merged 1 Nov, QA GO, audit PR 4 of 4): the Room layout editor reads each layout's number fields from one list in `src/lib/seat-map-layout-fields.ts` (checked by `seat-map-layout-fields.check.ts`), so a new layout is one entry; 0 px change.
 - #363 Seating plan Room layout editor (merged 1 Nov, QA GO, audit PR 3 of 4): layout picked from picture cards; the layout locks only when seats are assigned (as the server already refuses); "Seats around the table" presets replace arc degrees; footer shows the draft's tables and seats.
 - #361 Seating plan Seats view (merged 1 Nov, QA GO, audit PR 2 of 4): sessions set in Tally show real occupancy; the pane opens on Seats (search, "Without a seat" / "Seated" chips, pick a person then an empty seat or "Seat in 21C", Undo snackbar); `GET /api/admin/seat-map/assign` takes `list=unseated|seated`.
 - #356 Seating plan scopes (merged 1 Nov, QA GO, audit PR 1 of 4): Room layout is its own view, Screen settings a dialog, "Open public page" one menu; each editor saves only its own fields with Unsaved changes + Discard and a leave prompt; fixes Save on Public screens saving unsaved room edits.

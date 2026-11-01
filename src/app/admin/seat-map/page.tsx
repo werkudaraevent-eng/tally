@@ -8,6 +8,9 @@ import { SeatMapView } from "@/components/seat-map-view";
 import { AssignSeatDialog, type KursiDipilih, type Urungkan } from "./assign-seat-dialog";
 import { SeatsPanel, type Orang } from "./seats-panel";
 import { LayoutPicker } from "./layout-picker";
+import { LAYOUT_FIELDS, pakaiMejaBulat, SEMUA_LAYOUT, type IsianAngka } from "@/lib/seat-map-layout-fields";
+
+const SEAT_MAP_LAYOUTS_BULAT: string[] = SEMUA_LAYOUT.filter(pakaiMejaBulat);
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
@@ -82,7 +85,8 @@ type Tampilan = "sesi" | "ruangan";
 
 type LayarDraft = { public_view_mode: PublicViewMode; default_session_id: number | null; search_company: boolean };
 
-const BULAT = ["banquet_round", "cabaret", "head_table"];
+/** Meja bulat: baris meja, aturan kursi per meja, label meja. */
+const BULAT = SEAT_MAP_LAYOUTS_BULAT;
 
 /** Pilihan jadi untuk sudut kursi di meja bulat, dalam bahasa panitia. */
 const BUSUR = [
@@ -715,48 +719,39 @@ export default function SeatMapAdminPage() {
           </>
         ) : (
           <>
-        {BULAT.includes(config.layout_type) ? (
-          <Field label="Seats around the table" htmlFor="arc-sweep">
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                id="arc-sweep"
-                value={busurKustom || !BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? "custom" : String(config.layout_params.arc_sweep)}
-                onChange={(event) => { const kustom = event.target.value === "custom"; setBusurKustom(kustom); updateParam("arc_sweep", kustom ? 270 : Number(event.target.value)); }}
-                className={cx(INPUT, "w-auto flex-1")}
-              >
-                {BUSUR.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                <option value="custom">Custom angle</option>
-              </select>
-              {/* Tetap terpasang selama Custom dipilih, juga saat angkanya kebetulan sama dengan preset. */}
-              {!busurKustom && BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? null : (
-                <input type="number" min={60} max={340} aria-label="Angle in degrees" value={config.layout_params.arc_sweep} onChange={(event) => updateParam("arc_sweep", Number(event.target.value))} className={cx(INPUT, "w-24")} />
-              )}
-            </div>
-          </Field>
-        ) : null}
-        {config.layout_type === "theater" || config.layout_type === "classroom" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Rows"><input type="number" min={1} max={40} value={config.layout_params.rows} onChange={(event) => updateParam("rows", Number(event.target.value))} className={INPUT} /></Field>
-            <Field label={config.layout_type === "theater" ? "Seats per row" : "Tables per row"}><input type="number" min={1} max={40} value={config.layout_params.per_row} onChange={(event) => updateParam("per_row", Number(event.target.value))} className={INPUT} /></Field>
-          </div>
-        ) : null}
-        {config.layout_type === "classroom" ? (
-          <Field label="Seats per table"><input type="number" min={1} max={12} value={config.layout_params.seats_per_table} onChange={(event) => updateParam("seats_per_table", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
-        ) : null}
-        {config.layout_type === "theater" ? (
-          <Field label="Aisle after seat number" hint="Separate with commas. Leave empty for no aisles.">
-            <InputLorong aisles={config.layout_params.aisles} onChange={(aisles) => updateParam("aisles", aisles)} />
-          </Field>
-        ) : null}
-        {config.layout_type === "u_shape" || config.layout_type === "hollow_square" || config.layout_type === "boardroom" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Seats per long side"><input type="number" min={1} max={40} value={config.layout_params.seats_per_side} onChange={(event) => updateParam("seats_per_side", Number(event.target.value))} className={INPUT} /></Field>
-            <Field label={config.layout_type === "boardroom" ? "Seats at the table ends" : "Seats on the head side"}><input type="number" min={0} max={20} value={config.layout_params.seats_head} onChange={(event) => updateParam("seats_head", Number(event.target.value))} className={INPUT} /></Field>
-          </div>
-        ) : null}
-        {config.layout_type === "head_table" ? (
-          <Field label="Head table seats"><input type="number" min={1} max={26} value={config.layout_params.head_seats} onChange={(event) => updateParam("head_seats", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
-        ) : null}
+        {LAYOUT_FIELDS[config.layout_type].map((barisIsian, index) => {
+          const angka = (isian: IsianAngka, lebar?: string) => (
+            <Field key={isian.key} label={isian.label}>
+              <input type="number" min={isian.min} max={isian.max} value={config.layout_params[isian.key]} onChange={(event) => updateParam(isian.key, Number(event.target.value))} className={cx(INPUT, lebar)} />
+            </Field>
+          );
+          if (barisIsian.kind === "arc") return (
+            <Field key={index} label="Seats around the table" htmlFor="arc-sweep">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  id="arc-sweep"
+                  value={busurKustom || !BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? "custom" : String(config.layout_params.arc_sweep)}
+                  onChange={(event) => { const kustom = event.target.value === "custom"; setBusurKustom(kustom); updateParam("arc_sweep", kustom ? 270 : Number(event.target.value)); }}
+                  className={cx(INPUT, "w-auto flex-1")}
+                >
+                  {BUSUR.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  <option value="custom">Custom angle</option>
+                </select>
+                {/* Tetap terpasang selama Custom dipilih, juga saat angkanya kebetulan sama dengan preset. */}
+                {!busurKustom && BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? null : (
+                  <input type="number" min={60} max={340} aria-label="Angle in degrees" value={config.layout_params.arc_sweep} onChange={(event) => updateParam("arc_sweep", Number(event.target.value))} className={cx(INPUT, "w-24")} />
+                )}
+              </div>
+            </Field>
+          );
+          if (barisIsian.kind === "pair") return <div key={index} className="grid grid-cols-2 gap-3">{barisIsian.fields.map((isian) => angka(isian))}</div>;
+          if (barisIsian.kind === "single") return angka(barisIsian.field, "w-32");
+          return (
+            <Field key={index} label={barisIsian.label} hint={barisIsian.hint}>
+              <InputLorong aisles={config.layout_params.aisles} onChange={(aisles) => updateParam("aisles", aisles)} />
+            </Field>
+          );
+        })}
           </>
         )}
       </Kelompok>
