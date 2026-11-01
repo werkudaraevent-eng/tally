@@ -39,7 +39,7 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
   // paling dicari bila kelak ada yang mempersoalkan hasilnya.
   undian: [
     "undian_settings_update",
-    "undian_prize_create", "undian_prize_update", "undian_prize_delete",
+    "undian_prize_create", "undian_prize_update", "undian_prize_delete", "undian_prize_reorder",
     "undian_draw", "undian_winner_confirm", "undian_winner_reject",
     "undian_mode_change", "undian_reset",
     // Undi ulang membatalkan beberapa pemenang sekaligus, jadi justru paling

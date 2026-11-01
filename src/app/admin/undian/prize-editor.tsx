@@ -1,6 +1,6 @@
 "use client";
 
-import { FloppyDisk, Trash, UploadSimple, Warning, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, FloppyDisk, Trash, UploadSimple, Warning, X } from "@phosphor-icons/react";
 import { Button, DetailSection, IconButton, Pane, PaneBody, PaneFooter, PaneHeader, SegmentedButton, Switch, TextArea } from "@/components/m3";
 import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { ImagePreview } from "@/components/admin/image-preview";
@@ -30,7 +30,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "");
  */
 export function PrizeEditor({
   draft, isNew, legacyFormula, groups, preview, previewFailed, saving, uploading, error,
-  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, stage,
+  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, stage, order,
 }: {
   draft: Draft; isNew: boolean; legacyFormula: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
   saving: boolean; uploading: boolean; error: string;
@@ -40,6 +40,11 @@ export function PrizeEditor({
   onDelete?: () => void;
   onRetrySessions?: () => void;
   stage: StageLook;
+  /**
+   * Urutan undi (run of show). Tidak ada untuk hadiah baru: hadiah baru selalu
+   * masuk di urutan terakhir, dan memindahkannya baru masuk akal setelah ada.
+   */
+  order?: { position: number; total: number; moving: boolean; onMove: (direction: "up" | "down") => void };
 }) {
   const modeBerhenti = SPIN_MODES.find((item) => item.value === draft.spin_mode);
 
@@ -64,6 +69,18 @@ export function PrizeEditor({
               label="Active"
               description="Inactive prizes do not appear in the operator panel."
             />
+            {order && order.total > 1 ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-body-medium font-medium">Draw order</p>
+                  <p className="text-body-medium tabular-nums text-on-surface-variant">{order.position} of {order.total} in the operator panel</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button simpan variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>
+                  <Button simpan variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={saving || order.moving || order.position >= order.total} onClick={() => order.onMove("down")}>Move down</Button>
+                </div>
+              </div>
+            ) : null}
             <Field label="Prize name" htmlFor="prize-name">
               <input id="prize-name" value={draft.name} onChange={(event) => onChange({ name: event.target.value })} className={INPUT} placeholder="Electric bike" />
             </Field>

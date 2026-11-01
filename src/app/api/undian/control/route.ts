@@ -82,6 +82,13 @@ const postSchema = z.object({
   winner_id: z.number().int().positive().optional(),
   status: z.enum(["confirmed", "rejected"]).optional(),
   reason: z.string().trim().max(200).optional(),
+  /**
+   * Untuk aksi `draw`: jumlah nama yang diundi, di bawah "per undi" hadiahnya.
+   * Dipakai "Tidak hadir, undi pengganti": satu kursi kosong diisi satu nama,
+   * bukan satu rombongan penuh, dan tanpa cadangan (cadangan sudah diundi
+   * bersama rombongan awal).
+   */
+  count: z.number().int().min(1).max(60).optional(),
 });
 
 async function loadState(eventId: string): Promise<StateRow | null> {
@@ -248,8 +255,9 @@ export async function POST(request: Request) {
       // Jumlah pemenang dijepit ke sisa kuota. Hadiah dengan kuota 10 dan 3 orang
       // per undi tidak boleh mengeluarkan 3 nama pada undian keempat, karena hanya
       // 1 kursi tersisa dan dua orang akan dipanggil untuk hadiah yang tidak ada.
-      const mainCount = Math.min(prize.winners_per_draw, prize.winner_quota - confirmed);
-      const picked = drawWinners(pool.candidates, mainCount + prize.backup_per_draw);
+      const requested = parsed.data.count;
+      const mainCount = Math.min(requested ?? prize.winners_per_draw, prize.winners_per_draw, prize.winner_quota - confirmed);
+      const picked = drawWinners(pool.candidates, mainCount + (requested ? 0 : prize.backup_per_draw));
 
       const round = state.draw_round + 1;
       const pending: PendingDraw = {
