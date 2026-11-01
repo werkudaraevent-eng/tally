@@ -786,6 +786,29 @@ export const EXCLUDE_SCOPE_LABEL: Record<ExcludeScope, string> = {
   all_prizes: "Excluded from all prizes after winning once",
 };
 
+/** Tulisan di layar panggung setelah pemenang keluar. */
+export type AfterWin = "none" | "stage" | "desk";
+export const STAGE_NOTE_MAX = 120;
+/**
+ * Kalimat bawaan per pilihan. Layar panggung masih berbahasa Indonesia
+ * seluruhnya (lihat app/undian), jadi kalimatnya ikut; teks pengganti per
+ * hadiah tampil persis seperti diketik.
+ */
+export const AFTER_WIN_TEXT: Record<Exclude<AfterWin, "none">, string> = {
+  stage: "Silakan maju ke panggung",
+  desk: "Silakan ambil hadiah di meja panitia",
+};
+
+/** Kalimat yang tampil di layar setelah pemenang keluar, atau null. */
+export function stageMessage(prize: { after_win: AfterWin; stage_note: string | null }): string | null {
+  if (prize.after_win === "none") return null;
+  return prize.stage_note?.trim() || AFTER_WIN_TEXT[prize.after_win];
+}
+
+export function normalizeAfterWin(value: unknown): AfterWin {
+  return value === "stage" || value === "desk" ? value : "none";
+}
+
 export type UndianPrize = {
   id: number;
   name: string;
@@ -794,6 +817,9 @@ export type UndianPrize = {
   sponsor_name: string | null;
   /** Cara mengambil hadiah, di kartu Hadiah kamu portal pemenang (lib/member/hadiah.ts). */
   claim_note: string | null;
+  /** Tulisan di layar panggung setelah pemenang keluar (stageMessage). */
+  after_win: AfterWin;
+  stage_note: string | null;
   winners_per_draw: number;
   winner_quota: number;
   backup_per_draw: number;
@@ -839,6 +865,8 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     image_url: (raw.image_url as string | null) ?? null,
     sponsor_name: (raw.sponsor_name as string | null) ?? null,
     claim_note: (raw.claim_note as string | null) ?? null,
+    after_win: normalizeAfterWin(raw.after_win),
+    stage_note: (raw.stage_note as string | null) ?? null,
     winners_per_draw: numeric(raw.winners_per_draw, 1),
     winner_quota: numeric(raw.winner_quota, 1),
     backup_per_draw: numeric(raw.backup_per_draw, 0),
@@ -921,6 +949,8 @@ export type UndianState = {
     spin_seconds: number;
     winners_per_draw: number;
     winner_quota: number;
+    /** Kalimat setelah pemenang keluar, sudah jadi (stageMessage). Null = tanpa tulisan. */
+    message: string | null;
   } | null;
   /** Nama-nama untuk animasi. Aman: berisi SELURUH kolam, tidak menunjukkan siapa pemenangnya. */
   roster: { name: string; seat: string | null; code: string | null }[];

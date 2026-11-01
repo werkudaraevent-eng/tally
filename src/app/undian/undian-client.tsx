@@ -7,7 +7,7 @@ import { LoadingIndicator } from "@/components/m3";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
 import { expressive } from "@/lib/m3/motion";
 import type { UndianState } from "@/lib/undian";
-import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList } from "./undian-animations";
+import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealSettleMs } from "./undian-animations";
 import { AmbientStage, RevealBurst, ShineText } from "./undian-stage-fx";
 
 /**
@@ -293,6 +293,25 @@ export default function UndianClient({ initial }: Props) {
             )}
           </AnimatePresence>
         </div>
+
+        {/* Tulisan setelah menang (Prizes & rules > prize > After the winner is
+            revealed): "maju ke panggung" untuk hadiah besar, "ambil di meja
+            panitia" untuk hadiah kecil. Muncul sesudah nama keluar, dengan jeda
+            pendek supaya nama dibaca lebih dulu. */}
+        <AnimatePresence initial={false}>
+          {revealed && state.prize.message ? (
+            <motion.p
+              key={`pesan-${revealKey}`}
+              className="max-w-[80vw] shrink-0 rounded-full px-[2.4vw] py-[1vh] text-center font-semibold"
+              style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.4vw, 40px)", lineHeight: 1.2, color: text, border: `2px solid ${accent}`, background: `${accent}22` }}
+              initial={{ opacity: 0, y: "1.5vh", scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1, transition: { ...expressive.spatial.default, delay: revealSettleMs(state.prize.animation, animationProps.winners) / 1000 + 0.4 } }}
+              exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            >
+              {state.prize.message}
+            </motion.p>
+          ) : null}
+        </AnimatePresence>
 
         {/* Rekap pemenang yang sudah sah, dibatasi supaya tidak mendorong
             panggung utama keluar layar. */}

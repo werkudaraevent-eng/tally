@@ -307,6 +307,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Prize: draw order (Move up / Move down; new prizes go last), name, sponsor, description, image, how winners collect it (shown on the winner's Participant home when Participant area > Lucky draw prize is on), animation (wheel, slot machine, card, digits, dart, instant), automatic or manual stop, winners per draw, total quota, backups.
   - Name source: event participants or an entry list (pasted from Excel).
   - Eligibility conditions with AND/OR groups: organisation, name, job title, type, RSVP, check-in (any or one session), seat, spend, booths visited, scans, checkpoint points/goal, form answers; with a pool preview.
+  - After the winner is revealed: stage screen text per prize (nothing, come to the stage, collect at the desk, or own text).
   - Win again: can win many times, not this prize twice, or excluded from all prizes after one win (default).
   - Chances: equal, or bonus tickets from a file or from conditions, capped per person.
   - Exclusion rules and per-person exclusions.
