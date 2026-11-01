@@ -97,7 +97,13 @@ export function ringkasanBlok(block: LandingBlock): string | null {
     case "points": return jumlah ? plural(jumlah, "point") : null;
     case "gallery": return jumlah ? plural(jumlah, "photo") : null;
     case "stats": return jumlah ? plural(jumlah, "figure") : null;
-    case "logos": return jumlah ? plural(jumlah, "logo") : null;
+    case "logos": {
+      // Logo baru terhitung saat gambarnya ada: nama saja tidak tampil, dan
+      // "3 logos" di samping "No content yet" saling membantah.
+      const bergambar = (block.items ?? []).filter((item) => item.image_url).length;
+      if (bergambar) return plural(bergambar, "logo");
+      return jumlah ? `${plural(jumlah, "name")}, no images yet` : null;
+    }
     case "multicolumn": return jumlah ? `${plural(jumlah, "item")} · ${plural(landingColumnCount(block), "column")}` : null;
     case "quote": return block.name?.trim() || null;
     case "dos_donts": {
