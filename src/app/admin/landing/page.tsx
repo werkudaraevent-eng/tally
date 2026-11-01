@@ -3046,6 +3046,41 @@ export default function LandingCmsPage() {
     </div>
   ) : null;
 
+  /**
+   * Bagian bawaan yang di Modern TIDAK mengikuti urutan halaman, jadi menyeretnya
+   * tidak mengubah apa pun: logo mitra dan kontak (selain Horizon) selalu di kaki,
+   * angka kunci menempel pada About, dan gaya gathering tidak menampilkan angka
+   * kunci sama sekali. Barisnya tampil di tempat itu, tanpa pegangan seret.
+   * Datanya tetap di `sections`; hanya daftarnya yang jujur soal letaknya.
+   */
+  function tempatTetap(id: LandingSectionId): "kaki" | "tentang" | "tidak" | null {
+    if (!modern || forum) return null;
+    if (id === "sponsors") return "kaki";
+    if (id === "contact" && !horizon) return "kaki";
+    if (id === "highlights") return gathering ? "tidak" : "tentang";
+    return null;
+  }
+
+  function barisTetap(id: LandingSectionId, tempat: "kaki" | "tentang") {
+    if (tempatTetap(id) !== tempat) return null;
+    const index = sections.findIndex((section) => section.id === id);
+    if (index < 0) return null;
+    const section = sections[index];
+    if (!section.enabled && !tampilTersembunyi && terbuka !== id) return null;
+    const judul = LANDING_SECTION_ADMIN_LABELS[id];
+    const berisi = sectionHasContent(id);
+    return barisSusunan({
+      id,
+      nomor: index + 2,
+      judul,
+      sub: subBawaan(id),
+      lencana: section.enabled && berisi === false ? "No content yet" : null,
+      saklar: { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) },
+      menu: [{ label: section.enabled ? "Hide" : "Show", icon: section.enabled ? <EyeSlash size={18} /> : <Eye size={18} />, onSelect: () => setTampil(index, !section.enabled) }],
+      isi: isiBawaan(id),
+    });
+  }
+
   const isiSusunan = facts && forum ? (
     <ForumSusunan
       landing={landing}
@@ -3119,9 +3154,12 @@ export default function LandingCmsPage() {
           }
 
           const id: LandingSectionId = section.id;
+          // Bagian yang di layout ini tidak mengikuti urutan halaman tidak ikut
+          // diseret di Page content: ia tampil di tempat tetapnya (lihat tempatTetap).
+          if (tempatTetap(id)) return null;
           const berisi = sectionHasContent(id);
           const kosong = section.enabled && (berisi === false || (id === "agenda" && rundownKosong));
-          return barisSusunan({
+          const baris = barisSusunan({
             id,
             nomor: index + 2,
             judul: LANDING_SECTION_ADMIN_LABELS[id],
@@ -3135,6 +3173,8 @@ export default function LandingCmsPage() {
             menu: menuBaris(index, LANDING_SECTION_ADMIN_LABELS[id]),
             isi: isiBawaan(id),
           });
+          // Angka kunci Modern tampil di dalam About: barisnya tepat di bawah About.
+          return id === "about" ? [baris, barisTetap("highlights", "tentang")] : baris;
         })}
         {terbuka === null ? <li aria-hidden className={TAJUK_KELOMPOK}>Bottom of page</li> : null}
         {barisSusunan({
@@ -3144,6 +3184,8 @@ export default function LandingCmsPage() {
           sub: horizon ? "Organiser line, closing band" : modern ? "Organiser line, call-to-action banner" : "Organiser line",
           isi: isiKaki,
         })}
+        {barisTetap("sponsors", "kaki")}
+        {barisTetap("contact", "kaki")}
       </ol>
       {terbuka === null ? (
         // Menempel di kaki panel: menambah blok tidak perlu menggulir melewati semua baris.
