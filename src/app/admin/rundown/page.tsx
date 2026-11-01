@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUp, Bus as IkonBus, DotsSixVertical, Info, Plus, Stack, Trash, UploadSimple, UsersThree, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, ArrowUp, Bus as IkonBus, CopySimple, DotsSixVertical, GearSix, Info, Monitor, Plus, Stack, Trash, UploadSimple, UsersThree, Warning, X } from "@phosphor-icons/react";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { keInputWaktu } from "@/components/admin/logistik/bersama";
@@ -21,8 +21,11 @@ import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, FilterChip, ListRow, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
-  SegmentedButton, SelectMenu, StatusChip, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
+  IconButton, SegmentedButton, SelectMenu, StatusChip, SupportingPane, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
+import { MenuBlok } from "@/app/admin/landing/menu-blok";
+import type { LandingSpeaker } from "@/lib/domain";
+import { KelompokPembicara, pembicaraBaris } from "./pembicara-baris";
 import { FieldMessages } from "@/components/m3/text-field";
 import { Kelompok } from "@/components/admin/compact-form";
 import { teksPolos } from "@/lib/landing-teks-kaya";
@@ -32,7 +35,7 @@ import {
 } from "@/lib/agenda-simpan-aman";
 import { useJagaNavigasi } from "@/lib/jaga-navigasi";
 import { bacaSyaratBaris } from "@/lib/sasaran-baris";
-import { KelompokSiapaMelihat, ringkasSyarat, syaratLengkap, syaratMati, type DrafSyarat, type InfoSiapaMelihat } from "./siapa-melihat";
+import { KelompokSiapaMelihat, dilihatKelompok, opsiLihatSebagai, ringkasSyarat, syaratLengkap, syaratMati, type DrafSyarat, type InfoSiapaMelihat } from "./siapa-melihat";
 import {
   BarisDresscode, CatatanDresscodeBaris, EditorDresscode, bannerDresscode, drafKurang, kartuBaru, keDraf, keKiriman, keteranganTersimpan, ringkasDresscode, samaDraf, urutDraf,
   type BarisDc, type DrafDresscode,
@@ -62,7 +65,7 @@ type Payload = { sections: RundownSection[]; items: ItemAgenda[]; event_dates?: 
 const EMPTY_DRAFT: DrafBaru = { start_time: "", end_time: "", title: "", subtitle: "", is_break: false };
 
 /** Kolom yang disunting di Edit item dan Section. Lapisan suntingan hanya memuat yang diubah. */
-type IsiBaris = Pick<RundownItem, "start_time" | "end_time" | "title" | "subtitle" | "is_break" | "is_published">;
+type IsiBaris = Pick<RundownItem, "start_time" | "end_time" | "title" | "subtitle" | "is_break" | "is_published" | "title_en">;
 type IsiBagian = Pick<RundownSection, "name" | "event_date" | "highlight_current" | "is_published">;
 
 /** Permintaan yang tidak mendapat jawaban sama sekali. */
@@ -103,7 +106,7 @@ const CEK_KONEKSI = "Check your connection and try again.";
 type SasaranInfo = { available: boolean; horizon: boolean; fields: KolomSasaran[] };
 
 // Petunjuk satu kalimat per aturan: baris per pembicara, label, format.
-const HINT_KETERANGAN = "One line per speaker. A line ending in a colon becomes a label (e.g. Moderator:). Bold, italic, theme colour and lists show on the event page.";
+const HINT_KETERANGAN = "Shown under the title. A line ending in a colon becomes a label (e.g. Moderator:). Bold, italic, theme colour and lists show on the event page. Pick speakers above to show their photos.";
 // Contoh generik: repo ini publik, jadi tanpa nama orang atau organisasi sungguhan.
 const CONTOH_KETERANGAN = "Panelists:\nName, Title - Organisation\nName, Title - Organisation\nModerator:\nName, Title - Organisation";
 
@@ -142,6 +145,21 @@ function formatStaffDate(eventDate: string): string {
   return date.toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
+/** Nama hari bawaan dari tanggal, dalam bahasa acara: "Kamis, 5 November 2026". */
+function namaDariTanggal(tanggal: string, bahasa: "id" | "en"): string {
+  const date = new Date(`${tanggal}T00:00:00Z`);
+  if (!tanggal || Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(bahasa === "en" ? "en-GB" : "id-ID", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+/** "2026-11-06" sehari sesudah `tanggal`. */
+function besoknya(tanggal: string): string {
+  const date = new Date(`${tanggal}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return tanggal;
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
 function fokusJudulBaru() {
   window.setTimeout(() => document.querySelector<HTMLInputElement>("[data-draft-title]")?.focus(), 0);
 }
@@ -167,6 +185,21 @@ export default function RundownAdminPage() {
   // baris tampak tidak berbuat apa-apa. Selama ini true, editor menggantikan
   // jadwal (pola list-detail M3 di DESIGN.md) dengan tombol kembali.
   const [layarEditor, setLayarEditor] = useState(false);
+  // Panel kanan hanya tampil saat ada yang disunting (audit A2): baris
+  // terpilih, Add item, Dress code atau Screen header. Tanpa itu jadwal selebar penuh.
+  const [panelTerbuka, setPanelTerbuka] = useState(false);
+  // View as (audit A5): "semua", "publik" (sebelum masuk) atau kunci opsiLihatSebagai.
+  const [lihatSebagai, setLihatSebagai] = useState("semua");
+  // Speakers (audit A3) dan English (A7) dari /api/admin/speakers.
+  const [pembicara, setPembicara] = useState<LandingSpeaker[] | null>(null);
+  const [pembicaraGagal, setPembicaraGagal] = useState(false);
+  const [menyimpanPembicara, setMenyimpanPembicara] = useState(false);
+  const [enAktif, setEnAktif] = useState(false);
+  const [bahasaAcara, setBahasaAcara] = useState<"id" | "en">("id");
+  // Add day: tanggal dulu, nama mengikuti tanggal sampai panitia mengetiknya sendiri.
+  const [newSectionDate, setNewSectionDate] = useState("");
+  const [namaDiketik, setNamaDiketik] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [drafts, setDrafts] = useState<Record<number, DrafBaru>>({});
   // Jam mulai New item yang diisikan dari jam selesai baris yang baru
   // ditambahkan, per bagian. Isian awal ini bukan suntingan.
@@ -317,6 +350,50 @@ export default function RundownAdminPage() {
     setPublikSaved(Object.fromEntries(data.sections.map((row) => [row.id, row.show_before_sign_in])));
   }
 
+  async function loadPembicara() {
+    const response = await fetch(eventApiPath("/api/admin/speakers"), { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) { setPembicaraGagal(true); return; }
+    const data = (await response.json().catch(() => null)) as { speakers?: LandingSpeaker[]; en_enabled?: boolean; default_lang?: "id" | "en" } | null;
+    if (!data) { setPembicaraGagal(true); return; }
+    setPembicara(data.speakers ?? []);
+    setEnAktif(Boolean(data.en_enabled));
+    setBahasaAcara(data.default_lang === "en" ? "en" : "id");
+  }
+
+  /** Simpan daftar pembicara (tautan baris). Daftar berubah di tempat lain: pasang ulang perubahan ini di atasnya sekali. */
+  async function simpanPembicara(next: LandingSpeaker[], pesan: string) {
+    if (!pembicara) return;
+    setMenyimpanPembicara(true);
+    const kirim = async (base: LandingSpeaker[], speakers: LandingSpeaker[]) => fetch(eventApiPath("/api/admin/speakers"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ base, speakers }),
+    }).catch(() => null);
+    let respon = await kirim(pembicara, next);
+    let isi = respon ? await respon.json().catch(() => null) : null;
+    if (respon?.status === 409 && Array.isArray(isi?.error?.details?.speakers)) {
+      // Ulangi hanya pembicara yang tadi ditambah atau dilepas di baris ini, di atas daftar
+      // terbaru. Tautan orang lain ke baris ini (dari tab lain) tetap seperti di server.
+      const terbaru = isi.error.details.speakers as LandingSpeaker[];
+      const id = selectedItemId;
+      const punya = (orang: LandingSpeaker | undefined) => !!orang?.session_refs?.some((r) => r.id === id);
+      const diubah = new Map(next.flatMap((orang, i) => (punya(orang) !== punya(pembicara[i]) ? [[orang.name, orang.session_refs?.find((r) => r.id === id) ?? null] as const] : [])));
+      const pasang = terbaru.map((orang) => {
+        if (id === null || !diubah.has(orang.name)) return orang;
+        const mau = diubah.get(orang.name);
+        const lain = (orang.session_refs ?? []).filter((r) => r.id !== id);
+        return { ...orang, session_refs: mau ? [...lain, mau] : lain };
+      });
+      respon = await kirim(terbaru, pasang);
+      isi = respon ? await respon.json().catch(() => null) : null;
+      if (!respon?.ok) setPembicara(terbaru);
+    }
+    setMenyimpanPembicara(false);
+    if (!respon?.ok) { toast.error("Speakers not saved", respon ? "Someone else changed the speaker list. The latest list is shown; try again." : PUTUS); return; }
+    setPembicara((isi?.speakers ?? next) as LandingSpeaker[]);
+    toast.success(pesan);
+  }
+
   async function loadSyarat() {
     // Gagal dimuat = kelompok Who sees it tidak tampil; sisa halaman tetap berjalan.
     const response = await fetch(eventApiPath("/api/admin/rundown/items/sasaran"), { cache: "no-store" }).catch(() => null);
@@ -350,6 +427,7 @@ export default function RundownAdminPage() {
       void loadSasaran();
       void loadPublik();
       void loadSyarat();
+      void loadPembicara();
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -452,7 +530,12 @@ export default function RundownAdminPage() {
   }
 
   function mulaiTambahBaris() {
-    pindah({ baris: null, panel: "baris" }, () => { bukaLayarEditor(); fokusJudulBaru(); });
+    pindah({ baris: null, panel: "baris" }, () => { setPanelTerbuka(true); bukaLayarEditor(); fokusJudulBaru(); });
+  }
+
+  /** Tutup panel kanan: kembali ke jadwal selebar penuh. */
+  function tutupPanel() {
+    pindah({ baris: null, panel: "baris" }, () => { setPanelTerbuka(false); setLayarEditor(false); });
   }
 
   /** Layar sempit: editor menggantikan jadwal dan digulir ke atas layar. */
@@ -541,6 +624,24 @@ export default function RundownAdminPage() {
     return data.error?.details?.message ?? data.error?.message ?? fallback;
   }
 
+  /** Add day: tanggal bawaan sehari sesudah hari terakhir (atau mulai acara), nama dari tanggal. */
+  function bukaTambahHari() {
+    lindungi(() => {
+      const terakhir = [...sections].map((row) => row.event_date).filter(Boolean).sort().pop();
+      const tanggal = terakhir ? (eventDates?.end && terakhir >= eventDates.end ? terakhir : besoknya(terakhir)) : eventDates?.start ?? "";
+      setNewSectionDate(tanggal);
+      setNewSectionName(namaDariTanggal(tanggal, bahasaAcara));
+      setNamaDiketik(false);
+      setAddSectionOpen(true);
+    });
+  }
+
+  function tutupTambahHari() {
+    setAddSectionOpen(false);
+    setNewSectionName("");
+    setNewSectionDate("");
+  }
+
   async function createSection() {
     const name = newSectionName.trim();
     if (!name) return;
@@ -548,21 +649,91 @@ export default function RundownAdminPage() {
     const response = await fetch("/api/admin/rundown/sections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    const data = await response.json();
+      body: JSON.stringify({ name, ...(newSectionDate ? { event_date: newSectionDate } : {}) }),
+    }).catch(() => null);
+    const data = response ? await response.json().catch(() => ({})) : {};
     setCreatingSection(false);
-    if (!response.ok) {
-      const failure = failureMessage(data, "Section not added.");
-      setError(failure); toast.error("Section not added", failure);
+    if (!response?.ok) {
+      const failure = response ? failureMessage(data, "Day not added.") : PUTUS;
+      setError(failure); toast.error("Day not added", failure);
       return;
     }
-    setNewSectionName("");
-    setAddSectionOpen(false);
-    // Suntingan yang terbuka sudah ditanyakan saat + Section ditekan.
-    pindah({ bagian: (data as RundownSection).id, baris: null, panel: "bagian" });
-    toast.success("Section added", "It is still a draft. Set the date, add the schedule, then publish it.");
+    tutupTambahHari();
+    // Suntingan yang terbuka sudah ditanyakan saat + Day ditekan.
+    pindah({ bagian: (data as RundownSection).id, baris: null, panel: "baris" });
+    toast.success("Day added", "It is still a draft. Add the schedule, then publish it in Day settings.");
     await load();
+  }
+
+  /** Salin satu baris tersimpan ke bagian `ke`: jam, judul, Details, Break, English, Published dan Who sees it. */
+  async function salinBaris(item: ItemAgenda, ke: number): Promise<{ id: number } | { galat: string }> {
+    const syarat = syaratInfo?.available ? syaratSaved[item.id] ?? null : null;
+    // Satu INSERT membawa semuanya (draf, teks English): salinan draf tidak pernah sesaat tampil.
+    const response = await fetch("/api/admin/rundown/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        section_id: ke,
+        start_time: formatClock(item.start_time),
+        end_time: item.end_time ? formatClock(item.end_time) : null,
+        title: item.title,
+        subtitle: item.subtitle,
+        is_break: item.is_break,
+        is_published: item.is_published,
+        ...(item.title_en ? { title_en: item.title_en } : {}),
+        ...(item.subtitle_en ? { subtitle_en: item.subtitle_en } : {}),
+        ...(syarat ? { audience: syarat } : {}),
+      }),
+    }).catch(() => null);
+    if (!response) return { galat: PUTUS };
+    const data = (await response.json().catch(() => null)) as { id?: number; error?: { details?: { message?: string } } } | null;
+    if (response.ok && typeof data?.id === "number") return { id: data.id };
+    if (response.status === 422) return { galat: data?.error?.details?.message ?? "Its Who sees it condition is no longer valid. Fix it on the original item, then duplicate again." };
+    return { galat: "The server did not save the copy. Try again." };
+  }
+
+  /** Row menu > Duplicate (same day or another day). Opens the copy in Edit item. */
+  async function duplikatBaris(item: ItemAgenda, ke: number) {
+    if (duplicating) return;
+    const asli = barisTersimpan.get(item.id) ?? item;
+    setDuplicating(true);
+    const hasil = await salinBaris(asli, ke);
+    setDuplicating(false);
+    if ("galat" in hasil) { toast.error("Item not duplicated", hasil.galat); return; }
+    const id = hasil.id;
+    await load();
+    await loadSyarat();
+    const hari = sections.find((row) => row.id === ke)?.name ?? "";
+    toast.success("Item duplicated", ke === asli.section_id ? "The copy is open for editing." : `Copied to ${hari}. The copy is open for editing.`);
+    pindah({ bagian: ke, baris: id, panel: "baris" }, () => { setPanelTerbuka(true); bukaLayarEditor(); });
+  }
+
+  /** Day settings > Duplicate day: a draft copy with every item. Dress code and day settings stay behind. */
+  async function duplikatHari(section: RundownSection) {
+    if (duplicating) return;
+    setDuplicating(true);
+    const response = await fetch("/api/admin/rundown/sections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${section.name} (copy)`.slice(0, 120), event_date: section.event_date }),
+    }).catch(() => null);
+    const data = response?.ok ? ((await response.json().catch(() => null)) as RundownSection | null) : null;
+    if (!data) {
+      setDuplicating(false);
+      toast.error("Day not duplicated", "Check your connection and try again.");
+      return;
+    }
+    const sumber = items.filter((row) => row.section_id === section.id).sort(bandingkanBaris);
+    let gagal = 0;
+    for (const row of sumber) if ("galat" in (await salinBaris(row, data.id))) gagal += 1;
+    setDuplicating(false);
+    setPanel("baris");
+    setActiveId(data.id);
+    setSelectedItemId(null);
+    await load();
+    await loadSyarat();
+    if (gagal) toast.error("Day partly duplicated", `${plural(gagal, "item")} could not be copied. Add them by hand.`);
+    else toast.success("Day duplicated", "The copy is a draft. Rename it in Day settings, adjust times, then publish it. Dress code, Show before sign-in and Show first for are not copied.");
   }
 
   async function saveSection(section: RundownSection) {
@@ -599,7 +770,7 @@ export default function RundownAdminPage() {
     const data = response ? await response.json().catch(() => ({})) : {};
     if (!response?.ok) {
       setSavingSection(false);
-      gagalPanel("Section not saved", response ? failureMessage(data, "Section not saved.") : PUTUS);
+      gagalPanel("Day not saved", response ? failureMessage(data, "Day not saved.") : PUTUS);
       return;
     }
     // Gagal menyimpan Who it's for sudah menampilkan pesannya sendiri; drafnya tetap ada.
@@ -614,7 +785,9 @@ export default function RundownAdminPage() {
     setSavingSection(false);
     if (sasaranOk && publikOk) {
       const sebelumMasuk = publikAktif(section.id);
-      toast.success("Section saved", !section.is_published ? "This section is a draft. Nobody sees it yet." : sebelumMasuk ? "Shown on the event page and in the participant portal." : "Shown only to participants who have signed in.");
+      toast.success("Day saved", !section.is_published ? "This day is a draft. Nobody sees it yet." : sebelumMasuk ? "Shown on the event page and in the participant portal." : "Shown only to participants who have signed in.");
+      // Day settings adalah dialog: tersimpan = ditutup.
+      setPanel((kini) => (kini === "bagian" ? "baris" : kini));
     }
   }
 
@@ -626,7 +799,7 @@ export default function RundownAdminPage() {
     setConfirmSection(null);
     if (!response?.ok) {
       const data = response ? await response.json().catch(() => ({})) : {};
-      gagalPanel("Section not deleted", response ? failureMessage(data, "Section not deleted.") : PUTUS);
+      gagalPanel("Day not deleted", response ? failureMessage(data, "Day not deleted.") : PUTUS);
       return;
     }
     // Suntingan bagian ini ikut terhapus bersama bagiannya (sudah dikonfirmasi),
@@ -639,7 +812,8 @@ export default function RundownAdminPage() {
     setSyaratBaru((kini) => tanpa(kini, section.id));
     setActiveId(null);
     setSelectedItemId(null);
-    toast.success("Section deleted", "All of its agenda items were deleted too.");
+    setPanel("baris");
+    toast.success("Day deleted", "All of its agenda items were deleted too.");
     await load();
   }
 
@@ -723,6 +897,8 @@ export default function RundownAdminPage() {
         subtitle: item.subtitle,
         is_break: item.is_break,
         is_published: item.is_published,
+        // English hanya bila disunting di sini: Event page › English menulis kolom yang sama.
+        ...(dikirim && "title_en" in dikirim ? { title_en: item.title_en?.trim() || null } : {}),
       }),
     }).catch(() => null);
     const data = response ? await response.json().catch(() => ({})) : {};
@@ -761,6 +937,7 @@ export default function RundownAdminPage() {
     setSuntingBaris((kini) => (kini?.id === item.id ? null : kini));
     setSelectedItemId((current) => (current === item.id ? null : current));
     setLayarEditor(false);
+    setPanelTerbuka(false);
     toast.success("Agenda item deleted");
     await load();
   }
@@ -1317,17 +1494,54 @@ export default function RundownAdminPage() {
   useJagaNavigasi(berubah, (lanjut) => lindungi(lanjut, undefined, null));
   const galatKaki = galatPanel?.kunci === kunciForm(terbuka) ? galatPanel.pesan : null;
 
+  // ---- View as (audit A5) --------------------------------------------------------
+  const opsiLihat = opsiLihatSebagai(syaratInfo);
+  const pilihLihat = opsiLihat.find((o) => o.kunci === lihatSebagai) ?? null;
+  const modeLihat: "semua" | "publik" | "kelompok" = lihatSebagai === "publik" && publikAda ? "publik" : pilihLihat ? "kelompok" : "semua";
+  // Hari ini tampil sebelum masuk: diterbitkan dan Show before sign-in tersimpan.
+  const hariPublik = active ? Boolean(sections.find((row) => row.id === active.id)?.is_published) && (publikSaved[active.id] ?? true) : false;
+  /** Siapa yang melihat baris tersimpan ini menurut View as. */
+  function lihatBaris(item: ItemAgenda): "ya" | "sebagian" | "tidak" {
+    const asli = barisTersimpan.get(item.id) ?? item;
+    if (!asli.is_published) return "tidak";
+    const syarat = syaratSaved[item.id] ?? null;
+    if (modeLihat === "publik") return hariPublik && !syaratMati(syarat, syaratInfo) ? "ya" : "tidak";
+    if (modeLihat === "kelompok" && pilihLihat) return dilihatKelompok(syarat, pilihLihat, syaratInfo);
+    return "ya";
+  }
+  const namaLihat = modeLihat === "publik" ? "Visitors before sign-in" : pilihLihat?.label ?? "";
+  const hitungLihat = modeLihat === "semua" ? null : activeItems.filter((item) => lihatBaris(item) !== "tidak").length;
+  const opsiMenuLihat = [
+    { value: "semua", label: "View as everyone" },
+    ...(publikAda ? [{ value: "publik", label: "Before sign-in" }] : []),
+    ...opsiLihat.map((o) => ({ value: o.kunci, label: o.label })),
+  ];
+  const daftarHari = [...sections].sort(bandingkanBagian);
+
   // ---- Panel utama: jadwal bagian aktif -------------------------------------------
   const jadwal = active ? (
     <Pane aria-label={`${active.name} schedule`} className={cx(layarEditor && "max-lg:hidden")}>
-      <PaneHeader>
-        <h2 className="text-body-medium font-semibold text-on-surface">Schedule</h2>
-        <span className="tabular-nums text-body-medium text-on-surface-variant">{plural(activeItems.length, "item")}</span>
-        <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface-variant max-sm:hidden">
-          {adaSlotParalel ? "Drag to reorder same-time items" : "Sorted by start time automatically"}
-        </span>
-        <Button variant="outlined" size="sm" className="ml-auto" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Add item</Button>
+      <PaneHeader className="flex-wrap">
+        <h2 className="min-w-0 flex-1 truncate max-sm:basis-full text-body-medium font-semibold text-on-surface" title={adaSlotParalel ? "Drag to reorder same-time items" : "Sorted by start time automatically"}>
+          <span className="tabular-nums">{hitungLihat === null ? plural(activeItems.length, "item") : `${namaLihat} sees ${hitungLihat} of ${plural(activeItems.length, "item")}`}</span>
+        </h2>
+        {opsiMenuLihat.length > 1 ? (
+          <SelectMenu
+            label="View as"
+            value={modeLihat === "semua" ? "semua" : lihatSebagai}
+            onChange={(next) => setLihatSebagai(next)}
+            options={opsiMenuLihat}
+            width="11rem"
+          />
+        ) : null}
+        <Button variant="outlined" size="sm" icon={<GearSix size={16} />} onClick={() => pindah({ panel: "bagian" })}>Day settings</Button>
+        <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Add item</Button>
       </PaneHeader>
+      {modeLihat === "publik" && !hariPublik ? (
+        <p className="shrink-0 border-b border-outline-variant bg-surface-container-high px-4 py-2 text-body-medium text-on-surface-variant">
+          Visitors who have not signed in don&apos;t see this day. Turn on Published and Show before sign-in in Day settings.
+        </p>
+      ) : null}
       {barisDcTampil ? (
         // Di antara kepala panel dan daftar yang bergulir: tidak pernah tergulir hilang.
         <BarisDresscode
@@ -1350,7 +1564,8 @@ export default function RundownAdminPage() {
           <EmptyState
             plain
             title="No agenda items yet"
-            description="Fill in the New item form in the side panel. Items are sorted by start time, so there is nothing to reorder."
+            description="Add the first item. Items are sorted by start time, so there is nothing to reorder."
+            action={<Button size="sm" icon={<Plus size={16} />} onClick={mulaiTambahBaris}>Add item</Button>}
           />
         ) : (
           <div>
@@ -1363,6 +1578,8 @@ export default function RundownAdminPage() {
               const posisi = slotIds.indexOf(item.id);
               const judul = item.title.trim() || "Untitled";
               const garis = dropTarget?.id === item.id && dragId !== null && dragId !== item.id ? (dropTarget.after ? "bottom" : "top") : null;
+              const lihat = lihatBaris(item);
+              const namaPembicara = pembicara ? pembicaraBaris(pembicara, item.id).map((x) => x.orang.name) : [];
               return (
                 <div key={item.id}>
                   {paralel && posisi === 0 ? (
@@ -1394,7 +1611,7 @@ export default function RundownAdminPage() {
                     <ListRow
                       selected={item.id === selectedItemId}
                       onSelect={() => pindah({ baris: item.id, panel: "baris" }, bukaLayarEditor)}
-                      className={cx("items-start py-3", adaSlotParalel && "pointer-fine:pl-10!")}
+                      className={cx("items-start py-3 pr-14", adaSlotParalel && "pointer-fine:pl-10!", lihat === "tidak" && "opacity-40")}
                     >
                       <span className="w-28 shrink-0 tabular-nums text-on-surface">
                         {formatClock(item.start_time)}{item.end_time ? `–${formatClock(item.end_time)}` : ""}
@@ -1410,6 +1627,7 @@ export default function RundownAdminPage() {
                             <StatusChip title={item.bus_trips.length === 1 ? "Vehicle trip linked in Logistics" : `${item.bus_trips.length} vehicle trips linked in Logistics`}>Vehicle</StatusChip>
                           ) : null}
                         </span>
+                        {namaPembicara.length ? <span className="mt-0.5 block truncate text-on-surface-variant">{namaPembicara.join(" · ")}</span> : null}
                         {keterangan ? <span className="mt-0.5 block truncate text-on-surface-variant">{keterangan}</span> : null}
                         {/* Baris sendiri, supaya judul tidak terpotong di layar sempit. */}
                         {syaratSaved[item.id] ? (
@@ -1425,8 +1643,29 @@ export default function RundownAdminPage() {
                             )}
                           </span>
                         ) : null}
+                        {modeLihat !== "semua" && lihat !== "ya" ? (
+                          <span className="mt-1 block text-body-small text-on-surface-variant">
+                            {lihat === "sebagian" ? `Only part of ${namaLihat} sees this` : !(barisTersimpan.get(item.id) ?? item).is_published ? "Not published" : `${namaLihat} doesn't see this`}
+                          </span>
+                        ) : null}
                       </span>
                     </ListRow>
+                    <div className="absolute top-1.5 right-2">
+                      <MenuBlok
+                        label={`Actions for ${judul}`}
+                        width={260}
+                        items={[
+                          { label: "Duplicate", icon: <CopySimple size={18} />, onSelect: () => void duplikatBaris(item, active.id), disabled: duplicating },
+                          ...daftarHari.filter((row) => row.id !== active.id).map((row) => ({
+                            label: `Duplicate to ${row.name.trim() || "Untitled day"}`,
+                            icon: <CopySimple size={18} />,
+                            onSelect: () => void duplikatBaris(item, row.id),
+                            disabled: duplicating,
+                          })),
+                          { label: "Delete", icon: <Trash size={18} />, bahaya: true, onSelect: () => setConfirmItem(barisTersimpan.get(item.id) ?? item) },
+                        ]}
+                      />
+                    </div>
                     {/* Pegangan berada di luar <ListRow> karena ListRow sendiri sebuah
                         <button>; tombol di dalam tombol tidak sah. Panah atas/bawah
                         pada pegangan menggeser baris tanpa tetikus. */}
@@ -1476,9 +1715,9 @@ export default function RundownAdminPage() {
     <Pane aria-label="Schedule">
       <EmptyState
         plain
-        title="No agenda sections yet"
-        description="Each section is a tab on the public page, usually one per day or per event. New sections start as drafts."
-        action={<Button size="sm" icon={<Plus size={16} />} onClick={() => lindungi(() => setAddSectionOpen(true))}>Add section</Button>}
+        title="No agenda days yet"
+        description="Each day is a tab on the public page. New days start as drafts."
+        action={<Button size="sm" icon={<Plus size={16} />} onClick={bukaTambahHari}>Add day</Button>}
       />
     </Pane>
   );
@@ -1486,12 +1725,13 @@ export default function RundownAdminPage() {
   // ---- Panel samping: baris --------------------------------------------------------
   // Dress code tersimpan tab baris terpilih, untuk catatan di bawah Title.
   const dcBaris = selectedItem && dresscodeAda ? outfitSaved[selectedItem.section_id] ?? [] : null;
+  // Edit item dalam tiga kelompok tetap (audit A10): isi, siapa yang melihat,
+  // lalu yang tertaut dari modul lain. Fitur berikutnya yang menempel ke baris
+  // cukup menambah satu kartu di Linked.
+  const adaTautan = Boolean(selectedItem && (selectedItem.bus_trips?.length || dcBaris));
   const isiBaris = selectedItem ? (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Edit item</h3>
-        <Button variant="text" size="sm" onClick={() => pindah({ baris: null }, () => setLayarEditor(false))}>Close</Button>
-      </div>
+    <div className="flex flex-col gap-5">
+      <Kelompok first>
       <div className="grid grid-cols-2 gap-3">
         <TextField
           label="Start"
@@ -1508,24 +1748,15 @@ export default function RundownAdminPage() {
           value={selectedItem.end_time ? formatClock(selectedItem.end_time) : ""}
           onChange={(event) => updateItem(selectedItem.id, { end_time: event.target.value || null })}
         />
-        {selectedItem.bus_trips?.length ? (
-          <CatatanBus
-            item={selectedItem}
-            trips={selectedItem.bus_trips}
-            jamTersimpan={barisTersimpan.get(selectedItem.id)?.start_time ?? selectedItem.start_time}
-            tanggalTersimpan={sections.find((row) => row.id === selectedItem.section_id)?.event_date ?? active?.event_date ?? ""}
-            zone={zone}
-          />
-        ) : null}
       </div>
       <TextField label="Title" value={selectedItem.title} onChange={(event) => updateItem(selectedItem.id, { title: event.target.value })} />
-      {dcBaris ? (
-        <CatatanDresscodeBaris
-          apa={dcBaris.find((isian) => isian.item_id === selectedItem.id)?.what ?? null}
-          penuh={dcBaris.length >= OUTFIT_MAX}
-          tersembunyi={!barisTersimpan.get(selectedItem.id)?.is_published}
-          onBuka={() => (dcBaris.some((isian) => isian.item_id === selectedItem.id) ? dresscodeBaris(selectedItem, false) : bukaDresscode())}
-          onTambah={() => dresscodeBaris(selectedItem, true)}
+      {enAktif ? (
+        <TextField
+          label="Title in English"
+          optional
+          hint="Shown when a visitor switches the event page to English. Left empty, the title above is shown."
+          value={selectedItem.title_en ?? ""}
+          onChange={(event) => updateItem(selectedItem.id, { title_en: event.target.value })}
         />
       ) : null}
       {jamBelumDisimpan && selectedSlotLokal > 1 ? (
@@ -1569,8 +1800,18 @@ export default function RundownAdminPage() {
           </div>
         </div>
       ) : null}
+      {pembicara || pembicaraGagal ? (
+        <KelompokPembicara
+          daftar={pembicara}
+          gagal={pembicaraGagal}
+          itemId={selectedItem.id}
+          judul={(barisTersimpan.get(selectedItem.id)?.title ?? selectedItem.title).trim()}
+          menyimpan={menyimpanPembicara}
+          onUbah={(next, pesan) => void simpanPembicara(next, pesan)}
+        />
+      ) : null}
       {/* textarea, bukan input satu baris: satu butir acara bisa memuat beberapa
-          pembicara, dan tiap baris tampil sebagai butir terpisah di halaman publik. */}
+          baris, dan tiap baris tampil sebagai butir terpisah di halaman publik. */}
       <RichDetailsField
         key={selectedItem.id}
         label="Details"
@@ -1586,12 +1827,15 @@ export default function RundownAdminPage() {
         label="Break"
         description="Shown dimmed on the public page."
       />
+      </Kelompok>
+      <Kelompok title="Visibility">
       <Switch
         checked={selectedItem.is_published}
         onChange={(checked) => updateItem(selectedItem.id, { is_published: checked })}
         label="Published"
         description="Off hides this row everywhere, participant pages and its dress code line included."
       />
+      </Kelompok>
       {syaratInfo ? (
         <KelompokSiapaMelihat
           info={syaratInfo}
@@ -1602,10 +1846,31 @@ export default function RundownAdminPage() {
           onUbahLabel={ubahLabel}
         />
       ) : null}
+      {adaTautan ? (
+        <Kelompok title="Linked">
+          {selectedItem.bus_trips?.length ? (
+            <CatatanBus
+              item={selectedItem}
+              trips={selectedItem.bus_trips}
+              jamTersimpan={barisTersimpan.get(selectedItem.id)?.start_time ?? selectedItem.start_time}
+              tanggalTersimpan={sections.find((row) => row.id === selectedItem.section_id)?.event_date ?? active?.event_date ?? ""}
+              zone={zone}
+            />
+          ) : null}
+          {dcBaris ? (
+            <CatatanDresscodeBaris
+              apa={dcBaris.find((isian) => isian.item_id === selectedItem.id)?.what ?? null}
+              penuh={dcBaris.length >= OUTFIT_MAX}
+              tersembunyi={!barisTersimpan.get(selectedItem.id)?.is_published}
+              onBuka={() => (dcBaris.some((isian) => isian.item_id === selectedItem.id) ? dresscodeBaris(selectedItem, false) : bukaDresscode())}
+              onTambah={() => dresscodeBaris(selectedItem, true)}
+            />
+          ) : null}
+        </Kelompok>
+      ) : null}
     </div>
   ) : active ? (
     <div className="flex flex-col gap-4">
-      <h3 className="text-body-medium font-semibold text-on-surface">New item</h3>
       <div className="grid grid-cols-2 gap-3">
         <TextField label="Start" type="time" inputClassName="tabular-nums" value={draft.start_time} onChange={(event) => updateDraft({ start_time: event.target.value })} />
         <TextField label="End" optional type="time" inputClassName="tabular-nums" value={draft.end_time} onChange={(event) => updateDraft({ end_time: event.target.value })} />
@@ -1636,17 +1901,17 @@ export default function RundownAdminPage() {
           onUbahLabel={ubahLabel}
         />
       ) : null}
-      <p className="text-body-medium text-on-surface-variant">Leave the end time empty to mark a single moment. Select an item in the schedule to edit it.</p>
+      <p className="text-body-medium text-on-surface-variant">Leave the end time empty to mark a single moment.{pembicara?.length || enAktif ? " Speakers and the English title can be added once the item is added." : ""}</p>
     </div>
   ) : null;
 
   // ---- Panel samping: bagian -------------------------------------------------------
   const isiBagian = active ? (
     <div className="flex flex-col gap-5">
-      <Kelompok title="This section" first>
+      <Kelompok first>
         <TextField
-          label="Tab label"
-          hint="Keep it short so several tabs fit on a phone screen."
+          label="Name on the tab"
+          hint="Usually the date. Add a short name only for a second programme on the same date, such as “(Batch 2)”."
           value={active.name}
           onChange={(event) => updateSection(active.id, { name: event.target.value })}
         />
@@ -1730,7 +1995,7 @@ export default function RundownAdminPage() {
           checked={active.is_published}
           onChange={(checked) => updateSection(active.id, { is_published: checked })}
           label="Published"
-          description="Participants see this section. Off hides it everywhere."
+          description="Participants see this day. Off hides it everywhere."
         />
         {publikAda ? (
           <Switch
@@ -1748,7 +2013,14 @@ export default function RundownAdminPage() {
       {sasaranInfo?.horizon ? <KelompokSasaran info={sasaranInfo} value={sasaranAktif} onChange={setSasaranAktif} /> : null}
       <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
         <div className="min-w-0 flex-1">
-          <p className="text-body-medium font-medium text-on-surface">Delete section</p>
+          <p className="text-body-medium font-medium text-on-surface">Duplicate day</p>
+          <p className="text-body-medium text-on-surface-variant">{berubah ? "Save or discard your changes first." : "A draft copy with every item, for another batch or a similar day. Dress code and these settings are not copied."}</p>
+        </div>
+        <Button simpan variant="outlined" size="sm" icon={<CopySimple size={16} />} loading={duplicating} disabled={berubah} onClick={() => { const asli = sections.find((row) => row.id === active.id); if (asli) void duplikatHari(asli); }}>Duplicate</Button>
+      </section>
+      <section className="flex items-center gap-3 border-t border-outline-variant pt-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-body-medium font-medium text-on-surface">Delete day</p>
           <p className="text-body-medium text-on-surface-variant">All of its agenda items are deleted too.</p>
         </div>
         <Button simpan variant="outlined" size="sm" className="text-error" icon={<Trash size={16} />} onClick={() => setConfirmSection(sections.find((row) => row.id === active.id) ?? active)}>Delete</Button>
@@ -1927,7 +2199,7 @@ export default function RundownAdminPage() {
       },
     bagian: {
       note: belumDisimpan ?? "This section only",
-      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Save section</Button> : null,
+      aksi: active ? <Button simpan size="sm" onClick={() => void saveSection(active)} loading={savingSection}>Save day</Button> : null,
     },
     dresscode: {
       note: belumDisimpan ?? "This tab only",
@@ -1944,6 +2216,12 @@ export default function RundownAdminPage() {
     },
   };
 
+  // Day settings adalah dialog: selama terbuka panel kanan tetap menampilkan item.
+  const panelSamping: Exclude<Panel, "bagian"> = panelAktif === "bagian" ? "baris" : panelAktif;
+  const tampilSamping = panelSamping === "dresscode" || panelSamping === "header" || (panelSamping === "baris" && Boolean(active) && (selectedItem !== null || panelTerbuka));
+  const judulSamping = panelSamping === "header" ? "Agenda screen header"
+    : panelSamping === "dresscode" ? `Dress code · ${(tabDc?.name ?? "").trim()}`
+      : selectedItem ? "Edit item" : "New item";
   const samping = (
     <Pane as="aside" aria-label="Agenda editor" className="max-lg:overflow-clip">
       {layarEditor && active ? (
@@ -1958,32 +2236,21 @@ export default function RundownAdminPage() {
           ) : null}
         </div>
       ) : <span data-agenda-editor aria-hidden className="scroll-mt-20 lg:hidden" />}
-      <div className="shrink-0 border-b border-outline-variant px-4 py-3">
-        {/* Empat segmen di Horizon: padat, supaya muat di ponsel 360px. Acara lain tetap tiga. */}
-        <SegmentedButton<Panel>
-          label="Editing"
-          value={panelAktif}
-          onChange={(next) => pindah({ panel: next })}
-          className="w-full"
-          padat={dresscodeAda}
-          options={[
-            { value: "baris", label: "Item", disabled: !active },
-            { value: "bagian", label: "Section", disabled: !active },
-            ...(dresscodeAda ? [{ value: "dresscode" as const, label: "Dress code", disabled: !active }] : []),
-            { value: "header", label: "Header" },
-          ]}
-        />
+      {/* Satu cakupan per panel (audit A2): judulnya menyebut apa yang disunting. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-outline-variant py-2 pr-2 pl-4">
+        <h2 className="min-w-0 flex-1 truncate text-body-medium font-semibold text-on-surface">{judulSamping}</h2>
+        <IconButton size="sm" label="Close panel" onClick={tutupPanel}><X size={18} /></IconButton>
       </div>
       <PaneBody className="px-4 py-4">
-        {panelAktif === "baris" ? isiBaris : panelAktif === "bagian" ? isiBagian : panelAktif === "dresscode" ? isiDresscode : isiHeader}
+        {panelSamping === "baris" ? isiBaris : panelSamping === "dresscode" ? isiDresscode : isiHeader}
       </PaneBody>
       <PaneFooter
-        note={galatKaki ? (
+        note={galatKaki && panelAktif !== "bagian" ? (
           // Galat simpan di samping tombolnya, dengan bentuk galat TextField.
           <div className="[&>p]:mt-0"><FieldMessages id={idGalat} error={galatKaki} /></div>
-        ) : kaki[panelAktif].note}
+        ) : kaki[panelSamping].note}
       >
-        {kaki[panelAktif].aksi}
+        {kaki[panelSamping].aksi}
       </PaneFooter>
     </Pane>
   );
@@ -1996,15 +2263,20 @@ export default function RundownAdminPage() {
           <>
             <span>
               {publishedCount === 0
-                ? "No sections are published yet, so the public page still shows a holding message"
-                : `${publishedCount} of ${plural(sections.length, "section")} published`}
+                ? "No days are published yet, so the public page still shows a holding message"
+                : `${publishedCount} of ${plural(sections.length, "day")} published`}
             </span>
             {/* Baris meta memuat fakta (DESIGN.md), bukan kalimat bantuan. */}
             <MetaSeparator />
             <span className="tabular-nums">{plural(items.length, "item")}</span>
           </>
         ) : null}
-        actions={<ButtonLink href="/rundown" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open public page</ButtonLink>}
+        actions={
+          <>
+            <Button variant="outlined" icon={<Monitor size={16} />} onClick={() => pindah({ panel: "header" })}>Screen header</Button>
+            <ButtonLink href="/rundown" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open agenda screen</ButtonLink>
+          </>
+        }
       />
 
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
@@ -2016,7 +2288,7 @@ export default function RundownAdminPage() {
               // Tabs membawa shrink-0; pembungkus ini yang menyempit agar tombol + Bagian tetap di layar.
               <div className="min-w-0">
                 <Tabs
-                  label="Agenda sections"
+                  label="Agenda days"
                   idPrefix="bagian"
                   value={String(activeId ?? "")}
                   onChange={(value) => pilihBagian(Number(value))}
@@ -2025,12 +2297,13 @@ export default function RundownAdminPage() {
                   options={sectionsUrut.map((section) => ({
                     value: String(section.id),
                     label: section.name,
-                    badge: sections.some((row) => row.id === section.id && row.is_published) ? undefined : "Draft",
+                    badge: !sections.some((row) => row.id === section.id && row.is_published) ? "Draft"
+                      : diLuarAcara(sections.find((row) => row.id === section.id)?.event_date, eventDates) ? "Check date" : undefined,
                   }))}
                 />
               </div>
-            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">No sections yet</span>}
-            <Button variant="text" size="sm" icon={<Plus size={16} />} className="mb-1 shrink-0 text-primary" onClick={() => lindungi(() => setAddSectionOpen(true))}>Section</Button>
+            ) :<span className="py-2.5 text-body-medium text-on-surface-variant">No days yet</span>}
+            <Button variant="text" size="sm" icon={<Plus size={16} />} className="mb-1 shrink-0 text-primary" onClick={bukaTambahHari}>Day</Button>
           </div>
           <div
             role={active ? "tabpanel" : undefined}
@@ -2038,28 +2311,67 @@ export default function RundownAdminPage() {
             aria-labelledby={active ? `bagian-tab-${active.id}` : undefined}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <SupportingPane main={jadwal} pane={samping} paneWidth={420} />
+            {tampilSamping ? (
+              <SupportingPane main={jadwal} pane={samping} paneWidth={420} />
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col *:flex-1">{jadwal}</div>
+            )}
           </div>
         </>
       )}
 
       <Dialog
         open={addSectionOpen}
-        onClose={() => { setAddSectionOpen(false); setNewSectionName(""); }}
+        onClose={tutupTambahHari}
         dismissible={!creatingSection}
         size="sm"
-        title="Add section"
-        description="New sections start as drafts, so they are not on the public page yet."
+        title="Add day"
+        description="A new day starts as a draft, so it is not on the public page yet. Each day is a tab."
         actions={
           <>
-            <Button variant="outlined" disabled={creatingSection} onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>Cancel</Button>
-            <Button simpan type="submit" form="form-bagian" loading={creatingSection} disabled={!newSectionName.trim()}>Add section</Button>
+            <Button variant="outlined" disabled={creatingSection} onClick={tutupTambahHari}>Cancel</Button>
+            <Button simpan type="submit" form="form-bagian" loading={creatingSection} disabled={!newSectionName.trim() || !newSectionDate}>Add day</Button>
           </>
         }
       >
-        <form id="form-bagian" className="mt-4" onSubmit={(event) => { event.preventDefault(); void createSection(); }}>
-          <TextField label="Section name" autoFocus placeholder="e.g. Prima Awards" value={newSectionName} onChange={(event) => setNewSectionName(event.target.value)} />
+        <form id="form-bagian" className="mt-4 flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void createSection(); }}>
+          <TextField
+            label="Date"
+            type="date"
+            autoFocus
+            value={newSectionDate}
+            hint={newSectionDate && diLuarAcara(newSectionDate, eventDates) && eventDates ? `Outside the event (${rentangAcara(eventDates)}).` : undefined}
+            onChange={(event) => {
+              setNewSectionDate(event.target.value);
+              if (!namaDiketik) setNewSectionName(namaDariTanggal(event.target.value, bahasaAcara));
+            }}
+          />
+          <TextField
+            label="Name on the tab"
+            hint="Follows the date, in the event's language. Add a short name only for a second programme on the same date, such as “(Batch 2)”."
+            value={newSectionName}
+            onChange={(event) => { setNewSectionName(event.target.value); setNamaDiketik(true); }}
+          />
         </form>
+      </Dialog>
+
+      {/* Day settings (audit A2): setelan satu hari, dialog untuk tugas pendek. Tutup
+          lewat pindah(), jadi perubahan yang belum disimpan ditanyakan dulu. */}
+      <Dialog
+        open={panelAktif === "bagian" && Boolean(active)}
+        onClose={() => pindah({ panel: "baris" })}
+        dismissible={!savingSection}
+        scrollBody
+        title={`Day settings · ${(tabDc?.name ?? active?.name ?? "").trim()}`}
+        actions={
+          <>
+            {galatKaki ? <div className="mr-auto [&>p]:mt-0"><FieldMessages id={idGalat} error={galatKaki} /></div> : null}
+            <Button variant="outlined" disabled={savingSection} onClick={() => pindah({ panel: "baris" })}>Cancel</Button>
+            {kaki.bagian.aksi}
+          </>
+        }
+      >
+        <div className="mt-4">{isiBagian}</div>
       </Dialog>
 
       <Dialog
@@ -2090,12 +2402,12 @@ export default function RundownAdminPage() {
         onClose={() => setConfirmSection(null)}
         dismissible={!deletingSection}
         tone="danger"
-        title={`Delete section ${confirmSection?.name ?? ""}?`}
-        description={`${confirmSection?.is_published ? "This section is published now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} in this section are deleted too. `}${jumlahDcBagian === 0 ? "" : jumlahDcBagian === 1 ? "Its dress code is deleted too. " : "Its dress codes are deleted too. "}${tripBagian ? `${tripBagian} ` : ""}A copy is kept in the audit log.`}
+        title={`Delete ${confirmSection?.name ?? "this day"}?`}
+        description={`${confirmSection?.is_published ? "This day is published now. " : ""}${activeItems.length === 0 ? "" : activeItems.length === 1 ? "Its 1 agenda item is deleted too. " : `All ${plural(activeItems.length, "agenda item")} on this day are deleted too. `}${jumlahDcBagian === 0 ? "" : jumlahDcBagian === 1 ? "Its dress code is deleted too. " : "Its dress codes are deleted too. "}${tripBagian ? `${tripBagian} ` : ""}A copy is kept in the audit log.`}
         actions={
           <>
             <Button variant="outlined" disabled={deletingSection} onClick={() => setConfirmSection(null)}>Cancel</Button>
-            <Button simpan variant="danger" loading={deletingSection} onClick={() => { if (confirmSection) void deleteSection(confirmSection); }}>Delete section</Button>
+            <Button simpan variant="danger" loading={deletingSection} onClick={() => { if (confirmSection) void deleteSection(confirmSection); }}>Delete day</Button>
           </>
         }
       />
@@ -2210,7 +2522,7 @@ function KelompokSasaran({ info, value, onChange }: { info: SasaranInfo; value: 
   return (
     <Kelompok
       title="Show first for"
-      note={info.available && info.fields.length > 0 ? "Participants in this group see this section first on Home and Schedule. Everyone else can still open it. To hide a row from others, use Who sees it on that item. Saved with Save section." : undefined}
+      note={info.available && info.fields.length > 0 ? "Participants in this group see this section first on Home and Schedule. Everyone else can still open it. To hide a row from others, use Who sees it on that item. Saved with Save day." : undefined}
     >
       {!info.available ? (
         <p className="text-body-medium text-on-surface-variant">Show first for needs a database update first (migration 202610180002).</p>
