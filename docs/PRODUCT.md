@@ -191,14 +191,15 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **CMS (Speakers):** name, job title, organisation, main role, photo, featured, sessions (linked to agenda items, with a role per session), English fields, order per tab, photo frame (Modern).
 - **Shows at:** event page Speakers section (tabs: featured, one per session, others) and next to sessions in the agenda (text, names, or names with photos).
 - **Limits:** 60 speakers, 8 featured.
+- **Admin page:** one table of speakers with Session, Highlights and Needs attention filters; picking a row opens the editor beside it. Filtering to one session (or Highlights) shows that tab's order on the event page, reordered by dragging. Adding a speaker while one session is filtered puts them in that session.
 
 ### Seating plan
 - **For:** participants and public screens find their seat; admins assign seats.
 - **CMS (Seating plan):**
-  - Room: 8 layouts (banquet, cabaret, theatre, classroom, U-shape, hollow square, boardroom, head table + banquet) or a composite room of up to 6 sections; tables, seats, rows, aisles, seat label pattern, custom table labels, stage label, seat shape.
-  - Sessions: title, seat source (set in Tally, or from the external scanner system), show to participants (new sessions start as drafts), colours, background, header and footer.
-  - Public screens: default session; display mode Name search (phones, touch screens) or QR for LED; search by organisation (off by default).
-  - Assign seats: search participants and place them.
+  - Room layout (its own view from the page header, shared by every session): 8 layouts (banquet, cabaret, theatre, classroom, U-shape, hollow square, boardroom, head table + banquet) or a composite room of up to 6 sections; tables, seats, rows, aisles, seat label pattern, custom table labels, stage label, seat shape.
+  - Sessions (tabs; only per-session settings sit under them): title, seat source (set in Tally, or from the external scanner system), show to participants (new sessions start as drafts), colours, background, header and footer.
+  - Screen settings (dialog from the page header, applies to every screen): default session; display mode Name search (phones, touch screens) or QR for LED; search by organisation (off by default).
+  - Seats (sessions set in Tally): the map shows real occupancy; a list of people without a seat (or seated, with search); pick a person, then click an empty seat or take the first empty one; Undo for 10 s; people whose seat label isn't on the plan are named. Click an occupied seat to remove or change the person.
 - **Shows at:** `/e/<slug>/denah?sesi=<session>`, the participant seat card, the event page Venue section.
 - **Rule:** the public page never shows full names; the event's name mode and each person's own display choice apply, the strictest wins.
 

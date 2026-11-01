@@ -22,7 +22,8 @@ export type KursiDipilih = {
 type Kandidat = { id: string; name: string; company: string | null; email: string | null; seat: string | null };
 
 /** Langkah untuk membatalkan perubahan terakhir: dudukkan lagi pemegang lama. */
-export type Urungkan = { sessionId: number; label: string; participantId: string; currentParticipantId: string | null };
+/** `participantId` null: kosongkan kursi (urungkan orang yang baru didudukkan). */
+export type Urungkan = { sessionId: number; label: string; participantId: string | null; currentParticipantId: string | null };
 
 export function AssignSeatDialog({ kursi, onClose, onSaved }: {
   kursi: KursiDipilih | null;

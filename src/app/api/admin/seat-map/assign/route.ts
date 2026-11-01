@@ -17,7 +17,15 @@ const MAX_HASIL = 20;
 const cariSchema = z.object({
   session_id: z.coerce.number().int().positive(),
   q: z.string().trim().max(80).optional(),
+  /**
+   * Daftar di panel Seats: hanya yang belum atau sudah punya kursi di sesi ini,
+   * sampai MAX_DAFTAR baris urut nama. Tanpa ini, perilaku lama (dialog kursi):
+   * 20 hasil, yang belum duduk lebih dulu.
+   */
+  list: z.enum(["unseated", "seated"]).optional(),
 });
+
+const MAX_DAFTAR = 200;
 
 type BarisCari = { id: string; name: string; company: string | null; email: string | null; seats: StoredSeat[] | null };
 
@@ -38,11 +46,18 @@ export async function GET(request: Request) {
     .eq("event_id", auth.scope.event.id)
     .is("source_participant_id", null)
     .is("source_removed_at", null);
-  if (kata) kueri = kueri.or(["name", "company", "email"].map((kolom) => `${kolom}.ilike.*${kata}*`).join(","));
-  // Tanpa kata kunci: yang belum duduk di sesi ini saja, supaya tidak tenggelam di urutan abjad.
+  const daftar = parsed.data.list;
+  const cocokKata = ["name", "company", "email"].map((kolom) => `${kolom}.ilike.*${kata}*`).join(",");
   // `seats` kosong (NULL) juga dihitung belum duduk; `not cs` saja membuangnya.
-  else kueri = kueri.or(`seats.is.null,seats.not.cs.${JSON.stringify([{ subEventId: sumber }])}`);
-  const { data, error } = await kueri.order("name", { ascending: true }).limit(200);
+  const tanpaKursi = `seats.is.null,seats.not.cs.${JSON.stringify([{ subEventId: sumber }])}`;
+  if (daftar) {
+    // Dua `or` terpisah digabung dengan AND oleh PostgREST.
+    if (kata) kueri = kueri.or(cocokKata);
+    kueri = daftar === "unseated" ? kueri.or(tanpaKursi) : kueri.filter("seats", "cs", JSON.stringify([{ subEventId: sumber }]));
+  } else if (kata) kueri = kueri.or(cocokKata);
+  // Tanpa kata kunci: yang belum duduk di sesi ini saja, supaya tidak tenggelam di urutan abjad.
+  else kueri = kueri.or(tanpaKursi);
+  const { data, error } = await kueri.order("name", { ascending: true }).limit(daftar ? MAX_DAFTAR + 1 : 200);
   if (error) return apiError("INTERNAL_ERROR", 500);
 
   const hasil = ((data ?? []) as unknown as BarisCari[]).map((row) => ({
@@ -52,6 +67,7 @@ export async function GET(request: Request) {
     email: row.email,
     seat: (row.seats ?? []).find((seat) => seat?.subEventId === sumber)?.label ?? null,
   }));
+  if (daftar) return Response.json({ results: hasil.slice(0, MAX_DAFTAR), more: hasil.length > MAX_DAFTAR });
   hasil.sort((a, b) => Number(a.seat !== null) - Number(b.seat !== null));
   return Response.json({ results: hasil.slice(0, MAX_HASIL) });
 }
