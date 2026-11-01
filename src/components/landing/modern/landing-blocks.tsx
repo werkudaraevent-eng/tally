@@ -971,5 +971,12 @@ export function LandingBlockView({
     case "dos_donts": return <Wadah block={block}><BlokDosDonts block={block} lang={lang} kepala={<Kepala block={block} />} /></Wadah>;
     case "dress_code": return dressCode?.hari.length ? <Wadah block={block}><BlokDressCode hari={dressCode.hari} lang={lang} labelOutfit={dressCode.labelOutfit} kepala={<Kepala block={block} />} /></Wadah> : null;
     case "countdown": return jadwal ? <HitungMundur block={block} acara={jadwal} lang={lang} warnaTema={warnaTema ?? { brand: "#1B2D57", accent: null }} /> : null;
+    // Rute tidak punya tampilan di halaman acara Modern: ia dirender di halaman peserta.
+    case "route": return null;
+    default: {
+      // Jenis baru di src/lib/blok/jenis.ts harus ditangani di atas, atau tipe ini gagal.
+      const belumDitangani: never = block.type;
+      return belumDitangani;
+    }
   }
 }
