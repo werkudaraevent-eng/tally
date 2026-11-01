@@ -2,6 +2,7 @@
 
 import { Armchair, ArrowDown, ArrowLeft, ArrowSquareOut, ArrowUp, CaretDown, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { AssignSeatDialog, type KursiDipilih, type Urungkan } from "./assign-seat-dialog";
@@ -548,8 +549,8 @@ export default function SeatMapAdminPage() {
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-variant px-4 py-2.5 text-body-medium text-on-surface-variant">
         {menugaskan ? (
           <>
-            {report ? <span className="font-medium text-on-surface">{jumlahTerisi.toLocaleString("en-GB")} of {report.total_active_participants.toLocaleString("en-GB")} seated</span> : null}
-            {warnaEfektif ? legenda([[`Empty ${jumlahKosong.toLocaleString("en-GB")}`, warnaEfektif.available], [`Seated ${jumlahTerisi.toLocaleString("en-GB")}`, warnaEfektif.occupied]]) : null}
+            {report ? <span className="font-medium text-on-surface">{(jumlahTerisi + diLuarDenah.length).toLocaleString("en-GB")} of {report.total_active_participants.toLocaleString("en-GB")} seated</span> : null}
+            {warnaEfektif ? legenda([[`Empty ${jumlahKosong.toLocaleString("en-GB")}`, warnaEfektif.available], ["Seated", warnaEfektif.occupied]]) : null}
             <span className="ml-auto">
               {orangDipilih ? <>Click an empty seat for <span className="font-medium text-on-surface">{orangDipilih.name}</span></> : "Click a seat to see or change who sits there."}
             </span>
@@ -586,12 +587,6 @@ export default function SeatMapAdminPage() {
           className="mx-auto min-w-[480px]"
         />
       </div>
-      {menugaskan && urungkan ? (
-        <div role="status" className="flex shrink-0 items-center gap-3 border-t border-outline-variant bg-inverse-surface px-4 py-1.5 text-body-medium text-inverse-on-surface">
-          <span className="min-w-0 flex-1">{urungkan.pesan}</span>
-          <button type="button" onClick={() => void batalkanPerubahan()} disabled={mengurungkan} className="min-h-9 shrink-0 rounded-full px-3 text-label-large font-semibold underline disabled:opacity-60">{mengurungkan ? "Undoing…" : "Undo"}</button>
-        </div>
-      ) : null}
       {menugaskan ? null : (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
           {report && tampilan === "sesi" ? (
@@ -608,6 +603,15 @@ export default function SeatMapAdminPage() {
           )}
         </div>
       )}
+      {/* Snackbar M3: dipasang ke body supaya tetap di layar, juga saat
+          pane digulir atau di 390 ketika tombol "Seat in" jauh di bawah denah. */}
+      {menugaskan && urungkan && typeof document !== "undefined" ? createPortal(
+        <div role="status" className="fixed inset-x-4 bottom-4 z-toast mx-auto flex w-fit max-w-[560px] items-center gap-3 rounded-sm bg-inverse-surface py-1.5 pl-4 pr-2 text-body-medium text-inverse-on-surface shadow-lg sm:bottom-6">
+          <span className="min-w-0 flex-1">{urungkan.pesan}</span>
+          <button type="button" onClick={() => void batalkanPerubahan()} disabled={mengurungkan} className="min-h-9 shrink-0 rounded-full px-3 text-label-large font-semibold text-inverse-primary disabled:opacity-60">{mengurungkan ? "Undoing…" : "Undo"}</button>
+        </div>,
+        document.body,
+      ) : null}
     </Pane>
   ) : null;
 
