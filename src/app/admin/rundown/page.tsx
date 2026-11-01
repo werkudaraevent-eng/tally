@@ -104,7 +104,8 @@ type SasaranInfo = { available: boolean; horizon: boolean; fields: KolomSasaran[
 
 // Petunjuk satu kalimat per aturan: baris per pembicara, label, format.
 const HINT_KETERANGAN = "One line per speaker. A line ending in a colon becomes a label (e.g. Moderator:). Bold, italic, theme colour and lists show on the event page.";
-const CONTOH_KETERANGAN = "Panelists:\nSantoso, Chairman - ASPI\nModerator:\nAbraham J. Adriaansz, President Director - PT Rintis Sejahtera";
+// Contoh generik: repo ini publik, jadi tanpa nama orang atau organisasi sungguhan.
+const CONTOH_KETERANGAN = "Panelists:\nName, Title - Organisation\nName, Title - Organisation\nModerator:\nName, Title - Organisation";
 
 // Nilai yang ditampilkan <input type="color"> ketika kolomnya masih null.
 //
@@ -162,6 +163,10 @@ export default function RundownAdminPage() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [panel, setPanel] = useState<Panel>("baris");
+  // Di bawah 1024px panel editor berada di bawah seluruh jadwal, jadi memilih
+  // baris tampak tidak berbuat apa-apa. Selama ini true, editor menggantikan
+  // jadwal (pola list-detail M3 di DESIGN.md) dengan tombol kembali.
+  const [layarEditor, setLayarEditor] = useState(false);
   const [drafts, setDrafts] = useState<Record<number, DrafBaru>>({});
   // Jam mulai New item yang diisikan dari jam selesai baris yang baru
   // ditambahkan, per bagian. Isian awal ini bukan suntingan.
@@ -447,7 +452,30 @@ export default function RundownAdminPage() {
   }
 
   function mulaiTambahBaris() {
-    pindah({ baris: null, panel: "baris" }, fokusJudulBaru);
+    pindah({ baris: null, panel: "baris" }, () => { bukaLayarEditor(); fokusJudulBaru(); });
+  }
+
+  /** Layar sempit: editor menggantikan jadwal dan digulir ke atas layar. */
+  function bukaLayarEditor() {
+    if (window.matchMedia("(min-width: 1024px)").matches) return;
+    setLayarEditor(true);
+    window.setTimeout(() => {
+      document.querySelector("[data-agenda-editor]")?.scrollIntoView({ block: "start" });
+      // Baris yang diketuk ikut tersembunyi: fokus pindah ke tombol kembali, bukan ke body.
+      document.querySelector<HTMLElement>("[data-agenda-kembali]")?.focus({ preventScroll: true });
+    }, 0);
+  }
+
+  /** Kembali ke jadwal, ke baris yang tadi dibuka. Suntingan tidak dibuang: formulirnya tetap terbuka. */
+  function tutupLayarEditor() {
+    const baris = selectedItemId;
+    setLayarEditor(false);
+    window.setTimeout(() => {
+      const el = baris === null ? null : document.querySelector<HTMLElement>(`[data-rundown-row="${baris}"]`);
+      if (el) el.scrollIntoView({ block: "center" });
+      else window.scrollTo({ top: 0 });
+      el?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    }, 0);
   }
 
   /**
@@ -732,6 +760,7 @@ export default function RundownAdminPage() {
     // Suntingan baris ini ikut terhapus bersama barisnya (sudah dikonfirmasi).
     setSuntingBaris((kini) => (kini?.id === item.id ? null : kini));
     setSelectedItemId((current) => (current === item.id ? null : current));
+    setLayarEditor(false);
     toast.success("Agenda item deleted");
     await load();
   }
@@ -1265,6 +1294,7 @@ export default function RundownAdminPage() {
   function bukaDresscode() {
     pindah({ panel: "dresscode" }, () => window.setTimeout(() => {
       if (window.matchMedia("(min-width: 1024px)").matches) return;
+      setLayarEditor(true);
       const judul = document.getElementById(idJudulDc);
       judul?.scrollIntoView({ block: "start" });
       judul?.focus({ preventScroll: true });
@@ -1289,7 +1319,7 @@ export default function RundownAdminPage() {
 
   // ---- Panel utama: jadwal bagian aktif -------------------------------------------
   const jadwal = active ? (
-    <Pane aria-label={`${active.name} schedule`}>
+    <Pane aria-label={`${active.name} schedule`} className={cx(layarEditor && "max-lg:hidden")}>
       <PaneHeader>
         <h2 className="text-body-medium font-semibold text-on-surface">Schedule</h2>
         <span className="tabular-nums text-body-medium text-on-surface-variant">{plural(activeItems.length, "item")}</span>
@@ -1325,7 +1355,8 @@ export default function RundownAdminPage() {
         ) : (
           <div>
             {activeItems.map((item) => {
-              const keterangan = teksPolos(item.subtitle).split("\n").map((line) => line.trim()).filter(Boolean).join(" · ");
+              // Ringkasan satu baris: titik daftar "• " dibuang, pemisahnya sudah " · ".
+              const keterangan = teksPolos(item.subtitle).split("\n").map((line) => line.trim().replace(/^•\s*/, "")).filter(Boolean).join(" · ");
               const kunci = kunciSlot(item.start_time);
               const slotIds = slots.get(kunci) ?? [];
               const paralel = slotIds.length > 1;
@@ -1362,7 +1393,7 @@ export default function RundownAdminPage() {
                   >
                     <ListRow
                       selected={item.id === selectedItemId}
-                      onSelect={() => pindah({ baris: item.id, panel: "baris" })}
+                      onSelect={() => pindah({ baris: item.id, panel: "baris" }, bukaLayarEditor)}
                       className={cx("items-start py-3", adaSlotParalel && "pointer-fine:pl-10!")}
                     >
                       <span className="w-28 shrink-0 tabular-nums text-on-surface">
@@ -1459,7 +1490,7 @@ export default function RundownAdminPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <h3 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Edit item</h3>
-        <Button variant="text" size="sm" onClick={() => pindah({ baris: null })}>Close</Button>
+        <Button variant="text" size="sm" onClick={() => pindah({ baris: null }, () => setLayarEditor(false))}>Close</Button>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <TextField
@@ -1914,7 +1945,19 @@ export default function RundownAdminPage() {
   };
 
   const samping = (
-    <Pane as="aside" aria-label="Agenda editor">
+    <Pane as="aside" aria-label="Agenda editor" className="max-lg:overflow-clip">
+      {layarEditor && active ? (
+        <div data-agenda-editor className="sticky top-14 z-10 flex min-h-12 shrink-0 scroll-mt-14 items-stretch gap-2 border-b border-outline-variant bg-surface-container-lowest px-2 lg:hidden">
+          <Button data-agenda-kembali variant="text" size="sm" icon={<ArrowLeft size={16} />} onClick={tutupLayarEditor}>
+            {(sections.find((row) => row.id === active.id)?.name ?? active.name).trim() || "Schedule"}
+          </Button>
+          {selectedItem && activeItems.some((row) => row.id === selectedItem.id) ? (
+            <span className="ml-auto self-center pr-2 tabular-nums text-body-small text-on-surface-variant">
+              {activeItems.findIndex((row) => row.id === selectedItem.id) + 1} of {activeItems.length}
+            </span>
+          ) : null}
+        </div>
+      ) : <span data-agenda-editor aria-hidden className="scroll-mt-20 lg:hidden" />}
       <div className="shrink-0 border-b border-outline-variant px-4 py-3">
         {/* Empat segmen di Horizon: padat, supaya muat di ponsel 360px. Acara lain tetap tiga. */}
         <SegmentedButton<Panel>
@@ -1956,8 +1999,9 @@ export default function RundownAdminPage() {
                 ? "No sections are published yet, so the public page still shows a holding message"
                 : `${publishedCount} of ${plural(sections.length, "section")} published`}
             </span>
+            {/* Baris meta memuat fakta (DESIGN.md), bukan kalimat bantuan. */}
             <MetaSeparator />
-            <span>The current-item highlight uses the section date and item times</span>
+            <span className="tabular-nums">{plural(items.length, "item")}</span>
           </>
         ) : null}
         actions={<ButtonLink href="/rundown" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open public page</ButtonLink>}
@@ -1967,7 +2011,7 @@ export default function RundownAdminPage() {
 
       {!loaded ? (error ? null : <PageLoading />) : (
         <>
-          <div className="flex shrink-0 items-end gap-2 border-b border-outline-variant">
+          <div className={cx("flex shrink-0 items-end gap-2 border-b border-outline-variant", layarEditor && "max-lg:hidden")}>
             {sections.length > 0 ? (
               // Tabs membawa shrink-0; pembungkus ini yang menyempit agar tombol + Bagian tetap di layar.
               <div className="min-w-0">
@@ -1986,9 +2030,7 @@ export default function RundownAdminPage() {
                 />
               </div>
             ) :<span className="py-2.5 text-body-medium text-on-surface-variant">No sections yet</span>}
-            <button type="button" onClick={() => lindungi(() => setAddSectionOpen(true))} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
-              <Plus size={14} aria-hidden />Section
-            </button>
+            <Button variant="text" size="sm" icon={<Plus size={16} />} className="mb-1 shrink-0 text-primary" onClick={() => lindungi(() => setAddSectionOpen(true))}>Section</Button>
           </div>
           <div
             role={active ? "tabpanel" : undefined}
