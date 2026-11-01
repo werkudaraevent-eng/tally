@@ -924,9 +924,18 @@ export default function LandingCmsPage() {
     }
   }
 
+  /** Indeks baris tujuan Naik/Turun: baris bertempat tetap (tempatTetap) dilompati,
+   *  supaya satu klik selalu terlihat memindahkan baris (QA #362 M1). -1 = tidak ada. */
+  function tujuanGeser(index: number, delta: number) {
+    for (let target = index + delta; target >= 0 && target < sections.length; target += delta) {
+      if (!tempatTetap(sections[target].id as LandingSectionId)) return target;
+    }
+    return -1;
+  }
+
   function moveSection(index: number, delta: number) {
-    const target = index + delta;
-    if (target < 0 || target >= sections.length) return;
+    const target = tujuanGeser(index, delta);
+    if (target < 0) return;
     const next = [...sections];
     [next[index], next[target]] = [next[target], next[index]];
     setLanding({ ...landing, sections: next });
@@ -2910,8 +2919,8 @@ export default function LandingCmsPage() {
   function menuBaris(index: number, judul: string, blok?: LandingBlock): ItemMenuBlok[] {
     const tampil = isPortalEntry(sections[index]) ? landing.portal_section !== false : sections[index].enabled;
     const items: ItemMenuBlok[] = [
-      { label: "Move up", icon: <ArrowUp size={18} />, disabled: index === 0, onSelect: () => moveSection(index, -1) },
-      { label: "Move down", icon: <ArrowDown size={18} />, disabled: index === sections.length - 1, onSelect: () => moveSection(index, 1) },
+      { label: "Move up", icon: <ArrowUp size={18} />, disabled: tujuanGeser(index, -1) < 0, onSelect: () => moveSection(index, -1) },
+      { label: "Move down", icon: <ArrowDown size={18} />, disabled: tujuanGeser(index, 1) < 0, onSelect: () => moveSection(index, 1) },
     ];
     if (!forum && modern) {
       items.push({ label: "Add block below", icon: <Plus size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => { setSisipSesudah({ indeks: index, judul }); setTambahTerbuka(true); } });
