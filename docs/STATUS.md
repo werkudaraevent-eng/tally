@@ -56,6 +56,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #363 Seating plan Room layout editor (merged 1 Nov, QA GO, audit PR 3 of 4): layout picked from picture cards; the layout locks only when seats are assigned (as the server already refuses); "Seats around the table" presets replace arc degrees; footer shows the draft's tables and seats.
 - #361 Seating plan Seats view (merged 1 Nov, QA GO, audit PR 2 of 4): sessions set in Tally show real occupancy; the pane opens on Seats (search, "Without a seat" / "Seated" chips, pick a person then an empty seat or "Seat in 21C", Undo snackbar); `GET /api/admin/seat-map/assign` takes `list=unseated|seated`.
 - #356 Seating plan scopes (merged 1 Nov, QA GO, audit PR 1 of 4): Room layout is its own view, Screen settings a dialog, "Open public page" one menu; each editor saves only its own fields with Unsaved changes + Discard and a leave prompt; fixes Save on Public screens saving unsaved room edits.
 - #360 Speakers page as a list-detail table (merged 1 Nov, QA GO): one table (Speaker, Organisation, Sessions and role, Status) with Session, Highlights and Needs attention filter chips instead of a tab per session; editor pane only when a speaker is picked, with a card preview; filtering one session shows its event-page order; Add speaker in the header starts in the filtered session; nav-rail guard for unsaved edits. Admin only, no SQL.
@@ -185,6 +186,7 @@ Every item (finding, recommendation, what is left, decisions and code pointers) 
 
 ## Parked Lows and open findings
 
+- #363 Lows: the lock counts only current sessions' seats while the server refuses on any seats, so in that edge case Save shows the 422 toast; the lock note does not link to where seats are removed.
 - #361 Lows: "Without a seat · N" counts scanner rows the list does not show; at 390 the "click an empty seat" hint points to the map far above.
 - #356 Lows: the Open public page menu has no arrow-key focus (same as Export; Popover has no menu keyboard model); the room toolbar note "Sample occupancy. Updates as you type." wraps under the legend at 1280.
 - #349 Lows: a custom role opening an admin's Hotel-targeted announcement sees an error and cannot email it; All/Approved emails still reach accounts of sync-removed participants (older behaviour); the portal reads the newest 200 announcements before filtering; the shape CHECK accepts duplicate or NULL ids in `audience_ids`; emailing a broken condition reports "sent to 0" instead of an error.
