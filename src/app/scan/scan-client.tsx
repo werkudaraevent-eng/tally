@@ -179,7 +179,7 @@ const KELONGGARAN_JAM_MS = 5_000;
  * (`/e/<slug>`), tanggalnya tanggal ponsel; hari berganti = daftar kosong.
  * Hanya nama, status, dan jam: tidak ada kode QR di sini.
  */
-type BarisRiwayat = { nama: string; status: Hasil["status"]; waktu: string };
+type BarisRiwayat = { nama: string; status: Hasil["status"]; waktu: string; antre?: string; alasan?: string };
 const BATAS_RIWAYAT = 50;
 function kunciRiwayat(): string {
   const awalan = window.location.pathname.match(/^\/e\/[^/]+/)?.[0] ?? "";
@@ -202,6 +202,33 @@ function simpanRiwayat(baris: BarisRiwayat[]) {
   try {
     window.localStorage.setItem(kunciRiwayat(), JSON.stringify({ tanggal: tanggalPonsel(), baris: baris.slice(0, BATAS_RIWAYAT) }));
   } catch { /* penyimpanan penuh atau tidak tersedia: riwayat tetap di memori */ }
+}
+
+/**
+ * Antrean check-in tanpa sinyal (Check-in > Sessions > Allow check-in without
+ * signal). Satu pindaian yang gagal sampai ke server disimpan di sini dan
+ * dikirim belakangan dengan waktu pindai aslinya. Kodenya ikut disimpan di
+ * ponsel ini sampai terkirim: itu kode yang baru saja dibaca kamera ponsel ini
+ * sendiri, bukan daftar peserta yang diunduh.
+ */
+type Antre = { id: string; kode?: string; pesertaId?: string; nama?: string; sesi: number; jalur: number | null; waktu: string };
+function kunciAntrean(): string {
+  const awalan = window.location.pathname.match(/^\/e\/[^/]+/)?.[0] ?? "";
+  return `scan-antrean:${awalan}`;
+}
+function bacaAntrean(): Antre[] {
+  try {
+    const isi = JSON.parse(window.localStorage.getItem(kunciAntrean()) ?? "[]") as Antre[];
+    return Array.isArray(isi) ? isi.filter((a) => typeof a?.id === "string" && typeof a?.sesi === "number") : [];
+  } catch {
+    return [];
+  }
+}
+function simpanAntrean(daftar: Antre[]) {
+  try {
+    if (daftar.length) window.localStorage.setItem(kunciAntrean(), JSON.stringify(daftar));
+    else window.localStorage.removeItem(kunciAntrean());
+  } catch { /* penyimpanan tidak tersedia: antrean tetap di memori sampai halaman ditutup */ }
 }
 
 function bacaTutupOtomatis(): boolean {
@@ -278,7 +305,13 @@ const RIWAYAT: Record<Hasil["status"], { teks: string; kelas: string }> = {
   gagal: { teks: "not saved", kelas: "text-error" },
   login: { teks: "not saved", kelas: "text-error" },
   ditolak: { teks: "rejected", kelas: "text-error" },
+  antri: { teks: "waiting to send", kelas: "text-warning" },
 };
+
+/** Label History yang lebih tepat dari "failed" bila server memberi alasannya. */
+const ALASAN_RIWAYAT: Record<string, string> = { cancelled: "cancelled", other_event: "other event" };
+const labelRiwayat = (baris: BarisRiwayat) =>
+  (baris.status === "not_found" && baris.alasan && ALASAN_RIWAYAT[baris.alasan]) || RIWAYAT[baris.status].teks;
 
 const jam = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -799,7 +832,7 @@ export default function ScanClient() {
     bunyikan(beres ? "ok" : data.status === "duplicate" ? "ulang" : "galat", suaraRef.current);
     const waktu = new Date().toISOString();
     setRiwayat((current) => [
-      { nama: data.participant?.name ?? data.qr ?? "Unknown", status: beres ? "recorded" : data.status, waktu },
+      { nama: data.participant?.name ?? data.qr ?? "Unknown", status: beres ? "recorded" : data.status, waktu, ...(data.reason ? { alasan: data.reason } : {}) },
       ...current,
     ].slice(0, BATAS_RIWAYAT));
     if (beres && data.participant) {
@@ -838,6 +871,109 @@ export default function ScanClient() {
     pasangLembar({ status, qr: dicoba ? undefined : qr, pesan: teks, dicoba });
     bunyikan("galat", suaraRef.current);
   }, [pasangLembar]);
+
+  // ---- Antrean tanpa sinyal ----------------------------------------------
+  const [antrean, setAntrean] = useState<Antre[]>([]);
+  /** Nama pindaian dari antrean yang ditolak server setelah sinyal kembali. */
+  const [ditolakAntrean, setDitolakAntrean] = useState<string[]>([]);
+  const antreanRef = useRef<Antre[]>([]);
+  const mengirimAntrean = useRef(false);
+  const gantiAntrean = useCallback((berikut: Antre[]) => {
+    antreanRef.current = berikut;
+    setAntrean(berikut);
+    simpanAntrean(berikut);
+  }, []);
+  // Antrean yang tertinggal dari halaman sebelumnya (dimuat ulang tanpa sinyal).
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const lama = bacaAntrean();
+      if (lama.length) { antreanRef.current = lama; setAntrean(lama); }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  /** Menyimpan pindaian yang tidak sampai ke server, lalu membuka lembar abu "Saved on this phone". */
+  const simpanKeAntrean = useCallback((qr: string, sesi: number, jalur: number | null, dicoba?: { id: string; nama: string }): Hasil => {
+    const item: Antre = {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      ...(dicoba ? { pesertaId: dicoba.id, nama: dicoba.nama } : { kode: qr }),
+      sesi,
+      jalur,
+      waktu: new Date().toISOString(),
+    };
+    gantiAntrean([...antreanRef.current, item]);
+    const data: Hasil = { status: "antri", qr: dicoba ? undefined : qr, dicoba };
+    pasangLembar(data);
+    bunyikan("ok", suaraRef.current);
+    setRiwayat((current) => [{ nama: dicoba?.nama ?? qr, status: "antri" as const, waktu: item.waktu, antre: item.id }, ...current].slice(0, BATAS_RIWAYAT));
+    // Badge yang masih di depan lensa tidak masuk antrean dua kali.
+    barusanRef.current.set(`${sesi}:${qr}`, { waktu: Date.now(), hasil: data });
+    return data;
+  }, [gantiAntrean, pasangLembar]);
+
+  /**
+   * Mengirim antrean satu per satu, yang tertua dulu. Berhenti pada kegagalan
+   * jaringan pertama (sinyal belum kembali) dan pada 401 (petugas harus masuk
+   * lagi; antreannya tetap). Jawaban yang menolak (sesi ditutup, dsb.) dibuang
+   * dari antrean dan ditandai di History.
+   */
+  const kirimAntrean = useCallback(async () => {
+    if (mengirimAntrean.current || antreanRef.current.length === 0) return;
+    mengirimAntrean.current = true;
+    try {
+      while (antreanRef.current.length > 0) {
+        const item = antreanRef.current[0];
+        const batas = new AbortController();
+        const pewaktu = window.setTimeout(() => batas.abort(), BATAS_TUNGGU_MS);
+        const response = await fetch(eventApiPath("/api/attendance/scan"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: item.sesi,
+            ...(item.pesertaId ? { participant_id: item.pesertaId } : { qr: item.kode }),
+            lane_id: item.jalur,
+            scanned_at: item.waktu,
+          }),
+          signal: batas.signal,
+        }).catch(() => null);
+        window.clearTimeout(pewaktu);
+        if (!response || response.status >= 500 || response.status === 401) {
+          if (response?.status === 401) setOffline(false);
+          else setOffline(true);
+          return;
+        }
+        setOffline(false);
+        const body = (await response.json().catch(() => ({}))) as Hasil;
+        const status: Hasil["status"] = response.ok ? body.status : "ditolak";
+        const nama = response.ok
+          ? body.participant?.name ?? (body.reason === "cancelled" && body.participant_name ? `${body.participant_name} (cancelled)` : item.nama ?? item.kode ?? "Unknown")
+          : item.nama ?? item.kode ?? "Unknown";
+        setRiwayat((current) => current.map((baris) => (baris.antre === item.id ? { nama, status, waktu: baris.waktu, ...(body.reason ? { alasan: body.reason } : {}) } : baris)));
+        // Orangnya sudah dibiarkan masuk saat sinyal hilang. Kalau server ternyata
+        // menolak, petugas harus tahu sekarang, bukan saat membaca History nanti.
+        if (status !== "recorded" && status !== "created" && status !== "duplicate") {
+          setDitolakAntrean((current) => [...current, nama]);
+        }
+        if (response.ok && typeof body.session_unique_total === "number") {
+          const total = body.session_unique_total;
+          setHadirTerbaru((current) => ({ ...current, [item.sesi]: total }));
+        }
+        gantiAntrean(antreanRef.current.filter((a) => a.id !== item.id));
+      }
+    } finally {
+      mengirimAntrean.current = false;
+    }
+  }, [gantiAntrean]);
+
+  // Dicoba lagi tiap 5 detik selama ada antrean, dan seketika saat peramban
+  // melaporkan jaringan kembali.
+  useEffect(() => {
+    if (antrean.length === 0) return;
+    const jalan = () => void kirimAntrean();
+    const timer = window.setInterval(jalan, 5_000);
+    window.addEventListener("online", jalan);
+    return () => { window.clearInterval(timer); window.removeEventListener("online", jalan); };
+  }, [antrean.length, kirimAntrean]);
 
   /**
    * Mengirim satu pencatatan. `qr` dari kamera, pemindai genggam, atau Ulangi;
@@ -882,6 +1018,14 @@ export default function ScanClient() {
     setSibuk(false);
     setMembaca(null);
 
+    // Sesi yang mengizinkan check-in tanpa sinyal: pindaian yang tidak sampai
+    // disimpan di ponsel, bukan merah. Hanya untuk kegagalan jaringan dan
+    // gateway (502-504), bukan galat server lain yang tidak akan pulih sendiri.
+    const tanpaSinyal = sessions.find((sesi) => sesi.id === sessionId)?.tanpa_sinyal === true;
+    if (tanpaSinyal && (!response || response.status === 502 || response.status === 503 || response.status === 504)) {
+      setOffline(true);
+      return simpanKeAntrean(qr, sessionId, laneId, dicoba);
+    }
     if (!response || response.status >= 500) {
       tampilGagal(qr, "gagal", "Connection lost or the server did not respond, so this participant is NOT checked in. Tap Retry, or scan the badge again.", dikirim, dicoba);
       return null;
@@ -916,7 +1060,7 @@ export default function ScanClient() {
     }
     terapkanHasil({ ...data, qr: data.qr ?? (dicoba ? undefined : qr) }, sessionId);
     return data;
-  }, [bodyCetak, laneId, lanes.length, sessionId, terapkanHasil, tampilGagal]);
+  }, [bodyCetak, laneId, lanes.length, sessionId, sessions, simpanKeAntrean, terapkanHasil, tampilGagal]);
 
   /**
    * Pintu masuk setiap kode yang terbaca kamera atau pemindai genggam.
@@ -1398,7 +1542,7 @@ export default function ScanClient() {
         },
       })
     : null;
-  const hijau = hasil?.status === "recorded" || Boolean(hasil?.tersimpanSebelumnya);
+  const hijau = hasil?.status === "recorded" || hasil?.status === "antri" || Boolean(hasil?.tersimpanSebelumnya);
   const lembarMenutup =
     tutupOtomatis &&
     hijau &&
@@ -1534,6 +1678,33 @@ export default function ScanClient() {
     </div>
   );
 
+  const pitaDitolak = ditolakAntrean.length > 0 ? (
+    <div role="alert" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-[#ffdad6] px-3 py-2.5 text-body-medium text-[#410002]">
+      <span className="min-w-0 flex-1">
+        <b className="font-semibold">
+          {ditolakAntrean.length === 1 ? "1 saved scan was not accepted" : `${ditolakAntrean.length} saved scans were not accepted`}:
+        </b>{" "}
+        {ditolakAntrean.join(", ")}. They went in while the signal was down. Find them or tell the organisers.
+      </span>
+      <button
+        type="button"
+        onClick={() => setDitolakAntrean([])}
+        className="min-h-12 shrink-0 rounded-full px-3 text-label-large font-semibold text-[#93000a] hover:bg-[#93000a]/10"
+      >
+        Got it
+      </button>
+    </div>
+  ) : null;
+
+  const pitaAntrean = antrean.length > 0 ? (
+    <div role="status" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-warning-soft px-3 py-2.5 text-body-medium text-on-warning-soft">
+      <span className="min-w-0 flex-1">
+        <b className="font-semibold">{antrean.length} waiting to send.</b> Keep this page open; they send by themselves when the signal is back.
+      </span>
+      <Button variant="text" size="sm" onClick={() => void kirimAntrean()}>Send now</Button>
+    </div>
+  ) : null;
+
   const daftarRiwayat = (batas: number) =>
     riwayat.length === 0 ? (
       <p className="mt-2 text-body-small text-on-surface-variant">No scans on this phone today.</p>
@@ -1542,7 +1713,7 @@ export default function ScanClient() {
         {riwayat.slice(0, batas).map((baris, index) => (
           <li key={`${baris.waktu}-${index}`} className="flex min-h-12 items-center justify-between gap-3 py-2 text-body-medium">
             <span className="min-w-0 flex-1 truncate">{baris.nama}</span>
-            <span className={RIWAYAT[baris.status].kelas}>{RIWAYAT[baris.status].teks}</span>
+            <span className={RIWAYAT[baris.status].kelas}>{labelRiwayat(baris)}</span>
             <span className="tabular-nums text-on-surface-variant">{jam(baris.waktu)}</span>
           </li>
         ))}
@@ -1601,7 +1772,25 @@ export default function ScanClient() {
             <span className="sr-only">Change check-in point or desk</span>
           </button>
           <span className="hidden flex-1 lg:block" />
-          {offline ? <ChipOffline /> : null}
+          {antrean.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => { void kirimAntrean(); gantiMode("riwayat"); }}
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#ffb300] px-3 text-label-large font-semibold text-black"
+            >
+              <span aria-hidden className="size-2 rounded-full bg-black/70" />
+              {antrean.length} to send
+            </button>
+          ) : ditolakAntrean.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => gantiMode("riwayat")}
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#ffb4ab] px-3 text-label-large font-semibold text-[#690005]"
+            >
+              <span aria-hidden className="size-2 rounded-full bg-[#690005]" />
+              {ditolakAntrean.length} not accepted
+            </button>
+          ) : offline ? <ChipOffline /> : null}
           <IconButton label="Scanner menu" onClick={() => setMenuTerbuka(true)} className={gelap ? "max-lg:!text-white" : undefined}>
             <DotsThreeVertical size={24} weight="bold" />
           </IconButton>
@@ -1903,6 +2092,8 @@ export default function ScanClient() {
                   <p className="text-body-small text-on-surface-variant">
                     The count above covers all desks at this check-in point and counts people, not repeat scans.
                   </p>
+                  {pitaDitolak}
+                  {pitaAntrean}
                   {daftarRiwayat(BATAS_RIWAYAT)}
                   {riwayat.length > 0 ? <p className="mt-2 text-body-small text-on-surface-variant">Kept on this phone until the end of the day, also after a reload.</p> : null}
                 </div>
@@ -1931,6 +2122,8 @@ export default function ScanClient() {
               <p className="mt-1 text-body-small text-on-surface-variant">Counts people, not repeat scans. Updates every 30 seconds.</p>
               <Divider className="my-4" />
               <h2 className="text-title-small">Recent scans</h2>
+              {pitaDitolak}
+              {pitaAntrean}
               {daftarRiwayat(8)}
             </Card>
           </aside>

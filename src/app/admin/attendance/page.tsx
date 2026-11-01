@@ -49,7 +49,16 @@ type Sesi = {
   ambil_bagasi?: { handedPeople: number; handedBags: number; waitingPeople: number; waitingBags: number };
   /** Shown after scan. Tidak ada sebelum migrasi 202610300001; null = Company · Job title. */
   scan_fields?: unknown;
+  /** Pindai ulang. Tidak ada sebelum migrasi 202611010001. */
+  repeat_scan?: "allow" | "stop";
+  /** Check-in tanpa sinyal. Tidak ada sebelum migrasi 202611010001. */
+  offline_ok?: boolean;
 };
+
+const ULANG: Array<{ value: "allow" | "stop"; label: string; detail: string }> = [
+  { value: "allow", label: "Let them in", detail: "Orange \"Already scanned\": they can still go in. Right for most sessions, where people step out and come back." },
+  { value: "stop", label: "Stop and check", detail: "Red \"Already used\": staff check that the badge belongs to this person before letting them in. For doors where a badge must not be passed on." },
+];
 
 type ModeBagasi = "off" | "dropoff" | "pickup";
 
@@ -375,6 +384,51 @@ export default function AttendanceAdminPage() {
             <KeyValue label="Last scan">{sesiTerpilih.terakhir ? `${formatEventDateTime(sesiTerpilih.terakhir, zone)} ${abbr}` : "None yet"}</KeyValue>
           </dl>
           <p className="text-body-medium text-on-surface-variant">Checked in counts people; scans count every scan. Someone scanned twice is checked in once.</p>
+        </DetailSection>
+        {/* Aturan pemindai per sesi (migrasi 202611010001). Sebelum migrasinya
+            kolomnya tidak ada: pilihannya ditampilkan nonaktif. */}
+        <DetailSection title="Scanner rules">
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-body-medium font-medium">Repeat scan</legend>
+            {ULANG.map((pilihan) => {
+              const belumAda = sesiTerpilih.repeat_scan === undefined;
+              const on = (sesiTerpilih.repeat_scan ?? "allow") === pilihan.value;
+              return (
+                <label
+                  key={pilihan.value}
+                  className={cx(
+                    "flex gap-3 rounded-lg p-3 text-body-medium",
+                    on ? "border-2 border-primary" : "border border-outline",
+                    busy || terkunci || belumAda || hanyaLihat ? "cursor-default opacity-60" : "cursor-pointer",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`repeat-scan-${sesiTerpilih.id}`}
+                    value={pilihan.value}
+                    checked={on}
+                    disabled={busy || terkunci || belumAda || hanyaLihat}
+                    onChange={() => void kirim("PATCH", { id: sesiTerpilih.id, repeat_scan: pilihan.value })}
+                    className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
+                  />
+                  <span>
+                    <span className="block font-medium">{pilihan.label}</span>
+                    <span className="block text-on-surface-variant">{pilihan.detail}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+          <Switch simpan
+            checked={sesiTerpilih.offline_ok === true}
+            disabled={busy || sesiTerpilih.offline_ok === undefined || hanyaLihat}
+            onChange={(value) => void kirim("PATCH", { id: sesiTerpilih.id, offline_ok: value })}
+            label="Allow check-in without signal"
+            description="When a scanner phone loses signal, it keeps the scan and sends it by itself when the signal is back, so the queue keeps moving. Until then staff see the code, not the name, and repeat or unknown badges show up later in History. Off: the phone shows Not saved and staff scan again."
+          />
+          {sesiTerpilih.repeat_scan === undefined ? (
+            <p className="text-body-medium text-on-surface-variant">Available after the database update for scanner rules is run.</p>
+          ) : null}
         </DetailSection>
         {/* Barang dibuat di Logistik; di sini hanya dipilih mana yang diperiksa
             petugas setelah memindai di sesi ini. */}
