@@ -36,9 +36,13 @@ import {
   type LandingImageShape,
   type LandingTextLimit,
 } from "@/lib/domain";
-import { DAFTAR_JENIS_BLOK, petaJenisBlok } from "@/lib/blok/jenis";
+import { DAFTAR_JENIS_BLOK, LABEL_KELOMPOK_BLOK, definisiBlok, petaJenisBlok, type KelompokBlok } from "@/lib/blok/jenis";
+import { IKON_BLOK } from "./ikon-bagian";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
+
+/** Urutan kelompok di dialog Tambah blok. */
+const URUTAN_KELOMPOK: readonly KelompokBlok[] = ["media", "daftar", "data", "panduan", "ajakan"];
 
 // Editor Hitung mundur dimuat hanya saat blok itu dibuka. `loading` wajib ada:
 // tanpa itu next/dynamic tidak memasang Suspense sendiri, jadi seluruh editor
@@ -145,8 +149,9 @@ export function TambahBlokDialog({
   open,
   onClose,
   onPick,
-  description = "New blocks go at the end of the page. Drag the handle or use the ⋯ menu to move them.",
+  description,
   jenis = URUTAN_JENIS,
+  tujuan = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -154,46 +159,105 @@ export function TambahBlokDialog({
   description?: string;
   /** Jenis yang ditawarkan. Area peserta hanya menawarkan jenis yang punya tampilan peserta. */
   jenis?: readonly LandingBlockType[];
+  /** Nama baris tempat blok baru disisipkan di bawahnya. Kosong = di akhir halaman. */
+  tujuan?: string | null;
 }) {
   const [pilih, setPilih] = useState<LandingBlockType>(jenis[0] ?? "text_image");
+  const [cari, setCari] = useState("");
+  // Cari di nama dan deskripsi, semua kata harus cocok ("logo sponsor" menemukan Partner logos).
+  const kata = cari.toLowerCase().split(/\s+/).filter(Boolean);
+  const cocok = jenis.filter((type) => {
+    const teks = `${LANDING_BLOCK_LABELS[type]} ${LANDING_BLOCK_DESCRIPTIONS[type]} ${LABEL_KELOMPOK_BLOK[definisiBlok(type).kelompok]}`.toLowerCase();
+    return kata.every((k) => teks.includes(k));
+  });
+  // Pilihan yang tersaring keluar pindah ke hasil pertama, supaya tombol Add tidak menambah yang tidak terlihat.
+  const aktif = cocok.includes(pilih) ? pilih : cocok[0] ?? null;
+  const kelompok = URUTAN_KELOMPOK.map((k) => ({ k, isi: cocok.filter((type) => definisiBlok(type).kelompok === k) })).filter((g) => g.isi.length > 0);
+  // Urutan panah = urutan yang terlihat (per kelompok), bukan urutan registri (QA #359 M1).
+  const urutTampil = kelompok.flatMap((g) => g.isi);
+  const tambahAktif = () => { if (aktif) { setCari(""); onPick(aktif); } };
+  const tutup = () => { setCari(""); onClose(); };
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={tutup}
       size="xl"
       title="Add block"
-      description={description}
+      description={description ?? (tujuan ? `Goes below “${tujuan}”. Drag the handle or use the ⋯ menu to move it later.` : "Goes at the end of the page. To place it elsewhere, use Add block below in a row's ⋯ menu.")}
       actions={
         <>
-          <Button variant="text" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onPick(pilih)}>Add {LANDING_BLOCK_LABELS[pilih]}</Button>
+          <Button variant="text" onClick={tutup}>Cancel</Button>
+          <Button disabled={!aktif} onClick={tambahAktif}>
+            {aktif ? `Add ${LANDING_BLOCK_LABELS[aktif]}` : "Add block"}
+          </Button>
         </>
       }
     >
-      <div role="radiogroup" aria-label="Block type" className="grid gap-3 sm:grid-cols-2">
-        {jenis.map((type) => {
-          const aktif = type === pilih;
-          return (
-            <button
-              key={type}
-              type="button"
-              role="radio"
-              aria-checked={aktif}
-              onClick={() => setPilih(type)}
-              onDoubleClick={() => onPick(type)}
-              className={cx(
-                "m3-state flex items-center gap-3 rounded-lg border p-2.5 text-left",
-                aktif ? "border-primary bg-primary-soft ring-1 ring-primary" : "border-outline-variant",
-              )}
-            >
-              <Sketsa type={type} />
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-body-large font-semibold text-on-surface">{LANDING_BLOCK_LABELS[type]}</span>
-                <span className="text-body-small text-on-surface-variant">{LANDING_BLOCK_DESCRIPTIONS[type]}</span>
-              </span>
-            </button>
-          );
-        })}
+      <div className="flex flex-col gap-3 pt-2">
+        <TextField
+          label="Search blocks"
+          type="search"
+          placeholder="Search, e.g. logo, map, countdown"
+          value={cari}
+          onChange={(event) => setCari(event.target.value)}
+          // Enter di kotak cari menambah pilihan yang tersorot (QA #359 L2).
+          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); tambahAktif(); } }}
+        />
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_15rem]">
+          <div role="radiogroup" aria-label="Block type" className="flex max-h-[min(26rem,55vh)] flex-col gap-1 overflow-y-auto pr-1">
+            {kelompok.length === 0 ? (
+              <p role="status" className="py-6 text-body-medium text-on-surface-variant">No block matches “{cari.trim()}”. Try another word.</p>
+            ) : null}
+            {kelompok.map((g) => (
+              <div key={g.k} role="group" aria-label={LABEL_KELOMPOK_BLOK[g.k]} className="flex flex-col gap-0.5">
+                <p aria-hidden className="px-2 pb-1 pt-3 text-body-small font-medium text-on-surface-variant first:pt-0">{LABEL_KELOMPOK_BLOK[g.k]}</p>
+                {g.isi.map((type) => {
+                  const dipilih = type === aktif;
+                  const Ikon = IKON_BLOK[type];
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      role="radio"
+                      aria-checked={dipilih}
+                      tabIndex={dipilih ? 0 : -1}
+                      onClick={() => setPilih(type)}
+                      onDoubleClick={() => { setCari(""); onPick(type); }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+                        event.preventDefault();
+                        const posisi = urutTampil.indexOf(type) + (event.key === "ArrowDown" ? 1 : -1);
+                        const berikut = urutTampil[(posisi + urutTampil.length) % urutTampil.length];
+                        setPilih(berikut);
+                        (event.currentTarget.closest('[role="radiogroup"]')?.querySelector(`[data-jenis="${berikut}"]`) as HTMLElement | null)?.focus();
+                      }}
+                      data-jenis={type}
+                      className={cx("m3-state flex min-h-12 items-center gap-3 rounded-md px-2 py-1.5 text-left", dipilih && "bg-accent-soft")}
+                    >
+                      <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-sm bg-surface-container-high text-on-surface-variant"><Ikon size={16} /></span>
+                      <span className="flex min-w-0 flex-col">
+                        <span className="text-body-medium font-medium text-on-surface">{LANDING_BLOCK_LABELS[type]}</span>
+                        <span className="truncate text-body-small text-on-surface-variant">{LANDING_BLOCK_DESCRIPTIONS[type]}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {aktif ? (
+            <div className="flex flex-col gap-3 max-sm:hidden" aria-live="polite">
+              <div className="flex h-44 items-center justify-center overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+                <span className="origin-center scale-[1.8]"><Sketsa type={aktif} /></span>
+              </div>
+              <p className="text-body-medium font-medium text-on-surface">{LANDING_BLOCK_LABELS[aktif]}</p>
+              <p className="text-body-small text-on-surface-variant">{LANDING_BLOCK_DESCRIPTIONS[aktif]}</p>
+              <p className="text-body-small text-on-surface-variant">
+                {definisiBlok(aktif).peserta ? "Can show on the Event page, the Participant page or both." : "Shows on the Event page only."}
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
     </Dialog>
   );

@@ -561,6 +561,8 @@ export default function LandingCmsPage() {
     facts: null, landing: {}, formInherit: true, formSeed: DEFAULT_REGISTRATION_SEED, tersimpan: null,
   });
   const [tambahTerbuka, setTambahTerbuka] = useState(false);
+  // Add block below: blok baru disisipkan sesudah baris ini (indeks di `sections`). Kosong = di akhir isi.
+  const [sisipSesudah, setSisipSesudah] = useState<{ indeks: number; judul: string } | null>(null);
   // Baris tersembunyi tetap di tempatnya; penyaring ini hanya menyembunyikannya dari daftar.
   const [tampilTersembunyi, setTampilTersembunyi] = useState(true);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState<{ ids: string[]; judul: string } | null>(null);
@@ -922,9 +924,18 @@ export default function LandingCmsPage() {
     }
   }
 
+  /** Indeks baris tujuan Naik/Turun: baris bertempat tetap (tempatTetap) dilompati,
+   *  supaya satu klik selalu terlihat memindahkan baris (QA #362 M1). -1 = tidak ada. */
+  function tujuanGeser(index: number, delta: number) {
+    for (let target = index + delta; target >= 0 && target < sections.length; target += delta) {
+      if (!tempatTetap(sections[target].id as LandingSectionId)) return target;
+    }
+    return -1;
+  }
+
   function moveSection(index: number, delta: number) {
-    const target = index + delta;
-    if (target < 0 || target >= sections.length) return;
+    const target = tujuanGeser(index, delta);
+    if (target < 0) return;
     const next = [...sections];
     [next[index], next[target]] = [next[target], next[index]];
     setLanding({ ...landing, sections: next });
@@ -2639,9 +2650,14 @@ export default function LandingCmsPage() {
 
   function tambahBlok(type: LandingBlockType, showOn?: LandingBlockShowOn) {
     const blok: LandingBlock = { ...buatBlok(type), ...(showOn ? { show_on: showOn } : {}) };
-    // Blok baru masuk di akhir isi, tetap di atas Portal peserta yang ada di ujung.
+    // Blok baru masuk di akhir isi, tetap di atas Portal peserta yang ada di ujung,
+    // atau tepat di bawah baris yang dipilih lewat "Add block below".
     const ujungPortal = sections.length > 0 && isPortalEntry(sections[sections.length - 1]);
-    const next = ujungPortal ? [...sections.slice(0, -1), { id: blok.id, enabled: true }, sections[sections.length - 1]] : [...sections, { id: blok.id, enabled: true }];
+    const sisip = sisipSesudah && sisipSesudah.indeks < sections.length ? sisipSesudah.indeks + 1 : null;
+    const next = sisip !== null
+      ? [...sections.slice(0, sisip), { id: blok.id, enabled: true }, ...sections.slice(sisip)]
+      : ujungPortal ? [...sections.slice(0, -1), { id: blok.id, enabled: true }, sections[sections.length - 1]] : [...sections, { id: blok.id, enabled: true }];
+    setSisipSesudah(null);
     setLanding({ ...landing, sections: next, blocks: [...(landing.blocks ?? []), blok] });
     setTambahTerbuka(false);
     setBagian("susunan");
@@ -2869,7 +2885,9 @@ export default function LandingCmsPage() {
             <span className="mr-2 size-2 shrink-0 rounded-full bg-warning" title={alasanTitik} aria-hidden />
           ) : null}
           {lencana ? <StatusChip tone="warning" className="shrink-0 max-sm:hidden">{lencana}</StatusChip> : null}
-          {sumber && !buka ? (
+          {/* Saat lencana tampil, tombol sumber disembunyikan supaya judul tidak terpotong
+              ("Spea…", QA #355 M1); tombol yang sama ada di dalam bagian saat dibuka. */}
+          {sumber && !buka && !lencana ? (
             <ButtonLink href={sumber.href} target="_blank" rel="noreferrer" variant="outlined" size="sm" trailingIcon={<ArrowUpRight size={14} />} className="shrink-0 max-sm:hidden" aria-label={`Edit in ${sumber.label}, opens in a new tab`}>
               {sumber.label}
             </ButtonLink>
@@ -2901,9 +2919,12 @@ export default function LandingCmsPage() {
   function menuBaris(index: number, judul: string, blok?: LandingBlock): ItemMenuBlok[] {
     const tampil = isPortalEntry(sections[index]) ? landing.portal_section !== false : sections[index].enabled;
     const items: ItemMenuBlok[] = [
-      { label: "Move up", icon: <ArrowUp size={18} />, disabled: index === 0, onSelect: () => moveSection(index, -1) },
-      { label: "Move down", icon: <ArrowDown size={18} />, disabled: index === sections.length - 1, onSelect: () => moveSection(index, 1) },
+      { label: "Move up", icon: <ArrowUp size={18} />, disabled: tujuanGeser(index, -1) < 0, onSelect: () => moveSection(index, -1) },
+      { label: "Move down", icon: <ArrowDown size={18} />, disabled: tujuanGeser(index, 1) < 0, onSelect: () => moveSection(index, 1) },
     ];
+    if (!forum && modern) {
+      items.push({ label: "Add block below", icon: <Plus size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => { setSisipSesudah({ indeks: index, judul }); setTambahTerbuka(true); } });
+    }
     if (blok) {
       items.push({ label: "Duplicate", icon: <CopySimple size={18} />, disabled: (landing.blocks ?? []).length >= 30, onSelect: () => duplikatBlok(index, blok) });
     }
@@ -3060,6 +3081,41 @@ export default function LandingCmsPage() {
     </div>
   ) : null;
 
+  /**
+   * Bagian bawaan yang di Modern TIDAK mengikuti urutan halaman, jadi menyeretnya
+   * tidak mengubah apa pun: logo mitra dan kontak (selain Horizon) selalu di kaki,
+   * angka kunci menempel pada About, dan gaya gathering tidak menampilkan angka
+   * kunci sama sekali. Barisnya tampil di tempat itu, tanpa pegangan seret.
+   * Datanya tetap di `sections`; hanya daftarnya yang jujur soal letaknya.
+   */
+  function tempatTetap(id: LandingSectionId): "kaki" | "tentang" | "tidak" | null {
+    if (!modern || forum) return null;
+    if (id === "sponsors") return "kaki";
+    if (id === "contact" && !horizon) return "kaki";
+    if (id === "highlights") return gathering ? "tidak" : "tentang";
+    return null;
+  }
+
+  function barisTetap(id: LandingSectionId, tempat: "kaki" | "tentang") {
+    if (tempatTetap(id) !== tempat) return null;
+    const index = sections.findIndex((section) => section.id === id);
+    if (index < 0) return null;
+    const section = sections[index];
+    if (!section.enabled && !tampilTersembunyi && terbuka !== id) return null;
+    const judul = LANDING_SECTION_ADMIN_LABELS[id];
+    const berisi = sectionHasContent(id);
+    return barisSusunan({
+      id,
+      nomor: index + 2,
+      judul,
+      sub: subBawaan(id),
+      lencana: section.enabled && berisi === false ? "No content yet" : null,
+      saklar: { checked: section.enabled, onChange: (value: boolean) => setTampil(index, value) },
+      menu: [{ label: section.enabled ? "Hide" : "Show", icon: section.enabled ? <EyeSlash size={18} /> : <Eye size={18} />, onSelect: () => setTampil(index, !section.enabled) }],
+      isi: isiBawaan(id),
+    });
+  }
+
   const isiSusunan = facts && forum ? (
     <ForumSusunan
       landing={landing}
@@ -3133,9 +3189,12 @@ export default function LandingCmsPage() {
           }
 
           const id: LandingSectionId = section.id;
+          // Bagian yang di layout ini tidak mengikuti urutan halaman tidak ikut
+          // diseret di Page content: ia tampil di tempat tetapnya (lihat tempatTetap).
+          if (tempatTetap(id)) return null;
           const berisi = sectionHasContent(id);
           const kosong = section.enabled && (berisi === false || (id === "agenda" && rundownKosong));
-          return barisSusunan({
+          const baris = barisSusunan({
             id,
             nomor: index + 2,
             judul: LANDING_SECTION_ADMIN_LABELS[id],
@@ -3149,6 +3208,8 @@ export default function LandingCmsPage() {
             menu: menuBaris(index, LANDING_SECTION_ADMIN_LABELS[id]),
             isi: isiBawaan(id),
           });
+          // Angka kunci Modern tampil di dalam About: barisnya tepat di bawah About.
+          return id === "about" ? [baris, barisTetap("highlights", "tentang")] : baris;
         })}
         {terbuka === null ? <li aria-hidden className={TAJUK_KELOMPOK}>Bottom of page</li> : null}
         {barisSusunan({
@@ -3158,15 +3219,21 @@ export default function LandingCmsPage() {
           sub: horizon ? "Organiser line, closing band" : modern ? "Organiser line, call-to-action banner" : "Organiser line",
           isi: isiKaki,
         })}
+        {barisTetap("sponsors", "kaki")}
+        {barisTetap("contact", "kaki")}
       </ol>
       {terbuka === null ? (
-        <div className="px-4 py-4">
-          <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
+        // Menempel di kaki panel: menambah blok tidak perlu menggulir melewati semua baris.
+        // -bottom-40: bidang gulir Sections punya pb-40 (ruang toast galat), dan
+        // sticky dihitung dari dalam padding itu; tanpanya bilah melayang 160 px di atas kaki.
+        <div className="sticky -bottom-40 z-10 flex items-center gap-3 border-t border-outline-variant bg-surface-container-lowest px-4 py-3">
+          <Button variant="outlined" icon={<Plus size={18} />} onClick={() => { setSisipSesudah(null); setTambahTerbuka(true); }} disabled={(landing.blocks ?? []).length >= 30}>
             Add block
           </Button>
+          <span className="min-w-0 truncate text-body-small text-on-surface-variant max-sm:hidden">or ⋯ › Add block below on any row</span>
         </div>
       ) : null}
-      <TambahBlokDialog open={tambahTerbuka} onClose={() => setTambahTerbuka(false)} onPick={tambahBlok} />
+      <TambahBlokDialog open={tambahTerbuka} onClose={() => { setTambahTerbuka(false); setSisipSesudah(null); }} onPick={(type) => { const id = tambahBlok(type); gulirKeBaris(id); }} tujuan={sisipSesudah?.judul ?? null} />
     </div>
   ) : null;
 

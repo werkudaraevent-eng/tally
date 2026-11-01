@@ -2,9 +2,15 @@
 
 import { Armchair, ArrowDown, ArrowLeft, ArrowSquareOut, ArrowUp, CaretDown, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { AssignSeatDialog, type KursiDipilih, type Urungkan } from "./assign-seat-dialog";
+import { SeatsPanel, type Orang } from "./seats-panel";
+import { LayoutPicker } from "./layout-picker";
+import { LAYOUT_FIELDS, pakaiMejaBulat, SEMUA_LAYOUT, type IsianAngka } from "@/lib/seat-map-layout-fields";
+
+const SEAT_MAP_LAYOUTS_BULAT: string[] = SEMUA_LAYOUT.filter(pakaiMejaBulat);
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
@@ -12,7 +18,7 @@ import { plural } from "@/lib/plural";
 import {
   computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
   type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection, type SeatShape,
-  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS, nextSectionPrefix, sectionPrefixError,
+  LAYOUT_INFO, layoutDefaults, defaultSection, MAX_SECTIONS, nextSectionPrefix, sectionPrefixError,
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
@@ -79,7 +85,15 @@ type Tampilan = "sesi" | "ruangan";
 
 type LayarDraft = { public_view_mode: PublicViewMode; default_session_id: number | null; search_company: boolean };
 
-const BULAT = ["banquet_round", "cabaret", "head_table"];
+/** Meja bulat: baris meja, aturan kursi per meja, label meja. */
+const BULAT = SEAT_MAP_LAYOUTS_BULAT;
+
+/** Pilihan jadi untuk sudut kursi di meja bulat, dalam bahasa panitia. */
+const BUSUR = [
+  { value: 300, label: "Almost all the way round" },
+  { value: 240, label: "Two thirds, open to the stage" },
+  { value: 190, label: "Facing the stage only" },
+];
 
 function Lipatan({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
   return (
@@ -154,12 +168,17 @@ export default function SeatMapAdminPage() {
   const [uploadingBackground, setUploadingBackground] = useState<number | null>(null);
   const [error, setError] = useState("");
   // Assign seats: denah menampilkan isi kursi sebenarnya dan kursinya bisa diklik.
-  const [modeDenah, setModeDenah] = useState<"preview" | "assign">("preview");
+  // Orang yang dipilih di panel Seats; klik kursi kosong mendudukkannya.
+  const [orangDipilih, setOrangDipilih] = useState<Orang | null>(null);
+  const [mendudukkan, setMendudukkan] = useState(false);
+  const [segar, setSegar] = useState(0);
+  const [panelSesi, setPanelSesi] = useState<"kursi" | "setelan">("kursi");
   const [terisi, setTerisi] = useState<Record<number, Record<string, { participantId: string; name: string; label: string }>> | null>(null);
   const [kursiDipilih, setKursiDipilih] = useState<KursiDipilih | null>(null);
   // Perubahan kursi terakhir yang masih bisa dibatalkan (Remove / Change person).
   const [urungkan, setUrungkan] = useState<{ pesan: string; langkah: Urungkan } | null>(null);
   const [mengurungkan, setMengurungkan] = useState(false);
+  const [busurKustom, setBusurKustom] = useState(false);
   const toast = useToast();
 
   /**
@@ -192,9 +211,11 @@ export default function SeatMapAdminPage() {
     setPreviewSlug((current) => (current && data.sessions.some((row) => row.slug === current) ? current : data.sessions[0]?.slug ?? null));
   }
 
+  // Sekali saat halaman dibuka.
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); }, 0);
+    const timer = window.setTimeout(() => { void load(); void muatKursi(); }, 0);
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function muatKursi() {
@@ -220,6 +241,7 @@ export default function SeatMapAdminPage() {
     }).catch(() => null);
     setMengurungkan(false);
     setUrungkan(null);
+    setSegar((nilai) => nilai + 1);
     if (response?.ok) toast.success(`Seat ${langkah.label} restored.`);
     else toast.error("Couldn't undo", "The seat changed again in the meantime. Check the map.");
     void muatKursi();
@@ -423,7 +445,7 @@ export default function SeatMapAdminPage() {
   const pakaiTally = aktif?.sub_event_id != null && aktif.sub_event_id === sumberTally;
   const orphanSubEvent = aktif?.sub_event_id != null && !pakaiTally && payload !== null && !payload.available_sub_events.some((item) => item.subEventId === aktif.sub_event_id);
   const publik = sessions.filter((item) => item.is_published);
-  const menugaskan = tampilan === "sesi" && modeDenah === "assign" && pakaiTally && aktif !== null;
+  const menugaskan = tampilan === "sesi" && pakaiTally && aktif !== null;
   // Kursi diisi pada tata ruang yang TERSIMPAN; suntingan yang belum disimpan bisa mengubah label kursi.
   const configTersimpan = payload?.config ?? null;
   const tataRuangBerubah = config !== null && configTersimpan !== null && JSON.stringify(bagianRuangan(config)) !== JSON.stringify(bagianRuangan(configTersimpan));
@@ -471,30 +493,89 @@ export default function SeatMapAdminPage() {
     setKursiDipilih({ sessionId: aktif.id, sessionName: aktif.name, label, holder: pemegang ? { participantId: pemegang.participantId, name: pemegang.name } : null });
   }
 
+  // Kursi kosong pertama dari panggung (urutan geometri), untuk jalur papan
+  // ketik di panel Seats.
+  const geometriTersimpan = useMemo(() => (configTersimpan ? computeSeatMapGeometry(configTersimpan) : null), [configTersimpan]);
+  const geometriDraf = useMemo(() => (config && tampilan === "ruangan" ? computeSeatMapGeometry(config) : null), [config, tampilan]);
+  const isiSesi = useMemo(() => (aktif && terisi?.[aktif.id]) ?? {}, [aktif, terisi]);
+  const kursiBerikut = useMemo(() => {
+    if (!geometriTersimpan) return null;
+    for (const table of geometriTersimpan.tables) for (const seat of table.seats) if (!isiSesi[normalizeSeatLabel(seat.label)]) return seat.label;
+    return null;
+  }, [geometriTersimpan, isiSesi]);
+  const diLuarDenah = useMemo(() => {
+    if (!geometriTersimpan) return [];
+    const ada = new Set(geometriTersimpan.tables.flatMap((table) => table.seats.map((seat) => normalizeSeatLabel(seat.label))));
+    return Object.entries(isiSesi).filter(([kunci]) => !ada.has(kunci)).map(([, isi]) => ({ name: isi.name, label: isi.label }));
+  }, [geometriTersimpan, isiSesi]);
+  const jumlahTerisi = Object.keys(isiSesi).length - diLuarDenah.length;
+  const jumlahKosong = (payload?.geometry.total_seats ?? 0) - jumlahTerisi;
+
+  // Esc membatalkan pilihan orang.
+  useEffect(() => {
+    if (!orangDipilih) return;
+    const tekan = (event: KeyboardEvent) => { if (event.key === "Escape" && !kursiDipilih) setOrangDipilih(null); };
+    window.addEventListener("keydown", tekan);
+    return () => window.removeEventListener("keydown", tekan);
+  }, [orangDipilih, kursiDipilih]);
+
+  async function dudukkan(label: string) {
+    if (!aktif || !orangDipilih) return;
+    const orang = orangDipilih;
+    setMendudukkan(true);
+    const response = await fetch("/api/admin/seat-map/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: aktif.id, label, participant_id: orang.id, current_participant_id: null }),
+    }).catch(() => null);
+    const data = await response?.json().catch(() => null);
+    setMendudukkan(false);
+    if (!response?.ok) {
+      toast.error("Seat not changed", response?.status === 409 ? "Someone took this seat just now. The map has been refreshed." : data?.error?.details?.seat ?? data?.error?.message ?? "Try again.");
+    } else {
+      setOrangDipilih(null);
+      setUrungkan({
+        pesan: orang.seat ? `${orang.name} moved from ${orang.seat} to ${label}.` : `${orang.name} is now in seat ${label}.`,
+        // Urungkan: kembali ke kursi lama, atau kosongkan kursi baru.
+        langkah: orang.seat
+          ? { sessionId: aktif.id, label: orang.seat, participantId: orang.id, currentParticipantId: null }
+          : { sessionId: aktif.id, label, participantId: null, currentParticipantId: orang.id },
+      });
+    }
+    setSegar((nilai) => nilai + 1);
+    void muatKursi();
+    void load({ ruangan: "pertahankan", sesi: "pertahankan" });
+  }
+
+  function klikKursi(label: string) {
+    if (orangDipilih && aktif && !isiSesi[normalizeSeatLabel(label)]) { void dudukkan(label); return; }
+    bukaKursi(label);
+  }
+
   // ---- Panel utama: denah hidup --------------------------------------------
+  const legenda = (daftar: ReadonlyArray<readonly [string, string | undefined]>) => daftar.map(([label, warna]) => (
+    <span key={label} className="inline-flex items-center gap-1.5">
+      <span aria-hidden className="size-2.5 rounded-full border border-outline-variant" style={{ background: warna }} />{label}
+    </span>
+  ));
   const peta = config ? (
-    <Pane aria-label="Seating plan preview">
+    <Pane aria-label="Seating plan">
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-variant px-4 py-2.5 text-body-medium text-on-surface-variant">
-        {pakaiTally && tampilan === "sesi" ? (
-          <SegmentedButton<"preview" | "assign">
-            label="Map mode"
-            value={modeDenah}
-            onChange={(mode) => { setModeDenah(mode); if (mode === "assign") void muatKursi(); }}
-            options={[{ value: "preview", label: "Preview" }, { value: "assign", label: "Assign seats" }]}
-          />
-        ) : null}
         {menugaskan ? (
-          <span>{tataRuangBerubah ? "Showing the saved layout. Save layout to assign seats on your changes." : "Click a seat to put someone in it or change who sits there."}</span>
-        ) : warnaEfektif ? (
           <>
-            {([["Empty", warnaEfektif.available], ["Occupied", warnaEfektif.occupied], ["Checked in", warnaEfektif.checkedIn]] as const).map(([label, warna]) => (
-              <span key={label} className="inline-flex items-center gap-1.5">
-                <span aria-hidden className="size-2.5 rounded-full border border-outline-variant" style={{ background: warna }} />{label}
-              </span>
-            ))}
+            {report ? <span className="font-medium text-on-surface">{(jumlahTerisi + diLuarDenah.length).toLocaleString("en-GB")} of {report.total_active_participants.toLocaleString("en-GB")} seated</span> : null}
+            {warnaEfektif ? legenda([[`Empty ${jumlahKosong.toLocaleString("en-GB")}`, warnaEfektif.available], ["Seated", warnaEfektif.occupied]]) : null}
+            <span className="ml-auto">
+              {orangDipilih ? <>Click an empty seat for <span className="font-medium text-on-surface">{orangDipilih.name}</span></> : "Click a seat to see or change who sits there."}
+            </span>
+            {orangDipilih ? <Button variant="text" size="sm" onClick={() => setOrangDipilih(null)}>Cancel</Button> : null}
           </>
-        ) : <span>Sample occupancy: table 1 checked in, table 2 occupied.</span>}
-        {tampilan === "ruangan" ? <span className="ml-auto">Sample occupancy. Updates as you type.</span> : null}
+        ) : (
+          <>
+            {warnaEfektif ? legenda([["Empty", warnaEfektif.available], ["Occupied", warnaEfektif.occupied], ["Checked in", warnaEfektif.checkedIn]]) : null}
+            <span className="ml-auto">{tampilan === "ruangan" ? "Sample occupancy. Updates as you type." : "Sample occupancy. Seats from the scanner API show on the public page."}</span>
+          </>
+        )}
       </div>
       {/* Pratinjau memakai renderer publik, yang teksnya berbahasa Indonesia. */}
       <div
@@ -508,7 +589,8 @@ export default function SeatMapAdminPage() {
         <SeatMapView
           config={menugaskan && configTersimpan ? configTersimpan : config}
           seatStates={menugaskan ? kursiAsli : previewSeatStates}
-          onSeatClick={menugaskan && terisi ? (label) => bukaKursi(label) : undefined}
+          highlightedSeatLabels={menugaskan && orangDipilih?.seat ? [orangDipilih.seat] : undefined}
+          onSeatClick={menugaskan && terisi && !mendudukkan ? (label) => klikKursi(label) : undefined}
           showAttendance
           backgroundColor={aktif?.background_color ?? "#111a63"}
           canvasColor={aktif?.map_panel_transparent && aktif.background_image_url ? "transparent" : undefined}
@@ -519,31 +601,43 @@ export default function SeatMapAdminPage() {
           className="mx-auto min-w-[480px]"
         />
       </div>
-      {menugaskan && urungkan ? (
-        <div role="status" className="flex shrink-0 items-center gap-3 border-t border-outline-variant bg-inverse-surface px-4 py-1.5 text-body-medium text-inverse-on-surface">
-          <span className="min-w-0 flex-1">{urungkan.pesan}</span>
-          <button type="button" onClick={() => void batalkanPerubahan()} disabled={mengurungkan} className="min-h-9 shrink-0 rounded-full px-3 text-label-large font-semibold underline disabled:opacity-60">{mengurungkan ? "Undoing…" : "Undo"}</button>
+      {menugaskan ? null : (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
+          {report && tampilan === "sesi" ? (
+            <>
+              <span className="text-on-surface-variant">{plural(report.matched_seats, "seat")} occupied, {report.empty_seats.toLocaleString("en-GB")} empty, {plural(report.participants_without_seat, "participant")} without a seat</span>
+              <span className="ml-auto">
+                {report.unmatched_count > 0
+                  ? <StatusChip tone="warning">{plural(report.unmatched_count, "label")} not on the seating plan: {report.unmatched_labels.slice(0, 3).join(", ")}{report.unmatched_count > 3 ? "…" : ""}</StatusChip>
+                  : report.total_assignments > 0 ? <StatusChip dot tone="success">All labels match</StatusChip> : null}
+              </span>
+            </>
+          ) : (
+            tampilan === "ruangan" ? (
+              <span className="text-on-surface-variant">{plural(geometriDraf?.totalTables ?? 0, "table")}, {plural(geometriDraf?.totalSeats ?? 0, "seat")}{tataRuangBerubah ? ` (saved: ${payload?.geometry.total_seats.toLocaleString("en-GB") ?? 0} seats)` : ""}</span>
+            ) : (
+              <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}. Seat matching appears once the session has a seat source.</span>
+            )
+          )}
         </div>
+      )}
+      {/* Snackbar M3: dipasang ke body supaya tetap di layar, juga saat
+          pane digulir atau di 390 ketika tombol "Seat in" jauh di bawah denah. */}
+      {menugaskan && urungkan && typeof document !== "undefined" ? createPortal(
+        <div role="status" className="fixed inset-x-4 bottom-4 z-toast mx-auto flex w-fit max-w-[560px] items-center gap-3 rounded-sm bg-inverse-surface py-1.5 pl-4 pr-2 text-body-medium text-inverse-on-surface shadow-lg sm:bottom-6">
+          <span className="min-w-0 flex-1">{urungkan.pesan}</span>
+          <button type="button" onClick={() => void batalkanPerubahan()} disabled={mengurungkan} className="min-h-9 shrink-0 rounded-full px-3 text-label-large font-semibold text-inverse-primary disabled:opacity-60">{mengurungkan ? "Undoing…" : "Undo"}</button>
+        </div>,
+        document.body,
       ) : null}
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
-        {report && tampilan === "sesi" ? (
-          <>
-            <span className="text-on-surface-variant">{plural(report.matched_seats, "seat")} occupied, {report.empty_seats.toLocaleString("en-GB")} empty, {plural(report.participants_without_seat, "participant")} without a seat</span>
-            <span className="ml-auto">
-              {report.unmatched_count > 0
-                ? <StatusChip tone="warning" title={`For example: ${report.unmatched_labels.slice(0, 6).join(", ")}`}>{plural(report.unmatched_count, "label")} not on the seating plan</StatusChip>
-                : report.total_assignments > 0 ? <StatusChip dot tone="success">All labels match</StatusChip> : null}
-            </span>
-          </>
-        ) : (
-          <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}{tampilan === "ruangan" ? "" : ". Seat matching appears once the session has a seat source."}</span>
-        )}
-      </div>
     </Pane>
   ) : null;
 
   // ---- Panel pendukung ---------------------------------------------------------
   const sections = config?.layout_params.sections ?? [];
+  // Penempatan kursi di semua sesi. Server menolak ganti layout begitu ada satu
+  // saja; di sini pilihan lain dinonaktifkan dengan alasannya.
+  const jumlahPenempatan = (payload?.reports ?? []).reduce((total, item) => total + item.total_assignments, 0);
   function pilihLayout(value: string) {
     if (value === "mixed") {
       // Ruangan gabungan dimulai dari contoh yang paling sering diminta: sofa VIP
@@ -565,14 +659,15 @@ export default function SeatMapAdminPage() {
   const isiRuangan = config ? (
     <div className="flex flex-col gap-5">
       <Kelompok title="Room shape" first>
+        <LayoutPicker value={sections.length ? "mixed" : config.layout_type} onChange={pilihLayout} terkunci={jumlahPenempatan > 0} />
+        {jumlahPenempatan > 0 ? (
+          <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
+            <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+            <span><span className="font-medium">The layout is locked: {plural(jumlahPenempatan, "seat")} {jumlahPenempatan === 1 ? "is" : "are"} assigned.</span> Another layout changes every seat label, so those people would lose their seats. Remove the seat assignments first to change it.</span>
+          </p>
+        ) : null}
         {sections.length ? (
           <>
-            <Field label="Layout type" htmlFor="layout-type" hint="Sections stacked from the stage backwards. Each section has its own layout and its own seat labels.">
-              <select id="layout-type" value="mixed" onChange={(event) => pilihLayout(event.target.value)} className={INPUT}>
-                <option value="mixed">Mixed (sections)</option>
-                {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
-              </select>
-            </Field>
             <div className="flex flex-col gap-2">
               {sections.map((section, index) => {
                 const set = (patch: Partial<SeatSection>) => updateParam("sections", sections.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -624,49 +719,39 @@ export default function SeatMapAdminPage() {
           </>
         ) : (
           <>
-        <Field label="Layout type" htmlFor="layout-type" hint={`${LAYOUT_INFO[config.layout_type].desc} ${LAYOUT_INFO[config.layout_type].labelHint}.`}>
-          <select
-            id="layout-type"
-            value={config.layout_type}
-            onChange={(event) => pilihLayout(event.target.value)}
-            className={INPUT}
-          >
-            <option value="mixed">Mixed (sections)</option>
-            {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
-          </select>
-        </Field>
-        <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
-          <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-          Don&rsquo;t change the layout once participants have seat numbers: the seat labels change and existing seat assignments stop matching.
-        </p>
-        {BULAT.includes(config.layout_type) ? (
-          <Field label="Seat arc (degrees)" hint="300 = almost all the way round the table. 190 = cabaret.">
-            <input type="number" min={60} max={340} value={config.layout_params.arc_sweep} onChange={(event) => updateParam("arc_sweep", Number(event.target.value))} className={cx(INPUT, "w-32")} />
-          </Field>
-        ) : null}
-        {config.layout_type === "theater" || config.layout_type === "classroom" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Rows"><input type="number" min={1} max={40} value={config.layout_params.rows} onChange={(event) => updateParam("rows", Number(event.target.value))} className={INPUT} /></Field>
-            <Field label={config.layout_type === "theater" ? "Seats per row" : "Tables per row"}><input type="number" min={1} max={40} value={config.layout_params.per_row} onChange={(event) => updateParam("per_row", Number(event.target.value))} className={INPUT} /></Field>
-          </div>
-        ) : null}
-        {config.layout_type === "classroom" ? (
-          <Field label="Seats per table"><input type="number" min={1} max={12} value={config.layout_params.seats_per_table} onChange={(event) => updateParam("seats_per_table", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
-        ) : null}
-        {config.layout_type === "theater" ? (
-          <Field label="Aisle after seat number" hint="Separate with commas. Leave empty for no aisles.">
-            <InputLorong aisles={config.layout_params.aisles} onChange={(aisles) => updateParam("aisles", aisles)} />
-          </Field>
-        ) : null}
-        {config.layout_type === "u_shape" || config.layout_type === "hollow_square" || config.layout_type === "boardroom" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Seats per long side"><input type="number" min={1} max={40} value={config.layout_params.seats_per_side} onChange={(event) => updateParam("seats_per_side", Number(event.target.value))} className={INPUT} /></Field>
-            <Field label={config.layout_type === "boardroom" ? "Seats at the table ends" : "Seats on the head side"}><input type="number" min={0} max={20} value={config.layout_params.seats_head} onChange={(event) => updateParam("seats_head", Number(event.target.value))} className={INPUT} /></Field>
-          </div>
-        ) : null}
-        {config.layout_type === "head_table" ? (
-          <Field label="Head table seats"><input type="number" min={1} max={26} value={config.layout_params.head_seats} onChange={(event) => updateParam("head_seats", Number(event.target.value))} className={cx(INPUT, "w-32")} /></Field>
-        ) : null}
+        {LAYOUT_FIELDS[config.layout_type].map((barisIsian, index) => {
+          const angka = (isian: IsianAngka, lebar?: string) => (
+            <Field key={isian.key} label={isian.label}>
+              <input type="number" min={isian.min} max={isian.max} value={config.layout_params[isian.key]} onChange={(event) => updateParam(isian.key, Number(event.target.value))} className={cx(INPUT, lebar)} />
+            </Field>
+          );
+          if (barisIsian.kind === "arc") return (
+            <Field key={index} label="Seats around the table" htmlFor="arc-sweep">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  id="arc-sweep"
+                  value={busurKustom || !BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? "custom" : String(config.layout_params.arc_sweep)}
+                  onChange={(event) => { const kustom = event.target.value === "custom"; setBusurKustom(kustom); updateParam("arc_sweep", kustom ? 270 : Number(event.target.value)); }}
+                  className={cx(INPUT, "w-auto flex-1")}
+                >
+                  {BUSUR.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  <option value="custom">Custom angle</option>
+                </select>
+                {/* Tetap terpasang selama Custom dipilih, juga saat angkanya kebetulan sama dengan preset. */}
+                {!busurKustom && BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? null : (
+                  <input type="number" min={60} max={340} aria-label="Angle in degrees" value={config.layout_params.arc_sweep} onChange={(event) => updateParam("arc_sweep", Number(event.target.value))} className={cx(INPUT, "w-24")} />
+                )}
+              </div>
+            </Field>
+          );
+          if (barisIsian.kind === "pair") return <div key={index} className="grid grid-cols-2 gap-3">{barisIsian.fields.map((isian) => angka(isian))}</div>;
+          if (barisIsian.kind === "single") return angka(barisIsian.field, "w-32");
+          return (
+            <Field key={index} label={barisIsian.label} hint={barisIsian.hint}>
+              <InputLorong aisles={config.layout_params.aisles} onChange={(aisles) => updateParam("aisles", aisles)} />
+            </Field>
+          );
+        })}
           </>
         )}
       </Kelompok>
@@ -756,7 +841,7 @@ export default function SeatMapAdminPage() {
             </div>
           </Field>
         ) : null}
-        <Field label="Seat label pattern" htmlFor="label-pattern" hint="Must include {table} and {seat}, and must match how the scanner API writes labels.">
+        <Field label="Seat label pattern" htmlFor="label-pattern" hint="Must include {table} and {seat}, e.g. {table}{seat} gives 12A. If seats come from the scanner, use the format it uses.">
           <input id="label-pattern" value={config.seat_label_pattern} onChange={(event) => updateConfig("seat_label_pattern", event.target.value)} className={INPUT} />
         </Field>
         <Field label="Custom table labels" hint="For tables whose label differs from their position number, e.g. table 4 labelled 3A. The table does not move.">
@@ -960,6 +1045,18 @@ export default function SeatMapAdminPage() {
   const galatRuangan = prefixInvalid ? "Fix the label prefix first" : seatConflicts.length > 0 ? "Give each section its own label prefix" : labelConflicts.length > 0 ? "Fix duplicate table labels first" : null;
   const catatanBelumSimpan = (teks: string) => <span className="inline-flex items-center gap-1.5 text-on-surface"><span aria-hidden className="size-2 rounded-full bg-warning" />{teks}</span>;
 
+  const tombolPanelSesi = (
+    <div className="shrink-0 border-b border-outline-variant px-4 py-3">
+      <SegmentedButton<"kursi" | "setelan">
+        label="Panel"
+        value={panelSesi}
+        onChange={(nilai) => { setPanelSesi(nilai); setOrangDipilih(null); }}
+        className="w-full"
+        options={[{ value: "kursi", label: "Seats" }, { value: "setelan", label: sesiBerubah ? "Session settings •" : "Session settings" }]}
+      />
+    </div>
+  );
+
   const panel = tampilan === "ruangan" ? (
     <Pane as="aside" aria-label="Room layout">
       <PaneBody className="px-4 py-4">{isiRuangan}</PaneBody>
@@ -970,8 +1067,27 @@ export default function SeatMapAdminPage() {
         <Button simpan size="sm" onClick={() => void saveRoom()} loading={savingConfig} disabled={!tataRuangBerubah || galatRuangan !== null}>Save layout</Button>
       </PaneFooter>
     </Pane>
+  ) : pakaiTally && aktif && report && panelSesi === "kursi" ? (
+    <Pane as="aside" aria-label="Seats">
+      {tombolPanelSesi}
+      <PaneBody className="px-4 py-4">
+        <SeatsPanel
+          sessionId={aktif.id}
+          tanpaKursi={report.participants_without_seat}
+          terisi={jumlahTerisi + diLuarDenah.length}
+          dipilih={orangDipilih}
+          onPilih={setOrangDipilih}
+          kursiBerikut={kursiBerikut}
+          onDudukkan={(label) => void dudukkan(label)}
+          menyimpan={mendudukkan}
+          diLuarDenah={diLuarDenah}
+          segar={segar}
+        />
+      </PaneBody>
+    </Pane>
   ) : (
     <Pane as="aside" aria-label="Session settings">
+      {pakaiTally && aktif && report ? tombolPanelSesi : null}
       <PaneBody className="px-4 py-4">{isiAgenda}</PaneBody>
       {aktif ? (
         <PaneFooter note={sesiBerubah ? catatanBelumSimpan("Unsaved changes") : "This session only"}>
@@ -1047,7 +1163,7 @@ export default function SeatMapAdminPage() {
                   label="Sessions"
                   idPrefix="agenda"
                   value={aktif?.slug ?? ""}
-                  onChange={(slug) => setPreviewSlug(slug)}
+                  onChange={(slug) => { setPreviewSlug(slug); setOrangDipilih(null); }}
                   className="border-b-0"
                   options={sessions.map((item) => ({ value: item.slug, label: item.name, badge: item.is_published ? undefined : "Draft" }))}
                 />
