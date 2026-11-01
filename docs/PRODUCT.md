@@ -195,9 +195,9 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 ### Seating plan
 - **For:** participants and public screens find their seat; admins assign seats.
 - **CMS (Seating plan):**
-  - Room: 8 layouts (banquet, cabaret, theatre, classroom, U-shape, hollow square, boardroom, head table + banquet) or a composite room of up to 6 sections; tables, seats, rows, aisles, seat label pattern, custom table labels, stage label, seat shape.
-  - Sessions: title, seat source (set in Tally, or from the external scanner system), show to participants (new sessions start as drafts), colours, background, header and footer.
-  - Public screens: default session; display mode Name search (phones, touch screens) or QR for LED; search by organisation (off by default).
+  - Room layout (its own view from the page header, shared by every session): 8 layouts (banquet, cabaret, theatre, classroom, U-shape, hollow square, boardroom, head table + banquet) or a composite room of up to 6 sections; tables, seats, rows, aisles, seat label pattern, custom table labels, stage label, seat shape.
+  - Sessions (tabs; only per-session settings sit under them): title, seat source (set in Tally, or from the external scanner system), show to participants (new sessions start as drafts), colours, background, header and footer.
+  - Screen settings (dialog from the page header, applies to every screen): default session; display mode Name search (phones, touch screens) or QR for LED; search by organisation (off by default).
   - Assign seats: search participants and place them.
 - **Shows at:** `/e/<slug>/denah?sesi=<session>`, the participant seat card, the event page Venue section.
 - **Rule:** the public page never shows full names; the event's name mode and each person's own display choice apply, the strictest wins.

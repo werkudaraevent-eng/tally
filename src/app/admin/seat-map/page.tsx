@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowDown, ArrowSquareOut, ArrowUp, CaretDown, Info, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Armchair, ArrowDown, ArrowLeft, ArrowSquareOut, ArrowUp, CaretDown, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { AssignSeatDialog, type KursiDipilih, type Urungkan } from "./assign-seat-dialog";
@@ -16,8 +16,8 @@ import {
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
-  Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter,
-  SegmentedButton, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
+  Banner, Button, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter,
+  Popover, POPOVER_ITEM, SegmentedButton, usePopoverAnchor, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { INPUT, Field, Kelompok } from "@/components/admin/compact-form";
 
@@ -69,7 +69,15 @@ type Payload = {
   reports: MatchReport[];
 };
 
-type Bagian = "ruangan" | "agenda" | "layar";
+/**
+ * Dua tampilan dengan cakupan berbeda. "sesi": semua yang di bawah tab sesi
+ * berlaku untuk sesi itu saja. "ruangan": penyunting tata ruang, dipakai
+ * bersama semua sesi, jadi tab sesi diganti tombol kembali. Setelan layar
+ * publik (berlaku untuk semua layar) ada di dialognya sendiri.
+ */
+type Tampilan = "sesi" | "ruangan";
+
+type LayarDraft = { public_view_mode: PublicViewMode; default_session_id: number | null; search_company: boolean };
 
 const BULAT = ["banquet_round", "cabaret", "head_table"];
 
@@ -86,6 +94,14 @@ function Lipatan({ title, detail, children }: { title: string; detail: string; c
       <div className="pb-4">{children}</div>
     </details>
   );
+}
+
+/** Kolom yang disunting di Room layout. Setelan layar publik dikecualikan. */
+function bagianRuangan(config: ConfigState) {
+  const { public_view_mode: _mode, default_session_id: _bawaan, layout_params, ...ruangan } = config;
+  const { search_company: _cari, ...params } = layout_params;
+  void _mode; void _bawaan; void _cari;
+  return { ...ruangan, layout_params: params };
 }
 
 function bacaLorong(teks: string): number[] {
@@ -123,7 +139,13 @@ export default function SeatMapAdminPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingSession, setSavingSession] = useState<number | null>(null);
   const [previewSlug, setPreviewSlug] = useState<string | null>(null);
-  const [bagian, setBagian] = useState<Bagian>("ruangan");
+  const [tampilan, setTampilan] = useState<Tampilan>("sesi");
+  const [konfirmasiKeluar, setKonfirmasiKeluar] = useState(false);
+  const [layarOpen, setLayarOpen] = useState(false);
+  const [layarDraft, setLayarDraft] = useState<LayarDraft | null>(null);
+  const [pemicuBuka, setPemicuBuka] = useState<HTMLElement | null>(null);
+  const menuBuka = usePopoverAnchor(pemicuBuka);
+  const menuBukaId = useId();
   const [addOpen, setAddOpen] = useState(false);
   const [newAgendaName, setNewAgendaName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -141,26 +163,32 @@ export default function SeatMapAdminPage() {
   const toast = useToast();
 
   /**
-   * `pertahankanSuntingan`: tambah/hapus agenda hanya menyegarkan DAFTAR agenda.
-   * Tanpa ini, suntingan tata ruang yang belum disimpan tertimpa isi database.
+   * Muat ulang dari server. Ruangan dan sesi masing-masing bisa dipertahankan,
+   * supaya menyimpan yang satu tidak menimpa suntingan yang belum disimpan di
+   * yang lain. Setelan layar publik tidak punya draf di halaman (ia disunting
+   * di dialognya sendiri), jadi selalu diambil dari server.
    */
-  async function load(pertahankanSuntingan = false) {
+  async function load(opsi: { ruangan?: "muat" | "pertahankan"; sesi?: "muat" | "pertahankan" | number } = {}) {
+    const { ruangan = "muat", sesi = "muat" } = opsi;
     const response = await fetch("/api/admin/seat-map", { cache: "no-store" }).catch(() => null);
     if (!response) { setError("Connection lost. The seating plan could not be loaded."); return; }
     if (!response.ok) { setError("The seating plan could not be loaded."); return; }
     const data = (await response.json()) as Payload;
     setPayload(data);
-    if (pertahankanSuntingan) {
-      setSessions((current) => data.sessions.map((row) => current.find((item) => item.id === row.id) ?? row));
-      setConfig((current) =>
-        current && current.default_session_id !== null && !data.sessions.some((row) => row.id === current.default_session_id)
-          ? { ...current, default_session_id: null }
-          : current,
-      );
-    } else {
-      setConfig(data.config);
-      setSessions(data.sessions);
-    }
+    setSessions((current) => data.sessions.map((row) => {
+      if (sesi === "muat" || sesi === row.id) return row;
+      return current.find((item) => item.id === row.id) ?? row;
+    }));
+    setConfig((current) => {
+      if (ruangan === "muat" || !current) return data.config;
+      const { search_company } = data.config.layout_params;
+      return {
+        ...current,
+        public_view_mode: data.config.public_view_mode,
+        default_session_id: data.config.default_session_id,
+        layout_params: { ...current.layout_params, search_company },
+      };
+    });
     setPreviewSlug((current) => (current && data.sessions.some((row) => row.slug === current) ? current : data.sessions[0]?.slug ?? null));
   }
 
@@ -195,7 +223,7 @@ export default function SeatMapAdminPage() {
     if (response?.ok) toast.success(`Seat ${langkah.label} restored.`);
     else toast.error("Couldn't undo", "The seat changed again in the meantime. Check the map.");
     void muatKursi();
-    void load(true);
+    void load({ ruangan: "pertahankan", sesi: "pertahankan" });
   }
 
   function updateConfig<K extends keyof ConfigState>(key: K, value: ConfigState[K]) {
@@ -227,35 +255,63 @@ export default function SeatMapAdminPage() {
     toast.info("Image uploaded", "Select Save session to apply it.");
   }
 
-  async function saveConfig() {
-    if (!config) return;
-    setSavingConfig(true); setError("");
+  /**
+   * Ruangan dan layar publik disimpan TERPISAH, masing-masing hanya kolomnya
+   * sendiri. Dulu satu fungsi mengirim seluruh konfigurasi, sehingga Save di
+   * "Public screens" ikut menyimpan suntingan ruangan yang belum disimpan.
+   * `search_company` tinggal di `layout_params`, jadi tiap jalur mengambil
+   * nilainya dari yang TERSIMPAN, bukan dari draf jalur lain.
+   */
+  async function patchConfig(body: Record<string, unknown>, judulGagal: string) {
     const response = await fetch("/api/admin/seat-map", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: config.name,
-        stage_label: config.stage_label,
-        row_table_counts: config.row_table_counts,
-        seat_rules: config.seat_rules,
-        seat_label_pattern: config.seat_label_pattern,
-        table_overrides: config.table_overrides,
-        table_labels: config.table_labels,
-        layout_type: config.layout_type,
-        layout_params: config.layout_params,
-        public_view_mode: config.public_view_mode,
-        default_session_id: config.default_session_id,
-      }),
+      body: JSON.stringify(body),
     }).catch(() => null);
     const data = await response?.json().catch(() => ({}));
-    setSavingConfig(false);
     if (!response?.ok) {
-      const failure = data?.error?.details?.message ?? data?.error?.message ?? "Seating plan not saved.";
-      toast.error("Seating plan not saved", failure);
-      return;
+      toast.error(judulGagal, data?.error?.details?.message ?? data?.error?.message ?? "Try again.");
+      return false;
     }
-    toast.success("Seating plan saved", "Applies to every session.");
-    await load();
+    return true;
+  }
+
+  async function saveRoom() {
+    if (!config || !payload) return;
+    setSavingConfig(true); setError("");
+    const tersimpan = payload.config.layout_params;
+    const { search_company: _abaikan, ...params } = config.layout_params;
+    void _abaikan;
+    const ok = await patchConfig({
+      name: config.name,
+      stage_label: config.stage_label,
+      row_table_counts: config.row_table_counts,
+      seat_rules: config.seat_rules,
+      seat_label_pattern: config.seat_label_pattern,
+      table_overrides: config.table_overrides,
+      table_labels: config.table_labels,
+      layout_type: config.layout_type,
+      layout_params: { ...params, ...(tersimpan.search_company ? { search_company: true } : {}) },
+    }, "Room layout not saved");
+    setSavingConfig(false);
+    if (!ok) return;
+    toast.success("Room layout saved", "Applies to every session.");
+    await load({ ruangan: "muat", sesi: "pertahankan" });
+  }
+
+  async function saveScreens(draft: LayarDraft) {
+    if (!payload) return;
+    setSavingConfig(true);
+    const ok = await patchConfig({
+      public_view_mode: draft.public_view_mode,
+      default_session_id: draft.default_session_id,
+      layout_params: { ...payload.config.layout_params, search_company: draft.search_company },
+    }, "Screen settings not saved");
+    setSavingConfig(false);
+    if (!ok) return;
+    toast.success("Screen settings saved", "Applies to every screen that opens the seating plan.");
+    setLayarOpen(false);
+    await load({ ruangan: "pertahankan", sesi: "pertahankan" });
   }
 
   async function createAgenda() {
@@ -277,8 +333,8 @@ export default function SeatMapAdminPage() {
     setNewAgendaName("");
     setAddOpen(false);
     toast.success("Session added", "It is still a draft. Choose a seat source, then show it to participants.");
-    await load(true);
-    if (data?.slug) { setPreviewSlug(data.slug); setBagian("agenda"); }
+    await load({ ruangan: "pertahankan", sesi: "pertahankan" });
+    if (data?.slug) setPreviewSlug(data.slug);
   }
 
   async function deleteAgenda(session: Session) {
@@ -293,7 +349,7 @@ export default function SeatMapAdminPage() {
     }
     setPreviewSlug((current) => (current === session.slug ? null : current));
     toast.success("Session deleted", "Participant data is not affected.");
-    await load(true);
+    await load({ ruangan: "pertahankan", sesi: "pertahankan" });
   }
 
   async function saveSession(session: Session) {
@@ -329,7 +385,7 @@ export default function SeatMapAdminPage() {
       return;
     }
     toast.success("Session saved", session.is_published ? "This session is shown on the public page." : "This session is not shown to participants yet.");
-    await load();
+    await load({ ruangan: "pertahankan", sesi: session.id });
   }
 
   const aktif = sessions.find((item) => item.slug === previewSlug) ?? sessions[0] ?? null;
@@ -367,10 +423,42 @@ export default function SeatMapAdminPage() {
   const pakaiTally = aktif?.sub_event_id != null && aktif.sub_event_id === sumberTally;
   const orphanSubEvent = aktif?.sub_event_id != null && !pakaiTally && payload !== null && !payload.available_sub_events.some((item) => item.subEventId === aktif.sub_event_id);
   const publik = sessions.filter((item) => item.is_published);
-  const menugaskan = modeDenah === "assign" && pakaiTally && aktif !== null;
+  const menugaskan = tampilan === "sesi" && modeDenah === "assign" && pakaiTally && aktif !== null;
   // Kursi diisi pada tata ruang yang TERSIMPAN; suntingan yang belum disimpan bisa mengubah label kursi.
   const configTersimpan = payload?.config ?? null;
-  const tataRuangBerubah = config !== null && configTersimpan !== null && JSON.stringify(config) !== JSON.stringify(configTersimpan);
+  const tataRuangBerubah = config !== null && configTersimpan !== null && JSON.stringify(bagianRuangan(config)) !== JSON.stringify(bagianRuangan(configTersimpan));
+  const sesiTersimpan = aktif ? payload?.sessions.find((item) => item.id === aktif.id) ?? null : null;
+  const sesiBerubah = aktif !== null && sesiTersimpan !== null && JSON.stringify(aktif) !== JSON.stringify(sesiTersimpan);
+  const adaPerubahan = tataRuangBerubah || sessions.some((item) => {
+    const asli = payload?.sessions.find((row) => row.id === item.id);
+    return asli !== undefined && JSON.stringify(item) !== JSON.stringify(asli);
+  });
+
+  // Peramban memperingatkan sebelum menutup tab atau memuat ulang dengan
+  // suntingan yang belum disimpan.
+  useEffect(() => {
+    if (!adaPerubahan) return;
+    const tahan = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", tahan);
+    return () => window.removeEventListener("beforeunload", tahan);
+  }, [adaPerubahan]);
+
+  function keluarRuangan(buang = false) {
+    if (tataRuangBerubah && !buang) { setKonfirmasiKeluar(true); return; }
+    if (tataRuangBerubah && configTersimpan) setConfig(configTersimpan);
+    setKonfirmasiKeluar(false);
+    setTampilan("sesi");
+  }
+
+  function bukaLayar() {
+    if (!configTersimpan) return;
+    setLayarDraft({
+      public_view_mode: configTersimpan.public_view_mode,
+      default_session_id: configTersimpan.default_session_id,
+      search_company: Boolean(configTersimpan.layout_params.search_company),
+    });
+    setLayarOpen(true);
+  }
   const kursiAsli = useMemo(() => {
     const states: Record<string, { occupied: boolean; checkedIn: boolean }> = {};
     for (const kunci of Object.keys((aktif && terisi?.[aktif.id]) ?? {})) states[kunci] = { occupied: true, checkedIn: false };
@@ -387,7 +475,7 @@ export default function SeatMapAdminPage() {
   const peta = config ? (
     <Pane aria-label="Seating plan preview">
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-variant px-4 py-2.5 text-body-medium text-on-surface-variant">
-        {pakaiTally ? (
+        {pakaiTally && tampilan === "sesi" ? (
           <SegmentedButton<"preview" | "assign">
             label="Map mode"
             value={modeDenah}
@@ -406,7 +494,7 @@ export default function SeatMapAdminPage() {
             ))}
           </>
         ) : <span>Sample occupancy: table 1 checked in, table 2 occupied.</span>}
-        <span className={cx("ml-auto", menugaskan && "hidden")}>Display: {VIEW_MODES.find((mode) => mode.value === config.public_view_mode)?.label}</span>
+        {tampilan === "ruangan" ? <span className="ml-auto">Sample occupancy. The map follows your changes as you type.</span> : null}
       </div>
       {/* Pratinjau memakai renderer publik, yang teksnya berbahasa Indonesia. */}
       <div
@@ -438,7 +526,7 @@ export default function SeatMapAdminPage() {
         </div>
       ) : null}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
-        {report ? (
+        {report && tampilan === "sesi" ? (
           <>
             <span className="text-on-surface-variant">{plural(report.matched_seats, "seat")} occupied, {report.empty_seats.toLocaleString("en-GB")} empty, {plural(report.participants_without_seat, "participant")} without a seat</span>
             <span className="ml-auto">
@@ -448,7 +536,7 @@ export default function SeatMapAdminPage() {
             </span>
           </>
         ) : (
-          <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}. Seat matching appears once the session has a seat source.</span>
+          <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}{tampilan === "ruangan" ? " when saved." : ". Seat matching appears once the session has a seat source."}</span>
         )}
       </div>
     </Pane>
@@ -476,7 +564,6 @@ export default function SeatMapAdminPage() {
 
   const isiRuangan = config ? (
     <div className="flex flex-col gap-5">
-      <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant"><Info size={16} className="mt-0.5 shrink-0" />Applies to every session.</p>
       <Kelompok title="Room shape" first>
         {sections.length ? (
           <>
@@ -711,27 +798,26 @@ export default function SeatMapAdminPage() {
     </div>
   ) : null;
 
-  const isiLayar = config ? (
+  const isiLayar = layarDraft ? (
     <div className="flex flex-col gap-5">
-      <p className="flex items-start gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant"><Info size={16} className="mt-0.5 shrink-0" />Applies to every screen that opens /denah.</p>
       <Kelompok title="Session shown" first>
-        <Field label="Default session" htmlFor="default-session" hint={config.default_session_id ? "Screens with no session in their address show this session." : "On automatic, screens show the first public session in the list."}>
-          <select id="default-session" value={config.default_session_id ?? ""} onChange={(event) => updateConfig("default_session_id", event.target.value ? Number(event.target.value) : null)} className={INPUT}>
+        <Field label="Default session" htmlFor="default-session" hint={layarDraft.default_session_id ? "Screens with no session in their address show this session." : "On automatic, screens show the first public session in the list."}>
+          <select id="default-session" value={layarDraft.default_session_id ?? ""} onChange={(event) => setLayarDraft({ ...layarDraft, default_session_id: event.target.value ? Number(event.target.value) : null })} className={INPUT}>
             <option value="">First public session (automatic)</option>
-            {publik.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            {(payload?.sessions ?? []).filter((item) => item.is_published).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </Field>
-        {publik.length === 0 ? <p className="text-body-medium text-warning">No session is shown to participants yet. Turn on &quot;Show to participants&quot; for one of the sessions.</p> : null}
+        {publik.length === 0 ? <p className="text-body-medium text-warning">No session is shown to participants yet. Turn on &quot;Show to participants&quot; in a session&apos;s settings.</p> : null}
         <p className="text-body-medium text-on-surface-variant">For two screens showing different sessions, put the session in the address, e.g. /denah?sesi={sessions[0]?.slug ?? "session-slug"}. The address always overrides this setting.</p>
       </Kelompok>
       <Kelompok title="Display mode">
         <fieldset className="flex flex-col gap-2">
           <legend className="sr-only">Public page display mode</legend>
           {VIEW_MODES.map((mode) => {
-            const on = config.public_view_mode === mode.value;
+            const on = layarDraft.public_view_mode === mode.value;
             return (
               <label key={mode.value} className={cx("flex cursor-pointer gap-3 rounded-lg border p-3 text-body-medium", on ? "border-2 border-primary" : "border-outline")}>
-                <input type="radio" name="public-view-mode" value={mode.value} checked={on} onChange={() => updateConfig("public_view_mode", mode.value)} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+                <input type="radio" name="public-view-mode" value={mode.value} checked={on} onChange={() => setLayarDraft({ ...layarDraft, public_view_mode: mode.value })} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
                 <span>
                   <span className="block font-medium">{mode.label}</span>
                   <span className="block text-on-surface-variant">{mode.detail}</span>
@@ -742,8 +828,8 @@ export default function SeatMapAdminPage() {
         </fieldset>
         <p className="text-body-medium text-on-surface-variant">To force one screen into a mode, use /denah?mode=qr or ?mode=search.</p>
         <Switch
-          checked={Boolean(config.layout_params.search_company)}
-          onChange={(checked) => updateParam("search_company", checked)}
+          checked={layarDraft.search_company}
+          onChange={(checked) => setLayarDraft({ ...layarDraft, search_company: checked })}
           label="Search by organisation"
           description="Name search also finds participants by their Organisation, and each result shows it under the name."
         />
@@ -871,34 +957,28 @@ export default function SeatMapAdminPage() {
     />
   );
 
-  const kaki: Record<Bagian, { note: ReactNode; aksi: ReactNode }> = {
-    ruangan: {
-      note: prefixInvalid ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Fix the label prefix first</span> : seatConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Give each section its own label prefix</span> : labelConflicts.length > 0 ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />Fix duplicate table labels first</span> : "Changes every session",
-      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0 || prefixInvalid}>Save layout</Button>,
-    },
-    layar: {
-      note: "Applies to every screen",
-      aksi: <Button simpan size="sm" onClick={() => void saveConfig()} loading={savingConfig} disabled={labelConflicts.length > 0 || seatConflicts.length > 0 || prefixInvalid}>Save</Button>,
-    },
-    agenda: {
-      note: aktif ? "This session only" : null,
-      aksi: aktif ? <Button simpan size="sm" onClick={() => void saveSession(aktif)} loading={savingSession === aktif.id}>Save session</Button> : null,
-    },
-  };
+  const galatRuangan = prefixInvalid ? "Fix the label prefix first" : seatConflicts.length > 0 ? "Give each section its own label prefix" : labelConflicts.length > 0 ? "Fix duplicate table labels first" : null;
+  const catatanBelumSimpan = (teks: string) => <span className="inline-flex items-center gap-1.5 text-on-surface"><span aria-hidden className="size-2 rounded-full bg-warning" />{teks}</span>;
 
-  const panel = (
-    <Pane as="aside" aria-label="Seating plan settings">
-      <div className="shrink-0 border-b border-outline-variant px-4 py-3">
-        <SegmentedButton<Bagian>
-          label="Settings"
-          value={bagian}
-          onChange={setBagian}
-          className="w-full"
-          options={[{ value: "ruangan", label: "Room" }, { value: "agenda", label: "This session" }, { value: "layar", label: "Public screens" }]}
-        />
-      </div>
-      <PaneBody className="px-4 py-4">{bagian === "ruangan" ? isiRuangan : bagian === "layar" ? isiLayar : isiAgenda}</PaneBody>
-      <PaneFooter note={kaki[bagian].note}>{kaki[bagian].aksi}</PaneFooter>
+  const panel = tampilan === "ruangan" ? (
+    <Pane as="aside" aria-label="Room layout">
+      <PaneBody className="px-4 py-4">{isiRuangan}</PaneBody>
+      <PaneFooter
+        note={galatRuangan ? <span className="inline-flex items-center gap-1.5 text-warning"><Warning size={16} />{galatRuangan}</span> : tataRuangBerubah ? catatanBelumSimpan("Unsaved changes") : "Shared by every session"}
+      >
+        {tataRuangBerubah ? <Button variant="outlined" size="sm" disabled={savingConfig} onClick={() => configTersimpan && setConfig(configTersimpan)}>Discard</Button> : null}
+        <Button simpan size="sm" onClick={() => void saveRoom()} loading={savingConfig} disabled={!tataRuangBerubah || galatRuangan !== null}>Save layout</Button>
+      </PaneFooter>
+    </Pane>
+  ) : (
+    <Pane as="aside" aria-label="Session settings">
+      <PaneBody className="px-4 py-4">{isiAgenda}</PaneBody>
+      {aktif ? (
+        <PaneFooter note={sesiBerubah ? catatanBelumSimpan("Unsaved changes") : "This session only"}>
+          {sesiBerubah ? <Button variant="outlined" size="sm" disabled={savingSession === aktif.id} onClick={() => sesiTersimpan && updateSession(aktif.id, sesiTersimpan)}>Discard</Button> : null}
+          <Button simpan size="sm" onClick={() => void saveSession(aktif)} loading={savingSession === aktif.id} disabled={!sesiBerubah}>Save session</Button>
+        </PaneFooter>
+      ) : null}
     </Pane>
   );
 
@@ -908,28 +988,60 @@ export default function SeatMapAdminPage() {
       <WorkspaceHeader
         meta={config ? (
           <>
-            <span>{config.layout_params.sections?.length ? "Mixed (sections)" : LAYOUT_INFO[config.layout_type].name}</span>
+            <span>{configTersimpan?.layout_params.sections?.length ? "Mixed (sections)" : LAYOUT_INFO[configTersimpan?.layout_type ?? config.layout_type].name}</span>
             <MetaSeparator />
             <span>{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}</span>
             <MetaSeparator />
-            <span>{sessions.length > 0 && sessions.every((item) => item.sub_event_id === tallySeatSource(item.id)) ? "Seats are set in the participant list" : "Seat assignments come from the scanner API"}</span>
+            <span>{plural(sessions.length, "session")}</span>
           </>
         ) : null}
-        actions={
+        actions={config ? (
           <>
-            <ButtonLink href="/denah?mode=qr" target="_blank" rel="noreferrer" variant="outlined" icon={<Monitor size={16} />}>Preview LED</ButtonLink>
-            <ButtonLink href="/denah" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Public page</ButtonLink>
+            {tampilan === "sesi" ? <Button variant="outlined" icon={<Armchair size={16} />} onClick={() => setTampilan("ruangan")}>Room layout</Button> : null}
+            <Button variant="outlined" icon={<Monitor size={16} />} onClick={bukaLayar}>Screen settings</Button>
+            <span ref={setPemicuBuka} className="inline-flex">
+              <Button variant="outlined" icon={<ArrowSquareOut size={16} />} aria-haspopup="menu" aria-expanded={menuBuka.open} aria-controls={menuBukaId} onClick={menuBuka.toggle}>
+                Open public page<CaretDown size={14} aria-hidden />
+              </Button>
+            </span>
+            <Popover anchor={menuBuka} id={menuBukaId} label="Open public page" width={280}>
+              {[
+                { href: "/denah", label: "Name search page", detail: "Phones and touch screens" },
+                { href: "/denah?mode=qr", label: "LED screen", detail: "Large QR code, no names" },
+              ].map((item) => (
+                <a key={item.href} role="menuitem" href={item.href} target="_blank" rel="noreferrer" className={cx(POPOVER_ITEM, "justify-between")} onClick={() => menuBuka.tutup()}>
+                  <span className="min-w-0">
+                    <span className="block">{item.label}</span>
+                    <span className="block text-body-small text-on-surface-variant">{item.detail}</span>
+                  </span>
+                  <ArrowSquareOut size={14} aria-hidden className="shrink-0 text-on-surface-variant" />
+                </a>
+              ))}
+            </Popover>
           </>
-        }
+        ) : null}
       />
 
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
 
-      {!config ? <PageLoading /> : (
+      {!config ? <PageLoading /> : tampilan === "ruangan" ? (
+        <>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-outline-variant py-2">
+            <Button variant="text" size="sm" icon={<ArrowLeft size={16} />} onClick={() => keluarRuangan()}>Back to sessions</Button>
+            <span className="text-title-small text-on-surface">Room layout</span>
+            <span className="text-body-medium text-on-surface-variant">
+              Shared by {sessions.length === 1 ? "the session" : sessions.length === 2 ? "both sessions" : `all ${sessions.length} sessions`}{sessions.length > 0 ? `: ${sessions.map((item) => item.name).join(", ")}` : ""}
+            </span>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <SupportingPane main={peta} pane={panel} />
+          </div>
+        </>
+      ) : (
         <>
           <div className="flex shrink-0 items-end gap-2 border-b border-outline-variant">
             {sessions.length > 0 ? (
-              // Tabs membawa shrink-0; pembungkus ini yang menyempit agar tombol + Agenda tetap di layar.
+              // Tabs membawa shrink-0; pembungkus ini yang menyempit agar tombol + Session tetap di layar.
               <div className="min-w-0">
                 <Tabs
                   label="Sessions"
@@ -941,15 +1053,43 @@ export default function SeatMapAdminPage() {
                 />
               </div>
             ) : <span className="py-2.5 text-body-medium text-on-surface-variant">No sessions yet</span>}
-            <button type="button" onClick={() => setAddOpen(true)} className="mb-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body-medium font-medium text-primary hover:bg-primary-soft">
-              <Plus size={14} />Session
-            </button>
+            <Button variant="text" size="sm" className="mb-1 shrink-0" icon={<Plus size={14} />} onClick={() => setAddOpen(true)}>Session</Button>
           </div>
           <div role="tabpanel" id={`agenda-panel-${aktif?.slug ?? ""}`} aria-labelledby={aktif ? `agenda-tab-${aktif.slug}` : undefined} className="flex min-h-0 flex-1 flex-col">
             <SupportingPane main={peta} pane={panel} />
           </div>
         </>
       )}
+
+      <Dialog
+        open={konfirmasiKeluar}
+        onClose={() => setKonfirmasiKeluar(false)}
+        size="sm"
+        title="Leave without saving?"
+        description="Your changes to the room layout are not saved. Leaving discards them."
+        actions={
+          <>
+            <Button variant="outlined" onClick={() => setKonfirmasiKeluar(false)}>Keep editing</Button>
+            <Button variant="danger" onClick={() => keluarRuangan(true)}>Discard changes</Button>
+          </>
+        }
+      />
+
+      <Dialog
+        open={layarOpen}
+        onClose={() => setLayarOpen(false)}
+        dismissible={!savingConfig}
+        title="Screen settings"
+        description="Applies to every screen that opens the seating plan page."
+        actions={
+          <>
+            <Button variant="outlined" disabled={savingConfig} onClick={() => setLayarOpen(false)}>Cancel</Button>
+            <Button simpan loading={savingConfig} onClick={() => layarDraft && void saveScreens(layarDraft)}>Save screen settings</Button>
+          </>
+        }
+      >
+        {isiLayar}
+      </Dialog>
 
       <AssignSeatDialog
         kursi={kursiDipilih}
@@ -960,7 +1100,7 @@ export default function SeatMapAdminPage() {
           else if (langkah) setUrungkan({ pesan, langkah });
           else { setUrungkan(null); toast.success(pesan); }
           void muatKursi();
-          void load(true);
+          void load({ ruangan: "pertahankan", sesi: "pertahankan" });
         }}
       />
 
