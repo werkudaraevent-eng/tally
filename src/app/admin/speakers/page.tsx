@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowSquareOut, LinkSimple, MagnifyingGlass, Plus, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import {
@@ -305,6 +305,25 @@ export default function SpeakersAdminPage() {
     lindungi(() => { setPilihan(null); setDraf(null); setKonflik(""); });
   }
 
+  // Escape menutup panel sunting (seperti Gmail/Linear), lewat penjaga yang
+  // sama dengan Close. Tidak saat Escape milik menu, dialog atau kolom cari.
+  const tutupTerkini = useRef(tutup);
+  useEffect(() => { tutupTerkini.current = tutup; });
+  const adaDialog = konfirmasiHapus || tertunda !== null;
+  const panelTerbuka = draf !== null;
+  useEffect(() => {
+    if (!panelTerbuka || adaDialog) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[role="dialog"],[role="listbox"],[role="menu"],input[type="search"]')) return;
+      if (document.querySelector('[role="listbox"],[role="menu"]')) return;
+      tutupTerkini.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [panelTerbuka, adaDialog]);
+
   function ubah(patch: Partial<LandingSpeaker>) {
     setDraf((kini) => (kini ? { ...kini, ...patch } : kini));
   }
@@ -472,7 +491,7 @@ export default function SpeakersAdminPage() {
   // ---- Panel daftar -----------------------------------------------------------
   const toolbar = (
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant px-3 py-3">
-      <label className="relative min-w-[200px] flex-1">
+      <label className="relative min-w-[200px] flex-1 max-sm:basis-full">
         <span className="sr-only">Search name, job title or organisation</span>
         <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
         <input
@@ -522,7 +541,7 @@ export default function SpeakersAdminPage() {
           {hasilCari.map(({ speaker, i }) => {
             const hilang = new Set(sesiHilang(speaker, baris).map((ref) => ref.id));
             const sesi = sesiDariRundown(speaker)
-              ? (speaker.session_refs ?? []).map((ref) => ({ kunci: String(ref.id), label: ref.label || "Session", peran: ref.role?.trim() || speaker.role?.trim() || "", hilang: hilang.has(ref.id) }))
+              ? (speaker.session_refs ?? []).map((ref) => ({ kunci: String(ref.id), label: ref.label ? labelSesi(ref.label) : "Session", peran: ref.role?.trim() || speaker.role?.trim() || "", hilang: hilang.has(ref.id) }))
               : speaker.session?.trim() ? [{ kunci: "lama", label: speaker.session.trim(), peran: speaker.role?.trim() || "", hilang: false }] : [];
             const masalah = perhatian(speaker);
             const status = (
