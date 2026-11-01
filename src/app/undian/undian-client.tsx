@@ -260,6 +260,32 @@ export default function UndianClient({ initial }: Props) {
           </motion.div>
         </AnimatePresence>
 
+        {/* Tulisan setelah menang (Prizes & rules > prize > After the winner is
+            revealed): "maju ke panggung" untuk hadiah besar, "ambil di meja
+            panitia" untuk hadiah kecil.
+
+            Letaknya di ANTARA nama hadiah dan nama pemenang, bukan di bawah
+            panggung: di bawah, ia jatuh tepat di bawah baris "Cadangan" dan
+            terbaca seperti ditujukan ke cadangan.
+
+            Tempatnya sudah dipesan sejak undian berjalan (opacity 0), jadi
+            kemunculannya tidak menggeser kartu yang sedang membalik. Ia baru
+            terlihat sesudah nama terakhir diungkap animasi. */}
+        {running && state.prize.message ? (
+          <motion.p
+            key={`pesan-${state.prize.id}-${state.draw_round}`}
+            aria-hidden={!revealed}
+            className="max-w-[80vw] shrink-0 rounded-full px-[2.4vw] py-[0.8vh] text-center font-semibold"
+            style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.2vw, 36px)", lineHeight: 1.2, color: text, border: `2px solid ${accent}`, background: `${accent}22` }}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={revealed
+              ? { opacity: 1, scale: 1, transition: { ...expressive.spatial.default, delay: revealSettleMs(state.prize.animation, animationProps.winners) / 1000 + 0.4 } }
+              : { opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+          >
+            {state.prize.message}
+          </motion.p>
+        ) : null}
+
         {/* Panggung animasi.
 
             `min-h-0` + `overflow-hidden` WAJIB. Tanpa keduanya, isi yang lebih
@@ -297,25 +323,6 @@ export default function UndianClient({ initial }: Props) {
             )}
           </AnimatePresence>
         </div>
-
-        {/* Tulisan setelah menang (Prizes & rules > prize > After the winner is
-            revealed): "maju ke panggung" untuk hadiah besar, "ambil di meja
-            panitia" untuk hadiah kecil. Muncul sesudah nama keluar, dengan jeda
-            pendek supaya nama dibaca lebih dulu. */}
-        <AnimatePresence initial={false}>
-          {revealed && state.prize.message ? (
-            <motion.p
-              key={`pesan-${revealKey}`}
-              className="max-w-[80vw] shrink-0 rounded-full px-[2.4vw] py-[1vh] text-center font-semibold"
-              style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.4vw, 40px)", lineHeight: 1.2, color: text, border: `2px solid ${accent}`, background: `${accent}22` }}
-              initial={{ opacity: 0, y: "1.5vh", scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1, transition: { ...expressive.spatial.default, delay: revealSettleMs(state.prize.animation, animationProps.winners) / 1000 + 0.4 } }}
-              exit={{ opacity: 0, transition: { duration: 0.2 } }}
-            >
-              {state.prize.message}
-            </motion.p>
-          ) : null}
-        </AnimatePresence>
 
         {/* Rekap pemenang yang sudah sah, dibatasi supaya tidak mendorong
             panggung utama keluar layar. */}

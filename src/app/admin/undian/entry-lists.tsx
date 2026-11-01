@@ -129,15 +129,17 @@ export function EntryLists({
  */
 export function EntryImportForm({
   formId, idPrefix, importName, importText, importFile, error,
-  onImportName, onImportText, onImportFile, onImport,
+  onImportName, onImportText, onImportFile, onImport, padding = "px-5 py-4",
 }: {
   formId: string; idPrefix: string;
+  /** Jarak tepi formulir. Di dalam dialog, tepinya sudah diberi dialog. */
+  padding?: string;
   importName: string; importText: string; importFile: File | null; error: string;
   onImportName: (value: string) => void; onImportText: (value: string) => void;
   onImportFile: (file: File | null) => void; onImport: () => void;
 }) {
   return (
-    <form id={formId} onSubmit={(event) => { event.preventDefault(); onImport(); }} className="flex flex-col gap-4 px-5 py-4">
+    <form id={formId} onSubmit={(event) => { event.preventDefault(); onImport(); }} className={`flex flex-col gap-4 ${padding}`}>
       {error ? <PaneError>{error}</PaneError> : null}
       {/* Templat di ATAS formulir: panitia yang belum punya berkas harus
           menemukannya sebelum mulai menyusun format sendiri. */}

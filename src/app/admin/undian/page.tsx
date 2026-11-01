@@ -667,6 +667,7 @@ export default function UndianAdminPage() {
         open={importForPrize}
         onClose={() => { setImportForPrize(false); setError(""); }}
         dismissible={!importing}
+        fullScreenOnMobile
         title="Import a new entry list"
         description="The list is saved and selected for this prize. Your prize details stay as they are."
         actions={
@@ -676,14 +677,13 @@ export default function UndianAdminPage() {
           </>
         }
       >
-        <div className="-mx-5 -my-4">
-          <EntryImportForm
+        <EntryImportForm
+            padding="py-4"
             formId="form-daftar-hadiah" idPrefix="prize-import"
             importName={importName} importText={importText} importFile={importFile} error={importForPrize ? error : ""}
             onImportName={setImportName} onImportText={setImportText} onImportFile={setImportFile}
             onImport={() => void importEntries()}
           />
-        </div>
       </Dialog>
     </WorkspacePage>
   );
