@@ -6,6 +6,7 @@ import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { AssignSeatDialog, type KursiDipilih, type Urungkan } from "./assign-seat-dialog";
 import { SeatsPanel, type Orang } from "./seats-panel";
+import { LayoutPicker } from "./layout-picker";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
@@ -13,7 +14,7 @@ import { plural } from "@/lib/plural";
 import {
   computeSeatMapGeometry, duplicateSeatLabels, duplicateTableLabels, MAX_TABLE_LABEL_LENGTH, normalizeSeatLabel, resolveSeatColors, tableLabelFor,
   type PublicViewMode, type SeatColors, type SeatMapConfig, type SeatMapLayout, type SeatMapLayoutParams, type SeatRule, type SeatSection, type SeatShape,
-  LAYOUT_INFO, layoutDefaults, SEAT_MAP_LAYOUTS, defaultSection, MAX_SECTIONS, nextSectionPrefix, sectionPrefixError,
+  LAYOUT_INFO, layoutDefaults, defaultSection, MAX_SECTIONS, nextSectionPrefix, sectionPrefixError,
 } from "@/lib/seat-map";
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
@@ -81,6 +82,13 @@ type Tampilan = "sesi" | "ruangan";
 type LayarDraft = { public_view_mode: PublicViewMode; default_session_id: number | null; search_company: boolean };
 
 const BULAT = ["banquet_round", "cabaret", "head_table"];
+
+/** Pilihan jadi untuk sudut kursi di meja bulat, dalam bahasa panitia. */
+const BUSUR = [
+  { value: 300, label: "Almost all the way round" },
+  { value: 240, label: "Two thirds, open to the stage" },
+  { value: 190, label: "Facing the stage only" },
+];
 
 function Lipatan({ title, detail, children }: { title: string; detail: string; children: ReactNode }) {
   return (
@@ -482,6 +490,7 @@ export default function SeatMapAdminPage() {
   // Kursi kosong pertama dari panggung (urutan geometri), untuk jalur papan
   // ketik di panel Seats.
   const geometriTersimpan = useMemo(() => (configTersimpan ? computeSeatMapGeometry(configTersimpan) : null), [configTersimpan]);
+  const geometriDraf = useMemo(() => (config && tampilan === "ruangan" ? computeSeatMapGeometry(config) : null), [config, tampilan]);
   const isiSesi = useMemo(() => (aktif && terisi?.[aktif.id]) ?? {}, [aktif, terisi]);
   const kursiBerikut = useMemo(() => {
     if (!geometriTersimpan) return null;
@@ -604,7 +613,11 @@ export default function SeatMapAdminPage() {
               </span>
             </>
           ) : (
-            <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}{tampilan === "ruangan" ? "" : ". Seat matching appears once the session has a seat source."}</span>
+            tampilan === "ruangan" ? (
+              <span className="text-on-surface-variant">{plural(geometriDraf?.totalTables ?? 0, "table")}, {plural(geometriDraf?.totalSeats ?? 0, "seat")}{tataRuangBerubah ? ` (saved: ${payload?.geometry.total_seats.toLocaleString("en-GB") ?? 0} seats)` : ""}</span>
+            ) : (
+              <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}. Seat matching appears once the session has a seat source.</span>
+            )
           )}
         </div>
       )}
@@ -613,6 +626,9 @@ export default function SeatMapAdminPage() {
 
   // ---- Panel pendukung ---------------------------------------------------------
   const sections = config?.layout_params.sections ?? [];
+  // Penempatan kursi di semua sesi. Server menolak ganti layout begitu ada satu
+  // saja; di sini pilihan lain dinonaktifkan dengan alasannya.
+  const jumlahPenempatan = (payload?.reports ?? []).reduce((total, item) => total + item.total_assignments, 0);
   function pilihLayout(value: string) {
     if (value === "mixed") {
       // Ruangan gabungan dimulai dari contoh yang paling sering diminta: sofa VIP
@@ -634,14 +650,15 @@ export default function SeatMapAdminPage() {
   const isiRuangan = config ? (
     <div className="flex flex-col gap-5">
       <Kelompok title="Room shape" first>
+        <LayoutPicker value={sections.length ? "mixed" : config.layout_type} onChange={pilihLayout} terkunci={jumlahPenempatan > 0} />
+        {jumlahPenempatan > 0 ? (
+          <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
+            <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+            <span><span className="font-medium">The layout is locked: {plural(jumlahPenempatan, "seat")} {jumlahPenempatan === 1 ? "is" : "are"} assigned.</span> Another layout changes every seat label, so those people would lose their seats. Remove the seat assignments first to change it.</span>
+          </p>
+        ) : null}
         {sections.length ? (
           <>
-            <Field label="Layout type" htmlFor="layout-type" hint="Sections stacked from the stage backwards. Each section has its own layout and its own seat labels.">
-              <select id="layout-type" value="mixed" onChange={(event) => pilihLayout(event.target.value)} className={INPUT}>
-                <option value="mixed">Mixed (sections)</option>
-                {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
-              </select>
-            </Field>
             <div className="flex flex-col gap-2">
               {sections.map((section, index) => {
                 const set = (patch: Partial<SeatSection>) => updateParam("sections", sections.map((item, i) => (i === index ? { ...item, ...patch } : item)));
@@ -693,24 +710,22 @@ export default function SeatMapAdminPage() {
           </>
         ) : (
           <>
-        <Field label="Layout type" htmlFor="layout-type" hint={`${LAYOUT_INFO[config.layout_type].desc} ${LAYOUT_INFO[config.layout_type].labelHint}.`}>
-          <select
-            id="layout-type"
-            value={config.layout_type}
-            onChange={(event) => pilihLayout(event.target.value)}
-            className={INPUT}
-          >
-            <option value="mixed">Mixed (sections)</option>
-            {SEAT_MAP_LAYOUTS.map((layout) => <option key={layout} value={layout}>{LAYOUT_INFO[layout].name}</option>)}
-          </select>
-        </Field>
-        <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
-          <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-          Don&rsquo;t change the layout once participants have seat numbers: the seat labels change and existing seat assignments stop matching.
-        </p>
         {BULAT.includes(config.layout_type) ? (
-          <Field label="Seat arc (degrees)" hint="300 = almost all the way round the table. 190 = cabaret.">
-            <input type="number" min={60} max={340} value={config.layout_params.arc_sweep} onChange={(event) => updateParam("arc_sweep", Number(event.target.value))} className={cx(INPUT, "w-32")} />
+          <Field label="Seats around the table" htmlFor="arc-sweep">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                id="arc-sweep"
+                value={BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? String(config.layout_params.arc_sweep) : "custom"}
+                onChange={(event) => { if (event.target.value !== "custom") updateParam("arc_sweep", Number(event.target.value)); else updateParam("arc_sweep", 270); }}
+                className={cx(INPUT, "w-auto flex-1")}
+              >
+                {BUSUR.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                <option value="custom">Custom angle</option>
+              </select>
+              {BUSUR.some((item) => item.value === config.layout_params.arc_sweep) ? null : (
+                <input type="number" min={60} max={340} aria-label="Angle in degrees" value={config.layout_params.arc_sweep} onChange={(event) => updateParam("arc_sweep", Number(event.target.value))} className={cx(INPUT, "w-24")} />
+              )}
+            </div>
           </Field>
         ) : null}
         {config.layout_type === "theater" || config.layout_type === "classroom" ? (
@@ -825,7 +840,7 @@ export default function SeatMapAdminPage() {
             </div>
           </Field>
         ) : null}
-        <Field label="Seat label pattern" htmlFor="label-pattern" hint="Must include {table} and {seat}, and must match how the scanner API writes labels.">
+        <Field label="Seat label pattern" htmlFor="label-pattern" hint="Must include {table} and {seat}, e.g. {table}{seat} gives 12A. If seats come from the scanner, use the format it uses.">
           <input id="label-pattern" value={config.seat_label_pattern} onChange={(event) => updateConfig("seat_label_pattern", event.target.value)} className={INPUT} />
         </Field>
         <Field label="Custom table labels" hint="For tables whose label differs from their position number, e.g. table 4 labelled 3A. The table does not move.">
