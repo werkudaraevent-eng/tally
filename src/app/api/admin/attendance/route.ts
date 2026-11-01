@@ -23,7 +23,7 @@ const sessionSchema = z.object({
     .trim()
     .min(1)
     .max(60)
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug hanya boleh huruf kecil, angka, dan tanda hubung."),
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lower-case letters, digits and hyphens only."),
   sort_order: z.number().int().min(0).max(999).optional(),
   is_active: z.boolean().optional(),
   records_luggage: z.boolean().optional(),
@@ -76,11 +76,21 @@ export async function GET(request: Request) {
   // Berapa banyak yang didaftarkan di meja, bukan sebelum hari-H. Dihitung di
   // sini dan bukan di halaman: satu-satunya cara klien mengetahuinya adalah
   // menarik seluruh daftar peserta hanya untuk menghitung sebuah kolom.
-  const { count: walkIn } = await client
-    .from("participants")
-    .select("id", { head: true, count: "exact" })
-    .eq("event_id", eventId)
-    .not("walk_in_at", "is", null);
+  const [{ count: walkIn }, { count: peserta }] = await Promise.all([
+    client
+      .from("participants")
+      .select("id", { head: true, count: "exact" })
+      .eq("event_id", eventId)
+      .not("walk_in_at", "is", null),
+    // Semua peserta acara, untuk "N not here yet". Sama dengan total yang
+    // dihitung Participant list (termasuk yang dihapus di sumber), karena
+    // angka "hadir" juga menghitung mereka bila sempat check-in; dengan begitu
+    // angkanya sama dengan daftar yang dibuka tautan "Show who is not here yet".
+    client
+      .from("participants")
+      .select("id", { head: true, count: "exact" })
+      .eq("event_id", eventId),
+  ]);
 
   // Total bagasi untuk sesi yang mencatatnya (muat truk per batch). Dibaca
   // hanya bila ada sesi seperti itu, supaya acara lain tidak membayar kuerinya.
@@ -103,6 +113,7 @@ export async function GET(request: Request) {
     })),
     allow_walk_in: auth.scope.event.attendance_allow_walk_in,
     walk_in_count: walkIn ?? 0,
+    ...(typeof peserta === "number" ? { participant_total: peserta } : {}),
   });
 }
 
@@ -138,7 +149,7 @@ export async function POST(request: Request) {
   // admin membaca sebab yang benar, bukan "terjadi kesalahan".
   if (error) {
     if (String(error.code) === "23505") {
-      return apiError("VALIDATION_ERROR", 422, { slug: "Slug ini sudah dipakai sesi lain di acara yang sama." });
+      return apiError("VALIDATION_ERROR", 422, { slug: "Another session in this event already uses this address." });
     }
     return apiError("INTERNAL_ERROR", 500);
   }
@@ -183,7 +194,7 @@ export async function PATCH(request: Request) {
 
   if (error) {
     if (String(error.code) === "23505") {
-      return apiError("VALIDATION_ERROR", 422, { slug: "Slug ini sudah dipakai sesi lain di acara yang sama." });
+      return apiError("VALIDATION_ERROR", 422, { slug: "Another session in this event already uses this address." });
     }
     // Satu saklar dikirim sendirian ke sesi yang saklar lainnya menyala: CHECK
     // database yang menolak, tetap dijawab sebagai salah isi, bukan 500.
@@ -219,7 +230,7 @@ export async function DELETE(request: Request) {
 
   if ((count ?? 0) > 0) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: `Sesi ini sudah punya ${count} catatan kehadiran. Tutup sesinya, jangan dihapus — catatan hadir ikut terhapus bersamanya.`,
+      message: `This session has ${count} check-ins. Close it instead: deleting it would delete them too.`,
     });
   }
 

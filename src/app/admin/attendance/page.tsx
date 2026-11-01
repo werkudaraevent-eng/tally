@@ -82,7 +82,7 @@ type Jalur = {
   total_scan: number;
 };
 
-type Bagian = "sesi" | "meja" | "walkin" | "checkpoint";
+type Bagian = "sesi" | "meja" | "checkpoint";
 
 /** Barang yang dibagikan (dibuat di Logistik) dan pasangannya dengan sesi. */
 type Barang = { id: number; name: string; size_field_key: string | null };
@@ -92,7 +92,7 @@ const slugify = (teks: string) =>
   teks.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 
 const PENJELASAN_JALUR =
-  "Satu jalur = satu meja. Buat ini hanya kalau pintu masuk dibuka beberapa antrean sekaligus, supaya setiap TV layar sapa menyapa tamu mejanya sendiri dan laporan bisa menjawab meja mana yang kebanjiran.";
+  "One desk is one queue at the entrance. Add desks only when several queues run at once, so each welcome screen TV greets its own desk's guests and reports show which desk was busiest.";
 
 export default function AttendanceAdminPage() {
   const [sessions, setSessions] = useState<Sesi[]>([]);
@@ -117,6 +117,12 @@ export default function AttendanceAdminPage() {
   const [pilihSesi, setPilihSesi] = useState<number | null>(null);
   const [pilihJalur, setPilihJalur] = useState<number | null>(null);
   const [sesiBaru, setSesiBaru] = useState(false);
+  const [bukaPengaturan, setBukaPengaturan] = useState(false);
+  // Menutup sesi atau meja berdampak ke setiap ponsel petugas sekaligus, jadi
+  // selalu lewat konfirmasi; dulu cukup satu ketukan sakelar di baris daftar.
+  const [tutup, setTutup] = useState<{ jenis: "sesi" | "meja"; id: number; name: string } | null>(null);
+  // Peserta aktif acara ini, untuk "N not here yet". Null: belum dimuat atau server lama.
+  const [totalPeserta, setTotalPeserta] = useState<number | null>(null);
   const [jalurBaru, setJalurBaru] = useState(false);
   const [hapusSesi, setHapusSesi] = useState<Sesi | null>(null);
   const [hapusMeja, setHapusMeja] = useState<Jalur | null>(null);
@@ -143,14 +149,15 @@ export default function AttendanceAdminPage() {
       fetch(eventApiPath("/api/admin/attendance/lanes"), { cache: "no-store" }).catch(() => null),
       fetch(eventApiPath("/api/admin/attendance/items"), { cache: "no-store" }).catch(() => null),
     ]);
-    if (!sesi?.ok) { setError("Daftar sesi gagal dimuat."); setDimuat(true); return; }
+    if (!sesi?.ok) { setError("Sessions could not be loaded."); setDimuat(true); return; }
     const body = await sesi.json();
     setSessions(body.sessions ?? []);
     setAllowWalkIn(Boolean(body.allow_walk_in));
     setWalkInCount(body.walk_in_count ?? 0);
+    setTotalPeserta(typeof body.participant_total === "number" ? body.participant_total : null);
     setInfoPilihan(body.info_pilihan ?? []);
     if (jalur?.ok) { setLanes((await jalur.json()).lanes ?? []); setErrorJalur(""); }
-    else setErrorJalur("Daftar meja gagal dimuat.");
+    else setErrorJalur("Desks could not be loaded.");
     if (item?.ok) {
       const isi = await item.json();
       setBarang(isi.items ?? []);
@@ -174,14 +181,14 @@ export default function AttendanceAdminPage() {
 
     if (!response?.ok) {
       setAllowWalkIn(!izinkan);
-      toast.error("Gagal disimpan", "Setelan walk-in tidak berubah. Coba lagi.");
+      toast.error("Not saved", "The walk-in setting did not change. Try again.");
       return;
     }
     toast.success(
-      izinkan ? "Walk-in dinyalakan" : "Walk-in dimatikan",
+      izinkan ? "Walk-in on" : "Walk-in off",
       izinkan
-        ? "Petugas scan sudah bisa mendaftarkan tamu yang belum terdaftar."
-        : "Tombolnya hilang dari layar pemindai. Peserta yang sudah terlanjur dibuat tetap ada.",
+        ? "Scanner staff can now register guests who are not on the list."
+        : "The button is gone from the scanner. Participants already added stay.",
     );
   }
 
@@ -201,10 +208,10 @@ export default function AttendanceAdminPage() {
       body: JSON.stringify(payload),
     }).catch(() => null);
     setBusy(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return false; }
+    if (!response) { toast.error("Connection lost", "Reload to see the current state."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
+      toast.error("Not saved", pesanGalatApi(body) ?? "Try again.");
       return false;
     }
     await load();
@@ -219,10 +226,10 @@ export default function AttendanceAdminPage() {
       body: JSON.stringify(payload),
     }).catch(() => null);
     setBusy(false);
-    if (!response) { toast.error("Koneksi gagal", "Muat ulang untuk melihat keadaan sebenarnya."); return false; }
+    if (!response) { toast.error("Connection lost", "Reload to see the current state."); return false; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
+      toast.error("Not saved", pesanGalatApi(body) ?? "Try again.");
       return false;
     }
     await load();
@@ -244,7 +251,7 @@ export default function AttendanceAdminPage() {
     setBusy(false);
     if (!response?.ok) {
       setPasangan(lama);
-      toast.error("Gagal disimpan", pesanGalatApi(await response?.json().catch(() => ({}))) ?? "Barang yang diperiksa tidak berubah. Coba lagi.");
+      toast.error("Not saved", pesanGalatApi(await response?.json().catch(() => ({}))) ?? "The items did not change. Try again.");
     }
   }
 
@@ -255,11 +262,11 @@ export default function AttendanceAdminPage() {
     setHapusMeja(null);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      toast.error("Tidak bisa dihapus", pesanGalatApi(body) ?? "Coba lagi.");
+      toast.error("Could not delete", pesanGalatApi(body) ?? "Try again.");
       return;
     }
     setPilihJalur(null);
-    toast.success("Jalur dihapus", `${jalur.name} dibuang.`);
+    toast.success("Desk deleted", `${jalur.name} was deleted.`);
     void load();
   }
 
@@ -270,11 +277,11 @@ export default function AttendanceAdminPage() {
     setHapusSesi(null);
     const body = await response?.json().catch(() => ({}));
     if (!response?.ok) {
-      toast.error("Tidak bisa dihapus", pesanGalatApi(body) ?? "Coba lagi.");
+      toast.error("Could not delete", pesanGalatApi(body) ?? "Try again.");
       return;
     }
     setPilihSesi(null);
-    toast.success("Sesi dihapus", `${sesi.name} dibuang.`);
+    toast.success("Session deleted", `${sesi.name} was deleted.`);
     void load();
   }
 
@@ -299,20 +306,20 @@ export default function AttendanceAdminPage() {
 
   async function buatSesi() {
     const ok = await kirim("POST", { name: nama.trim(), slug, sort_order: sessions.length });
-    if (ok) { tutupSesiBaru(); toast.success("Sesi dibuat", "Sudah bisa dipilih di layar pemindai."); }
+    if (ok) { tutupSesiBaru(); toast.success("Session added", "Staff can pick it on the scanner now."); }
   }
 
   async function buatJalur() {
     const ok = await kirimJalur("POST", { name: namaJalur.trim(), slug: slugify(namaJalur), sort_order: lanes.length });
-    if (ok) { tutupJalurBaru(); toast.success("Jalur dibuat", "Sudah bisa dipilih di layar pemindai."); }
+    if (ok) { tutupJalurBaru(); toast.success("Desk added", "Staff can pick it on the scanner now."); }
   }
 
   // ---- Sesi --------------------------------------------------------------
   const sesiTerpilih = sessions.find((sesi) => sesi.id === pilihSesi) ?? null;
 
   const daftarSesi = (
-    <Pane aria-label="Daftar sesi kehadiran">
-      <KepalaKolom kolom={[["Sesi", "min-w-0 flex-1"], ["Hadir", "w-24"], ["Dibuka", "w-[60px] text-right"]]} />
+    <Pane aria-label="Check-in sessions">
+      <KepalaKolom kolom={[["Session", "min-w-0 flex-1"], ["Checked in", "w-24"], ["Status", "w-[72px] text-right"]]} />
       <PaneBody>
         {error ? <Galat pesan={error} />
           : !dimuat ? <Kerangka />
@@ -320,8 +327,8 @@ export default function AttendanceAdminPage() {
             <EmptyState
               plain
               icon={<QrCode size={40} />}
-              title="Belum ada sesi"
-              description="Satu sesi adalah satu titik pemindaian. Biasanya dimulai dari Registrasi."
+              title="No sessions yet"
+              description="A session is one place where participants are scanned. Most events start with Registration."
             />
           ) : sessions.map((sesi) => (
             <BarisPilih
@@ -330,18 +337,11 @@ export default function AttendanceAdminPage() {
               onSelect={() => setPilihSesi(sesi.id)}
               nama={sesi.name}
               aktif={sesi.is_active}
-              alamat={`/scan?sesi=${sesi.slug}`}
+              alamat={totalPeserta === null ? `/scan?sesi=${sesi.slug}` : `${Math.max(totalPeserta - sesi.hadir, 0)} not here yet`}
               angka={<>
                 <span className="block font-semibold tabular-nums text-on-surface">{sesi.hadir}</span>
-                <span className="block tabular-nums text-on-surface-variant">{sesi.total_scan} scan</span>
+                <span className="block tabular-nums text-on-surface-variant">{sesi.total_scan} {sesi.total_scan === 1 ? "scan" : "scans"}</span>
               </>}
-              sakelar={
-                <Switch simpan
-                  checked={sesi.is_active}
-                  onChange={(value) => void kirim("PATCH", { id: sesi.id, is_active: value })}
-                  label={<span className="sr-only">Sesi {sesi.name} dibuka</span>}
-                />
-              }
             />
           ))}
       </PaneBody>
@@ -349,30 +349,42 @@ export default function AttendanceAdminPage() {
   );
 
   const detailSesi = sesiTerpilih ? (
-    <Pane as="aside" aria-label={`Detail sesi ${sesiTerpilih.name}`}>
+    <Pane as="aside" aria-label={`Session ${sesiTerpilih.name}`}>
       <KepalaDetail
         nama={sesiTerpilih.name}
         aktif={sesiTerpilih.is_active}
         onClose={() => setPilihSesi(null)}
         angka={sesiTerpilih.hadir}
-        keterangan={`orang hadir · ${sesiTerpilih.total_scan} scan`}
+        keterangan={`checked in · ${sesiTerpilih.total_scan} ${sesiTerpilih.total_scan === 1 ? "scan" : "scans"}`}
+        aksi={<>
+          {totalPeserta !== null ? (
+            <ButtonLink href={`/admin/participants?hadir=${sesiTerpilih.id}:no`} variant="outlined" size="sm">
+              Show who is not here yet ({Math.max(totalPeserta - sesiTerpilih.hadir, 0)})
+            </ButtonLink>
+          ) : null}
+          {hanyaLihat ? null : sesiTerpilih.is_active ? (
+            <Button simpan variant="outlined" size="sm" disabled={busy} onClick={() => setTutup({ jenis: "sesi", id: sesiTerpilih.id, name: sesiTerpilih.name })}>Close check-in…</Button>
+          ) : (
+            <Button simpan variant="outlined" size="sm" disabled={busy} onClick={() => void kirim("PATCH", { id: sesiTerpilih.id, is_active: true })}>Open check-in</Button>
+          )}
+        </>}
       />
       <PaneBody>
-        <DetailSection title="Pemindaian">
+        <DetailSection title="Today">
           <dl className="flex flex-col gap-2">
-            <KeyValue label="Scan terakhir">{sesiTerpilih.terakhir ? `${formatEventDateTime(sesiTerpilih.terakhir, zone)} ${abbr}` : "Belum ada"}</KeyValue>
+            <KeyValue label="Last scan">{sesiTerpilih.terakhir ? `${formatEventDateTime(sesiTerpilih.terakhir, zone)} ${abbr}` : "None yet"}</KeyValue>
           </dl>
-          <p className="text-body-medium text-on-surface-variant">Hadir menghitung orang unik, scan menghitung setiap pemindaian. Orang yang dipindai dua kali terhitung satu kali hadir.</p>
+          <p className="text-body-medium text-on-surface-variant">Checked in counts people; scans count every scan. Someone scanned twice is checked in once.</p>
         </DetailSection>
         {/* Barang dibuat di Logistik; di sini hanya dipilih mana yang diperiksa
             petugas setelah memindai di sesi ini. */}
         <DetailSection
-          title="Barang yang diperiksa"
-          action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Kelola barang</ButtonLink>}
+          title="Items handed out"
+          action={<ButtonLink href="/admin/logistik" variant="text" size="sm">Manage items</ButtonLink>}
         >
           {barang.length === 0 ? (
             <p className="text-body-medium text-on-surface-variant">
-              Belum ada barang. Buat di Logistik, tab Barang, bila sesi ini juga membagikan kaos atau goodie bag.
+              No items yet. Add them in Logistics, Items tab, if this session also hands out T-shirts or goodie bags.
             </p>
           ) : (
             <>
@@ -384,11 +396,11 @@ export default function AttendanceAdminPage() {
                     disabled={busy}
                     onChange={(value) => void ubahBarangSesi(sesiTerpilih.id, item.id, value)}
                     label={item.name}
-                    description={item.size_field_key ? "Petugas melihat ukuran peserta." : undefined}
+                    description={item.size_field_key ? "Staff see the participant's size." : undefined}
                   />
                 ))}
               </div>
-              <p className="text-body-medium text-on-surface-variant">Setelah memindai, petugas mencentang barang yang diserahkan. Tiap barang hanya bisa diambil sekali per peserta, di sesi mana pun.</p>
+              <p className="text-body-medium text-on-surface-variant">After the scan, staff tick the items they hand over. Each item can be collected once per participant, at any session.</p>
             </>
           )}
         </DetailSection>
@@ -469,12 +481,12 @@ export default function AttendanceAdminPage() {
           terkunci={terkunci}
           onSimpan={(daftar) => kirim("PATCH", { id: sesiTerpilih.id, scan_fields: daftar })}
         />
-        <DetailSection title="Layar pemindai">
+        <DetailSection title="Scanner">
           <dl className="flex flex-col gap-2">
-            <KeyValue label="Alamat"><span className="select-all">/scan?sesi={sesiTerpilih.slug}</span></KeyValue>
+            <KeyValue label="Address"><span className="select-all">/scan?sesi={sesiTerpilih.slug}</span></KeyValue>
           </dl>
           <p className="text-body-medium text-on-surface-variant">
-            Petugas membukanya dengan akun Petugas scan. Buat akunnya di Pengaturan, bagian User &amp; role.
+            Staff open it with a Scanner account. Create accounts in Users &amp; roles.
           </p>
         </DetailSection>
       </PaneBody>
@@ -482,12 +494,12 @@ export default function AttendanceAdminPage() {
           sisanya: catatan hadir ikut terhapus bersama sesinya, dan itu
           satu-satunya bukti seseorang datang. */}
       {sesiTerpilih.total_scan > 0 ? (
-        <PaneFooter note="Sudah ada catatan kehadiran, jadi sesi ini hanya bisa ditutup, tidak dihapus.">
+        <PaneFooter note="This session has check-ins, so it can be closed but not deleted.">
           {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>}
         </PaneFooter>
       ) : (
-        <PaneFooter note="Belum ada catatan kehadiran">
-          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Hapus sesi</Button>
+        <PaneFooter note="No check-ins yet">
+          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusSesi(sesiTerpilih)}>Delete session</Button>
           {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("sesi", sesiTerpilih)}>Edit</Button>}
         </PaneFooter>
       )}
@@ -498,8 +510,8 @@ export default function AttendanceAdminPage() {
   const jalurTerpilih = lanes.find((jalur) => jalur.id === pilihJalur) ?? null;
 
   const daftarJalur = (
-    <Pane aria-label="Daftar meja registrasi">
-      <KepalaKolom kolom={[["Meja", "min-w-0 flex-1"], ["Scan", "w-24"], ["Dibuka", "w-[60px] text-right"]]} />
+    <Pane aria-label="Desks">
+      <KepalaKolom kolom={[["Desk", "min-w-0 flex-1"], ["Scans", "w-24"], ["Status", "w-[72px] text-right"]]} />
       <PaneBody>
         {errorJalur ? <Galat pesan={errorJalur} />
           : !dimuat ? <Kerangka />
@@ -507,8 +519,8 @@ export default function AttendanceAdminPage() {
             <EmptyState
               plain
               icon={<Television size={40} />}
-              title="Belum ada meja"
-              description={`${PENJELASAN_JALUR} Tanpa jalur, semua pemindaian masuk ke satu kolam dan layar sapa menyapa semua tamu.`}
+              title="No desks yet"
+              description={`${PENJELASAN_JALUR} Without desks, every scan goes to one pool and the welcome screen greets everyone.`}
             />
           ) : lanes.map((jalur) => (
             <BarisPilih
@@ -519,13 +531,6 @@ export default function AttendanceAdminPage() {
               aktif={jalur.is_active}
               alamat={`/sapa?jalur=${jalur.slug}`}
               angka={<span className="block font-semibold tabular-nums text-on-surface">{jalur.total_scan}</span>}
-              sakelar={
-                <Switch simpan
-                  checked={jalur.is_active}
-                  onChange={(value) => void kirimJalur("PATCH", { id: jalur.id, is_active: value })}
-                  label={<span className="sr-only">Meja {jalur.name} dibuka</span>}
-                />
-              }
             />
           ))}
       </PaneBody>
@@ -533,21 +538,26 @@ export default function AttendanceAdminPage() {
   );
 
   const detailJalur = jalurTerpilih ? (
-    <Pane as="aside" aria-label={`Detail meja ${jalurTerpilih.name}`}>
+    <Pane as="aside" aria-label={`Desk ${jalurTerpilih.name}`}>
       <KepalaDetail
         nama={jalurTerpilih.name}
         aktif={jalurTerpilih.is_active}
         onClose={() => setPilihJalur(null)}
         angka={jalurTerpilih.total_scan}
-        keterangan="scan di meja ini"
+        keterangan="scans at this desk"
+        aksi={hanyaLihat ? null : jalurTerpilih.is_active ? (
+          <Button simpan variant="outlined" size="sm" disabled={busy} onClick={() => setTutup({ jenis: "meja", id: jalurTerpilih.id, name: jalurTerpilih.name })}>Close desk…</Button>
+        ) : (
+          <Button simpan variant="outlined" size="sm" disabled={busy} onClick={() => void kirimJalur("PATCH", { id: jalurTerpilih.id, is_active: true })}>Open desk</Button>
+        )}
       />
       <PaneBody>
-        <DetailSection title="Layar sapa">
+        <DetailSection title="Welcome screen">
           <dl className="flex flex-col gap-2">
-            <KeyValue label="Alamat"><span className="select-all">/sapa?jalur={jalurTerpilih.slug}</span></KeyValue>
+            <KeyValue label="Address"><span className="select-all">/sapa?jalur={jalurTerpilih.slug}</span></KeyValue>
           </dl>
           <p className="text-body-medium text-on-surface-variant">
-            Petugas memilih mejanya di layar pemindai, lalu memasang TV meja itu dengan kode enam angka yang muncul di layarnya.
+            Staff pick their desk on the scanner, then pair the desk TV with the six-digit code it shows.
           </p>
         </DetailSection>
       </PaneBody>
@@ -555,50 +565,47 @@ export default function AttendanceAdminPage() {
           tetapi kolom mejanya dikosongkan, dan laporan "meja mana yang antre
           paling panjang jam sembilan" kehilangan datanya tanpa satu pun jejak. */}
       {jalurTerpilih.total_scan > 0 ? (
-        <PaneFooter note="Sudah dipakai memindai, jadi meja ini hanya bisa ditutup, tidak dihapus.">
+        <PaneFooter note="This desk has scans, so it can be closed but not deleted.">
           {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>}
         </PaneFooter>
       ) : (
-        <PaneFooter note="Belum dipakai memindai">
-          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Hapus meja</Button>
+        <PaneFooter note="No scans yet">
+          <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapusMeja(jalurTerpilih)}>Delete desk</Button>
           {hanyaLihat ? null : <Button variant="outlined" size="sm" onClick={() => bukaUbahNama("meja", jalurTerpilih)}>Edit</Button>}
         </PaneFooter>
       )}
     </Pane>
   ) : null;
 
-  // ---- Walk-in -------------------------------------------------------------
-  // Tab sendiri, bukan diselipkan ke daftar sesi: ini satu-satunya setelan di
-  // halaman ini yang memberi WEWENANG, bukan mengatur tampilan. Akun petugas
-  // scan adalah akun paling sempit di sistem, dibuat justru supaya satu ponsel
-  // yang berpindah tangan di pintu masuk tidak bisa membuka data peserta, dan
-  // sakelar ini membolehkannya MEMBUAT peserta.
-  const walkIn = (
-    <Pane aria-label="Tamu walk-in" className="w-full max-w-[760px]">
-      {error ? <Galat pesan={error} /> : (
-        <>
-          <DetailSection>
-            <Switch simpan
-              checked={allowWalkIn}
-              disabled={busy || !dimuat}
-              onChange={(value) => void ubahWalkIn(value)}
-              label="Izinkan walk-in"
-              description="Petugas di layar pemindai mendapat tombol untuk mendaftarkan tamu yang tidak ada di daftar peserta, tanpa membuka halaman admin. Kode pesertanya terbit sendiri dan kehadirannya tercatat pada saat yang sama."
-            />
-          </DetailSection>
-          <DetailSection title="Kapan tombolnya muncul">
-            <p className="text-body-medium text-on-surface-variant">
-              Hanya setelah pencarian nama tidak menemukan siapa pun, dan nama yang kembar ditahan untuk dikonfirmasi petugas. Matikan bila acara ini memang menolak tamu tanpa undangan.
-            </p>
-          </DetailSection>
-          <DetailSection title="Tercatat">
-            <dl className="flex flex-col gap-2">
-              <KeyValue label="Didaftarkan di meja"><span className="tabular-nums">{dimuat ? walkInCount : "Memuat"}</span></KeyValue>
-            </dl>
-          </DetailSection>
-        </>
-      )}
-    </Pane>
+  // ---- Scanner settings ----------------------------------------------------
+  // Walk-in dulu tab sendiri; isinya satu sakelar, jadi pindah ke dialog di
+  // kepala halaman. Tetap satu tempat yang jelas: sakelar ini memberi WEWENANG
+  // (akun petugas scan, akun paling sempit, boleh MEMBUAT peserta), bukan
+  // mengatur tampilan.
+  const pengaturanScanner = (
+    <Dialog
+      open={bukaPengaturan}
+      onClose={() => setBukaPengaturan(false)}
+      title="Scanner settings"
+      description="Applies to every session and desk in this event."
+      actions={<Button variant="outlined" onClick={() => setBukaPengaturan(false)}>Done</Button>}
+    >
+      <div className="flex flex-col gap-4">
+        <Switch simpan
+          checked={allowWalkIn}
+          disabled={busy || !dimuat || hanyaLihat}
+          onChange={(value) => void ubahWalkIn(value)}
+          label="Allow walk-ins"
+          description="Scanner staff get a button to register a guest who is not on the participant list, without the admin pages. The guest gets a code and is checked in at the same time."
+        />
+        <p className="text-body-medium text-on-surface-variant">
+          The button shows only after Find name finds nobody, and similar names are held for staff to confirm. Turn it off if this event turns away guests without an invitation.
+        </p>
+        <dl className="flex flex-col gap-2">
+          <KeyValue label="Walk-ins so far"><span className="tabular-nums">{dimuat ? walkInCount : "Loading"}</span></KeyValue>
+        </dl>
+      </div>
+    </Dialog>
   );
 
   return (
@@ -606,16 +613,16 @@ export default function AttendanceAdminPage() {
       <WorkspaceHeader
         meta={dimuat && !error ? (
           <>
-            <span>Diperbarui tiap 30 detik</span>
+            <span>Updates every 30 seconds</span>
             <MetaSeparator />
             <span className="inline-flex items-center gap-1.5">
               <StatusDot tone={allowWalkIn ? "success" : "neutral"} />
-              {allowWalkIn ? "Walk-in diizinkan" : "Walk-in dimatikan"}
+              {allowWalkIn ? "Walk-in on" : "Walk-in off"}
             </span>
             {walkInCount > 0 ? (
               <>
                 <MetaSeparator />
-                <span className="tabular-nums">{walkInCount} didaftarkan di meja</span>
+                <span className="tabular-nums">{walkInCount} {walkInCount === 1 ? "walk-in" : "walk-ins"}</span>
               </>
             ) : null}
           </>
@@ -626,25 +633,25 @@ export default function AttendanceAdminPage() {
                 pemindai yang kehilangan `/e/<slug>` jatuh ke "event aktif
                 tunggal" di server, dan di sistem dengan dua acara berjalan itu
                 berarti petugas mencatat kehadiran ke acara yang salah. */}
+            <Button variant="outlined" onClick={() => setBukaPengaturan(true)}>Scanner settings</Button>
             <ButtonLink href="/scan" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>
-              Buka layar pemindai
+              Open scanner
             </ButtonLink>
-            {bagian === "sesi" && !hanyaLihat ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setSesiBaru(true)}>Sesi baru</Button> : null}
-            {bagian === "meja" && !hanyaLihat ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setJalurBaru(true)}>Meja baru</Button> : null}
+            {bagian === "sesi" && !hanyaLihat ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setSesiBaru(true)}>New session</Button> : null}
+            {bagian === "meja" && !hanyaLihat ? <Button icon={<Plus size={16} weight="bold" />} onClick={() => setJalurBaru(true)}>New desk</Button> : null}
           </>
         }
       />
 
       <Tabs<Bagian>
-        label="Bagian kehadiran"
+        label="Check-in sections"
         idPrefix="kehadiran"
         value={bagian}
         onChange={setBagian}
         options={[
           { value: "sesi", label: "Sessions", badge: dimuat && !error ? sessions.length : undefined },
-          { value: "meja", label: "Meja registrasi", badge: dimuat && !errorJalur && lanes.length > 0 ? lanes.length : undefined },
-          { value: "walkin", label: "Walk-in" },
           { value: "checkpoint", label: "Checkpoints" },
+          { value: "meja", label: "Desks", badge: dimuat && !errorJalur && lanes.length > 0 ? lanes.length : undefined },
         ]}
       />
 
@@ -663,26 +670,26 @@ export default function AttendanceAdminPage() {
               });
             }}
           />
-          : walkIn}
+          : null}
       </div>
 
       <Dialog
         open={sesiBaru}
         onClose={tutupSesiBaru}
         dismissible={!busy}
-        title="Sesi baru"
-        description="Satu sesi adalah satu titik pemindaian, mis. Registrasi atau Workshop A."
+        title="New session"
+        description="A session is one place where participants are scanned, e.g. Registration or Workshop A."
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={tutupSesiBaru}>Batal</Button>
-            <Button simpan type="submit" form="form-sesi" loading={busy} disabled={!nama.trim() || !slug}>Tambah sesi</Button>
+            <Button variant="outlined" disabled={busy} onClick={tutupSesiBaru}>Cancel</Button>
+            <Button simpan type="submit" form="form-sesi" loading={busy} disabled={!nama.trim() || !slug}>Add session</Button>
           </>
         }
       >
         <form id="form-sesi" className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); if (nama.trim() && slug) void buatSesi(); }}>
           <TextField
-            label="Nama sesi"
-            placeholder="mis. Registrasi, Workshop A"
+            label="Session name"
+            placeholder="e.g. Registration, Workshop A"
             value={nama}
             autoFocus
             onChange={(event) => {
@@ -693,7 +700,7 @@ export default function AttendanceAdminPage() {
           />
           <TextField
             label="Slug"
-            hint="Dipakai di alamat layar pemindai. Huruf kecil, angka, tanda hubung."
+            hint="Used in the scanner address. Lower-case letters, digits and hyphens."
             value={slug}
             onChange={(event) => setSlug(slugify(event.target.value))}
           />
@@ -737,22 +744,22 @@ export default function AttendanceAdminPage() {
         open={jalurBaru}
         onClose={tutupJalurBaru}
         dismissible={!busy}
-        title="Meja baru"
+        title="New desk"
         description={PENJELASAN_JALUR}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={tutupJalurBaru}>Batal</Button>
-            <Button simpan type="submit" form="form-jalur" loading={busy} disabled={!namaJalur.trim() || !slugify(namaJalur)}>Tambah meja</Button>
+            <Button variant="outlined" disabled={busy} onClick={tutupJalurBaru}>Cancel</Button>
+            <Button simpan type="submit" form="form-jalur" loading={busy} disabled={!namaJalur.trim() || !slugify(namaJalur)}>Add desk</Button>
           </>
         }
       >
         <form id="form-jalur" onSubmit={(event) => { event.preventDefault(); if (namaJalur.trim() && slugify(namaJalur)) void buatJalur(); }}>
           <TextField
-            label="Nama meja"
-            placeholder="mis. Meja 1, VIP, Media"
+            label="Desk name"
+            placeholder="e.g. Desk 1, VIP, Media"
             value={namaJalur}
             autoFocus
-            hint="Slug dibuat otomatis dari namanya."
+            hint="The address is made from the name."
             onChange={(event) => setNamaJalur(event.target.value)}
           />
         </form>
@@ -763,12 +770,12 @@ export default function AttendanceAdminPage() {
         onClose={() => setHapusSesi(null)}
         dismissible={!busy}
         tone="danger"
-        title={`Hapus sesi ${hapusSesi?.name ?? ""}?`}
-        description="Sesi ini belum punya catatan kehadiran, jadi tidak ada data hadir yang ikut terhapus. Penghapusan tidak bisa dibatalkan."
+        title={`Delete session ${hapusSesi?.name ?? ""}?`}
+        description="This session has no check-ins, so no attendance is lost. This cannot be undone."
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setHapusSesi(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusSesi) void hapus(hapusSesi); }}>Hapus sesi</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setHapusSesi(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusSesi) void hapus(hapusSesi); }}>Delete session</Button>
           </>
         }
       />
@@ -778,12 +785,35 @@ export default function AttendanceAdminPage() {
         onClose={() => setHapusMeja(null)}
         dismissible={!busy}
         tone="danger"
-        title={`Hapus meja ${hapusMeja?.name ?? ""}?`}
-        description="Meja ini belum dipakai memindai, jadi tidak ada catatan meja yang hilang. Penghapusan tidak bisa dibatalkan."
+        title={`Delete desk ${hapusMeja?.name ?? ""}?`}
+        description="This desk has no scans, so no desk records are lost. This cannot be undone."
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setHapusMeja(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusMeja) void hapusJalur(hapusMeja); }}>Hapus meja</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setHapusMeja(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={busy} onClick={() => { if (hapusMeja) void hapusJalur(hapusMeja); }}>Delete desk</Button>
+          </>
+        }
+      />
+      {pengaturanScanner}
+
+      <Dialog
+        open={tutup !== null}
+        onClose={() => setTutup(null)}
+        dismissible={!busy}
+        title={tutup?.jenis === "meja" ? `Close desk ${tutup?.name ?? ""}?` : `Close check-in at ${tutup?.name ?? ""}?`}
+        description={tutup?.jenis === "meja"
+          ? "Staff can no longer pick this desk on the scanner. Scans already recorded stay. You can open it again at any time."
+          : "Every scanner phone on this session stops checking people in straight away and shows \"This check-in point is closed\". Check-ins already recorded stay. You can open it again at any time."}
+        actions={
+          <>
+            <Button variant="outlined" disabled={busy} onClick={() => setTutup(null)}>Cancel</Button>
+            <Button simpan loading={busy} onClick={async () => {
+              if (!tutup) return;
+              const ok = tutup.jenis === "meja"
+                ? await kirimJalur("PATCH", { id: tutup.id, is_active: false })
+                : await kirim("PATCH", { id: tutup.id, is_active: false });
+              if (ok) setTutup(null);
+            }}>{tutup?.jenis === "meja" ? "Close desk" : "Close check-in"}</Button>
           </>
         }
       />
@@ -802,63 +832,65 @@ function KepalaKolom({ kolom }: { kolom: Array<[string, string]> }) {
 }
 
 /**
- * Baris daftar dengan sakelar di ujungnya.
+ * Baris daftar sesi atau meja.
  *
- * Bukan `ListRow`: ListRow adalah satu `<button>` utuh, dan sakelar di
- * dalamnya berarti tombol di dalam tombol. Di sini hanya bagian nama dan angka
- * yang menjadi tombol pilih; sakelarnya berdiri di sebelahnya.
+ * Dulu membawa sakelar Dibuka di ujungnya. Satu ketukan saat menggulir menutup
+ * sesi untuk semua ponsel petugas, tanpa konfirmasi; sekarang baris hanya
+ * menampilkan statusnya, dan buka/tutup ada di panel detail.
  */
-function BarisPilih({ selected, onSelect, nama, aktif, alamat, angka, sakelar }: {
+function BarisPilih({ selected, onSelect, nama, aktif, alamat, angka }: {
   selected: boolean;
   onSelect: () => void;
   nama: string;
   aktif: boolean;
   alamat: string;
   angka: ReactNode;
-  sakelar: ReactNode;
 }) {
   return (
-    <div className={cx("flex items-center gap-3 border-b border-outline-variant pr-4", selected ? "bg-secondary-container" : "hover:bg-primary-soft")}>
-      <button
-        type="button"
-        aria-pressed={selected}
-        onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left text-body-medium"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className="truncate font-medium text-on-surface">{nama}</span>
-            {!aktif ? <StatusChip tone="neutral">Ditutup</StatusChip> : null}
-          </span>
-          <span className="block truncate text-on-surface-variant">{alamat}</span>
-        </span>
-        <span className="w-24 shrink-0">{angka}</span>
-      </button>
-      <div className="flex w-[60px] shrink-0 justify-end">{sakelar}</div>
-    </div>
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={cx(
+        "flex w-full items-center gap-3 border-b border-outline-variant py-2.5 pl-4 pr-4 text-left text-body-medium",
+        selected ? "bg-secondary-container" : "hover:bg-primary-soft",
+      )}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-on-surface">{nama}</span>
+        <span className="block truncate text-on-surface-variant">{alamat}</span>
+      </span>
+      <span className="w-24 shrink-0">{angka}</span>
+      <span className="flex w-[72px] shrink-0 justify-end">
+        <StatusChip dot tone={aktif ? "success" : "neutral"}>{aktif ? "Open" : "Closed"}</StatusChip>
+      </span>
+    </button>
   );
 }
 
-function KepalaDetail({ nama, aktif, onClose, angka, keterangan }: {
+function KepalaDetail({ nama, aktif, onClose, angka, keterangan, aksi }: {
   nama: string;
   aktif: boolean;
   onClose: () => void;
   angka: number;
   keterangan: string;
+  /** Tombol di bawah angka: siapa yang belum datang, buka/tutup. */
+  aksi?: ReactNode;
 }) {
   return (
     <div className="flex shrink-0 flex-col gap-3 border-b border-outline-variant px-5 py-4">
       <div className="flex items-start gap-3">
         <h2 className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-title-medium font-semibold leading-6">
           <span className="min-w-0 break-words">{nama}</span>
-          <StatusChip dot tone={aktif ? "success" : "neutral"}>{aktif ? "Dibuka" : "Ditutup"}</StatusChip>
+          <StatusChip dot tone={aktif ? "success" : "neutral"}>{aktif ? "Open" : "Closed"}</StatusChip>
         </h2>
-        <IconButton size="sm" label="Tutup detail" onClick={onClose}><X size={16} /></IconButton>
+        <IconButton size="sm" label="Close details" onClick={onClose}><X size={16} /></IconButton>
       </div>
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-[2rem] font-semibold leading-10 tabular-nums text-on-surface">{angka}</span>
         <span className="text-body-medium text-on-surface-variant">{keterangan}</span>
       </p>
+      {aksi ? <div className="flex flex-wrap gap-2">{aksi}</div> : null}
     </div>
   );
 }
@@ -866,14 +898,14 @@ function KepalaDetail({ nama, aktif, onClose, angka, keterangan }: {
 function Galat({ pesan }: { pesan: string }) {
   return (
     <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error">
-      <XCircle size={18} className="mt-0.5 shrink-0" aria-hidden />{pesan} Halaman mencoba lagi tiap 30 detik.
+      <XCircle size={18} className="mt-0.5 shrink-0" aria-hidden />{pesan} The page tries again every 30 seconds.
     </p>
   );
 }
 
 function Kerangka() {
   return (
-    <div role="status" aria-label="Memuat" className="flex flex-col">
+    <div role="status" aria-label="Loading" className="flex flex-col">
       {Array.from({ length: 5 }, (_, i) => (
         <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-3.5">
           <div className="h-3 w-44 animate-pulse rounded bg-surface-container-high" />
