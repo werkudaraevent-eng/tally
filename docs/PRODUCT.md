@@ -199,7 +199,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Room layout (its own view from the page header, shared by every session): 8 layouts (banquet, cabaret, theatre, classroom, U-shape, hollow square, boardroom, head table + banquet) or a composite room of up to 6 sections; tables, seats, rows, aisles, seat label pattern, custom table labels, stage label, seat shape.
   - Sessions (tabs; only per-session settings sit under them): title, seat source (set in Tally, or from the external scanner system), show to participants (new sessions start as drafts), colours, background, header and footer.
   - Screen settings (dialog from the page header, applies to every screen): default session; display mode Name search (phones, touch screens) or QR for LED; search by organisation (off by default).
-  - Assign seats: search participants and place them.
+  - Seats (sessions set in Tally): the map shows real occupancy; a list of people without a seat (or seated, with search); pick a person, then click an empty seat or take the first empty one; Undo for 10 s; people whose seat label isn't on the plan are named. Click an occupied seat to remove or change the person.
 - **Shows at:** `/e/<slug>/denah?sesi=<session>`, the participant seat card, the event page Venue section.
 - **Rule:** the public page never shows full names; the event's name mode and each person's own display choice apply, the strictest wins.
 

@@ -2,9 +2,11 @@
 
 import { Armchair, ArrowDown, ArrowLeft, ArrowSquareOut, ArrowUp, CaretDown, Monitor, Plus, Trash, UploadSimple, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { SeatMapView } from "@/components/seat-map-view";
 import { AssignSeatDialog, type KursiDipilih, type Urungkan } from "./assign-seat-dialog";
+import { SeatsPanel, type Orang } from "./seats-panel";
 import { useToast } from "@/components/toast";
 import { normalizeBranding, type Branding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
@@ -154,7 +156,11 @@ export default function SeatMapAdminPage() {
   const [uploadingBackground, setUploadingBackground] = useState<number | null>(null);
   const [error, setError] = useState("");
   // Assign seats: denah menampilkan isi kursi sebenarnya dan kursinya bisa diklik.
-  const [modeDenah, setModeDenah] = useState<"preview" | "assign">("preview");
+  // Orang yang dipilih di panel Seats; klik kursi kosong mendudukkannya.
+  const [orangDipilih, setOrangDipilih] = useState<Orang | null>(null);
+  const [mendudukkan, setMendudukkan] = useState(false);
+  const [segar, setSegar] = useState(0);
+  const [panelSesi, setPanelSesi] = useState<"kursi" | "setelan">("kursi");
   const [terisi, setTerisi] = useState<Record<number, Record<string, { participantId: string; name: string; label: string }>> | null>(null);
   const [kursiDipilih, setKursiDipilih] = useState<KursiDipilih | null>(null);
   // Perubahan kursi terakhir yang masih bisa dibatalkan (Remove / Change person).
@@ -192,9 +198,11 @@ export default function SeatMapAdminPage() {
     setPreviewSlug((current) => (current && data.sessions.some((row) => row.slug === current) ? current : data.sessions[0]?.slug ?? null));
   }
 
+  // Sekali saat halaman dibuka.
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); }, 0);
+    const timer = window.setTimeout(() => { void load(); void muatKursi(); }, 0);
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function muatKursi() {
@@ -220,6 +228,7 @@ export default function SeatMapAdminPage() {
     }).catch(() => null);
     setMengurungkan(false);
     setUrungkan(null);
+    setSegar((nilai) => nilai + 1);
     if (response?.ok) toast.success(`Seat ${langkah.label} restored.`);
     else toast.error("Couldn't undo", "The seat changed again in the meantime. Check the map.");
     void muatKursi();
@@ -423,7 +432,7 @@ export default function SeatMapAdminPage() {
   const pakaiTally = aktif?.sub_event_id != null && aktif.sub_event_id === sumberTally;
   const orphanSubEvent = aktif?.sub_event_id != null && !pakaiTally && payload !== null && !payload.available_sub_events.some((item) => item.subEventId === aktif.sub_event_id);
   const publik = sessions.filter((item) => item.is_published);
-  const menugaskan = tampilan === "sesi" && modeDenah === "assign" && pakaiTally && aktif !== null;
+  const menugaskan = tampilan === "sesi" && pakaiTally && aktif !== null;
   // Kursi diisi pada tata ruang yang TERSIMPAN; suntingan yang belum disimpan bisa mengubah label kursi.
   const configTersimpan = payload?.config ?? null;
   const tataRuangBerubah = config !== null && configTersimpan !== null && JSON.stringify(bagianRuangan(config)) !== JSON.stringify(bagianRuangan(configTersimpan));
@@ -471,30 +480,88 @@ export default function SeatMapAdminPage() {
     setKursiDipilih({ sessionId: aktif.id, sessionName: aktif.name, label, holder: pemegang ? { participantId: pemegang.participantId, name: pemegang.name } : null });
   }
 
+  // Kursi kosong pertama dari panggung (urutan geometri), untuk jalur papan
+  // ketik di panel Seats.
+  const geometriTersimpan = useMemo(() => (configTersimpan ? computeSeatMapGeometry(configTersimpan) : null), [configTersimpan]);
+  const isiSesi = useMemo(() => (aktif && terisi?.[aktif.id]) ?? {}, [aktif, terisi]);
+  const kursiBerikut = useMemo(() => {
+    if (!geometriTersimpan) return null;
+    for (const table of geometriTersimpan.tables) for (const seat of table.seats) if (!isiSesi[normalizeSeatLabel(seat.label)]) return seat.label;
+    return null;
+  }, [geometriTersimpan, isiSesi]);
+  const diLuarDenah = useMemo(() => {
+    if (!geometriTersimpan) return [];
+    const ada = new Set(geometriTersimpan.tables.flatMap((table) => table.seats.map((seat) => normalizeSeatLabel(seat.label))));
+    return Object.entries(isiSesi).filter(([kunci]) => !ada.has(kunci)).map(([, isi]) => ({ name: isi.name, label: isi.label }));
+  }, [geometriTersimpan, isiSesi]);
+  const jumlahTerisi = Object.keys(isiSesi).length - diLuarDenah.length;
+  const jumlahKosong = (payload?.geometry.total_seats ?? 0) - jumlahTerisi;
+
+  // Esc membatalkan pilihan orang.
+  useEffect(() => {
+    if (!orangDipilih) return;
+    const tekan = (event: KeyboardEvent) => { if (event.key === "Escape" && !kursiDipilih) setOrangDipilih(null); };
+    window.addEventListener("keydown", tekan);
+    return () => window.removeEventListener("keydown", tekan);
+  }, [orangDipilih, kursiDipilih]);
+
+  async function dudukkan(label: string) {
+    if (!aktif || !orangDipilih) return;
+    const orang = orangDipilih;
+    setMendudukkan(true);
+    const response = await fetch("/api/admin/seat-map/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: aktif.id, label, participant_id: orang.id, current_participant_id: null }),
+    }).catch(() => null);
+    const data = await response?.json().catch(() => null);
+    setMendudukkan(false);
+    if (!response?.ok) {
+      toast.error("Seat not changed", response?.status === 409 ? "Someone took this seat just now. The map has been refreshed." : data?.error?.details?.seat ?? data?.error?.message ?? "Try again.");
+    } else {
+      setOrangDipilih(null);
+      setUrungkan({
+        pesan: orang.seat ? `${orang.name} moved from ${orang.seat} to ${label}.` : `${orang.name} is now in seat ${label}.`,
+        // Urungkan: kembali ke kursi lama, atau kosongkan kursi baru.
+        langkah: orang.seat
+          ? { sessionId: aktif.id, label: orang.seat, participantId: orang.id, currentParticipantId: null }
+          : { sessionId: aktif.id, label, participantId: null, currentParticipantId: orang.id },
+      });
+    }
+    setSegar((nilai) => nilai + 1);
+    void muatKursi();
+    void load({ ruangan: "pertahankan", sesi: "pertahankan" });
+  }
+
+  function klikKursi(label: string) {
+    if (orangDipilih && aktif && !isiSesi[normalizeSeatLabel(label)]) { void dudukkan(label); return; }
+    bukaKursi(label);
+  }
+
   // ---- Panel utama: denah hidup --------------------------------------------
+  const legenda = (daftar: ReadonlyArray<readonly [string, string | undefined]>) => daftar.map(([label, warna]) => (
+    <span key={label} className="inline-flex items-center gap-1.5">
+      <span aria-hidden className="size-2.5 rounded-full border border-outline-variant" style={{ background: warna }} />{label}
+    </span>
+  ));
   const peta = config ? (
-    <Pane aria-label="Seating plan preview">
+    <Pane aria-label="Seating plan">
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-outline-variant px-4 py-2.5 text-body-medium text-on-surface-variant">
-        {pakaiTally && tampilan === "sesi" ? (
-          <SegmentedButton<"preview" | "assign">
-            label="Map mode"
-            value={modeDenah}
-            onChange={(mode) => { setModeDenah(mode); if (mode === "assign") void muatKursi(); }}
-            options={[{ value: "preview", label: "Preview" }, { value: "assign", label: "Assign seats" }]}
-          />
-        ) : null}
         {menugaskan ? (
-          <span>{tataRuangBerubah ? "Showing the saved layout. Save layout to assign seats on your changes." : "Click a seat to put someone in it or change who sits there."}</span>
-        ) : warnaEfektif ? (
           <>
-            {([["Empty", warnaEfektif.available], ["Occupied", warnaEfektif.occupied], ["Checked in", warnaEfektif.checkedIn]] as const).map(([label, warna]) => (
-              <span key={label} className="inline-flex items-center gap-1.5">
-                <span aria-hidden className="size-2.5 rounded-full border border-outline-variant" style={{ background: warna }} />{label}
-              </span>
-            ))}
+            {report ? <span className="font-medium text-on-surface">{(jumlahTerisi + diLuarDenah.length).toLocaleString("en-GB")} of {report.total_active_participants.toLocaleString("en-GB")} seated</span> : null}
+            {warnaEfektif ? legenda([[`Empty ${jumlahKosong.toLocaleString("en-GB")}`, warnaEfektif.available], ["Seated", warnaEfektif.occupied]]) : null}
+            <span className="ml-auto">
+              {orangDipilih ? <>Click an empty seat for <span className="font-medium text-on-surface">{orangDipilih.name}</span></> : "Click a seat to see or change who sits there."}
+            </span>
+            {orangDipilih ? <Button variant="text" size="sm" onClick={() => setOrangDipilih(null)}>Cancel</Button> : null}
           </>
-        ) : <span>Sample occupancy: table 1 checked in, table 2 occupied.</span>}
-        {tampilan === "ruangan" ? <span className="ml-auto">Sample occupancy. Updates as you type.</span> : null}
+        ) : (
+          <>
+            {warnaEfektif ? legenda([["Empty", warnaEfektif.available], ["Occupied", warnaEfektif.occupied], ["Checked in", warnaEfektif.checkedIn]]) : null}
+            <span className="ml-auto">{tampilan === "ruangan" ? "Sample occupancy. Updates as you type." : "Sample occupancy. Seats from the scanner API show on the public page."}</span>
+          </>
+        )}
       </div>
       {/* Pratinjau memakai renderer publik, yang teksnya berbahasa Indonesia. */}
       <div
@@ -508,7 +575,8 @@ export default function SeatMapAdminPage() {
         <SeatMapView
           config={menugaskan && configTersimpan ? configTersimpan : config}
           seatStates={menugaskan ? kursiAsli : previewSeatStates}
-          onSeatClick={menugaskan && terisi ? (label) => bukaKursi(label) : undefined}
+          highlightedSeatLabels={menugaskan && orangDipilih?.seat ? [orangDipilih.seat] : undefined}
+          onSeatClick={menugaskan && terisi && !mendudukkan ? (label) => klikKursi(label) : undefined}
           showAttendance
           backgroundColor={aktif?.background_color ?? "#111a63"}
           canvasColor={aktif?.map_panel_transparent && aktif.background_image_url ? "transparent" : undefined}
@@ -519,26 +587,31 @@ export default function SeatMapAdminPage() {
           className="mx-auto min-w-[480px]"
         />
       </div>
-      {menugaskan && urungkan ? (
-        <div role="status" className="flex shrink-0 items-center gap-3 border-t border-outline-variant bg-inverse-surface px-4 py-1.5 text-body-medium text-inverse-on-surface">
-          <span className="min-w-0 flex-1">{urungkan.pesan}</span>
-          <button type="button" onClick={() => void batalkanPerubahan()} disabled={mengurungkan} className="min-h-9 shrink-0 rounded-full px-3 text-label-large font-semibold underline disabled:opacity-60">{mengurungkan ? "Undoing…" : "Undo"}</button>
+      {menugaskan ? null : (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
+          {report && tampilan === "sesi" ? (
+            <>
+              <span className="text-on-surface-variant">{plural(report.matched_seats, "seat")} occupied, {report.empty_seats.toLocaleString("en-GB")} empty, {plural(report.participants_without_seat, "participant")} without a seat</span>
+              <span className="ml-auto">
+                {report.unmatched_count > 0
+                  ? <StatusChip tone="warning">{plural(report.unmatched_count, "label")} not on the seating plan: {report.unmatched_labels.slice(0, 3).join(", ")}{report.unmatched_count > 3 ? "…" : ""}</StatusChip>
+                  : report.total_assignments > 0 ? <StatusChip dot tone="success">All labels match</StatusChip> : null}
+              </span>
+            </>
+          ) : (
+            <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}{tampilan === "ruangan" ? "" : ". Seat matching appears once the session has a seat source."}</span>
+          )}
         </div>
+      )}
+      {/* Snackbar M3: dipasang ke body supaya tetap di layar, juga saat
+          pane digulir atau di 390 ketika tombol "Seat in" jauh di bawah denah. */}
+      {menugaskan && urungkan && typeof document !== "undefined" ? createPortal(
+        <div role="status" className="fixed inset-x-4 bottom-4 z-toast mx-auto flex w-fit max-w-[560px] items-center gap-3 rounded-sm bg-inverse-surface py-1.5 pl-4 pr-2 text-body-medium text-inverse-on-surface shadow-lg sm:bottom-6">
+          <span className="min-w-0 flex-1">{urungkan.pesan}</span>
+          <button type="button" onClick={() => void batalkanPerubahan()} disabled={mengurungkan} className="min-h-9 shrink-0 rounded-full px-3 text-label-large font-semibold text-inverse-primary disabled:opacity-60">{mengurungkan ? "Undoing…" : "Undo"}</button>
+        </div>,
+        document.body,
       ) : null}
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-outline-variant px-4 py-2.5 text-body-medium">
-        {report && tampilan === "sesi" ? (
-          <>
-            <span className="text-on-surface-variant">{plural(report.matched_seats, "seat")} occupied, {report.empty_seats.toLocaleString("en-GB")} empty, {plural(report.participants_without_seat, "participant")} without a seat</span>
-            <span className="ml-auto">
-              {report.unmatched_count > 0
-                ? <StatusChip tone="warning" title={`For example: ${report.unmatched_labels.slice(0, 6).join(", ")}`}>{plural(report.unmatched_count, "label")} not on the seating plan</StatusChip>
-                : report.total_assignments > 0 ? <StatusChip dot tone="success">All labels match</StatusChip> : null}
-            </span>
-          </>
-        ) : (
-          <span className="text-on-surface-variant">{plural(payload?.geometry.total_tables ?? 0, "table")}, {plural(payload?.geometry.total_seats ?? 0, "seat")}{tampilan === "ruangan" ? "" : ". Seat matching appears once the session has a seat source."}</span>
-        )}
-      </div>
     </Pane>
   ) : null;
 
@@ -960,6 +1033,18 @@ export default function SeatMapAdminPage() {
   const galatRuangan = prefixInvalid ? "Fix the label prefix first" : seatConflicts.length > 0 ? "Give each section its own label prefix" : labelConflicts.length > 0 ? "Fix duplicate table labels first" : null;
   const catatanBelumSimpan = (teks: string) => <span className="inline-flex items-center gap-1.5 text-on-surface"><span aria-hidden className="size-2 rounded-full bg-warning" />{teks}</span>;
 
+  const tombolPanelSesi = (
+    <div className="shrink-0 border-b border-outline-variant px-4 py-3">
+      <SegmentedButton<"kursi" | "setelan">
+        label="Panel"
+        value={panelSesi}
+        onChange={(nilai) => { setPanelSesi(nilai); setOrangDipilih(null); }}
+        className="w-full"
+        options={[{ value: "kursi", label: "Seats" }, { value: "setelan", label: sesiBerubah ? "Session settings •" : "Session settings" }]}
+      />
+    </div>
+  );
+
   const panel = tampilan === "ruangan" ? (
     <Pane as="aside" aria-label="Room layout">
       <PaneBody className="px-4 py-4">{isiRuangan}</PaneBody>
@@ -970,8 +1055,27 @@ export default function SeatMapAdminPage() {
         <Button simpan size="sm" onClick={() => void saveRoom()} loading={savingConfig} disabled={!tataRuangBerubah || galatRuangan !== null}>Save layout</Button>
       </PaneFooter>
     </Pane>
+  ) : pakaiTally && aktif && report && panelSesi === "kursi" ? (
+    <Pane as="aside" aria-label="Seats">
+      {tombolPanelSesi}
+      <PaneBody className="px-4 py-4">
+        <SeatsPanel
+          sessionId={aktif.id}
+          tanpaKursi={report.participants_without_seat}
+          terisi={jumlahTerisi + diLuarDenah.length}
+          dipilih={orangDipilih}
+          onPilih={setOrangDipilih}
+          kursiBerikut={kursiBerikut}
+          onDudukkan={(label) => void dudukkan(label)}
+          menyimpan={mendudukkan}
+          diLuarDenah={diLuarDenah}
+          segar={segar}
+        />
+      </PaneBody>
+    </Pane>
   ) : (
     <Pane as="aside" aria-label="Session settings">
+      {pakaiTally && aktif && report ? tombolPanelSesi : null}
       <PaneBody className="px-4 py-4">{isiAgenda}</PaneBody>
       {aktif ? (
         <PaneFooter note={sesiBerubah ? catatanBelumSimpan("Unsaved changes") : "This session only"}>
@@ -1047,7 +1151,7 @@ export default function SeatMapAdminPage() {
                   label="Sessions"
                   idPrefix="agenda"
                   value={aktif?.slug ?? ""}
-                  onChange={(slug) => setPreviewSlug(slug)}
+                  onChange={(slug) => { setPreviewSlug(slug); setOrangDipilih(null); }}
                   className="border-b-0"
                   options={sessions.map((item) => ({ value: item.slug, label: item.name, badge: item.is_published ? undefined : "Draft" }))}
                 />
