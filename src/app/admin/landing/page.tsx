@@ -512,6 +512,25 @@ export default function LandingCmsPage() {
     const timer = window.setTimeout(() => setTerbuka(null), 0);
     return () => window.clearTimeout(timer);
   });
+  // Fokus drill-in: membuka atau menutup bagian melepas tombol yang sedang
+  // difokus dari DOM, jadi fokus jatuh ke body (QA #358 M1). Bila itu terjadi,
+  // fokus pindah ke judul bagian yang dibuka, atau kembali ke tombol barisnya
+  // saat kembali ke daftar. Fokus yang sudah dipindah ke tempat lain (mis.
+  // field yang galat) dibiarkan.
+  const terbukaSebelumnya = useRef<string | null>(null);
+  useEffect(() => {
+    const sebelumnya = terbukaSebelumnya.current;
+    terbukaSebelumnya.current = terbuka;
+    if (sebelumnya === terbuka) return;
+    const aktif = document.activeElement;
+    if (aktif && aktif !== document.body) return;
+    const sasaran = terbuka !== null
+      ? document.querySelector<HTMLElement>(`#baris-${CSS.escape(terbuka)} h2`)
+      : sebelumnya !== null
+        ? document.querySelector<HTMLElement>(`#baris-${CSS.escape(sebelumnya)} button[aria-expanded]`)
+        : null;
+    sasaran?.focus({ preventScroll: true });
+  }, [terbuka]);
   // Lipatan "Judul bagian" yang terbuka (satu bagian), awalnya tertutup.
   const [judulTerbuka, setJudulTerbuka] = useState<LandingHeadedSection | null>(null);
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
@@ -953,12 +972,17 @@ export default function LandingCmsPage() {
       toast.error("FAQ incomplete", `Question ${tanyaKosong + 1}: fill in the question and the answer, or delete the question.`);
       return;
     }
+    // Toast menyebut nama blok, bukan nomor: daftar tidak lagi bernomor (QA #358 L1).
+    const namaBlokDi = (index: number) => {
+      const blok = (landing.blocks ?? []).find((item) => item.id === sections[index]?.id);
+      return blok ? `“${blok.heading?.trim() || blok.name?.trim() || LANDING_BLOCK_LABELS[blok.type]}”` : `Section ${index + 1}`;
+    };
     const blokSalah = sections.findIndex((section) => {
       const blok = isLandingBlockId(section.id) ? (landing.blocks ?? []).find((item) => item.id === section.id) : undefined;
       return blok ? tautanBlokSalah(blok) : false;
     });
     if (blokSalah >= 0) {
-      toast.error("Invalid link in a block", `Section ${blokSalah + 1}: enter a full address starting with https://, # for a section on this page, or leave it empty.`);
+      toast.error("Invalid link in a block", `${namaBlokDi(blokSalah)}: enter a full address starting with https://, # for a section on this page, or leave it empty.`);
       return;
     }
     const blokPenuh = sections.findIndex((section) => {
@@ -966,7 +990,7 @@ export default function LandingCmsPage() {
       return blok ? butirBerlebih(blok) > 0 : false;
     });
     if (blokPenuh >= 0) {
-      toast.error("Too many items in a block", `Section ${blokPenuh + 1}: the chosen layout holds fewer items. Delete the extra items or choose another layout.`);
+      toast.error("Too many items in a block", `${namaBlokDi(blokPenuh)}: the chosen layout holds fewer items. Delete the extra items or choose another layout.`);
       return;
     }
     // Batas karakter juga diperiksa server, tetapi galatnya hanya "Maximum 24
@@ -982,7 +1006,7 @@ export default function LandingCmsPage() {
         gulirKeBaris(blok.id);
         // Toast langsung; fokus menyusul setelah baris terbuka. Bila kolomnya
         // ternyata tidak ada, toast kedua menyusul (toast tidak bisa diganti).
-        const pesan = (akhir: string) => `Section ${index + 2}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: up to ${plural(lewat.max, "character")}. ${akhir}`;
+        const pesan = (akhir: string) => `${namaBlokDi(index)}, ${lewat.kolom}${lewat.bahasa === "en" ? " (English)" : ""}: up to ${plural(lewat.max, "character")}. ${akhir}`;
         toast.error("Text too long", pesan("The field is now shown."));
         fokusKolomLewat(blok.id, undefined, (ketemu) => {
           if (!ketemu) toast.error("Text too long", pesan("The section is now open."));
@@ -2740,7 +2764,7 @@ export default function LandingCmsPage() {
               {modeEn ? "Translate" : "Sections"}
             </button>
             <span aria-hidden className="shrink-0 text-body-medium text-on-surface-variant">/</span>
-            <h2 className="min-w-0 flex-1 truncate px-1 text-body-medium font-medium text-on-surface" title={judul}>{judul}</h2>
+            <h2 tabIndex={-1} className="min-w-0 flex-1 truncate px-1 text-body-medium font-medium text-on-surface" title={judul}>{judul}</h2>
             {lencana ? <StatusChip tone="warning" className="shrink-0 max-sm:hidden">{lencana}</StatusChip> : null}
             {saklar ? (
               <IconButton size="sm" className="size-10!" label={saklar.checked ? `Hide ${judul}` : `Show ${judul}`} onClick={() => saklar.onChange(!saklar.checked)}>
@@ -3249,7 +3273,9 @@ export default function LandingCmsPage() {
           onScroll={(event) => { gulirTerakhir.current = event.currentTarget.scrollTop; }}
           // `!`: aturan :focus-visible global tidak berlapis, jadi mengalahkan utilitas biasa.
           // pb-40 di Susunan: kolom terbawah tetap bisa digulir ke atas toast galat.
-          className={bagian === "susunan" ? "scroll-pt-22 pb-40" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
+          // max-lg: di bawah lg halaman yang menggulir, bukan panel ini; tanpa
+          // overflow-visible bilah drill-in tidak bisa menempel (QA #358 M2).
+          className={bagian === "susunan" ? "scroll-pt-22 pb-40 max-lg:overflow-visible!" : "px-4 py-4 focus-visible:shadow-none! focus-visible:-outline-offset-2!"}>
           {bagian === "susunan" ? (modeEn ? isiSusunanEn : isiSusunan) : isiTema}
         </PaneBody>
       </div>
