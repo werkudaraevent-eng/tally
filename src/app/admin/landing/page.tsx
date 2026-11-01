@@ -2,7 +2,7 @@
 
 import { pesanGalatApi } from "@/lib/api-message";
 import { adaLogistikTampil, bagianTampil } from "@/lib/logistik/bagian-tampil";
-import { ArrowDown, ArrowSquareOut, ArrowUp, ArrowUpRight, CaretDown, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, ArrowUpRight, CaretDown, CaretLeft, CopySimple, DotsSixVertical, DownloadSimple, Eye, EyeSlash, Plus, Trash, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import Link from "@/components/event-link";
 import {
@@ -488,6 +488,7 @@ export default function LandingCmsPage() {
   const bagian: Bagian = hanyaFormulir && bagianDipilih === "susunan" ? "tema" : bagianDipilih;
   // Baris Susunan halaman yang sedang terbuka ("pembuka", id bagian, atau "kaki").
   const [terbuka, setTerbuka] = useState<string | null>(null);
+  const gulirDaftar = useRef<number | null>(null);
   // `?bagian=tema|peserta`: tautan "Ubah di Tema" dan "Atur di Peserta" dari
   // Atur formulir membuka langsung tab yang dimaksud.
   // Dibaca setelah hidrasi (bukan di penginisialisasi useState): server tidak
@@ -502,6 +503,15 @@ export default function LandingCmsPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+  // Drill-in: bagian terbuka yang tidak lagi ada di daftar (layout diganti,
+  // blok dihapus, mode bahasa berganti) mengembalikan panel ke daftar, bukan
+  // menyisakan panel kosong.
+  useEffect(() => {
+    if (terbuka === null || bagian !== "susunan") return;
+    if (document.getElementById(`baris-${terbuka}`)) return;
+    const timer = window.setTimeout(() => setTerbuka(null), 0);
+    return () => window.clearTimeout(timer);
+  });
   // Lipatan "Judul bagian" yang terbuka (satu bagian), awalnya tertutup.
   const [judulTerbuka, setJudulTerbuka] = useState<LandingHeadedSection | null>(null);
   // Bagian yang disorot di pratinjau; `n` naik di setiap klik supaya klik ulang
@@ -2655,11 +2665,18 @@ export default function LandingCmsPage() {
   // terbuka sekaligus, supaya daftarnya tetap terbaca sebagai peta halaman.
   function bukaTutup(id: string) {
     const buka = terbuka !== id;
+    const wadah = document.getElementById(`baris-${id}`)?.closest<HTMLElement>(".overflow-y-auto");
+    // Drill-in: posisi gulir daftar disimpan saat masuk, dan dipulihkan saat
+    // kembali, supaya orang kembali ke tempat ia meninggalkan daftar.
+    if (buka && terbuka === null && wadah) gulirDaftar.current = wadah.scrollTop;
     setTerbuka(buka ? id : null);
     if (!buka) {
-      // Ditutup dari kepala yang menempel: kembalikan barisnya ke pandangan,
-      // bukan menyisakan panel di tengah blok-blok sesudahnya.
-      gulirKeBaris(id, true);
+      const posisi = gulirDaftar.current;
+      window.requestAnimationFrame(() => {
+        const daftar = document.getElementById(`baris-${id}`)?.closest<HTMLElement>(".overflow-y-auto");
+        if (daftar && posisi !== null) daftar.scrollTop = posisi;
+        gulirKeBaris(id, true);
+      });
       return;
     }
     if (forum) setHalamanPratinjau((current) => halamanBagianForum(id, current));
@@ -2708,6 +2725,48 @@ export default function LandingCmsPage() {
     // memblok teks di kolom isian ikut memulai seretan. Pegangannya selebar
     // seluruh tinggi baris (24x48), bukan ikon 16px.
     const bisaSeret = indeks !== undefined;
+    // Drill-in (pola editor tema Shopify, panel properti Webflow): bagian yang
+    // dibuka MENGGANTIKAN daftar, dengan jejak "‹ Sections / nama" di atasnya.
+    // Baris lain tidak dirender sampai kembali ke daftar.
+    if (terbuka !== null && !buka) return null;
+    if (buka) {
+      return (
+        <li key={id} id={`baris-${id}`} className="flex flex-col">
+          <div className="sticky top-0 z-10 flex h-12 items-center gap-1 border-b border-outline-variant bg-surface-container-lowest pl-1 pr-2 max-lg:top-(--topbar-height)">
+            <IconButton size="sm" className="size-10!" label="Back to sections" onClick={() => bukaTutup(id)}>
+              <CaretLeft size={18} />
+            </IconButton>
+            <button type="button" onClick={() => bukaTutup(id)} className="shrink-0 rounded-sm px-1 text-body-medium text-on-surface-variant hover:text-on-surface">
+              {modeEn ? "Translate" : "Sections"}
+            </button>
+            <span aria-hidden className="shrink-0 text-body-medium text-on-surface-variant">/</span>
+            <h2 className="min-w-0 flex-1 truncate px-1 text-body-medium font-medium text-on-surface" title={judul}>{judul}</h2>
+            {lencana ? <StatusChip tone="warning" className="shrink-0 max-sm:hidden">{lencana}</StatusChip> : null}
+            {saklar ? (
+              <IconButton size="sm" className="size-10!" label={saklar.checked ? `Hide ${judul}` : `Show ${judul}`} onClick={() => saklar.onChange(!saklar.checked)}>
+                {saklar.checked ? <Eye size={20} /> : <EyeSlash size={20} />}
+              </IconButton>
+            ) : null}
+            {menu ? <MenuBlok label={`Menu: ${judul}`} items={menu} /> : null}
+          </div>
+          <div id={`isi-${id}`} className="flex flex-col gap-4 px-4 pb-4 pt-3">
+            {sub || sumber ? (
+              <div className="flex min-h-8 items-center gap-2">
+                {Ikon ? <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-sm bg-surface-container-high text-on-surface-variant"><Ikon size={16} /></span> : null}
+                <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">{tersembunyi && sub ? `${sub} · hidden` : sub}</p>
+                {sumber ? (
+                  <ButtonLink href={sumber.href} target="_blank" rel="noreferrer" variant="outlined" size="sm" trailingIcon={<ArrowUpRight size={14} />} className="shrink-0" aria-label={`Edit in ${sumber.label}, opens in a new tab`}>
+                    {sumber.label}
+                  </ButtonLink>
+                ) : null}
+              </div>
+            ) : null}
+            {titik ? <p className="text-body-small font-medium text-on-warning-soft">{alasanTitik}</p> : null}
+            {isi}
+          </div>
+        </li>
+      );
+    }
     return (
       <li
         key={id}
@@ -3000,9 +3059,9 @@ export default function LandingCmsPage() {
       <ol className="flex flex-col">
         {/* Tajuk kelompok: menjelaskan kenapa Hero dan Footer tidak bisa diseret.
             aria-hidden: pembaca layar mendengar daftarnya, bukan tajuknya. */}
-        <li aria-hidden className={TAJUK_KELOMPOK}>Top of page</li>
+        {terbuka === null ? <li aria-hidden className={TAJUK_KELOMPOK}>Top of page</li> : null}
         {barisSusunan({ id: "pembuka", nomor: 1, judul: "Hero", sub: horizon ? "Top bar, title, button, hero image" : gathering ? "Top bar, title, portal preview, buttons" : modern ? "Top bar, event name, tagline, KV, register button" : "Event name, tagline, KV, register button", isi: isiPembuka })}
-        <li aria-hidden className={TAJUK_KELOMPOK}>Page content</li>
+        {terbuka === null ? <li aria-hidden className={TAJUK_KELOMPOK}>Page content</li> : null}
         {sections.map((section, index) => {
           // Blok khusus peserta tidak tampil di halaman ini; matanya ada di
           // Participant area > Participant home, jadi tidak ikut disaring di sini.
@@ -3067,7 +3126,7 @@ export default function LandingCmsPage() {
             isi: isiBawaan(id),
           });
         })}
-        <li aria-hidden className={TAJUK_KELOMPOK}>Bottom of page</li>
+        {terbuka === null ? <li aria-hidden className={TAJUK_KELOMPOK}>Bottom of page</li> : null}
         {barisSusunan({
           id: "kaki",
           nomor: sections.length + 2,
@@ -3076,11 +3135,13 @@ export default function LandingCmsPage() {
           isi: isiKaki,
         })}
       </ol>
-      <div className="px-4 py-4">
-        <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
-          Add block
-        </Button>
-      </div>
+      {terbuka === null ? (
+        <div className="px-4 py-4">
+          <Button variant="outlined" icon={<Plus size={18} />} onClick={() => setTambahTerbuka(true)} disabled={(landing.blocks ?? []).length >= 30}>
+            Add block
+          </Button>
+        </div>
+      ) : null}
       <TambahBlokDialog open={tambahTerbuka} onClose={() => setTambahTerbuka(false)} onPick={tambahBlok} />
     </div>
   ) : null;
