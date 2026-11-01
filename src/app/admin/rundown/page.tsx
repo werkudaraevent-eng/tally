@@ -540,7 +540,11 @@ export default function RundownAdminPage() {
   function bukaLayarEditor() {
     if (window.matchMedia("(min-width: 1024px)").matches) return;
     setLayarEditor(true);
-    window.setTimeout(() => document.querySelector("[data-agenda-editor]")?.scrollIntoView({ block: "start" }), 0);
+    window.setTimeout(() => {
+      document.querySelector("[data-agenda-editor]")?.scrollIntoView({ block: "start" });
+      // Baris yang diketuk ikut tersembunyi: fokus pindah ke tombol kembali, bukan ke body.
+      document.querySelector<HTMLElement>("[data-agenda-kembali]")?.focus({ preventScroll: true });
+    }, 0);
   }
 
   /** Kembali ke jadwal, ke baris yang tadi dibuka. Suntingan tidak dibuang: formulirnya tetap terbuka. */
@@ -2217,14 +2221,14 @@ export default function RundownAdminPage() {
     : panelSamping === "dresscode" ? `Dress code · ${(tabDc?.name ?? "").trim()}`
       : selectedItem ? "Edit item" : "New item";
   const samping = (
-    <Pane as="aside" aria-label="Agenda editor">
+    <Pane as="aside" aria-label="Agenda editor" className="max-lg:overflow-clip">
       {layarEditor && active ? (
-        <div data-agenda-editor className="flex shrink-0 scroll-mt-20 items-center gap-2 border-b border-outline-variant px-2 py-1 lg:hidden">
-          <Button variant="text" size="sm" icon={<ArrowLeft size={16} />} onClick={tutupLayarEditor}>
+        <div data-agenda-editor className="sticky top-14 z-10 flex min-h-12 shrink-0 scroll-mt-14 items-stretch gap-2 border-b border-outline-variant bg-surface-container-lowest px-2 lg:hidden">
+          <Button data-agenda-kembali variant="text" size="sm" icon={<ArrowLeft size={16} />} onClick={tutupLayarEditor}>
             {(sections.find((row) => row.id === active.id)?.name ?? active.name).trim() || "Schedule"}
           </Button>
           {selectedItem && activeItems.some((row) => row.id === selectedItem.id) ? (
-            <span className="ml-auto pr-2 tabular-nums text-body-small text-on-surface-variant">
+            <span className="ml-auto self-center pr-2 tabular-nums text-body-small text-on-surface-variant">
               {activeItems.findIndex((row) => row.id === selectedItem.id) + 1} of {activeItems.length}
             </span>
           ) : null}
