@@ -18,6 +18,7 @@ import { loadAgendaPreview } from "@/lib/landing-agenda";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { AgendaTabs } from "./agenda-tabs";
+import { BukaProfil, punyaProfil, TandaProfil, TEKS_PROFIL_ID } from "./modern/speaker-tabs";
 import { warnaTandaHalaman } from "@/lib/registration-theme-css";
 import { LandingNav } from "./landing-nav";
 
@@ -141,6 +142,12 @@ function inisial(nama: string): string {
     .slice(0, 2)
     .map((kata) => kata[0]!.toUpperCase())
     .join("");
+}
+
+/** Kartu tata letak klasik: bisa diketuk bila ada profil, selain itu div biasa (0 px). */
+function KartuKlasik({ speaker, className, children }: { speaker: LandingSpeaker; className: string; children: ReactNode }) {
+  if (!punyaProfil(speaker)) return <div className={className}>{children}</div>;
+  return <BukaProfil speaker={speaker} teks={TEKS_PROFIL_ID} className={className}>{children}</BukaProfil>;
 }
 
 function Wajah({ speaker, size }: { speaker: LandingSpeaker; size: "lg" | "sm" }) {
@@ -403,10 +410,8 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                   {featured.length > 0 ? (
                     <ul className="grid gap-4 md:grid-cols-2">
                       {featured.map((speaker, index) => (
-                        <li
-                          key={`${speaker.name}-${index}`}
-                          className="flex flex-col items-start gap-5 rounded-md bg-[var(--reg-panel)] p-6 sm:flex-row sm:items-center sm:gap-7 sm:p-8"
-                        >
+                        <li key={`${speaker.name}-${index}`} className="min-w-0">
+                          <KartuKlasik speaker={speaker} className="flex flex-col items-start gap-5 rounded-md bg-[var(--reg-panel)] p-6 sm:flex-row sm:items-center sm:gap-7 sm:p-8">
                           <Wajah speaker={speaker} size="lg" />
                           <div className="min-w-0">
                             {speaker.role ? (
@@ -418,7 +423,9 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                             {speaker.title ? (
                               <p className={`mt-2 text-body-large ${MUTED}`}>{speaker.title}</p>
                             ) : null}
+                            {punyaProfil(speaker) ? <TandaProfil teks={TEKS_PROFIL_ID} className="mt-2 text-[var(--reg-primary)]" /> : null}
                           </div>
+                          </KartuKlasik>
                         </li>
                       ))}
                     </ul>
@@ -426,10 +433,8 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                   {lainnya.length > 0 ? (
                     <ul className={`grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${featured.length ? "mt-12" : ""}`}>
                       {lainnya.map((speaker, index) => (
-                        <li
-                          key={`${speaker.name}-${index}`}
-                          className="flex items-start gap-4 border-t border-[var(--reg-outline-variant)] pt-5"
-                        >
+                        <li key={`${speaker.name}-${index}`} className="min-w-0">
+                          <KartuKlasik speaker={speaker} className="flex items-start gap-4 border-t border-[var(--reg-outline-variant)] pt-5">
                           <Wajah speaker={speaker} size="sm" />
                           <div className="min-w-0">
                             <p className="text-title-medium font-semibold">{speaker.name}</p>
@@ -437,7 +442,9 @@ export async function EventLanding({ event, config, sections, theme, schedule }:
                             {speaker.role ? (
                               <p className="mt-1 text-body-small font-semibold text-[var(--reg-primary)]">{speaker.role}</p>
                             ) : null}
+                            {punyaProfil(speaker) ? <TandaProfil teks={TEKS_PROFIL_ID} className="mt-1 text-[var(--reg-primary)]" /> : null}
                           </div>
+                          </KartuKlasik>
                         </li>
                       ))}
                     </ul>

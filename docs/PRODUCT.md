@@ -188,9 +188,9 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **Rule:** agenda times are wall-clock in the event time zone.
 
 ### Speakers
-- **CMS (Speakers):** name, job title, organisation, main role, photo, featured, sessions (linked to agenda items, with a role per session), English fields, order per tab, photo frame (Modern).
-- **Shows at:** event page Speakers section (tabs: featured, one per session, others) and next to sessions in the agenda (text, names, or names with photos).
-- **Limits:** 60 speakers, 8 featured.
+- **CMS (Speakers):** name, job title, organisation, main role, photo, bio, profile link (https), featured, sessions (linked to agenda items, with a role per session), English fields (bio too), order per tab, photo frame (Modern). Import: CSV or cells pasted from Excel/Sheets (Name required; Job title, Organisation, Role, Session, Highlights, Photo, Bio, Profile link); rows match existing speakers by name, empty cells change nothing, sessions match Agenda items by short name or title.
+- **Shows at:** event page Speakers section (tabs: featured, one per session, others) and next to sessions in the agenda (text, names, or names with photos). A speaker with a bio or profile link gets "Lihat profil" / "View profile" on the card, which opens the profile (bottom sheet on phones, dialog on wide screens) in Modern, Forum, Trip and Editorial; cards without either are unchanged.
+- **Limits:** 150 speakers, 8 featured, bio 1,200 characters.
 - **Admin page:** one table of speakers with Session, Highlights and Needs attention filters; picking a row opens the editor beside it. Filtering to one session (or Highlights) shows that tab's order on the event page, reordered by dragging. Adding a speaker while one session is filtered puts them in that session.
 
 ### Seating plan

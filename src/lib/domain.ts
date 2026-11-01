@@ -444,7 +444,7 @@ export const LANDING_ITEM_EN_KEYS = ["label", "title", "body", "value"] as const
 export type LandingItemEn = Partial<Record<(typeof LANDING_ITEM_EN_KEYS)[number], string>>;
 
 /** Kolom teks pembicara yang punya versi English. Nama orang tidak diterjemahkan. */
-export const LANDING_SPEAKER_EN_KEYS = ["title", "company", "role", "session"] as const;
+export const LANDING_SPEAKER_EN_KEYS = ["title", "company", "role", "session", "bio"] as const;
 export type LandingSpeakerEn = Partial<Record<(typeof LANDING_SPEAKER_EN_KEYS)[number], string>>;
 
 /**
@@ -1162,6 +1162,13 @@ export type LandingSpeaker = {
   role?: string;
   photo_url?: string | null;
   featured?: boolean;
+  /**
+   * Profil singkat, paragraf dipisah baris kosong. Bila diisi (atau `link`),
+   * kartu di halaman acara bisa diketuk untuk membuka profilnya.
+   */
+  bio?: string;
+  /** Tautan profil (LinkedIn, situs instansi), https://. */
+  link?: string;
   /**
    * Baris rundown tempat pembicara tampil, satu atau lebih: id `rundown_items`
    * plus label pendek saat dipilih ("Sesi 1"), supaya baris yang kemudian

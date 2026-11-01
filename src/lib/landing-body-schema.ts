@@ -354,6 +354,9 @@ export const memberSchema = z.object({
     .optional(),
 });
 
+/** Panjang profil pembicara. */
+export const SPEAKER_BIO_MAX = 1200;
+
 /** Satu pembicara (`landing_config.speakers[]`), disimpan di halaman Speakers. */
 export const speakerSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -366,6 +369,8 @@ export const speakerSchema = z.object({
   // Garis miring terbalik ditolak di mana pun: peramban membaca "/\host" sebagai "//host".
   photo_url: z.string().trim().max(600).regex(/^(https?:\/\/[^\s"'<>\\]+|\/(?![/\\])[^\s"'<>\\]*)$/i, "Photos must be an http:// or https:// address, or a path on this site").nullable().optional(),
   featured: z.boolean().optional(),
+  bio: z.string().trim().max(SPEAKER_BIO_MAX).optional(),
+  link: z.string().trim().max(600).refine((value) => value === "" || /^https:\/\/[^\s"'<>\\]+\.[^\s"'<>\\]+$/i.test(value), "Profile links must start with https://").optional(),
   session_refs: z.array(z.object({
     id: z.number().int().positive(),
     label: z.string().trim().max(80),
@@ -375,11 +380,11 @@ export const speakerSchema = z.object({
     pos: z.number().int().min(0).max(99).optional(),
   })).max(40).optional(),
   session: z.string().trim().max(40).optional(),
-  en: z.object({ title: teks(200), company: teks(120), role: teks(60), session: teks(40) }).optional(),
+  en: z.object({ title: teks(200), company: teks(120), role: teks(60), session: teks(40), bio: teks(SPEAKER_BIO_MAX) }).optional(),
 });
 
 /** Batas jumlah pembicara per acara. */
-export const SPEAKERS_MAX = 60;
+export const SPEAKERS_MAX = 150;
 
 /**
  * Batas badan PATCH /api/admin/speakers dalam byte. Satu pembicara dengan
