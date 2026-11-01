@@ -200,6 +200,8 @@ export function TambahBlokDialog({
 }
 
 const LABEL_BUTIR: Partial<Record<LandingBlockType, string>> = petaJenisBlok("butir");
+/** Jenis yang butirnya tampil sebagai baris ringkas, satu terbuka sekaligus. */
+const BUTIR_RINGKAS: ReadonlySet<LandingBlockType> = new Set(["multicolumn", "cards", "points", "stats", "gallery", "logos"]);
 
 /** Rasio slot gambar per jenis dan tata letak. Hint menyebutnya karena gambar dipotong ke rasio ini. */
 function rasioGambarButir(block: LandingBlock): string {
@@ -365,7 +367,9 @@ export function BlockEditor({
   // Kolom: satu isi terbuka sekaligus, sisanya satu baris ringkas. Delapan
   // formulir terbuka akan mendorong baris blok berikutnya jauh dari layar.
   // Semua mulai terlipat supaya baris blok berikutnya tetap terlihat.
-  const ringkas = block.type === "multicolumn";
+  // Sejak drill-in (PR 3) berlaku untuk semua jenis berbutir bernama: tiga
+  // kartu yang terbuka sekaligus membuat satu blok setinggi lebih dari 2.000 px.
+  const ringkas = BUTIR_RINGKAS.has(block.type);
   const [butirTerbuka, setButirTerbuka] = useState(-1);
   const [tampilanTerbuka, setTampilanTerbuka] = useState(false);
   const hapusButir = (index: number) => {
@@ -413,7 +417,7 @@ export function BlockEditor({
       onChange={(event) => ubah({ nav_label: event.target.value })}
     />
   );
-  // Pilihan halaman paling atas di editor: menentukan siapa yang melihat blok ini.
+  // Halaman tempat blok tampil: di bawah isi editor.
   const tampilDi = LANDING_BLOCK_MEMBER_TYPES.includes(block.type) ? <TampilDi block={block} ubah={ubah} /> : null;
   const latar = block.type === "cta" ? null : (
     <>
@@ -552,7 +556,8 @@ export function BlockEditor({
       {items.length === 0 ? <p className="text-body-medium text-on-surface-variant">No {butir}s yet.</p> : null}
       {items.map((item, index) => {
         const buka = !ringkas || butirTerbuka === index;
-        const nama = ringkas && item.title?.trim() ? item.title.trim() : `${Butir} ${index + 1}`;
+        const namaIsi = item.title?.trim() || item.label?.trim() || item.value?.trim();
+        const nama = ringkas && namaIsi ? namaIsi : `${Butir} ${index + 1}`;
         const kepanjangan = ringkas && !buka && butirKepanjangan(block, item, batas.item);
         return (
           <div key={index} className={cx("flex flex-col gap-3 rounded-md border border-outline-variant", ringkas && !buka ? "px-3 py-1" : "p-3")}>
@@ -568,7 +573,7 @@ export function BlockEditor({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.image_url} alt="" className="size-8 shrink-0 rounded-sm object-cover" />
                   ) : null}
-                  <span className="truncate text-body-medium font-medium text-on-surface" title={nama}>{nama}</span>
+                  <span className="min-w-0 flex-1 truncate text-body-medium font-medium text-on-surface" title={nama}>{nama}</span>
                   {kepanjangan ? (
                     <span className="flex shrink-0 items-center gap-1 text-body-small text-error">
                       <WarningCircle size={14} weight="fill" aria-hidden />
@@ -836,11 +841,12 @@ export function BlockEditor({
       );
   }
   })();
-  // Show on paling atas untuk semua jenis: menentukan siapa yang melihat blok ini.
+  // Isi dulu, tampilan sesudahnya (pola Shopify: content lalu style). Show on
+  // menutup editor, di bawah garis, bersama pengaturan tampil lain di atasnya.
   return tampilDi ? (
     <div className="flex flex-col gap-4">
-      {tampilDi}
       {isiEditor}
+      <div className="border-t border-outline-variant pt-4">{tampilDi}</div>
     </div>
   ) : isiEditor;
 }
