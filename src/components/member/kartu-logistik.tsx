@@ -50,7 +50,7 @@ export function KartuBerikutnya({ agenda, zona, now, className = "" }: { agenda:
   const tujuan = agenda.destination?.trim() || agenda.name;
   return (
     <section aria-label="Berikutnya" className={`${className} rounded-lg border border-[color-mix(in_srgb,var(--reg-primary)_30%,transparent)] bg-[color-mix(in_srgb,var(--reg-primary)_8%,var(--reg-surface))] p-6`}>
-      <p className={`${LABEL_BAGIAN} text-[var(--reg-primary)]`}>Berikutnya · {labelHari(agenda.depart_at!, zona, now)}</p>
+      <p className={`${LABEL_BAGIAN} text-[var(--reg-primary)]`}>Berikutnya, {labelHari(agenda.depart_at!, zona, now)}</p>
       <h2 className={`${HEAD} mt-1.5 text-balance text-[22px] font-semibold leading-tight sm:text-[24px]`}>
         {jam(agenda.depart_at, zona)}
         {agenda.meeting_point?.trim() ? ` kumpul di ${agenda.meeting_point.trim()}` : ""}, naik {agenda.bus} ke {tujuan}
@@ -109,7 +109,7 @@ export function KartuKamar({ logistik, zona }: { logistik: LogistikPeserta; zona
                 <p className="text-[40px] font-bold leading-[44px] tracking-[-0.01em] tabular-nums">{kamar.room_number}</p>
               </div>
               {[kamar.floor ? `Lantai ${kamar.floor}` : null, jenisKamar(kamar)].some(Boolean) ? (
-                <p className={`pb-1 text-body-large ${MUTED}`}>{[kamar.floor ? `Lantai ${kamar.floor}` : null, jenisKamar(kamar)].filter(Boolean).join(" · ")}</p>
+                <p className={`pb-1 text-body-large ${MUTED}`}>{[kamar.floor ? `Lantai ${kamar.floor}` : null, jenisKamar(kamar)].filter(Boolean).join(", ")}</p>
               ) : null}
             </div>
           )}
@@ -176,7 +176,7 @@ export function KartuBus({ logistik, zona }: { logistik: LogistikPeserta; zona: 
                   <span className="min-w-0">
                     <span className="block font-semibold">{trip.name}</span>
                     <span className={`block text-body-medium ${MUTED}`}>
-                      {[hariJam(trip.depart_at, zona), trip.meeting_point?.trim()].filter(Boolean).join(" · ")}
+                      {[hariJam(trip.depart_at, zona), trip.meeting_point?.trim()].filter(Boolean).join(", ")}
                     </span>
                   </span>
                   <span
@@ -241,7 +241,7 @@ function DetailBus({ buses }: { buses: LogistikDetailBus[] }) {
     <ul className="mt-4 flex flex-col gap-4">
       {buses.map((bus) => (
         <li key={bus.code} className="flex flex-col gap-1">
-          <p className="font-semibold">{[bus.code, bus.plate ? `Plat ${bus.plate}` : null].filter(Boolean).join(" · ")}</p>
+          <p className="font-semibold">{[bus.code, bus.plate ? `Plat ${bus.plate}` : null].filter(Boolean).join(", ")}</p>
           {bus.crew ? (
             <KontakKru
               teks={bus.crew}
@@ -271,7 +271,7 @@ export function KartuBarang({ logistik }: { logistik: LogistikPeserta }) {
           <li key={item.name} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-[var(--reg-outline-variant)] py-3">
             <span>
               {item.name}
-              {item.size ? <span className="font-semibold"> · {item.size}</span> : null}
+              {item.size ? <span className="font-semibold">, {item.size}</span> : null}
             </span>
             {item.picked_up_at ? (
               <span className="inline-flex min-h-7 items-center gap-1.5 rounded-[8px] bg-[#e5f4ea] px-2.5 text-label-large font-semibold text-[#17602d]">
@@ -311,18 +311,18 @@ export function KartuKereta({ logistik, lang, kelas = KARTU, redup = MUTED }: { 
       <ul className="mt-3 flex flex-col">
         {logistik.trains.map((tiket, index) => {
           const rute = ruteLeg(tiket);
-          const baris = [rute ? tiket.train_name : null, tiket.travel_class].filter(Boolean).join(" · ");
+          const baris = [rute ? tiket.train_name : null, tiket.travel_class].filter(Boolean).join(", ");
           const jam = jamLeg(tiket, lang);
           return (
             <li key={tiket.direction} className={index > 0 ? "mt-4 border-t border-dashed border-[#C9D1DE] pt-4" : ""}>
               <p className={`text-label-large font-semibold ${redup}`}>
-                {[t[tiket.direction], tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(" · ")}
+                {[t[tiket.direction], tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(", ")}
               </p>
               <p className={`${HEAD} mt-1 text-[20px] font-semibold leading-tight [overflow-wrap:anywhere]`}>{rute ?? tiket.train_name}</p>
               {baris || jam ? (
                 <p className={`mt-1 text-body-medium ${redup}`}>
                   {baris}
-                  {baris && jam ? " · " : null}
+                  {baris && jam ? ", " : null}
                   {jam ? <span className="whitespace-nowrap">{jam}</span> : null}
                 </p>
               ) : null}

@@ -205,7 +205,7 @@ function Papan({ sisa, detik, teks, lang, berlangsung, hariKe }: Dasar) {
       <div className="rounded-xl bg-[#0D1117] p-4 text-white ring-1 ring-white/10 sm:p-6">
         <div className="mb-4 flex flex-col gap-1 font-mono text-[12px] uppercase tracking-[0.12em] text-white/60 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-4">
           <span className="break-words @xl:truncate">{teks.ke}</span>
-          <span className="shrink-0 text-[var(--hm-papan)]">{[teks.tanggalPendek, teks.jamMulai].filter(Boolean).join(" · ")}</span>
+          <span className="shrink-0 text-[var(--hm-papan)]">{[teks.tanggalPendek, teks.jamMulai].filter(Boolean).join(", ")}</span>
         </div>
         {berlangsung ? (
           <div aria-hidden className="flex min-h-[84px] flex-col justify-center gap-2 @2xl:min-h-[112px]">
@@ -332,7 +332,7 @@ function Pita({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender, ikon
         <Rute kemajuan={kemajuan} ikon={ikon} jalur="h-1 rounded-full bg-[color-mix(in_srgb,currentColor_18%,transparent)]" isi="h-1 rounded-full bg-[var(--hm-sorot)]" ujung="bg-current" penanda="bg-[var(--hm-sorot)] text-[var(--hm-pada-sorot)]" />
         <div className={`flex justify-between gap-4 text-body-small ${MUTED}`}>
           <span>{teks.dari}</span>
-          <span className="text-right">{[teks.tanggalPendek, teks.jamMulai].filter(Boolean).join(" · ")}</span>
+          <span className="text-right">{[teks.tanggalPendek, teks.jamMulai].filter(Boolean).join(", ")}</span>
         </div>
         {berlangsung ? null : (
           <span aria-hidden className={`pt-1 text-body-medium tabular-nums ${MUTED}`}>{t.countdownIn(sisa, detik)}</span>
@@ -487,8 +487,8 @@ function Perjalanan({ sisa, detik, teks, lang, berlangsung, hariKe, hariKalender
           </span>
         </div>
         <div className={`flex justify-between gap-4 text-body-medium ${MUTED}`}>
-          <span><span className="font-semibold text-[var(--reg-on-surface)]">{teks.dari}</span> · {hariIni}</span>
-          <span className="text-right"><span className="font-semibold text-[var(--reg-on-surface)]">{teks.tanggalPendek}</span>{teks.jamMulai ? ` · ${teks.jamMulai}` : ""}</span>
+          <span><span className="font-semibold text-[var(--reg-on-surface)]">{teks.dari}</span>, {hariIni}</span>
+          <span className="text-right"><span className="font-semibold text-[var(--reg-on-surface)]">{teks.tanggalPendek}</span>{teks.jamMulai ? `, ${teks.jamMulai}` : ""}</span>
         </div>
       </div>
     </div>

@@ -786,6 +786,43 @@ dari halaman yang sama.
 - Akun peserta terpisah dari akun panitia (`participant_accounts`,
   `participant_sessions`); tidak ada jalur dari sesi peserta ke layar admin.
 
+#### Aturan anti-slop (audit Hallmark, 1 November 2026)
+
+Audit tampilan KSO dengan aturan Hallmark (github.com/Nutlope/hallmark) menemukan
+empat kebiasaan kecil yang berulang di setiap layar dan membuat halaman terasa
+"dibuat mesin". Berlaku untuk halaman acara, area peserta, dan Dashboard admin:
+
+- **Pemisah metadata adalah koma, bukan titik tengah.** "Jum, 6 Nov, 07.00",
+  "Kamar 1208, Lantai 12", "Rina Wulandari, Ketua Panitia". `gabungMeta` sudah
+  memakai koma; jangan menulis `.join(" · ")` atau `" • "` baru. Hubungan
+  kapan-apa memakai titik dua ("17.30 Gala Dinner: Batik"). `SEPARATOR` hanya
+  untuk pemisah visual antar elemen di admin, bukan untuk teks yang dibaca.
+- **Warna dari tema, tidak dari hex lepas.** Tautan di area peserta navy
+  (`#101E38`, tinta Horizon/Trip) bergaris bawah emas tema (`--hz-emas`), bukan
+  biru `#274FC0`. Ikon jenis pesanan (kereta, hotel, bus) satu tinta tanpa ubin
+  berwarna; warna hanya untuk STATUS (pengumuman baru, Lakukan/Hindari).
+- **Tiga bobot: 400, 600, 700.** Tidak ada 500 dan 800 di area peserta dan tema
+  Trip. Judul halaman 700.
+- **Tanpa alis yang hanya menamai isi.** Label kecil di atas judul hanya boleh
+  bila membawa fakta (tanggal, Batch). "Kartu peserta" di atas nama dan "Langkah
+  berikutnya" di atas checkpoint dihapus; yang kedua tetap ada untuk pembaca
+  layar (`sr-only`).
+- **Satu tanda per butir.** Do's and Don'ts `tiles`: ikon berwarna Lakukan/Hindari,
+  tanpa lingkaran dan tanpa lencana centang/silang (judul kelompok sudah
+  menyebutnya).
+- **Tanpa panah di label tombol** ("Buka Dashboard saya", bukan "… →"). Panah
+  serong ↗ tetap untuk tautan yang membuka situs lain.
+- **Titik di chip status hanya untuk keadaan yang hidup** ("Scanning", status
+  acara). "Upcoming", "Complete", "Done", "To do" tanpa titik.
+- **Jam tanpa detik.** Kolom `time` Postgres datang sebagai "07:00:00"; tampilkan
+  lewat `jamTiket`/`jamTampil`, jangan `replace(":", ".")` mentah.
+- **Desktop Trip:** kartu Masuk di kolom kanan menempel saat digulir (kolom
+  `self-stretch`, kartu `sticky`), judul bagian 32/40 dan jarak 64 px di `lg`.
+
+Yang sengaja TIDAK diambil dari Hallmark: tema-temanya (DESIGN.md ini yang
+berlaku), batas 80 kata per layar, jarak 120 px antar-bagian, dan judul bagian
+52 px. Itu aturan halaman pemasaran; halaman acara dibaca peserta di ponsel.
+
 #### Kartu di portal Horizon: skala dan irama
 
 Diputuskan Oktober 2026 dari halaman Perjalanan (pola Trip.com "All bookings"):
@@ -798,7 +835,7 @@ jadi dasbor lain tidak berubah); ukuran hurufnya tetap milik blok, karena blok
 yang sama dipakai preset lain.
 
 - **Kepala kartu.** Ikon 22 px + jenis kartu (16/24, 600) di kiri, satu
-  keterangan di kanan (14/20, 500: tanggal, jumlah, atau keadaan), garis tipis di
+  keterangan di kanan (14/20, 400: tanggal, jumlah, atau keadaan), garis tipis di
   bawahnya. Jarak 16 px di atas dan di bawah garis. Jenis kartu dibedakan oleh
   ikon dan namanya, tidak oleh warna.
 - **Lima ukuran saja di isi kartu:**
@@ -806,10 +843,10 @@ yang sama dipakai preset lain.
   | Peran | Ukuran / tinggi baris | Bobot | Contoh |
   | --- | --- | --- | --- |
   | Judul isi | 18/24 | 700 | Nama hotel, nama kendaraan, rute kereta, jam berangkat |
-  | Kepala, nilai kunci | 16/24 | 600 | "Kendaraan", "Kamar 1208 · Lantai 12", nama agenda |
+  | Kepala, nilai kunci | 16/24 | 600 | "Kendaraan", "Kamar 1208, Lantai 12", nama agenda |
   | Keterangan | 14/20 | 400 | Alamat, check-in, titik kumpul |
   | Tautan | 14/20 | 600 | "Buka peta", "Simpan ke kalender" |
-  | Alis | 12/16 | 600 | "Berangkat · Kam, 5 Nov", tanggal di daftar perjalanan |
+  | Alis | 12/16 | 600 | "Berangkat, Kam, 5 Nov", tanggal di daftar perjalanan |
 
   18/24 sengaja di antara `title-medium` dan `title-large`: 22 px terlalu keras
   di layar 390 bila ada tiga kartu berderet. Dua pengecualian yang disengaja:
@@ -823,7 +860,7 @@ yang sama dipakai preset lain.
 - **Kepala kartu di semua kartu putih**, termasuk Checkpoint, Dresscode,
   Perjalananmu, Pengumuman ("Pengumuman" di kiri, waktunya di kanan), Butuh
   bantuan, Data diri, dan Darurat (satu-satunya kepala merah). Tanpa ubin ikon.
-- **Kalimat, bukan kisi label/nilai.** "Check-in Kam, 5 Nov · 14.00", bukan
+- **Kalimat, bukan kisi label/nilai.** "Check-in Kam, 5 Nov, 14.00", bukan
   label "Check-in" di atas nilai. Satu fakta kunci per kartu boleh masuk strip
   abu (`LATAR_STRIP`, 12 px sudut) supaya mudah ditemukan saat di lobi.
 - **Tautan tidak menambah jarak.** Area ketuk tetap 48 px, tetapi kelebihannya

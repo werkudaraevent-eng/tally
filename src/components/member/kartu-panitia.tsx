@@ -18,7 +18,7 @@ export function KartuPanitia({ gaya, slug, lang, href }: { gaya: GayaKartuPaniti
   const tag = (kelas: string) => <span className={`inline-flex min-h-6 items-center rounded-full px-2.5 text-[12px] font-semibold leading-4 ${kelas}`}>{t.peran}</span>;
 
   if (gaya === "horizon" || gaya === "trip") {
-    const tautan = gaya === "trip" ? "text-[#101E38] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]" : "text-[#274FC0]";
+    const tautan = gaya === "trip" ? "text-[#101E38] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]" : "text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px]";
     return (
       <section aria-labelledby="panitia-judul" className={`${KARTU_HZ} ${PAD_KARTU}`} style={{ color: "#101E38" }}>
         <KepalaKartuHorizon Ikon={UsersThree} judul={t.kartuJudul} idJudul="panitia-judul" meta={tag("bg-[var(--hz-navy)] text-[var(--hz-emas)]")} />

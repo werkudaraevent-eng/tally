@@ -12,8 +12,8 @@ import { MUTED } from "./styles";
 /**
  * Blok Do's and Don'ts: yang perlu dilakukan dan yang perlu dihindari, tiap
  * butir dengan ikon. Tiga tampilan dipilih admin (Layout):
- * - Kisi ikon (`tiles`): ubin per butir, ikon besar dalam lingkaran dengan
- *   lencana centang atau silang. Paling dekat dengan buku panduan cetak.
+ * - Kisi ikon (`tiles`): ubin per butir dengan ikon berwarna Lakukan/Hindari.
+ *   Paling dekat dengan buku panduan cetak.
  * - Dua kartu (`cards`): satu kartu Lakukan dan satu Hindari, berdampingan di
  *   layar lebar.
  * - Daftar ringkas (`list`): ikon dan teks tanpa kartu, gaya fasilitas Airbnb.
@@ -81,16 +81,17 @@ function Teks({ butir, tebal }: { butir: Butir; tebal?: boolean }) {
   );
 }
 
-/** Kisi ikon: ubin, ikon 28 dalam lingkaran 56 berwarna lembut, lencana 22 di kanan bawah. */
+/**
+ * Kisi ikon: ubin, ikon 28 berwarna Lakukan/Hindari tanpa lingkaran dan tanpa
+ * lencana. Judul kelompok ("Lakukan", "Hindari") sudah memberi tahu jenisnya;
+ * lingkaran berwarna plus lencana centang/silang menandai hal yang sama dua kali
+ * (audit Hallmark 1 Nov 2026, DESIGN.md "Satu tanda per butir").
+ */
 function Ubin({ butir, jenis }: { butir: Butir; jenis: LandingDoKind }) {
-  const Tanda = jenis === "do" ? Check : X;
   return (
     <li className="flex flex-col gap-3 rounded-2xl bg-[var(--blok-kartu)] p-4">
-      <span className="relative grid size-14 place-items-center rounded-full bg-[color-mix(in_srgb,var(--dd-warna)_14%,transparent)]">
+      <span className="flex h-8 items-center text-[var(--dd-warna)]">
         <IkonButir butir={butir} jenis={jenis} ukuran={28} />
-        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 grid size-[22px] place-items-center rounded-full bg-[var(--dd-lencana)] text-white shadow-[0_0_0_2px_var(--dd-cincin)]">
-          <Tanda size={13} weight="bold" />
-        </span>
       </span>
       <Teks butir={butir} tebal />
     </li>

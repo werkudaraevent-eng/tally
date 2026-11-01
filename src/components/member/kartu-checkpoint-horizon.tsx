@@ -62,7 +62,6 @@ const TEKS = {
 
 const TINTA = "#101E38";
 const REDUP = "#526078";
-const LABEL = "#4D5D77";
 
 function jam(iso: string, zona: EventTimeZone, lang: LandingLang) {
   return new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "id-ID", { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
@@ -91,7 +90,7 @@ export function KartuCheckpointHorizon({
   /** Tema Gathering Trip: tautan navy bergaris bawah emas, bukan biru. */
   trip?: boolean;
 }) {
-  const warnaTautan = trip ? "text-[#101E38] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]" : "text-[#274FC0]";
+  const warnaTautan = trip ? "text-[#101E38] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]" : "text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px]";
   const t = TEKS[lang];
   const total = data.steps.length;
   const berikut = data.steps.find((step) => !step.done_at) ?? null;
@@ -193,10 +192,10 @@ export function KartuCheckpointHorizon({
         <div className="min-w-0">
           {sisa ? (
             <>
-              <p className={KELAS_ALIS} style={{ color: LABEL }}>
-                {t.berikut}
+              <p className={KELAS_JUDUL_ISI}>
+                <span className="sr-only">{t.berikut}: </span>
+                {sisa.title}
               </p>
-              <p className={`mt-1 ${KELAS_JUDUL_ISI}`}>{sisa.title}</p>
               {sisa.when ? <BarisKapan teks={teksWaktu(sisa.when, hariIni, lang, true)} hariIni={t.hariIni} /> : null}
               {sisa.place ? (
                 <p className={`mt-1 flex items-start gap-1.5 ${KELAS_KET}`} style={{ color: REDUP }}>

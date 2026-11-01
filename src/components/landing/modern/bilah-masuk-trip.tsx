@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
 
 /**
  * Bilah masuk tema Gathering Trip di halaman acara (pola bilah "Reserve"
@@ -24,7 +23,6 @@ export function BilahMasukTrip({ judul, fakta, hitung, aksi }: { judul: string; 
           className="m3-state inline-flex min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--hz-emas)] px-5 text-[14px] font-bold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)] sm:flex-none"
         >
           <span className="truncate">{aksi.label}</span>
-          <ArrowRight size={16} weight="bold" aria-hidden className="shrink-0" />
         </Link>
       </div>
     </div>
