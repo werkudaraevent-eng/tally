@@ -57,6 +57,11 @@ const createSchema = z.object({
   title: z.string().trim().min(1).max(200),
   subtitle: subtitleField,
   is_break: z.boolean().optional(),
+  // Duplicate (Agenda row menu): salinan membawa teks English dan status draf
+  // dalam INSERT yang sama, jadi baris draf tidak pernah sesaat tampil ke peserta.
+  title_en: z.string().trim().max(200).nullable().optional(),
+  subtitle_en: subtitleField,
+  is_published: z.boolean().optional(),
   // Who sees it dari New item. Disimpan dalam INSERT yang sama: baris untuk
   // sebagian peserta tidak pernah sesaat tampil ke semua. Tidak dikirim (atau
   // null) = semua, dan sebelum migrasi 202610210001 klien tidak mengirimnya.
@@ -146,7 +151,9 @@ export async function POST(request: Request) {
       // menahan visibilitas adalah publish di tingkat bagian; kalau baris juga
       // harus dipublikasikan satu per satu, menyusun rundown 20 butir berarti 20
       // klik tambahan yang tidak memberi kendali apa pun.
-      is_published: true,
+      is_published: parsed.data.is_published ?? true,
+      ...(parsed.data.title_en ? { title_en: parsed.data.title_en } : {}),
+      ...(normalizeSubtitle(parsed.data.subtitle_en) ? { subtitle_en: normalizeSubtitle(parsed.data.subtitle_en) } : {}),
       ...(sah.syarat ? { audience: sah.syarat } : {}),
       sort_order: nextOrder,
       updated_by: auth.user.id,

@@ -36,6 +36,7 @@ import {
   type LandingImageShape,
   type LandingTextLimit,
 } from "@/lib/domain";
+import { DAFTAR_JENIS_BLOK, petaJenisBlok } from "@/lib/blok/jenis";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
@@ -64,7 +65,8 @@ const EditorHitungMundur = dynamic(() => import("./editor-hitung-mundur").then((
  * menyebut rasio slotnya, karena gambar dipotong otomatis ke rasio itu.
  */
 
-const URUTAN_JENIS: LandingBlockType[] = ["text_image", "multicolumn", "cards", "points", "stats", "logos", "download", "cta", "countdown", "gallery", "quote", "route", "dos_donts", "dress_code"];
+/** Urutan di dialog Tambah blok: urutan daftar di src/lib/blok/jenis.ts. */
+const URUTAN_JENIS: readonly LandingBlockType[] = DAFTAR_JENIS_BLOK;
 
 export function buatBlok(type: LandingBlockType): LandingBlock {
   const acak = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 10);
@@ -95,7 +97,13 @@ export function ringkasanBlok(block: LandingBlock): string | null {
     case "points": return jumlah ? plural(jumlah, "point") : null;
     case "gallery": return jumlah ? plural(jumlah, "photo") : null;
     case "stats": return jumlah ? plural(jumlah, "figure") : null;
-    case "logos": return jumlah ? plural(jumlah, "logo") : null;
+    case "logos": {
+      // Logo baru terhitung saat gambarnya ada: nama saja tidak tampil, dan
+      // "3 logos" di samping "No content yet" saling membantah.
+      const bergambar = (block.items ?? []).filter((item) => item.image_url).length;
+      if (bergambar) return plural(bergambar, "logo");
+      return jumlah ? `${plural(jumlah, "name")}, no images yet` : null;
+    }
     case "multicolumn": return jumlah ? `${plural(jumlah, "item")} · ${plural(landingColumnCount(block), "column")}` : null;
     case "quote": return block.name?.trim() || null;
     case "dos_donts": {
@@ -138,13 +146,16 @@ export function TambahBlokDialog({
   onClose,
   onPick,
   description = "New blocks go at the end of the page. Drag the handle or use the ⋯ menu to move them.",
+  jenis = URUTAN_JENIS,
 }: {
   open: boolean;
   onClose: () => void;
   onPick: (type: LandingBlockType) => void;
   description?: string;
+  /** Jenis yang ditawarkan. Area peserta hanya menawarkan jenis yang punya tampilan peserta. */
+  jenis?: readonly LandingBlockType[];
 }) {
-  const [pilih, setPilih] = useState<LandingBlockType>("text_image");
+  const [pilih, setPilih] = useState<LandingBlockType>(jenis[0] ?? "text_image");
   return (
     <Dialog
       open={open}
@@ -160,7 +171,7 @@ export function TambahBlokDialog({
       }
     >
       <div role="radiogroup" aria-label="Block type" className="grid gap-3 sm:grid-cols-2">
-        {URUTAN_JENIS.map((type) => {
+        {jenis.map((type) => {
           const aktif = type === pilih;
           return (
             <button
@@ -188,14 +199,7 @@ export function TambahBlokDialog({
   );
 }
 
-const LABEL_BUTIR: Partial<Record<LandingBlockType, string>> = {
-  cards: "card",
-  points: "point",
-  gallery: "photo",
-  stats: "figure",
-  logos: "logo",
-  multicolumn: "column",
-};
+const LABEL_BUTIR: Partial<Record<LandingBlockType, string>> = petaJenisBlok("butir");
 
 /** Rasio slot gambar per jenis dan tata letak. Hint menyebutnya karena gambar dipotong ke rasio ini. */
 function rasioGambarButir(block: LandingBlock): string {
