@@ -129,7 +129,7 @@ export default function AttendanceAdminPage() {
   const [bukaPengaturan, setBukaPengaturan] = useState(false);
   // Menutup sesi atau meja berdampak ke setiap ponsel petugas sekaligus, jadi
   // selalu lewat konfirmasi; dulu cukup satu ketukan sakelar di baris daftar.
-  const [tutup, setTutup] = useState<{ jenis: "sesi" | "meja"; id: number; name: string } | null>(null);
+  const [tutup, setTutup] = useState<{ jenis: "sesi" | "meja"; id: number; name: string; tanpaSinyal?: boolean } | null>(null);
   // Peserta aktif acara ini, untuk "N not here yet". Null: belum dimuat atau server lama.
   const [totalPeserta, setTotalPeserta] = useState<number | null>(null);
   const [jalurBaru, setJalurBaru] = useState(false);
@@ -372,7 +372,7 @@ export default function AttendanceAdminPage() {
             </ButtonLink>
           ) : null}
           {hanyaLihat ? null : sesiTerpilih.is_active ? (
-            <Button simpan variant="outlined" size="sm" disabled={busy} onClick={() => setTutup({ jenis: "sesi", id: sesiTerpilih.id, name: sesiTerpilih.name })}>Close check-in…</Button>
+            <Button simpan variant="outlined" size="sm" disabled={busy} onClick={() => setTutup({ jenis: "sesi", id: sesiTerpilih.id, name: sesiTerpilih.name, tanpaSinyal: sesiTerpilih.offline_ok === true })}>Close check-in…</Button>
           ) : (
             <Button simpan variant="outlined" size="sm" disabled={busy} onClick={() => void kirim("PATCH", { id: sesiTerpilih.id, is_active: true })}>Open check-in</Button>
           )}
@@ -857,7 +857,11 @@ export default function AttendanceAdminPage() {
         title={tutup?.jenis === "meja" ? `Close desk ${tutup?.name ?? ""}?` : `Close check-in at ${tutup?.name ?? ""}?`}
         description={tutup?.jenis === "meja"
           ? "Staff can no longer pick this desk on the scanner. Scans already recorded stay. You can open it again at any time."
-          : "Every scanner phone on this session stops checking people in straight away and shows \"This check-in point is closed\". Check-ins already recorded stay. You can open it again at any time."}
+          : `Every scanner phone on this session stops checking people in straight away and shows "This check-in point is closed". Check-ins already recorded stay. You can open it again at any time.${tutup?.tanpaSinyal
+            // Antrean ponsel dikirim belakangan dan dinilai terhadap status sesi
+            // saat itu: setelah ditutup, check-in yang masih menunggu ditolak.
+            ? " This session allows check-in without signal: check-ins still waiting to send on a phone are refused once it is closed. Make sure no scanner shows \"to send\" first."
+            : ""}`}
         actions={
           <>
             <Button variant="outlined" disabled={busy} onClick={() => setTutup(null)}>Cancel</Button>
