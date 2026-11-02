@@ -1580,7 +1580,7 @@ export default function ScanClient() {
   };
 
   return (
-    <div lang="en" className={`scan-teks warna-pemindai min-h-dvh bg-surface text-on-surface lg:pb-12 ${imersif ? "max-lg:bg-black" : gelap ? "gelap-ponsel gelap-ponsel-isi max-lg:bg-black" : ""} ${imersif ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : "pb-24"}`}>
+    <div lang="en" className={`scan-teks warna-pemindai min-h-dvh bg-surface text-on-surface lg:pb-12 ${gelap ? "gelap-ponsel gelap-ponsel-isi max-lg:bg-black" : ""} ${imersif ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : "pb-24"}`}>
       <div ref={penandaAtas} aria-hidden className="h-0" />
       {/* -------------------------------------------------------------------
           Bilah atas.

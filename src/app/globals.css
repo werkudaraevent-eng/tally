@@ -2317,8 +2317,8 @@ html:hover {
 		--cincin-fokus: #8ab4ff;
 	}
 }
-/* Isi layar pemindai ponsel Find name dan History (bukan layar Scan, yang tetap
- * seperti #270): peran gelap lengkap supaya kartu, kolom cari, dan teks status
+/* Isi layar pemindai ponsel (Scan, Find name, History; Mas 2 Nov: satu tema
+ * gelap): peran gelap lengkap supaya kartu, kolom cari, dan teks status
  * tetap terbaca di kanvas hitam. Lembar hasil TIDAK di-portal, jadi warnanya
  * dikembalikan lewat .hasil-nada di bawah. Dialog yang dibuka dari layar ini
  * ikut gelap. */
@@ -2340,6 +2340,44 @@ html:hover {
 		--md-sys-color-on-success-soft: #96f4d9;
 		--md-sys-color-warning-soft: #522300;
 		--md-sys-color-on-warning-soft: #ffdbc9;
+	}
+	/* Seluruh lembar hasil (termasuk kartu bagasi, barang, dan cetak di
+	 * dalamnya) kembali ke peran terang: tema gelap hanya untuk kanvas di
+	 * belakangnya. Nilainya salinan peran terang m3-theme.css. */
+	.gelap-ponsel-isi .lembar-hasil {
+		color-scheme: light;
+		--surface: var(--md-sys-color-surface-container-lowest);
+		--surface-muted: var(--md-sys-color-surface-container);
+		--md-sys-color-on-surface: #2f2f2f;
+		--md-sys-color-on-surface-variant: #5b5b5b;
+		--md-sys-color-outline: #777777;
+		--md-sys-color-outline-variant: #adadad;
+		--md-sys-color-surface: #f6f6f6;
+		--md-sys-color-surface-container: #e8e8e8;
+		--md-sys-color-surface-container-lowest: #ffffff;
+		--md-sys-color-surface-container-low: #f1f1f1;
+		--md-sys-color-surface-container-high: #e2e2e2;
+		--md-sys-color-surface-container-highest: #dddddd;
+		--md-sys-color-surface-variant: #dddddd;
+		--md-sys-color-secondary-container: #d8e2ff;
+		--md-sys-color-on-secondary-container: #0b2a6b;
+		--md-sys-color-primary-soft: #f0efff;
+		--md-sys-color-on-primary-soft: #002ba4;
+		--md-sys-color-primary: #2b4dd4;
+		--md-sys-color-on-primary: #f2f1ff;
+		--md-sys-color-success: #006b58;
+		--md-sys-color-on-success: #ffffff;
+		--md-sys-color-warning: #934b18;
+		--md-sys-color-on-warning: #ffffff;
+		--md-sys-color-error: #b41340;
+		--md-sys-color-on-error: #ffefef;
+		--md-sys-color-error-soft: #ffeced;
+		--md-sys-color-on-error-soft: #7c0027;
+		--md-sys-color-success-soft: #b8ffe9;
+		--md-sys-color-on-success-soft: #004437;
+		--md-sys-color-warning-soft: #ffede5;
+		--md-sys-color-on-warning-soft: #632b00;
+		--cincin-fokus: initial;
 	}
 	/* Lembar hasil tetap memakai warna status terang yang sudah disetujui
 	 * (#270): putih di atas hijau, oranye, merah yang pekat. */
