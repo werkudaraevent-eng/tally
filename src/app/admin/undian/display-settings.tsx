@@ -51,6 +51,15 @@ export function DisplaySettings({
           <Switch checked={settings.show_seat} onChange={(checked) => onChange({ show_seat: checked })} label="Show seat number" />
         </DetailSection>
 
+        <DetailSection title="Waiting screen">
+          <Switch
+            checked={settings.show_lineup === true}
+            onChange={(checked) => onChange({ show_lineup: checked })}
+            label="Show the prize lineup"
+            description="Lists the active prizes in draw order on the waiting screen, before and between draws. Drawn prizes are marked done. Off keeps the prizes a surprise."
+          />
+        </DetailSection>
+
         <DetailSection title="Stage effects">
           <Switch
             checked={settings.sound_enabled}

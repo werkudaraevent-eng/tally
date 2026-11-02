@@ -17,7 +17,7 @@ import {
   PaneFooter, PaneHeader, StatusChip, StatusDot, Tabs, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { DisplaySettings } from "./display-settings";
-import { EntryLists } from "./entry-lists";
+import { EntryImportForm, EntryLists } from "./entry-lists";
 import { PrizeEditor } from "./prize-editor";
 import { FALLBACK, type EntryGroup, type Exclusion, type PoolStat, type Preview, type Settings } from "./types";
 
@@ -38,7 +38,7 @@ type Tab = ReadinessTab | "rules";
 
 function newPrizeDraft(): Omit<UndianPrize, "id"> {
   return {
-    name: "", description: null, image_url: null, sponsor_name: null, claim_note: null,
+    name: "", description: null, image_url: null, sponsor_name: null, claim_note: null, after_win: "none", stage_note: null,
     winners_per_draw: 1, winner_quota: 1, backup_per_draw: 0,
     animation: "wheel", spin_mode: "timed", spin_seconds: 6,
     source: "participants", entry_group_id: null,
@@ -80,6 +80,9 @@ export default function UndianAdminPage() {
   const [importText, setImportText] = useState("");
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  // Dialog "Import a new list" dari editor hadiah: daftar dibuat tanpa
+  // meninggalkan isian hadiah, lalu langsung dipilih untuk hadiah itu.
+  const [importForPrize, setImportForPrize] = useState(false);
   // Sesi aktif dan jumlah hasil yang belum bersesi.
   //
   // Dipakai tab hadiah untuk menjelaskan label kuota. Tanpa itu, "kuota penuh"
@@ -352,6 +355,10 @@ export default function UndianAdminPage() {
       setError(failure); toast.error("Import failed", failure); return;
     }
     setImportName(""); setImportText(""); setImportFile(null); setImportOpen(false);
+    if (importForPrize) {
+      setImportForPrize(false);
+      if (typeof data.id === "number") updateDraft({ entry_group_id: data.id });
+    }
     await load();
     toast.success("Entry list imported", `${data.entry_count} ${data.entry_count === 1 ? "row" : "rows"} read.`);
   }
@@ -388,7 +395,7 @@ export default function UndianAdminPage() {
 
   // Galat formulir tampil di dalam panel yang sedang terbuka, bukan di pita
   // halaman yang jauh dari tombol yang baru ditekan.
-  const errorInPane = (tab === "prizes" && editingId !== null) || (tab === "data" && importOpen);
+  const errorInPane = (tab === "prizes" && editingId !== null && !importForPrize) || (tab === "data" && importOpen);
 
   const anyQuotaFull = prizes.some((prize) => (winnerCounts[prize.id] ?? 0) >= prize.winner_quota);
 
@@ -511,6 +518,7 @@ export default function UndianAdminPage() {
       preview={preview}
       previewFailed={previewFailed}
       onRetrySessions={() => setPreviewRetry((current) => current + 1)}
+      onNewEntryList={() => { setImportForPrize(true); setImportName(draft.name ? `${draft.name} entries` : ""); setImportText(""); setImportFile(null); setError(""); }}
       stage={{
         background: settings?.background_color ?? FALLBACK.background_color,
         text: settings?.text_color ?? FALLBACK.text_color,
@@ -654,6 +662,29 @@ export default function UndianAdminPage() {
           </>
         }
       />
+
+      <Dialog
+        open={importForPrize}
+        onClose={() => { setImportForPrize(false); setError(""); }}
+        dismissible={!importing}
+        fullScreenOnMobile
+        title="Import a new entry list"
+        description="The list is saved and selected for this prize. Your prize details stay as they are."
+        actions={
+          <>
+            <Button variant="outlined" disabled={importing} onClick={() => { setImportForPrize(false); setError(""); }}>Cancel</Button>
+            <Button simpan type="submit" form="form-daftar-hadiah" loading={importing} icon={<Plus size={16} />}>Import and use</Button>
+          </>
+        }
+      >
+        <EntryImportForm
+            padding="py-4"
+            formId="form-daftar-hadiah" idPrefix="prize-import"
+            importName={importName} importText={importText} importFile={importFile} error={importForPrize ? error : ""}
+            onImportName={setImportName} onImportText={setImportText} onImportFile={setImportFile}
+            onImport={() => void importEntries()}
+          />
+      </Dialog>
     </WorkspacePage>
   );
 }
