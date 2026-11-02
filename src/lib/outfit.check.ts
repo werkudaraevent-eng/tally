@@ -254,7 +254,7 @@ assert.deepEqual(bacaOutfit([{ what: "Gala", options: "x" }]), [{ what: "Gala" }
 assert.equal(bacaOutfit([{ what: "Gala", options: Array.from({ length: 9 }, (_, i) => ({ name: `G${i}` })) }])[0].options?.length, 6);
 // Penyegaran teks waktu dan penyaringan peserta membawa pilihan apa adanya.
 assert.deepEqual(outfitTerlihat([{ item_id: 1, what: "Gala", options: [{ name: "Noni" }] }], [{ id: 1 }]), [{ what: "Gala", options: [{ name: "Noni" }] }]);
-assert.equal(apaRingkas({ what: "Colonial Elegance", options: [{ name: "A" }, { name: "B" }] }, (n) => `${n} pilihan`), "Colonial Elegance · 2 pilihan");
+assert.equal(apaRingkas({ what: "Colonial Elegance", options: [{ name: "A" }, { name: "B" }] }, (n) => `${n} pilihan`), "Colonial Elegance, 2 pilihan");
 assert.equal(apaRingkas({ what: "Batik" }, (n) => `${n} pilihan`), "Batik");
 assert.equal(fotoRingkas({ options: [{ name: "A" }, { name: "B", photo_url: "https://x/b.jpg" }] }), "https://x/b.jpg");
 assert.equal(fotoRingkas({ photo_url: "https://x/a.jpg", options: [{ name: "B", photo_url: "https://x/b.jpg" }] }), "https://x/a.jpg");

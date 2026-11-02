@@ -3,7 +3,6 @@ import Link from "next/link";
 import { BukaProfil, TandaProfil } from "./speaker-tabs";
 import { punyaProfil, type TeksProfil } from "@/lib/landing-speaker-profil";
 import {
-  ArrowRight,
   ArrowUpRight,
   CalendarBlank,
   CalendarPlus,
@@ -67,7 +66,7 @@ export function HeroTrip({ alis, judul, catatan, kv, fakta }: { alis: string | n
               {alis}
             </p>
           ) : null}
-          <h1 data-sunting="pembuka:tagline" style={{ "--rise-delay": "60ms" } as CSSProperties} className="rise-in max-w-[16ch] whitespace-pre-line text-balance text-[40px] font-extrabold leading-[48px] tracking-[-0.02em] [overflow-wrap:anywhere] lg:max-w-[20ch] lg:text-[57px] lg:leading-[64px]">
+          <h1 data-sunting="pembuka:tagline" style={{ "--rise-delay": "60ms" } as CSSProperties} className="rise-in max-w-[16ch] whitespace-pre-line text-balance text-[40px] font-bold leading-[48px] tracking-[-0.02em] [overflow-wrap:anywhere] lg:max-w-[20ch] lg:text-[57px] lg:leading-[64px]">
             {judulBersorot(judul)}
           </h1>
           {catatan ? (
@@ -103,20 +102,27 @@ export function HeroTrip({ alis, judul, catatan, kv, fakta }: { alis: string | n
 export function TataTrip({ isi, samping }: { isi: ReactNode; samping: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-8 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,4fr)] lg:items-start lg:gap-12">
-      <div data-trip-kolom className="min-w-0" style={{ color: TINTA }}>
+      <div data-trip-kolom className="min-w-0" style={{ color: TINTA, "--judul-tebal": "700" } as CSSProperties}>
         {isi}
       </div>
-      {samping ? <div className="sticky top-24 -mt-24 hidden lg:block">{samping}</div> : null}
+      {/* Kolom kanan setinggi isi (self-stretch) supaya kartunya benar-benar menempel
+          saat digulir, seperti kartu pemesanan Airbnb; tanpa itu kolom kanan kosong
+          sepanjang halaman (audit Hallmark 1 Nov 2026). */}
+      {samping ? (
+        <div className="-mt-24 hidden self-stretch lg:block">
+          <div className="sticky top-[calc(var(--nav-h,96px)+16px)]">{samping}</div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-/** Satu bagian: judul 24/32 dan jarak 40 px dari bagian sebelumnya. */
+/** Satu bagian: judul 24/32 di ponsel, 32/40 di desktop, jarak 40/64 px dari bagian sebelumnya. */
 export function BagianTrip({ id, judul, children, sunting }: { id: string; judul: string | null; children: ReactNode; sunting?: string }) {
   return (
-    <section id={id} className="scroll-mt-[96px] pt-10">
+    <section id={id} className="scroll-mt-[96px] pt-10 lg:pt-16">
       {judul ? (
-        <h2 data-sunting={sunting} className="mb-4 whitespace-pre-line text-[24px] font-bold leading-8 tracking-[-0.01em]">
+        <h2 data-sunting={sunting} className="mb-4 whitespace-pre-line text-[24px] font-bold leading-8 tracking-[-0.01em] lg:text-[32px] lg:leading-10">
           {judul}
         </h2>
       ) : null}
@@ -144,7 +150,7 @@ export function PembicaraTrip({ judul, orang, teksProfil }: { judul: string; ora
     <BagianTrip id="speakers" judul={judul}>
       <ul className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:-mx-8 sm:px-8 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0">
         {orang.map((item, index) => {
-          const ket = [item.title, item.company].filter(Boolean).join(" · ");
+          const ket = [item.title, item.company].filter(Boolean).join(", ");
           const isi = (
             <>
               {item.photo_url ? (
@@ -237,7 +243,6 @@ export function LokasiTrip({
         ) : null}
         <Link href={kursi.href} className={TAUTAN}>
           {kursi.label}
-          <ArrowRight size={16} weight="bold" aria-hidden />
         </Link>
       </div>
     </BagianTrip>
@@ -304,7 +309,7 @@ export function KontakPanitiaTrip({ judul, pengantar, kontak, label }: { judul: 
                 <span className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{item.nama ?? item.nomor ?? item.email}</span>
                 {item.peran || (item.nama && item.nomor) ? (
                   <span className="text-[14px] leading-5 [overflow-wrap:anywhere]" style={{ color: REDUP }}>
-                    {[item.peran, item.nama ? item.nomor : null].filter(Boolean).join(" · ")}
+                    {[item.peran, item.nama ? item.nomor : null].filter(Boolean).join(", ")}
                   </span>
                 ) : null}
               </div>
@@ -347,7 +352,6 @@ export function PortalTrip({ judul, catatan, aksi }: { judul: string; catatan: s
         {aksi ? (
           <Link href={aksi.href} className={`${TOMBOL_EMAS} mt-1 w-full`}>
             {aksi.label}
-            <ArrowRight size={16} weight="bold" aria-hidden />
           </Link>
         ) : null}
       </div>
@@ -411,7 +415,6 @@ export function KartuMasukTrip({
       {aksi ? (
         <Link href={aksi.href} className={`${TOMBOL_EMAS} w-full`}>
           {aksi.label}
-          <ArrowRight size={16} weight="bold" aria-hidden />
         </Link>
       ) : null}
       {kalender ? (

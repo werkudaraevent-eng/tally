@@ -2452,6 +2452,22 @@ html[data-theme="dark"] .warna-pemindai {
   padding-top: 40px;
   padding-bottom: 0;
 }
+/* Desktop: judul bagian 32/40 dan jarak 64 px, sama dengan BagianTrip (halaman-trip.tsx),
+   supaya judul blok CMS tidak lebih kecil dari judul bagian bawaan (audit Hallmark). */
+@media (min-width: 64rem) {
+  [data-trip-kolom] {
+    --judul-besar: 32px;
+    --judul-baris: 40px;
+  }
+  [data-trip-kolom] > section,
+  [data-trip-kolom] > [data-bagian] > section {
+    padding-top: 64px;
+  }
+  [data-trip-kolom] h2.text-\[32px\] {
+    font-size: 32px;
+    line-height: 40px;
+  }
+}
 /* Blok berlatar (Panel, Dark) menjadi kartu di kolom, bukan pita selebar layar. */
 [data-trip-kolom] > section[style*="background-color"] {
   margin-top: 40px;

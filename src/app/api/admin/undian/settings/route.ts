@@ -11,7 +11,7 @@ import { BRANDING_COLUMNS, BRANDING_FONTS, SCALE_MAX, SCALE_MIN, type BrandingFo
 // "ikut tema bawaan halaman", bukan "tanpa warna".
 
 export const UNDIAN_SETTINGS_COLUMNS =
-  `page_title,page_subtitle,name_display,show_company,show_seat,sound_enabled,confetti_enabled,` +
+  `page_title,page_subtitle,name_display,show_company,show_seat,show_lineup,sound_enabled,confetti_enabled,` +
   `reveal_delay_seconds,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS},updated_at`;
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format hex #RRGGBB");
@@ -24,6 +24,7 @@ const patchSchema = z.object({
   name_display: z.enum(["full", "follow_event"]).optional(),
   show_company: z.boolean().optional(),
   show_seat: z.boolean().optional(),
+  show_lineup: z.boolean().optional(),
   sound_enabled: z.boolean().optional(),
   confetti_enabled: z.boolean().optional(),
   reveal_delay_seconds: z.number().min(0).max(10).optional(),

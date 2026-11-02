@@ -115,7 +115,7 @@ function DaftarTitik({ rows, zona, lang, dasar, nada }: { rows: BarisKehadiran[]
                   <div className="min-w-0">
                     <p className="text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{baris.nama}</p>
                     {baris.jam || baris.tempat ? (
-                      <p className={`text-[14px] leading-5 [overflow-wrap:anywhere] ${nada.redup}`}>{[baris.jam?.slice(0, 5).replace(":", "."), baris.tempat].filter(Boolean).join(" · ")}</p>
+                      <p className={`text-[14px] leading-5 [overflow-wrap:anywhere] ${nada.redup}`}>{[baris.jam?.slice(0, 5).replace(":", "."), baris.tempat].filter(Boolean).join(", ")}</p>
                     ) : null}
                   </div>
                   <p className="shrink-0 text-right text-[16px] font-semibold leading-6 tabular-nums">
@@ -154,7 +154,7 @@ function DaftarTitik({ rows, zona, lang, dasar, nada }: { rows: BarisKehadiran[]
               onClick={() => setPilih(tanggal)}
               className={`m3-state min-h-12 shrink-0 rounded-full px-4 text-[14px] font-semibold ${tanggal === aktifHari ? nada.chipAktif : nada.chip}`}
             >
-              {tanggal === hariIni ? `${t.hariIni} · ${hariPendek(tanggal, lang)}` : hariPendek(tanggal, lang)}
+              {tanggal === hariIni ? `${t.hariIni}, ${hariPendek(tanggal, lang)}` : hariPendek(tanggal, lang)}
             </button>
           ))}
         </div>
@@ -208,7 +208,7 @@ function RinciTitik({
         {baris.tempat || baris.jam ? (
           <p className={`flex items-start gap-1.5 text-[14px] leading-5 ${nada.redup}`}>
             <MapPin size={16} aria-hidden className="mt-0.5 shrink-0" />
-            {[baris.jam?.slice(0, 5).replace(":", "."), baris.tempat].filter(Boolean).join(" · ")}
+            {[baris.jam?.slice(0, 5).replace(":", "."), baris.tempat].filter(Boolean).join(", ")}
           </p>
         ) : null}
       </section>
@@ -250,7 +250,7 @@ function RinciTitik({
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-semibold leading-5 [overflow-wrap:anywhere]">{orang.nama}</p>
                 {orang.unit || orang.kelompok ? (
-                  <p className={`text-[12px] leading-4 [overflow-wrap:anywhere] ${nada.redup}`}>{[orang.unit, orang.kelompok].filter(Boolean).join(" · ")}</p>
+                  <p className={`text-[12px] leading-4 [overflow-wrap:anywhere] ${nada.redup}`}>{[orang.unit, orang.kelompok].filter(Boolean).join(", ")}</p>
                 ) : null}
               </div>
               {orang.at ? <span className={`shrink-0 text-[12px] leading-4 tabular-nums ${nada.redup}`}>{jamDiZona(orang.at, zona, lang)}</span> : null}

@@ -148,7 +148,7 @@ export function KartuCheckpoint({
     // Langkah bertanggal yang selesai di hari lain menyebut tanggalnya juga.
     const jamSelesai = selesai ? (step.when ? teksSelesai(step.done_at!, zona, hariIni, lang) : jam(step.done_at!, zona, lang)) : "";
     const sub = selesai
-      ? [t.selesaiJam(jamSelesai), step.size ? t.ukuran(step.size) : null].filter(Boolean).join(" · ")
+      ? [t.selesaiJam(jamSelesai), step.size ? t.ukuran(step.size) : null].filter(Boolean).join(", ")
       : step.place;
     const kapan = !selesai && step.when ? teksWaktu(step.when, hariIni, lang, false).teks : null;
     return (

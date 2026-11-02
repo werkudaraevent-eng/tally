@@ -304,7 +304,7 @@ export function LandingNavModern({
   const ringkas = horizon && lewatHero;
   // Horizon: pil emas rancangan (14/800, 25px kiri-kanan), area ketuk 48px.
   const PIL_EMAS =
-    "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full bg-[var(--hz-emas)] px-[25px] text-[14px] font-extrabold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]";
+    "m3-state inline-flex min-h-12 items-center whitespace-nowrap rounded-full bg-[var(--hz-emas)] px-[25px] text-[14px] font-bold text-[var(--hz-on-emas)] [--m3-state-color:var(--hz-on-emas)]";
   const masukHorizon = horizon && !peserta && memberLink ? memberLink : null;
   const daftarHorizon = horizon && !peserta && registrationOpen;
   // Horizon di ponsel, setelah hero lewat: satu pil ringkas ke dialog masuk atau

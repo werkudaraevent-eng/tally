@@ -90,7 +90,7 @@ export function AgendaTrip({ agenda, lang }: { agenda: AgendaPreview[]; lang: La
               <div className="flex min-w-0 flex-col gap-1">
                 <p className={`text-[16px] leading-6 [overflow-wrap:anywhere] ${item.jeda ? "font-normal" : "font-semibold"}`} style={item.jeda ? { color: REDUP } : undefined}>
                   {item.title}
-                  <LabelUntuk teks={item.untuk} className="font-medium" />
+                  <LabelUntuk teks={item.untuk} className="font-normal" />
                 </p>
                 {item.subtitle ? <TeksKaya teks={item.subtitle} className="whitespace-pre-line text-[14px] leading-5 text-[#526078]" warna={TINTA} /> : null}
               </div>

@@ -33,7 +33,7 @@ const PUCAT = "#EDF1FB";
 const TINTA = "#101E38";
 const REDUP = "#526078";
 const LABEL = "#4D5D77";
-const BIRU = "#274FC0";
+const TINTA_TAUTAN = "var(--hz-navy)";
 const GARIS_NAVY = "#405272";
 const REDUP_NAVY = "#CDD7EA";
 
@@ -273,7 +273,7 @@ export function CeritaHorizon({
       {pembuka ? (
         <Muncul className={`${BINGKAI} flex flex-col gap-[14px] py-8 md:flex-row md:items-center md:gap-20 md:py-12`}>
           {pembuka.nomor ? (
-            <p aria-hidden className="hidden shrink-0 text-[16px] font-bold leading-[1.26] tabular-nums md:block" style={{ color: BIRU }}>
+            <p aria-hidden className="hidden shrink-0 text-[16px] font-bold leading-[1.26] tabular-nums md:block" style={{ color: TINTA_TAUTAN }}>
               {pembuka.nomor}
             </p>
           ) : null}
@@ -282,7 +282,7 @@ export function CeritaHorizon({
             <Tautan
               aksi={pembuka.tautan}
               className="m3-state -mx-2 inline-flex min-h-12 shrink-0 items-center gap-1 self-start rounded-md px-2 text-[14px] font-semibold leading-[1.26] md:self-auto md:text-[11px] md:font-normal md:uppercase md:tracking-[1px]"
-              style={{ color: BIRU }}
+              style={{ color: TINTA_TAUTAN }}
             >
               {pembuka.tautan.label}
               <span aria-hidden>↓</span>

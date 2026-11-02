@@ -25,7 +25,10 @@ export function jamLeg(tiket: Pick<LogistikKereta, "depart_time" | "arrive_time"
 
 /** Satu jam tiket seperti ditulis di bahasa itu: "08.20" (id), "08:20" (en). */
 export function jamTiket(jam: string | null, lang: Bahasa): string | null {
-  return jam ? (lang === "en" ? jam : jam.replace(":", ".")) : null;
+  // Kolom `time` Postgres datang sebagai "07:00:00"; peserta membaca jam dan menit saja.
+  const cocok = jam?.match(/^(\d{1,2})[.:](\d{2})/);
+  if (!cocok) return jam || null;
+  return `${cocok[1].padStart(2, "0")}${lang === "en" ? ":" : "."}${cocok[2]}`;
 }
 
 /** "Gambir → Yogyakarta", atau null bila keduanya kosong. */

@@ -341,7 +341,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   // Nama acara turun ke label kecil bila judulnya tagline; tanpa tagline nama
   // acara sudah judulnya, jadi label hanya "Anda diundang".
   const alisGathering = gaya
-    ? config.hero_eyebrow?.trim() || [undangan ? t.invitedYou : null, judulAjakan ? nama : null].filter(Boolean).join(" · ") || null
+    ? config.hero_eyebrow?.trim() || [undangan ? t.invitedYou : null, judulAjakan ? nama : null].filter(Boolean).join(", ") || null
     : null;
   // Baris kecil di bawah nama di bilah atas: nama acara di CMS bila nama
   // publiknya lain ("KSO Sucofindo 2026" di bawah "2Fly Beyond Limits").
@@ -1036,7 +1036,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
                   kontakPanitiaDaftar.length > 0 ? (
                     <>
                       {" "}
-                      <a href="#contact" className="font-medium text-[#101E38] underline underline-offset-4">
+                      <a href="#contact" className="font-semibold text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px]">
                         {t.faqContact.trim()}
                       </a>
                     </>
@@ -1067,7 +1067,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
   const bilahTrip = aksiBilahTrip ? (
     <BilahMasukTrip
       judul={nama}
-      fakta={[formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join(" · ") || null}
+      fakta={[formatEventDateRingkas(event, lang) ?? tanggal, venue].filter(Boolean).join(", ") || null}
       hitung={hitungTrip}
       aksi={aksiBilahTrip}
     />
@@ -1501,11 +1501,11 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
               .filter((teks): teks is string => Boolean(teks))
               .map((teks) => tanpaTahunUjung(teks, tahun))
               .filter((teks, index, semua) => teks && semua.indexOf(teks) === index)
-              .join(" · ")]
+              .join(", ")]
               .filter(Boolean)
               .join(" "),
             ...kontak.map((item) => item.label),
-          ].join(" · ")}
+          ].join(", ")}
           tagline={config.footer_note?.trim() || null}
         />
       ) : (
@@ -1533,7 +1533,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           slug={event.slug}
           masukUrl={masukUrl}
           halamanUrl={landingPath(event.slug, lang, landingDefaultLang(config))}
-          keterangan={[nama, formatEventDate(event, lang)].filter(Boolean).join(" · ")}
+          keterangan={[nama, formatEventDate(event, lang)].filter(Boolean).join(", ")}
           minPassword={PASSWORD_MIN}
           awal={masukAwal}
           sandi={sandi}
@@ -1542,7 +1542,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           cara={caraMasukPublik(event, lang)}
           kepala={{
             nama,
-            keterangan: [nama, formatEventDateRingkas(event, lang) ?? tanggal].filter(Boolean).join(" · "),
+            keterangan: [nama, formatEventDateRingkas(event, lang) ?? tanggal].filter(Boolean).join(", "),
             logo: config.nav?.logo_url ?? (horizon ? config.hero_logo_url?.trim() || null : null),
             kv: gaya ? (kvGathering(config)?.src ?? null) : kv,
             gaya: horizon ? "horizon" : gaya ? "gathering" : "modern",
@@ -1587,7 +1587,7 @@ function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): 
   const locale = lang === "en" ? "en-GB" : "id-ID";
   const hari = new Intl.DateTimeFormat(locale, { timeZone: zona, weekday: "short", day: "numeric", month: "short" }).format(tanggal);
   const jamnya = new Intl.DateTimeFormat(locale, { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(tanggal);
-  return `${hari} · ${lang === "en" ? jamnya : jamnya.replace(":", ".")}`;
+  return `${hari}, ${lang === "en" ? jamnya : jamnya.replace(":", ".")}`;
 }
 
 /**

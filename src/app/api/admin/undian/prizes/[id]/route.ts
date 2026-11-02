@@ -3,7 +3,7 @@ import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { auditPrize, normalizePrize, type UndianConditionNode } from "@/lib/undian";
+import { STAGE_NOTE_MAX, auditPrize, normalizePrize, type UndianConditionNode } from "@/lib/undian";
 import { unknownAnswerError } from "@/lib/undian-pool";
 import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
 import { PRIZE_COLUMNS } from "../route";
@@ -65,6 +65,8 @@ const patchSchema = z.object({
   image_url: z.string().trim().url().max(600).nullable().optional(),
   sponsor_name: z.string().trim().max(120).nullable().optional(),
   claim_note: z.string().trim().max(CATATAN_HADIAH_MAX).nullish().transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
+  after_win: z.enum(["none", "stage", "desk"]).optional(),
+  stage_note: z.string().trim().max(STAGE_NOTE_MAX).nullish().transform((nilai) => (nilai === undefined ? undefined : nilai || null)),
   winners_per_draw: z.number().int().min(1).max(50).optional(),
   winner_quota: z.number().int().min(1).max(500).optional(),
   backup_per_draw: z.number().int().min(0).max(20).optional(),
