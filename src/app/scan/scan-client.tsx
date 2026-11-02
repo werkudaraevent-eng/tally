@@ -171,6 +171,39 @@ const BARUSAN_MS = 30_000;
  */
 const KELONGGARAN_JAM_MS = 5_000;
 
+/**
+ * Riwayat pindaian ponsel ini, disimpan sampai akhir hari.
+ *
+ * Dulu hanya di memori: justru saat sinyal jelek petugas memuat ulang halaman,
+ * dan bukti siapa yang barusan masuk ikut hilang. Kuncinya per alamat acara
+ * (`/e/<slug>`), tanggalnya tanggal ponsel; hari berganti = daftar kosong.
+ * Hanya nama, status, dan jam: tidak ada kode QR di sini.
+ */
+type BarisRiwayat = { nama: string; status: Hasil["status"]; waktu: string };
+const BATAS_RIWAYAT = 50;
+function kunciRiwayat(): string {
+  const awalan = window.location.pathname.match(/^\/e\/[^/]+/)?.[0] ?? "";
+  return `scan-riwayat:${awalan}`;
+}
+function tanggalPonsel(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+function bacaRiwayat(): BarisRiwayat[] {
+  try {
+    const isi = JSON.parse(window.localStorage.getItem(kunciRiwayat()) ?? "null") as { tanggal?: string; baris?: BarisRiwayat[] } | null;
+    if (!isi || isi.tanggal !== tanggalPonsel() || !Array.isArray(isi.baris)) return [];
+    return isi.baris.filter((b) => typeof b?.nama === "string" && typeof b?.waktu === "string").slice(0, BATAS_RIWAYAT);
+  } catch {
+    return [];
+  }
+}
+function simpanRiwayat(baris: BarisRiwayat[]) {
+  try {
+    window.localStorage.setItem(kunciRiwayat(), JSON.stringify({ tanggal: tanggalPonsel(), baris: baris.slice(0, BATAS_RIWAYAT) }));
+  } catch { /* penyimpanan penuh atau tidak tersedia: riwayat tetap di memori */ }
+}
+
 function bacaTutupOtomatis(): boolean {
   try {
     return window.localStorage.getItem(KUNCI_TUTUP) !== "0";
@@ -371,7 +404,22 @@ export default function ScanClient() {
   // Peserta aktif acara, seluruh meja. Null sampai terbaca, atau bila hitungannya
   // gagal: layar lalu kembali ke angka hadir saja, tanpa "dari".
   const [terdaftar, setTerdaftar] = useState<number | null>(null);
-  const [riwayat, setRiwayat] = useState<Array<{ nama: string; status: Hasil["status"]; waktu: string }>>([]);
+  const [riwayat, setRiwayat] = useState<BarisRiwayat[]>([]);
+  // Dibaca setelah hidrasi (localStorage tidak ada di server), lalu disimpan
+  // setiap kali berubah. `riwayatDimuat` mencegah daftar kosong awal menimpa
+  // simpanan sebelum sempat dibaca.
+  const riwayatDimuat = useRef(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const lama = bacaRiwayat();
+      if (lama.length) setRiwayat((sekarang) => [...sekarang, ...lama].slice(0, BATAS_RIWAYAT));
+      riwayatDimuat.current = true;
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (riwayatDimuat.current) simpanRiwayat(riwayat);
+  }, [riwayat]);
   const [pesan, setPesan] = useState("");
   const [sibuk, setSibuk] = useState(false);
 
@@ -751,9 +799,11 @@ export default function ScanClient() {
     bunyikan(beres ? "ok" : data.status === "duplicate" ? "ulang" : "galat", suaraRef.current);
     const waktu = new Date().toISOString();
     setRiwayat((current) => [
-      { nama: data.participant?.name ?? data.qr ?? "Unknown", status: beres ? "recorded" : data.status, waktu },
+      // Kode mentah tidak disimpan: bisa jadi QR asli peserta yang dibatalkan,
+      // dan History bertahan di ponsel sampai akhir hari.
+      { nama: data.participant?.name ?? (data.status === "not_found" ? "Unknown code" : "Unknown"), status: beres ? "recorded" : data.status, waktu },
       ...current,
-    ].slice(0, 20));
+    ].slice(0, BATAS_RIWAYAT));
     if (beres && data.participant) {
       setTerakhirHadir({ nama: data.participant.name, waktu });
       const catatan = { waktu: Date.now(), hasil: data };
@@ -1310,6 +1360,16 @@ export default function ScanClient() {
   async function keluar() {
     setKeluarJalan(true);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    // Ponsel scanner sering dipakai bergantian: History petugas sebelumnya
+    // (nama peserta) tidak ikut terbaca oleh petugas berikutnya.
+    try {
+      for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+        const kunci = window.localStorage.key(i);
+        if (kunci?.startsWith("scan-riwayat:")) window.localStorage.removeItem(kunci);
+      }
+    } catch {
+      // Penyimpanan diblokir: tidak ada yang perlu dihapus.
+    }
     router.replace("/login");
     router.refresh();
   }
@@ -1423,6 +1483,11 @@ export default function ScanClient() {
    * Layar lebar (lg) tetap kolom kamera + panel angka.
    */
   const imersif = mode === "qr" && !tampilQr;
+  // Ponsel: satu tema gelap untuk Scan, Find name dan History. Dulu Find name
+  // dan History berganti ke kanvas putih, menyilaukan di ruang gelap dan terasa
+  // seperti aplikasi lain. Kecuali saat menampilkan QR untuk dipindai peserta:
+  // layar itu tetap terang supaya kamera peserta mudah membacanya.
+  const gelap = !tampilQr;
   const { sentinel: penandaAtas, scrolled: tergulir } = useScrolledPastTop();
 
   const judulMeja = `${sesiAktif?.name ?? "Choose a check-in point"}${jalurAktif ? ` · ${jalurAktif.name}` : ""}`;
@@ -1483,7 +1548,7 @@ export default function ScanClient() {
 
   const daftarRiwayat = (batas: number) =>
     riwayat.length === 0 ? (
-      <p className="mt-2 text-body-small text-on-surface-variant">No scans yet on this phone since the screen was opened.</p>
+      <p className="mt-2 text-body-small text-on-surface-variant">No scans on this phone today.</p>
     ) : (
       <ul className="mt-1 divide-y divide-outline-variant">
         {riwayat.slice(0, batas).map((baris, index) => (
@@ -1515,7 +1580,7 @@ export default function ScanClient() {
   };
 
   return (
-    <div lang="en" className={`scan-teks warna-pemindai min-h-dvh bg-surface text-on-surface lg:pb-12 ${imersif ? "pb-[calc(5rem+env(safe-area-inset-bottom))] max-lg:bg-black" : "pb-24"}`}>
+    <div lang="en" className={`scan-teks warna-pemindai min-h-dvh bg-surface text-on-surface lg:pb-12 ${gelap ? "gelap-ponsel gelap-ponsel-isi max-lg:bg-black" : ""} ${imersif ? "pb-[calc(5rem+env(safe-area-inset-bottom))]" : "pb-24"}`}>
       <div ref={penandaAtas} aria-hidden className="h-0" />
       {/* -------------------------------------------------------------------
           Bilah atas.
@@ -1530,7 +1595,7 @@ export default function ScanClient() {
           muncul saat ada yang tergulir di bawahnya. */}
       <header
         className={`sticky top-0 z-30 border-b bg-surface transition-colors ${tergulir ? "border-outline-variant" : "border-transparent"} ${
-          imersif ? "gelap-ponsel max-lg:border-transparent max-lg:bg-black max-lg:text-white" : ""
+          gelap ? "gelap-ponsel max-lg:border-transparent max-lg:bg-black max-lg:text-white" : ""
         }`}
       >
         <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-2 px-4 sm:px-6 lg:px-8">
@@ -1542,14 +1607,14 @@ export default function ScanClient() {
           >
             <span className="min-w-0">
               <span className="block truncate text-title-large font-semibold max-lg:text-title-medium">{judulMeja}</span>
-              <span className={`block truncate text-body-small text-on-surface-variant ${imersif ? "max-lg:text-white/75" : ""}`}>{eventName || "Loading…"}</span>
+              <span className={`block truncate text-body-small text-on-surface-variant ${gelap ? "max-lg:text-white/75" : ""}`}>{eventName || "Loading…"}</span>
             </span>
-            <CaretDown size={20} className={`shrink-0 text-on-surface-variant ${imersif ? "max-lg:text-white/75" : ""}`} aria-hidden />
+            <CaretDown size={20} className={`shrink-0 text-on-surface-variant ${gelap ? "max-lg:text-white/75" : ""}`} aria-hidden />
             <span className="sr-only">Change check-in point or desk</span>
           </button>
           <span className="hidden flex-1 lg:block" />
           {offline ? <ChipOffline /> : null}
-          <IconButton label="Scanner menu" onClick={() => setMenuTerbuka(true)} className={imersif ? "max-lg:!text-white" : undefined}>
+          <IconButton label="Scanner menu" onClick={() => setMenuTerbuka(true)} className={gelap ? "max-lg:!text-white" : undefined}>
             <DotsThreeVertical size={24} weight="bold" />
           </IconButton>
         </div>
@@ -1850,7 +1915,8 @@ export default function ScanClient() {
                   <p className="text-body-small text-on-surface-variant">
                     The count above covers all desks at this check-in point and counts people, not repeat scans.
                   </p>
-                  {daftarRiwayat(20)}
+                  {daftarRiwayat(BATAS_RIWAYAT)}
+                  {riwayat.length > 0 ? <p className="mt-2 text-body-small text-on-surface-variant">Kept on this phone until the end of the day, also after a reload.</p> : null}
                 </div>
               </div>
             ) : null}
@@ -1886,7 +1952,7 @@ export default function ScanClient() {
       <nav
         aria-label="Scanner mode"
         className={`fixed inset-x-0 bottom-0 z-30 flex h-[calc(5rem+env(safe-area-inset-bottom))] bg-surface-container pb-[env(safe-area-inset-bottom)] lg:hidden ${
-          imersif ? "gelap-ponsel" : "border-t border-outline-variant"
+          gelap ? "gelap-ponsel" : "border-t border-outline-variant"
         }`}
       >
         {navBawah("qr", "Scan", <QrCode size={24} weight={mode === "qr" ? "fill" : "regular"} aria-hidden />)}
