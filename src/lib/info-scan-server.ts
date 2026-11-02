@@ -1,6 +1,6 @@
 import { kunciNomorBagasi } from "@/lib/bagasi/nomor";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { barisInfo, bacaInfoScan, butuhLogistik, infoBerlaku, pilihanInfo, type BarisInfo, type DataPesertaInfo } from "@/lib/info-scan";
+import { barisInfo, bacaInfoScan, butuhLogistik, infoBerlaku, kunciInti, pilihanInfo, type BarisInfo, type DataPesertaInfo } from "@/lib/info-scan";
 import { loadMemberLogistics } from "@/lib/logistik/peserta";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
@@ -37,11 +37,11 @@ export async function infoTamu(
     const pilihanNomor = kunciNomor ? `extra:${kunciNomor}` : null;
     // Tetap paling banyak BATAS_INFO_SCAN baris: bacaInfoScan memotongnya.
     const tersimpan = pilihanNomor
-      ? bacaInfoScan([pilihanNomor, ...(pilihanTersimpan ?? ["base:company", "base:title"]).filter((kunci) => kunci !== pilihanNomor)])
+      ? bacaInfoScan([`*${pilihanNomor}`, ...(pilihanTersimpan ?? ["base:company", "base:title"]).filter((kunci) => kunciInti(kunci) !== pilihanNomor)])
       : pilihanTersimpan;
     if (!tersimpan || tersimpan.length === 0) return null;
 
-    const adaLogistik = tersimpan.some((kunci) => kunci.startsWith("logistik:"));
+    const adaLogistik = tersimpan.some((kunci) => kunciInti(kunci).startsWith("logistik:"));
     // Logistik dianggap ada di sini: nilai kosong ditulis "Not set", dan
     // penghitungan tabelnya hanya untuk menyusun menu di admin.
     const info = infoBerlaku(tersimpan, pilihanInfo(config?.fields ?? [], { hotel: adaLogistik, vehicle: adaLogistik, train: adaLogistik }));

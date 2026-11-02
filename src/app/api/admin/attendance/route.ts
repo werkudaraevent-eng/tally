@@ -4,7 +4,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { setelanNomorBagasi } from "@/lib/bagasi/nomor";
 import { totalAmbilBagasi, totalBagasiSesi } from "@/lib/bagasi/server";
 import type { RegistrationFormConfig } from "@/lib/domain";
-import { BATAS_INFO_SCAN, pilihanInfo, type PilihanInfo } from "@/lib/info-scan";
+import { BATAS_BESAR, BATAS_INFO_SCAN, pilihanInfo, type PilihanInfo } from "@/lib/info-scan";
 import { kolomBelumAda, semuaBaris } from "@/lib/logistik/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -34,7 +34,13 @@ const sessionSchema = z.object({
    * Shown after scan (migrasi 202610300001): info di bawah nama pada hasil scan
    * petugas, urut. Null = Company · Title seperti sebelumnya (lib/info-scan.ts).
    */
-  scan_fields: z.array(z.string().regex(/^(base|extra|logistik):[a-z0-9_]{1,64}$/)).max(BATAS_INFO_SCAN).nullable().optional(),
+  // `*` di depan = tampil besar (lib/info-scan.ts), paling banyak BATAS_BESAR.
+  scan_fields: z
+    .array(z.string().regex(/^\*?(base|extra|logistik):[a-z0-9_]{1,64}$/))
+    .max(BATAS_INFO_SCAN)
+    .refine((daftar) => daftar.filter((kunci) => kunci.startsWith("*")).length <= BATAS_BESAR, `At most ${BATAS_BESAR} items can be big.`)
+    .nullable()
+    .optional(),
   /** Pindai ulang (migrasi 202611010002): allow = boleh masuk, stop = petugas berhenti dan memeriksa. */
   repeat_scan: z.enum(["allow", "stop"]).optional(),
   /** Check-in tanpa sinyal (migrasi 202611010002). Bawaan false. */
