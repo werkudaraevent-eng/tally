@@ -602,10 +602,13 @@ const PENDEK = 6;
 /**
  * Shown after scan. Info bertanda Big tampil sebagai kotak di atas: label kecil,
  * nilainya besar, seperti gate dan kursi di boarding pass, supaya terbaca
- * sekilas sambil petugas memegang koper. Nilai pendek mendapat kotak sempit
- * dengan angka besar; nilai panjang (nama hotel) mengisi sisa baris dan turun
- * ke baris sendiri bila tidak muat. Info lain tetap baris kecil di bawahnya,
- * sama seperti sebelum ada Big.
+ * sekilas sambil petugas memegang koper. Kotak selalu mengisi lebar lembar:
+ * satu kotak selebar penuh, dua kotak berbagi baris (Hanung 2 Nov: kotak
+ * tunggal di kiri dengan ruang kosong di kanan terlihat setengah jadi). Rata
+ * kiri, bukan tengah, supaya tepi kiri lembar tetap satu garis baca dengan
+ * nama dan strip checkpoint di bawahnya. Nilai panjang (nama hotel) mendapat
+ * bagian lebih besar dan turun ke baris sendiri bila tidak muat. Info lain
+ * tetap baris kecil di bawahnya, sama seperti sebelum ada Big.
  */
 function InfoHasil({ info }: { info: NonNullable<Hasil["info"]> }) {
   const besar = info.filter((baris) => baris.besar);
@@ -619,7 +622,7 @@ function InfoHasil({ info }: { info: NonNullable<Hasil["info"]> }) {
             return (
               <div
                 key={`${index}-${baris.label}`}
-                className={`flex min-w-0 flex-col rounded-xl bg-black/20 px-3.5 pb-3 pt-2.5 ${pendek ? "w-min min-w-26 flex-none" : "flex-[1_1_12rem]"}`}
+                className={`flex min-w-0 flex-col rounded-xl bg-black/20 px-3.5 pb-3 pt-2.5 ${pendek ? "min-w-26 flex-[1_1_6.5rem]" : "flex-[3_1_12rem]"}`}
               >
                 <p className="text-body-medium font-medium leading-5 opacity-85 [overflow-wrap:anywhere]">{baris.label}</p>
                 {baris.nilai ? (
