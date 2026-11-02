@@ -69,6 +69,17 @@ export function PilihKamar({ opsi, pilihan, onPilih, onSimpan, bisaMenyusul }: {
     if (pilihan) onPilih(null);
   }
 
+  // Kamar yang ada: nomornya ditulis ke kolom (pola APG), supaya kolom dan
+  // pilihan tidak berbeda. Daftar tetap menampilkan kamar itu karena cocok persis.
+  function pilih(nilai: PilihanKamar) {
+    if (nilai?.jenis === "ada") {
+      const kamar = opsi.find((o) => o.kamar.id === nilai.id)?.kamar;
+      const teks = kamar?.room_number ?? kamar?.label ?? null;
+      if (teks !== null && teks !== undefined) { setCari(teks); setSorot(0); }
+    }
+    onPilih(nilai);
+  }
+
   function onKeyDown(peristiwa: KeyboardEvent<HTMLInputElement>) {
     const n = hidup.length;
     if (n === 0) return;
@@ -79,7 +90,7 @@ export function PilihKamar({ opsi, pilihan, onPilih, onSimpan, bisaMenyusul }: {
     } else if (peristiwa.key === "Enter") {
       peristiwa.preventDefault();
       if (aktif && terpilih(aktif)) onSimpan();
-      else if (aktif) onPilih(aktif.nilai);
+      else if (aktif) pilih(aktif.nilai);
     }
   }
 
@@ -94,12 +105,12 @@ export function PilihKamar({ opsi, pilihan, onPilih, onSimpan, bisaMenyusul }: {
         aria-selected={on}
         aria-disabled={b.mati || undefined}
         onPointerDown={(peristiwa) => peristiwa.preventDefault()}
-        onClick={() => { if (!b.mati) onPilih(b.nilai); }}
+        onClick={() => { if (!b.mati) pilih(b.nilai); }}
         onPointerMove={() => { if (!b.mati) setSorot(hidup.indexOf(b)); }}
         className={cx(
           KELAS_OPSI,
           "items-center",
-          b.mati ? "cursor-not-allowed text-on-surface-variant" : aktif?.kunci === b.kunci && "bg-primary-soft",
+          b.mati ? "cursor-not-allowed text-on-surface-variant" : aktif?.kunci === b.kunci && "bg-primary-soft shadow-[inset_0_0_0_2px_var(--md-sys-color-primary)]",
         )}
       >
         {b.nilai?.jenis === "baru" ? (
