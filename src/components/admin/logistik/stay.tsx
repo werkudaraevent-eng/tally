@@ -3,6 +3,7 @@
 import { Bed, Plus, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Banner, Button, Dialog, SelectField, StatusChip, TextField } from "@/components/m3";
+import { PilihKamar, type PilihanKamar } from "./pilih-kamar";
 import { bertabrakan, labelTanggal, malamIso, potonganStay, puncakHuni, rentangStay, tanggalStay, tanggalZona, type Stay } from "@/lib/logistik/stay";
 import { judulKamar, urutKamar } from "@/lib/logistik/nama-kamar";
 import type { Hotel, Kamar, LogistikPeserta } from "@/lib/logistik/types";
@@ -198,7 +199,9 @@ export function DialogStays({ orang, stays, hotels, rooms, hunian, offset, busy,
   const [masuk, setMasuk] = useState("");
   const [keluar, setKeluar] = useState("");
   const [lepas, setLepas] = useState<number | null>(null);
-  const [kamarBaru, setKamarBaru] = useState("");
+  const [kamarBaru, setKamarBaru] = useState<PilihanKamar>(null);
+  // Kapasitas kamar yang dibuat dari dialog ini; kamar twin paling umum.
+  const [kapasitasBaru, setKapasitasBaru] = useState("2");
 
   const hotelById = new Map(hotels.map((h) => [h.id, h]));
   const kamarById = new Map(rooms.map((k) => [k.id, k]));
@@ -206,7 +209,7 @@ export function DialogStays({ orang, stays, hotels, rooms, hunian, offset, busy,
   // Sama dengan dialog Assign: paling banyak enam stay.
   const bisaTambah = stays.length < 6 && hotels.length > 0;
 
-  function tutup() { setSunting(null); setLepas(null); setHotelBaru(""); setKamarBaru(""); onClose(); }
+  function tutup() { setSunting(null); setLepas(null); setHotelBaru(""); setKamarBaru(null); onClose(); }
   function mulai(baru: Sunting, hotel?: Hotel, stay?: Stay) {
     const t = stay ? tanggalStay(stay, hotel) : null;
     const awal = t ? { masuk: t.masuk ? tanggalZona(t.masuk, offset) : "", keluar: t.keluar ? tanggalZona(t.keluar, offset) : "" } : malamHotel(hotel, offset);
@@ -243,13 +246,29 @@ export function DialogStays({ orang, stays, hotels, rooms, hunian, offset, busy,
     if (hasil !== null) setSunting(null);
   }
 
-  // "" = belum dipilih, "menyusul" = lepas kamar (hotel dan malam tetap), angka = id kamar.
+  const kapasitasSah = /^\d+$/.test(kapasitasBaru) && Number(kapasitasBaru) >= 1 && Number(kapasitasBaru) <= 20;
+
+  // null = belum dipilih; "menyusul" = lepas kamar (hotel dan malam tetap);
+  // "baru" = buat kamar dengan nomor yang diketik, lalu tempatkan orangnya.
   async function simpanKamar(stay: Stay) {
     if (!orang || !kamarBaru) return;
-    const hasil = kamarBaru === "menyusul"
-      ? stay.room_id !== null ? await kirim("/api/admin/logistik/penghuni", "POST", { release_room_id: stay.room_id, participant_ids: [orang.id] }) : {}
-      : await kirim("/api/admin/logistik/penghuni", "POST", { room_id: Number(kamarBaru), participant_ids: [orang.id], stay_id: stay.id });
-    if (hasil !== null) { setSunting(null); setKamarBaru(""); }
+    let hasil: unknown;
+    if (kamarBaru.jenis === "menyusul") {
+      hasil = stay.room_id !== null ? await kirim("/api/admin/logistik/penghuni", "POST", { release_room_id: stay.room_id, participant_ids: [orang.id] }) : {};
+    } else if (kamarBaru.jenis === "ada") {
+      hasil = await kirim("/api/admin/logistik/penghuni", "POST", { room_id: kamarBaru.id, participant_ids: [orang.id], stay_id: stay.id });
+    } else {
+      if (!kapasitasSah) return;
+      const dibuat = await kirim("/api/admin/logistik/data/kamar", "POST", {
+        hotel_id: stay.hotel_id, room_number: kamarBaru.nomor, label: null, room_type: null, bed_type: null, capacity: Number(kapasitasBaru), floor: null, notes: null,
+      }) as { id?: number } | null;
+      if (!dibuat?.id) return;
+      hasil = await kirim("/api/admin/logistik/penghuni", "POST", { room_id: dibuat.id, participant_ids: [orang.id], stay_id: stay.id });
+      // Penempatan ditolak (mis. aturan jenis kelamin): kamar kosong yang baru
+      // dibuat dihapus lagi, supaya tidak tertinggal kamar yang tidak diminta.
+      if (hasil === null) await kirim(`/api/admin/logistik/data/kamar?id=${dibuat.id}`, "DELETE");
+    }
+    if (hasil !== null) { setSunting(null); setKamarBaru(null); setKapasitasBaru("2"); }
   }
 
   async function hapus(stay: Stay) {
@@ -317,27 +336,35 @@ export function DialogStays({ orang, stays, hotels, rooms, hunian, offset, busy,
                   </p>
                   {pilihKamar ? (
                     <div className="flex flex-col gap-3">
-                      {kamarHotel.length === 0 ? (
-                        <p className="text-body-medium text-on-surface-variant">This hotel has no rooms yet. Add them in Logistics, Rooms tab.</p>
-                      ) : (
-                        <SelectField label="Room" value={kamarBaru} onChange={(event) => setKamarBaru(event.target.value)}>
-                          <option value="" disabled>Choose a room</option>
-                          {kamar ? <option value="menyusul">Room to follow (keep the hotel)</option> : null}
-                          {kamarHotel.map((k) => {
-                            // Tempat dihitung untuk malam stay ini saja; stay orang ini sendiri tidak dihitung.
-                            const isi = hunian.puncak(k.id, rentang, (s) => s.participant_id === orang?.id);
-                            const penuh = isi >= k.capacity && k.id !== stay.room_id;
-                            return (
-                              <option key={k.id} value={k.id} disabled={penuh || k.id === stay.room_id}>
-                                {[judulKamar(k), k.room_type, k.id === stay.room_id ? "current" : penuh ? "full these nights" : `${k.capacity - isi} of ${k.capacity} free`].filter(Boolean).join(" · ")}
-                              </option>
-                            );
-                          })}
-                        </SelectField>
-                      )}
+                      <PilihKamar
+                        opsi={kamarHotel.map((k) => {
+                          // Tempat dihitung untuk malam stay ini saja; stay orang ini sendiri tidak dihitung.
+                          const isi = hunian.puncak(k.id, rentang, (s) => s.participant_id === orang?.id);
+                          const sekarang = k.id === stay.room_id;
+                          const penuh = isi >= k.capacity && !sekarang;
+                          return { kamar: k, mati: penuh || sekarang, keterangan: sekarang ? "Current" : penuh ? "Full these nights" : isi === 0 ? `Empty · ${k.capacity} beds` : `${k.capacity - isi} of ${k.capacity} free` };
+                        })}
+                        pilihan={kamarBaru}
+                        onPilih={setKamarBaru}
+                        onSimpan={() => { if (!busy) void simpanKamar(stay); }}
+                        bisaMenyusul={Boolean(kamar)}
+                      />
+                      {kamarBaru?.jenis === "baru" ? (
+                        <TextField
+                          label="Capacity of the new room"
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          max={20}
+                          value={kapasitasBaru}
+                          onChange={(event) => setKapasitasBaru(event.target.value)}
+                          error={kapasitasSah ? undefined : "Enter a number from 1 to 20."}
+                          hint="Room type, bed and floor can be added later in the Rooms tab."
+                        />
+                      ) : null}
                       <div className="flex justify-end gap-2">
-                        <Button variant="text" size="sm" disabled={busy} onClick={() => { setSunting(null); setKamarBaru(""); }}>Cancel</Button>
-                        {kamarHotel.length > 0 ? <Button variant="tonal" size="sm" loading={busy} disabled={!kamarBaru} onClick={() => void simpanKamar(stay)}>Save</Button> : null}
+                        <Button variant="text" size="sm" disabled={busy} onClick={() => { setSunting(null); setKamarBaru(null); }}>Cancel</Button>
+                        <Button variant="tonal" size="sm" loading={busy} disabled={!kamarBaru || (kamarBaru.jenis === "baru" && !kapasitasSah)} onClick={() => void simpanKamar(stay)}>{kamarBaru?.jenis === "baru" ? "Create and save" : "Save"}</Button>
                       </div>
                     </div>
                   ) : diubah ? formMalam : lepas === stay.id ? (
@@ -348,7 +375,7 @@ export function DialogStays({ orang, stays, hotels, rooms, hunian, offset, busy,
                     </div>
                   ) : sunting === null ? (
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="text" size="sm" onClick={() => { setLepas(null); setKamarBaru(""); setSunting({ jenis: "kamar", stayId: stay.id }); }}>{kamar ? "Change room" : "Choose room"}</Button>
+                      <Button variant="text" size="sm" onClick={() => { setLepas(null); setKamarBaru(null); setSunting({ jenis: "kamar", stayId: stay.id }); }}>{kamar ? "Change room" : "Choose room"}</Button>
                       <Button variant="text" size="sm" onClick={() => mulai({ jenis: "ubah", stayId: stay.id }, hotel, stay)}>Change nights</Button>
                       <Button variant="text" size="sm" icon={<Trash size={16} />} onClick={() => setLepas(stay.id)}>Remove</Button>
                     </div>
