@@ -626,6 +626,21 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
     return () => window.clearTimeout(timer);
   }, [participants, loading]);
 
+  // `?hadir=<id sesi>:no|yes`: tautan "Show who is not here yet" dari Check-in.
+  // Memasang chip Check-in yang sama dengan yang dipilih tangan.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const nilai = url.searchParams.get("hadir") ?? "";
+    if (!url.searchParams.has("hadir")) return;
+    // Dibuang dari alamat seperti `?kolom=`: memuat ulang tidak memasangnya lagi
+    // setelah chip-nya dilepas.
+    url.searchParams.delete("hadir");
+    window.history.replaceState(window.history.state, "", url);
+    if (!/^\d+:(yes|no)$/.test(nilai)) return;
+    const pewaktu = window.setTimeout(() => setFilterHadir(nilai), 0);
+    return () => window.clearTimeout(pewaktu);
+  }, []);
+
   // `?f=` saat halaman dibuka, supaya tampilan bisa dibagikan sebagai tautan.
   // Kunci yang tidak dikenal dibuang server dan tidak mendapat chip.
   useEffect(() => {

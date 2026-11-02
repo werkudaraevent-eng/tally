@@ -19,7 +19,7 @@ const laneSchema = z.object({
     .trim()
     .min(1)
     .max(40)
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug hanya boleh huruf kecil, angka, dan tanda hubung."),
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lower-case letters, digits and hyphens only."),
   sort_order: z.number().int().min(0).max(999).optional(),
   is_active: z.boolean().optional(),
 });
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
   if (error) {
     if (String(error.code) === "23505") {
-      return apiError("VALIDATION_ERROR", 422, { slug: "Slug ini sudah dipakai jalur lain di acara yang sama." });
+      return apiError("VALIDATION_ERROR", 422, { slug: "Another desk in this event already uses this address." });
     }
     return apiError("INTERNAL_ERROR", 500);
   }
@@ -102,7 +102,7 @@ export async function PATCH(request: Request) {
 
   if (error) {
     if (String(error.code) === "23505") {
-      return apiError("VALIDATION_ERROR", 422, { slug: "Slug ini sudah dipakai jalur lain di acara yang sama." });
+      return apiError("VALIDATION_ERROR", 422, { slug: "Another desk in this event already uses this address." });
     }
     return apiError("INTERNAL_ERROR", 500);
   }
@@ -132,7 +132,7 @@ export async function DELETE(request: Request) {
 
   if ((count ?? 0) > 0) {
     return apiError("VALIDATION_ERROR", 422, {
-      message: `Jalur ini sudah punya ${count} pemindaian. Tutup saja jalurnya — catatan mejanya ikut hilang kalau dihapus.`,
+      message: `This desk has ${count} scans. Close it instead: deleting it would remove the desk from those records.`,
     });
   }
 

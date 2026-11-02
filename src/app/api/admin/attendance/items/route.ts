@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
     // FK komposit menolak sesi atau barang milik acara lain.
     if (error) {
       if (String(error.code) === "23503") {
-        return apiError("VALIDATION_ERROR", 422, { message: "Sesi atau barangnya sudah tidak ada. Muat ulang halaman." });
+        return apiError("VALIDATION_ERROR", 422, { message: "The session or item no longer exists. Reload the page." });
       }
       return apiError("INTERNAL_ERROR", 500);
     }
