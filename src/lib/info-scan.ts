@@ -22,6 +22,11 @@ import { stayPadaTanggal, tanggalZona } from "./logistik/stay.ts";
  * Null = belum diatur: lembar tetap menampilkan "Company · Title" seperti
  * sebelum fitur ini ada, jadi acara lama berubah 0 px.
  *
+ * Kunci berawalan `*` (`*extra:nomor_luggage`) = "Big": tampil sebagai kotak
+ * besar di atas baris lain, untuk info yang harus dibaca atau ditulis petugas
+ * (nomor bagasi, hotel untuk memilah truk). Paling banyak BATAS_BESAR per sesi;
+ * tanpa `*` tampilannya sama seperti sebelum fitur ini ada.
+ *
  * Email, telepon, dan unggahan berkas sengaja tidak bisa dipilih: layar
  * petugas terlihat antrean, dan UU PDP meminta data seminimal tujuannya.
  *
@@ -30,6 +35,15 @@ import { stayPadaTanggal, tanggalZona } from "./logistik/stay.ts";
 
 /** Batas info per sesi. Lebih dari ini menenggelamkan nama dan mendorong Scan next keluar layar 390 px. */
 export const BATAS_INFO_SCAN = 4;
+/** Batas info "Big" per sesi: kalau semua besar, tidak ada yang menonjol lagi. */
+export const BATAS_BESAR = 2;
+
+const TANDA_BESAR = "*";
+/** Kunci tanpa tanda Big. */
+export const kunciInti = (kunci: string) => (kunci.startsWith(TANDA_BESAR) ? kunci.slice(1) : kunci);
+export const kunciBesar = (kunci: string) => kunci.startsWith(TANDA_BESAR);
+/** Kunci tersimpan untuk satu info dengan atau tanpa tanda Big. */
+export const kunciSimpan = (kunci: string, besar: boolean) => (besar ? TANDA_BESAR : "") + kunciInti(kunci);
 
 export const INFO_BAWAAN = ["base:company", "base:title", "base:participant_type"] as const;
 export const INFO_LOGISTIK = ["logistik:hotel", "logistik:vehicle", "logistik:train"] as const;
@@ -53,7 +67,7 @@ const ASAL_TETAP: Record<string, string> = {
   "logistik:train": "Logistics · train ticket on the scan date",
 };
 
-const POLA_KUNCI = /^(base|extra|logistik):[a-z0-9_]{1,64}$/;
+const POLA_KUNCI = /^\*?(base|extra|logistik):[a-z0-9_]{1,64}$/;
 
 /** Pertanyaan yang boleh tampil di layar petugas. */
 export function pertanyaanBolehTampil(field: Pick<RegistrationField, "type">): boolean {
@@ -64,13 +78,18 @@ export function pertanyaanBolehTampil(field: Pick<RegistrationField, "type">): b
 export function bacaInfoScan(nilai: unknown): string[] | null {
   if (!Array.isArray(nilai)) return null;
   const hasil: string[] = [];
+  let besar = 0;
   for (const isi of nilai) {
-    if (typeof isi === "string" && POLA_KUNCI.test(isi) && !hasil.includes(isi)) hasil.push(isi);
+    if (typeof isi !== "string" || !POLA_KUNCI.test(isi) || hasil.some((k) => kunciInti(k) === kunciInti(isi))) continue;
+    // Tanda Big ke-3 dan seterusnya diabaikan, infonya tetap tampil biasa.
+    const jadiBesar = kunciBesar(isi) && besar < BATAS_BESAR;
+    if (jadiBesar) besar += 1;
+    hasil.push(kunciSimpan(isi, jadiBesar));
   }
   return hasil.slice(0, BATAS_INFO_SCAN);
 }
 
-export type PilihanInfo = { kunci: string; label: string; asal: string; grup: "Participant" | "Logistics" | "Registration questions"; khususPanitia?: boolean };
+export type PilihanInfo = { kunci: string; label: string; asal: string; grup: "Participant" | "Logistics" | "Registration questions"; khususPanitia?: boolean; besar?: boolean };
 
 /**
  * Semua info yang bisa dipilih untuk acara ini. Grup Logistik hanya bila
@@ -99,7 +118,10 @@ export function pilihanInfo(
  */
 export function infoBerlaku(tersimpan: readonly string[], pilihan: readonly PilihanInfo[]): PilihanInfo[] {
   const peta = new Map(pilihan.map((p) => [p.kunci, p]));
-  return tersimpan.map((kunci) => peta.get(kunci)).filter((p): p is PilihanInfo => Boolean(p));
+  return tersimpan.flatMap((kunci) => {
+    const p = peta.get(kunciInti(kunci));
+    return p ? [kunciBesar(kunci) ? { ...p, besar: true } : p] : [];
+  });
 }
 
 /* ------------------------------------------------------- Nilai per peserta */
@@ -118,8 +140,12 @@ export type DataPesertaInfo = {
   trains: TiketInfo[];
 };
 
-/** Satu baris di lembar hasil. `nilai` null = datanya belum ada ("Not set"). */
-export type BarisInfo = { label: string; nilai: string | null };
+/**
+ * Satu baris di lembar hasil. `nilai` null = datanya belum ada ("Not set").
+ * `besar` = kotak besar; `keterangan` = bagian kecil di bawah nilai kotak itu
+ * (kamar di bawah nama hotel), supaya yang dibesarkan hanya yang dicari mata.
+ */
+export type BarisInfo = { label: string; nilai: string | null; besar?: boolean; keterangan?: string };
 
 const teks = (nilai: unknown): string | null => {
   if (typeof nilai === "string") return nilai.trim() || null;
@@ -183,7 +209,19 @@ export function barisInfo(info: readonly PilihanInfo[], data: DataPesertaInfo, s
     else if (kunci === "hotel") nilai = hotelPadaTanggal(data.stays, sekarang, offset);
     else if (kunci === "vehicle") nilai = kendaraanPadaTanggal(data.transport, sekarang, offset);
     else if (kunci === "train") nilai = keretaPadaTanggal(data.trains, sekarang, offset);
-    return { label: p.label, nilai };
+    if (!p.besar) return { label: p.label, nilai };
+    // Hotel di kotak besar: nama hotel besar, kamar kecil di bawahnya. Hari
+    // pindah hotel: "GRAMM → The Ray" besar, "Room 301 → room to follow" kecil.
+    if (kunci === "hotel" && sumber === "logistik" && nilai) {
+      const bagian = nilai.split(" → ").map((stay) => {
+        const pisah = stay.lastIndexOf(" · ");
+        return pisah > 0 ? [stay.slice(0, pisah), stay.slice(pisah + 3)] : [stay, ""];
+      });
+      if (bagian.every(([, kamar]) => kamar)) {
+        return { label: p.label, nilai: bagian.map(([hotel]) => hotel).join(" → "), besar: true, keterangan: bagian.map(([, kamar]) => kamar).join(" → ") };
+      }
+    }
+    return { label: p.label, nilai, besar: true };
   });
 }
 

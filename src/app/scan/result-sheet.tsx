@@ -317,18 +317,7 @@ export function ResultSheet({
                   Company · Title. Yang kosong ditulis "Not set", tidak
                   disembunyikan: petugas perlu tahu datanya belum ada. */}
               {peserta && hadir && hasil.info && hasil.info.length > 0 ? (
-                <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-xl bg-black/15 px-3 py-2.5">
-                  {hasil.info.map((baris, index) => (
-                    <Fragment key={`${index}-${baris.label}`}>
-                      <dt className="max-w-32 text-body-medium leading-6 opacity-80 [overflow-wrap:anywhere]">{baris.label}</dt>
-                      {baris.nilai ? (
-                        <dd className="min-w-0 text-title-medium font-semibold leading-6 [overflow-wrap:anywhere]">{baris.nilai}</dd>
-                      ) : (
-                        <dd className="min-w-0 text-body-large italic leading-6 opacity-80">Not set</dd>
-                      )}
-                    </Fragment>
-                  ))}
-                </dl>
+                <InfoHasil info={hasil.info} />
               ) : peserta ? (
                 <p className="mt-1 line-clamp-2 text-body-large opacity-90">
                   {[peserta.company, peserta.title].filter(Boolean).join(" · ") || "No organisation"}
@@ -604,5 +593,68 @@ function CatatanCheckpointHasil({ catatan, baru }: { catatan: CatatanCheckpoint;
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** Nilai sependek ini (nomor bagasi, nomor bus, nomor meja) tampil sebagai angka besar di kotak sempit. */
+const PENDEK = 6;
+
+/**
+ * Shown after scan. Info bertanda Big tampil sebagai kotak di atas: label kecil,
+ * nilainya besar, seperti gate dan kursi di boarding pass, supaya terbaca
+ * sekilas sambil petugas memegang koper. Nilai pendek mendapat kotak sempit
+ * dengan angka besar; nilai panjang (nama hotel) mengisi sisa baris dan turun
+ * ke baris sendiri bila tidak muat. Info lain tetap baris kecil di bawahnya,
+ * sama seperti sebelum ada Big.
+ */
+function InfoHasil({ info }: { info: NonNullable<Hasil["info"]> }) {
+  const besar = info.filter((baris) => baris.besar);
+  const biasa = info.filter((baris) => !baris.besar);
+  return (
+    <>
+      {besar.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {besar.map((baris, index) => {
+            const pendek = Boolean(baris.nilai) && baris.nilai!.length <= PENDEK && !baris.keterangan;
+            return (
+              <div
+                key={`${index}-${baris.label}`}
+                className={`flex min-w-0 flex-col rounded-xl bg-black/20 px-3.5 pb-3 pt-2.5 ${pendek ? "w-min min-w-26 flex-none" : "flex-[1_1_12rem]"}`}
+              >
+                <p className="text-body-medium font-medium leading-5 opacity-85 [overflow-wrap:anywhere]">{baris.label}</p>
+                {baris.nilai ? (
+                  <p
+                    className={
+                      pendek
+                        ? "mt-0.5 whitespace-nowrap text-display-medium font-bold tabular-nums tracking-tight"
+                        : "mt-0.5 text-title-large font-bold [overflow-wrap:anywhere]"
+                    }
+                  >
+                    {baris.nilai}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-body-large italic opacity-85">Not set</p>
+                )}
+                {baris.keterangan ? <p className="mt-0.5 text-body-medium leading-5 opacity-85">{baris.keterangan}</p> : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+      {biasa.length > 0 ? (
+        <dl className={`${besar.length > 0 ? "mt-2" : "mt-3"} grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-xl bg-black/15 px-3 py-2.5`}>
+          {biasa.map((baris, index) => (
+            <Fragment key={`${index}-${baris.label}`}>
+              <dt className="max-w-32 text-body-medium leading-6 opacity-80 [overflow-wrap:anywhere]">{baris.label}</dt>
+              {baris.nilai ? (
+                <dd className="min-w-0 text-title-medium font-semibold leading-6 [overflow-wrap:anywhere]">{baris.nilai}</dd>
+              ) : (
+                <dd className="min-w-0 text-body-large italic leading-6 opacity-80">Not set</dd>
+              )}
+            </Fragment>
+          ))}
+        </dl>
+      ) : null}
+    </>
   );
 }

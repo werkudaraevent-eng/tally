@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaInfoScan, barisInfo, hotelPadaTanggal, infoBerlaku, kendaraanPadaTanggal, keretaPadaTanggal, pilihanInfo } from "./info-scan.ts";
+import { bacaInfoScan, barisInfo, kunciInti, kunciSimpan, hotelPadaTanggal, infoBerlaku, kendaraanPadaTanggal, keretaPadaTanggal, pilihanInfo } from "./info-scan.ts";
 
 const WIB = "+07:00";
 
@@ -80,3 +80,22 @@ assert.deepEqual(baris, [
 ]);
 
 console.log("info-scan ok");
+
+// Big: tanda `*`, paling banyak 2; tanda ke-3 diabaikan, infonya tetap tampil biasa.
+assert.deepEqual(bacaInfoScan(["*extra:batch", "*logistik:hotel", "*base:company", "base:title"]), ["*extra:batch", "*logistik:hotel", "base:company", "base:title"]);
+assert.deepEqual(bacaInfoScan(["*extra:batch", "extra:batch"]), ["*extra:batch"]);
+assert.deepEqual(bacaInfoScan(["**extra:batch", "*x:y"]), []);
+assert.equal(kunciInti("*logistik:hotel"), "logistik:hotel");
+assert.equal(kunciSimpan("*logistik:hotel", false), "logistik:hotel");
+assert.equal(kunciSimpan("logistik:hotel", true), "*logistik:hotel");
+const berlakuBesar = infoBerlaku(["*logistik:hotel", "extra:batch"], pilihan);
+assert.deepEqual(berlakuBesar.map((p) => [p.kunci, Boolean(p.besar)]), [["logistik:hotel", true], ["extra:batch", false]]);
+
+// Hotel di kotak besar: nama besar, kamar jadi keterangan (juga di hari pindah hotel); tanpa Big tidak berubah.
+const dataBesar = { company: null, title: null, participant_type: null, extra: { batch: "B2" }, stays, transport: null, trains: [] };
+assert.deepEqual(barisInfo(berlakuBesar, dataBesar, new Date("2026-11-07T02:00:00Z"), WIB), [
+  { label: "Hotel", nilai: "The Ray", besar: true, keterangan: "room to follow" },
+  { label: "Batch", nilai: "B2" },
+]);
+assert.deepEqual(barisInfo(berlakuBesar, dataBesar, new Date("2026-11-06T02:00:00Z"), WIB)[0], { label: "Hotel", nilai: "GRAMM → The Ray", besar: true, keterangan: "Room 301 → room to follow" });
+assert.deepEqual(barisInfo(infoBerlaku(["logistik:hotel"], pilihan), dataBesar, new Date("2026-11-07T02:00:00Z"), WIB), [{ label: "Hotel", nilai: "The Ray · room to follow" }]);

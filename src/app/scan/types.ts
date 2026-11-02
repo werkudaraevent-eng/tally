@@ -98,9 +98,10 @@ export type Hasil = {
   /**
    * Shown after scan (Check-in > Sessions): info pilihan panitia untuk sesi ini,
    * urut. Menggantikan baris Company · Title. `nilai` null = datanya belum ada.
+   * `besar` = kotak besar di atas, `keterangan` = baris kecil di bawah nilainya.
    * Tidak ada = sesi belum diatur.
    */
-  info?: { label: string; nilai: string | null }[];
+  info?: { label: string; nilai: string | null; besar?: boolean; keterangan?: string }[];
   /** Checkpoint yang selesai di pemindaian ini (lihat CatatanCheckpoint). */
   checkpoint?: CatatanCheckpoint;
   /** Walk-in baru: email Sign-in link (Participant area > Email a sign-in link to walk-ins). */

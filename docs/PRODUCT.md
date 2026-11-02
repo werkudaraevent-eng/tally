@@ -275,6 +275,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **For:** scanners and admins at the door and at sessions.
 - **CMS (Check-in):**
   - Sessions: name, open/closed, kit items checked at this session, Luggage: Off (default), Drop-off (count and photo; shows the session's total bags for loading) or Pick-up (hand the bags back; shows how many people and bags are handed over and still waiting across all drop-off desks). A session with scans can only be closed, not deleted. Edit renames a session; its scanner address (`?sesi=`) never changes, so links and QR codes already given to staff keep working.
+  - Shown after scan: up to 4 items under the name on the scan result (company, job title, type, hotel / vehicle / train on the scan date, or a registration question; never email, phone or files). Not set = Company · Job title. Big (at most 2) shows an item as a large box at the top, for what staff must read or write down (luggage number, hotel).
   - Registration desks (lanes): one per physical desk, open/closed; each desk can drive its own welcome screen. Edit renames a desk; its `?jalur=` address stays the same.
   - Walk-ins: allow walk-ins (off by default); the form follows the registration form fields.
   - Checkpoints (below).
