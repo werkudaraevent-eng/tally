@@ -96,4 +96,10 @@ assert.equal(halamanPertama(klien), "/admin");
 assert.equal(halamanPertama(rapikanIzin({ modules: { checkin: "view" } })), "/admin/attendance");
 assert.equal(halamanPertama(rapikanIzin({})), null);
 
+// Daftar Not yet / Checked in di layar pemindai: hanya Scanner dan admin acara,
+// tidak pernah akun kustom, juga yang memegang semua modul.
+const semua = rapikanIzin({ modules: { dashboard: "view", participants: "manage", checkin: "view", registration: "manage", messages: "manage" }, participants_download: true });
+assert.equal(izinApi(semua, "/api/attendance/daftar", "GET").boleh, false);
+assert.equal(izinApi(semua, "/e/kso/api/attendance/daftar", "GET").boleh, false);
+
 console.log("izin-modul OK");
