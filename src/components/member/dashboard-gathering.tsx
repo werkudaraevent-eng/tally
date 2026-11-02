@@ -1344,7 +1344,7 @@ export async function DashboardGathering({
     // dengan stripnya saja, supaya peserta tahu nomornya sejak awal.
     const stripNomor = nomorBagasi ? (
       <div className="rounded-[12px] px-3 py-2" style={{ background: LATAR_STRIP }}>
-        <p className="text-[16px] font-semibold leading-6">{tl.number} <span className="tabular-nums">{nomorBagasi}</span></p>
+        <p className="break-words text-[16px] font-semibold leading-6 [overflow-wrap:anywhere]">{tl.number} <span className="tabular-nums">{nomorBagasi}</span></p>
       </div>
     ) : null;
     const kartuBagasi = bagasi.length > 0 ? (
