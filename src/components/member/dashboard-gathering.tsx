@@ -544,7 +544,7 @@ export async function DashboardGathering({
           <div className="mt-6 rounded-[24px] bg-white px-4 py-6 text-[#1A2333]">
             <p className="text-center text-[20px] font-bold">{peserta.name}</p>
             {[peserta.title, peserta.company].filter(Boolean).length > 0 ? (
-              <p className={`mt-1 text-center text-body-medium ${MUTED}`}>{[peserta.title, peserta.company].filter(Boolean).join(" · ")}</p>
+              <p className={`mt-1 text-center text-body-medium ${MUTED}`}>{[peserta.title, peserta.company].filter(Boolean).join(", ")}</p>
             ) : null}
             <div className="mt-4">
               <RegistrationCodeCard code={peserta.qr_code} eventName={nama} personName={peserta.name} schedule={formatEventSchedule(event, lang)} lang={lang} qrBesar />
@@ -605,7 +605,7 @@ export async function DashboardGathering({
           </p>
           <p className={`${HEAD} mt-2 text-[24px] font-extrabold leading-tight lg:text-[28px]`}>{selanjutnya.item.title}</p>
           <p className={`mt-1 text-body-medium ${gelap ? "opacity-85" : MUTED}`}>
-            {[selanjutnya.hari, `${selanjutnya.item.time} ${singkatanZona}`, teksPolos(selanjutnya.item.subtitle) || null, gelap ? selanjutnya.hitung : null].filter(Boolean).join(" · ")}
+            {[selanjutnya.hari, `${selanjutnya.item.time} ${singkatanZona}`, teksPolos(selanjutnya.item.subtitle) || null, gelap ? selanjutnya.hitung : null].filter(Boolean).join(", ")}
           </p>
         </div>
         {!gelap && selanjutnya.hitung ? <Chip nada="aksi">{selanjutnya.hitung}</Chip> : null}
@@ -668,7 +668,7 @@ export async function DashboardGathering({
       // Hotel saja: nama hotel jadi isi utama kartu, nomor kamar menyusul.
       angka={kamar.room_number ?? kamar.hotel.name}
       catatan={kamar.room_number === null ? t.roomPending
-        : teman && teman.length > 0 ? t.withRoommate(teman.map((orang) => orang.name).join(", ")) : [kamar.floor ? t.floor(kamar.floor) : null, jenisKamar(kamar)].filter(Boolean).join(" · ") || kamar.hotel.name}
+        : teman && teman.length > 0 ? t.withRoommate(teman.map((orang) => orang.name).join(", ")) : [kamar.floor ? t.floor(kamar.floor) : null, jenisKamar(kamar)].filter(Boolean).join(", ") || kamar.hotel.name}
     />
   ) : null;
   const kartuKereta = logistik && logistik.trains.length > 0 ? <KartuKereta logistik={logistik} lang={lang} kelas={KARTU} redup={MUTED} /> : null;
@@ -687,7 +687,7 @@ export async function DashboardGathering({
               </span>
               <div className="min-w-0">
                 <p className="text-title-medium font-bold">{orang.name}</p>
-                <p className={`text-body-medium ${MUTED}`}>{[orang.company, kamar?.room_number ? t.room(kamar.room_number) : null].filter(Boolean).join(" · ")}</p>
+                <p className={`text-body-medium ${MUTED}`}>{[orang.company, kamar?.room_number ? t.room(kamar.room_number) : null].filter(Boolean).join(", ")}</p>
               </div>
             </li>
           ))}
@@ -970,7 +970,7 @@ export async function DashboardGathering({
                       return (
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[14px] leading-5 text-[#4A5568]">
                           <span>{tH.schedule.notYours(pilihanKu.kelompok)}</span>
-                          <Link href={hrefBagian(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[#274FC0] underline underline-offset-4">
+                          <Link href={hrefBagian(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px]">
                             {tH.schedule.seeYours(labelMilik)}
                           </Link>
                         </p>
@@ -1049,14 +1049,14 @@ export async function DashboardGathering({
                           {/* Tautan 4 px di bawah judul tanpa margin negatif (tetap benar bila teksnya dua baris);
                               lapisan ::before memberi area ketuk 48 px tanpa menggeser apa pun. */}
                           {ruteBaris.has(item.id) ? (
-                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
+                            <Link href={`${keTab("perjalanan")}#${ruteBaris.get(item.id)}`} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
                               {tH.agenda.routeLink}
                               <CaretRight size={16} aria-hidden className="mt-0.5 shrink-0" />
                               <PenandaTab tab="perjalanan" />
                             </Link>
                           ) : null}
                           {adaTrip(bagian.tanggal, item) ? (
-                            <Link href={keTab("perjalanan")} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#274FC0] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
+                            <Link href={keTab("perjalanan")} className="relative mt-1 inline-flex items-start gap-1 self-start text-[14px] font-semibold leading-5 text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
                               {tH.agenda.tripLink}
                               <CaretRight size={16} aria-hidden className="mt-0.5 shrink-0" />
                               <PenandaTab tab="perjalanan" />
@@ -1076,8 +1076,8 @@ export async function DashboardGathering({
     const pilihan = Math.min(Math.max((hari ?? (indeksHariIni >= 0 ? indeksHariIni + 1 : 1)) - 1, 0), Math.max(agenda.length - 1, 0));
     const bagian: AgendaPreview | undefined = agenda[pilihan];
     const statusBagian = bagian && bagian.tanggal === kini.tanggal ? statusHari(bagian.items, kini.menit) : new Map<number, StatusButir>();
-    kepala = <JudulKepala judul={t.schedule} catatan={[tanggal, venue].filter(Boolean).join(" · ")} />;
-    judulHorizon = { alis: nama, judul: t.schedule, catatan: [tanggal, venue].filter(Boolean).join(" · ") };
+    kepala = <JudulKepala judul={t.schedule} catatan={[tanggal, venue].filter(Boolean).join(", ")} />;
+    judulHorizon = { alis: nama, judul: t.schedule, catatan: [tanggal, venue].filter(Boolean).join(", ") };
     isi =
       agenda.length === 0 ? (
         <p className={`${KARTU} text-body-large ${MUTED}`}>{t.noSchedule}</p>
@@ -1135,7 +1135,7 @@ export async function DashboardGathering({
                   <h2 className="text-[22px] font-semibold leading-7 [overflow-wrap:anywhere] lg:text-[24px] lg:leading-8">{bagian.sectionTitle?.trim() || t.day(pilihan + 1)}</h2>
                 </div>
               ) : bagian.sectionTitle?.trim() || bagian.hari ? (
-                <p className={`mt-5 text-body-medium font-semibold ${MUTED}`}>{[bagian.hari, bagian.sectionTitle?.trim()].filter(Boolean).join(" · ")}</p>
+                <p className={`mt-5 text-body-medium font-semibold ${MUTED}`}>{[bagian.hari, bagian.sectionTitle?.trim()].filter(Boolean).join(", ")}</p>
               ) : null}
               <ol className={`flex flex-col ${horizon ? "mt-4 gap-2" : "mt-3 gap-3"}`}>
                 {bagian.items.map((item, _i, semua) => {
@@ -1211,8 +1211,8 @@ export async function DashboardGathering({
               alamat={h?.address?.trim() || null}
               tautan={{ href: petaStay, label: labelTautanPeta(petaStay, lang) }}
               baris={[
-                stay.check_in_at ? `${tv.checkIn} ${hariHorizon(stay.check_in_at, zona, lang)} · ${jamHorizon(stay.check_in_at, zona, lang)}` : "",
-                stay.check_out_at ? `${tv.checkOut} ${hariHorizon(stay.check_out_at, zona, lang)} · ${jamHorizon(stay.check_out_at, zona, lang)}` : "",
+                stay.check_in_at ? `${tv.checkIn} ${hariHorizon(stay.check_in_at, zona, lang)}, ${jamHorizon(stay.check_in_at, zona, lang)}` : "",
+                stay.check_out_at ? `${tv.checkOut} ${hariHorizon(stay.check_out_at, zona, lang)}, ${jamHorizon(stay.check_out_at, zona, lang)}` : "",
                 temanStay && temanStay.length > 0 ? `${tH.roommate(temanStay.length)}: ${temanStay.map((orang) => orang.name).join(", ")}` : "",
               ].filter(Boolean)}
             >
@@ -1287,7 +1287,7 @@ export async function DashboardGathering({
         tanggal: trip.depart_at ? hariHorizon(trip.depart_at, zona, lang) : null,
         jam: trip.depart_at ? jamHorizon(trip.depart_at, zona, lang) : null,
         judul: trip.name,
-        kendaraan: lain ? [lain, detail?.plate].filter(Boolean).join(" · ") : null,
+        kendaraan: lain ? [lain, detail?.plate].filter(Boolean).join(", ") : null,
         detail: [[trip.origin?.trim(), trip.destination?.trim()].filter(Boolean).join(" → ")].filter(Boolean),
         titikKumpul: trip.meeting_point?.trim() ? `${tv.meetingPoint}: ${trip.meeting_point.trim()}` : null,
         peta: petaHref ? { href: petaHref, label: tv.openMeetingMap } : null,
@@ -1625,7 +1625,7 @@ export async function DashboardGathering({
                     return (
                       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[14px] leading-5 text-[#4A5568]">
                         <span>{to.notYours(labelIni, pilihanOutfit.kelompok)}</span>
-                        <Link href={hrefO(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[#274FC0] underline underline-offset-4">
+                        <Link href={hrefO(milik.indeks)} className="inline-flex min-h-12 items-center font-semibold text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px]">
                           {to.seeYours(labelOutfitHalaman, labelMilik)}
                         </Link>
                       </p>
@@ -1763,7 +1763,7 @@ export async function DashboardGathering({
               href: `${keTab("perjalanan")}#bus`,
               Ikon: Bus,
               judul: namaBus,
-              isi: perjalananBus?.depart_at ? `${hariHorizon(perjalananBus.depart_at, zona, lang)} · ${jamHorizon(perjalananBus.depart_at, zona, lang)}` : tH.travel.busTitle,
+              isi: perjalananBus?.depart_at ? `${hariHorizon(perjalananBus.depart_at, zona, lang)}, ${jamHorizon(perjalananBus.depart_at, zona, lang)}` : tH.travel.busTitle,
               tab: "perjalanan",
             }]
           : []),
@@ -1862,7 +1862,7 @@ export async function DashboardGathering({
     }
   } else {
     const statusLabel = sesi.status === "approved" ? p.status.approved : sesi.status === "rejected" ? p.status.rejected : p.status.pending;
-    judulHorizon = { alis: statusLabel, judul: sesi.name, catatan: peserta ? [peserta.title, peserta.company].filter(Boolean).join(" · ") : "" };
+    judulHorizon = { alis: statusLabel, judul: sesi.name, catatan: peserta ? [peserta.title, peserta.company].filter(Boolean).join(", ") : "" };
     kepala = (
       <div className="flex flex-col items-center text-center">
         <span aria-hidden className="flex size-20 items-center justify-center rounded-full bg-[var(--aksen)] text-[28px] font-extrabold text-[#1A2333]">
@@ -1870,16 +1870,16 @@ export async function DashboardGathering({
         </span>
         <h1 className={`${HEAD} mt-3 text-[26px] font-extrabold`}>{sesi.name}</h1>
         {peserta && [peserta.title, peserta.company].filter(Boolean).length > 0 ? (
-          <p className="mt-0.5 text-body-medium opacity-85">{[peserta.title, peserta.company].filter(Boolean).join(" · ")}</p>
+          <p className="mt-0.5 text-body-medium opacity-85">{[peserta.title, peserta.company].filter(Boolean).join(", ")}</p>
         ) : null}
         <p className="mt-3 inline-flex min-h-7 items-center rounded-full border border-white/25 bg-white/10 px-3 text-label-large font-semibold">{statusLabel}</p>
       </div>
     );
     const baris: { href: string; judul: string; isi: string | null; Ikon: typeof House; luar?: boolean; pemicuQr?: string }[] = [
       ...(tampilKode && peserta ? [{ href: keTab("qr"), judul: t.ticket, isi: peserta.qr_code, Ikon: Ticket, pemicuQr: "pemicu-qr-profil" }] : []),
-      ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: (kamar.room_number === null ? [kamar.hotel.name, t.roomPending] : [kamar.room_number, teman?.map((o) => o.name).join(", ")]).filter(Boolean).join(" · "), Ikon: Bed }] : []),
-      ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(" · "), Ikon: Bus }] : []),
-      ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(" · "), Ikon: Phone, luar: true }] : []),
+      ...(kamar ? [{ href: `${keTab("beranda")}#kamar`, judul: t.roomRow, isi: (kamar.room_number === null ? [kamar.hotel.name, t.roomPending] : [kamar.room_number, teman?.map((o) => o.name).join(", ")]).filter(Boolean).join(", "), Ikon: Bed }] : []),
+      ...(namaBus ? [{ href: `${keTab("beranda")}#bus`, judul: t.busRow, isi: [namaBus, perjalananBus?.meeting_point].filter(Boolean).join(", "), Ikon: Bus }] : []),
+      ...(telepon ? [{ href: `tel:${telepon.replace(/[^\d+]/g, "")}`, judul: t.contactRow, isi: [config.contact_name?.trim(), telepon].filter(Boolean).join(", "), Ikon: Phone, luar: true }] : []),
       ...(landingEnAvailable(config) ? [{ href: `${landingPath(event.slug, lainnya, utama)}/peserta?tab=profil`, judul: t.languageRow, isi: null, Ikon: Globe }] : []),
       { href: halamanAcara, judul: t.eventPageRow, isi: nama, Ikon: CalendarBlank },
     ];
@@ -2343,7 +2343,7 @@ export async function DashboardGathering({
         tampilKode && peserta ? (
           <div className="order-[0] lg:order-none">
             <KartuPesertaTrip
-              alis={gabungMeta([tH.trip.pass, pilihanKu.kelompok])}
+              alis={pilihanKu.kelompok || null}
               nama={sesi.name}
               catatan={gabungMeta([formatEventDateRingkas(event, lang), venue]) || null}
               qr={{ href: keTab("qr"), judul: t.qrTitle, kode: peserta.qr_code, tombol: tH.trip.show, gambar: <QrMini code={peserta.qr_code} alt="" /> }}
@@ -2686,7 +2686,7 @@ function namaBusPeserta(logistik: LogistikPeserta, sekarang: Date): string | nul
 
 /** Pil di bawah nama di layar QR: "Batch 2 · Bus 3", salah satunya, atau null. */
 function labelPil(kelompok: string | null, bus: string | null, kata: string): string | null {
-  return [kelompok, bus ? labelBus(bus, kata) : null].filter(Boolean).join(" · ") || null;
+  return [kelompok, bus ? labelBus(bus, kata) : null].filter(Boolean).join(", ") || null;
 }
 
 /** "Bus 3" apa adanya; kode yang hanya angka ("3") diberi kata "Bus" di depannya (E-10). */

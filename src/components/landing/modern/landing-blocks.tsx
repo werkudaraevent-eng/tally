@@ -571,7 +571,7 @@ async function siapkanHitungMundur(block: LandingBlock, acara: AcaraHitungMundur
   // Tanpa tanggal dibuat (atau dibuat sesudah hari H diatur), garis mulai 60 hari sebelumnya.
   const mulaiProgres = Number.isFinite(dibuat) && dibuat < mulaiAcara ? dibuat : mulaiAcara - 60 * 86_400_000;
   // Jam selesai acara beberapa hari tidak menjawab "kapan hari H": tanggal dan jam mulai saja.
-  const kapan = [formatEventDate(jadwal, lang), formatEventTime({ ...jadwal, end_time: null }, lang)].filter(Boolean).join(" · ");
+  const kapan = [formatEventDate(jadwal, lang), formatEventTime({ ...jadwal, end_time: null }, lang)].filter(Boolean).join(", ");
 
   return {
     gaya,

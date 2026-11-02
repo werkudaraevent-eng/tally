@@ -19,14 +19,14 @@ import { PemicuQr } from "@/components/member/qr-fokus";
 const TINTA = "#101E38";
 const REDUP = "#526078";
 const LABEL = "#4D5D77";
-const BIRU = "#274FC0";
+const TINTA_TAUTAN = "#101E38";
 const KARTU = KARTU_HZ;
 const GARIS = "border-[#E6E8EC]";
 
 /** Tautan teks biru dengan panah ke halaman rumah infonya; area ketuk 48 px tanpa menambah jarak. */
 function TautanKartu({ href, label, tab, lampu, className = "" }: { href: string; label: string; tab: string; lampu?: string; className?: string }) {
   return (
-    <Link href={href} className={`m3-state -mx-2 rounded-md px-2 ${KELAS_TAUTAN} ${className}`} style={{ color: BIRU }}>
+    <Link href={href} className={`m3-state -mx-2 rounded-md px-2 ${KELAS_TAUTAN} ${className}`} style={{ color: TINTA_TAUTAN }}>
       {label}
       <CaretRight size={16} aria-hidden className="shrink-0" />
       <PenandaTab tab={tab} lampu={lampu} />

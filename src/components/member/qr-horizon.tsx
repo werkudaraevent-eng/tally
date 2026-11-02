@@ -63,7 +63,7 @@ export function QrHorizon({
     <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-6 pb-10">
       <div className="flex items-start justify-between gap-3 pb-4 pt-7">
         <div className="min-w-0 pt-1">
-          <Judul id={judulId} className="text-[20px] font-extrabold leading-7">
+          <Judul id={judulId} className="text-[20px] font-bold leading-7">
             {judul}
           </Judul>
           {baris ? (
@@ -77,7 +77,7 @@ export function QrHorizon({
       {luring}
       <div className={`mx-auto mt-6 flex w-full max-w-[340px] flex-col items-center gap-4 rounded-[24px] bg-white p-[30px] ${CINCIN_PUTIH}`} style={{ color: TINTA }}>
         <div className="flex w-full flex-col items-center gap-2">
-          <p className="text-center text-[20px] font-extrabold [overflow-wrap:anywhere]">{nama}</p>
+          <p className="text-center text-[20px] font-bold [overflow-wrap:anywhere]">{nama}</p>
           {sub ? (
             <p className="-mt-1 text-center text-[13px]" style={{ color: REDUP }}>
               {sub}

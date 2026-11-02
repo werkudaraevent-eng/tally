@@ -62,7 +62,7 @@ const LETAK_FOTO: Record<LandingSpeakerFrame, string> = {
 // semua orang pembicara. Yang ditulis hanya peran pembeda, mis. Moderator.
 function keteranganDari(speaker: LandingSpeaker): string {
   const peran = speaker.role?.trim();
-  return [peran && !/^(pembicara|speaker)$/i.test(peran) ? peran : null, speaker.title?.trim()].filter(Boolean).join(" · ");
+  return [peran && !/^(pembicara|speaker)$/i.test(peran) ? peran : null, speaker.title?.trim()].filter(Boolean).join(", ");
 }
 
 /**

@@ -1278,3 +1278,31 @@ export function ConfettiBurst({ trigger, accent, text }: { trigger: number; acce
   if (trigger === 0) return null;
   return <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 z-50" aria-hidden="true" />;
 }
+
+/**
+ * Kira-kira berapa lama sesudah nama tiba sampai animasi selesai mengungkap
+ * semua pemenang. Dipakai layar panggung untuk menahan tulisan "maju ke
+ * panggung" sampai nama terakhir terbaca: tulisan yang muncul sebelum roda
+ * berhenti membocorkan bahwa undian sudah selesai.
+ *
+ * Rumusnya menyalin jeda di tiap animasi di atas; bila salah satunya berubah,
+ * ubah juga di sini. Dibulatkan ke atas, karena terlambat sedikit lebih baik
+ * daripada mendahului nama.
+ */
+export function revealSettleMs(animation: string, winners: { is_backup: boolean }[]): number {
+  // Roda, gulungan, dan panah mengungkap pemenang UTAMA satu per satu; kartu
+  // membuka semua kotak termasuk cadangan.
+  const n = Math.max(1, animation === "cards" ? winners.length : winners.filter((winner) => !winner.is_backup).length);
+  switch (animation) {
+    case "wheel": {
+      const spinDown = Math.max(1400, Math.min(3200, Math.round(9000 / n)));
+      const hold = Math.round(spinDown * 0.45);
+      return n * (spinDown + hold);
+    }
+    case "slot": return (n - 1) * Math.max(320, Math.min(900, Math.round(2400 / n))) + 900;
+    case "cards": return (n - 1) * Math.max(180, Math.min(700, Math.round(3000 / n))) + 800;
+    case "digits": return 3200;
+    case "dart": return n * 70 + 1300;
+    default: return Math.min(n * 350, 2000) + 600;
+  }
+}

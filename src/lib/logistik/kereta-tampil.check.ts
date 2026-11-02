@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { legSelesai } from "./kereta-tampil.ts";
+import { jamTiket, legSelesai } from "./kereta-tampil.ts";
 
 const WIB = "Asia/Jakarta";
 const pergi = { depart_date: "2026-11-05", depart_time: "06:30", arrive_time: "12:10" };
@@ -18,3 +18,9 @@ assert.equal(legSelesai({ depart_date: "2026-11-08", depart_time: null, arrive_t
 // Zona lain (WITA, +8).
 assert.equal(legSelesai(pergi, "Asia/Makassar", new Date("2026-11-05T04:10:00Z")), true);
 console.log("kereta-tampil ok");
+
+// Kolom time Postgres membawa detik: peserta tidak boleh melihat "07.00:00".
+assert.equal(jamTiket("07:00:00", "id"), "07.00");
+assert.equal(jamTiket("21:05:00", "en"), "21:05");
+assert.equal(jamTiket("6:30", "id"), "06.30");
+assert.equal(jamTiket(null, "id"), null);
