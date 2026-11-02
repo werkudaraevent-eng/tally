@@ -1081,16 +1081,10 @@ export function KartuInfoHorizon({
   meta,
   baris,
   tanpaKepala = false,
-  nomor,
   children,
 }: {
   judul: string;
   Ikon: typeof Train;
-  /**
-   * Nomor yang dibacakan di meja (Luggage number di kartu Bagasi): label kecil
-   * dan angka besar di atas isi. Tidak ada = kartu persis seperti sebelumnya.
-   */
-  nomor?: { label: string; nilai: string } | null;
   /** Keterangan di kanan kepala (tanggal, jumlah, keadaan). */
   meta?: { teks: string; nada?: "redup" | "hijau" } | null;
   /** Isi sebagai kalimat ringkas, bukan kisi label/nilai. */
@@ -1120,12 +1114,6 @@ export function KartuInfoHorizon({
         </span>
       ) : null}
       <div className="flex flex-col gap-3">
-        {nomor ? (
-          <div className="flex flex-col gap-1">
-            <p className={KELAS_KET} style={{ color: REDUP }}>{nomor.label}</p>
-            <p className="break-words text-[32px] font-bold leading-10 tabular-nums tracking-[0.02em]">{nomor.nilai}</p>
-          </div>
-        ) : null}
         {nama ? (
           <div className="flex flex-col gap-1">
             <p className={KELAS_JUDUL_ISI}>{nama}</p>
