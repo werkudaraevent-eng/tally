@@ -68,16 +68,23 @@ export async function GET(request: Request) {
     if (potongan.length < POTONGAN) habis = true;
     if (potongan.length === 0) break;
 
-    const scans = await client
-      .from("attendance_scans")
-      .select("participant_id,scanned_at")
-      .eq("event_id", eventId)
-      .eq("session_id", sessionId)
-      .in("participant_id", potongan.map((row) => row.id));
-    if (scans.error) return apiError("INTERNAL_ERROR", 500);
+    // Pindaian dibaca per 1.000 baris (batas PostgREST): 100 orang dengan
+    // banyak pindaian ulang tidak boleh terpotong diam-diam, karena orang yang
+    // pindaiannya terpotong akan tampil sebagai "Not yet".
     const perOrang = new Map<string, Array<{ scanned_at: string }>>();
-    for (const scan of (scans.data ?? []) as Array<{ participant_id: string; scanned_at: string }>) {
-      perOrang.set(scan.participant_id, [...(perOrang.get(scan.participant_id) ?? []), scan]);
+    for (let dari = 0; ; dari += 1000) {
+      const scans = await client
+        .from("attendance_scans")
+        .select("participant_id,scanned_at")
+        .eq("event_id", eventId)
+        .eq("session_id", sessionId)
+        .in("participant_id", potongan.map((row) => row.id))
+        .order("id", { ascending: true })
+        .range(dari, dari + 999);
+      if (scans.error) return apiError("INTERNAL_ERROR", 500);
+      const baris = (scans.data ?? []) as Array<{ participant_id: string; scanned_at: string }>;
+      for (const scan of baris) perOrang.set(scan.participant_id, [...(perOrang.get(scan.participant_id) ?? []), scan]);
+      if (baris.length < 1000) break;
     }
 
     for (const row of potongan) {

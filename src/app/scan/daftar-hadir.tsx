@@ -17,6 +17,8 @@ type Muatan = {
   gagal: boolean;
   /** Halaman berikutnya sedang dimuat. */
   lanjut: boolean;
+  /** Refresh sedang berjalan; daftar lama tetap terlihat. */
+  segar: boolean;
   /** Saat halaman pertama selesai dimuat, untuk "Updated 12:16". */
   waktu: number;
 };
@@ -24,9 +26,12 @@ type Muatan = {
 const jam = (iso: string | number | null | undefined) =>
   iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
+// Hanya huruf dan angka: nama seperti Ana "Nana" tidak menjadi A".
 const inisial = (nama: string) =>
   nama
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
     .split(/\s+/)
+    .filter(Boolean)
     .slice(0, 2)
     .map((kata) => kata.charAt(0).toUpperCase())
     .join("") || "?";
@@ -72,29 +77,47 @@ export function DaftarHadir({
   const muat = useCallback(async (after: string | null) => {
     if (!sessionId) return;
     const milik = `${sessionId}|${status}`;
-    if (after) setMuatan((lama) => (lama && lama.kunci === milik ? { ...lama, lanjut: true, gagal: false } : lama));
-    const alamat = eventApiPath(
-      `/api/attendance/daftar?session_id=${sessionId}&status=${status}${after ? `&after=${encodeURIComponent(after)}` : ""}`,
-    );
-    const response = await fetch(alamat, { cache: "no-store" }).catch(() => null);
-    // Jawaban untuk pilihan yang sudah ditinggalkan dibuang.
-    if (kunciRef.current !== milik) return;
-    const body = response?.ok ? await response.json().catch(() => null) : null;
+    setMuatan((lama) => (lama && lama.kunci === milik ? { ...lama, ...(after ? { lanjut: true } : { segar: true }), gagal: false } : lama));
+
+    // Satu permintaan memeriksa paling banyak 2.000 nama. Bila semuanya ada di
+    // sisi lain (2.000 nama pertama A–Z sudah hadir), halamannya kosong tetapi
+    // masih ada lanjutan: diambil sendiri, bukan "Everyone is checked in".
+    let kursor = after;
+    let baru: BarisCari[] = [];
+    let next: string | null = null;
+    let gagal = false;
+    for (let putaran = 0; putaran < 20; putaran++) {
+      const alamat = eventApiPath(
+        `/api/attendance/daftar?session_id=${sessionId}&status=${status}${kursor ? `&after=${encodeURIComponent(kursor)}` : ""}`,
+      );
+      const response = await fetch(alamat, { cache: "no-store" }).catch(() => null);
+      // Jawaban untuk pilihan yang sudah ditinggalkan dibuang.
+      if (kunciRef.current !== milik) return;
+      const body = response?.ok ? ((await response.json().catch(() => null)) as { rows?: BarisCari[]; next?: unknown } | null) : null;
+      if (!body) { gagal = true; break; }
+      baru = [...baru, ...(body.rows ?? [])];
+      next = typeof body.next === "string" ? body.next : null;
+      if (baru.length > 0 || !next) break;
+      kursor = next;
+    }
+
     setMuatan((lama) => {
-      const dasar = after && lama?.kunci === milik ? lama : null;
-      if (!body) {
-        return dasar ? { ...dasar, lanjut: false, gagal: true } : { kunci: milik, rows: [], next: null, gagal: true, lanjut: false, waktu: Date.now() };
+      const sama = lama?.kunci === milik ? lama : null;
+      if (gagal) {
+        // Gagal memuat tidak menghapus daftar yang sudah terlihat.
+        return sama ? { ...sama, lanjut: false, segar: false, gagal: true } : { kunci: milik, rows: [], next: null, gagal: true, lanjut: false, segar: false, waktu: Date.now() };
       }
-      const baru = (body.rows ?? []) as BarisCari[];
+      const dasar = after ? sama : null;
       // Halaman berikutnya bisa membawa orang yang sudah ada (namanya berubah
       // di antara dua halaman); id yang sama tidak ditampilkan dua kali.
       const ada = new Set(dasar?.rows.map((row) => row.id));
       return {
         kunci: milik,
         rows: [...(dasar?.rows ?? []), ...baru.filter((row) => !ada.has(row.id))],
-        next: typeof body.next === "string" ? body.next : null,
+        next,
         gagal: false,
         lanjut: false,
+        segar: false,
         waktu: dasar?.waktu ?? Date.now(),
       };
     });
@@ -151,11 +174,23 @@ export function DaftarHadir({
           size="lg"
           icon={<ArrowClockwise size={20} aria-hidden />}
           onClick={() => void muat(null)}
-          loading={sekarang === null}
+          loading={sekarang === null || sekarang.segar}
         >
           Refresh
         </Button>
       </div>
+
+      {/* Sinyal venue lemah: daftar terakhir tetap terlihat, dengan jalan
+          mencoba lagi tepat di bawah Refresh yang baru ditekan. Warnanya sama
+          dengan pita "not accepted" di layar pemindai, terbaca di tema gelap. */}
+      {sekarang?.gagal && sekarang.rows.length > 0 ? (
+        <div role="alert" className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-[#ffdad6] px-3 py-2.5 text-body-medium text-[#410002]">
+          <span className="min-w-0 flex-1">The list didn&apos;t update. These are the names from {jam(sekarang.waktu)}.</span>
+          <button type="button" onClick={() => void muat(null)} className="min-h-12 shrink-0 px-2 font-semibold underline underline-offset-2">
+            Try again
+          </button>
+        </div>
+      ) : null}
 
       <div aria-busy={sekarang === null}>
         {sekarang === null ? (
@@ -215,13 +250,13 @@ export function DaftarHadir({
                 );
               })}
             </ul>
-            {sekarang.gagal ? (
-              <p role="alert" className="mt-3 text-body-small text-error">The next names didn&apos;t load. Try again.</p>
-            ) : null}
             {sekarang.next ? (
-              <Button variant="tonal" size="lg" className="mt-3 w-full" loading={sekarang.lanjut} onClick={() => void muat(sekarang.next)}>
-                Show more
-              </Button>
+              <>
+                <Button variant="tonal" size="lg" className="mt-3 w-full" loading={sekarang.lanjut} onClick={() => void muat(sekarang.next)}>
+                  Show more
+                </Button>
+                {sekarang.gagal ? <p className="mt-2 text-body-small text-error">The next names didn&apos;t load. Tap Show more to try again.</p> : null}
+              </>
             ) : (
               <p className="mt-3 text-body-small text-on-surface-variant">
                 {sekarang.rows.length === 1 ? "1 name." : `${sekarang.rows.length.toLocaleString("en-GB")} names.`} End of the list.
