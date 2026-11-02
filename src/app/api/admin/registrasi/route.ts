@@ -9,6 +9,7 @@ import { landingFormOnly } from "@/lib/landing-i18n";
 import { LANDING_HEADING_FONTS, type EventLandingConfig, type RegistrationField, type RegistrationFormConfig } from "@/lib/domain";
 import { FIELD_KEY_PATTERN, MAX_CUSTOM_FIELDS, validateFieldDefinitions } from "@/lib/registration-fields";
 import { kunciPensiun, pertahankanLabelAgenda, rapikanPertanyaan } from "@/lib/kolom-staf";
+import { pertahankanNomorBagasi } from "@/lib/bagasi/nomor";
 import { rapikanPersetujuan } from "@/lib/live/kolom-klien";
 import { DEFAULT_REGISTRATION_SEED } from "@/lib/registration-theme";
 import { registrationCodeUrl } from "@/lib/registration-code-url";
@@ -269,6 +270,9 @@ export async function PATCH(request: Request) {
     // (kolom staf yang dihapus lalu muncul lagi di formulir Lengkapi data).
     // Dihitung dari susunan yang tersimpan saat ini, juga pada percobaan ulang.
     retired_keys: kunciPensiun(tersimpan, fieldsBaru),
+    // Nomor bagasi diatur di Check-in > sesi > Luggage: dipertahankan selama
+    // pertanyaannya masih ada, dibuang bila dihapus (lib/bagasi/nomor.ts).
+    luggage_number_field: pertahankanNomorBagasi(tersimpan, fieldsBaru),
   } : undefined;
 
   /**

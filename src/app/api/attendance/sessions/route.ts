@@ -1,3 +1,4 @@
+import { kunciNomorBagasi } from "@/lib/bagasi/nomor";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { apiError } from "@/lib/api";
 import type { RegistrationFormConfig } from "@/lib/domain";
@@ -115,6 +116,9 @@ export async function GET(request: Request) {
     allow_walk_in: auth.scope.event.attendance_allow_walk_in,
     walkin_fields: walkinFields(config),
     walkin_wajib: aturanWalkIn(config),
+    // Luggage number diatur (lib/bagasi/nomor.ts): di meja bagasi, pencarian
+    // juga menerima nomor itu. Acara lain tidak mendapat kunci ini.
+    ...(kunciNomorBagasi(config) ? { nomor_bagasi: true } : {}),
     terdaftar: angka?.terdaftar ?? null,
     label,
     // Badge kertas lewat stasiun cetak. Label stiker menang bila keduanya

@@ -13,6 +13,7 @@ import {
 import { useToast } from "@/components/toast";
 import { ResetCheckInDialog, type TargetReset } from "@/components/admin/reset-check-in-dialog";
 import { BagasiPeserta } from "@/components/admin/bagasi-peserta";
+import { nomorBagasi } from "@/lib/bagasi/nomor";
 import { labelBagasi, statusBagasi, type RingkasBagasi } from "@/lib/bagasi/ringkas";
 import { useIzinKustom, useTerkunci } from "@/components/admin/page-context";
 import Link from "@/components/event-link";
@@ -445,6 +446,8 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [fields, setFields] = useState<RegistrationField[]>([]);
+  // Luggage number (Check-in > sesi > Luggage): kunci pertanyaannya, atau null.
+  const [kunciNomor, setKunciNomor] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SesiKehadiran[]>([]);
   const [companies, setCompanies] = useState<FacetPerusahaan[]>([]);
   const [scannerColumns, setScannerColumns] = useState(false);
@@ -550,6 +553,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       setCompanies((data.companies ?? []) as FacetPerusahaan[]);
       setScannerColumns(Boolean(data.scanner_columns));
       setAdaBagasi(Boolean(data.luggage));
+      setKunciNomor(typeof data.luggage_number_field === "string" ? data.luggage_number_field : null);
       if (data.logistik_bentuk) setBentukLog(data.logistik_bentuk as BentukLogistik);
       setInfoPortal({ aktif: data.portal?.aktif === true, tanpa_email: data.portal?.tanpa_email === true });
       setRemovedCount(data.removed_count ?? 0);
@@ -1054,9 +1058,12 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
         width: 152,
         cell: (p) => {
           const status = statusBagasi(p.bagasi ?? undefined);
-          if (!status) return <EmptyCell />;
-          if (status === "No luggage") return <span className="text-on-surface-variant">No luggage</span>;
-          return <StatusChip dot tone={status === "Handed back" ? "success" : "neutral"} className="tabular-nums">{labelBagasi(p.bagasi ?? undefined)}</StatusChip>;
+          // Luggage number di depan statusnya: "045 · 2 · At the desk".
+          const nomor = nomorBagasi(kunciNomor, p.extra);
+          const awal = nomor ? <span className="mr-2 shrink-0 whitespace-nowrap font-medium tabular-nums">{nomor}</span> : null;
+          if (!status) return awal ? <span className="flex items-center">{awal}<span className="truncate whitespace-nowrap text-on-surface-variant">Not dropped off</span></span> : <EmptyCell />;
+          if (status === "No luggage") return <span className="flex items-center">{awal}<span className="truncate whitespace-nowrap text-on-surface-variant">No luggage</span></span>;
+          return <span className="flex items-center">{awal}<StatusChip dot tone={status === "Handed back" ? "success" : "neutral"} className="tabular-nums">{labelBagasi(p.bagasi ?? undefined)}</StatusChip></span>;
         },
       } satisfies Kolom] : []),
       ...fields.map<Kolom>((item) => ({
@@ -1082,7 +1089,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
       );
     }
     return kustom ? daftar.filter((item) => item.key !== "qr" && item.key !== "undian") : daftar;
-  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona, kustom, adaBagasi, infoPortal]);
+  }, [sessions, fields, scannerColumns, excluded, jam, tanggalJam, adaRegistered, bentukLog, offsetZona, kustom, adaBagasi, kunciNomor, infoPortal]);
 
   // Bawaan harus muat di layar 1280 tanpa gulir mendatar (panel ±960 px):
   // Nama 240 + Organisation 200 + check-in 140 + Registered 152 + RSVP 128.
@@ -1716,6 +1723,7 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
               <BagasiPeserta
                 key={p.id}
                 participant={{ id: p.id, name: p.name }}
+                nomor={nomorBagasi(kunciNomor, p.extra)}
                 versi={versiBagasi}
                 waktu={tanggalPendek}
                 onReset={bagasiDireset}

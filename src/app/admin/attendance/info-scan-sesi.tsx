@@ -2,8 +2,8 @@
 
 import { ArrowDown, ArrowUp, Plus, X } from "@phosphor-icons/react";
 import { useId, useState } from "react";
-import { Button, DetailSection, IconButton, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
-import { BATAS_INFO_SCAN, bacaInfoScan, infoBerlaku, type PilihanInfo } from "@/lib/info-scan";
+import { Button, DetailSection, FilterChip, IconButton, Popover, POPOVER_ITEM, usePopoverAnchor } from "@/components/m3";
+import { BATAS_BESAR, BATAS_INFO_SCAN, bacaInfoScan, infoBerlaku, kunciSimpan, type PilihanInfo } from "@/lib/info-scan";
 
 /**
  * Check-in > Sessions > Shown after scan: info yang tampil di bawah nama pada
@@ -36,7 +36,9 @@ export function InfoScanSesi({
   const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
 
-  const kunci = berlaku.map((p) => p.kunci);
+  // Kunci tersimpan, dengan tanda Big (`*`) bila ada.
+  const kunci = berlaku.map((p) => kunciSimpan(p.kunci, Boolean(p.besar)));
+  const jumlahBesar = berlaku.filter((p) => p.besar).length;
   const simpan = (daftar: string[]) => void onSimpan(daftar.length > 0 ? daftar : null);
   const pindah = (dari: number, ke: number) => {
     const baru = [...kunci];
@@ -53,7 +55,7 @@ export function InfoScanSesi({
       action={tersimpan ? <span className="text-body-small tabular-nums text-on-surface-variant">{berlaku.length} of {BATAS_INFO_SCAN}</span> : undefined}
     >
       <p className="text-body-medium text-on-surface-variant">
-        What staff see under the name on this session&apos;s scan result, in this order.
+        What staff see under the name on this session&apos;s scan result, in this order. Big shows up to {BATAS_BESAR} items in large type at the top, for what staff must read or write down, such as a luggage number or hotel.
       </p>
 
       {berlaku.length > 0 ? (
@@ -64,13 +66,23 @@ export function InfoScanSesi({
                 <span className="block text-body-medium font-medium [overflow-wrap:anywhere]">{p.label}</span>
                 <span className="block text-body-small text-on-surface-variant">{p.asal}</span>
               </span>
+              <FilterChip
+                selected={Boolean(p.besar)}
+                disabled={nonaktif || (!p.besar && jumlahBesar >= BATAS_BESAR)}
+                title={!p.besar && jumlahBesar >= BATAS_BESAR ? `At most ${BATAS_BESAR} items can be big` : `Show ${p.label} in large type`}
+                aria-label={`Show ${p.label} big`}
+                onClick={() => simpan(kunci.map((k, i) => (i === index ? kunciSimpan(k, !p.besar) : k)))}
+                className="mr-1 !min-h-8 !px-3"
+              >
+                Big
+              </FilterChip>
               <IconButton size="sm" label={`Move ${p.label} up`} disabled={nonaktif || index === 0} onClick={() => pindah(index, index - 1)}>
                 <ArrowUp size={18} />
               </IconButton>
               <IconButton size="sm" label={`Move ${p.label} down`} disabled={nonaktif || index === berlaku.length - 1} onClick={() => pindah(index, index + 1)}>
                 <ArrowDown size={18} />
               </IconButton>
-              <IconButton size="sm" label={`Remove ${p.label}`} disabled={nonaktif} onClick={() => simpan(kunci.filter((k) => k !== p.kunci))}>
+              <IconButton size="sm" label={`Remove ${p.label}`} disabled={nonaktif} onClick={() => simpan(kunci.filter((_, i) => i !== index))}>
                 <X size={18} />
               </IconButton>
             </li>
@@ -108,7 +120,7 @@ export function InfoScanSesi({
               <div key={nama} role="group" aria-label={nama}>
                 <p className="px-3 pb-1 pt-2 text-label-small font-semibold uppercase tracking-wide text-on-surface-variant">{nama}</p>
                 {isi.map((p) => {
-                  const dipakai = kunci.includes(p.kunci);
+                  const dipakai = berlaku.some((b) => b.kunci === p.kunci);
                   return (
                     <button
                       key={p.kunci}
