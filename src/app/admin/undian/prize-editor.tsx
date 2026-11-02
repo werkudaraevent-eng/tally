@@ -6,8 +6,8 @@ import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
-  EXCLUDE_SCOPE_LABEL, SPIN_MODES, WEIGHT_VAR_LABEL, ruleBrokenMessage,
-  type ExcludeScope, type SpinMode, type UndianPrize, type WeightMode, type WeightVar,
+  AFTER_WIN_TEXT, EXCLUDE_SCOPE_LABEL, SPIN_MODES, STAGE_NOTE_MAX, WEIGHT_VAR_LABEL, ruleBrokenMessage,
+  type AfterWin, type ExcludeScope, type SpinMode, type UndianPrize, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import { AnimationPicker, type StageLook } from "./animation-picker";
@@ -30,7 +30,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "");
  */
 export function PrizeEditor({
   draft, isNew, legacyFormula, groups, preview, previewFailed, saving, uploading, error,
-  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, stage, order,
+  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, onNewEntryList, stage, order,
 }: {
   draft: Draft; isNew: boolean; legacyFormula: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
   saving: boolean; uploading: boolean; error: string;
@@ -38,6 +38,8 @@ export function PrizeEditor({
   onSave: () => void; onClose: () => void; onUpload: (file: File) => void;
   /** Tidak ada untuk hadiah baru. */
   onDelete?: () => void;
+  /** Membuka dialog import daftar entri tanpa meninggalkan editor. */
+  onNewEntryList?: () => void;
   onRetrySessions?: () => void;
   stage: StageLook;
   /**
@@ -160,6 +162,37 @@ export function PrizeEditor({
             </p>
           </DetailSection>
 
+          {/* Tulisan layar panggung setelah nama keluar (stageMessage di
+              lib/undian). Bawaan "Nothing" = layar seperti sebelumnya. */}
+          <DetailSection title="After the winner is revealed">
+            <SegmentedButton<AfterWin>
+              label="Text on the stage screen"
+              value={draft.after_win}
+              onChange={(value) => onChange({ after_win: value })}
+              options={[
+                { value: "none", label: "Nothing" },
+                { value: "stage", label: "To the stage" },
+                { value: "desk", label: "At the desk" },
+              ]}
+              className="w-full"
+            />
+            {draft.after_win === "none" ? (
+              <p className="text-body-medium text-on-surface-variant">The stage screen shows only the winner names. Choose To the stage for a prize handed over on stage, or At the desk for a prize collected at the committee desk.</p>
+            ) : (
+              <TextArea
+                label="Your own text"
+                optional
+                rows={2}
+                counter
+                maxLength={STAGE_NOTE_MAX}
+                value={draft.stage_note ?? ""}
+                onChange={(event) => onChange({ stage_note: event.target.value || null })}
+                placeholder={AFTER_WIN_TEXT[draft.after_win]}
+                hint={`Shown under the winner names once they are revealed. Leave empty to show "${AFTER_WIN_TEXT[draft.after_win]}".`}
+              />
+            )}
+          </DetailSection>
+
           <DetailSection title="Who enters the draw">
             <SegmentedButton<"participants" | "entries">
               label="Name source"
@@ -170,12 +203,23 @@ export function PrizeEditor({
             />
 
             {draft.source === "entries" ? (
-              <Field label="Entry list to draw from" htmlFor="entry-group" hint={groups.length === 0 ? "No entry lists yet. Create one in the Entry lists tab." : undefined}>
-                <select id="entry-group" value={draft.entry_group_id ?? 0} onChange={(event) => onChange({ entry_group_id: Number(event.target.value) || null })} className={INPUT}>
-                  <option value={0}>Choose an entry list</option>
-                  {groups.map((group) => <option key={group.id} value={group.id}>{group.name} ({group.entry_count} {group.entry_count === 1 ? "row" : "rows"})</option>)}
-                </select>
-              </Field>
+              <div className="flex flex-col gap-2">
+                {groups.length > 0 ? (
+                  <Field label="Entry list to draw from" htmlFor="entry-group">
+                    <select id="entry-group" value={draft.entry_group_id ?? 0} onChange={(event) => onChange({ entry_group_id: Number(event.target.value) || null })} className={INPUT}>
+                      <option value={0}>Choose an entry list</option>
+                      {groups.map((group) => <option key={group.id} value={group.id}>{group.name} ({group.entry_count} {group.entry_count === 1 ? "row" : "rows"})</option>)}
+                    </select>
+                  </Field>
+                ) : (
+                  <p className="text-body-medium text-on-surface-variant">No entry lists yet. Import one from a file or pasted text; your prize details stay as they are.</p>
+                )}
+                {onNewEntryList ? (
+                  <Button type="button" variant="outlined" size="sm" className="self-start" icon={<UploadSimple size={16} />} onClick={onNewEntryList}>
+                    Import a new list
+                  </Button>
+                ) : null}
+              </div>
             ) : (
               <>
                 <div>
