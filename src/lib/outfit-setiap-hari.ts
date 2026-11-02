@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { LandingMemberConfig } from "./domain.ts";
 import { OUTFIT_BATAS, bacaOutfit, hariOutfitBeranda, type HariOutfitBeranda, type OutfitEntry } from "./outfit.ts";
 import type { PilihanPeserta } from "./sasaran-bagian.ts";
-import { gabungMeta } from "./typography.ts";
 
 /**
  * Dresscode Setiap hari (keputusan Mas 21 Okt): satu baris untuk seluruh
@@ -96,9 +95,9 @@ export function denganSetiapHari(entries: readonly OutfitEntry[], everyDay: Outf
   ];
 }
 
-/** Baris "Berikutnya" di halaman Dresscode: tiap baris hari itu, "kapan · apa" seperti strip Susunan acara. */
+/** Baris "Berikutnya" di halaman Dresscode: tiap baris hari itu, "kapan: apa" seperti strip Susunan acara. */
 export function teksBarisOutfit(entries: readonly OutfitEntry[]): string[] {
-  return entries.map((baris) => gabungMeta([baris.when, baris.what]));
+  return entries.map((baris) => [baris.when, baris.what].filter(Boolean).join(": "));
 }
 
 /**
@@ -232,7 +231,7 @@ export function samaSetiapHari(a: unknown, b: unknown): boolean {
 /** Kalimat "Participants see …" di kelompok Every day: format strip peserta, null tanpa What to wear. */
 export function lihatSetiapHari(nilai: unknown): string | null {
   const isian = kirimanSetiapHari(nilai);
-  return isian ? gabungMeta([SETIAP_HARI_PESERTA, isian.what]) : null;
+  return isian ? `${SETIAP_HARI_PESERTA}: ${isian.what}` : null;
 }
 
 /**

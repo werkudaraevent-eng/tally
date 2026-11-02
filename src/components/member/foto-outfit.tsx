@@ -56,7 +56,7 @@ export function KartuFotoOutfit({ kelas, warna, foto, kapan, apa, catatan, judul
           type="button"
           onClick={penampil.buka}
           aria-haspopup="dialog"
-          className={`m3-state mt-3 hidden h-10 items-center gap-2 self-start rounded-full border border-[#C9CED8] px-4 text-[14px] font-semibold text-[#274FC0] ${wadah ? "@2xl:inline-flex" : "lg:inline-flex"}`}
+          className={`m3-state mt-3 hidden h-10 items-center gap-2 self-start rounded-full border border-[#C9CED8] px-4 text-[14px] font-semibold text-[#101E38] ${wadah ? "@2xl:inline-flex" : "lg:inline-flex"}`}
         >
           <ArrowsOut size={18} aria-hidden />
           {teks.lihat}

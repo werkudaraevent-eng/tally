@@ -45,7 +45,7 @@ export function KartuHadiah({
         alis: `${KELAS_ALIS} text-[#4D5D77]`,
         isiStrip: `${KELAS_KET} text-[#101E38] whitespace-pre-line`,
         garis: "border-[#E6E8EC]",
-        tautan: `m3-state -mx-2 rounded-md px-2 ${KELAS_TAUTAN} ${gaya === "trip" ? "text-[#101E38] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]" : "text-[#274FC0]"}`,
+        tautan: `m3-state -mx-2 rounded-md px-2 ${KELAS_TAUTAN} ${gaya === "trip" ? "text-[#101E38] underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]" : "text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px]"}`,
       }
     : {
         bingkai:

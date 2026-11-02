@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { labelPembeda, tanpaLabelBagian } from "./member/hari-agenda.ts";
 import type { PilihanPeserta } from "./sasaran-bagian.ts";
-import { SEPARATOR } from "./typography.ts";
 
 /**
  * Outfit (dress code) per bagian Agenda: kolom `rundown_sections.outfit`
@@ -176,7 +175,7 @@ export function kapanOutfit(isian: IsianJenis, semuaHari: string): string | null
  * peserta tahu ada yang dipilih tanpa ringkasan memanjang.
  */
 export function apaRingkas(isian: Pick<OutfitEntry, "what" | "options">, jumlahPilihan: (jumlah: number) => string): string {
-  return isian.options?.length ? `${isian.what} ${SEPARATOR} ${jumlahPilihan(isian.options.length)}` : isian.what;
+  return isian.options?.length ? `${isian.what}, ${jumlahPilihan(isian.options.length)}` : isian.what;
 }
 
 /** Foto kecil di ringkasan: foto isian, atau foto pilihan pertama yang punya foto. */
