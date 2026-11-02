@@ -1338,10 +1338,15 @@ export async function DashboardGathering({
     // Pola kartu klaim titip koper hotel dan "bags checked" di aplikasi maskapai:
     // jumlah besar, kapan dan di mana, foto, lalu ajakan memeriksa sebelum pergi.
     const tl = tv.luggage;
-    // Luggage number: nomor besar di atas jumlah, seperti nomor tag di aplikasi
-    // maskapai. Sebelum dititipkan kartunya sudah muncul dengan nomornya saja,
-    // supaya peserta tahu nomornya sejak awal.
-    const nomorKartu = nomorBagasi ? { label: tl.number, nilai: nomorBagasi } : null;
+    // Luggage number: strip abu-abu yang sama dengan "Kamar 1208" di kartu
+    // hotel dan gerbong-kursi di tiket kereta: satu fakta kunci per kartu,
+    // judulnya tetap jumlah bagasi. Sebelum dititipkan kartunya sudah muncul
+    // dengan stripnya saja, supaya peserta tahu nomornya sejak awal.
+    const stripNomor = nomorBagasi ? (
+      <div className="rounded-[12px] px-3 py-2" style={{ background: LATAR_STRIP }}>
+        <p className="text-[16px] font-semibold leading-6">{tl.number} <span className="tabular-nums">{nomorBagasi}</span></p>
+      </div>
+    ) : null;
     const kartuBagasi = bagasi.length > 0 ? (
       <>
         {bagasi.map((item) => (
@@ -1351,7 +1356,6 @@ export async function DashboardGathering({
             judul={tl.title}
             Ikon={Suitcase}
             meta={{ teks: item.handed_over_at ? tl.received : tl.stored, nada: item.handed_over_at ? "hijau" : "redup" }}
-            nomor={nomorKartu}
             tanpaKepala={trip}
             nama={item.bag_count === 0 ? tl.none : tl.count(item.bag_count)}
             baris={[
@@ -1360,6 +1364,7 @@ export async function DashboardGathering({
               item.handed_over_at ? `${tl.pickedUpAt} ${hariHorizon(item.handed_over_at, zona, lang)} ${jamHorizon(item.handed_over_at, zona, lang)}` : "",
             ].filter(Boolean)}
           >
+            {stripNomor}
             {item.photo_url ? (
               <FotoBagasi
                 src={item.photo_url}
@@ -1371,8 +1376,11 @@ export async function DashboardGathering({
           </KartuInfoHorizon>
         ))}
       </>
-    ) : nomorKartu ? (
-      <KartuInfoHorizon id="bagasi" judul={tl.title} Ikon={Suitcase} meta={{ teks: tl.notYet, nada: "redup" }} nomor={nomorKartu} tanpaKepala={trip} baris={[tl.numberHint]} />
+    ) : stripNomor ? (
+      <KartuInfoHorizon id="bagasi" judul={tl.title} Ikon={Suitcase} meta={{ teks: tl.notYet, nada: "redup" }} tanpaKepala={trip}>
+        {stripNomor}
+        <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{tl.numberHint}</p>
+      </KartuInfoHorizon>
     ) : null;
     // Bantuan di tempat yang sama di setiap halaman perjalanan (U-07), dengan tautan ke kartu darurat di Menu (E-03).
     const kartuBantuanPerjalanan = kontakHorizon ? (
