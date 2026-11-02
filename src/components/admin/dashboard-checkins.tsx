@@ -151,14 +151,14 @@ export function DashboardCheckpoints({ data, gagal, eventDate, endDate, client, 
   const ringkasHari = (baris: BarisPantau[]) => {
     const sudah = baris.reduce((jumlah, isi) => jumlah + isi.sudah, 0);
     const dari = baris.reduce((jumlah, isi) => jumlah + isi.diharapkan, 0);
-    return `${baris.length === 1 ? "1 checkpoint" : `${baris.length} checkpoints`} · ${angka(sudah)} of ${angka(dari)} checked in`;
+    return `${baris.length === 1 ? "1 checkpoint" : `${baris.length} checkpoints`}, ${angka(sudah)} of ${angka(dari)} checked in`;
   };
 
   const keterangan = (isi: BarisPantau) => [
     isi.baru_15 > 0 ? `+${angka(isi.baru_15)} in 15 min` : null,
     isi.terakhir ? `last ${jam.format(new Date(isi.terakhir))}` : null,
     isi.lainnya > 0 ? `+${angka(isi.lainnya)} outside expected` : null,
-  ].filter(Boolean).join(" · ");
+  ].filter(Boolean).join(", ");
 
   const kepalaHari = (isi: Hari, colSpan?: number) => {
     const { judul, catatan } = judulHari(isi.tanggal);
@@ -200,10 +200,10 @@ export function DashboardCheckpoints({ data, gagal, eventDate, endDate, client, 
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <p className="text-body-medium font-medium [overflow-wrap:anywhere]">{baris.nama}</p>
                       <p className="text-body-medium text-on-surface-variant">
-                        {[baris.jam ? baris.jam.slice(0, 5) : null, baris.untuk ?? "All participants"].filter(Boolean).join(" · ")}
+                        {[baris.jam ? baris.jam.slice(0, 5) : null, baris.untuk ?? "All participants"].filter(Boolean).join(", ")}
                       </p>
                     </div>
-                    <StatusChip dot tone={s.tone}>{s.teks}</StatusChip>
+                    <StatusChip dot={s.teks === "Scanning"} tone={s.tone}>{s.teks}</StatusChip>
                   </div>
                   {s.nanti ? (
                     <p className="text-body-medium tabular-nums">{angka(baris.diharapkan)} expected</p>
@@ -265,7 +265,7 @@ export function DashboardCheckpoints({ data, gagal, eventDate, endDate, client, 
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="align-top"><StatusChip dot tone={s.tone}>{s.teks}</StatusChip></TableCell>
+                      <TableCell className="align-top"><StatusChip dot={s.teks === "Scanning"} tone={s.tone}>{s.teks}</StatusChip></TableCell>
                     </TableRow>
                   );
                 }) : null}

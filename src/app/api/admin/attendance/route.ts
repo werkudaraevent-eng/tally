@@ -34,9 +34,9 @@ const sessionSchema = z.object({
    * petugas, urut. Null = Company · Title seperti sebelumnya (lib/info-scan.ts).
    */
   scan_fields: z.array(z.string().regex(/^(base|extra|logistik):[a-z0-9_]{1,64}$/)).max(BATAS_INFO_SCAN).nullable().optional(),
-  /** Pindai ulang (migrasi 202611010001): allow = boleh masuk, stop = petugas berhenti dan memeriksa. */
+  /** Pindai ulang (migrasi 202611010002): allow = boleh masuk, stop = petugas berhenti dan memeriksa. */
   repeat_scan: z.enum(["allow", "stop"]).optional(),
-  /** Check-in tanpa sinyal (migrasi 202611010001). Bawaan false. */
+  /** Check-in tanpa sinyal (migrasi 202611010002). Bawaan false. */
   offline_ok: z.boolean().optional(),
 });
 

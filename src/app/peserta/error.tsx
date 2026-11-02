@@ -29,10 +29,10 @@ export default function GalatAreaPeserta({ error, unstable_retry }: { error: Err
           <button type="button" onClick={() => unstable_retry()} className="m3-state inline-flex min-h-12 items-center rounded-full bg-[#101E38] px-6 text-[15px] font-bold text-white [--m3-state-color:#ffffff]">
             {en ? "Try again" : "Coba lagi"}
           </button>
-          <a href={`${portal}?tab=qr`} className="m3-state inline-flex min-h-12 items-center rounded-full border border-[#C9D1DE] px-6 text-[15px] font-bold text-[#274FC0]">
+          <a href={`${portal}?tab=qr`} className="m3-state inline-flex min-h-12 items-center rounded-full border border-[#C9D1DE] px-6 text-[15px] font-bold text-[#101E38]">
             {en ? "Show QR" : "Tampilkan QR"}
           </a>
-          <a href={portal} className="m3-state inline-flex min-h-12 items-center rounded-full px-4 text-[15px] font-bold text-[#274FC0]">
+          <a href={portal} className="m3-state inline-flex min-h-12 items-center rounded-full px-4 text-[15px] font-bold text-[#101E38]">
             {en ? "Home" : "Beranda"}
           </a>
         </div>

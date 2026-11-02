@@ -33,7 +33,12 @@ export const EN_DASH = "–";
 export const ELLIPSIS = "…";
 
 /**
- * Menyambung metadata dengan pemisah, MELEWATI yang kosong.
+ * Menyambung metadata dengan koma, MELEWATI yang kosong: "Jum, 6 Nov, 07.00".
+ *
+ * Koma, bukan titik tengah (DESIGN.md "Pemisah metadata"): deret "A · B · C"
+ * adalah tanda baca template yang paling cepat membuat layar terasa dibuat
+ * mesin. `SEPARATOR` tetap ada untuk pemisah VISUAL antar elemen di admin,
+ * bukan untuk teks yang dibaca sebagai kalimat.
  *
  * Fungsi, bukan `array.join`: `join` tetap menulis pemisah di antara dua nilai
  * kosong, dan yang terlihat adalah "Rabu, 9 Sep 2026 · · " dengan titik
@@ -41,5 +46,5 @@ export const ELLIPSIS = "…";
  * lokasi, dan di setiap acara draft yang belum punya status pendaftaran.
  */
 export function gabungMeta(items: Array<string | null | undefined | false>): string {
-  return items.filter(Boolean).join(` ${SEPARATOR} `);
+  return items.filter(Boolean).join(", ");
 }

@@ -68,8 +68,8 @@ for (const foto of ["javascript:alert(1)", "http://x.test/a.jpg", "data:image/pn
 }
 
 // Baris "Berikutnya": setiap baris hari itu, Setiap hari dulu, format strip.
-assert.deepEqual(teksBarisOutfit(denganSetiapHari([gala], kaos, LABEL)), ["Setiap hari · Kaos KSO", "17.30 Gala Dinner · Batik lengan panjang"]);
-assert.deepEqual(teksBarisOutfit([gala, { what: "Pakaian olahraga" }]), ["17.30 Gala Dinner · Batik lengan panjang", "Pakaian olahraga"]);
+assert.deepEqual(teksBarisOutfit(denganSetiapHari([gala], kaos, LABEL)), ["Setiap hari: Kaos KSO", "17.30 Gala Dinner: Batik lengan panjang"]);
+assert.deepEqual(teksBarisOutfit([gala, { what: "Pakaian olahraga" }]), ["17.30 Gala Dinner: Batik lengan panjang", "Pakaian olahraga"]);
 assert.deepEqual(teksBarisOutfit([]), []);
 
 // Beranda: bagian dipilih dari baris tab sendiri; Setiap hari mengisi hari tanpa baris.
@@ -211,7 +211,7 @@ assert.equal(samaSetiapHari(undefined, { what: "", note: "x" }), true);
 assert.equal(samaSetiapHari({ what: "Kaos KSO" }, { what: "Kaos" }), false);
 assert.equal(samaSetiapHari({ what: "Kaos KSO" }, { what: "Kaos KSO", photo_url: "https://x.supabase.co/k.jpg" }), false);
 // "Participants see …": format strip peserta, hanya dengan What to wear.
-assert.equal(lihatSetiapHari({ what: " Kaos KSO ", note: "x" }), "Setiap hari · Kaos KSO");
+assert.equal(lihatSetiapHari({ what: " Kaos KSO ", note: "x" }), "Setiap hari: Kaos KSO");
 assert.equal(lihatSetiapHari({ what: " " }), null);
 assert.equal(lihatSetiapHari(undefined), null);
 // Petunjuk What to wear: kosong sementara catatan atau foto masih tampil = peringatan, karena

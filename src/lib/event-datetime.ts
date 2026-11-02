@@ -43,15 +43,15 @@ function tanggal(iso: string, zona: EventTimeZone, panjang = true, bahasa: Tangg
  * Satu baris tanggal untuk hero landing page.
  *
  * Contoh keluaran:
- *   "Kamis, 6 Agustus 2026 · 09.00–17.00 WITA"
- *   "6–8 Agustus 2026 · mulai 09.00 WITA"
+ *   "Kamis, 6 Agustus 2026, 09.00–17.00 WITA"
+ *   "6–8 Agustus 2026, mulai 09.00 WITA"
  *   "Kamis, 6 Agustus 2026"
  */
 export function formatEventSchedule(schedule: EventSchedule, bahasa: TanggalBahasa = "id"): string | null {
   const hari = formatEventDate(schedule, bahasa);
   if (!hari) return null;
   const waktu = formatEventTime(schedule, bahasa);
-  return waktu ? `${hari} · ${waktu}` : hari;
+  return waktu ? `${hari}, ${waktu}` : hari;
 }
 
 /** Baris tanggal saja, tanpa jam. */

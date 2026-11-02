@@ -102,7 +102,7 @@ export async function GET(request: Request) {
       // Luggage: Pick-up (migrasi 202610240001): lembar hasil menampilkan titipan peserta untuk diserahkan.
       ...(luggage_pickup === true ? { ambil_bagasi: true } : {}),
       // Check-in > Sessions > Allow check-in without signal (migrasi
-      // 202611010001): ponsel menyimpan pindaian saat sinyal hilang lalu
+      // 202611010002): ponsel menyimpan pindaian saat sinyal hilang lalu
       // mengirimnya belakangan. Tanpa kunci ini perilakunya tetap: merah "Not saved".
       ...(offline_ok === true ? { tanpa_sinyal: true } : {}),
       hadir: angka?.hadir[row.id] ?? null,

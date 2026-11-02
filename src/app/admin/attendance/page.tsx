@@ -49,9 +49,9 @@ type Sesi = {
   ambil_bagasi?: { handedPeople: number; handedBags: number; waitingPeople: number; waitingBags: number };
   /** Shown after scan. Tidak ada sebelum migrasi 202610300001; null = Company · Job title. */
   scan_fields?: unknown;
-  /** Pindai ulang. Tidak ada sebelum migrasi 202611010001. */
+  /** Pindai ulang. Tidak ada sebelum migrasi 202611010002. */
   repeat_scan?: "allow" | "stop";
-  /** Check-in tanpa sinyal. Tidak ada sebelum migrasi 202611010001. */
+  /** Check-in tanpa sinyal. Tidak ada sebelum migrasi 202611010002. */
   offline_ok?: boolean;
 };
 
@@ -385,7 +385,7 @@ export default function AttendanceAdminPage() {
           </dl>
           <p className="text-body-medium text-on-surface-variant">Checked in counts people; scans count every scan. Someone scanned twice is checked in once.</p>
         </DetailSection>
-        {/* Aturan pemindai per sesi (migrasi 202611010001). Sebelum migrasinya
+        {/* Aturan pemindai per sesi (migrasi 202611010002). Sebelum migrasinya
             kolomnya tidak ada: pilihannya ditampilkan nonaktif. */}
         <DetailSection title="Scanner rules">
           <fieldset className="flex flex-col gap-2">

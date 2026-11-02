@@ -92,7 +92,7 @@ function waktuFase(fase: Fase, event: Overview["event"], now: Date): string | nu
 }
 
 // Status email dibaca dari variabel lingkungan server, bukan dari setelan acara.
-const CATATAN_EMAIL = "Set on the server, not in the app: RESEND_API_KEY and EMAIL_FROM in Vercel.";
+const CATATAN_EMAIL = "Ask the Tally administrator to turn on email sending. It is a server setting, not an event setting.";
 
 /**
  * Satu angka kunci. Ukuran 28 px untuk angka, 14 px untuk label dan
@@ -151,7 +151,7 @@ function ubinBerikutnya(data: DataCheckin, jam: Intl.DateTimeFormat): Kpi | null
   return {
     label: "Next checkpoint",
     nilai: hariIni ? pukul : `${labelHari(baris.tanggal, { weekday: "short" })} ${pukul}`.trim(),
-    keterangan: `${baris.nama} · ${kapan}`,
+    keterangan: `${baris.nama}, ${kapan}`,
   };
 }
 
@@ -243,13 +243,13 @@ export default function AdminPage() {
       nilai: angka(portal.masuk),
       dari: `/ ${angka(total)}`,
       meter: persenTeks(portal.masuk, total).nilai,
-      keterangan: `Participant area · ${angka(Math.max(0, total - portal.masuk))} not yet`,
+      keterangan: `Participant area, ${angka(Math.max(0, total - portal.masuk))} not yet`,
       aksi: portal.masuk < total ? { teks: "See who hasn't", href: BELUM_MASUK_PORTAL } : undefined,
     } : null;
     const ubinPeserta: Kpi = {
       label: "Participants",
       nilai: angka(total),
-      keterangan: total === 0 ? "No participants yet" : kelompok && tanpaJawaban > 0 ? `Active · ${angka(tanpaJawaban)} without a ${kelompok.kolom} answer` : "Active participants",
+      keterangan: total === 0 ? "No participants yet" : kelompok && tanpaJawaban > 0 ? `Active, ${angka(tanpaJawaban)} without a ${kelompok.kolom} answer` : "Active participants",
       href: "/admin/participants",
     };
     const berikutnya = checkin.data && fase !== "selesai" ? ubinBerikutnya(checkin.data, jam) : null;
@@ -262,7 +262,7 @@ export default function AdminPage() {
         nilai: angka(ringkas.datang_hari_ini),
         dari: `/ ${angka(dari)}${ringkas.diharapkan_hari_ini !== null ? " expected" : ""}`,
         meter: persenTeks(ringkas.datang_hari_ini, dari).nilai,
-        keterangan: `${persenTeks(ringkas.datang_hari_ini, dari).teks} · first check-in of the day`,
+        keterangan: `${persenTeks(ringkas.datang_hari_ini, dari).teks}, first check-in of the day`,
         href: "/admin/attendance",
       });
       kpi.push({
@@ -392,7 +392,7 @@ export default function AdminPage() {
             <ul className="pb-2">
               {wajibBelum.length === 0 ? (
                 <li className="flex flex-wrap items-center gap-3 px-5 py-3 text-body-medium">
-                  <StatusChip dot tone="success">Done</StatusChip>
+                  <StatusChip tone="success">Done</StatusChip>
                   <span className="min-w-0 flex-1">{wajib.length} of {wajib.length} required, {opsional.filter((baris) => baris.siap).length} of {opsional.length} optional</span>
                   <button type="button" aria-expanded={tampilkanSetup} onClick={() => setTampilkanSetup((buka) => !buka)} className="inline-flex items-center gap-1 rounded-sm font-medium text-primary hover:underline">
                     {tampilkanSetup ? "Hide" : "View"}<CaretDown size={14} aria-hidden className={cx("transition-transform", tampilkanSetup && "rotate-180")} />
@@ -401,7 +401,7 @@ export default function AdminPage() {
               ) : null}
               {tugas.map((isi) => (
                 <li key={isi.teks} className="flex flex-wrap items-start gap-3 border-t border-outline-variant px-5 py-3 text-body-medium first:border-t-0">
-                  <StatusChip dot tone="warning">To do</StatusChip>
+                  <StatusChip tone="warning">To do</StatusChip>
                   <span className="min-w-0 flex-1">
                     {isi.teks}
                     {isi.catatan ? <span className="mt-0.5 block text-on-surface-variant">{isi.catatan}</span> : null}
@@ -411,7 +411,7 @@ export default function AdminPage() {
               ))}
               {tampilkanSetup ? kesiapan.map((baris) => (
                 <li key={baris.label} className="flex items-center gap-3 border-t border-outline-variant px-5 py-2.5 text-body-medium">
-                  <StatusChip dot tone={baris.siap ? "success" : "neutral"}>{baris.siap ? "Done" : baris.wajib ? "Required" : "Optional"}</StatusChip>
+                  <StatusChip tone={baris.siap ? "success" : "neutral"}>{baris.siap ? "Done" : baris.wajib ? "Required" : "Optional"}</StatusChip>
                   <span className="min-w-0 flex-1">{baris.label}</span>
                   {baris.href && bolehHalaman(baris.href) ? <Link href={baris.href} className="rounded-sm font-medium text-primary hover:underline">Open</Link> : null}
                 </li>

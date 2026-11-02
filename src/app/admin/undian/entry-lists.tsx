@@ -28,11 +28,6 @@ export function EntryLists({
   const [hapus, setHapus] = useState<EntryGroup | null>(null);
   const [menghapus, setMenghapus] = useState(false);
 
-  const templat = (
-    // `native`: ini unduhan berkas dari /api, bukan navigasi halaman. Navigasi
-    // sisi klien tidak pernah menyimpan berkasnya.
-    <ButtonLink native variant="outlined" size="sm" href="/api/admin/undian/entries/template" icon={<DownloadSimple size={16} />}>Download template</ButtonLink>
-  );
 
   const list = (
     <Pane aria-label="Entry lists">
@@ -80,60 +75,11 @@ export function EntryLists({
         <IconButton size="sm" label="Close new entry list" onClick={onClose} disabled={importing}><X size={16} /></IconButton>
       </PaneHeader>
       <PaneBody>
-        <form id="form-daftar" onSubmit={(event) => { event.preventDefault(); onImport(); }} className="flex flex-col gap-4 px-5 py-4">
-          {error ? <PaneError>{error}</PaneError> : null}
-          {/* Templat di ATAS formulir: panitia yang belum punya berkas harus
-              menemukannya sebelum mulai menyusun format sendiri. */}
-          <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-container-high p-3 text-body-medium">
-            <span className="min-w-0 flex-1 text-on-surface-variant">Need a file? The XLSX template includes recognised columns and two example rows.</span>
-            {templat}
-          </div>
-          <Field label="Entry list name" htmlFor="import-name">
-            <input id="import-name" value={importName} onChange={(event) => onImportName(event.target.value)} className={INPUT} placeholder="Afternoon session coupons" />
-          </Field>
-
-          <div>
-            <p className="text-body-medium font-medium">Upload file</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <label className="inline-flex h-9 min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-outline px-3 text-body-medium font-medium hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary">
-                <UploadSimple size={16} className="shrink-0" aria-hidden />
-                <span className="truncate">{importFile ? importFile.name : "Choose an .xlsx, .csv or .txt file"}</span>
-                <input
-                  type="file"
-                  accept=".xlsx,.xlsm,.csv,.txt,.tsv"
-                  className="sr-only"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] ?? null;
-                    // Nilai input dikosongkan supaya memilih berkas yang sama
-                    // dua kali berturut-turut tetap memicu onChange.
-                    event.target.value = "";
-                    onImportFile(file);
-                  }}
-                />
-              </label>
-              {importFile ? <Button variant="text" size="sm" className="text-error" onClick={() => onImportFile(null)}>Remove file</Button> : null}
-            </div>
-            {importFile ? <p className="mt-1 text-body-medium text-on-surface-variant">The file is read on the server when you submit. The text box below is ignored.</p> : null}
-          </div>
-
-          <div className="flex items-center gap-3 text-body-medium text-on-surface-variant">
-            <span className="h-px flex-1 bg-outline-variant" />
-            or paste
-            <span className="h-px flex-1 bg-outline-variant" />
-          </div>
-
-          <Field label="Entry list contents" htmlFor="import-text" hint="Paste directly from Excel, or enter one name per line. Recognised columns: name, company, code, weight. Only name is required.">
-            <textarea
-              id="import-text"
-              value={importText}
-              onChange={(event) => onImportText(event.target.value)}
-              rows={7}
-              disabled={importFile !== null}
-              className="mt-1.5 w-full resize-y rounded-md border border-outline bg-surface-container-lowest p-3 text-body-medium leading-6 outline-none focus:border-primary disabled:opacity-50"
-              placeholder={"Name,Company,Code,Weight\nBudi Santoso,PT Maju,K-001,1\nSiti Rahayu,PT Jaya,K-002,3"}
-            />
-          </Field>
-        </form>
+        <EntryImportForm
+          formId="form-daftar" idPrefix="import"
+          importName={importName} importText={importText} importFile={importFile} error={error}
+          onImportName={onImportName} onImportText={onImportText} onImportFile={onImportFile} onImport={onImport}
+        />
       </PaneBody>
       <PaneFooter>
         <Button simpan type="submit" form="form-daftar" size="sm" loading={importing} icon={<Plus size={16} />}>Create entry list</Button>
@@ -171,5 +117,83 @@ export function EntryLists({
         }
       />
     </>
+  );
+}
+
+/**
+ * Isi formulir daftar entri baru: nama, berkas atau tempelan.
+ *
+ * Dipakai di tab Entry lists DAN di dialog "Import a new list" pada editor
+ * hadiah. Panitia yang sedang membuat hadiah dari daftar entri tidak perlu
+ * pindah tab lalu kehilangan isian hadiahnya.
+ */
+export function EntryImportForm({
+  formId, idPrefix, importName, importText, importFile, error,
+  onImportName, onImportText, onImportFile, onImport, padding = "px-5 py-4",
+}: {
+  formId: string; idPrefix: string;
+  /** Jarak tepi formulir. Di dalam dialog, tepinya sudah diberi dialog. */
+  padding?: string;
+  importName: string; importText: string; importFile: File | null; error: string;
+  onImportName: (value: string) => void; onImportText: (value: string) => void;
+  onImportFile: (file: File | null) => void; onImport: () => void;
+}) {
+  return (
+    <form id={formId} onSubmit={(event) => { event.preventDefault(); onImport(); }} className={`flex flex-col gap-4 ${padding}`}>
+      {error ? <PaneError>{error}</PaneError> : null}
+      {/* Templat di ATAS formulir: panitia yang belum punya berkas harus
+          menemukannya sebelum mulai menyusun format sendiri. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-outline-variant bg-surface-container-high p-3 text-body-medium">
+        <span className="min-w-0 flex-1 text-on-surface-variant">Need a file? The XLSX template includes recognised columns and two example rows.</span>
+        {/* `native`: ini unduhan berkas dari /api, bukan navigasi halaman.
+            Navigasi sisi klien tidak pernah menyimpan berkasnya. */}
+        <ButtonLink native variant="outlined" size="sm" href="/api/admin/undian/entries/template" icon={<DownloadSimple size={16} />}>Download template</ButtonLink>
+      </div>
+      <Field label="Entry list name" htmlFor={`${idPrefix}-name`}>
+        <input id={`${idPrefix}-name`} value={importName} onChange={(event) => onImportName(event.target.value)} className={INPUT} placeholder="Afternoon session coupons" />
+      </Field>
+
+      <div>
+        <p className="text-body-medium font-medium">Upload file</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <label className="inline-flex h-9 min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-md border border-dashed border-outline px-3 text-body-medium font-medium hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary">
+            <UploadSimple size={16} className="shrink-0" aria-hidden />
+            <span className="truncate">{importFile ? importFile.name : "Choose an .xlsx, .csv or .txt file"}</span>
+            <input
+              type="file"
+              accept=".xlsx,.xlsm,.csv,.txt,.tsv"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                // Nilai input dikosongkan supaya memilih berkas yang sama
+                // dua kali berturut-turut tetap memicu onChange.
+                event.target.value = "";
+                onImportFile(file);
+              }}
+            />
+          </label>
+          {importFile ? <Button variant="text" size="sm" className="text-error" onClick={() => onImportFile(null)}>Remove file</Button> : null}
+        </div>
+        {importFile ? <p className="mt-1 text-body-medium text-on-surface-variant">The file is read on the server when you submit. The text box below is ignored.</p> : null}
+      </div>
+
+      <div className="flex items-center gap-3 text-body-medium text-on-surface-variant">
+        <span className="h-px flex-1 bg-outline-variant" />
+        or paste
+        <span className="h-px flex-1 bg-outline-variant" />
+      </div>
+
+      <Field label="Entry list contents" htmlFor={`${idPrefix}-text`} hint="Paste directly from Excel, or enter one name per line. Recognised columns: name, company, code, weight. Only name is required.">
+        <textarea
+          id={`${idPrefix}-text`}
+          value={importText}
+          onChange={(event) => onImportText(event.target.value)}
+          rows={7}
+          disabled={importFile !== null}
+          className="mt-1.5 w-full resize-y rounded-md border border-outline bg-surface-container-lowest p-3 text-body-medium leading-6 outline-none focus:border-primary disabled:opacity-50"
+          placeholder={"Name,Company,Code,Weight\nBudi Santoso,PT Maju,K-001,1\nSiti Rahayu,PT Jaya,K-002,3"}
+        />
+      </Field>
+    </form>
   );
 }

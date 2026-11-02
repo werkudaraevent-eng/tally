@@ -27,7 +27,13 @@ const TINTA = "#101E38";
 const REDUP = "#526078";
 const GARIS = "rgb(16 30 56 / 0.12)";
 
-/** Warna ubin per jenis pesanan: semantik, bukan aksen tema (pola Trip.com). */
+/**
+ * Warna per jenis pesanan. Sejak audit Hallmark (1 Nov 2026) ikon tampil TANPA
+ * ubin berwarna: ubin hijau/merah muda/biru per bagian adalah warna yang tidak
+ * berasal dari tema dan menjadi "icon in a coloured coin" (DESIGN.md). Ikon kini
+ * satu tinta; hanya `bagasi` (penanda pengumuman baru) yang tetap berwarna
+ * karena ia STATUS, bukan hiasan. `latar` dipertahankan untuk pemanggil lama.
+ */
 export const NADA_TRIP = {
   kereta: { latar: "#E6EEFB", ikon: "#1F4E9C" },
   hotel: { latar: "#E7F4EC", ikon: "#1E7B45" },
@@ -43,10 +49,9 @@ export const TAUTAN_TRIP =
   "-my-3.5 inline-flex min-h-12 items-center gap-1 self-start text-[14px] font-semibold leading-5 underline decoration-[var(--hz-emas)] decoration-2 underline-offset-[5px]";
 
 export function UbinTrip({ Ikon, nada, kecil = false }: { Ikon: typeof Train; nada: NadaTrip; kecil?: boolean }) {
-  const warna = NADA_TRIP[nada];
   return (
-    <span aria-hidden className={`flex shrink-0 items-center justify-center ${kecil ? "size-8 rounded-[8px]" : "size-10 rounded-[12px]"}`} style={{ background: warna.latar, color: warna.ikon }}>
-      <Ikon size={kecil ? 18 : 20} weight="regular" />
+    <span aria-hidden className={`flex shrink-0 items-center ${kecil ? "h-6 w-6" : "h-6 w-6 pt-0.5"}`} style={{ color: nada === "bagasi" ? NADA_TRIP.bagasi.ikon : TINTA }}>
+      <Ikon size={kecil ? 20 : 22} weight="regular" />
     </span>
   );
 }
@@ -334,7 +339,7 @@ export function KartuPesertaTrip({
   catatan,
   qr,
 }: {
-  alis: string;
+  alis: string | null;
   nama: string;
   catatan: string | null;
   qr: { href: string; judul: string; kode: string; tombol: string; gambar: ReactNode } | null;
@@ -342,9 +347,11 @@ export function KartuPesertaTrip({
   return (
     <section aria-labelledby="kartu-peserta-trip" className={`${KARTU_TRIP} @container flex flex-col overflow-hidden`} style={{ color: TINTA }}>
       <div className="flex flex-col gap-1 p-4 md:p-6">
-        <p className="text-[12px] leading-4" style={{ color: REDUP }}>
-          {alis}
-        </p>
+        {alis ? (
+          <p className="text-[12px] leading-4" style={{ color: REDUP }}>
+            {alis}
+          </p>
+        ) : null}
         <h2 id="kartu-peserta-trip" className="text-[22px] font-bold leading-7 [overflow-wrap:anywhere]">
           {nama}
         </h2>
@@ -587,7 +594,7 @@ export function AgendaHariTrip({ judul, meta, butir }: { judul: string; meta: st
             />
             <div className="flex min-w-0 flex-col gap-1">
               {item.status ? <PilTrip emas>{item.status}</PilTrip> : null}
-              <p className={`text-[16px] leading-6 [overflow-wrap:anywhere] ${item.jeda ? "font-medium" : "font-semibold"}`} style={item.jeda ? { color: REDUP } : undefined}>
+              <p className={`text-[16px] leading-6 [overflow-wrap:anywhere] ${item.jeda ? "font-normal" : "font-semibold"}`} style={item.jeda ? { color: REDUP } : undefined}>
                 {item.judul}
               </p>
               {item.catatan ? <TeksKaya teks={item.catatan} warna={TINTA} className="whitespace-pre-line text-[14px] leading-5 text-[#526078] [overflow-wrap:anywhere]" /> : null}
