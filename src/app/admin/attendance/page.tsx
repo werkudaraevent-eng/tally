@@ -1,7 +1,7 @@
 "use client";
 
 import { pesanGalatApi } from "@/lib/api-message";
-import { ArrowSquareOut, Plus, QrCode, Television, X, XCircle } from "@phosphor-icons/react";
+import { ArrowDown, ArrowSquareOut, ArrowUp, Plus, QrCode, Television, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Button, ButtonLink, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, MetaSeparator, Pane, PaneBody,
@@ -231,6 +231,28 @@ export default function AttendanceAdminPage() {
     return true;
   }
 
+  const [memindah, setMemindah] = useState(false);
+  /** Check-in > sesi > Order: geser satu langkah; server menomori ulang semuanya. */
+  async function pindahSesi(id: number, move: "up" | "down") {
+    setMemindah(true);
+    const response = await fetch(eventApiPath("/api/admin/attendance/order"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, move }),
+    }).catch(() => null);
+    if (!response?.ok) {
+      setMemindah(false);
+      toast.error("Order not changed", "Check your connection, then try again.");
+      return;
+    }
+    const data = (await response.json().catch(() => ({ order: [] }))) as { order: number[] };
+    // Urutan baru langsung dipasang; load() menyusul untuk angka terbaru.
+    setSessions((current) => data.order
+      .map((sesiId, index) => { const sesi = current.find((item) => item.id === sesiId); return sesi ? { ...sesi, sort_order: index } : null; })
+      .filter((sesi): sesi is (typeof current)[number] => sesi !== null));
+    setMemindah(false);
+  }
+
   /** Luggage > Luggage number: pilih pertanyaan, lepas (null), atau buat pertanyaan baru. */
   async function ubahNomorBagasi(payload: { field: string | null } | { create: true }) {
     setBusy(true);
@@ -350,6 +372,7 @@ export default function AttendanceAdminPage() {
 
   // ---- Sesi --------------------------------------------------------------
   const sesiTerpilih = sessions.find((sesi) => sesi.id === pilihSesi) ?? null;
+  const posisiSesi = sesiTerpilih ? sessions.findIndex((sesi) => sesi.id === sesiTerpilih.id) : -1;
 
   const daftarSesi = (
     <Pane aria-label="Check-in sessions">
@@ -410,6 +433,21 @@ export default function AttendanceAdminPage() {
           </dl>
           <p className="text-body-medium text-on-surface-variant">Checked in counts people; scans count every scan. Someone scanned twice is checked in once.</p>
         </DetailSection>
+        {/* Urutan yang sama dipakai pilihan Check-in point di pemindai, daftar
+            ini, Dashboard, dan saringan peserta (order route). */}
+        {!hanyaLihat && sessions.length > 1 ? (
+          <DetailSection title="Order">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">
+                <span className="tabular-nums">{posisiSesi + 1} of {sessions.length}</span>. Scanners list sessions in this order.
+              </p>
+              <div className="flex gap-2">
+                <Button simpan variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={busy || memindah || posisiSesi <= 0} onClick={() => void pindahSesi(sesiTerpilih.id, "up")}>Move up</Button>
+                <Button simpan variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={busy || memindah || posisiSesi >= sessions.length - 1} onClick={() => void pindahSesi(sesiTerpilih.id, "down")}>Move down</Button>
+              </div>
+            </div>
+          </DetailSection>
+        ) : null}
         {/* Aturan pemindai per sesi (migrasi 202611010002). Sebelum migrasinya
             kolomnya tidak ada: pilihannya ditampilkan nonaktif. */}
         <DetailSection title="Scanner rules">
