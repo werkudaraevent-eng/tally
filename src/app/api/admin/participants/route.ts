@@ -1,6 +1,7 @@
 import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import type { RegistrationField, RegistrationFormConfig } from "@/lib/domain";
+import { kunciNomorBagasi } from "@/lib/bagasi/nomor";
 import { adaBagasi, bagasiHalaman } from "@/lib/bagasi/server";
 import { bentukLogistik, logistikPeserta } from "@/lib/logistik/server";
 import { jejakPortal, pakaiPortal, portalTanpaEmail, type JejakPortal } from "@/lib/member/jejak-portal";
@@ -223,6 +224,9 @@ export async function GET(request: Request) {
     participants: hasil.rows.map((baris) => ({ ...(kustom ? tanpaQr(baris) : baris), logistik: logistik.get(baris.id) ?? null, bagasi: bagasi.get(baris.id) ?? null, ...denganPortal(jejak, baris.id) })),
     // Kolom Luggage dan bagian Luggage di detail: hanya acara dengan meja bagasi.
     luggage: denganBagasi,
+    // Luggage number (lib/bagasi/nomor.ts): kunci pertanyaannya, untuk kolom
+    // dan detail Luggage. Jawabannya sudah ada di `extra` tiap baris.
+    ...(denganBagasi && !kustom ? { luggage_number_field: kunciNomorBagasi(auth.scope.event.registration_form_config as RegistrationFormConfig | null) } : {}),
     // Kolom Portal: ada bila acara memakai area peserta. `tanpa_email`: cara
     // masuk dua kolom, jadi peserta tanpa email tetap bisa masuk.
     portal: { aktif: portal, tanpa_email: portalTanpaEmail(auth.scope.event) },

@@ -55,7 +55,7 @@ import { jenisKamar } from "@/lib/logistik/nama-kamar";
 import { staySaatBerangkat } from "@/lib/member/hotel-trip";
 import { agendaBerikutnya, loadMemberLogistics, urutWaktuBerangkat, type LogistikKamar, type LogistikPeserta } from "@/lib/logistik/peserta";
 import { bagianTampil, bagianTersembunyi } from "@/lib/logistik/bagian-tampil";
-import { bagasiPeserta } from "@/lib/bagasi/server";
+import { bagasiPeserta, nomorBagasiPeserta } from "@/lib/bagasi/server";
 import { FotoBagasi } from "@/components/member/foto-bagasi";
 import { KartuKereta, KontakKru } from "@/components/member/kartu-logistik";
 import { KartuCheckpoint } from "@/components/member/kartu-checkpoint";
@@ -383,7 +383,7 @@ export async function DashboardGathering({
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
   // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
   // dan tidak disembunyikan di Participant home.
-  const [logistik, checkpoint, checkpointQr, bagasi, hadiah] = peserta
+  const [logistik, checkpoint, checkpointQr, bagasi, hadiah, nomorBagasi] = peserta
     ? await Promise.all([
         loadMemberLogistics(event.id, peserta.id, member.show_logistics === true, { plate: member.show_bus_plate === true, crew: member.show_bus_crew === true }, false, bagianTersembunyi(member)),
         (tab === "beranda" || (horizon && tab === "profil")) && !(member.home?.hidden ?? []).includes("checkpoints") ? loadCheckpointPeserta(event.id, peserta.id, lang, penonton) : null,
@@ -394,8 +394,10 @@ export async function DashboardGathering({
         horizon ? bagasiPeserta(event.id, peserta.id, tab === "perjalanan").catch(() => []) : [],
         // Hadiah undian yang sudah dikonfirmasi (Participant area > Lucky draw prize), hanya Beranda.
         tab === "beranda" ? loadHadiahPeserta(event.id, peserta.id, member.prize, lang).catch(() => []) : [],
+        // Luggage number (Check-in > sesi > Luggage), di kartu Bagasi Perjalanan.
+        horizon && tab === "perjalanan" ? nomorBagasiPeserta(event.id, peserta.id, asli.registration_form_config).catch(() => null) : null,
       ])
-    : [null, null, null, [], []];
+    : [null, null, null, [], [], null];
   const setelanCheckpoint = checkpointQr?.setelan ?? null;
   // Kartu Hadiah kamu (lib/member/hadiah.ts): paling atas Beranda, sesudah kartu panitia.
   // Paling atas hanya pada hari dikonfirmasi; sesudahnya di bawah Next up
@@ -1336,6 +1338,10 @@ export async function DashboardGathering({
     // Pola kartu klaim titip koper hotel dan "bags checked" di aplikasi maskapai:
     // jumlah besar, kapan dan di mana, foto, lalu ajakan memeriksa sebelum pergi.
     const tl = tv.luggage;
+    // Luggage number: nomor besar di atas jumlah, seperti nomor tag di aplikasi
+    // maskapai. Sebelum dititipkan kartunya sudah muncul dengan nomornya saja,
+    // supaya peserta tahu nomornya sejak awal.
+    const nomorKartu = nomorBagasi ? { label: tl.number, nilai: nomorBagasi } : null;
     const kartuBagasi = bagasi.length > 0 ? (
       <>
         {bagasi.map((item) => (
@@ -1345,6 +1351,7 @@ export async function DashboardGathering({
             judul={tl.title}
             Ikon={Suitcase}
             meta={{ teks: item.handed_over_at ? tl.received : tl.stored, nada: item.handed_over_at ? "hijau" : "redup" }}
+            nomor={nomorKartu}
             tanpaKepala={trip}
             nama={item.bag_count === 0 ? tl.none : tl.count(item.bag_count)}
             baris={[
@@ -1364,6 +1371,8 @@ export async function DashboardGathering({
           </KartuInfoHorizon>
         ))}
       </>
+    ) : nomorKartu ? (
+      <KartuInfoHorizon id="bagasi" judul={tl.title} Ikon={Suitcase} meta={{ teks: tl.notYet, nada: "redup" }} nomor={nomorKartu} tanpaKepala={trip} baris={[tl.numberHint]} />
     ) : null;
     // Bantuan di tempat yang sama di setiap halaman perjalanan (U-07), dengan tautan ke kartu darurat di Menu (E-03).
     const kartuBantuanPerjalanan = kontakHorizon ? (

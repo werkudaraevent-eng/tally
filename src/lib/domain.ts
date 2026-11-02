@@ -161,6 +161,15 @@ export type RegistrationFormConfig = {
    * Ditulis server saat Save form; kosong = tidak ada. Lihat src/lib/kolom-staf.ts.
    */
   retired_keys?: string[];
+  /**
+   * Kunci pertanyaan yang dipakai sebagai NOMOR BAGASI peserta (Check-in >
+   * sesi > Luggage > Luggage number). Satu per acara, dipakai semua meja
+   * bagasi: lembar pemindai, kartu Bagasi di portal, kolom Luggage, dan
+   * pencarian di meja ambil. Nomornya tetap jawaban pertanyaan itu, jadi
+   * isian, impor, dan ekspornya tidak berubah. Kosong = tidak ada.
+   * Lihat src/lib/bagasi/nomor.ts.
+   */
+  luggage_number_field?: string;
 };
 
 /** Satu pertanyaan yang disetujui admin untuk klien: kunci, judul, dan jenis saat disetujui. */

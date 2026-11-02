@@ -145,6 +145,8 @@ export type BarisCari = {
   name: string;
   company: string | null;
   title: string | null;
+  /** Luggage number (lib/bagasi/nomor.ts); hanya di acara yang mengaturnya. */
+  luggage_number?: string | null;
   scan_count: number;
   first_scan_at: string | null;
 };

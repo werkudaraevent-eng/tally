@@ -108,6 +108,11 @@ export type PortalUiText = {
         title: string;
         count: (jumlah: number) => string;
         none: string;
+        /** Luggage number (Check-in > sesi > Luggage). */
+        number: string;
+        /** Kepala kartu yang baru berisi nomor, sebelum dititipkan. */
+        notYet: string;
+        numberHint: string;
         countLabel: string;
         droppedAt: string;
         place: string;
@@ -422,6 +427,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           title: "Bagasi",
           count: (jumlah) => `${jumlah} bagasi`,
           none: "Tidak menitip bagasi",
+          number: "Nomor bagasi",
+          notYet: "Belum dititipkan",
+          numberHint: "Sebutkan nomor ini di meja bagasi.",
           countLabel: "Jumlah",
           droppedAt: "Dititipkan",
           place: "Tempat",
@@ -688,6 +696,9 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           title: "Luggage",
           count: (jumlah) => `${jumlah} ${jumlah === 1 ? "bag" : "bags"}`,
           none: "No luggage dropped off",
+          number: "Luggage number",
+          notYet: "Not dropped off yet",
+          numberHint: "Give this number at the luggage desk.",
           countLabel: "Bags",
           droppedAt: "Dropped off",
           place: "Where",

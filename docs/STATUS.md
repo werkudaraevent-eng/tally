@@ -64,6 +64,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #373 Luggage number across the luggage modules (Mas 2 Nov, for KSO): Check-in > Drop-off/Pick-up session > Luggage number adopts an existing question (KSO: "Nomor Luggage") or adds one; scan sheet first Big row, scanner search by number, Bagasi card number (also before drop-off), Luggage column and detail. Stored as `registration_form_config.luggage_number_field`, no SQL. Big tile rendering comes from the scan-sheet emphasis PR (this PR sets `besar`). Merged 2 Nov after QA GO (Mas: merge after QA). Mas picks "Nomor Luggage" in Check-in > luggage session > Luggage number.
 - #365 Speakers QA Lows (merged 1 Nov, QA GO): Escape closes the speaker editor through the unsaved-changes guard; search full width below 640 px; content-sized menus (shared Popover) move back inside the window at 390; Agenda > Edit item > Speakers stores the short session label and the Speakers table shows it for older links. Admin only, no SQL.
 - #364 Seating plan layout field registry (merged 1 Nov, QA GO, audit PR 4 of 4): the Room layout editor reads each layout's number fields from one list in `src/lib/seat-map-layout-fields.ts` (checked by `seat-map-layout-fields.check.ts`), so a new layout is one entry; 0 px change.
 - #363 Seating plan Room layout editor (merged 1 Nov, QA GO, audit PR 3 of 4): layout picked from picture cards; the layout locks only when seats are assigned (as the server already refuses); "Seats around the table" presets replace arc degrees; footer shows the draft's tables and seats.
@@ -195,6 +196,8 @@ Every item (finding, recommendation, what is left, decisions and code pointers) 
 - Code, not started: U-27 (Horizon blue from the Theme brand colour), U-32 (email subjects and announcement email language), U-36 (DESIGN.md Horizon section), E-02 (WhatsApp channel), E-04 (Home Screen manifest), E-05 (web push), E-11 (photos in announcements).
 
 ## Parked Lows and open findings
+
+- Luggage number (#373): Luggage column does not sort or filter by number; a luggage session with 4 saved Shown after scan rows drops the 4th to make room for the number.
 
 - #363 Lows: the lock counts only current sessions' seats while the server refuses on any seats, so in that edge case Save shows the 422 toast; the lock note does not link to where seats are removed.
 - #361 Lows: "Without a seat · N" counts scanner rows the list does not show; at 390 the "click an empty seat" hint points to the map far above.

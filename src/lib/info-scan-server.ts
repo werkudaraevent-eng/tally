@@ -1,3 +1,4 @@
+import { kunciNomorBagasi } from "@/lib/bagasi/nomor";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { barisInfo, bacaInfoScan, butuhLogistik, infoBerlaku, kunciInti, pilihanInfo, type BarisInfo, type DataPesertaInfo } from "@/lib/info-scan";
 import { loadMemberLogistics } from "@/lib/logistik/peserta";
@@ -24,10 +25,22 @@ export async function infoTamu(
     const db = getSupabaseServiceClient();
     // select *: scan_fields baru ada setelah migrasi 202610300001.
     const { data: sesi } = await db.from("attendance_sessions").select("*").eq("event_id", event.id).eq("id", sessionId).maybeSingle();
-    const tersimpan = bacaInfoScan((sesi as { scan_fields?: unknown } | null)?.scan_fields);
+    const config = event.registration_form_config as RegistrationFormConfig | null;
+    const pilihanTersimpan = bacaInfoScan((sesi as { scan_fields?: unknown } | null)?.scan_fields);
+    // Meja bagasi (Drop-off atau Pick-up) dengan Luggage number: nomornya
+    // selalu baris pertama dan besar, juga bila panitia tidak memilihnya di
+    // Shown after scan. Sesi yang belum diatur tetap mendapat Company · Job
+    // title di bawahnya.
+    const mejaBagasi = (sesi as { records_luggage?: boolean; luggage_pickup?: boolean } | null)?.records_luggage === true
+      || (sesi as { luggage_pickup?: boolean } | null)?.luggage_pickup === true;
+    const kunciNomor = mejaBagasi ? kunciNomorBagasi(config) : null;
+    const pilihanNomor = kunciNomor ? `extra:${kunciNomor}` : null;
+    // Tetap paling banyak BATAS_INFO_SCAN baris: bacaInfoScan memotongnya.
+    const tersimpan = pilihanNomor
+      ? bacaInfoScan([`*${pilihanNomor}`, ...(pilihanTersimpan ?? ["base:company", "base:title"]).filter((kunci) => kunciInti(kunci) !== pilihanNomor)])
+      : pilihanTersimpan;
     if (!tersimpan || tersimpan.length === 0) return null;
 
-    const config = event.registration_form_config as RegistrationFormConfig | null;
     const adaLogistik = tersimpan.some((kunci) => kunciInti(kunci).startsWith("logistik:"));
     // Logistik dianggap ada di sini: nilai kosong ditulis "Not set", dan
     // penghitungan tabelnya hanya untuk menyusun menu di admin.
@@ -49,7 +62,10 @@ export async function infoTamu(
       transport: logistik?.transport ?? null,
       trains: logistik?.trains ?? [],
     };
-    return barisInfo(info, data, new Date(), timeZoneOffset(normalizeTimeZone(event.time_zone)));
+    const hasil = barisInfo(info, data, new Date(), timeZoneOffset(normalizeTimeZone(event.time_zone)));
+    return pilihanNomor && info[0]?.kunci === pilihanNomor
+      ? hasil.map((baris, i) => (i === 0 ? { ...baris, label: "Luggage number", besar: true } : baris))
+      : hasil;
   } catch {
     return null;
   }
