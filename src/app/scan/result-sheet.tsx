@@ -261,7 +261,7 @@ export function ResultSheet({
       // sheet M3, bukan kartu yang melayang 16 px dari tepi. Di layar lebar ia
       // tetap di tengah: dua versi panel tanpa modal sudah ditolak pemakainya
       // (lihat catatan di atas).
-      className={`${tampilan ? LEMBAR[tampilan.nada] : ""} max-sm:-mx-4 max-sm:-mb-4 max-sm:w-[calc(100%+2rem)] max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-[28px] sm:rounded-[28px]`}
+      className={`lembar-hasil ${tampilan ? LEMBAR[tampilan.nada] : ""} max-sm:-mx-4 max-sm:-mb-4 max-sm:w-[calc(100%+2rem)] max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-[28px] sm:rounded-[28px]`}
     >
       {hasil && tampilan ? (
         // `aria-live` menempel di wadah yang TIDAK ikut dipasang ulang. Memasang
