@@ -18,8 +18,11 @@ export type DataQrCheckpoint = {
   open: boolean;
   period: number;
   now: number;
-  changes_at: number;
-  checkpoints: { id: number; title: string; title_en: string | null; position: number }[];
+  /** Null: QR tetap (dicetak), tidak berganti. */
+  changes_at: number | null;
+  /** QR tetap (migrasi 202611020001): nomor kode cetak dan kapan dibuat. */
+  fixed?: { version: number; changed_at: string | null } | null;
+  checkpoints: { id: number; title: string; title_en: string | null; place?: string | null; place_en?: string | null; position: number }[];
   total_checkpoints: number;
   done: number | null;
   recent: { name: string; at: string }[];
@@ -60,7 +63,8 @@ export function usePakaiQrCheckpoint(sesiId: number | null) {
         if (!berhenti) setGambar(png);
       }
       // Berikutnya: tepat setelah kode berganti, atau 5 detik lagi bila lebih dulu.
-      const keGanti = body.changes_at - (Date.now() + beda) + 300;
+      // QR tetap: tetap ditanya tiap 5 detik, supaya kode baru dari CMS ikut tampil.
+      const keGanti = body.changes_at === null ? TANYA_MS : body.changes_at - (Date.now() + beda) + 300;
       pengatur = window.setTimeout(() => void tanya(), Math.max(500, Math.min(TANYA_MS, keGanti)));
     };
     void tanya();
@@ -88,11 +92,13 @@ export function usePakaiQrCheckpoint(sesiId: number | null) {
     return () => window.clearInterval(detak);
   }, []);
 
-  const sisaMs = data ? Math.max(0, data.changes_at - (sekarang + selisih)) : 0;
+  const sisaMs = data && data.changes_at !== null ? Math.max(0, data.changes_at - (sekarang + selisih)) : 0;
   return {
     data,
     gambar,
     galat,
+    /** QR tetap: tanpa hitung mundur. */
+    tetap: data?.fixed ?? null,
     sisaDetik: Math.ceil(sisaMs / 1000),
     sisaPersen: data ? Math.min(100, (sisaMs / (data.period * 1000)) * 100) : 0,
     /** Jam server kira-kira, untuk "12 s ago". */

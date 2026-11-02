@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getMemberSession } from "@/lib/member/account";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
 import { loadCheckpointPeserta, loadDaftarCheckpoint, scanMandiriPerSesi } from "@/lib/checkpoint/server";
-import { kodeSah, rahasiaKodeQr } from "@/lib/checkpoint/kode-qr";
+import { bacaQrSesi, periksaKode, rahasiaKodeQr } from "@/lib/checkpoint/kode-qr";
 import { kalimatTujuan } from "@/lib/checkpoint/tujuan";
 import { tanggalDiZona, teksSelesai, teksWaktu } from "@/lib/checkpoint/waktu";
 import { normalizeTimeZone } from "@/lib/timezone";
@@ -13,8 +13,9 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * Peserta memindai QR checkpoint (scan mandiri, migrasi 202610180001).
  *
  * `{ s, k, lang }`: sesi dan kode dari QR yang ditampilkan panitia. Kodenya
- * diperiksa di sini (berganti tiap 30 detik, lihat lib/checkpoint/kode-qr.ts),
- * semua aturan datanya di RPC `record_checkpoint_self_scan`.
+ * diperiksa di sini (berganti tiap 30 detik, atau kode cetak bila sesinya
+ * memakai QR tetap; lihat lib/checkpoint/kode-qr.ts), semua aturan datanya di
+ * RPC `record_checkpoint_self_scan`.
  *
  * Jawaban `recorded` atau `already` membawa langkah yang selesai dan kemajuan
  * peserta, dalam bahasa halamannya, supaya layar hasil di ponsel bisa langsung
@@ -34,6 +35,7 @@ const PESAN = {
     masuk: "Masuk dulu ke Dashboard saya, lalu pindai lagi QR-nya.",
     bukanPeserta: "Akunmu belum terhubung ke data peserta. Tunjukkan QR-mu ke panitia.",
     kedaluwarsa: "QR ini sudah berganti. Pindai langsung dari layar panitia, bukan dari foto.",
+    cetakLama: "QR cetak ini sudah diganti panitia. Pindai QR terbaru di lokasi checkpoint.",
     mati: "Checkpoint ini dipindai oleh panitia. Tunjukkan QR-mu ke panitia.",
     tutup: "Checkpoint ini sedang ditutup. Tanyakan ke panitia.",
     tidakAda: "QR ini bukan untuk acara ini.",
@@ -44,6 +46,7 @@ const PESAN = {
     masuk: "Sign in to My dashboard first, then scan the QR again.",
     bukanPeserta: "Your account is not linked to a participant yet. Show your QR to the organisers.",
     kedaluwarsa: "This QR has already changed. Scan it straight from the organisers' screen, not from a photo.",
+    cetakLama: "The organisers have replaced this printed QR. Scan the newest one at the checkpoint.",
     mati: "The organisers scan this checkpoint. Show your QR to them.",
     tutup: "This checkpoint is closed right now. Ask the organisers.",
     tidakAda: "This QR is not for this event.",
@@ -88,9 +91,18 @@ export async function POST(request: Request) {
   if (!sesi) return memberError("UNAUTHORIZED", 401, t.masuk);
   if (!sesi.participant) return memberError("NOT_A_PARTICIPANT", 403, t.bukanPeserta);
 
-  if (!kodeSah(rahasiaKodeQr(), event.id, parsed.data.s, parsed.data.k, Date.now())) {
-    return memberError("CODE_EXPIRED", 410, t.kedaluwarsa);
-  }
+  // QR tetap (migrasi 202611020001): kolomnya dibaca dengan select *, jadi
+  // sebelum migrasi semua sesi berarti berganti. Sesi tidak ada: kode berganti
+  // tetap diperiksa, RPC yang menjawab SESSION_NOT_FOUND.
+  const { data: barisSesi } = await getSupabaseServiceClient()
+    .from("attendance_sessions")
+    .select("*")
+    .eq("event_id", event.id)
+    .eq("id", parsed.data.s)
+    .maybeSingle();
+  const hasilKode = periksaKode(rahasiaKodeQr(), event.id, parsed.data.s, parsed.data.k, Date.now(), bacaQrSesi(barisSesi as Record<string, unknown> | null));
+  if (hasilKode === "lama") return memberError("CODE_REPLACED", 410, t.cetakLama);
+  if (hasilKode !== "sah") return memberError("CODE_EXPIRED", 410, t.kedaluwarsa);
 
   // Satu checkpoint Staff di sesi ini membuat sesinya dipindai panitia saja
   // (lihat scanMandiriPerSesi); RPC hanya memeriksa ada checkpoint mandiri.

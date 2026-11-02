@@ -4,6 +4,8 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { adaKolomTujuan, bacaTujuan, kolomTujuanBelumAda, rapiTujuan, rewardEnBaru, TUJUAN_POIN_MAX, TUJUAN_TEKS_MAX, type TujuanPoin } from "@/lib/checkpoint/tujuan";
 import { bacaPenyelesaian, type Penyelesaian } from "@/lib/checkpoint/server";
+import { bacaQrSesi } from "@/lib/checkpoint/kode-qr";
+import { hadiahMemakaiSesi } from "@/lib/checkpoint/qr-undian";
 import { landingEnAvailable } from "@/lib/landing-i18n";
 import { bacaTautanAgenda, TAUTAN_AGENDA_MAX } from "@/lib/sasaran-blok";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -18,6 +20,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * PATCH `{ id, ... }` mengubah satu checkpoint, `{ id, move }` memindahkannya
  *       satu langkah, `{ settings }` menyalakan fitur atau poin, atau
  *       `{ settings: { goal } }` mengisi (objek) atau menghapus (null) tujuan poin.
+ *       `{ session_id, new_code: true }` membuat nomor kode cetak baru untuk QR
+ *       tetap sesi itu (migrasi 202611020001): poster lama berhenti berlaku.
  * DELETE ?id= menghapus satu checkpoint. Catatan scan dan barangnya tidak
  *       tersentuh: checkpoint hanya menunjuk bukti itu.
  */
@@ -72,10 +76,17 @@ const isiSchema = z.object({
   // dikirim: tidak diubah.
   scan_message: pesanScan,
   scan_message_en: pesanScan,
+  // QR checkpoint sesinya (migrasi 202611020001): berganti atau tetap untuk
+  // dicetak. Disimpan di sesi check-in, karena QR milik sesi. Tidak dikirim:
+  // tidak diubah. Hanya ditulis untuk checkpoint yang dipindai peserta.
+  qr: z.enum(["rotating", "fixed"]).optional(),
 });
+
+const kodeBaruSchema = z.object({ session_id: z.number().int().positive(), new_code: z.literal(true) });
 
 const patchSchema = z.union([
   setelanSchema,
+  kodeBaruSchema,
   z.object({ id: z.number().int().positive(), move: z.enum(["up", "down"]) }),
   isiSchema.extend({ id: z.number().int().positive() }),
 ]);
@@ -185,6 +196,45 @@ async function bentrokSesi(db: ReturnType<typeof getSupabaseServiceClient>, even
   });
 }
 
+/** Kolom QR checkpoint belum ada di database ini (migrasi 202611020001 belum dijalankan). */
+function kolomQrBelumAda(error: { code?: string; message?: string }) {
+  const kode = String(error.code ?? "");
+  return (kode === "42703" || kode === "PGRST204") && String(error.message ?? "").includes("checkpoint_qr");
+}
+
+/**
+ * Tulis pilihan QR checkpoint ke sesi check-in, sebelum checkpoint-nya disimpan
+ * supaya simpan yang gagal tidak setengah jadi. Hanya untuk checkpoint sesi
+ * yang dipindai peserta. Sebelum migrasi: Berganti (bawaan) dilewati, Tetap
+ * dijawab 409. Perubahan dicatat di Jejak audit.
+ */
+async function simpanQrSesi(
+  db: ReturnType<typeof getSupabaseServiceClient>,
+  eventId: string,
+  userId: string,
+  sessionId: number | null,
+  completion: Penyelesaian | undefined,
+  qr: "rotating" | "fixed" | undefined,
+) {
+  if (!qr || !sessionId || !completion || completion === "staff") return null;
+  const { data, error } = await db.from("attendance_sessions").select("*").eq("event_id", eventId).eq("id", sessionId).maybeSingle();
+  if (error) return apiError("INTERNAL_ERROR", 500);
+  const baris = data as Record<string, unknown> | null;
+  if (!baris) return apiError("VALIDATION_ERROR", 422, { message: "That session or kit item no longer exists. Reload the page." });
+  if (!Object.hasOwn(baris, "checkpoint_qr")) return qr === "fixed" ? apiError("CHECKPOINT_QR_NOT_READY", 409) : null;
+  const lama = bacaQrSesi(baris);
+  if (lama.mode === qr) return null;
+  const { error: galatUbah } = await db.from("attendance_sessions").update({ checkpoint_qr: qr } as never).eq("event_id", eventId).eq("id", sessionId);
+  if (galatUbah) return kolomQrBelumAda(galatUbah) ? apiError("CHECKPOINT_QR_NOT_READY", 409) : apiError("INTERNAL_ERROR", 500);
+  await db.from("audit_logs").insert({
+    event_id: eventId,
+    user_id: userId,
+    action: "checkpoint_qr_update",
+    payload: { session_id: sessionId, old: { checkpoint_qr: lama.mode }, new: { checkpoint_qr: qr } },
+  } as never);
+  return null;
+}
+
 function satuBukti(isi: { session_id?: number | null; item_id?: number | null }) {
   return Boolean(isi.session_id) !== Boolean(isi.item_id);
 }
@@ -195,17 +245,23 @@ export async function GET(request: Request) {
   const eventId = auth.scope.event.id;
   const db = getSupabaseServiceClient();
 
-  const [setelan, daftar, sesi, barang, angka] = await Promise.all([
+  const [setelan, daftar, sesi, barang, angka, undian] = await Promise.all([
     // select *: kolom tujuan poin baru ada setelah migrasi 202610170001.
     db.from("checkpoint_settings").select("*").eq("event_id", eventId).maybeSingle(),
     db.from("checkpoints").select(PILIH).eq("event_id", eventId).order("sort_order").order("id"),
-    db.from("attendance_sessions").select("id,name,is_active").eq("event_id", eventId).order("sort_order").order("id"),
+    // select *: kolom QR checkpoint baru ada setelah migrasi 202611020001.
+    db.from("attendance_sessions").select("*").eq("event_id", eventId).order("sort_order").order("id"),
     db.from("pickup_items").select("id,name").eq("event_id", eventId).order("sort_order").order("id"),
     db.rpc("checkpoint_progress" as never, { p_event_id: eventId } as never),
+    // Untuk peringatan QR tetap: hadiah undian yang syaratnya memakai kehadiran.
+    db.from("undian_prizes").select("*").eq("event_id", eventId).order("sort_order").order("id"),
   ]);
   if (setelan.error || daftar.error) return galat(setelan.error ?? daftar.error!);
   if (sesi.error || barang.error) return apiError("INTERNAL_ERROR", 500);
   const barisCp = (daftar.data ?? []) as Record<string, unknown>[];
+  const barisSesi = (sesi.data ?? []) as Record<string, unknown>[];
+  // Undian gagal dibaca (atau belum dipakai): tanpa peringatan, bukan galat.
+  const hadiah = undian.error ? [] : ((undian.data ?? []) as { name?: unknown; conditions?: unknown; bonus_rules?: unknown }[]).map((h) => ({ name: String(h.name ?? ""), conditions: h.conditions, bonus_rules: h.bonus_rules }));
 
   const s = setelan.data as Record<string, unknown> | null;
   const progres = (angka.error ? null : angka.data) as { done?: Record<string, number>; finished_all?: number; participants?: number } | null;
@@ -227,7 +283,16 @@ export async function GET(request: Request) {
     when_ready: barisCp.length === 0 || Object.hasOwn(barisCp[0], "agenda_item_ids"),
     // Kolom Message after scan sudah ada (migrasi 202610290002), dengan cara yang sama.
     message_ready: barisCp.length === 0 || Object.hasOwn(barisCp[0], "scan_message"),
-    sessions: sesi.data ?? [],
+    // Kolom QR checkpoint sudah ada (migrasi 202611020001), dengan cara yang sama.
+    qr_ready: barisSesi.length === 0 || Object.hasOwn(barisSesi[0], "checkpoint_qr"),
+    sessions: barisSesi.map((baris) => ({
+      id: baris.id as number,
+      name: baris.name as string,
+      is_active: baris.is_active === true,
+      qr: bacaQrSesi(baris),
+      // Hadiah undian yang bisa didapat lewat check-in di sesi ini.
+      undian: hadiahMemakaiSesi(hadiah, baris.id as number),
+    })),
     items: barang.data ?? [],
     finished_all: progres?.finished_all ?? null,
     participants: progres?.participants ?? null,
@@ -246,8 +311,11 @@ export async function POST(request: Request) {
 
   const bentrok = await bentrokSesi(db, eventId, parsed.data.session_id ?? null, parsed.data.completion ?? "staff", null);
   if (bentrok) return bentrok;
+  const galatQr = await simpanQrSesi(db, eventId, auth.user.id, parsed.data.session_id ?? null, parsed.data.completion ?? "staff", parsed.data.qr);
+  if (galatQr) return galatQr;
   const { data: akhir } = await db.from("checkpoints").select("sort_order").eq("event_id", eventId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
-  const { completion, agenda_item_ids, scan_message, scan_message_en, ...isi } = parsed.data;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- qr disimpan di sesi, bukan di checkpoint
+  const { completion, agenda_item_ids, scan_message, scan_message_en, qr, ...isi } = parsed.data;
   const waktu = await periksaWaktu(db, eventId, agenda_item_ids);
   if ("galat" in waktu) return waktu.galat;
   // Pesan hanya ditulis bila terisi, sama dengan When.
@@ -331,6 +399,36 @@ export async function PATCH(request: Request) {
     return Response.json({ settings: { ...baru, goal: tujuanBaru } });
   }
 
+  if ("new_code" in parsed.data) {
+    const sesiId = parsed.data.session_id;
+    const { data, error } = await db.from("attendance_sessions").select("*").eq("event_id", eventId).eq("id", sesiId).maybeSingle();
+    if (error) return apiError("INTERNAL_ERROR", 500);
+    const baris = data as Record<string, unknown> | null;
+    if (!baris) return apiError("VALIDATION_ERROR", 404, { message: "This scan session no longer exists. Reload the page." });
+    if (!Object.hasOwn(baris, "checkpoint_qr")) return apiError("CHECKPOINT_QR_NOT_READY", 409);
+    const lama = bacaQrSesi(baris);
+    if (lama.mode !== "fixed") return apiError("VALIDATION_ERROR", 422, { message: "This checkpoint QR changes every 30 seconds, so there is no printed code to replace." });
+    const baru = { checkpoint_qr_version: lama.version + 1, checkpoint_qr_changed_at: sekarang };
+    // Nomor lama ikut disaring: dua klik bersamaan menaikkan satu kali, bukan dua.
+    const { data: hasil, error: galatUbah } = await db
+      .from("attendance_sessions")
+      .update(baru as never)
+      .eq("event_id", eventId)
+      .eq("id", sesiId)
+      .eq("checkpoint_qr_version", lama.version)
+      .select("*")
+      .maybeSingle();
+    if (galatUbah) return apiError("INTERNAL_ERROR", 500);
+    if (!hasil) return apiError("VALIDATION_ERROR", 409, { message: "Someone else just made a new code. Reload the page." });
+    await db.from("audit_logs").insert({
+      event_id: eventId,
+      user_id: auth.user.id,
+      action: "checkpoint_qr_new_code",
+      payload: { session_id: sesiId, old: { checkpoint_qr_version: lama.version }, new: baru },
+    } as never);
+    return Response.json({ qr: bacaQrSesi(hasil as Record<string, unknown>) });
+  }
+
   if ("move" in parsed.data) {
     // Seluruh urutan ditulis ulang 0..n-1 dari urutan yang tampil, jadi nilai
     // sort_order yang kembar atau berlubang ikut rapi.
@@ -349,7 +447,7 @@ export async function PATCH(request: Request) {
     return Response.json({ ok: true });
   }
 
-  const { id, completion, agenda_item_ids, scan_message, scan_message_en, ...isi } = parsed.data;
+  const { id, completion, agenda_item_ids, scan_message, scan_message_en, qr, ...isi } = parsed.data;
   if (!satuBukti(isi)) return apiError("VALIDATION_ERROR", 422, { message: "Pick exactly one: a scan session or a kit item." });
   // Sama dengan POST: barang dengan pilihan selain Staff ditolak. Pindah ke
   // barang tanpa menyebut pilihannya: checkpoint itu kembali dipindai panitia.
@@ -366,6 +464,8 @@ export async function PATCH(request: Request) {
   }
   const bentrok = await bentrokSesi(db, eventId, sesiSekarang, caraSekarang, id);
   if (bentrok) return bentrok;
+  const galatQr = await simpanQrSesi(db, eventId, auth.user.id, sesiSekarang, caraSekarang, qr);
+  if (galatQr) return galatQr;
   const waktu = await periksaWaktu(db, eventId, agenda_item_ids);
   if ("galat" in waktu) return waktu.galat;
   const pesan = kolomPesan({ scan_message, scan_message_en });

@@ -40,3 +40,49 @@ assert.equal(bacaQrCheckpoint("javascript:alert(1)//pindai?s=1&k=abcdefghijkl"),
 assert.equal(bacaQrCheckpoint("https://event.example.test/e/%E0%A4%A/pindai?s=1&k=abcdefghijkl"), null);
 
 console.log("kode-qr.check: ok");
+
+// QR tetap untuk dicetak (migrasi 202611020001).
+{
+  const { kodeTetap, periksaKode, bacaQrSesi } = await import("./kode-qr.ts");
+  const tetap1 = kodeTetap(R, EV, 900, 1);
+  const tetap2 = kodeTetap(R, EV, 900, 2);
+  assert.match(tetap1, /^[A-Za-z0-9_-]{12}$/);
+  assert.notEqual(tetap1, tetap2);
+  assert.notEqual(tetap1, kodeTetap(R, EV, 901, 1));
+  assert.notEqual(tetap1, kode);
+  const berganti = bacaQrSesi(null);
+  assert.deepEqual(berganti, { mode: "rotating", version: 1, changed_at: null });
+  assert.deepEqual(bacaQrSesi({ checkpoint_qr: "fixed", checkpoint_qr_version: 3, checkpoint_qr_changed_at: "2026-11-02T07:00:00Z" }), { mode: "fixed", version: 3, changed_at: "2026-11-02T07:00:00Z" });
+  assert.equal(bacaQrSesi({ checkpoint_qr: "lain", checkpoint_qr_version: 0 }).mode, "rotating");
+  assert.equal(bacaQrSesi({ checkpoint_qr_version: 0 }).version, 1);
+  const tetapSesi = { mode: "fixed" as const, version: 2, changed_at: null };
+  // Kode berganti selalu sah, juga di sesi cetak.
+  assert.equal(periksaKode(R, EV, 900, kode, t0, berganti), "sah");
+  assert.equal(periksaKode(R, EV, 900, kode, t0, tetapSesi), "sah");
+  // Kode cetak hanya sah di sesi cetak dengan nomor sekarang, kapan pun.
+  assert.equal(periksaKode(R, EV, 900, tetap2, t0 + 86_400_000, tetapSesi), "sah");
+  assert.equal(periksaKode(R, EV, 900, tetap1, t0, tetapSesi), "lama");
+  // Sesi kembali ke berganti: poster nomor sekarang pun ditolak sebagai lama.
+  assert.equal(periksaKode(R, EV, 900, tetap2, t0, { mode: "rotating", version: 2, changed_at: null }), "lama");
+  // Sesi atau acara lain, dan kode acak: salah.
+  assert.equal(periksaKode(R, EV, 901, tetap2, t0, tetapSesi), "salah");
+  assert.equal(periksaKode(R, "00000000-0000-0000-0000-000000000002", 900, tetap2, t0, tetapSesi), "salah");
+  assert.equal(periksaKode(R, EV, 900, "AAAAAAAAAAAA", t0, tetapSesi), "salah");
+  // Foto QR berganti yang kedaluwarsa tetap salah, bukan lama.
+  assert.equal(periksaKode(R, EV, 900, kode, t0 + 60_000, tetapSesi), "salah");
+}
+
+// Undian yang memakai kehadiran sesi ini.
+{
+  const { undianMemakaiSesi } = await import("./qr-undian.ts");
+  const g = (...children: unknown[]) => ({ op: "and", children });
+  assert.equal(undianMemakaiSesi(g(), 900), false);
+  assert.equal(undianMemakaiSesi(g({ var: "checked_in", is: true, session_id: 900 }), 900), true);
+  assert.equal(undianMemakaiSesi(g({ var: "checked_in", is: true, session_id: 901 }), 900), false);
+  assert.equal(undianMemakaiSesi(g({ var: "checked_in", is: true }), 900), true);
+  assert.equal(undianMemakaiSesi(g({ op: "or", children: [{ var: "scan_count", cmp: "gte", value: 2 }] }), 900), true);
+  assert.equal(undianMemakaiSesi(g({ var: "checkpoint_goal", is: true }), 900), true);
+  assert.equal(undianMemakaiSesi(g({ var: "total_spend", cmp: "gte", value: 1 }), 900), false);
+  assert.equal(undianMemakaiSesi(null, 900), false);
+  assert.equal(undianMemakaiSesi({ op: "and", children: "x" }, 900), false);
+}

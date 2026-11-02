@@ -19,7 +19,7 @@ const jamRelatif = (iso: string, kini: number) => {
 };
 
 export function TampilQrCheckpoint({ sesiId, terdaftar }: { sesiId: number; terdaftar: number | null }) {
-  const { data, gambar, galat, sisaDetik, sisaPersen, kini } = usePakaiQrCheckpoint(sesiId);
+  const { data, gambar, galat, sisaDetik, sisaPersen, kini, tetap } = usePakaiQrCheckpoint(sesiId);
   const judul = data?.checkpoints.map((cp) => cp.title).join(" · ") ?? "";
 
   return (
@@ -67,11 +67,13 @@ export function TampilQrCheckpoint({ sesiId, terdaftar }: { sesiId: number; terd
         ) : (
           <div aria-hidden className="aspect-square w-full max-w-[300px] animate-pulse rounded-lg bg-[#eceef3] motion-reduce:animate-none" />
         )}
-        <div aria-hidden className="h-1 w-full max-w-[300px] overflow-hidden rounded-full bg-[#e2e5ec]">
-          <i className="block h-full bg-primary" style={{ width: `${sisaPersen}%` }} />
-        </div>
+        {tetap ? null : (
+          <div aria-hidden className="h-1 w-full max-w-[300px] overflow-hidden rounded-full bg-[#e2e5ec]">
+            <i className="block h-full bg-primary" style={{ width: `${sisaPersen}%` }} />
+          </div>
+        )}
         <p className="text-body-medium text-[#5a5f6b]" aria-live="off">
-          {data ? `New code in ${sisaDetik} s · keep the screen on` : "Loading the code…"}
+          {!data ? "Loading the code…" : tetap ? `Printed code no. ${tetap.version}. The same code as the poster.` : `New code in ${sisaDetik} s · keep the screen on`}
         </p>
         <Link
           href={`/checkpoint-qr?s=${sesiId}`}

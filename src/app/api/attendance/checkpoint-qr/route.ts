@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { berlakuSampai, jendela, kodeCheckpoint, PERIODE_DETIK, rahasiaKodeQr } from "@/lib/checkpoint/kode-qr";
+import { bacaQrSesi, berlakuSampai, jendela, kodeCheckpoint, kodeTetap, PERIODE_DETIK, rahasiaKodeQr } from "@/lib/checkpoint/kode-qr";
 import { alamatQrCheckpoint } from "@/lib/checkpoint/qr-alamat";
 import { loadDaftarCheckpoint, loadSetelanCheckpoint, scanMandiriPerSesi } from "@/lib/checkpoint/server";
 import { linkOrigin } from "@/lib/domain-klien/asal";
@@ -18,6 +18,9 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * meminta kode ini bisa menyelesaikan checkpoint dari mana saja. Alamatnya
  * memakai asal halaman peserta (domain klien bila aktif), supaya kamera bawaan
  * ponsel membuka halaman tempat peserta sudah masuk.
+ *
+ * Sesi dengan QR tetap (migrasi 202611020001): alamatnya kode cetak nomor
+ * sekarang, `fixed` berisi nomor dan kapan dibuat, dan `changes_at` null.
  */
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["scanner", "admin"]);
@@ -38,7 +41,7 @@ export async function GET(request: Request) {
 
   const db = getSupabaseServiceClient();
   const [sesi, jumlah, terakhir] = await Promise.all([
-    db.from("attendance_sessions").select("id,is_active").eq("event_id", event.id).eq("id", sesiId).maybeSingle(),
+    db.from("attendance_sessions").select("*").eq("event_id", event.id).eq("id", sesiId).maybeSingle(),
     db.from("attendance_scans").select("id", { count: "exact", head: true }).eq("event_id", event.id).eq("session_id", sesiId).eq("is_duplicate", false),
     db
       .from("attendance_scans")
@@ -53,7 +56,9 @@ export async function GET(request: Request) {
   if (sesi.error || !barisSesi) return apiError("VALIDATION_ERROR", 404, { message: "Check-in point not found in this event." });
 
   const sekarang = Date.now();
-  const kode = kodeCheckpoint(rahasiaKodeQr(), event.id, sesiId, jendela(sekarang));
+  const qr = bacaQrSesi(barisSesi as unknown as Record<string, unknown>);
+  const tetap = qr.mode === "fixed";
+  const kode = tetap ? kodeTetap(rahasiaKodeQr(), event.id, sesiId, qr.version) : kodeCheckpoint(rahasiaKodeQr(), event.id, sesiId, jendela(sekarang));
   const checkpoint = daftar.filter((cp) => cp.session_id === sesiId);
   return Response.json({
     event: { name: event.name, lang: landingDefaultLang(event.landing_config) },
@@ -62,8 +67,9 @@ export async function GET(request: Request) {
     open: barisSesi.is_active,
     period: PERIODE_DETIK,
     now: sekarang,
-    changes_at: berlakuSampai(sekarang),
-    checkpoints: checkpoint.map((cp) => ({ id: cp.id, title: cp.title, title_en: cp.title_en, position: daftar.indexOf(cp) + 1 })),
+    changes_at: tetap ? null : berlakuSampai(sekarang),
+    fixed: tetap ? { version: qr.version, changed_at: qr.changed_at } : null,
+    checkpoints: checkpoint.map((cp) => ({ id: cp.id, title: cp.title, title_en: cp.title_en, place: cp.place, place_en: cp.place_en, position: daftar.indexOf(cp) + 1 })),
     total_checkpoints: daftar.length,
     done: jumlah.error ? null : jumlah.count ?? 0,
     // Sebelum migrasi 202610180001 kolom `method` belum ada: daftarnya kosong.

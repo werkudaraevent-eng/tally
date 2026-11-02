@@ -61,6 +61,9 @@ type Checkpoint = {
 
 type Penyelesaian = "staff" | "self" | "both";
 
+type ModeQr = "rotating" | "fixed";
+type QrSesi = { mode: ModeQr; version: number; changed_at: string | null };
+
 type Muat = {
   settings: { enabled: boolean; points_enabled: boolean; goal: TujuanPoin | null };
   /** Tipe peserta dengan akses panitia di portal (akses-panitia.tsx). */
@@ -76,22 +79,43 @@ type Muat = {
   /** Halaman peserta English menyala: isian English tujuan ikut tampil. */
   en_available: boolean;
   checkpoints: Checkpoint[];
-  sessions: { id: number; name: string; is_active: boolean }[];
+  /** Kolom QR checkpoint sudah ada (migrasi 202611020001). */
+  qr_ready?: boolean;
+  sessions: {
+    id: number;
+    name: string;
+    is_active: boolean;
+    /** QR checkpoint sesi ini: berganti atau tetap (dicetak) dengan nomor kodenya. */
+    qr?: QrSesi;
+    /** Hadiah undian yang bisa didapat lewat check-in di sesi ini. */
+    undian?: string[];
+  }[];
   items: { id: number; name: string }[];
   finished_all: number | null;
   participants: number | null;
 };
 
-type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string; completion: Penyelesaian; agenda: number[]; pesan: string; pesan_en: string };
+type Form = { title: string; title_en: string; place: string; place_en: string; bukti: string; points: string; completion: Penyelesaian; agenda: number[]; pesan: string; pesan_en: string; qr: ModeQr };
 
-const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "", completion: "staff", agenda: [], pesan: "", pesan_en: "" };
+const FORM_KOSONG: Form = { title: "", title_en: "", place: "", place_en: "", bukti: "", points: "", completion: "staff", agenda: [], pesan: "", pesan_en: "", qr: "rotating" };
+
+// QR checkpoint (migrasi 202611020001): pola Booking.com/Whova, QR sesi yang
+// dicetak untuk pencatatan, QR berganti untuk yang ada hadiahnya.
+const PILIHAN_QR: { value: ModeQr; title: string; description: string }[] = [
+  { value: "rotating", title: "Changes every 30 seconds", description: "On the scanner app or a screen. A forwarded photo stops working within a minute." },
+  {
+    value: "fixed",
+    title: "Fixed, can be printed",
+    description: "One code for a poster or standee. It works only while this session is Open. Anyone with a photo of it can check in from elsewhere.",
+  },
+];
 
 const PILIHAN_SELESAI: { value: Penyelesaian; title: string; description: string }[] = [
   { value: "staff", title: "Staff scan the participant's QR", description: "Same as before." },
   {
     value: "self",
     title: "Participants scan the checkpoint QR",
-    description: "Staff show a QR from the scanner app or a screen at the spot. It changes every 30 seconds, so a forwarded photo stops working.",
+    description: "Staff show a QR at the spot, on a screen or printed.",
   },
   { value: "both", title: "Both", description: "Participants scan it themselves. Staff can still scan anyone who has trouble with their phone." },
 ];
@@ -102,7 +126,7 @@ const angka = (nilai: number) => nilai.toLocaleString("en-GB");
 const poinEn = (nilai: number) => `${angka(nilai)} ${nilai === 1 ? "point" : "points"}`;
 
 /** "s:12" = sesi 12, "i:4" = barang 4. Satu pilihan untuk satu bukti. */
-function keForm(cp: Checkpoint): Form {
+function keForm(cp: Checkpoint, qr: ModeQr = "rotating"): Form {
   return {
     title: cp.title,
     title_en: cp.title_en ?? "",
@@ -113,11 +137,12 @@ function keForm(cp: Checkpoint): Form {
     completion: cp.completion ?? "staff",
     agenda: cp.agenda_item_ids ?? [],
     pesan: cp.scan_message ?? "",
+    qr,
     pesan_en: cp.scan_message_en ?? "",
   };
 }
 
-function keIsi(form: Form, poin: boolean, waktu: boolean, pesan: boolean) {
+function keIsi(form: Form, poin: boolean, waktu: boolean, pesan: boolean, qr: boolean) {
   const [jenis, nomor] = form.bukti.split(":");
   return {
     title: form.title.trim(),
@@ -135,6 +160,8 @@ function keIsi(form: Form, poin: boolean, waktu: boolean, pesan: boolean) {
     // Sama: sebelum migrasi 202610290002 pesannya tidak dikirim.
     // Hanya checkpoint yang dipindai peserta: Staff tidak punya layar hasil di ponsel peserta.
     ...(pesan && jenis === "s" && form.completion !== "staff" ? { scan_message: form.pesan.trim() || null, scan_message_en: form.pesan_en.trim() || null } : {}),
+    // QR checkpoint disimpan di sesinya; sebelum migrasi 202611020001 tidak dikirim.
+    ...(qr && jenis === "s" && form.completion !== "staff" ? { qr: form.qr } : {}),
   };
 }
 
@@ -144,6 +171,19 @@ function ringkasWaktu(ids: number[], agenda: ReturnType<typeof useAgendaTrip>["a
   if (ada.length === 0) return null;
   const awal = [...ada].sort((a, b) => `${a.bagian.event_date} ${jamPendek(a.baris.start_time)}`.localeCompare(`${b.bagian.event_date} ${jamPendek(b.baris.start_time)}`))[0];
   return `${hariPendek(awal.bagian.event_date)}, ${jamPendek(awal.baris.start_time)}${ada.length > 1 ? ` +${ada.length - 1}` : ""}`;
+}
+
+/** "A dan B", "A, B dan C" untuk nama hadiah undian dalam kalimat. */
+function daftarNama(nama: string[]): string {
+  const dikutip = nama.map((n) => `“${n}”`);
+  return dikutip.length <= 1 ? dikutip.join("") : `${dikutip.slice(0, -1).join(", ")} and ${dikutip[dikutip.length - 1]}`;
+}
+
+/** "1 Nov, 14:20" di jam perangkat admin. */
+function waktuPendek(iso: string): string {
+  const waktu = new Date(iso);
+  if (Number.isNaN(waktu.getTime())) return "";
+  return waktu.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 /** Tujuan baru langsung terisi total poin yang ditawarkan, seperti di mockup yang disetujui. */
@@ -167,6 +207,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   const [formTujuan, setFormTujuan] = useState<FormTujuan>({ points: "", reward: "", reward_en: "" });
   const [busy, setBusy] = useState(false);
   const [hapus, setHapus] = useState<Checkpoint | null>(null);
+  const [kodeBaru, setKodeBaru] = useState<number | null>(null);
   const toast = useToast();
   const siapWaktu = data?.when_ready === true;
   const siapPesan = data?.message_ready === true;
@@ -220,7 +261,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
     setPilih(id);
     setDicoba(false);
     const cp = id === "baru" ? null : data?.checkpoints.find((item) => item.id === id) ?? null;
-    setForm(cp ? keForm(cp) : FORM_KOSONG);
+    setForm(cp ? keForm(cp, data?.sessions.find((s) => s.id === cp.session_id)?.qr?.mode ?? "rotating") : FORM_KOSONG);
   }
 
   function bukaTujuan() {
@@ -232,7 +273,7 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
 
   async function simpan() {
     if (!data) return;
-    const isi = keIsi(form, data.settings.points_enabled, siapWaktu, siapPesan);
+    const isi = keIsi(form, data.settings.points_enabled, siapWaktu, siapPesan, data.qr_ready === true);
     if (pilih === "baru") {
       const hasil = await kirim("POST", isi);
       if (hasil) { toast.success("Checkpoint added", `${isi.title} is now step ${data.checkpoints.length + 1}.`); setPilih(Number(hasil.id)); setDicoba(false); }
@@ -259,6 +300,13 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   async function hapusTujuan() {
     const hasil = await kirim("PATCH", { settings: { goal: null } });
     if (hasil) { setPilih(null); toast.success("Points goal removed", "Participants no longer see the goal line."); }
+  }
+
+  async function buatKodeBaru(sesiId: number) {
+    const hasil = await kirim("PATCH", { session_id: sesiId, new_code: true });
+    setKodeBaru(null);
+    const qr = (hasil?.qr as QrSesi | undefined) ?? null;
+    if (qr) toast.success(`Printed code no. ${qr.version} is ready`, "Print the poster again. Older prints no longer work.");
   }
 
   async function hapusCheckpoint(cp: Checkpoint) {
@@ -406,6 +454,11 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
   // Pola Choice di Lucky draw > Tiket tambahan: kartu radio dengan keterangan.
   // Hanya checkpoint yang dipindai peserta sendiri punya layar hasil di ponselnya.
   const pesanScan = form.bukti.startsWith("s:") && form.completion !== "staff" && data?.self_scan_ready !== false;
+  // QR checkpoint (migrasi 202611020001): pilihan ada untuk checkpoint sesi yang dipindai peserta.
+  const pilihQr = pesanScan;
+  const sesiDipilih = form.bukti.startsWith("s:") ? data?.sessions.find((s) => `s:${s.id}` === form.bukti) ?? null : null;
+  const qrTersimpan = sesiTersimpan ? data?.sessions.find((s) => s.id === sesiTersimpan)?.qr ?? null : null;
+  const tetapTersimpan = qrTersimpan?.mode === "fixed" && form.qr === "fixed" ? qrTersimpan : null;
   const caraSelesai = (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-2 text-label-large font-semibold text-on-surface">How it gets done</legend>
@@ -438,21 +491,103 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
           );
         })
       )}
-      {sesiTersimpan ? (
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface-container px-3 py-2.5">
-          <QrCode size={20} aria-hidden className="shrink-0 text-primary" />
-          <span className="min-w-48 flex-1 text-body-medium text-on-surface-variant">
-            On the scanner app, choose <span className="font-semibold text-on-surface">{namaSesiTersimpan}</span> and tap <span className="font-semibold text-on-surface">Show QR</span>.
+      {pilihQr ? (
+        data?.qr_ready === false ? (
+          <p className="ml-7 rounded-md bg-surface-container-high px-4 py-2.5 text-body-medium text-on-surface-variant">The QR changes every 30 seconds. A printed QR needs a database update first (migration 202611020001).</p>
+        ) : (
+          <fieldset className="ml-7 flex flex-col gap-2">
+            <legend className="mb-2 text-label-large font-semibold text-on-surface">Checkpoint QR</legend>
+            {PILIHAN_QR.map((pilihan) => {
+              const aktif = form.qr === pilihan.value;
+              return (
+                <label
+                  key={pilihan.value}
+                  className={cx(
+                    "flex cursor-pointer items-start gap-3 rounded-md border p-3 text-body-medium",
+                    aktif ? "border-2 border-primary bg-primary-soft p-[11px]" : "border-outline-variant",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="checkpoint-qr"
+                    value={pilihan.value}
+                    checked={aktif}
+                    onChange={() => setForm({ ...form, qr: pilihan.value })}
+                    className="mt-0.5 size-4 shrink-0 accent-primary"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-on-surface">{pilihan.title}</span>
+                    <span className="block text-on-surface-variant">{pilihan.description}</span>
+                  </span>
+                </label>
+              );
+            })}
+            {sesiDipilih && (data?.checkpoints.filter((cp) => cp.session_id === sesiDipilih.id && cp.id !== terpilih?.id).length ?? 0) > 0 ? (
+              <p className="text-body-small text-on-surface-variant">Applies to every checkpoint on {sesiDipilih.name}: they share one QR.</p>
+            ) : null}
+          </fieldset>
+        )
+      ) : null}
+      {pilihQr && form.qr === "fixed" && (sesiDipilih?.undian?.length ?? 0) > 0 ? (
+        <p role="note" className="flex items-start gap-2 rounded-md bg-warning-soft px-3 py-2.5 text-body-medium text-on-warning-soft">
+          <WarningCircle size={20} weight="fill" aria-hidden className="mt-0.5 shrink-0 text-warning" />
+          <span>
+            <span className="font-semibold">Lucky draw {daftarNama(sesiDipilih?.undian ?? [])} {sesiDipilih?.undian?.length === 1 ? "uses" : "use"} check-ins or checkpoints.</span>{" "}
+            With a printed code, people can meet that condition without coming. Keep Changes every 30 seconds, or change the draw conditions.
           </span>
-          <Link
-            href={`/checkpoint-qr?s=${sesiTersimpan}`}
-            target="_blank"
-            className="inline-flex min-h-9 items-center gap-1 rounded-sm text-body-medium font-semibold text-primary hover:underline"
-          >
-            Open on a screen
-            <ArrowSquareOut size={16} aria-hidden />
-          </Link>
-        </div>
+        </p>
+      ) : null}
+      {sesiTersimpan ? (
+        tetapTersimpan ? (
+          <div className="mt-1 flex flex-col gap-1 rounded-md bg-surface-container px-3 py-2.5">
+            <div className="flex items-start gap-3">
+              <QrCode size={20} aria-hidden className="mt-0.5 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 text-body-medium text-on-surface-variant">
+                Printed code no. <span className="font-semibold tabular-nums text-on-surface">{tetapTersimpan.version}</span>
+                {tetapTersimpan.changed_at ? ` · made ${waktuPendek(tetapTersimpan.changed_at)}` : ""}.{" "}
+                {tetapTersimpan.version > 1 ? "Older prints no longer work." : "Scanner Show QR shows the same code."}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 pl-8">
+              <Link
+                href={`/checkpoint-qr/cetak?s=${sesiTersimpan}`}
+                target="_blank"
+                className="inline-flex min-h-9 items-center gap-1 rounded-sm text-body-medium font-semibold text-primary hover:underline"
+              >
+                Print poster (A4)
+                <ArrowSquareOut size={16} aria-hidden />
+              </Link>
+              {hanyaLihat ? null : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setKodeBaru(sesiTersimpan)}
+                  className="inline-flex min-h-9 items-center rounded-sm text-body-medium font-semibold text-primary hover:underline disabled:opacity-50"
+                >
+                  Make a new code…
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface-container px-3 py-2.5">
+            <QrCode size={20} aria-hidden className="shrink-0 text-primary" />
+            <span className="min-w-48 flex-1 text-body-medium text-on-surface-variant">
+              On the scanner app, choose <span className="font-semibold text-on-surface">{namaSesiTersimpan}</span> and tap <span className="font-semibold text-on-surface">Show QR</span>.
+            </span>
+            <Link
+              href={`/checkpoint-qr?s=${sesiTersimpan}`}
+              target="_blank"
+              className="inline-flex min-h-9 items-center gap-1 rounded-sm text-body-medium font-semibold text-primary hover:underline"
+            >
+              Open on a screen
+              <ArrowSquareOut size={16} aria-hidden />
+            </Link>
+          </div>
+        )
+      ) : null}
+      {pilihQr && form.qr !== (sesiDipilih?.qr?.mode ?? "rotating") && terpilih ? (
+        <p className="text-body-small text-on-surface-variant">Save to switch the QR.{form.qr === "rotating" ? " Printed posters stop working; switching back to Fixed brings the same code back." : ""}</p>
       ) : null}
     </fieldset>
   );
@@ -773,6 +908,19 @@ export function CheckpointsTab({ keSesi }: { keSesi: () => void }) {
         </p>
       ) : null}
       <ListDetail list={list} detail={!data ? null : panelTujuan ?? panelCheckpoint} />
+      <Dialog
+        open={kodeBaru !== null}
+        onClose={() => setKodeBaru(null)}
+        dismissible={!busy}
+        title="Make a new printed code?"
+        description="Every poster with the current code stops working at once. Participants who scan an old poster are told to scan the newest one. Print and put up the new poster right after."
+        actions={
+          <>
+            <Button variant="outlined" disabled={busy} onClick={() => setKodeBaru(null)}>Cancel</Button>
+            <Button simpan loading={busy} onClick={() => { if (kodeBaru !== null) void buatKodeBaru(kodeBaru); }}>Make a new code</Button>
+          </>
+        }
+      />
       <Dialog
         open={hapus !== null}
         onClose={() => setHapus(null)}
