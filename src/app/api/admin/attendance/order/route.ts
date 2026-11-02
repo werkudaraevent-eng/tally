@@ -5,8 +5,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Urutan sesi check-in.
 //
-// Satu urutan dipakai di mana-mana: pilihan "Check-in point" di pemindai,
-// daftar sesi di admin, Dashboard, dan saringan peserta. Semua sudah membaca
+// Satu urutan dipakai pilihan "Check-in point" di pemindai, daftar sesi di
+// admin, dan saringan peserta (Dashboard mengurutkan per checkpoint). Semua membaca
 // `sort_order, id`; yang belum ada hanya cara mengubahnya. Satu sesi dipindah
 // satu langkah, lalu seluruh daftar dinomori ulang 0..n-1, supaya sesi lama
 // yang bernomor sama (atau berlubang setelah dihapus) langsung berurutan.

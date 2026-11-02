@@ -242,7 +242,8 @@ export default function AttendanceAdminPage() {
     }).catch(() => null);
     if (!response?.ok) {
       setMemindah(false);
-      toast.error("Order not changed", "Check your connection, then try again.");
+      const body = response ? await response.json().catch(() => ({})) : {};
+      toast.error("Order not changed", (response && pesanGalatApi(body)) || "Check your connection, then try again.");
       return;
     }
     const data = (await response.json().catch(() => ({ order: [] }))) as { order: number[] };
@@ -434,11 +435,11 @@ export default function AttendanceAdminPage() {
           <p className="text-body-medium text-on-surface-variant">Checked in counts people; scans count every scan. Someone scanned twice is checked in once.</p>
         </DetailSection>
         {/* Urutan yang sama dipakai pilihan Check-in point di pemindai, daftar
-            ini, Dashboard, dan saringan peserta (order route). */}
+            ini, dan saringan peserta (order route). */}
         {!hanyaLihat && sessions.length > 1 ? (
           <DetailSection title="Order">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <p className="min-w-0 flex-1 text-body-medium text-on-surface-variant">
+              <p className="min-w-48 flex-1 text-body-medium text-on-surface-variant">
                 <span className="tabular-nums">{posisiSesi + 1} of {sessions.length}</span>. Scanners list sessions in this order.
               </p>
               <div className="flex gap-2">
