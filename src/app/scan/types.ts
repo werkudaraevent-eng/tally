@@ -23,6 +23,8 @@ export type Sesi = {
   bagasi?: true;
   /** Check-in > Sessions > Luggage: Pick-up: lembar hasil menampilkan titipan peserta untuk diserahkan. */
   ambil_bagasi?: true;
+  /** Check-in > Sessions > Allow check-in without signal: pindaian disimpan di ponsel saat sinyal hilang. */
+  tanpa_sinyal?: true;
 };
 
 /** Satu baris daftar centang barang, dari `pickup_checklist`. */
@@ -59,7 +61,7 @@ export type CatatanCheckpoint = {
 export type Jalur = { id: number; name: string; slug: string };
 
 /**
- * Empat status pertama datang dari server. Tiga terakhir dibuat di perangkat
+ * Empat status pertama datang dari server. Empat terakhir dibuat di perangkat
  * ketika jawaban server tidak pernah sampai atau menolak:
  *
  * - `gagal`: jaringan putus, kehabisan waktu, atau server galat (5xx). Tamu ini
@@ -68,8 +70,11 @@ export type Jalur = { id: number; name: string; slug: string };
  *   menolong adalah masuk lagi.
  * - `ditolak`: server menjawab tetapi menolak (4xx lain, mis. sesi ditutup).
  *   Mengulang tidak akan mengubah jawabannya.
+ * - `antri`: jaringan putus di sesi yang mengizinkan check-in tanpa sinyal.
+ *   Pindaian disimpan di ponsel dan dikirim sendiri saat sinyal kembali; tamu
+ *   boleh masuk. Nama dan pemeriksaan pindai ulang menyusul di History.
  */
-export type StatusHasil = "recorded" | "duplicate" | "not_found" | "created" | "gagal" | "login" | "ditolak";
+export type StatusHasil = "recorded" | "duplicate" | "not_found" | "created" | "gagal" | "login" | "ditolak" | "antri";
 
 export type Hasil = {
   status: StatusHasil;
@@ -105,6 +110,16 @@ export type Hasil = {
    * untuk judul lembar merah dan untuk Ulangi. Pencarian tidak membawa kode QR.
    */
   dicoba?: { id: string; nama: string };
+  /**
+   * `not_found` yang alasannya diketahui server: `cancelled` = peserta acara
+   * ini yang sudah dibatalkan (nama dan waktunya ikut), `other_event` = kode
+   * aktif milik acara lain (nama acara itu tidak dikirim).
+   */
+  reason?: "cancelled" | "other_event";
+  participant_name?: string;
+  removed_at?: string | null;
+  /** `duplicate`: aturan pindai ulang sesi ini (Check-in > Sessions > Repeat scan). */
+  repeat_scan?: "allow" | "stop";
 };
 
 /**

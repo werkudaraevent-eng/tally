@@ -2291,6 +2291,10 @@ html:hover {
 	--nada: var(--md-sys-color-warning);
 	--nada-on: var(--md-sys-color-on-warning);
 }
+.hasil-nada[data-nada="neutral"] {
+	--nada: #26303f;
+	--nada-on: #ffffff;
+}
 .hasil-nada[data-nada="error"] {
 	--nada: var(--md-sys-color-error);
 	--nada-on: var(--md-sys-color-on-error);

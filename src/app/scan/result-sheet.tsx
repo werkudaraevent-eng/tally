@@ -4,6 +4,7 @@ import {
   Armchair,
   CheckCircle,
   Clock,
+  CloudCheck,
   CloudSlash,
   DownloadSimple,
   Flag,
@@ -81,11 +82,15 @@ export const TUTUP_OTOMATIS_MS = 3000;
  * keadaan (kode tidak dikenal, belum tercatat); keduanya dibedakan ikon, judul,
  * dan aksinya, tidak hanya warna.
  */
-type Nada = "success" | "warning" | "error";
+type Nada = "success" | "warning" | "error" | "neutral";
 const LEMBAR: Record<Nada, string> = {
   success: "!bg-success !text-on-success",
   warning: "!bg-warning !text-on-warning",
   error: "!bg-error !text-on-error",
+  // Tersimpan di ponsel: bukan berhasil (belum sampai server), bukan gagal
+  // (tamu boleh masuk). Abu gelap yang sama dengan "sudah tercatat" di layar
+  // hasil checkpoint peserta (#330).
+  neutral: "!bg-[#26303f] !text-white",
 };
 const TAMPILAN: Record<StatusHasil, { judul: string; nada: Nada; Icon: typeof CheckCircle }> = {
   recorded: { judul: "Checked in", nada: "success", Icon: CheckCircle },
@@ -95,7 +100,20 @@ const TAMPILAN: Record<StatusHasil, { judul: string; nada: Nada; Icon: typeof Ch
   gagal: { judul: "Not saved", nada: "error", Icon: CloudSlash },
   login: { judul: "Signed out", nada: "warning", Icon: SignIn },
   ditolak: { judul: "Not checked in", nada: "error", Icon: Prohibit },
+  antri: { judul: "Saved on this phone", nada: "neutral", Icon: CloudCheck },
 };
+
+/** Tampilan yang bergantung pada alasan dari server, bukan hanya statusnya. */
+function tampilanUntuk(hasil: Hasil): { judul: string; nada: Nada; Icon: typeof CheckCircle } {
+  if (hasil.tersimpanSebelumnya) return TAMPILAN.recorded;
+  if (hasil.status === "not_found" && hasil.reason === "cancelled") return { judul: "Registration cancelled", nada: "error", Icon: Prohibit };
+  if (hasil.status === "not_found" && hasil.reason === "other_event") return { judul: "Badge for another event", nada: "error", Icon: XCircle };
+  if (hasil.status === "duplicate" && hasil.repeat_scan === "stop") return { judul: "Already used", nada: "error", Icon: Prohibit };
+  return TAMPILAN[hasil.status];
+}
+
+const tanggalJam = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
 
 /** Kenapa email Sign-in link walk-in tidak dikirim (prepareWalkinLink). */
 const ALASAN_TAUTAN: Record<string, string> = {
@@ -181,7 +199,8 @@ export function ResultSheet({
   alasanTahan = "barang",
 }: Props) {
   const status = hasil?.status;
-  const tampilan = status ? (hasil?.tersimpanSebelumnya ? TAMPILAN.recorded : TAMPILAN[status]) : null;
+  const tampilan = hasil && status ? tampilanUntuk(hasil) : null;
+  const batal = status === "not_found" && hasil?.reason === "cancelled";
   const peserta = hasil?.participant;
   const hadir = status === "recorded" || status === "created" || status === "duplicate";
   const adaOrang = Boolean(peserta) && hadir;
@@ -220,9 +239,12 @@ export function ResultSheet({
 
   // Aksi lain yang lebih penting daripada menutup. Tanpa itu, menutup adalah
   // satu-satunya langkah, dan ia tampil sebagai tombol utama "Scan next".
-  const cariNama = status === "not_found" && Boolean(onCari);
+  // Pendaftaran yang dibatalkan: mencari nama atau mendaftarkannya sebagai
+  // walk-in hanya membuka jalan memutar keputusan panitia.
+  const cariNama = status === "not_found" && !batal && Boolean(onCari);
+  const walkInDitawarkan = status === "not_found" && !batal && bolehWalkIn;
   const adaAksiLain =
-    cariNama || (status === "not_found" && bolehWalkIn) || status === "gagal" || status === "login" || adaBarang || adaBagasi || adaAmbil || labelUtama;
+    cariNama || walkInDitawarkan || status === "gagal" || status === "login" || adaBarang || adaBagasi || adaAmbil || labelUtama;
   // Kartu terang di dalam lembar: semua yang punya warnanya sendiri (daftar
   // barang, isian bagasi, kabar printer, tamu tertahan) duduk di permukaan
   // netral, karena warnanya tidak dijamin terbaca di atas latar status.
@@ -288,7 +310,7 @@ export function ResultSheet({
                   bahan memastikan orangnya benar. Tiga baris masih muat, dan
                   ukurannya turun satu langkah di ponsel sempit. */}
               <p className="mt-4 line-clamp-3 text-headline-medium font-semibold [overflow-wrap:anywhere] max-[400px]:text-headline-small [@media(max-height:700px)]:mt-3 [@media(max-height:700px)]:text-headline-small">
-                {peserta ? peserta.name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Code ${hasil.qr}` : "Code ?"}
+                {peserta ? peserta.name : batal && hasil.participant_name ? hasil.participant_name : hasil.dicoba ? hasil.dicoba.nama : hasil.qr ? `Code ${hasil.qr}` : "Code ?"}
               </p>
               {/* Shown after scan: sesi yang diatur panitia mendapat daftar
                   pilihannya (hotel, kendaraan, jawaban form) menggantikan baris
@@ -352,13 +374,34 @@ export function ResultSheet({
               ) : null}
 
               {status === "duplicate" && !hasil.tersimpanSebelumnya ? (
+                hasil.repeat_scan === "stop" ? (
+                  <p className="mt-3 text-body-medium opacity-90">
+                    First scanned at {jam(hasil.first_scan_at)}. This session does not let a badge in twice: check that the badge belongs to this person before letting them in.
+                    The check-in count does not change.
+                  </p>
+                ) : (
+                  <p className="mt-3 text-body-medium opacity-90">
+                    First scanned at {jam(hasil.first_scan_at)}. This is scan number {hasil.scan_count}. They can still go in.
+                    The check-in count does not change.
+                  </p>
+                )
+              ) : null}
+
+              {status === "antri" ? (
                 <p className="mt-3 text-body-medium opacity-90">
-                  First scanned at {jam(hasil.first_scan_at)}. This is scan number {hasil.scan_count}. They can still go in.
-                  The check-in count does not change.
+                  No signal. Let them in: this check-in is kept on this phone and sent by itself when the signal is back. The name and the repeat check come after it is sent, in History.
                 </p>
               ) : null}
 
-              {status === "not_found" ? (
+              {status === "not_found" && hasil.reason === "cancelled" ? (
+                <p className="mt-3 text-body-medium opacity-90">
+                  The organisers cancelled this registration{hasil.removed_at ? ` on ${tanggalJam(hasil.removed_at)}` : ""}. They are not checked in. Send them to the organisers&apos; desk.
+                </p>
+              ) : status === "not_found" && hasil.reason === "other_event" ? (
+                <p className="mt-3 text-body-medium opacity-90">
+                  This badge is for another event, not this one. They are not checked in. Ask for the invitation to this event, or search the name.
+                </p>
+              ) : status === "not_found" ? (
                 <p className="mt-3 text-body-medium opacity-90">
                   This code is not a participant of this event, or their registration was cancelled.{" "}
                   {bolehWalkIn
@@ -499,7 +542,7 @@ export function ResultSheet({
                 </Button>
               ) : null}
 
-              {status === "not_found" && bolehWalkIn ? (
+              {walkInDitawarkan ? (
                 <Button variant={cariNama ? "outlined" : "filled"} size="lg" shape="pill" onClick={onWalkIn} icon={<UserPlus size={20} weight="bold" aria-hidden />}>
                   Register walk-in
                 </Button>

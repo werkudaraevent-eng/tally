@@ -74,7 +74,7 @@ figcaption { font-size: 13px; color: var(--muted); text-align: center; margin-to
 .result { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
 .result:last-child { border-bottom: 1px solid var(--line); }
 .dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 5px; }
-.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); } .dot.neutral { background: #26303f; }
 .result p { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
 .result strong { display: block; }
 .fix { display: grid; gap: 10px; margin: 12px 0; }
@@ -153,7 +153,11 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
     <div>
       <div class="result"><span class="dot ok"></span><div><strong>Hijau · <span class="ui">Checked in</span></strong><p>Berhasil. Kalau peserta punya kursi, nomornya tampil besar (misalnya <span class="ui">Row C · Seat 12</span>). Bacakan ke peserta. Di bawah nama bisa ada kotak info yang dipilih panitia untuk sesi ini, misalnya <span class="ui">Hotel</span> atau <span class="ui">Vehicle</span>; tulisan <span class="ui">Not set</span> berarti datanya belum diisi panitia, laporkan ke panitia. Lembar hijau menutup sendiri setelah 3 detik (isian di tombol <span class="ui">Scan next</span> menyusut sebagai hitung mundur); sentuh lembarnya kalau ingin tetap terbuka, atau tekan <span class="ui">Scan next</span> untuk langsung lanjut.</p></div></div>
       <div class="result"><span class="dot warn"></span><div><strong>Oranye · <span class="ui">Already scanned</span></strong><p>Peserta ini sudah pernah dipindai di sesi ini (jam pertama tertulis). Peserta tetap boleh masuk dan angka hadir tidak bertambah. Tekan <span class="ui">Scan next</span>.</p></div></div>
-      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Unknown code</span></strong><p>QR bukan milik peserta acara ini, atau pendaftarannya dibatalkan. Tekan <span class="ui">Find name</span> di lembar itu untuk langsung mencari namanya. Kalau tidak ada dan acara menerima walk-in, tekan <span class="ui">Register walk-in</span>.</p></div></div>
+      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Already used</span></strong><p>Hanya di sesi yang diatur panitia <span class="ui">Stop and check</span>. Badge ini sudah dipakai masuk. Cocokkan dulu badge dengan orangnya sebelum mempersilakan masuk.</p></div></div>
+      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Registration cancelled</span></strong><p>Panitia sudah membatalkan pendaftaran orang ini (nama dan tanggalnya tertulis). Jangan dicatat; arahkan ke meja panitia.</p></div></div>
+      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Badge for another event</span></strong><p>Badge ini untuk acara lain. Minta undangan acara ini, atau cari namanya dengan <span class="ui">Find name</span>.</p></div></div>
+      <div class="result"><span class="dot neutral"></span><div><strong>Abu · <span class="ui">Saved on this phone</span></strong><p>Hanya di sesi yang mengizinkan check-in tanpa sinyal. Sinyal hilang, tapi pindaian disimpan di ponsel: persilakan masuk. Tanda kuning <span class="ui">N to send</span> di atas hilang sendiri setelah sinyal kembali. Biarkan halaman scanner tetap terbuka. Jangan biarkan panitia menutup sesi selama masih ada tanda <span class="ui">to send</span>: setelah sesi ditutup, check-in yang belum terkirim ditolak. Kalau muncul tanda merah <span class="ui">not accepted</span>, buka History: orang itu ternyata tidak terdaftar, cari dia atau beri tahu panitia.</p></div></div>
+      <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Unknown code</span></strong><p>QR tidak dikenal sama sekali. Tekan <span class="ui">Find name</span> di lembar itu untuk langsung mencari namanya. Kalau tidak ada dan acara menerima walk-in, tekan <span class="ui">Register walk-in</span>.</p></div></div>
       <div class="result"><span class="dot bad"></span><div><strong>Merah · <span class="ui">Not saved</span></strong><p>Koneksi putus, peserta <b>belum</b> tercatat. Tekan <span class="ui">Retry</span> atau pindai ulang. Lihat bagian <a href="#masalah">Kalau ada masalah</a>.</p></div></div>
     </div>
     <div class="pair">
@@ -269,7 +273,7 @@ footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
     <h2><span class="no">9</span>Kalau ada masalah</h2>
     <figure><img src="/panduan/scanner/08-tidak-tersimpan.jpg" alt="Lembar merah Not saved dan tanda Offline" loading="lazy"><figcaption>Not saved dan tanda Offline di atas</figcaption></figure>
     <div class="fix">
-      <div><strong><span class="ui">Not saved</span> / tanda <span class="ui">Offline</span></strong><p>Koneksi putus, peserta belum tercatat. Tekan <span class="ui">Retry</span>. Tanda Offline hilang sendiri setelah pindaian berikutnya berhasil.</p></div>
+      <div><strong><span class="ui">Not saved</span> / tanda <span class="ui">Offline</span></strong><p>Koneksi putus, peserta belum tercatat. Tekan <span class="ui">Retry</span>. Tanda Offline hilang sendiri setelah pindaian berikutnya berhasil. Di sesi yang mengizinkan check-in tanpa sinyal, yang muncul adalah lembar abu <span class="ui">Saved on this phone</span>, bukan Not saved.</p></div>
       <div><strong><span class="ui">Signed out</span></strong><p>Akun di HP ini keluar. Tekan <span class="ui">Sign in again</span>, masuk, lalu pindai ulang peserta tadi.</p></div>
       <div><strong><span class="ui">Not checked in</span></strong><p>Server menolak, misalnya sesi sudah ditutup admin. Mencoba ulang tidak akan berhasil; hubungi panitia.</p></div>
       <div><strong>Kamera tidak menyala</strong><p>Izin kamera ditolak. Buka pengaturan situs di browser, izinkan kamera, lalu muat ulang halaman. Sambil menunggu, pakai <span class="ui">Find name</span>.</p></div>

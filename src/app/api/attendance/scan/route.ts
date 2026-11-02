@@ -41,6 +41,12 @@ const bodySchema = z.object({
    * acara tidak mencetak badge kertas di meja (lib/badge/stasiun-server.ts).
    */
   cetak: z.object({ stasiun_id: z.number().int().positive(), mode: z.enum(["off", "walkin", "semua"]) }).nullish(),
+  /**
+   * Waktu pindai asli dari antrean ponsel (tanpa sinyal). Database hanya
+   * memakainya bila sesinya mengizinkan check-in tanpa sinyal, dan menjepitnya
+   * ke 24 jam terakhir; selain itu waktu server yang dipakai.
+   */
+  scanned_at: z.string().datetime({ offset: true }).optional(),
 });
 
 export async function POST(request: Request) {
@@ -75,6 +81,8 @@ export async function POST(request: Request) {
     p_qr: qr,
     p_user: auth.user.id,
     p_lane_id: parsed.data.lane_id ?? null,
+    // Hanya dikirim bila ada: panggilan lima argumen tetap sama persis.
+    ...(parsed.data.scanned_at ? { p_scanned_at: parsed.data.scanned_at } : {}),
   } as never);
 
   if (error) {
