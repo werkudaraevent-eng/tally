@@ -1,6 +1,11 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { bacaKursor, bacaStatus, ringkasPindaian, saringSetelah, tulisKursor, UKURAN_HALAMAN } from "@/lib/daftar-hadir";
+
+/** Peserta per baca. Daftar id-nya juga menjadi `.in()` pindaian: 100 orang tetap jauh di bawah batas 1.000 baris pindaian, juga bila ada pindaian ulang. */
+const POTONGAN = 100;
+/** Paling banyak 20 x 100 = 2.000 peserta diperiksa per permintaan; sisanya lewat "Show more". */
+const MAKS_PUTARAN = 20;
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -39,37 +44,61 @@ export async function GET(request: Request) {
   if (sesi.error) return apiError("INTERNAL_ERROR", 500);
   if (!sesi.data) return apiError("VALIDATION_ERROR", 404, { message: "This check-in point no longer exists. Reload the page." });
 
-  let kueri = client
-    .from("participants")
-    .select(status === "hadir" ? "id,name,company,title,attendance_scans!inner(scanned_at)" : "id,name,company,title,attendance_scans!left(id)")
-    .eq("event_id", eventId)
-    .is("source_removed_at", null)
-    .eq("attendance_scans.session_id", sessionId)
-    .eq("attendance_scans.event_id", eventId)
-    .order("name", { ascending: true })
-    .order("id", { ascending: true })
-    // Satu lebih banyak, supaya "masih ada lagi" dijawab tanpa kueri kedua.
-    .limit(UKURAN_HALAMAN + 1);
-  // Anti-join: baris peserta yang embed pindaiannya di sesi ini kosong.
-  if (status === "belum") kueri = kueri.is("attendance_scans", null);
-  if (kursor) kueri = kueri.or(saringSetelah(kursor));
+  // Dua langkah sederhana, bukan anti-join PostgREST (embed !left + is.null):
+  // peserta dibaca per potongan urut nama, lalu pindaian sesi ini untuk id
+  // potongan itu, dan disaring di sini. Hanya fitur dasar PostgREST yang
+  // dipakai, dan batas 1.000 baris tidak pernah tersentuh.
+  type Baris = { id: string; name: string; company: string | null; title: string | null };
+  const hasil: Array<Baris & { scan_count: number; first_scan_at: string | null }> = [];
+  let posisi = kursor;
+  let habis = false;
+  for (let putaran = 0; putaran < MAKS_PUTARAN && hasil.length < UKURAN_HALAMAN && !habis; putaran++) {
+    let kueri = client
+      .from("participants")
+      .select("id,name,company,title")
+      .eq("event_id", eventId)
+      .is("source_removed_at", null)
+      .order("name", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(POTONGAN);
+    if (posisi) kueri = kueri.or(saringSetelah(posisi));
+    const { data, error } = await kueri;
+    if (error) return apiError("INTERNAL_ERROR", 500);
+    const potongan = (data ?? []) as Baris[];
+    if (potongan.length < POTONGAN) habis = true;
+    if (potongan.length === 0) break;
 
-  const { data, error } = await kueri;
-  if (error) return apiError("INTERNAL_ERROR", 500);
+    const scans = await client
+      .from("attendance_scans")
+      .select("participant_id,scanned_at")
+      .eq("event_id", eventId)
+      .eq("session_id", sessionId)
+      .in("participant_id", potongan.map((row) => row.id));
+    if (scans.error) return apiError("INTERNAL_ERROR", 500);
+    const perOrang = new Map<string, Array<{ scanned_at: string }>>();
+    for (const scan of (scans.data ?? []) as Array<{ participant_id: string; scanned_at: string }>) {
+      perOrang.set(scan.participant_id, [...(perOrang.get(scan.participant_id) ?? []), scan]);
+    }
 
-  type Baris = { id: string; name: string; company: string | null; title: string | null; attendance_scans?: Array<{ scanned_at: string }> | null };
-  const semua = (data ?? []) as unknown as Baris[];
-  const halaman = semua.slice(0, UKURAN_HALAMAN);
-  const terakhir = halaman.at(-1);
+    for (const row of potongan) {
+      posisi = { n: row.name, i: row.id };
+      const ringkas = ringkasPindaian(perOrang.get(row.id));
+      if ((status === "hadir") === (ringkas.scan_count > 0)) {
+        hasil.push({ ...row, ...ringkas });
+        if (hasil.length === UKURAN_HALAMAN) {
+          // Berhenti tepat di orang ke-50; sisa potongan dibaca lagi di
+          // halaman berikutnya mulai dari sesudah orang ini.
+          if (row !== potongan.at(-1)) habis = false;
+          break;
+        }
+      }
+    }
+  }
 
   return Response.json({
-    rows: halaman.map((row) => ({
-      id: row.id,
-      name: row.name,
-      company: row.company,
-      title: row.title,
-      ...(status === "hadir" ? ringkasPindaian(row.attendance_scans) : { scan_count: 0, first_scan_at: null }),
-    })),
-    next: semua.length > UKURAN_HALAMAN && terakhir ? tulisKursor({ n: terakhir.name, i: terakhir.id }) : null,
+    rows: hasil,
+    // Kursor = orang terakhir yang DIPERIKSA, bukan yang ditampilkan: tanpa itu
+    // halaman berikutnya memeriksa ulang orang yang sudah dilewati.
+    next: !habis && posisi ? tulisKursor(posisi) : null,
   });
 }

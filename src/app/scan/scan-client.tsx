@@ -54,6 +54,7 @@ import {
 } from "@/lib/label/printer";
 import { renderLabelDataUrl } from "@/lib/label/render";
 import { DialogGantiStasiun, PanelCetakMeja, barisCetakMeja, useCetakMeja } from "./cetak-meja";
+import { DaftarHadir, type StatusDaftar } from "./daftar-hadir";
 import { LembarScan, PilihMeja } from "./lembar-meja";
 import { usePemindaiKeyboard } from "./pemindai-keyboard";
 import { ResultSheet, TUTUP_OTOMATIS_MS } from "./result-sheet";
@@ -510,6 +511,10 @@ export default function ScanClient() {
   const barusanRef = useRef<Map<string, { waktu: number; hasil: Hasil }>>(new Map());
 
   const [kueri, setKueri] = useState("");
+  // Daftar Not yet / Checked in di Find name (daftar-hadir.tsx). "See who" di
+  // kartu hitungan membuka tab ini tanpa memunculkan papan ketik.
+  const [statusDaftar, setStatusDaftar] = useState<StatusDaftar>("belum");
+  const [fokusCari, setFokusCari] = useState(true);
   /**
    * Hasil pencarian DAN kunci yang menghasilkannya, dalam satu state.
    *
@@ -1317,6 +1322,7 @@ export default function ScanClient() {
 
   const gantiMode = (berikutnya: Mode) => {
     setMode(berikutnya);
+    if (berikutnya === "cari") setFokusCari(true);
     // Kamera dimatikan saat berpindah ke tab pencarian. Membiarkannya hidup di
     // balik tab yang tidak terlihat berarti lampu kamera tetap menyala tanpa ada
     // pratinjau yang menjelaskan kenapa.
@@ -1333,6 +1339,20 @@ export default function ScanClient() {
     lebar.addEventListener("change", cek);
     return () => lebar.removeEventListener("change", cek);
   }, [mode]);
+
+  const catatDariDaftar = async (baris: BarisCari) => {
+    setMencatatId(baris.id);
+    const data = await kirim("", { id: baris.id, nama: baris.name });
+    setMencatatId(null);
+    return data;
+  };
+
+  const lihatBelum = () => {
+    setKueri("");
+    setStatusDaftar("belum");
+    gantiMode("cari");
+    setFokusCari(false);
+  };
 
   const catatDariCari = async (baris: BarisCari) => {
     setMencatatId(baris.id);
@@ -1698,6 +1718,18 @@ export default function ScanClient() {
         </div>
       </div>
       {terdaftar ? <div className="mt-3">{bilahKemajuan}</div> : null}
+      {/* Siapa yang belum: membuka daftar di Find name. Di tab Find name
+          sendiri tombolnya tidak perlu, daftarnya sudah di bawah. */}
+      {belum !== null && belum > 0 && mode !== "cari" ? (
+        <button
+          type="button"
+          onClick={lihatBelum}
+          className="mt-3 flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-surface px-4 text-left text-body-large font-semibold"
+        >
+          <span className="min-w-0">{angka(belum)} not checked in yet</span>
+          <span className="shrink-0 text-label-large text-primary">See who ›</span>
+        </button>
+      ) : null}
     </div>
   );
 
@@ -2011,14 +2043,27 @@ export default function ScanClient() {
                   value={kueri}
                   onChange={(event) => setKueri(event.target.value)}
                   autoComplete="off"
-                  autoFocus
+                  autoFocus={fokusCari}
                   placeholder={nomorBagasi && (sesiAktif?.bagasi || sesiAktif?.ambil_bagasi) ? "Name, REG code or luggage number" : "Name, organisation or REG code"}
                   leading={<MagnifyingGlass size={20} />}
                   hint="Part of a name works, in any order."
                 />
 
                 <div className="mt-3" aria-busy={mencari}>
-                  {!cukupHuruf ? null : mencari ? (
+                  {!cukupHuruf ? (
+                    kueriBersih === "" ? (
+                      <DaftarHadir
+                        sessionId={sessionId}
+                        status={statusDaftar}
+                        onStatus={setStatusDaftar}
+                        hadir={hadir}
+                        belum={belum}
+                        onCatat={(baris) => { bukaSuara(); return catatDariDaftar(baris); }}
+                        mencatatId={mencatatId}
+                        sibuk={sibuk}
+                      />
+                    ) : null
+                  ) : mencari ? (
                     <SearchResultsSkeleton rows={3} />
                   ) : cariSekarang?.gagal ? (
                     <EmptyState
@@ -2142,7 +2187,12 @@ export default function ScanClient() {
               {belum !== null ? (
                 <p className="mt-3 flex items-baseline justify-between gap-2 text-body-medium">
                   <span className="text-on-surface-variant">Not checked in yet</span>
-                  <span className="font-semibold tabular-nums">{angka(belum)}</span>
+                  <span className="flex items-baseline gap-3">
+                    <span className="font-semibold tabular-nums">{angka(belum)}</span>
+                    {belum > 0 ? (
+                      <Button variant="text" size="sm" onClick={lihatBelum}>See who</Button>
+                    ) : null}
+                  </span>
                 </p>
               ) : null}
               <p className="mt-1 text-body-small text-on-surface-variant">Counts people, not repeat scans. Updates every 30 seconds.</p>
