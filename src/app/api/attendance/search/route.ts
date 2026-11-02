@@ -85,7 +85,8 @@ export async function GET(request: Request) {
   // Dua huruf, bukan satu: satu huruf cocok dengan hampir seluruh daftar peserta,
   // dan daftar sepanjang itu lebih lambat dibaca petugas daripada tidak ada
   // daftar sama sekali.
-  if (mentah.length < 2) return Response.json({ results: [], truncated: false });
+  // Kecuali satu angka: nomor bagasi 1-9 tetap harus bisa dicari (di bawah).
+  if (mentah.length < 2 && !/^[0-9]$/.test(mentah)) return Response.json({ results: [], truncated: false });
 
   const kata = pecahKata(mentah);
   if (kata.length === 0) return Response.json({ results: [], truncated: false });
@@ -95,6 +96,8 @@ export async function GET(request: Request) {
   // ditemukan di meja ambil lewat nomor di tag bagasinya. Hanya jawaban
   // pertanyaan itu yang ditarik, bukan seluruh `extra`.
   const kunciNomor = kunciNomorBagasi(auth.scope.event.registration_form_config as RegistrationFormConfig | null);
+  // Satu angka hanya dicocokkan persis dengan nomor bagasi, tidak dengan nama.
+  if (mentah.length < 2 && !kunciNomor) return Response.json({ results: [], truncated: false });
 
   let kueri = client
     .from("participants")
@@ -115,9 +118,13 @@ export async function GET(request: Request) {
     const pola = `%${potongan}%`;
     // Kode utuh dicoba apa adanya dan dalam huruf besar (REG159425 diketik
     // reg159425). `eq`, bukan `ilike`: garis bawah adalah wildcard di `ilike`.
-    const nomor = kunciNomor ? `,extra->>${kunciNomor}.eq.${potongan},extra->>${kunciNomor}.eq.${potongan.toUpperCase()}` : "";
+    const nomor = kunciNomor
+      ? [...new Set([potongan, potongan.toUpperCase(), potongan.toLowerCase()])].map((v) => `extra->>${kunciNomor}.eq.${v}`).join(",")
+      : "";
     kueri = kueri.or(
-      `name.ilike.${pola},company.ilike.${pola},qr_code.eq.${potongan},qr_code.eq.${potongan.toUpperCase()}${nomor}`,
+      mentah.length < 2
+        ? nomor
+        : `name.ilike.${pola},company.ilike.${pola},qr_code.eq.${potongan},qr_code.eq.${potongan.toUpperCase()}${nomor ? `,${nomor}` : ""}`,
     );
   }
 

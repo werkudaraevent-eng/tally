@@ -1060,9 +1060,9 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           const status = statusBagasi(p.bagasi ?? undefined);
           // Luggage number di depan statusnya: "045 · 2 · At the desk".
           const nomor = nomorBagasi(kunciNomor, p.extra);
-          const awal = nomor ? <span className="mr-2 font-medium tabular-nums">{nomor}</span> : null;
-          if (!status) return awal ? <span className="flex items-center">{awal}<span className="text-on-surface-variant">Not dropped off</span></span> : <EmptyCell />;
-          if (status === "No luggage") return <span className="flex items-center">{awal}<span className="text-on-surface-variant">No luggage</span></span>;
+          const awal = nomor ? <span className="mr-2 shrink-0 whitespace-nowrap font-medium tabular-nums">{nomor}</span> : null;
+          if (!status) return awal ? <span className="flex items-center">{awal}<span className="truncate whitespace-nowrap text-on-surface-variant">Not dropped off</span></span> : <EmptyCell />;
+          if (status === "No luggage") return <span className="flex items-center">{awal}<span className="truncate whitespace-nowrap text-on-surface-variant">No luggage</span></span>;
           return <span className="flex items-center">{awal}<StatusChip dot tone={status === "Handed back" ? "success" : "neutral"} className="tabular-nums">{labelBagasi(p.bagasi ?? undefined)}</StatusChip></span>;
         },
       } satisfies Kolom] : []),

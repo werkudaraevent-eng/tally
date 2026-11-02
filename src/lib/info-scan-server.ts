@@ -35,8 +35,9 @@ export async function infoTamu(
       || (sesi as { luggage_pickup?: boolean } | null)?.luggage_pickup === true;
     const kunciNomor = mejaBagasi ? kunciNomorBagasi(config) : null;
     const pilihanNomor = kunciNomor ? `extra:${kunciNomor}` : null;
+    // Tetap paling banyak BATAS_INFO_SCAN baris: bacaInfoScan memotongnya.
     const tersimpan = pilihanNomor
-      ? [pilihanNomor, ...(pilihanTersimpan ?? ["base:company", "base:title"]).filter((kunci) => kunci !== pilihanNomor)]
+      ? bacaInfoScan([pilihanNomor, ...(pilihanTersimpan ?? ["base:company", "base:title"]).filter((kunci) => kunci !== pilihanNomor)])
       : pilihanTersimpan;
     if (!tersimpan || tersimpan.length === 0) return null;
 

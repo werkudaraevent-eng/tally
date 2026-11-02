@@ -1285,7 +1285,8 @@ export default function ScanClient() {
     // pendek cukup TIDAK menjalankan apa pun. Hasil lama tetap tersimpan tetapi
     // tidak pernah tergambar, karena kunci yang menempel padanya sudah tidak
     // cocok lagi dengan kueri sekarang.
-    if (q.length < 2) return;
+    // Satu angka boleh bila acara punya Luggage number (nomor bagasi 1-9).
+    if (q.length < 2 && !(nomorBagasi && /^[0-9]$/.test(q))) return;
     const kunci = `${sessionId ?? 0}|${q}`;
 
     let basi = false;
@@ -1312,7 +1313,7 @@ export default function ScanClient() {
     }, 300);
 
     return () => { basi = true; window.clearTimeout(timer); };
-  }, [kueri, sessionId]);
+  }, [kueri, sessionId, nomorBagasi]);
 
   const gantiMode = (berikutnya: Mode) => {
     setMode(berikutnya);
@@ -1583,7 +1584,7 @@ export default function ScanClient() {
   // kunci yang menempel pada hasil terakhir. Tidak ada penanda "sedang memuat"
   // yang dijaga terpisah, jadi tidak ada keadaan yang bisa tertinggal menyala.
   const kueriBersih = kueri.trim();
-  const cukupHuruf = kueriBersih.length >= 2;
+  const cukupHuruf = kueriBersih.length >= 2 || (nomorBagasi && /^[0-9]$/.test(kueriBersih));
   const kunciSekarang = `${sessionId ?? 0}|${kueriBersih}`;
   const cariSekarang = cari?.kunci === kunciSekarang ? cari : null;
   const mencari = cukupHuruf && cariSekarang === null;
