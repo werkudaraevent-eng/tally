@@ -5,7 +5,7 @@ import { ArrowSquareOut, Plus, QrCode, Television, X, XCircle } from "@phosphor-
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Button, ButtonLink, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, MetaSeparator, Pane, PaneBody,
-  PaneFooter, StatusChip, StatusDot, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
+  PaneFooter, SelectField, StatusChip, StatusDot, Switch, Tabs, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { useAdminPage, useTerkunci } from "@/components/admin/page-context";
 import { useToast } from "@/components/toast";
@@ -14,6 +14,7 @@ import { eventApiPath } from "@/lib/event-url";
 import { cx } from "@/lib/m3/cx";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import type { PilihanInfo } from "@/lib/info-scan";
+import type { SetelanNomorBagasi } from "@/lib/bagasi/nomor";
 import { CheckpointsTab } from "./checkpoints";
 import { InfoScanSesi } from "./info-scan-sesi";
 
@@ -111,6 +112,8 @@ export default function AttendanceAdminPage() {
   const [allowWalkIn, setAllowWalkIn] = useState(false);
   const [walkInCount, setWalkInCount] = useState(0);
   const [infoPilihan, setInfoPilihan] = useState<PilihanInfo[]>([]);
+  // Luggage number: satu pertanyaan per acara, dipakai semua meja bagasi. Null = server lama.
+  const [nomorBagasi, setNomorBagasi] = useState<SetelanNomorBagasi | null>(null);
   const [nama, setNama] = useState("");
   const [slug, setSlug] = useState("");
   const [namaJalur, setNamaJalur] = useState("");
@@ -165,6 +168,7 @@ export default function AttendanceAdminPage() {
     setWalkInCount(body.walk_in_count ?? 0);
     setTotalPeserta(typeof body.participant_total === "number" ? body.participant_total : null);
     setInfoPilihan(body.info_pilihan ?? []);
+    setNomorBagasi(body.nomor_bagasi ?? null);
     if (jalur?.ok) { setLanes((await jalur.json()).lanes ?? []); setErrorJalur(""); }
     else setErrorJalur("Desks could not be loaded.");
     if (item?.ok) {
@@ -225,6 +229,27 @@ export default function AttendanceAdminPage() {
     }
     await load();
     return true;
+  }
+
+  /** Luggage > Luggage number: pilih pertanyaan, lepas (null), atau buat pertanyaan baru. */
+  async function ubahNomorBagasi(payload: { field: string | null } | { create: true }) {
+    setBusy(true);
+    const response = await fetch(eventApiPath("/api/admin/attendance/nomor-bagasi"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch(() => null);
+    setBusy(false);
+    if (!response) { toast.error("Connection lost", "Reload to see the current state."); return; }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { toast.error("Not saved", pesanGalatApi(body) ?? "Try again."); return; }
+    setNomorBagasi(body as SetelanNomorBagasi);
+    toast.success(
+      "create" in payload ? "Question added" : payload.field ? "Luggage number set" : "Luggage number off",
+      "create" in payload
+        ? "Fill it in the Participant list or by import, like any question."
+        : payload.field ? "Every luggage desk, the scan sheet and the participant's Bagasi card now show it." : "Luggage desks no longer show a number. The answers stay.",
+    );
   }
 
   async function kirimJalur(method: "POST" | "PATCH", payload: Record<string, unknown>) {
@@ -501,6 +526,28 @@ export default function AttendanceAdminPage() {
               );
             })}
           </fieldset>
+          {(sesiTerpilih.records_luggage || sesiTerpilih.luggage_pickup) && nomorBagasi ? (
+            <div className="flex flex-col gap-2">
+              <SelectField
+                label="Luggage number"
+                value={nomorBagasi.field ?? ""}
+                disabled={busy || terkunci}
+                onChange={(e) => void ubahNomorBagasi({ field: e.target.value || null })}
+                hint="One number per participant, for every luggage desk in this event. Shown large on the scan sheet and on the participant's Bagasi card, in the Luggage column, and staff at the pick-up desk can search by it."
+              >
+                <option value="">None</option>
+                {nomorBagasi.pilihan.map((p) => (
+                  <option key={p.key} value={p.key}>{p.staff_only ? `${p.label} · staff only` : p.label}</option>
+                ))}
+              </SelectField>
+              {nomorBagasi.field === null ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-body-medium text-on-surface-variant">No question for it yet?</span>
+                  <Button variant="outlined" size="sm" icon={<Plus aria-hidden />} disabled={busy || terkunci} onClick={() => void ubahNomorBagasi({ create: true })}>Add a Luggage number question</Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {sesiTerpilih.bagasi ? (
             <dl className="flex flex-col gap-2">
               <KeyValue label="Bags">

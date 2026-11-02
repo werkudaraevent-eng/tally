@@ -1,4 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { kunciNomorBagasi, nomorBagasi } from "@/lib/bagasi/nomor";
+import type { RegistrationFormConfig } from "@/lib/domain";
 import { ringkasBagasi, type BarisRingkasBagasi, type RingkasBagasi } from "@/lib/bagasi/ringkas";
 
 /**
@@ -353,4 +355,22 @@ export async function hapusFotoBagasi(paths: Array<string | null>): Promise<void
   const daftar = paths.filter((path): path is string => Boolean(path));
   if (daftar.length === 0) return;
   await getSupabaseServiceClient().storage.from(BUCKET_BAGASI).remove(daftar).catch(() => null);
+}
+
+/**
+ * Luggage number satu peserta (lib/bagasi/nomor.ts), untuk kartu Bagasi di
+ * portal. Hanya jawaban pertanyaan itu yang dibaca, bukan seluruh `extra`.
+ * Null = acara tidak mengaturnya, peserta belum punya nomor, atau galat.
+ */
+export async function nomorBagasiPeserta(eventId: string, participantId: string, config: RegistrationFormConfig | null | undefined): Promise<string | null> {
+  const kunci = kunciNomorBagasi(config);
+  if (!kunci) return null;
+  const { data, error } = await getSupabaseServiceClient()
+    .from("participants")
+    .select(`nomor:extra->>${kunci}`)
+    .eq("event_id", eventId)
+    .eq("id", participantId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return nomorBagasi("nomor", data);
 }

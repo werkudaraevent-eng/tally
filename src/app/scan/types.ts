@@ -100,7 +100,7 @@ export type Hasil = {
    * urut. Menggantikan baris Company · Title. `nilai` null = datanya belum ada.
    * Tidak ada = sesi belum diatur.
    */
-  info?: { label: string; nilai: string | null }[];
+  info?: { label: string; nilai: string | null; besar?: boolean }[];
   /** Checkpoint yang selesai di pemindaian ini (lihat CatatanCheckpoint). */
   checkpoint?: CatatanCheckpoint;
   /** Walk-in baru: email Sign-in link (Participant area > Email a sign-in link to walk-ins). */
@@ -144,6 +144,8 @@ export type BarisCari = {
   name: string;
   company: string | null;
   title: string | null;
+  /** Luggage number (lib/bagasi/nomor.ts); hanya di acara yang mengaturnya. */
+  luggage_number?: string | null;
   scan_count: number;
   first_scan_at: string | null;
 };

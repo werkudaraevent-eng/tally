@@ -27,8 +27,10 @@ type Titipan = {
  *
  * `versi` naik setelah reset check-in, yang juga menghapus bagasi sesi itu.
  */
-export function BagasiPeserta({ participant, versi, waktu, onReset }: {
+export function BagasiPeserta({ participant, nomor, versi, waktu, onReset }: {
   participant: { id: string; name: string };
+  /** Luggage number (lib/bagasi/nomor.ts); null = tidak diatur atau belum diisi. */
+  nomor?: string | null;
   versi: number;
   waktu: (iso: string) => string;
   onReset: (participantId: string) => void;
@@ -73,7 +75,7 @@ export function BagasiPeserta({ participant, versi, waktu, onReset }: {
   }
 
   return (
-    <DetailSection title="Luggage">
+    <DetailSection title="Luggage" action={nomor ? <span className="text-body-medium text-on-surface-variant">No. <span className="text-title-medium font-semibold text-on-surface tabular-nums">{nomor}</span></span> : undefined}>
       {data === null && !galat ? <Skeleton className="h-[72px] w-full" /> : null}
       {galat ? (
         <p role="alert" className="flex items-start gap-2 text-body-medium text-error">

@@ -119,7 +119,15 @@ export type DataPesertaInfo = {
 };
 
 /** Satu baris di lembar hasil. `nilai` null = datanya belum ada ("Not set"). */
-export type BarisInfo = { label: string; nilai: string | null };
+export type BarisInfo = {
+  label: string;
+  nilai: string | null;
+  /**
+   * Info yang harus terbaca dari jarak lengan (tile besar di atas lembar).
+   * Nomor bagasi di meja bagasi selalu besar (lib/bagasi/nomor.ts).
+   */
+  besar?: boolean;
+};
 
 const teks = (nilai: unknown): string | null => {
   if (typeof nilai === "string") return nilai.trim() || null;

@@ -495,6 +495,9 @@ export default function ScanClient() {
   // Sama untuk bagasi: 1 selama jumlah atau foto tamu ini belum tersimpan.
   const bagasiRef = useRef(0);
   const [alasanTahan, setAlasanTahan] = useState<"barang" | "bagasi" | "ambil">("barang");
+  // Acara ini punya Luggage number (Check-in > sesi > Luggage): di meja bagasi
+  // pencarian menyebutnya dan hasilnya menampilkan nomornya.
+  const [nomorBagasi, setNomorBagasi] = useState(false);
   // Sesi aktif adalah meja ambil bagasi: kalimat tamu tertahan berbunyi "Hand over".
   const sesiAmbilRef = useRef(false);
   const [tertahan, setTertahan] = useState<Hasil | null>(null);
@@ -585,6 +588,7 @@ export default function ScanClient() {
     setWalkinFields((body.walkin_fields ?? []) as RegistrationField[]);
     if (body.walkin_wajib) setWalkinWajib(body.walkin_wajib as AturanWalkIn);
     setTerdaftar(typeof body.terdaftar === "number" ? body.terdaftar : null);
+    setNomorBagasi(body.nomor_bagasi === true);
     // Angka dari daftar sesi lebih baru daripada yang tersimpan dari pindaian
     // sebelumnya: muat ulang berarti "ambil yang terbaru".
     setHadirTerbaru({});
@@ -2007,7 +2011,7 @@ export default function ScanClient() {
                   onChange={(event) => setKueri(event.target.value)}
                   autoComplete="off"
                   autoFocus
-                  placeholder="Name, organisation or REG code"
+                  placeholder={nomorBagasi && (sesiAktif?.bagasi || sesiAktif?.ambil_bagasi) ? "Name, REG code or luggage number" : "Name, organisation or REG code"}
                   leading={<MagnifyingGlass size={20} />}
                   hint="Part of a name works, in any order."
                 />
@@ -2064,6 +2068,9 @@ export default function ScanClient() {
                               <div className="min-w-0 flex-1">
                                 {/* Nama tidak dipotong: ia bahan memastikan orangnya. */}
                                 <p className="text-body-large font-semibold leading-tight">{baris.name}</p>
+                                {baris.luggage_number && (sesiAktif?.bagasi || sesiAktif?.ambil_bagasi) ? (
+                                  <p className="text-label-large font-semibold tabular-nums">Luggage {baris.luggage_number}</p>
+                                ) : null}
                                 <p className="truncate text-body-small text-on-surface-variant">
                                   {[baris.company, baris.title].filter(Boolean).join(" · ") || "No organisation"}
                                 </p>

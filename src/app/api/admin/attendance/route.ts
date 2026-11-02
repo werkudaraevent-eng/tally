@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { setelanNomorBagasi } from "@/lib/bagasi/nomor";
 import { totalAmbilBagasi, totalBagasiSesi } from "@/lib/bagasi/server";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { BATAS_INFO_SCAN, pilihanInfo, type PilihanInfo } from "@/lib/info-scan";
@@ -107,6 +108,9 @@ export async function GET(request: Request) {
 
   return Response.json({
     info_pilihan: await pilihanInfoAcara(eventId, auth.scope.event.registration_form_config as RegistrationFormConfig | null),
+    // Luggage > Luggage number: pertanyaan yang dipakai sebagai nomor bagasi
+    // dan pertanyaan yang boleh dipilih (lib/bagasi/nomor.ts).
+    nomor_bagasi: setelanNomorBagasi(auth.scope.event.registration_form_config as RegistrationFormConfig | null),
     sessions: daftar.map((row) => ({
       ...row,
       ...(row.records_luggage === true ? { bagasi: bagasi?.get(row.id) ?? { bags: 0, people: 0, photos: 0 } } : {}),

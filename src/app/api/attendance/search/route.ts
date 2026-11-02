@@ -1,5 +1,7 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { kunciNomorBagasi } from "@/lib/bagasi/nomor";
+import type { RegistrationFormConfig } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -69,6 +71,7 @@ type Baris = {
   company: string | null;
   title: string | null;
   qr_code: string;
+  nomor?: string | null;
 };
 
 export async function GET(request: Request) {
@@ -88,12 +91,16 @@ export async function GET(request: Request) {
   if (kata.length === 0) return Response.json({ results: [], truncated: false });
 
   const client = getSupabaseServiceClient();
+  // Luggage number (lib/bagasi/nomor.ts): peserta yang ponselnya mati tetap
+  // ditemukan di meja ambil lewat nomor di tag bagasinya. Hanya jawaban
+  // pertanyaan itu yang ditarik, bukan seluruh `extra`.
+  const kunciNomor = kunciNomorBagasi(auth.scope.event.registration_form_config as RegistrationFormConfig | null);
 
   let kueri = client
     .from("participants")
     // Kolom yang ditarik sesempit mungkin — ini kueri yang dijalankan pada
     // setiap ketukan papan ketik di hari-H.
-    .select("id,name,company,title,qr_code")
+    .select(kunciNomor ? `id,name,company,title,qr_code,nomor:extra->>${kunciNomor}` : "id,name,company,title,qr_code")
     .eq("event_id", auth.scope.event.id)
     // Peserta yang dibatalkan panitia pusat tidak boleh muncul: mencatatnya
     // hadir membuat daftar hadir berbeda dari daftar peserta, dan aturan yang
@@ -108,8 +115,9 @@ export async function GET(request: Request) {
     const pola = `%${potongan}%`;
     // Kode utuh dicoba apa adanya dan dalam huruf besar (REG159425 diketik
     // reg159425). `eq`, bukan `ilike`: garis bawah adalah wildcard di `ilike`.
+    const nomor = kunciNomor ? `,extra->>${kunciNomor}.eq.${potongan},extra->>${kunciNomor}.eq.${potongan.toUpperCase()}` : "";
     kueri = kueri.or(
-      `name.ilike.${pola},company.ilike.${pola},qr_code.eq.${potongan},qr_code.eq.${potongan.toUpperCase()}`,
+      `name.ilike.${pola},company.ilike.${pola},qr_code.eq.${potongan},qr_code.eq.${potongan.toUpperCase()}${nomor}`,
     );
   }
 
@@ -149,7 +157,7 @@ export async function GET(request: Request) {
   // nama yang DIAWALI kuerinya, baru sisanya.
   const kueriKecil = mentah.toLowerCase();
   const peringkat = (row: Baris) => {
-    if (row.qr_code.toLowerCase() === kueriKecil) return 0;
+    if (row.qr_code.toLowerCase() === kueriKecil || row.nomor?.trim().toLowerCase() === kueriKecil) return 0;
     if (row.name.toLowerCase().startsWith(kueriKecil)) return 1;
     if (row.name.toLowerCase().includes(kueriKecil)) return 2;
     return 3;
@@ -161,6 +169,7 @@ export async function GET(request: Request) {
       name: row.name,
       company: row.company,
       title: row.title,
+      luggage_number: row.nomor?.trim() || null,
       peringkat: peringkat(row),
       scan_count: kehadiran.get(row.id)?.jumlah ?? 0,
       first_scan_at: kehadiran.get(row.id)?.pertama ?? null,
@@ -171,6 +180,7 @@ export async function GET(request: Request) {
       name: row.name,
       company: row.company,
       title: row.title,
+      ...(kunciNomor ? { luggage_number: row.luggage_number } : {}),
       scan_count: row.scan_count,
       first_scan_at: row.first_scan_at,
     }));
