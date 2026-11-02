@@ -44,6 +44,56 @@ export function kodeSah(rahasia: string, eventId: string, sesiId: number, kode: 
   });
 }
 
+/**
+ * Kode QR checkpoint tetap untuk dicetak (migrasi 202611020001). Satu kode per
+ * sesi dan nomor cetak: "Make a new code" menaikkan nomornya, jadi poster lama
+ * berhenti berlaku. Isi HMAC-nya memakai awalan `fixed:`, jadi tidak pernah
+ * sama dengan kode jendela 30 detik (yang isinya angka saja).
+ */
+export function kodeTetap(rahasia: string, eventId: string, sesiId: number, versi: number): string {
+  return createHmac("sha256", kunci(rahasia)).update(`${eventId}:${sesiId}:fixed:${versi}`).digest("base64url").slice(0, 12);
+}
+
+function samaPersis(a: string, b: string) {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+/**
+ * Hasil memeriksa kode yang dipindai peserta. `lama`: kode cetak dengan nomor
+ * yang sudah diganti panitia (posternya perlu dicetak ulang), dibedakan supaya
+ * peserta mendapat kalimat yang benar.
+ */
+export type HasilKode = "sah" | "lama" | "salah";
+
+export type QrSesi = { mode: "rotating" | "fixed"; version: number; changed_at: string | null };
+
+/** Kolom QR checkpoint sesi; kolom yang belum ada (sebelum migrasi) berarti berganti. */
+export function bacaQrSesi(baris: Record<string, unknown> | null | undefined): QrSesi {
+  const versi = Number(baris?.checkpoint_qr_version);
+  return {
+    mode: baris?.checkpoint_qr === "fixed" ? "fixed" : "rotating",
+    version: Number.isSafeInteger(versi) && versi >= 1 ? versi : 1,
+    changed_at: typeof baris?.checkpoint_qr_changed_at === "string" ? baris.checkpoint_qr_changed_at : null,
+  };
+}
+
+/**
+ * Kode berganti selalu diterima (Show QR di scanner tetap jalan untuk sesi
+ * cetak). Kode cetak hanya diterima bila sesinya memakai QR tetap dan nomornya
+ * nomor sekarang.
+ */
+export function periksaKode(rahasia: string, eventId: string, sesiId: number, kode: string, ms: number, qr: QrSesi): HasilKode {
+  if (kodeSah(rahasia, eventId, sesiId, kode, ms)) return "sah";
+  if (qr.mode === "fixed" && samaPersis(kodeTetap(rahasia, eventId, sesiId, qr.version), kode)) return "sah";
+  // Nomor lama: dicari mundur sampai 50 nomor, cukup untuk kalimat yang tepat.
+  for (let versi = qr.version - (qr.mode === "fixed" ? 1 : 0); versi >= Math.max(1, qr.version - 50); versi--) {
+    if (samaPersis(kodeTetap(rahasia, eventId, sesiId, versi), kode)) return "lama";
+  }
+  return "salah";
+}
+
 export function rahasiaKodeQr(): string {
   const rahasia = process.env.SESSION_SECRET;
   if (!rahasia) throw new Error("SESSION_SECRET is missing.");

@@ -32,7 +32,7 @@ const TEKS = {
 } as const;
 
 export default function LayarQrCheckpoint({ sesiId }: { sesiId: number | null }) {
-  const { data, gambar, galat, sisaDetik, sisaPersen } = usePakaiQrCheckpoint(sesiId);
+  const { data, gambar, galat, sisaDetik, sisaPersen, tetap } = usePakaiQrCheckpoint(sesiId);
   const lang = data?.event.lang ?? "id";
   const t = TEKS[lang];
   const pertama = data?.checkpoints[0] ?? null;
@@ -70,13 +70,15 @@ export default function LayarQrCheckpoint({ sesiId }: { sesiId: number | null })
             <div aria-hidden className="aspect-square w-[min(70vw,58dvh,440px)] animate-pulse rounded-lg bg-[#eceef3] motion-reduce:animate-none" />
           )}
         </div>
-        <div aria-hidden className="h-1.5 w-[min(70vw,58dvh,440px)] overflow-hidden rounded-full bg-white/20">
-          <i className="block h-full rounded-full bg-[#E8C968]" style={{ width: `${sisaPersen}%` }} />
-        </div>
+        {tetap ? null : (
+          <div aria-hidden className="h-1.5 w-[min(70vw,58dvh,440px)] overflow-hidden rounded-full bg-white/20">
+            <i className="block h-full rounded-full bg-[#E8C968]" style={{ width: `${sisaPersen}%` }} />
+          </div>
+        )}
         {data ? (
           <p className="text-center text-[18px] text-white/75">
-            {t.ganti(sisaDetik)}
-            {data.done != null ? ` · ${t.selesai(data.done)}` : ""}
+            {tetap ? "" : t.ganti(sisaDetik)}
+            {data.done != null ? `${tetap ? "" : " · "}${t.selesai(data.done)}` : ""}
           </p>
         ) : null}
       </section>
