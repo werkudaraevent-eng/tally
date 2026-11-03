@@ -102,7 +102,9 @@ function TandaPilih({ dipilih, kecil = false }: { dipilih: boolean; kecil?: bool
  * warnanya sama dengan `FilterChip`, tetapi isinya radio, bukan tombol
  * `aria-pressed`: memilih satu meja melepaskan yang lain, dan pembaca layar
  * perlu mendengar itu sebagai satu kelompok. Tinggi 48 px, bukan 40: ini layar
- * yang dipakai sambil berdiri (DESIGN.md, Booth, kasir, pemindai).
+ * yang dipakai sambil berdiri (DESIGN.md, Booth, kasir, pemindai). Bentuknya
+ * tetap pil saat dipilih (tanpa morf sudut milik FilterChip), sama dengan baris
+ * checkpoint di lembar yang sama; border transparan menjaga lebarnya tidak bergeser.
  */
 function ChipMeja({ value, label, dipilih, onPilih }: {
   value: number;
@@ -112,8 +114,8 @@ function ChipMeja({ value, label, dipilih, onPilih }: {
 }) {
   return (
     <label
-      className={`m3-state relative inline-flex min-h-12 cursor-pointer items-center gap-2 px-4 text-label-large font-semibold transition-[border-radius,background-color,color,border-color] duration-200 ease-emphasized ${
-        dipilih ? "rounded-lg bg-secondary-container text-on-secondary-container" : "rounded-full border border-outline text-on-surface-variant"
+      className={`m3-state relative inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full border px-4 text-label-large font-semibold transition-[background-color,color,border-color] duration-200 ease-emphasized ${
+        dipilih ? "border-transparent bg-secondary-container text-on-secondary-container" : "border-outline text-on-surface-variant"
       }`}
     >
       <input type="radio" name="jalur-meja" value={value} checked={dipilih} onChange={() => onPilih(value)} className="peer sr-only" />
