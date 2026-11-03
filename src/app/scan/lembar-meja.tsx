@@ -172,6 +172,21 @@ export function PilihMeja({
         if (siap && sesi !== null) onSimpan(sesi, perluJalur ? jalur : null);
       }}
     >
+      {/* Hanya untuk acara yang memang punya meja. Acara satu meja tidak perlu
+          memahami konsep yang tidak dipakainya. Meja DI ATAS checkpoint: chipnya
+          pendek dan jarang berubah, jadi selalu terlihat tanpa digulir. Yang boleh
+          bergulir hanya daftar checkpoint, yang panjangnya tergantung acara. */}
+      {perluJalur ? (
+        <fieldset className="mt-4">
+          <legend className="px-6 text-title-small text-on-surface-variant">Desk</legend>
+          <div className="mt-2 flex flex-wrap gap-2 px-6">
+            {lanes.map((baris) => (
+              <ChipMeja key={baris.id} value={baris.id} label={baris.name} dipilih={jalur === baris.id} onPilih={setJalur} />
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
       <fieldset className="mt-4">
         <legend className="px-6 text-title-small text-on-surface-variant">Check-in point</legend>
         <div className="mt-1 space-y-1 px-2">
@@ -191,19 +206,6 @@ export function PilihMeja({
           })}
         </div>
       </fieldset>
-
-      {/* Hanya untuk acara yang memang punya meja. Acara satu meja tidak perlu
-          memahami konsep yang tidak dipakainya. */}
-      {perluJalur ? (
-        <fieldset className="mt-4">
-          <legend className="px-6 text-title-small text-on-surface-variant">Desk</legend>
-          <div className="mt-2 flex flex-wrap gap-2 px-6">
-            {lanes.map((baris) => (
-              <ChipMeja key={baris.id} value={baris.id} label={baris.name} dipilih={jalur === baris.id} onPilih={setJalur} />
-            ))}
-          </div>
-        </fieldset>
-      ) : null}
 
       {/* Penanda ujung daftar: selama ia belum terlihat, ada pilihan di bawah kaki. */}
       <div ref={setUjung} aria-hidden className="h-px" />
