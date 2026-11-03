@@ -31,7 +31,7 @@ export function LembarScan({
   kaki?: ReactNode;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} title={judul} bare dismissible={bolehTutup} size="md" className="!rounded-[28px] bg-surface-container-low">
+    <Dialog open={open} onClose={onClose} title={judul} bare dismissible={bolehTutup} size="md" className="scroll-pb-[120px] !rounded-[28px] bg-surface-container-low">
       <div className="flex items-center justify-between gap-2 px-6 pb-1 pt-5">
         <h2 className="text-title-large font-semibold">{judul}</h2>
         {bolehTutup ? (
