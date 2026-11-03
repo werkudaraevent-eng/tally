@@ -16,6 +16,7 @@ import { BATAS_BESAR, BATAS_INFO_SCAN, bacaInfoScan, infoBerlaku, kunciSimpan, t
 export function InfoScanSesi({
   scanFields,
   pilihan,
+  ikutAgenda = false,
   busy,
   terkunci,
   onSimpan,
@@ -23,6 +24,8 @@ export function InfoScanSesi({
   /** Nilai tersimpan; undefined = kolomnya belum ada (migrasi belum dijalankan). */
   scanFields: unknown;
   pilihan: PilihanInfo[];
+  /** Checkpoint sesi ini tertaut ke Agenda: Vehicle membaca trip sebelum jam Agenda itu. */
+  ikutAgenda?: boolean;
   busy: boolean;
   terkunci: boolean;
   onSimpan: (daftar: string[] | null) => Promise<boolean>;
@@ -132,7 +135,7 @@ export function InfoScanSesi({
                     >
                       <span className="min-w-0 truncate">{p.label}</span>
                       <span className="shrink-0 text-body-small text-on-surface-variant">
-                        {dipakai ? "Added" : p.khususPanitia ? "staff only" : p.grup === "Logistics" ? "scan date" : ""}
+                        {dipakai ? "Added" : p.khususPanitia ? "staff only" : p.kunci === "logistik:vehicle" && ikutAgenda ? "trip for this session" : p.grup === "Logistics" ? "scan date" : ""}
                       </span>
                     </button>
                   );

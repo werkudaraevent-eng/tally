@@ -1,5 +1,5 @@
 import type { RegistrationField } from "./domain.ts";
-import { stayPadaTanggal, tanggalZona } from "./logistik/stay.ts";
+import { jamZona, stayPadaTanggal, tanggalZona } from "./logistik/stay.ts";
 
 /**
  * Info yang tampil di bawah nama pada lembar hasil pemindai petugas
@@ -63,7 +63,7 @@ const ASAL_TETAP: Record<string, string> = {
   "base:title": "Participant",
   "base:participant_type": "Participant",
   "logistik:hotel": "Logistics · hotel and room on the scan date",
-  "logistik:vehicle": "Logistics · vehicle on the scan date",
+  "logistik:vehicle": "Logistics · vehicle on the trip before this session's Agenda time, or on the scan date",
   "logistik:train": "Logistics · train ticket on the scan date",
 };
 
@@ -175,19 +175,71 @@ export function hotelPadaTanggal(stays: StayInfo[], sekarang: Date, offset: stri
 /**
  * Kendaraan pada tanggal scan: trip hari itu yang paling dekat (yang belum
  * berangkat, atau yang terakhir berangkat), dengan nama tripnya. Tanpa trip
- * hari itu: kendaraan bawaan peserta.
+ * hari itu: kendaraan bawaan peserta, lalu trip berikutnya (seperti Hotel
+ * yang melompat ke menginap berikutnya), supaya gladi sebelum hari-H tidak
+ * selalu "Not set".
  */
 export function kendaraanPadaTanggal(transport: DataPesertaInfo["transport"], sekarang: Date, offset: string): string | null {
   if (!transport) return null;
   const tanggal = tanggalZona(sekarang.toISOString(), offset);
-  const hariIni = transport.trips
-    .filter((trip) => trip.bus && trip.depart_at && tanggalZona(trip.depart_at, offset) === tanggal)
+  const naik = transport.trips
+    .filter((trip) => trip.bus && trip.depart_at)
     .sort((a, b) => Date.parse(a.depart_at!) - Date.parse(b.depart_at!));
+  const hariIni = naik.filter((trip) => tanggalZona(trip.depart_at!, offset) === tanggal);
   // Masih dihitung "trip ini" sampai 30 menit sesudah jam berangkat: bus sering terlambat.
   const batas = sekarang.getTime() - 30 * 60000;
   const trip = hariIni.find((t) => Date.parse(t.depart_at!) >= batas) ?? hariIni[hariIni.length - 1];
   if (trip) return `${trip.bus} · ${trip.name}`;
-  return transport.default_bus?.trim() || null;
+  const bawaan = transport.default_bus?.trim();
+  if (bawaan) return bawaan;
+  const nanti = naik.find((t) => tanggalZona(t.depart_at!, offset) > tanggal);
+  return nanti ? `${nanti.bus} · ${nanti.name}` : null;
+}
+
+/**
+ * Jam baris Agenda yang ditautkan ke checkpoint sesi ini (Check-in >
+ * Checkpoints > When). `date` "YYYY-MM-DD" dari bagian Agenda, `start` jam
+ * mulai seperti tersimpan ("09:00:00", "09:00" atau "09.00").
+ */
+export type AcuanAgenda = { date: string; start: string };
+
+const POLA_TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
+const menitJam = (jam: string): number | null => {
+  const cocok = /^(\d{1,2})[:.](\d{2})/.exec(jam.trim());
+  return cocok ? Number(cocok[1]) * 60 + Number(cocok[2]) : null;
+};
+
+/**
+ * Kendaraan untuk sesi yang tertaut ke Agenda: dari trip yang peserta ini
+ * naiki, yang berangkat paling akhir sebelum (atau tepat pada) jam baris
+ * Agenda itu di hari yang sama; tanpa itu, trip pertama sesudahnya di hari
+ * itu. Contoh KSO: checkpoint Jeep tertaut ke baris 09:00, trip-nya tertaut
+ * ke baris "Perjalanan ke ..." 08:00, jadi dicocokkan dengan jam, bukan
+ * dengan id baris yang sama.
+ *
+ * Beberapa baris (satu per batch): dipilih yang paling dekat. Trip yang
+ * dibaca hanya milik peserta ini, jadi batch-nya terpilih dengan sendirinya.
+ * Null = tidak ada trip di hari baris itu; barisInfo lalu memakai kendaraan
+ * bawaan, atau Not set.
+ * Tidak bergantung pada hari scan, jadi gladi menampilkan hasil yang sama
+ * dengan hari-H.
+ */
+export function kendaraanUntukAgenda(transport: DataPesertaInfo["transport"], acuan: readonly AcuanAgenda[], offset: string): string | null {
+  if (!transport || acuan.length === 0) return null;
+  let pilih: { trip: TripInfo; sebelum: boolean; jarak: number } | null = null;
+  for (const baris of acuan) {
+    const jamBaris = menitJam(baris.start);
+    if (!POLA_TANGGAL.test(baris.date) || jamBaris === null) continue;
+    for (const trip of transport.trips) {
+      if (!trip.bus || !trip.depart_at || Number.isNaN(Date.parse(trip.depart_at))) continue;
+      if (tanggalZona(trip.depart_at, offset) !== baris.date) continue;
+      const jamTrip = menitJam(jamZona(trip.depart_at, offset))!;
+      const sebelum = jamTrip <= jamBaris;
+      const jarak = Math.abs(jamBaris - jamTrip);
+      if (!pilih || (sebelum && !pilih.sebelum) || (sebelum === pilih.sebelum && jarak < pilih.jarak)) pilih = { trip, sebelum, jarak };
+    }
+  }
+  return pilih ? `${pilih.trip.bus} · ${pilih.trip.name}` : null;
 }
 
 /** Tiket kereta pada tanggal scan, lalu yang berikutnya. "Taksaka · Car 3 · Seat 12A". */
@@ -200,14 +252,20 @@ export function keretaPadaTanggal(trains: TiketInfo[], sekarang: Date, offset: s
 }
 
 /** Baris lembar hasil untuk satu peserta, urut seperti diatur panitia. */
-export function barisInfo(info: readonly PilihanInfo[], data: DataPesertaInfo, sekarang: Date, offset: string): BarisInfo[] {
+export function barisInfo(info: readonly PilihanInfo[], data: DataPesertaInfo, sekarang: Date, offset: string, acuan: readonly AcuanAgenda[] = []): BarisInfo[] {
   return info.map((p) => {
     const [sumber, kunci] = [p.kunci.slice(0, p.kunci.indexOf(":")), p.kunci.slice(p.kunci.indexOf(":") + 1)];
     let nilai: string | null = null;
     if (sumber === "base") nilai = teks(data[kunci as "company" | "title" | "participant_type"]);
     else if (sumber === "extra") nilai = teks(data.extra?.[kunci]);
     else if (kunci === "hotel") nilai = hotelPadaTanggal(data.stays, sekarang, offset);
-    else if (kunci === "vehicle") nilai = kendaraanPadaTanggal(data.transport, sekarang, offset);
+    else if (kunci === "vehicle") {
+      // Sesi tertaut ke Agenda: tanpa trip di hari itu, peserta memang tidak
+      // naik kendaraan pada jadwal ini; jangan lompat ke trip hari lain.
+      nilai = acuan.length > 0
+        ? kendaraanUntukAgenda(data.transport, acuan, offset) ?? (data.transport?.default_bus?.trim() || null)
+        : kendaraanPadaTanggal(data.transport, sekarang, offset);
+    }
     else if (kunci === "train") nilai = keretaPadaTanggal(data.trains, sekarang, offset);
     if (!p.besar) return { label: p.label, nilai };
     // Hotel di kotak besar: nama hotel besar, kamar kecil di bawahnya. Hari

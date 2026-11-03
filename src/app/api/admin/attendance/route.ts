@@ -5,6 +5,7 @@ import { setelanNomorBagasi } from "@/lib/bagasi/nomor";
 import { totalAmbilBagasi, totalBagasiSesi } from "@/lib/bagasi/server";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { BATAS_BESAR, BATAS_INFO_SCAN, pilihanInfo, type PilihanInfo } from "@/lib/info-scan";
+import { sesiDenganAgenda } from "@/lib/info-scan-server";
 import { kolomBelumAda, semuaBaris } from "@/lib/logistik/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -106,10 +107,12 @@ export async function GET(request: Request) {
   // Total bagasi untuk sesi yang mencatatnya (muat truk per batch). Dibaca
   // hanya bila ada sesi seperti itu, supaya acara lain tidak membayar kuerinya.
   const daftar = (sesi.data ?? []) as Array<{ id: number; records_luggage?: boolean; luggage_pickup?: boolean }>;
-  const [bagasi, ambil] = await Promise.all([
+  const [bagasi, ambil, denganAgenda] = await Promise.all([
     daftar.some((row) => row.records_luggage === true) ? totalBagasiSesi(eventId) : null,
     // Meja ambil: kemajuan se-acara (semua meja titip), sama untuk tiap meja ambil.
     daftar.some((row) => row.luggage_pickup === true) ? totalAmbilBagasi(eventId) : null,
+    // Shown after scan: Vehicle ikut jam Agenda checkpoint sesi bila tertaut.
+    sesiDenganAgenda(eventId),
   ]);
 
   return Response.json({
@@ -121,6 +124,7 @@ export async function GET(request: Request) {
       ...row,
       ...(row.records_luggage === true ? { bagasi: bagasi?.get(row.id) ?? { bags: 0, people: 0, photos: 0 } } : {}),
       ...(row.luggage_pickup === true && ambil ? { ambil_bagasi: ambil } : {}),
+      agenda_terkait: denganAgenda.has(row.id),
       hadir: unik.get(row.id)?.size ?? 0,
       total_scan: total.get(row.id) ?? 0,
       terakhir: terakhir.get(row.id) ?? null,
