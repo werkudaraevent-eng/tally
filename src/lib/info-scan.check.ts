@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bacaInfoScan, barisInfo, kunciInti, kunciSimpan, hotelPadaTanggal, infoBerlaku, kendaraanPadaTanggal, keretaPadaTanggal, pilihanInfo } from "./info-scan.ts";
+import { bacaInfoScan, barisInfo, kunciInti, kunciSimpan, hotelPadaTanggal, infoBerlaku, kendaraanPadaTanggal, kendaraanUntukAgenda, keretaPadaTanggal, pilihanInfo } from "./info-scan.ts";
 
 const WIB = "+07:00";
 
@@ -55,6 +55,43 @@ assert.equal(kendaraanPadaTanggal(transport, new Date("2026-11-06T05:00:00Z"), W
 assert.equal(kendaraanPadaTanggal(transport, new Date("2026-11-06T14:00:00Z"), WIB), "Bus 5 · Hotel → Gala");
 assert.equal(kendaraanPadaTanggal(transport, new Date("2026-11-07T02:00:00Z"), WIB), "Bus 1");
 assert.equal(kendaraanPadaTanggal(null, new Date(), WIB), null);
+// Tanpa trip hari itu dan tanpa kendaraan bawaan: trip berikutnya, bukan "Not set".
+const tanpaBawaan = { default_bus: null, trips: transport.trips };
+assert.equal(kendaraanPadaTanggal(tanpaBawaan, new Date("2026-11-03T03:00:00Z"), WIB), "Bus 3 · Airport → Hotel");
+assert.equal(kendaraanPadaTanggal(tanpaBawaan, new Date("2026-11-09T03:00:00Z"), WIB), null);
+
+// Kendaraan mengikuti jam Agenda sesi (data KSO: trip 08:00, baris Jeep 09:00).
+const kso = {
+  default_bus: null,
+  trips: [
+    { name: "Perjalanan Menuju Hotel", depart_at: "2026-11-06T06:15:00Z", bus: "BUS 4" },
+    { name: "Perjalanan ke Kampoeng Mahoni Jeep Merapi", depart_at: "2026-11-07T01:00:00Z", bus: "BUS 11" },
+    { name: "Perjalanan Menuju Stasiun Yogyakarta", depart_at: "2026-11-08T04:00:00Z", bus: "BUS 2" },
+    { name: "Tanpa bus", depart_at: "2026-11-07T00:30:00Z", bus: null },
+  ],
+};
+assert.equal(kendaraanUntukAgenda(kso, [{ date: "2026-11-07", start: "09:00:00" }], WIB), "BUS 11 · Perjalanan ke Kampoeng Mahoni Jeep Merapi");
+// Tepat pada jamnya juga dihitung "sebelum".
+assert.equal(kendaraanUntukAgenda(kso, [{ date: "2026-11-07", start: "08.00" }], WIB), "BUS 11 · Perjalanan ke Kampoeng Mahoni Jeep Merapi");
+// Tidak ada trip sebelumnya di hari itu: trip pertama sesudahnya (kumpul Gambir 05:00).
+assert.equal(kendaraanUntukAgenda(kso, [{ date: "2026-11-06", start: "05:00" }], WIB), "BUS 4 · Perjalanan Menuju Hotel");
+// Beberapa baris (per batch): yang paling dekat; peserta ini hanya naik trip 6 Nov.
+assert.equal(kendaraanUntukAgenda(kso, [{ date: "2026-11-05", start: "14:00" }, { date: "2026-11-06", start: "15:05" }, { date: "2026-11-06", start: "14:00" }], WIB), "BUS 4 · Perjalanan Menuju Hotel");
+// Trip "sebelum" menang atas trip "sesudah" yang lebih dekat.
+assert.equal(kendaraanUntukAgenda(kso, [{ date: "2026-11-08", start: "10:00" }, { date: "2026-11-07", start: "08:50" }], WIB), "BUS 11 · Perjalanan ke Kampoeng Mahoni Jeep Merapi");
+// Hari tanpa trip, baris rusak, atau tanpa tautan: null.
+assert.equal(kendaraanUntukAgenda(kso, [{ date: "2026-11-10", start: "09:00" }], WIB), null);
+assert.equal(kendaraanUntukAgenda(kso, [{ date: "7 Nov", start: "09:00" }, { date: "2026-11-07", start: "" }], WIB), null);
+assert.equal(kendaraanUntukAgenda(kso, [], WIB), null);
+assert.equal(kendaraanUntukAgenda(null, [{ date: "2026-11-07", start: "09:00" }], WIB), null);
+// barisInfo: tautan Agenda dipakai walau dipindai 3 Nov; tanpa tautan, trip berikutnya.
+const infoKendaraan = infoBerlaku(["logistik:vehicle"], pilihanInfo([], { hotel: false, vehicle: true, train: false }));
+const dataKso = { company: null, title: null, participant_type: null, extra: null, stays: [], transport: kso, trains: [] };
+assert.equal(barisInfo(infoKendaraan, dataKso, new Date("2026-11-03T10:00:00Z"), WIB, [{ date: "2026-11-07", start: "09:00:00" }])[0].nilai, "BUS 11 · Perjalanan ke Kampoeng Mahoni Jeep Merapi");
+assert.equal(barisInfo(infoKendaraan, dataKso, new Date("2026-11-03T10:00:00Z"), WIB)[0].nilai, "BUS 4 · Perjalanan Menuju Hotel");
+// Tertaut ke hari tanpa trip peserta: Not set, tidak lompat ke trip hari lain; kendaraan bawaan tetap dipakai.
+assert.equal(barisInfo(infoKendaraan, dataKso, new Date("2026-11-03T10:00:00Z"), WIB, [{ date: "2026-11-05", start: "14:00" }])[0].nilai, null);
+assert.equal(barisInfo(infoKendaraan, { ...dataKso, transport: { ...kso, default_bus: "Hiace 1" } }, new Date("2026-11-03T10:00:00Z"), WIB, [{ date: "2026-11-05", start: "14:00" }])[0].nilai, "Hiace 1");
 
 // Kereta.
 const trains = [

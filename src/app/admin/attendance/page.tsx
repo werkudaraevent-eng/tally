@@ -40,6 +40,8 @@ type Sesi = {
   hadir: number;
   total_scan: number;
   terakhir: string | null;
+  /** Checkpoint sesi ini tertaut ke Agenda: Vehicle di Shown after scan ikut jam Agenda. */
+  agenda_terkait?: boolean;
   /** Check-in > Sessions > Record luggage. Tidak ada sebelum migrasi 202610230003. */
   records_luggage?: boolean;
   /** Total bagasi sesi ini, hanya bila sesinya mencatat bagasi. */
@@ -617,6 +619,7 @@ export default function AttendanceAdminPage() {
           key={sesiTerpilih.id}
           scanFields={"scan_fields" in sesiTerpilih ? sesiTerpilih.scan_fields ?? null : undefined}
           pilihan={infoPilihan}
+          ikutAgenda={sesiTerpilih.agenda_terkait === true}
           busy={busy}
           terkunci={terkunci}
           onSimpan={(daftar) => kirim("PATCH", { id: sesiTerpilih.id, scan_fields: daftar })}
