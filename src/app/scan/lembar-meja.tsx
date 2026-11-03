@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, X } from "@phosphor-icons/react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button, Dialog } from "@/components/m3";
 import type { Jalur, Sesi } from "./types";
 
@@ -47,7 +47,15 @@ export function LembarScan({
   );
 }
 
-/** Satu pilihan berbentuk baris 56 px. Radio sungguhan, supaya pembaca layar dan papan ketik bekerja. */
+/**
+ * Satu pilihan berbentuk baris, minimal 56 px. Radio sungguhan, supaya pembaca
+ * layar dan papan ketik bekerja.
+ *
+ * Dua baris (daftar M3 "two-line list item"): nama di atas memakai seluruh
+ * lebar, angka hadir di bawahnya. Dulu angka itu berdiri di kanan dan memakan
+ * sepertiga lebar ponsel, jadi nama checkpoint yang panjang patah menjadi tiga
+ * baris dan daftarnya mendorong tombol mulai keluar layar.
+ */
 function BarisPilihan({ nama, value, label, sub, dipilih, onPilih }: {
   nama: string;
   value: number;
@@ -58,21 +66,59 @@ function BarisPilihan({ nama, value, label, sub, dipilih, onPilih }: {
 }) {
   return (
     <label
-      className={`m3-state flex min-h-14 cursor-pointer items-center gap-4 rounded-2xl px-4 ${
+      className={`m3-state flex min-h-14 cursor-pointer items-center gap-4 rounded-2xl px-4 py-2 ${
         dipilih ? "bg-secondary-container text-on-secondary-container" : ""
       }`}
     >
       <input type="radio" name={nama} value={value} checked={dipilih} onChange={() => onPilih(value)} className="peer sr-only" />
-      <span
-        aria-hidden
-        className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary ${
-          dipilih ? "border-primary bg-primary text-on-primary" : "border-outline"
-        }`}
-      >
-        {dipilih ? <Check size={14} weight="bold" /> : null}
+      <TandaPilih dipilih={dipilih} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-body-large">{label}</span>
+        {sub ? <span className="block text-body-medium tabular-nums opacity-75">{sub}</span> : null}
       </span>
-      <span className="min-w-0 flex-1 text-body-large">{label}</span>
-      {sub ? <span className="shrink-0 text-body-small tabular-nums opacity-75">{sub}</span> : null}
+    </label>
+  );
+}
+
+function TandaPilih({ dipilih, kecil = false }: { dipilih: boolean; kecil?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`flex shrink-0 items-center justify-center rounded-full border-2 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary ${
+        kecil ? "size-5" : "size-6"
+      } ${dipilih ? "border-primary bg-primary text-on-primary" : "border-outline"}`}
+    >
+      {dipilih ? <Check size={kecil ? 12 : 14} weight="bold" /> : null}
+    </span>
+  );
+}
+
+/**
+ * Satu meja sebagai chip pilihan tunggal.
+ *
+ * Meja dipilih sekali per ponsel dan jarang diganti, jadi ia tidak berhak atas
+ * empat baris 56 px di bawah checkpoint. Chip yang membungkus ke baris berikut
+ * muat untuk berapa pun jumlah meja dan sepanjang apa pun namanya. Bentuk dan
+ * warnanya sama dengan `FilterChip`, tetapi isinya radio, bukan tombol
+ * `aria-pressed`: memilih satu meja melepaskan yang lain, dan pembaca layar
+ * perlu mendengar itu sebagai satu kelompok. Tinggi 48 px, bukan 40: ini layar
+ * yang dipakai sambil berdiri (DESIGN.md, Booth, kasir, pemindai).
+ */
+function ChipMeja({ value, label, dipilih, onPilih }: {
+  value: number;
+  label: string;
+  dipilih: boolean;
+  onPilih: (id: number) => void;
+}) {
+  return (
+    <label
+      className={`m3-state relative inline-flex min-h-12 cursor-pointer items-center gap-2 px-4 text-label-large font-semibold transition-[border-radius,background-color,color,border-color] duration-200 ease-emphasized ${
+        dipilih ? "rounded-lg bg-secondary-container text-on-secondary-container" : "rounded-full border border-outline text-on-surface-variant"
+      }`}
+    >
+      <input type="radio" name="jalur-meja" value={value} checked={dipilih} onChange={() => onPilih(value)} className="peer sr-only" />
+      {dipilih ? <Check size={18} weight="bold" aria-hidden /> : null}
+      <span className="rounded-sm peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-primary">{label}</span>
     </label>
   );
 }
@@ -104,6 +150,20 @@ export function PilihMeja({
   const [jalur, setJalur] = useState<number | null>(laneId);
   const perluJalur = lanes.length > 0;
   const siap = sesi !== null && (!perluJalur || jalur !== null);
+  const [ujung, setUjung] = useState<HTMLDivElement | null>(null);
+  const [tertutup, setTertutup] = useState(false);
+
+  // Penanda ujung daftar tertutup kaki lengket = masih ada pilihan di bawah.
+  // rootMargin bawah dikurangi tinggi kaki kira-kira, supaya garisnya hilang
+  // tepat saat pilihan terakhir sudah tampak di atas tombol.
+  useEffect(() => {
+    if (!ujung || typeof IntersectionObserver === "undefined") return;
+    const pengamat = new IntersectionObserver(([masuk]) => setTertutup(!masuk.isIntersecting), {
+      rootMargin: "0px 0px -96px 0px",
+    });
+    pengamat.observe(ujung);
+    return () => pengamat.disconnect();
+  }, [ujung]);
 
   return (
     <form
@@ -137,15 +197,27 @@ export function PilihMeja({
       {perluJalur ? (
         <fieldset className="mt-4">
           <legend className="px-6 text-title-small text-on-surface-variant">Desk</legend>
-          <div className="mt-1 space-y-1 px-2">
+          <div className="mt-2 flex flex-wrap gap-2 px-6">
             {lanes.map((baris) => (
-              <BarisPilihan key={baris.id} nama="jalur-meja" value={baris.id} label={baris.name} dipilih={jalur === baris.id} onPilih={setJalur} />
+              <ChipMeja key={baris.id} value={baris.id} label={baris.name} dipilih={jalur === baris.id} onPilih={setJalur} />
             ))}
           </div>
         </fieldset>
       ) : null}
 
-      <div className="px-6 pb-6 pt-6">
+      {/* Penanda ujung daftar: selama ia belum terlihat, ada pilihan di bawah kaki. */}
+      <div ref={setUjung} aria-hidden className="h-px" />
+
+      {/* Kaki lengket: tombol mulai selalu terlihat, seberapa pun panjang daftarnya.
+          Sebelumnya ia ikut bergulir di dasar lembar, dan di ponsel dengan enam
+          checkpoint dan empat meja petugas tidak tahu ada tombol yang harus
+          ditekan (M3: aksi dialog tetap di tempat, hanya isinya yang bergulir).
+          Garis atas hanya muncul saat ada pilihan yang tertutup kaki ini. */}
+      <div
+        className={`sticky bottom-0 z-10 bg-surface-container-low px-6 pb-6 pt-4 ${
+          tertutup ? "border-t border-outline-variant" : ""
+        }`}
+      >
         <Button type="submit" size="xl" shape="pill" block disabled={!siap}>
           {sesi === null ? "Choose a check-in point first" : !siap ? "Choose a desk first" : "Start scanning"}
         </Button>
