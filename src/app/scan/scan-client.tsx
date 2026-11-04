@@ -30,6 +30,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import {
   Button,
   Card,
+  Dialog,
   Divider,
   EmptyState,
   IconButton,
@@ -1215,6 +1216,74 @@ export default function ScanClient() {
     hasilRef.current = null;
     setHasil(null);
   }, []);
+
+  // Meja titip bagasi: check-in sudah tercatat saat scan, jumlah bagasi baru
+  // tersimpan saat petugas menekan simpan. Lembar yang ditutup lebih dulu
+  // meninggalkan peserta ter-check-in tanpa catatan bagasi ("No luggage
+  // recorded"), jadi petugas ditanya dulu. Hanya tombol tutup oleh petugas;
+  // walk-in, cari dan tamu berikutnya punya jalurnya sendiri.
+  const [tanyaTutup, setTanyaTutup] = useState(false);
+  const bagasiTitipAktif = Boolean(sessions.find((sesi) => sesi.id === sessionId)?.bagasi);
+  const mintaTutup = useCallback(() => {
+    // 2 = jumlahnya belum pernah tersimpan (LuggageForm). Foto gagal atau Edit
+    // catatan lama tidak ditanya: jumlahnya sudah aman.
+    if (bagasiTitipAktif && bagasiRef.current === 2) { setTanyaTutup(true); return; }
+    tutupLembar();
+  }, [bagasiTitipAktif, tutupLembar]);
+
+  // Gestur kembali (geser dari tepi layar, tombol back Android) di ponsel
+  // petugas. Halaman ini dibuka dari daftar acara, jadi satu geseran tak
+  // sengaja melempar petugas keluar dari scanner di tengah antrean. Seperti
+  // aplikasi Android: kembali menutup lapisan teratas dulu (dialog, lembar
+  // hasil, menu); tanpa lapisan terbuka, geseran pertama hanya memberi tahu,
+  // geseran kedua dalam 3 detik baru keluar. Satu entri riwayat penjaga
+  // dipasang setelah sentuhan pertama: entri tanpa aktivasi pengguna dilewati
+  // tombol back Chrome.
+  const [pesanKembali, setPesanKembali] = useState(false);
+  const tutupLapisanRef = useRef<() => boolean>(() => false);
+  useEffect(() => {
+    tutupLapisanRef.current = () => {
+      if (tanyaTutup) { setTanyaTutup(false); return true; }
+      if (gantiJob !== null) { setGantiJob(null); return true; }
+      if (dialogWalkIn) { setDialogWalkIn(false); return true; }
+      if (hasilRef.current) { mintaTutup(); return true; }
+      if (menuTerbuka) { setMenuTerbuka(false); return true; }
+      if (lembarMeja) { setLembarMeja(false); return true; }
+      return false;
+    };
+  });
+  useEffect(() => {
+    let terpasang = false;
+    let peringatan = 0;
+    const pasang = () => {
+      if (terpasang) return;
+      terpasang = true;
+      window.history.pushState(null, "", window.location.href);
+    };
+    const kembali = () => {
+      if (!terpasang) return;
+      terpasang = false;
+      if (tutupLapisanRef.current()) { pasang(); return; }
+      const sekarang = Date.now();
+      if (sekarang - peringatan < 3000) { setPesanKembali(false); window.history.back(); return; }
+      peringatan = sekarang;
+      setPesanKembali(true);
+      pasang();
+    };
+    window.addEventListener("pointerdown", pasang);
+    window.addEventListener("keydown", pasang);
+    window.addEventListener("popstate", kembali);
+    return () => {
+      window.removeEventListener("pointerdown", pasang);
+      window.removeEventListener("keydown", pasang);
+      window.removeEventListener("popstate", kembali);
+    };
+  }, []);
+  useEffect(() => {
+    if (!pesanKembali) return;
+    const jeda = window.setTimeout(() => setPesanKembali(false), 3000);
+    return () => window.clearTimeout(jeda);
+  }, [pesanKembali]);
 
   /** Laporan centang dari daftar barang. Nol berarti hasil yang tertahan boleh tampil. */
   const onCentang = useCallback((jumlah: number) => {
@@ -2448,7 +2517,7 @@ export default function ScanClient() {
       <ResultSheet
         hasil={hasil}
         kedip={kedip}
-        onTutup={tutupLembar}
+        onTutup={mintaTutup}
         bisaCetak={Boolean(label?.enabled)}
         labelUntukPerangkatIni={bisaBluetooth}
         cetak={cetak}
@@ -2478,6 +2547,26 @@ export default function ScanClient() {
         onCari={() => { tutupLembar(); gantiMode("cari"); }}
       />
 
+      {pesanKembali ? (
+        // M3 snackbar: inverse dari kanvas. Ponsel gelap (.gelap-ponsel) maka terang;
+        // layar lebar mengikuti tema terang maka gelap. Peran inverse tema tidak
+        // cukup kontras di sini (#9d9d9d di #0e0e0e).
+        <div role="status" className="pointer-events-none fixed inset-x-4 bottom-24 z-[60] mx-auto max-w-sm rounded-lg bg-[#303030] px-4 py-3.5 text-body-medium text-white shadow-lg max-lg:bg-[#f2f2f2] max-lg:text-[#1a1a1a]">
+          Swipe back again to leave the scanner
+        </div>
+      ) : null}
+      <Dialog
+        open={tanyaTutup}
+        onClose={() => setTanyaTutup(false)}
+        title="Luggage not saved"
+        description={`${hasil?.participant?.name ?? "This guest"} is checked in, but no bag count is saved. Save the count, or 0 if they have no luggage, so the luggage list stays complete.`}
+        actions={
+          <>
+            <Button type="button" variant="outlined" onClick={() => { setTanyaTutup(false); bagasiRef.current = 0; tutupLembar(); }}>Close without saving</Button>
+            <Button type="button" variant="filled" onClick={() => setTanyaTutup(false)}>Back to luggage</Button>
+          </>
+        }
+      />
       <DialogGantiStasiun meja={meja} jobId={gantiJob} nama={hasil?.participant?.name ?? ""} onClose={() => setGantiJob(null)} />
 
       <WalkinDialog

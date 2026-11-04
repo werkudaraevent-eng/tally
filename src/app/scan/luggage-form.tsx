@@ -42,7 +42,10 @@ export function LuggageForm({
 }: {
   sessionId: number;
   participantId: string;
-  /** 1 selama ada yang belum tersimpan di lembar ini, 0 bila tidak. */
+  /**
+   * 0 bila tidak ada yang tertunda; 1 selama ada yang belum tersimpan (foto,
+   * Edit catatan lama); 2 bila jumlahnya sendiri belum pernah tersimpan.
+   */
   onTertunda?: (jumlah: number) => void;
   /** Kamera bawaan dibuka (true) dan ditutup (false): layar pemindai melepas dan menyalakan lagi kameranya. */
   onKamera?: (buka: boolean) => void;
@@ -63,7 +66,10 @@ export function LuggageForm({
   const onTertundaRef = useRef(onTertunda);
   useEffect(() => { onTertundaRef.current = onTertunda; });
   const tertunda = fase === "isi" || fase === "simpan" || fase === "foto" || fase === "fotoGagal";
-  useEffect(() => { onTertundaRef.current?.(tertunda ? 1 : 0); }, [tertunda]);
+  // Jumlah belum pernah tersimpan: belum ada catatan sama sekali. Edit catatan
+  // lama dan foto yang gagal menyisakan jumlah yang sudah tersimpan.
+  const jumlahBelum = tertunda && catatan === null;
+  useEffect(() => { onTertundaRef.current?.(!tertunda ? 0 : jumlahBelum ? 2 : 1); }, [tertunda, jumlahBelum]);
   // Lembar ditutup atau berganti tamu: tidak ada lagi yang tertunda.
   useEffect(() => () => onTertundaRef.current?.(0), []);
   // URL pratinjau dilepas saat diganti atau lembar ditutup.
