@@ -1225,7 +1225,9 @@ export default function ScanClient() {
   const [tanyaTutup, setTanyaTutup] = useState(false);
   const bagasiTitipAktif = Boolean(sessions.find((sesi) => sesi.id === sessionId)?.bagasi);
   const mintaTutup = useCallback(() => {
-    if (bagasiTitipAktif && bagasiRef.current > 0) { setTanyaTutup(true); return; }
+    // 2 = jumlahnya belum pernah tersimpan (LuggageForm). Foto gagal atau Edit
+    // catatan lama tidak ditanya: jumlahnya sudah aman.
+    if (bagasiTitipAktif && bagasiRef.current === 2) { setTanyaTutup(true); return; }
     tutupLembar();
   }, [bagasiTitipAktif, tutupLembar]);
 
