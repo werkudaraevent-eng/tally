@@ -319,6 +319,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #127 L11/L12: the editor tile colours are hard-coded instead of themed, and reordering ways keeps focus on the old position, with index keys.
 
 ### Lucky draw
+- #394 L1: on Full wall, all tiles re-deal names in one frame when the wall freezes, a visible flicker just before the 60 wave.
 - #392 L1: with "Show the number in the draw" off, the stage roster still carries up to 500 names, so the count can be worked out from the browser network tab.
 - #391 L1: a name over about 47 characters is cut with "…" after 2 lines, even for 1 winner.
 - #391 L2: 50 winners at 1280 and 1366 overflow by about 10-17 px (top row under the note pill, bottom row over "Cadangan").
