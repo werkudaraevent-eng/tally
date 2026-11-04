@@ -4,9 +4,10 @@
  *
  *   semua      semua akun area peserta, termasuk yang belum disetujui
  *   disetujui  akun yang sudah tertaut ke peserta
- *   syarat     peserta yang cocok dengan SEMUA syarat (1-3), aturan yang sama
- *              dengan Agenda > Who sees it (sasaran-baris.ts), ditambah
- *              Organisasi (`KOLOM_ORGANISASI`, kolom Company peserta)
+ *   syarat     peserta yang cocok dengan SEMUA syarat (1-3), atau dengan SALAH
+ *              SATU syarat bila `audience_any` (migrasi 202611040001). Satu
+ *              syarat sama dengan Agenda > Who sees it (sasaran-baris.ts),
+ *              ditambah Organisasi (`KOLOM_ORGANISASI`, kolom Company peserta)
  *   pilih      peserta tertentu, 1-500 id
  *
  * Syarat dicek saat peserta membuka portal, bukan dibekukan saat terbit:
@@ -68,7 +69,7 @@ export function bacaSyaratPengumuman(nilai: unknown): SasaranBlok[] {
   });
 }
 
-export type PengumumanBersasaran = { audience: string; audience_rules?: unknown; audience_ids?: unknown };
+export type PengumumanBersasaran = { audience: string; audience_rules?: unknown; audience_ids?: unknown; audience_any?: unknown };
 
 export type PenontonPengumuman = {
   /** Akun sudah tertaut ke peserta (status approved di getMemberSession). */
@@ -89,24 +90,29 @@ export function pengumumanUntuk(item: PengumumanBersasaran, penonton: PenontonPe
     return Array.isArray(item.audience_ids) && item.audience_ids.length <= PILIH_MAX && item.audience_ids.includes(penonton.participantId);
   }
   if (item.audience !== "syarat") return false;
-  return syaratCocok(bacaSyaratPengumuman(item.audience_rules), penonton.company, penonton.data);
+  // Hanya `true` yang berarti salah satu: nilai lain (atau kolom belum ada) = semua, yang lebih sempit.
+  return syaratCocok(bacaSyaratPengumuman(item.audience_rules), penonton.company, penonton.data, item.audience_any === true);
 }
 
 /**
- * Semua syarat cocok. Organisasi dibandingkan tanpa beda huruf besar dan spasi
- * tepi, seperti saringan Organisation di Participant list; tanpa organisasi
- * tidak cocok. Hotel cocok dengan hotel mana pun yang pernah ditinggali
+ * Semua syarat cocok, atau salah satunya bila `salahSatu` (Match: Any
+ * condition; pola datar Mailchimp "any/all", tanpa grup bersarang). Syarat
+ * rusak tidak pernah cocok, jadi dengan salah satu ia tidak ikut menentukan,
+ * dan bila semuanya rusak tetap tidak ada yang cocok. Organisasi dibandingkan
+ * tanpa beda huruf besar dan spasi tepi, seperti saringan Organisation di
+ * Participant list; tanpa organisasi tidak cocok. Hotel cocok dengan hotel mana pun yang pernah ditinggali
  * peserta (pengumuman tidak bertanggal).
  */
-export function syaratCocok(syarat: SasaranBlok[], company: string | null, data: DataSasaranPeserta | null): boolean {
-  return syarat.every((isi) => {
+export function syaratCocok(syarat: SasaranBlok[], company: string | null, data: DataSasaranPeserta | null, salahSatu = false): boolean {
+  const cocok = (isi: SasaranBlok) => {
     if (!isi.field || isi.values.length === 0) return false;
     if (isi.field === KOLOM_ORGANISASI) {
       const nama = company?.trim() ?? "";
       return nama !== "" && isi.values.some((nilai) => samaJawaban(nilai, nama));
     }
     return blokUntukPeserta(isi, data, null);
-  });
+  };
+  return salahSatu ? syarat.some(cocok) : syarat.every(cocok);
 }
 
 /** Kolom syarat yang perlu jawaban atau hotel peserta (semua selain Organisasi). */

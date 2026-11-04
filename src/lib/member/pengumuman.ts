@@ -45,6 +45,8 @@ export type MemberAnnouncements = {
 export const ANNOUNCEMENT_COLUMNS = "id,title,body,link_url,link_label,audience,pinned,published_at";
 /** Kolom penerima dari migrasi 202610300004 (Send to per syarat atau per peserta). */
 const KOLOM_PENERIMA = "audience_rules,audience_ids";
+/** Match: Any condition, dari migrasi 202611040001. */
+const KOLOM_SALAH_SATU = "audience_any";
 
 /**
  * Pengumuman bersasaran yang dibaca sebelum disaring. Jauh di atas jumlah
@@ -54,7 +56,7 @@ const KOLOM_PENERIMA = "audience_rules,audience_ids";
 const BACA_MAX = 200;
 
 type AcaraPengumuman = Pick<EventRow, "id" | "registration_form_config" | "time_zone" | "landing_config">;
-type BarisPengumuman = Announcement & { audience_rules?: unknown; audience_ids?: unknown };
+type BarisPengumuman = Announcement & { audience_rules?: unknown; audience_ids?: unknown; audience_any?: unknown };
 
 /** Pengumuman yang boleh dilihat peserta ini, disematkan dulu lalu yang terbaru. */
 export async function loadMemberAnnouncements(
@@ -80,12 +82,15 @@ export async function loadMemberAnnouncements(
   };
 
   const [hasil, akun] = await Promise.all([
-    kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA}`),
+    kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU}`),
     client.from("participant_accounts").select("announcements_seen_at").eq("id", sesi.accountId).maybeSingle(),
   ]);
   let { data, error } = hasil;
-  // Sebelum migrasi 202610300004 kolom penerima belum ada: baca seperti dulu.
-  if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data, error } = await kueri(ANNOUNCEMENT_COLUMNS));
+  // Sebelum migrasi 202611040001 audience_any belum ada (semua syarat harus
+  // cocok), sebelum 202610300004 semua kolom penerima: baca seperti dulu.
+  const belumAda = () => error?.code === "42703" || error?.code === "PGRST204";
+  if (belumAda()) ({ data, error } = await kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA}`));
+  if (belumAda()) ({ data, error } = await kueri(ANNOUNCEMENT_COLUMNS));
   if (error || !data) return { ready: false, items: [], unread: 0, seenAt: null };
 
   const items = (await saringUntukPeserta(event, sesi, data as unknown as BarisPengumuman[])).slice(0, limit);

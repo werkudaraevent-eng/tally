@@ -33,14 +33,17 @@ export async function POST(request: Request) {
   const event = auth.scope.event;
   const client = getSupabaseServiceClient();
   const baca = (kolom: string) => client.from("event_announcements").select(kolom).eq("id", parsed.data.id).eq("event_id", event.id).maybeSingle();
-  let { data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids");
-  // Sebelum migrasi 202610300004 kolom penerima belum ada.
-  if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience"));
+  // Sebelum migrasi 202611040001 audience_any belum ada, sebelum 202610300004
+  // semua kolom penerima: baca ulang tanpa kolom itu.
+  const belumAda = (galat: { code?: string } | null) => galat?.code === "42703" || galat?.code === "PGRST204";
+  let { data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any");
+  if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids"));
+  if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience"));
   if (tabelBelumAda(error)) return apiError("ANNOUNCEMENTS_NOT_READY", 409);
   if (error) return apiError("INTERNAL_ERROR", 500);
   if (!baris) return apiError("ANNOUNCEMENT_NOT_FOUND", 404);
   const item = baris as unknown as {
-    id: string; title: string; body: string; link_url: string | null; link_label: string | null; audience: string; audience_rules?: unknown; audience_ids?: unknown;
+    id: string; title: string; body: string; link_url: string | null; link_label: string | null; audience: string; audience_rules?: unknown; audience_ids?: unknown; audience_any?: unknown;
   };
 
   // Penerima yang sama dengan portal, saat ini: syarat dicek terhadap data
@@ -51,6 +54,7 @@ export async function POST(request: Request) {
     audience,
     audience_rules: audience === "syarat" ? bacaSyaratPengumuman(item.audience_rules) : null,
     audience_ids: audience === "pilih" && Array.isArray(item.audience_ids) ? (item.audience_ids as string[]) : null,
+    audience_any: audience === "syarat" && item.audience_any === true,
   });
   if (!akun) return apiError("INTERNAL_ERROR", 500);
   // Daftar uji yang sama dengan Kiriman: di luar produksi hanya alamat di
