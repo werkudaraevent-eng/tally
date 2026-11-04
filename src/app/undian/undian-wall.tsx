@@ -148,7 +148,13 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   const mainKey = main.map((winner) => winner.name).join("\u0000");
   const winnerTiles = useMemo(() => {
     // Dinding penuh: nama tidak terikat ke ubin, jadi pemenang mendapat ubin acak.
-    if (fixed) return survivors(Array.from({ length: tileCount }, (_, index) => index), main.length, []).slice(0, main.length);
+    // Diurutkan dengan acak yang dapat diulang (per undian), supaya ubin
+    // pemenang tidak pindah saat layar dimuat ulang.
+    if (fixed) {
+      return Array.from({ length: tileCount }, (_, index) => index)
+        .sort((a, b) => scatter(a, round * 13 + 5) - scatter(b, round * 13 + 5))
+        .slice(0, main.length);
+    }
     const used = new Set<number>();
     return main.map((winner) => {
       const target = initialsWall ? initialsOf(winner.name) : winner.name;
@@ -158,23 +164,41 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
     });
     // `mainKey` mewakili isi `main`: array-nya dibangun ulang setiap poll.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainKey, names, initialsWall, fixed, tileCount]);
+  }, [mainKey, names, initialsWall, fixed, tileCount, round]);
 
   // Nama di tiap ubin. Dinding biasa: satu orang per ubin. Dinding penuh: nama
   // diambil dari kolam per ubin per "zaman" ubin itu, sehingga ubin berganti
   // tidak serentak; ubin pemenang memakai nama pemenang begitu ia datang.
   const tileNames = useMemo(() => {
     if (!fixed) return names;
+    if (!drawing) {
+      // Dinding membeku: nama dibagikan tanpa pengulangan dari kolam yang
+      // diacak sekali, TANPA nama pemenang. Nama pemenang hanya ada di ubin
+      // pemenang, jadi gelombang padam tidak pernah menyalakan namanya di ubin
+      // lain. Kolam lebih kecil dari dinding: nama bukan pemenang diulang.
+      const winnerNames = new Set(main.map((winner) => (initialsWall ? initialsOf(winner.name) : winner.name)));
+      const others = names.filter((name) => !winnerNames.has(name));
+      const deck = (others.length > 0 ? others : names)
+        .map((name, index) => ({ name, key: scatter(index, round * 17 + 9) }))
+        .sort((a, b) => a.key - b.key)
+        .map((item) => item.name);
+      let next = 0;
+      return Array.from({ length: tileCount }, (_, index) => {
+        const winnerAt = winnerTiles.indexOf(index);
+        if (winnerAt >= 0) return initialsWall ? initialsOf(main[winnerAt].name) : main[winnerAt].name;
+        const name = deck[next % deck.length];
+        next += 1;
+        return name;
+      });
+    }
     return Array.from({ length: tileCount }, (_, index) => {
-      const winnerAt = winnerTiles.indexOf(index);
-      if (!drawing && winnerAt >= 0) return initialsWall ? initialsOf(main[winnerAt].name) : main[winnerAt].name;
       const period = 3 + Math.floor(scatter(index, 31) * 6);
       const epoch = Math.floor((tick + scatter(index, 32) * period) / period);
       return names[Math.floor(scatter(index, epoch * 7 + 3) * names.length) % names.length];
     });
     // `mainKey` mewakili isi `main`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fixed, names, tick, drawing, winnerTiles, initialsWall, mainKey, tileCount]);
+  }, [fixed, names, tick, drawing, winnerTiles, initialsWall, mainKey, tileCount, round]);
 
   // Gelombang padam: 0 = dinding penuh, 1..WAVES.length = gelombang,
   // WAVES.length + 1 = hanya pemenang, WAVES.length + 2 = kartu pemenang.
