@@ -2,7 +2,7 @@ import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
-import { normalizeAfterWin, stageMessage, type UndianState, type UndianWinner } from "@/lib/undian";
+import { normalizeAfterWin, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
 
 // State undian untuk layar panggung. PUBLIK — proyektor berjalan tanpa login.
 //
@@ -258,7 +258,9 @@ export async function GET(request: Request) {
     phase,
     draw_round: state.draw_round,
     prize,
-    roster: state.pool ?? [],
+    // Disaring lagi di sini, bukan hanya saat kolam dibekukan: baris yang sudah
+    // tersimpan sebelum aturan ini tetap tidak boleh keluar apa adanya.
+    roster: (state.pool ?? []).map(stageRosterItem),
     pool_size: state.pool_size,
     spin_started_at: state.spin_started_at,
     reveal_at: state.reveal_at,
