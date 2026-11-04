@@ -35,3 +35,25 @@ export function bacaQrCheckpoint(teks: string): { slug: string | null; sesi: num
   }
   return { slug, sesi, kode };
 }
+
+/**
+ * `?lanjut=` di `/e/<slug>/masuk`: peserta yang membuka QR checkpoint dengan
+ * kamera bawaan sebelum masuk diantar kembali ke checkpoint itu sesudah masuk,
+ * jadi tidak perlu memindai ulang. Hanya alamat checkpoint acara ini yang
+ * diterima, dan alamatnya disusun ulang dari isinya: tidak pernah ada
+ * pengalihan ke situs lain atau halaman lain.
+ */
+export function lanjutPindai(slug: string, mentah: unknown): string | null {
+  if (typeof mentah !== "string" || mentah.length > 300 || !mentah.startsWith("/")) return null;
+  const DASAR = "https://lanjut.invalid";
+  let url: URL;
+  try {
+    url = new URL(mentah, DASAR);
+  } catch {
+    return null;
+  }
+  if (url.origin !== DASAR) return null;
+  const isi = bacaQrCheckpoint(url.href);
+  if (!isi || isi.slug !== slug) return null;
+  return alamatQrCheckpoint("", slug, isi.sesi, isi.kode);
+}

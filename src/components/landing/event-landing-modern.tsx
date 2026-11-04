@@ -99,6 +99,8 @@ type Props = {
   masukAwal?: MasukMode | null;
   /** Tautan sandi dari email, untuk dialog yang dibuka di mode "sandi". */
   sandi?: MasukSandi;
+  /** Alamat checkpoint dari `?lanjut=` di `/e/<slug>/masuk`: tujuan dialog sesudah masuk. */
+  masukLanjut?: string | null;
   /** Pratinjau CMS: bagian yang menyala tetapi kosong diganti kotak bertitik (KotakKosong). */
   pratinjau?: boolean;
 };
@@ -198,7 +200,7 @@ function Section({ id, children }: { id?: string; children: ReactNode }) {
   );
 }
 
-export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null, pratinjau = false }: Props) {
+export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null, masukLanjut = null, pratinjau = false }: Props) {
   // Teks bawaan halaman dalam bahasa halaman. Teks dari CMS sudah diterjemahkan
   // sebelum sampai di sini (resolveLanding).
   const t = LANDING_UI[lang];
@@ -1537,6 +1539,7 @@ export async function EventLandingModern({ event, config, sections, theme, lang 
           minPassword={PASSWORD_MIN}
           awal={masukAwal}
           sandi={sandi}
+          lanjut={masukLanjut}
           lang={lang}
           aksi={gaya}
           cara={caraMasukPublik(event, lang)}

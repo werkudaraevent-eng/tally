@@ -124,6 +124,7 @@ export function MasukDialog({
   aksi = false,
   kepala = null,
   cara = { jenis: "password" },
+  lanjut = null,
 }: {
   slug: string;
   /** `/e/<slug>/masuk`: alamat dialog, juga href tautan pemicunya. */
@@ -147,6 +148,8 @@ export function MasukDialog({
   kepala?: KepalaMasuk | null;
   /** Cara masuk acara ini (landing_config.member.sign_in). */
   cara?: CaraMasukPublik;
+  /** Alamat checkpoint dari `?lanjut=` (lanjutPindai): tujuan sesudah masuk, menggantikan area peserta. */
+  lanjut?: string | null;
 }) {
   const t = MASUK_UI[lang];
   const judulId = useId();
@@ -357,7 +360,7 @@ export function MasukDialog({
       // Akun yang baru masuk tidak boleh mewarisi salinan QR luring akun
       // sebelumnya di ponsel ini; portalnya menyimpan salinan baru sendiri.
       await hapusSalinanQr(lingkupSalinanQr(slug));
-      window.location.assign(`${halamanUrl}/peserta`);
+      window.location.assign(lanjut ?? `${halamanUrl}/peserta`);
       return;
     }
     setSibuk(false);

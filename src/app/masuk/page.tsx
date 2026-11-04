@@ -11,6 +11,7 @@ import { caraMasukPublik } from "@/lib/member/kolom-masuk";
 import { renderLanding } from "@/components/landing/render-landing";
 import { asalSitus } from "@/app/e/[slug]/landing-metadata";
 import { peekPasswordToken } from "@/lib/member/links";
+import { lanjutPindai } from "@/lib/checkpoint/qr-alamat";
 import { bingkaiFormulir } from "@/app/daftar/isi-daftar";
 import { BingkaiModern } from "@/app/daftar/daftar-client";
 import { MasukClient, type MasukMode, type MasukSandi } from "./masuk-client";
@@ -70,7 +71,10 @@ export default async function MasukPage({
   const halamanUrl = landingPath(event.slug, lang, utama);
   const tokenSandi = typeof params.sandi === "string" ? params.sandi : null;
   const sudahMasuk = Boolean(await getMemberSession(event));
-  if (!tokenSandi && sudahMasuk) redirect(`${halamanUrl}/peserta`);
+  // Dari QR checkpoint yang dibuka kamera bawaan (`/e/<slug>/pindai`): sesudah
+  // masuk kembali ke checkpoint itu, bukan ke area peserta.
+  const lanjut = lanjutPindai(event.slug, params.lanjut);
+  if (!tokenSandi && sudahMasuk) redirect(lanjut ?? `${halamanUrl}/peserta`);
 
   // `?mode=aktifkan` adalah alamat lama (buat kata sandi dengan kode); kini
   // jalurnya tautan email.
@@ -96,7 +100,7 @@ export default async function MasukPage({
       return (
         <BingkaiModern lang={lang} halamanUrl={null} eventName={bingkai.eventName} welcomeText={null} theme={bingkai.theme} modern={bingkai.modern} areaUrl={null} eyebrow={lang === "en" ? "My dashboard" : "Dashboard saya"}>
           <div className="mx-auto w-full max-w-[440px]">
-            <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} lang={lang} halamanUrl={halamanUrl} cara={caraMasukPublik(event, lang)} />
+            <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} lang={lang} halamanUrl={halamanUrl} cara={caraMasukPublik(event, lang)} lanjut={lanjut} />
             <Link href={`${halamanUrl}/daftar`} className="mt-6 inline-flex min-h-11 items-center text-title-small font-semibold text-[var(--reg-primary)]">
               {lang === "en" ? "Not registered yet? Register here" : "Belum terdaftar? Daftar di sini"}
             </Link>
@@ -106,7 +110,7 @@ export default async function MasukPage({
     }
   }
   if (landing?.layout === "modern") {
-    return renderLanding(event, lang, { masukAwal: modeAwal, sandi });
+    return renderLanding(event, lang, { masukAwal: modeAwal, sandi, masukLanjut: lanjut });
   }
 
   const schedule = formatEventSchedule(event);
@@ -139,7 +143,7 @@ export default async function MasukPage({
         </div>
 
         <div className="flex flex-col justify-center py-10 lg:col-span-5 lg:col-start-7 lg:py-12">
-          <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} cara={caraMasukPublik(event, "id")} />
+          <MasukClient slug={event.slug} modeAwal={modeAwal} minPassword={PASSWORD_MIN} sandi={sandi} cara={caraMasukPublik(event, "id")} lanjut={lanjut} />
         </div>
       </div>
     </main>
