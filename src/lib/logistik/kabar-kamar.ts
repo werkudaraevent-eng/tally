@@ -68,6 +68,18 @@ export function kabarBerubah(kunci: string, terkirim: string | null | undefined)
   return false;
 }
 
+/**
+ * Dua stay berbagi malam: sama dengan `lodging_rentang(..) && lodging_rentang(..)`
+ * di member_logistics. Rentang [masuk, keluar); tanggal kosong = tak terbatas;
+ * keluar <= masuk = rentang kosong yang tidak beririsan dengan apa pun.
+ */
+export function berbagiMalam(a: { masuk: string | null; keluar: string | null }, b: { masuk: string | null; keluar: string | null }): boolean {
+  const ms = (iso: string | null, kosong: number) => (iso && !Number.isNaN(Date.parse(iso)) ? Date.parse(iso) : kosong);
+  const [am, ak, bm, bk] = [ms(a.masuk, -Infinity), ms(a.keluar, Infinity), ms(b.masuk, -Infinity), ms(b.keluar, Infinity)];
+  if (ak <= am || bk <= bm) return false;
+  return am < bk && bm < ak;
+}
+
 const TEKS = {
   id: {
     eyebrow: "Info hotel",

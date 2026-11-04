@@ -1,17 +1,20 @@
 "use client";
 
-import { EnvelopeSimple } from "@phosphor-icons/react";
+import { Bell } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { Banner, Button, Dialog } from "@/components/m3";
 import { useToast } from "@/components/toast";
+import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
 /**
- * Banner "Email room numbers" di Logistics > Assignments (migrasi 202611040003).
+ * Banner "Tell participants" di Logistics > Assignments (migrasi 202611040003).
  *
- * Tampil hanya bila ada peserta dengan nomor kamar yang belum dikabarkan
- * lewat email, dan acaranya belum lewat. Tidak ada yang terkirim sebelum
- * panitia menekan Send di dialog: email tidak bisa ditarik.
+ * Tampil hanya bila ada peserta dengan nomor kamar yang belum dikabarkan, dan
+ * acaranya belum lewat. Tidak ada yang terkirim sebelum panitia menekan Send
+ * di dialog. Di dialog panitia memilih salurannya: lonceng di area peserta
+ * saja, atau lonceng ditambah email pribadi (bawaan, karena peserta di lokasi
+ * acara jarang membuka portal tanpa diberi tahu).
  *
  * `pemicu` berganti setiap kali data Logistik dimuat ulang (import, Assign,
  * Stays), jadi hitungannya ikut segar tanpa polling.
@@ -26,14 +29,29 @@ type Ringkasan = {
   nama: string[];
   terkirim: number;
   mode_uji: boolean;
+  kamar_tampil: boolean;
 };
+
+type Saluran = "portal" | "portal_email";
+
+const SALURAN: Array<{ value: Saluran; judul: string; isi: string }> = [
+  {
+    value: "portal_email",
+    judul: "Participant area and email",
+    isi: "A notice in the participant area bell, plus a personal email with their hotel, room number, roommates and check-in time.",
+  },
+  {
+    value: "portal",
+    judul: "Participant area only",
+    isi: "A notice in the bell. They see it the next time they open the participant area.",
+  },
+];
 
 function daftarNama(nama: string[], total: number): string {
   if (total <= nama.length) {
     return nama.length <= 1 ? nama.join("") : `${nama.slice(0, -1).join(", ")} and ${nama[nama.length - 1]}`;
   }
-  const sisa = total - nama.length;
-  return `${nama.join(", ")} and ${plural(sisa, "other")}`;
+  return `${nama.join(", ")} and ${plural(total - nama.length, "other")}`;
 }
 
 export function KabarKamar({ pemicu }: { pemicu: unknown }) {
@@ -41,6 +59,7 @@ export function KabarKamar({ pemicu }: { pemicu: unknown }) {
   const [data, setData] = useState<Ringkasan | null>(null);
   const [buka, setBuka] = useState(false);
   const [kirim, setKirim] = useState(false);
+  const [saluran, setSaluran] = useState<Saluran>("portal_email");
 
   const muat = useCallback(async () => {
     const response = await fetch("/api/admin/logistik/kabar-kamar", { cache: "no-store" }).catch(() => null);
@@ -55,39 +74,47 @@ export function KabarKamar({ pemicu }: { pemicu: unknown }) {
 
   async function kirimSekarang() {
     setKirim(true);
-    const response = await fetch("/api/admin/logistik/kabar-kamar", { method: "POST" }).catch(() => null);
+    const response = await fetch("/api/admin/logistik/kabar-kamar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ saluran }),
+    }).catch(() => null);
     const body = await response?.json().catch(() => null);
     setKirim(false);
     setBuka(false);
     if (!response?.ok) {
-      toast.error("Room numbers not emailed", body?.error?.message ?? "Try again in a moment.");
+      toast.error("Participants not told", body?.error?.details?.message ?? body?.error?.message ?? "Try again in a moment.");
     } else {
-      const hasil = body as { terkirim: number; gagal: number; dilewati: number; galat: string | null };
-      const catatan = [
-        hasil.gagal > 0 ? `${plural(hasil.gagal, "email")} failed${hasil.galat ? `: ${hasil.galat}` : "."}` : null,
-        hasil.dilewati > 0 ? `${plural(hasil.dilewati, "participant")} skipped (no email address${data?.mode_uji ? " or not on the test list" : ""}).` : null,
-      ].filter(Boolean).join(" ");
-      if (hasil.gagal > 0) toast.error(`Emailed ${plural(hasil.terkirim, "participant")}`, catatan);
-      else toast.success(`Emailed ${plural(hasil.terkirim, "participant")}`, catatan || "Each one got their hotel, room number and roommates.");
+      const hasil = body as { lonceng: number; terkirim: number; gagal: number; tanpa_email: number; galat: string | null };
+      const judul = `Told ${plural(hasil.lonceng, "participant")}`;
+      if (saluran === "portal") {
+        toast.success(judul, hasil.galat ?? "They see the notice in the participant area bell.");
+      } else {
+        const catatan = [
+          `${plural(hasil.terkirim, "email")} sent.`,
+          hasil.gagal > 0 ? `${plural(hasil.gagal, "email")} failed${hasil.galat ? `: ${hasil.galat}` : "."} They stay on the list.` : null,
+          hasil.tanpa_email > 0 ? `${plural(hasil.tanpa_email, "participant")} got the bell only (no email address${data?.mode_uji ? " or not on the test list" : ""}).` : null,
+        ].filter(Boolean).join(" ");
+        if (hasil.gagal > 0) toast.error(judul, catatan);
+        else toast.success(judul, catatan);
+      }
     }
     void muat();
   }
 
   if (!data || data.perlu === 0) return null;
-  const bisaDikirim = data.perlu - data.tanpa_email;
 
   return (
     <>
       <Banner
         tone="info"
-        icon={<EnvelopeSimple size={18} />}
+        icon={<Bell size={18} />}
         className="mb-3 [&>div:first-child]:basis-[20rem]"
-        actions={<Button size="sm" onClick={() => setBuka(true)} disabled={bisaDikirim === 0}>Email room numbers</Button>}
+        actions={<Button size="sm" onClick={() => { setSaluran("portal_email"); setBuka(true); }} disabled={!data.kamar_tampil}>Tell participants</Button>}
       >
-        <p className="font-semibold">{`${plural(data.perlu, "participant")} ${data.perlu === 1 ? "has" : "have"} a room number we haven't emailed yet`}</p>
+        <p className="font-semibold">{`${plural(data.perlu, "participant")} ${data.perlu === 1 ? "has" : "have"} a room number they haven't been told about`}</p>
         <p className="text-on-surface-variant">
-          {daftarNama(data.nama, data.perlu)}
-          {data.tanpa_email > 0 ? `. ${plural(data.tanpa_email, "has", "have")} no email address.` : "."}
+          {data.kamar_tampil ? `${daftarNama(data.nama, data.perlu)}.` : "Rooms are hidden from participants. Show them in Participant area › Logistics first."}
         </p>
       </Banner>
 
@@ -95,24 +122,52 @@ export function KabarKamar({ pemicu }: { pemicu: unknown }) {
         open={buka}
         onClose={() => { if (!kirim) setBuka(false); }}
         dismissible={!kirim}
-        icon={<EnvelopeSimple size={20} />}
-        title={`Email room numbers to ${plural(bisaDikirim, "participant")}?`}
-        description="Each person gets a personal email with their hotel, room number, roommates and check-in time. Emails can't be recalled."
+        icon={<Bell size={20} />}
+        title={`Tell ${plural(data.perlu, "participant")} their room number?`}
+        description="Notices can't be recalled. People still waiting for a room number are not told; they show up here again when their number is set."
         actions={
           <>
             <Button variant="text" onClick={() => setBuka(false)} disabled={kirim}>Cancel</Button>
-            <Button onClick={() => void kirimSekarang()} loading={kirim}>{`Send ${plural(bisaDikirim, "email")}`}</Button>
+            <Button onClick={() => void kirimSekarang()} loading={kirim}>Send</Button>
           </>
         }
       >
-        <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body-medium text-on-surface">
-          {data.berubah > 0 ? <li>{`${plural(data.berubah, "participant")} had a different room number before and get "Your room number has changed".`}</li> : null}
-          {data.tanpa_email > 0 ? (
-            <li>{`Skipped, no email address: ${daftarNama(data.nama_tanpa_email, data.tanpa_email)}.`}</li>
-          ) : null}
-          <li>People still waiting for a room number are not emailed. When their number is set, they show up here again.</li>
-          {data.mode_uji ? <li>Test mode: only addresses on the test list (MESSAGING_ALLOWLIST) receive it.</li> : null}
-        </ul>
+        <div className="flex flex-col gap-3">
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-title-small font-semibold text-on-surface">Send through</legend>
+            {SALURAN.map((pilihan) => (
+              <label
+                key={pilihan.value}
+                className={cx(
+                  "flex min-h-12 cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5",
+                  saluran === pilihan.value ? "border-primary bg-primary-soft" : "border-outline-variant",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="saluran-kamar"
+                  value={pilihan.value}
+                  checked={saluran === pilihan.value}
+                  onChange={() => setSaluran(pilihan.value)}
+                  disabled={kirim}
+                  className="mt-1 size-4 shrink-0 accent-[var(--md-sys-color-primary)]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-body-medium font-semibold text-on-surface">{pilihan.judul}</span>
+                  <span className="block text-body-small text-on-surface-variant">{pilihan.isi}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body-medium text-on-surface">
+            {saluran === "portal_email" && data.berubah > 0 ? <li>{`${plural(data.berubah, "participant")} had a different room number before and get "Your room number has changed".`}</li> : null}
+            {saluran === "portal_email" && data.tanpa_email > 0 ? (
+              <li>{`No email address, bell only: ${daftarNama(data.nama_tanpa_email, data.tanpa_email)}.`}</li>
+            ) : null}
+            {saluran === "portal_email" && data.mode_uji ? <li>Test mode: only addresses on the test list (MESSAGING_ALLOWLIST) get the email.</li> : null}
+            <li>The bell notice also appears in Announcements, sent to these participants.</li>
+          </ul>
+        </div>
       </Dialog>
     </>
   );
