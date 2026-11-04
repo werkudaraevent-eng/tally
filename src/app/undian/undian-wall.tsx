@@ -60,7 +60,10 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   const main = useMemo(() => winners.filter((winner) => !winner.is_backup), [winners]);
   const backups = useMemo(() => winners.filter((winner) => winner.is_backup), [winners]);
 
-  const names = useMemo(() => roster.map((item) => item.name), [roster]);
+  // Setiap poll membawa array roster baru dengan isi sama; kunci memo pada
+  // isinya supaya gelombang sorot tidak diacak ulang di tengah jalan.
+  const namesKey = roster.map((item) => item.name).join("\u0000");
+  const names = useMemo(() => (namesKey === "" ? [] : namesKey.split("\u0000")), [namesKey]);
   const initialsWall = useMemo(() => names.length > 0 && names.every((name) => /^(\S\.){1,2}$/u.test(name)), [names]);
 
   // Ukuran wadah, untuk menghitung kolom dan huruf ubin.

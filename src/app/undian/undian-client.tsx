@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { LoadingIndicator } from "@/components/m3";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
@@ -78,6 +78,12 @@ export default function UndianClient({ initial }: Props) {
   // confetti, ledakan, dan fanfare menunggu kartu pemenang, bukan mendahuluinya.
   const wallReveal = state.prize?.animation === "wall";
   const confettiOn = state.settings.confetti_enabled;
+  // Dibaca lewat ref supaya mengubah Confetti tidak memutar ulang fanfare
+  // atau mengulang timer kartu dinding.
+  const confettiRef = useRef(confettiOn);
+  useEffect(() => {
+    confettiRef.current = confettiOn;
+  }, [confettiOn]);
   const [seenReveal, setSeenReveal] = useState("");
   if (revealKey !== "" && seenReveal !== revealKey) {
     setSeenReveal(revealKey);
@@ -94,12 +100,12 @@ export default function UndianClient({ initial }: Props) {
       return;
     }
     const timer = window.setTimeout(() => {
-      if (confettiOn) setConfettiTrigger((value) => value + 1);
+      if (confettiRef.current) setConfettiTrigger((value) => value + 1);
       setBurst((value) => value + 1);
       if (state.settings.sound_enabled) playFanfare();
     }, WALL_CARDS_AT_MS);
     return () => window.clearTimeout(timer);
-  }, [revealKey, state.settings.sound_enabled, wallReveal, confettiOn]);
+  }, [revealKey, state.settings.sound_enabled, wallReveal]);
 
   // Fullscreen dibaca di inisialisasi state, bukan di effect, supaya render
   // pertama sudah benar. Permintaan fullscreen sendiri butuh gestur pengguna,
