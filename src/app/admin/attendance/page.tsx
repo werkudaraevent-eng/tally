@@ -48,6 +48,8 @@ type Sesi = {
   bagasi?: { bags: number; people: number; photos: number };
   /** Luggage: Pick-up. Tidak ada sebelum migrasi 202610240001. */
   luggage_pickup?: boolean;
+  /** Luggage: Pick-up > Photo at hand-over. Tidak ada sebelum migrasi 202611040003. */
+  handover_photo?: boolean;
   /** Kemajuan meja ambil se-acara, hanya bila sesinya meja ambil. */
   ambil_bagasi?: { handedPeople: number; handedBags: number; waitingPeople: number; waitingBags: number };
   /** Shown after scan. Tidak ada sebelum migrasi 202610300001; null = Company · Job title. */
@@ -567,6 +569,20 @@ export default function AttendanceAdminPage() {
               );
             })}
           </fieldset>
+          {sesiTerpilih.luggage_pickup ? (
+            <>
+              <Switch simpan
+                checked={sesiTerpilih.handover_photo === true}
+                disabled={busy || terkunci || sesiTerpilih.handover_photo === undefined}
+                onChange={(value) => void kirim("PATCH", { id: sesiTerpilih.id, handover_photo: value })}
+                label="Photo at hand-over"
+                description="Staff can take one photo of the bags as they hand them over, as extra proof next to the time and their name. Optional for each participant: a photo that fails to upload never undoes the handover."
+              />
+              {sesiTerpilih.handover_photo === undefined ? (
+                <p className="text-body-medium text-on-surface-variant">Available after the database update for hand-over photos is run.</p>
+              ) : null}
+            </>
+          ) : null}
           {(sesiTerpilih.records_luggage || sesiTerpilih.luggage_pickup) && nomorBagasi ? (
             <div className="flex flex-col gap-2">
               <SelectField
@@ -612,7 +628,7 @@ export default function AttendanceAdminPage() {
           {sesiTerpilih.records_luggage ? (
             <p className="text-body-medium text-on-surface-variant">Photos are private: only admins and scanners of this event can open them, and each participant sees their own. They are deleted 30 days after the event ends; the counts stay.</p>
           ) : sesiTerpilih.luggage_pickup ? (
-            <p className="text-body-medium text-on-surface-variant">Counts cover every drop-off desk in this event. Each drop-off can be handed over once; staff can undo their own handover.</p>
+            <p className="text-body-medium text-on-surface-variant">Counts cover every drop-off desk in this event. Each drop-off can be handed over once; staff can undo their own handover.{sesiTerpilih.handover_photo ? " Hand-over photos are private like drop-off photos and are deleted 30 days after the event ends." : ""}</p>
           ) : null}
         </DetailSection>
         <InfoScanSesi

@@ -1,11 +1,13 @@
 "use client";
 
-import { CheckSquare, Suitcase, Warning } from "@phosphor-icons/react";
+import { Camera, CheckSquare, Suitcase, Warning, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@/components/m3";
+import { Button, IconButton } from "@/components/m3";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
+import { cx } from "@/lib/m3/cx";
+import { kecilkanFoto } from "./kecilkan-foto";
 import type { TitipanBagasi } from "./types";
 
 /**
@@ -20,6 +22,13 @@ import type { TitipanBagasi } from "./types";
  * menahan tamu berikutnya (`onTertunda`), sama seperti meja titip: lembar yang
  * berganti di tengah jalan membuat petugas ragu koper ini sudah dicatat atau
  * belum.
+ *
+ * Photo at hand-over (`foto`, per sesi, bawaan mati): petugas boleh memotret
+ * koper yang diserahkan. Urutannya sama dengan meja titip: penyerahan disimpan
+ * dulu, fotonya menyusul. Foto yang gagal terkirim tidak membatalkan
+ * penyerahan; petugas mencoba lagi atau melewatinya. Lupa memotret sebelum
+ * menekan Hand over: foto masih bisa ditambahkan sesudahnya, selama lembar ini
+ * terbuka.
  */
 
 const jam = (iso: string | null | undefined) =>
@@ -27,16 +36,22 @@ const jam = (iso: string | null | undefined) =>
 const hari = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 const kantong = (n: number) => `${n} ${n === 1 ? "bag" : "bags"}`;
 
-type Fase = "muat" | "siap" | "serah" | "batal" | "tenang";
+type Fase = "muat" | "siap" | "serah" | "batal" | "tenang" | "foto" | "fotoGagal";
 
 export function LuggageHandover({
   sessionId,
   participantId,
+  foto: fotoAktif = false,
   onTertunda,
+  onKamera,
   tempatTombol,
 }: {
   sessionId: number;
   participantId: string;
+  /** Luggage: Pick-up > Photo at hand-over menyala di sesi ini. */
+  foto?: boolean;
+  /** Kamera bawaan dibuka (true) atau ditutup (false); kamera pemindai berhenti selama itu. */
+  onKamera?: (buka: boolean) => void;
   /** 1 selama ada titipan yang belum diserahkan di lembar ini, 0 bila tidak. */
   onTertunda?: (jumlah: number) => void;
   /** Tempat tombol utama di bilah aksi lembar hasil yang menempel di bawah. */
@@ -49,6 +64,8 @@ export function LuggageHandover({
   // Sudah diserahkan sebelum lembar ini dibuka (pemindaian ulang), bukan oleh tombol di lembar ini.
   const [lama, setLama] = useState(false);
   const [baru, setBaru] = useState(false);
+  const [foto, setFoto] = useState<{ blob: Blob; url: string } | null>(null);
+  const pilihFoto = useRef<HTMLInputElement>(null);
 
   const menunggu = titipan.filter((item) => item.bag_count > 0 && !item.handed_over_at);
   const jumlahMenunggu = menunggu.reduce((total, item) => total + item.bag_count, 0);
@@ -56,9 +73,22 @@ export function LuggageHandover({
 
   const onTertundaRef = useRef(onTertunda);
   useEffect(() => { onTertundaRef.current = onTertunda; });
-  const tertunda = fase === "siap" || fase === "serah";
+  const tertunda = fase === "siap" || fase === "serah" || fase === "foto" || fase === "fotoGagal";
   useEffect(() => { onTertundaRef.current?.(tertunda ? 1 : 0); }, [tertunda]);
   useEffect(() => () => onTertundaRef.current?.(0), []);
+  // URL pratinjau dilepas saat diganti atau lembar ditutup.
+  useEffect(() => () => { if (foto) URL.revokeObjectURL(foto.url); }, [foto]);
+
+  // Kamera ditutup tanpa foto (Chrome, Safari 16.4+): kamera pemindai menyala lagi.
+  const onKameraRef = useRef(onKamera);
+  useEffect(() => { onKameraRef.current = onKamera; });
+  useEffect(() => {
+    const input = pilihFoto.current;
+    if (!input) return;
+    const batal = () => onKameraRef.current?.(false);
+    input.addEventListener("cancel", batal);
+    return () => input.removeEventListener("cancel", batal);
+  }, [fase]);
 
   const terima = useCallback((daftar: TitipanBagasi[]) => {
     setTitipan(daftar);
@@ -82,6 +112,49 @@ export function LuggageHandover({
     return () => window.clearTimeout(timer);
   }, [muat]);
 
+  function bukaKamera() {
+    onKamera?.(true);
+    pilihFoto.current?.click();
+  }
+
+  async function kirimFoto(blob: Blob) {
+    setFase("foto");
+    setGalat("");
+    const form = new FormData();
+    form.set("session_id", String(sessionId));
+    form.set("participant_id", participantId);
+    form.set("file", blob, "handover.jpg");
+    const response = await fetch(eventApiPath("/api/attendance/luggage/handover/photo"), { method: "POST", body: form }).catch(() => null);
+    if (!response?.ok) {
+      // Yang perlu diketahui petugas: kopernya sudah tercatat diserahkan, fotonya belum.
+      setGalat("The bags are handed over, but the photo did not upload. Try again, or skip the photo.");
+      setFase("fotoGagal");
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    setFoto(null);
+    setBaru(true);
+    terima((body.drops ?? []) as TitipanBagasi[]);
+  }
+
+  async function ambil(berkas: File | undefined) {
+    onKamera?.(false);
+    if (!berkas) return;
+    setGalat("");
+    const kecil = await kecilkanFoto(berkas).catch(() => null);
+    if (!kecil) { setGalat("Could not read this photo. Take it again."); return; }
+    const baruFoto = { blob: kecil, url: URL.createObjectURL(kecil) };
+    setFoto(baruFoto);
+    // Sudah diserahkan (lupa memotret sebelum Hand over): langsung dikirim.
+    if (fase === "tenang") await kirimFoto(baruFoto.blob);
+  }
+
+  function lewatiFoto() {
+    setFoto(null);
+    setGalat("");
+    setFase("tenang");
+  }
+
   async function kirim(method: "POST" | "DELETE") {
     setFase(method === "POST" ? "serah" : "batal");
     setGalat("");
@@ -102,6 +175,9 @@ export function LuggageHandover({
     const daftar = (body.drops ?? []) as TitipanBagasi[];
     setLama(false);
     setBaru(method === "POST");
+    setTitipan(daftar);
+    if (method === "POST" && foto) { await kirimFoto(foto.blob); return; }
+    if (method === "DELETE") setFoto(null);
     terima(daftar);
   }
 
@@ -123,11 +199,28 @@ export function LuggageHandover({
   const idBatal = diserahkan.find((item) => item.mine)?.id ?? null;
   const pertama = diserahkan[0] ?? null;
 
+  // Foto serah terima yang sudah tersimpan untuk penyerahan petugas ini.
+  const fotoSerah = diserahkan.find((item) => item.mine && item.handover_photo_url)?.handover_photo_url ?? null;
+  // Baris foto: sebelum Hand over, selama foto dikirim atau gagal, dan sesudah
+  // penyerahan petugas ini yang belum berfoto (lupa memotret).
+  const barisFoto = fotoAktif && adaKoper && (
+    fase === "siap" || fase === "serah" || fase === "foto" || fase === "fotoGagal"
+    || (fase === "tenang" && idBatal !== null && !fotoSerah)
+  );
+  const fotoTerkunci = fase === "serah" || fase === "foto" || fase === "batal";
+
   const tombol =
     fase === "siap" || fase === "serah" ? (
       <Button variant="filled" size="md" className="max-[400px]:w-full" loading={fase === "serah"} onClick={() => void kirim("POST")}>
         Hand over {kantong(jumlahMenunggu)}
       </Button>
+    ) : fase === "foto" || fase === "fotoGagal" ? (
+      <>
+        <Button variant="text" size="md" disabled={fase === "foto"} onClick={lewatiFoto}>Skip photo</Button>
+        <Button variant="filled" size="md" loading={fase === "foto"} onClick={() => { if (foto) void kirimFoto(foto.blob); }}>
+          Try photo again
+        </Button>
+      </>
     ) : null;
 
   return (
@@ -182,16 +275,72 @@ export function LuggageHandover({
                     <Button variant="text" size="md" onClick={() => void kirim("DELETE")}>Undo</Button>
                   ) : null}
                 </div>
+                {sudah && item.handover_photo_url ? (
+                  <a href={item.handover_photo_url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 px-1" aria-label="Open hand-over photo">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- signed URL berumur pendek */}
+                    <img src={item.handover_photo_url} alt="" className="h-14 w-[72px] shrink-0 rounded-md object-cover" />
+                    <span className="text-body-medium text-on-surface-variant">Hand-over photo</span>
+                  </a>
+                ) : null}
               </div>
             );
           })}
         </div>
       )}
 
+      {barisFoto ? (
+        <div className="mt-2">
+          <input
+            ref={pilihFoto}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={(event) => { void ambil(event.target.files?.[0]); event.target.value = ""; }}
+          />
+          {foto ? (
+            <div className="flex min-h-[72px] items-center gap-3 rounded-lg border border-outline bg-surface-container-lowest px-4 py-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- blob: pratinjau, bukan aset statis */}
+              <img src={foto.url} alt="Hand-over photo" className="h-14 w-[72px] shrink-0 rounded-md object-cover" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-body-large font-medium">{fase === "foto" ? "Uploading photo…" : "Photo added"}</span>
+              </span>
+              {fase === "siap" || fase === "serah" ? (
+                <>
+                  <Button variant="text" size="md" disabled={fotoTerkunci} onClick={bukaKamera}>Retake</Button>
+                  <IconButton label="Remove photo" disabled={fotoTerkunci} onClick={() => setFoto(null)}>
+                    <X size={20} />
+                  </IconButton>
+                </>
+              ) : null}
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={fotoTerkunci}
+              onClick={bukaKamera}
+              className="m3-state flex min-h-[72px] w-full items-center gap-3 rounded-lg border border-dashed border-outline bg-surface-container-lowest px-4 py-3 text-left disabled:opacity-50"
+            >
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+                <Camera size={24} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-body-large font-medium text-primary">{fase === "tenang" ? "Add hand-over photo" : "Take photo"}</span>
+                <span className="block text-body-medium text-on-surface-variant">Optional · the bags being handed over</span>
+              </span>
+            </button>
+          )}
+        </div>
+      ) : null}
+
       {galat ? (
-        <p role="alert" className="mt-2 text-body-medium text-error">{galat}</p>
+        <p role="alert" className={cx("mt-2 rounded-lg px-3 py-2 text-body-medium", fase === "fotoGagal" ? "bg-warning-soft text-on-warning-soft" : "text-error")}>{galat}</p>
       ) : fase === "siap" || fase === "serah" ? (
         <p className="mt-2 text-body-medium text-on-surface-variant">Match the bags to the photo, then hand them over.</p>
+      ) : fase === "foto" ? (
+        <p role="status" className="mt-2 text-body-medium text-on-surface-variant">Handed over. Uploading the photo…</p>
       ) : baru && fase === "tenang" ? (
         <p role="status" className="mt-2 flex items-start gap-2 text-body-medium text-on-surface">
           <CheckSquare size={18} className="mt-0.5 shrink-0" aria-hidden />

@@ -151,7 +151,7 @@ type Props = {
   /** Sesi yang mencatat bagasi (Record luggage). Null = tanpa isian bagasi. */
   bagasi?: { sessionId: number } | null;
   /** Sesi tempat bagasi diserahkan kembali (Luggage: Pick-up). Null = bukan meja ambil. */
-  ambilBagasi?: { sessionId: number } | null;
+  ambilBagasi?: { sessionId: number; foto?: boolean } | null;
   /** 1 selama jumlah atau foto bagasi tamu ini belum tersimpan, atau titipannya belum diserahkan. */
   onBagasi?: (jumlah: number) => void;
   /** Kamera bawaan dibuka (true) atau ditutup (false) untuk foto bagasi. */
@@ -471,7 +471,9 @@ export function ResultSheet({
                     key={`${kedip}-${peserta.id}`}
                     sessionId={ambilBagasi.sessionId}
                     participantId={peserta.id}
+                    foto={ambilBagasi.foto === true}
                     onTertunda={onBagasi}
+                    onKamera={onKameraFoto}
                     tempatTombol={tempatBagasi}
                   />
                 ) : null}

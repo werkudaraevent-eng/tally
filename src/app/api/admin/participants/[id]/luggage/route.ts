@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { hapusFotoBagasi, titipanPeserta } from "@/lib/bagasi/server";
+import { hapusFotoBagasi, hapusFotoSerahYatim, titipanPeserta } from "@/lib/bagasi/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -64,7 +64,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   if (error) return apiError("INTERNAL_ERROR", 500);
   // Sudah terhapus (tab lain, atau reset check-in): hasilnya sama dengan yang diminta.
   if (!data) return Response.json({ deleted: 0 });
-  const baris = data as { id: number; session_id: number; bag_count: number; photo_path: string | null; recorded_at: string; recorded_by: string | null; handed_over_at?: string | null; handed_over_by?: string | null };
+  const baris = data as { id: number; session_id: number; bag_count: number; photo_path: string | null; recorded_at: string; recorded_by: string | null; handed_over_at?: string | null; handed_over_by?: string | null; handover_photo_path?: string | null };
 
   // Audit dulu: kalau penulisannya gagal, tidak ada yang dihapus tanpa jejak.
   const { error: galatAudit } = await client.from("audit_logs").insert({
@@ -91,5 +91,6 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     .from("luggage_drops").delete().eq("event_id", eventId).eq("id", baris.id).select("id");
   if (galat) return apiError("INTERNAL_ERROR", 500);
   await hapusFotoBagasi([baris.photo_path]);
+  await hapusFotoSerahYatim(eventId, [baris.handover_photo_path]);
   return Response.json({ deleted: terhapus?.length ?? 0 });
 }
