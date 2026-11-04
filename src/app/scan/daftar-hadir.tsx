@@ -174,7 +174,7 @@ export function DaftarHadir({
       />
       <div className="mt-2 flex min-h-12 items-center justify-between gap-2">
         <p className="min-w-0 text-body-small text-on-surface-variant">
-          All desks{untuk ? ` · ${untuk}` : ""} · A–Z{sekarang && !sekarang.gagal ? ` · updated ${jam(sekarang.waktu)}` : ""}
+          All desks · A–Z{sekarang && !sekarang.gagal ? ` · updated ${jam(sekarang.waktu)}` : ""}
         </p>
         <Button
           variant="text"
@@ -235,7 +235,7 @@ export function DaftarHadir({
                       {sudahHadir ? (
                         <p className="mt-0.5 text-label-medium text-success">
                           Checked in {jam(baris.first_scan_at)}
-                          {baris.luar ? <span className="text-on-surface-variant"> · Not in {untuk ?? "this list"}</span> : null}
+                          {baris.luar ? <span className="text-on-surface-variant"> · Other group</span> : null}
                         </p>
                       ) : null}
                     </div>

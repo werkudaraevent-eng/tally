@@ -1778,9 +1778,14 @@ export default function ScanClient() {
    */
   const stripHadir = (
     <div className="rounded-2xl bg-surface-container px-4 pb-3 pt-3 lg:hidden">
+      {/* Kelompok di baris sendiri selebar kotak: label panjang ("Batch 1 /
+          Batch 2 / Batch 3 / Batch 4") tidak boleh menyempitkan kolom tamu terakhir. */}
+      {sasaranAktif?.untuk ? (
+        <p className="mb-2 text-label-medium font-semibold text-on-surface">Counting {sasaranAktif.untuk} only</p>
+      ) : null}
       <div className="flex items-center gap-4">
         <div className="shrink-0">
-          <p className="text-label-small text-on-surface-variant">All desks{sasaranAktif?.untuk ? ` · ${sasaranAktif.untuk}` : ""}</p>
+          <p className="text-label-small text-on-surface-variant">All desks</p>
           <p className="flex items-baseline gap-2">
             <span className="text-headline-medium font-semibold tabular-nums">{angka(hadir ?? 0)}</span>
             <span className="text-body-medium text-on-surface-variant">checked in</span>
@@ -1808,7 +1813,7 @@ export default function ScanClient() {
           tetapi tidak hilang diam-diam (pola halaman Kehadiran panitia). */}
       {sasaranAktif && lainnya > 0 ? (
         <p className="mt-2 text-label-medium tabular-nums text-on-surface-variant">
-          +{angka(lainnya)} from outside {sasaranAktif.untuk ?? "this list"}
+          +{angka(lainnya)} from other groups also checked in here
         </p>
       ) : null}
       {/* Siapa yang belum: membuka daftar di Find name. Di tab Find name
@@ -2270,7 +2275,8 @@ export default function ScanClient() {
               Setelan pindah ke menu ⋮, sama dengan di ponsel. */}
           <aside className="hidden lg:sticky lg:top-[88px] lg:block">
             <Card>
-              <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "No check-in point yet"} · all desks{sasaranAktif?.untuk ? ` · ${sasaranAktif.untuk}` : ""}</p>
+              <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "No check-in point yet"} · all desks</p>
+              {sasaranAktif?.untuk ? <p className="mt-1 text-label-medium font-semibold">Counting {sasaranAktif.untuk} only</p> : null}
               <p className="mt-1 flex items-baseline gap-2">
                 <span className="text-display-small tabular-nums">{angka(hadir ?? 0)}</span>
                 <span className="text-body-medium text-on-surface-variant">
@@ -2279,7 +2285,7 @@ export default function ScanClient() {
               </p>
               {pembagi ? <div className="mt-3">{bilahKemajuan}</div> : null}
               {sasaranAktif && lainnya > 0 ? (
-                <p className="mt-2 text-body-small tabular-nums text-on-surface-variant">+{angka(lainnya)} from outside {sasaranAktif.untuk ?? "this list"}</p>
+                <p className="mt-2 text-body-small tabular-nums text-on-surface-variant">+{angka(lainnya)} from other groups also checked in here</p>
               ) : null}
               {belum !== null ? (
                 <p className="mt-3 flex items-baseline justify-between gap-2 text-body-medium">
