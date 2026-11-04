@@ -30,6 +30,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import {
   Button,
   Card,
+  Dialog,
   Divider,
   EmptyState,
   IconButton,
@@ -1215,6 +1216,18 @@ export default function ScanClient() {
     hasilRef.current = null;
     setHasil(null);
   }, []);
+
+  // Meja titip bagasi: check-in sudah tercatat saat scan, jumlah bagasi baru
+  // tersimpan saat petugas menekan simpan. Lembar yang ditutup lebih dulu
+  // meninggalkan peserta ter-check-in tanpa catatan bagasi ("No luggage
+  // recorded"), jadi petugas ditanya dulu. Hanya tombol tutup oleh petugas;
+  // walk-in, cari dan tamu berikutnya punya jalurnya sendiri.
+  const [tanyaTutup, setTanyaTutup] = useState(false);
+  const bagasiTitipAktif = Boolean(sessions.find((sesi) => sesi.id === sessionId)?.bagasi);
+  const mintaTutup = useCallback(() => {
+    if (bagasiTitipAktif && bagasiRef.current > 0) { setTanyaTutup(true); return; }
+    tutupLembar();
+  }, [bagasiTitipAktif, tutupLembar]);
 
   /** Laporan centang dari daftar barang. Nol berarti hasil yang tertahan boleh tampil. */
   const onCentang = useCallback((jumlah: number) => {
@@ -2448,7 +2461,7 @@ export default function ScanClient() {
       <ResultSheet
         hasil={hasil}
         kedip={kedip}
-        onTutup={tutupLembar}
+        onTutup={mintaTutup}
         bisaCetak={Boolean(label?.enabled)}
         labelUntukPerangkatIni={bisaBluetooth}
         cetak={cetak}
@@ -2478,6 +2491,18 @@ export default function ScanClient() {
         onCari={() => { tutupLembar(); gantiMode("cari"); }}
       />
 
+      <Dialog
+        open={tanyaTutup}
+        onClose={() => setTanyaTutup(false)}
+        title="Luggage not saved"
+        description={`${hasil?.participant?.name ?? "This guest"} is checked in, but no bag count is saved. Save the count, or 0 if they have no luggage, so the luggage list stays complete.`}
+        actions={
+          <>
+            <Button type="button" variant="outlined" onClick={() => { setTanyaTutup(false); bagasiRef.current = 0; tutupLembar(); }}>Close without saving</Button>
+            <Button type="button" variant="filled" onClick={() => setTanyaTutup(false)}>Back to luggage</Button>
+          </>
+        }
+      />
       <DialogGantiStasiun meja={meja} jobId={gantiJob} nama={hasil?.participant?.name ?? ""} onClose={() => setGantiJob(null)} />
 
       <WalkinDialog
