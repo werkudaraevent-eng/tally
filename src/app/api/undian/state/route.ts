@@ -1,5 +1,5 @@
 import { apiErrorPeserta } from "@/lib/api";
-import { getPublicRequestEvent } from "@/lib/auth/request-event";
+import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
 import { normalizeAfterWin, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
@@ -254,6 +254,15 @@ export async function GET(request: Request) {
     }));
   }
 
+  // Stage display > Show the number in the draw: off sends no number to the
+  // stage. The operator panel (?operator=1, signed-in admin of this event)
+  // still gets the real count.
+  let poolSize = settings.show_pool_size ? state.pool_size : 0;
+  if (!settings.show_pool_size && new URL(request.url).searchParams.get("operator") === "1") {
+    const auth = await requireRequestEvent(request, ["admin"]);
+    if (!auth.response && auth.scope.event.id === eventId) poolSize = state.pool_size;
+  }
+
   return Response.json({
     mode: state.mode,
     rehearsal: state.rehearsal,
@@ -263,8 +272,7 @@ export async function GET(request: Request) {
     // Disaring lagi di sini, bukan hanya saat kolam dibekukan: baris yang sudah
     // tersimpan sebelum aturan ini tetap tidak boleh keluar apa adanya.
     roster: (state.pool ?? []).map(stageRosterItem),
-    // Stage display > Show the number in the draw: off sends no number at all.
-    pool_size: settings.show_pool_size ? state.pool_size : 0,
+    pool_size: poolSize,
     spin_started_at: state.spin_started_at,
     reveal_at: state.reveal_at,
     winners,

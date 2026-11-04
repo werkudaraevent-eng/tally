@@ -21,7 +21,7 @@ import UndianClient from "./undian-client";
 export const dynamic = "force-dynamic";
 
 const SETTINGS_ROW =
-  `page_title,page_subtitle,show_company,show_seat,sound_enabled,confetti_enabled,` +
+  `page_title,page_subtitle,show_company,show_seat,show_pool_size,sound_enabled,confetti_enabled,` +
   `background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
 
 const DEFAULT_STATE: UndianState & { branding: Branding } = {
