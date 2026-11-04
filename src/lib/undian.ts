@@ -1008,6 +1008,8 @@ export type UndianDisplaySettings = {
   show_seat: boolean;
   /** Daftar hadiah di layar tunggu (Stage display > Show the prize lineup). */
   show_lineup: boolean;
+  /** Jumlah peserta yang ikut diundi di layar (Stage display). Mati: pool_size dikirim 0. */
+  show_pool_size: boolean;
   sound_enabled: boolean;
   confetti_enabled: boolean;
   background_color: string | null;

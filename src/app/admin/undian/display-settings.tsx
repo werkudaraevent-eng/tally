@@ -58,6 +58,12 @@ export function DisplaySettings({
             label="Show the prize lineup"
             description="Lists the active prizes in draw order on the waiting screen, before and between draws. Drawn prizes are marked done. Off keeps the prizes a surprise."
           />
+          <Switch
+            checked={settings.show_pool_size !== false}
+            onChange={(checked) => onChange({ show_pool_size: checked })}
+            label="Show the number in the draw"
+            description="How many participants are in the draw, on the waiting screen (“309 peserta siap diundi”) and under the Spotlight wall. Off hides the number; the draw itself does not change."
+          />
         </DetailSection>
 
         <DetailSection title="Stage effects">
