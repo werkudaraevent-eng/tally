@@ -74,6 +74,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #394 Lucky draw Spotlight wall "Wall size" per prize (5 Nov, SQL `202611040005_undian_dinding_penuh` run by Mas, post-check true, QA GO): One tile per person (default, unchanged) or Full wall, names rotate (fixed grid that fills the screen, names rotate while drawing; when it freezes a winner's name sits only on the winner tile; footer never shows a tile count).
 - #392 Lucky draw Stage display > "Show the number in the draw" (4 Nov, SQL `202611040004_undian_tampil_jumlah` run by Mas, post-check true, QA GO): Off sends no count to the stage ("Semua nama ikut diundi"); the operator panel still shows it. Default on. Also fixes "Show the prize lineup" (#368) not saving.
 - #391 Lucky draw stage with many winners (4 Nov, QA GO, no SQL): winner cards fit one screen (columns and type size from the screen, equal width, last row centred) for 1 to 50 winners; while drawing, prize image and name sit on one row under the title; prize editor warns above 30 winners per draw.
 - #390 Lucky draw bonus tickets: Pick names (search, tick, chips) next to Upload file, and a live Winning chances line in the Add ticket rule dialog (4 Nov, QA GO, admin only, no SQL).
@@ -319,6 +320,7 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #127 L11/L12: the editor tile colours are hard-coded instead of themed, and reordering ways keeps focus on the old position, with index keys.
 
 ### Lucky draw
+- #394 L1: on Full wall, all tiles re-deal names in one frame when the wall freezes, a visible flicker just before the 60 wave.
 - #392 L1: with "Show the number in the draw" off, the stage roster still carries up to 500 names, so the count can be worked out from the browser network tab.
 - #391 L1: a name over about 47 characters is cut with "…" after 2 lines, even for 1 winner.
 - #391 L2: 50 winners at 1280 and 1366 overflow by about 10-17 px (top row under the note pill, bottom row over "Cadangan").

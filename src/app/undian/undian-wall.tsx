@@ -27,6 +27,15 @@ import { WALL_WAVE_MS, type AnimationProps } from "./undian-animations";
 /** Ukuran dinding setelah tiap gelombang, sebelum gelombang terakhir (pemenang). */
 const WAVES = [60, 12];
 
+/**
+ * Dinding penuh (wall_tiles = fixed): jumlah ubin selalu sama, berapa pun
+ * besar kolamnya, dan nama berganti di ubin selama undian. Penonton tidak bisa
+ * menghitung ubin untuk tahu berapa orang yang ikut (Hanung, 5 Nov).
+ */
+const FIXED_TILES = 180;
+/** Denyut pergantian nama di dinding penuh. Tiap ubin berganti setiap 3-8 denyut. */
+const FIXED_TICK_MS = 350;
+
 /** Acak yang dapat diulang: server dan browser menggambar kedipan yang sama. */
 function scatter(index: number, salt: number) {
   const value = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453;
@@ -88,7 +97,7 @@ export function fitCards(count: number, longest: number, width: number, height: 
   return { columns: best.columns, font: best.font, gap: best.gap, cardW };
 }
 
-export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamily, round, poolSize }: AnimationProps) {
+export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamily, round, poolSize, wallTiles }: AnimationProps) {
   const reduceMotion = useReducedMotion() ?? false;
   const drawing = winners.length === 0;
   const main = useMemo(() => winners.filter((winner) => !winner.is_backup), [winners]);
@@ -99,6 +108,16 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   const namesKey = roster.map((item) => item.name).join("\u0000");
   const names = useMemo(() => (namesKey === "" ? [] : namesKey.split("\u0000")), [namesKey]);
   const initialsWall = useMemo(() => names.length > 0 && names.every((name) => /^(\S\.){1,2}$/u.test(name)), [names]);
+  const fixed = wallTiles === "fixed" && names.length > 0;
+
+  // Dinding penuh: denyut yang menggeser nama di ubin. Berhenti begitu pemenang
+  // datang, jadi dinding membeku saat gelombang padam mulai.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!fixed || !drawing || reduceMotion) return;
+    const timer = window.setInterval(() => setTick((current) => current + 1), FIXED_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [fixed, drawing, reduceMotion]);
 
   // Ukuran wadah, untuk menghitung kolom dan huruf ubin.
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -113,7 +132,9 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const { columns, tileW, tileH } = layoutFor(names.length, box.width, box.height);
+  const { columns, rows, tileW, tileH } = layoutFor(fixed ? FIXED_TILES : names.length, box.width, box.height);
+  // Dinding penuh mengisi baris terakhir juga, supaya tidak ada celah di ujung.
+  const tileCount = fixed ? columns * rows : names.length;
   const tileFont = initialsWall
     ? Math.max(8, Math.min(tileH * 0.42, tileW * 0.3))
     : Math.max(7, Math.min(tileH * 0.27, tileW * 0.11));
@@ -126,6 +147,14 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
    */
   const mainKey = main.map((winner) => winner.name).join("\u0000");
   const winnerTiles = useMemo(() => {
+    // Dinding penuh: nama tidak terikat ke ubin, jadi pemenang mendapat ubin acak.
+    // Diurutkan dengan acak yang dapat diulang (per undian), supaya ubin
+    // pemenang tidak pindah saat layar dimuat ulang.
+    if (fixed) {
+      return Array.from({ length: tileCount }, (_, index) => index)
+        .sort((a, b) => scatter(a, round * 13 + 5) - scatter(b, round * 13 + 5))
+        .slice(0, main.length);
+    }
     const used = new Set<number>();
     return main.map((winner) => {
       const target = initialsWall ? initialsOf(winner.name) : winner.name;
@@ -135,7 +164,41 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
     });
     // `mainKey` mewakili isi `main`: array-nya dibangun ulang setiap poll.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainKey, names, initialsWall]);
+  }, [mainKey, names, initialsWall, fixed, tileCount, round]);
+
+  // Nama di tiap ubin. Dinding biasa: satu orang per ubin. Dinding penuh: nama
+  // diambil dari kolam per ubin per "zaman" ubin itu, sehingga ubin berganti
+  // tidak serentak; ubin pemenang memakai nama pemenang begitu ia datang.
+  const tileNames = useMemo(() => {
+    if (!fixed) return names;
+    if (!drawing) {
+      // Dinding membeku: nama dibagikan tanpa pengulangan dari kolam yang
+      // diacak sekali, TANPA nama pemenang. Nama pemenang hanya ada di ubin
+      // pemenang, jadi gelombang padam tidak pernah menyalakan namanya di ubin
+      // lain. Kolam lebih kecil dari dinding: nama bukan pemenang diulang.
+      const winnerNames = new Set(main.map((winner) => (initialsWall ? initialsOf(winner.name) : winner.name)));
+      const others = names.filter((name) => !winnerNames.has(name));
+      const deck = (others.length > 0 ? others : names)
+        .map((name, index) => ({ name, key: scatter(index, round * 17 + 9) }))
+        .sort((a, b) => a.key - b.key)
+        .map((item) => item.name);
+      let next = 0;
+      return Array.from({ length: tileCount }, (_, index) => {
+        const winnerAt = winnerTiles.indexOf(index);
+        if (winnerAt >= 0) return initialsWall ? initialsOf(main[winnerAt].name) : main[winnerAt].name;
+        const name = deck[next % deck.length];
+        next += 1;
+        return name;
+      });
+    }
+    return Array.from({ length: tileCount }, (_, index) => {
+      const period = 3 + Math.floor(scatter(index, 31) * 6);
+      const epoch = Math.floor((tick + scatter(index, 32) * period) / period);
+      return names[Math.floor(scatter(index, epoch * 7 + 3) * names.length) % names.length];
+    });
+    // `mainKey` mewakili isi `main`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixed, names, tick, drawing, winnerTiles, initialsWall, mainKey, tileCount, round]);
 
   // Gelombang padam: 0 = dinding penuh, 1..WAVES.length = gelombang,
   // WAVES.length + 1 = hanya pemenang, WAVES.length + 2 = kartu pemenang.
@@ -159,7 +222,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   // Ubin yang masih menyala per langkah. Diacak sekali per undian; pemenang
   // selalu ikut supaya gelombang terakhir berakhir di ubinnya.
   const lit = useMemo(() => {
-    const all = names.map((_, index) => index);
+    const all = Array.from({ length: tileCount }, (_, index) => index);
     const keep = winnerTiles.filter((index) => index >= 0);
     const sets: Set<number>[] = [new Set(all)];
     let alive = all;
@@ -169,7 +232,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
     }
     sets.push(new Set(keep));
     return sets;
-  }, [names, winnerTiles]);
+  }, [tileCount, winnerTiles]);
   const litNow = lit[Math.min(step, lit.length - 1)];
   const showCards = !drawing && step >= WAVES.length + 2;
 
@@ -223,7 +286,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
     <div ref={boxRef} className="relative min-h-0 w-full flex-1">
       {/* Dinding redup: semua nama, selalu terpasang. */}
       <div aria-hidden className="absolute inset-0" style={{ ...gridStyle, opacity: showCards ? 0.28 : 1, transition: "opacity 600ms ease" }}>
-        {names.map((name, index) => {
+        {tileNames.map((name, index) => {
           const on = litNow.has(index);
           const hot = !drawing && step > 0 && on;
           const winnerAt = winnerTiles.indexOf(index);
@@ -278,7 +341,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
           maskImage: "radial-gradient(circle min(22vw, 28vh) at var(--spot-x, 50%) var(--spot-y, 50%), #000 0%, #000 30%, transparent 100%)",
         }}
       >
-        {drawing ? names.map((name, index) => <div key={index} className="min-w-0">
+        {drawing ? tileNames.map((name, index) => <div key={index} className="min-w-0">
           <div
             className={tileBase}
             style={{
@@ -335,6 +398,9 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
     <p className="mt-[1vh] shrink-0 text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.3vw, 20px)", color: text, opacity: 0.6 }}>
       {showCards && backups.length > 0
         ? `Cadangan: ${backups.map((winner) => winner.name).join(" · ")}`
+        : fixed
+          // Dinding penuh: ubin bukan orang, jadi tidak ada angka ubin di sini.
+          ? (poolSize ? `${poolSize} nama ikut diundi` : "Semua nama ikut diundi")
         : !drawing && step > 0 && step <= WAVES.length
           ? `${litNow.size} nama tersisa`
           : !poolSize

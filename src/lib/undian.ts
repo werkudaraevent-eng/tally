@@ -788,6 +788,13 @@ export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "
 /** Nama di Spotlight wall selama undian: lengkap atau inisial. */
 export type WallNames = "full" | "initials";
 
+/**
+ * Ubin Spotlight wall: `all` = satu ubin per orang di kolam (bawaan);
+ * `fixed` = dinding selalu penuh dengan jumlah ubin tetap dan nama bergantian,
+ * sehingga jumlah ubin tidak menunjukkan jumlah peserta.
+ */
+export type WallTiles = "all" | "fixed";
+
 export type SpinMode = "timed" | "manual";
 
 export const SPIN_MODES: { value: SpinMode; label: string; hint: string }[] = [
@@ -854,6 +861,8 @@ export type UndianPrize = {
   animation: UndianAnimation;
   /** Spotlight wall saja: nama lengkap atau inisial di dinding selama undian. */
   wall_names: WallNames;
+  /** Spotlight wall saja: satu ubin per orang, atau dinding penuh dengan nama bergantian. */
+  wall_tiles: WallTiles;
   /**
    * `manual` membuat animasi berputar sampai operator menekan Berhenti.
    *
@@ -902,6 +911,7 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     backup_per_draw: numeric(raw.backup_per_draw, 0),
     animation: (ANIMATIONS.some((item) => item.value === raw.animation) ? raw.animation : "wheel") as UndianAnimation,
     wall_names: raw.wall_names === "initials" ? "initials" : "full",
+    wall_tiles: raw.wall_tiles === "fixed" ? "fixed" : "all",
     spin_mode: raw.spin_mode === "manual" ? "manual" : "timed",
     spin_seconds: numeric(raw.spin_seconds, 6),
     source: raw.source === "entries" ? "entries" : "participants",
@@ -977,6 +987,8 @@ export type UndianState = {
     image_url: string | null;
     sponsor_name: string | null;
     animation: UndianAnimation;
+    /** Spotlight wall: ubin per orang atau dinding penuh (WallTiles). */
+    wall_tiles: WallTiles;
     spin_seconds: number;
     winners_per_draw: number;
     winner_quota: number;
