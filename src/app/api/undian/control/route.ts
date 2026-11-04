@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { drawWinners, normalizePrize, shuffle, stageRosterItem, type Candidate, type UndianPrize } from "@/lib/undian";
+import { drawWinners, normalizePrize, initialsOf, shuffle, stageRosterItem, type Candidate, type UndianPrize } from "@/lib/undian";
 import { buildPool } from "@/lib/undian-pool";
 import { PRIZE_COLUMNS } from "../../admin/undian/prizes/route";
 
@@ -278,7 +278,14 @@ export async function POST(request: Request) {
       // Dibatasi 500 nama. Roda dan slot tidak terbaca di atas itu, dan payload
       // yang dipoll setiap 2 detik harus tetap ringan. Pembatasan hanya menyentuh
       // TAMPILAN; pemilihan tetap dari seluruh kolam, jadi peluangnya tidak berubah.
-      const roster = shuffle(pool.candidates).slice(0, 500).map(stageRosterItem);
+      //
+      // Spotlight wall dengan inisial: inisialnya dibentuk DI SINI, jadi nama
+      // lengkap kolam tidak pernah sampai ke layar publik. Nama pemenang tetap
+      // datang utuh lewat `winners` setelah waktu reveal, seperti animasi lain.
+      const wallInitials = prize.animation === "wall" && prize.wall_names === "initials";
+      const roster = shuffle(pool.candidates).slice(0, 500).map((candidate) => stageRosterItem(
+        wallInitials ? { name: initialsOf(candidate.name), seat: null, code: null } : candidate,
+      ));
 
       const spinMs = Math.round(prize.spin_seconds * 1000);
       const { data: settings } = await client.from("undian_settings").select("reveal_delay_seconds").eq("event_id", eventId).maybeSingle();

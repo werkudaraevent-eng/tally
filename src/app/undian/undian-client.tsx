@@ -1,14 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { LoadingIndicator } from "@/components/m3";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
 import { expressive } from "@/lib/m3/motion";
 import type { UndianState } from "@/lib/undian";
-import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealSettleMs } from "./undian-animations";
+import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WALL_CARDS_AT_MS, WinnerList, revealSettleMs } from "./undian-animations";
 import { AmbientStage, RevealBurst, ShineText } from "./undian-stage-fx";
+import { WallAnimation } from "./undian-wall";
 
 /**
  * Pergantian blok di panggung: yang lama menyusut-pudar, yang baru mengembang
@@ -73,17 +74,38 @@ export default function UndianClient({ initial }: Props) {
   const revealKey = state.phase === "revealed" && state.winners.length > 0
     ? `${state.prize?.id ?? 0}-${state.draw_round}`
     : "";
+  // Spotlight wall memadamkan dinding beberapa detik dulu sebelum nama tampil;
+  // confetti, ledakan, dan fanfare menunggu kartu pemenang, bukan mendahuluinya.
+  const wallReveal = state.prize?.animation === "wall";
+  const confettiOn = state.settings.confetti_enabled;
+  // Dibaca lewat ref supaya mengubah Confetti tidak memutar ulang fanfare
+  // atau mengulang timer kartu dinding.
+  const confettiRef = useRef(confettiOn);
+  useEffect(() => {
+    confettiRef.current = confettiOn;
+  }, [confettiOn]);
   const [seenReveal, setSeenReveal] = useState("");
   if (revealKey !== "" && seenReveal !== revealKey) {
     setSeenReveal(revealKey);
-    if (state.settings.confetti_enabled) setConfettiTrigger((value) => value + 1);
-    setBurst((value) => value + 1);
+    if (!wallReveal) {
+      if (confettiOn) setConfettiTrigger((value) => value + 1);
+      setBurst((value) => value + 1);
+    }
   }
 
   useEffect(() => {
-    if (revealKey === "" || !state.settings.sound_enabled) return;
-    playFanfare();
-  }, [revealKey, state.settings.sound_enabled]);
+    if (revealKey === "") return;
+    if (!wallReveal) {
+      if (state.settings.sound_enabled) playFanfare();
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (confettiRef.current) setConfettiTrigger((value) => value + 1);
+      setBurst((value) => value + 1);
+      if (state.settings.sound_enabled) playFanfare();
+    }, WALL_CARDS_AT_MS);
+    return () => window.clearTimeout(timer);
+  }, [revealKey, state.settings.sound_enabled, wallReveal]);
 
   // Fullscreen dibaca di inisialisasi state, bukan di effect, supaya render
   // pertama sudah benar. Permintaan fullscreen sendiri butuh gestur pengguna,
@@ -137,6 +159,7 @@ export default function UndianClient({ initial }: Props) {
     // kartu yang tepat sejak awal, sehingga grid tidak melompat saat pemenang
     // muncul. Tidak membocorkan apa pun tentang siapa yang menang.
     pendingCount: state.prize?.winners_per_draw,
+    poolSize: state.pool_size,
   };
 
   return <main
@@ -316,6 +339,7 @@ export default function UndianClient({ initial }: Props) {
                   : state.prize.animation === "cards" ? <CardsAnimation {...animationProps} />
                   : state.prize.animation === "digits" ? <DigitsAnimation {...animationProps} />
                   : state.prize.animation === "dart" ? <DartAnimation {...animationProps} />
+                  : state.prize.animation === "wall" ? <WallAnimation {...animationProps} />
                   : spinning
                     ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
                     : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}

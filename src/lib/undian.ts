@@ -757,6 +757,18 @@ export function stageRosterItem(item: { name: string; seat: string | null; code:
   return { name: item.name, seat: item.seat, code: item.code ? "0".repeat(Math.min(item.code.length, 16)) : null };
 }
 
+/**
+ * Inisial untuk Spotlight wall: huruf pertama kata pertama dan kata terakhir,
+ * "Andi Wijaya Saputra" -> "A.S.". Dengan ratusan nama satu inisial dipakai
+ * beberapa orang, jadi ia tidak menunjuk siapa pun.
+ */
+export function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "";
+  const picked = words.length === 1 ? [words[0]] : [words[0], words[words.length - 1]];
+  return picked.map((word) => `${Array.from(word)[0]?.toLocaleUpperCase("id-ID") ?? ""}.`).join("");
+}
+
 /** Fisher-Yates, dipakai layar panggung untuk mengacak urutan nama yang berputar. */
 export function shuffle<T>(items: T[]): T[] {
   const result = [...items];
@@ -771,7 +783,10 @@ export function shuffle<T>(items: T[]): T[] {
 // Hadiah dan state
 // ---------------------------------------------------------------------------
 
-export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "instant";
+export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "instant";
+
+/** Nama di Spotlight wall selama undian: lengkap atau inisial. */
+export type WallNames = "full" | "initials";
 
 export type SpinMode = "timed" | "manual";
 
@@ -786,6 +801,7 @@ export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }
   { value: "cards", label: "Card reveal", hint: "Cards are revealed one at a time. Best for several winners in one draw." },
   { value: "digits", label: "Digit reveal", hint: "Seat numbers or codes appear digit by digit to build suspense." },
   { value: "dart", label: "Dart throw", hint: "Draw slips float, then a dart lands on the winner. Most lively on a large screen." },
+  { value: "wall", label: "Spotlight wall", hint: "Every name in the pool fills one wall, a spotlight sweeps across it, then the wall goes dark in waves until only the winners are lit. Made for a gala screen; shows up to 500 names." },
   { value: "instant", label: "Instant reveal", hint: "No animation. A fallback when time is short." },
 ];
 
@@ -836,6 +852,8 @@ export type UndianPrize = {
   winner_quota: number;
   backup_per_draw: number;
   animation: UndianAnimation;
+  /** Spotlight wall saja: nama lengkap atau inisial di dinding selama undian. */
+  wall_names: WallNames;
   /**
    * `manual` membuat animasi berputar sampai operator menekan Berhenti.
    *
@@ -883,6 +901,7 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     winner_quota: numeric(raw.winner_quota, 1),
     backup_per_draw: numeric(raw.backup_per_draw, 0),
     animation: (ANIMATIONS.some((item) => item.value === raw.animation) ? raw.animation : "wheel") as UndianAnimation,
+    wall_names: raw.wall_names === "initials" ? "initials" : "full",
     spin_mode: raw.spin_mode === "manual" ? "manual" : "timed",
     spin_seconds: numeric(raw.spin_seconds, 6),
     source: raw.source === "entries" ? "entries" : "participants",

@@ -41,7 +41,21 @@ export type AnimationProps = {
    * lompatan itu terjadi persis ketika semua mata tertuju ke layar.
    */
   pendingCount?: number;
+  /**
+   * Besar kolam sesungguhnya. `roster` dibatasi 500 nama untuk tampilan;
+   * Spotlight wall memakai angka ini untuk menulis "500 dari 812 nama tampil".
+   */
+  poolSize?: number;
 };
+
+/**
+ * Jeda antar gelombang padam Spotlight wall (undian-wall.tsx). Ada di sini,
+ * bukan di berkas dinding, supaya revealSettleMs memakai angka yang sama tanpa
+ * impor melingkar.
+ */
+export const WALL_WAVE_MS = 1300;
+/** Saat kartu pemenang Spotlight wall mulai terbang, dihitung dari nama tiba. */
+export const WALL_CARDS_AT_MS = 250 + 3 * WALL_WAVE_MS;
 
 /** Nama cadangan saat kolam belum termuat, supaya animasi tidak kosong. */
 const PLACEHOLDER = ["• • •", "• • • •", "• • •"];
@@ -1303,6 +1317,8 @@ export function revealSettleMs(animation: string, winners: { is_backup: boolean 
     case "cards": return (n - 1) * Math.max(180, Math.min(700, Math.round(3000 / n))) + 800;
     case "digits": return 3200;
     case "dart": return n * 70 + 1300;
+    // Mulai 250 ms, tiga langkah gelombang, lalu kartu terbang (~900 ms) satu per satu.
+    case "wall": return WALL_CARDS_AT_MS + 900 + Math.min((n - 1) * 220, 1200);
     default: return Math.min(n * 350, 2000) + 600;
   }
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import type { KeyboardEvent, ReactNode } from "react";
-import { Cards, Disc, Hash, Lightning, Rows, Target } from "@phosphor-icons/react";
+import { Cards, Disc, GridFour, Hash, Lightning, Rows, Target } from "@phosphor-icons/react";
 import { ANIMATIONS, type UndianAnimation } from "@/lib/undian";
 
 export const ANIMATION_ICON: Record<UndianAnimation, ReactNode> = {
   wheel: <Disc size={20} />, slot: <Rows size={20} />, cards: <Cards size={20} />,
-  digits: <Hash size={20} />, dart: <Target size={20} />, instant: <Lightning size={20} />,
+  digits: <Hash size={20} />, dart: <Target size={20} />, wall: <GridFour size={20} />, instant: <Lightning size={20} />,
 };
 
 /** Tampilan panggung yang dipakai pratinjau: warna dan huruf dari Stage screen. */

@@ -4,14 +4,26 @@ import { ArrowCounterClockwise, Check, Stop } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button, Dialog } from "@/components/m3";
-import { ANIMATIONS, type SpinMode, type UndianAnimation } from "@/lib/undian";
+import { ANIMATIONS, initialsOf, type SpinMode, type UndianAnimation, type WallNames } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import {
   CardsAnimation, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, type AnimationProps,
 } from "@/app/undian/undian-animations";
+import { WallAnimation } from "@/app/undian/undian-wall";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
 const CONTOH = ["Andi Pratama", "Siti Rahma", "Budi Santoso", "Dewi Lestari", "Rizky Hidayat", "Nur Aisyah", "Agus Wibowo", "Maya Putri", "Fajar Nugroho", "Intan Sari", "Hendra Saputra", "Lina Marlina"];
+
+/**
+ * Spotlight wall baru terasa dengan ratusan ubin. Pratinjau mengisi dinding
+ * dengan 300 nama rekaan dari pasangan nama depan dan belakang contoh.
+ */
+function wallSample(names: string[]): string[] {
+  const source = names.length >= 3 ? names : CONTOH;
+  const first = source.map((name) => name.split(" ")[0]);
+  const last = source.map((name) => name.split(" ").slice(-1)[0]);
+  return Array.from({ length: 300 }, (_, index) => `${first[index % first.length]} ${last[(index * 7 + Math.floor(index / first.length)) % last.length]}`);
+}
 
 /** Ukuran panggung maya. Animasi diukur dengan vw/vh, jadi ia butuh layar sendiri. */
 const PANGGUNG = { width: 1280, height: 720 };
@@ -21,10 +33,11 @@ const PANGGUNG = { width: 1280, height: 720 };
  * dengan nama contoh. Tidak ada yang diundi atau disimpan.
  */
 export function AnimationPreview({
-  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick,
+  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick, wallNames = "full",
 }: {
   open: boolean; onClose: () => void; animation: UndianAnimation; spinMode: SpinMode; spinSeconds: number;
   winnersPerDraw: number; names: string[]; stage: StageLook; onPick: (value: UndianAnimation) => void;
+  wallNames?: WallNames;
 }) {
   const durasi = (value: UndianAnimation) =>
     spinMode === "manual" || value === "instant" ? null : Date.now() + spinSeconds * 1000;
@@ -36,16 +49,22 @@ export function AnimationPreview({
   // memperlihatkan tata letak banyak pemenang.
   const jumlah = Math.min(Math.max(winnersPerDraw, 1), 3);
 
+  const fullRoster = useMemo(
+    () => (animation === "wall" ? wallSample(names) : names.length >= 3 ? names : CONTOH)
+      .map((name, index) => ({ name, seat: `A${index + 1}`, code: String(1000 + index * 37) })),
+    [names, animation],
+  );
+  // Dinding inisial: layar panggung hanya menerima inisial (lihat /api/undian/control).
   const roster = useMemo(
-    () => (names.length >= 3 ? names : CONTOH).map((name, index) => ({ name, seat: `A${index + 1}`, code: String(1000 + index * 37) })),
-    [names],
+    () => (animation === "wall" && wallNames === "initials" ? fullRoster.map((row) => ({ ...row, name: initialsOf(row.name) })) : fullRoster),
+    [fullRoster, animation, wallNames],
   );
   const winners = useMemo<AnimationProps["winners"]>(
     () => Array.from({ length: jumlah }, (_, index) => {
-      const row = roster[(round * 5 + index * 3) % roster.length];
+      const row = fullRoster[(round * 5 + index * 3) % fullRoster.length];
       return { name: row.name, company: null, seat: row.seat, is_backup: false, slot_order: index + 1 };
     }),
-    [roster, round, jumlah],
+    [fullRoster, round, jumlah],
   );
 
   // Instant tidak punya animasi: pemenang langsung tampil.
@@ -110,6 +129,7 @@ export function AnimationPreview({
             : animation === "cards" ? <CardsAnimation {...props} />
             : animation === "digits" ? <DigitsAnimation {...props} />
             : animation === "dart" ? <DartAnimation {...props} />
+            : animation === "wall" ? <WallAnimation {...props} />
             : <WinnerList winners={props.winners} accent={stage.accent} text={stage.text} fontFamily={stage.fontFamily} />}
         </div>
       </StageFrame>
