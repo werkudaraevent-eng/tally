@@ -98,6 +98,7 @@ const messages: Record<ApiErrorCode, string> = {
   // Tabel pengumuman dibuat migrasi 202610030002. Sebelum dijalankan, fitur
   // ini mati dengan pesan yang menyebut langkahnya, bukan galat 500.
   ANNOUNCEMENTS_NOT_READY: "Announcements are not active yet: database migration 202610030002 has not been run.",
+  ROOM_NOTICES_NOT_READY: "Room number emails are not active yet: database migration 202611040003 has not been run.",
   ANNOUNCEMENT_AUDIENCE_NOT_READY: "Sending to some participants needs a database update first (migration 202610300004). All accounts and Approved still work.",
   ANNOUNCEMENT_MATCH_ANY_NOT_READY: "Any condition needs a database update first (migration 202611040001). Choose All conditions for now.",
   BADGE_NOT_READY: "Badge kertas belum bisa disimpan: migrasi database 202610040002 belum dijalankan.",

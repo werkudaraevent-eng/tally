@@ -10,6 +10,7 @@ import { TabBarang } from "@/components/admin/logistik/tab-barang";
 import { TabAgenda, TabBus } from "@/components/admin/logistik/tab-bus";
 import { TabKamar } from "@/components/admin/logistik/tab-kamar";
 import { TabKereta } from "@/components/admin/logistik/tab-kereta";
+import { KabarKamar } from "@/components/admin/logistik/kabar-kamar";
 import { TabPenempatan } from "@/components/admin/logistik/tab-penempatan";
 import { useLogistik } from "@/components/admin/logistik/use-logistik";
 import { kurangKendaraan, petaKendaraan } from "@/lib/logistik/kendaraan-trip";
@@ -207,7 +208,10 @@ export default function LogistikPage() {
         ) : !tabProps ? (
           <Pane aria-label="Loading"><Kerangka /></Pane>
         ) : bagian === "penempatan" ? (
-          <TabPenempatan data={tabProps.data} kirim={kirim} busy={busy} keTab={(tab) => { setBagian(tab); setBaru(null); }} />
+          <>
+            <KabarKamar pemicu={tabProps.data} />
+            <TabPenempatan data={tabProps.data} kirim={kirim} busy={busy} keTab={(tab) => { setBagian(tab); setBaru(null); }} />
+          </>
         ) : bagian === "kamar" ? (
           bagianKamar === "tanggal" ? <RekapKamar data={tabProps.data} atas={pilihKamar} />
             : <TabKamar {...tabProps} atas={pilihKamar} hotelBaru={hotelBaru} tutupHotelBaru={() => setHotelBaru(false)} />

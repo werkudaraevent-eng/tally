@@ -73,6 +73,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #388 Tell participants their room number (4 Nov, SQL `202611040003_kabar_kamar` run by Mas, post-check true, QA GO): Logistics > Assignments banner "N participants have a room number they haven't been told about" with Tell participants; Send through Participant area and email (default) or Participant area only. One bell notice (announcement to those participants) plus, with email, a personal email in the event language (hotel, room, roommates sharing nights when shown, check-in/out). Recorded per person in room_notices; failed emails stay on the list; a changed number or a second hotel's number puts the person back. Hidden on past events; button off while Rooms are hidden. Later (after KSO): automatic send with a 10-minute hold, "New" on the Hotel card, WhatsApp.
 - #386 Lucky draw "Spotlight wall" animation (4 Nov, SQL `202611040002_undian_dinding_sorot` run by Mas, QA GO): whole pool on one wall, spotlight sweep, waves 60/12/winners, cards fly out of the tiles; per prize "Names on the wall" Full names / Initials. Opt-in per prize, existing prizes unchanged.
 - #387 Bagasi card: a 0-bag record heads "Tercatat" instead of "Dititipkan" (4 Nov, QA GO).
 - #385 Lucky draw stage name list carries names and seats only (4 Nov, no visible change).
@@ -314,6 +315,12 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #127 L11/L12: the editor tile colours are hard-coded instead of themed, and reordering ways keeps focus on the old position, with index keys.
 
 ### Lucky draw
+- #388 L3: removing a second hotel's number re-sends "ready" for the unchanged hotel.
+- #388 L5: two admins pressing at once with different lists can double-email the overlap; each press adds its own bell notice.
+- #388 L6: EN email says "Roommate" with two names.
+- #388 L8: the bell always says "ready" even when the number changed; a retry after a failed email adds a second bell.
+- #388 L9: in test mode people outside the allowlist are recorded as told by bell.
+- #388 L10: on non-Horizon layouts the bell text names "Perjalanan".
 - #386 F3: with reduced motion the Spotlight wall cards show after about 0.4 s, but confetti, burst and fanfare still wait the full 4.15 s.
 - #386 F4: with 200-500 names the wall tiles are 7-9 px at 1280 (by design: the wall says "everyone is in", not meant to be read name by name).
 - #178 L1/L5/L6: the session picker shows on events with no scan sessions, "any session" semantics are undocumented in the UI, and at 390 the trash icon wraps in nested groups.
