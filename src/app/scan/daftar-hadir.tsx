@@ -59,6 +59,7 @@ export function DaftarHadir({
   onCatat,
   mencatatId,
   sibuk,
+  untuk = null,
 }: {
   sessionId: number | null;
   status: StatusDaftar;
@@ -68,6 +69,12 @@ export function DaftarHadir({
   onCatat: (baris: BarisCari) => Promise<Hasil | null>;
   mencatatId: string | null;
   sibuk: boolean;
+  /**
+   * Sesi dengan yang diharapkan (Who sees it baris Agenda checkpoint): label
+   * kelompoknya, mis. "Batch 1". Not yet hanya kelompok itu; di Checked in,
+   * orang di luar kelompok ditandai. Null: semua peserta aktif.
+   */
+  untuk?: string | null;
 }) {
   const [muatan, setMuatan] = useState<Muatan | null>(null);
   const kunci = `${sessionId ?? 0}|${status}`;
@@ -167,7 +174,7 @@ export function DaftarHadir({
       />
       <div className="mt-2 flex min-h-12 items-center justify-between gap-2">
         <p className="min-w-0 text-body-small text-on-surface-variant">
-          All desks · A–Z{sekarang && !sekarang.gagal ? ` · updated ${jam(sekarang.waktu)}` : ""}
+          All desks{untuk ? ` · ${untuk}` : ""} · A–Z{sekarang && !sekarang.gagal ? ` · updated ${jam(sekarang.waktu)}` : ""}
         </p>
         <Button
           variant="text"
@@ -205,7 +212,7 @@ export function DaftarHadir({
           <EmptyState
             icon={<Users size={40} />}
             title={status === "belum" ? "Everyone is checked in" : "No one checked in yet"}
-            description={status === "belum" ? "Every participant has at least one scan at this check-in point." : "Names appear here after their first scan at this check-in point."}
+            description={status === "belum" ? (untuk ? `Everyone in ${untuk} has a scan at this check-in point.` : "Every participant has at least one scan at this check-in point.") : "Names appear here after their first scan at this check-in point."}
           />
         ) : (
           <>
@@ -226,7 +233,10 @@ export function DaftarHadir({
                         {[baris.company, baris.title].filter(Boolean).join(" · ") || "No organisation"}
                       </p>
                       {sudahHadir ? (
-                        <p className="mt-0.5 text-label-medium text-success">Checked in {jam(baris.first_scan_at)}</p>
+                        <p className="mt-0.5 text-label-medium text-success">
+                          Checked in {jam(baris.first_scan_at)}
+                          {baris.luar ? <span className="text-on-surface-variant"> · Not in {untuk ?? "this list"}</span> : null}
+                        </p>
                       ) : null}
                     </div>
                     {/* Di daftar Checked in tidak ada tombol: mencatat ulang dari
