@@ -7,7 +7,7 @@ import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
   AFTER_WIN_TEXT, EXCLUDE_SCOPE_LABEL, SPIN_MODES, STAGE_NOTE_MAX, WEIGHT_VAR_LABEL, ruleBrokenMessage,
-  type AfterWin, type BonusRule, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WeightMode, type WeightVar,
+  type AfterWin, type BonusRule, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WallTiles, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import { AnimationPicker, type StageLook } from "./animation-picker";
@@ -123,7 +123,7 @@ export function PrizeEditor({
               value={draft.animation} onChange={(value) => onChange({ animation: value })}
               spinMode={draft.spin_mode} spinSeconds={draft.spin_seconds} winnersPerDraw={draft.winners_per_draw}
               sampleNames={(preview?.sample ?? []).map((row) => row.name)} stage={stage}
-              wallNames={draft.wall_names}
+              wallNames={draft.wall_names} wallTiles={draft.wall_tiles}
             />
 
             {/* Spotlight wall saja: nama di dinding selama undian. Inisial
@@ -143,6 +143,19 @@ export function PrizeEditor({
                   {draft.wall_names === "initials"
                     ? "The wall shows two letters per person, such as \"A.W.\", and the full name appears only on the winner card. Use it when the guest list should not be on screen."
                     : "Everyone sees their own name on the wall before the draw lands. The winner card always shows the full name."}
+                </p>
+                <p className="mt-4 text-body-medium font-medium">Wall size</p>
+                <SegmentedButton<WallTiles>
+                  label="Tiles on the wall"
+                  value={draft.wall_tiles}
+                  onChange={(value) => onChange({ wall_tiles: value })}
+                  options={[{ value: "all", label: "One tile per person" }, { value: "fixed", label: "Full wall, names rotate" }]}
+                  className="mt-1.5 w-full"
+                />
+                <p className="mt-1 text-body-medium text-on-surface-variant">
+                  {draft.wall_tiles === "fixed"
+                    ? "The wall is always full, whatever the number in the draw, and names keep changing on the tiles. Guests cannot count the tiles to work out how many are in the draw."
+                    : "Each person in the draw has one tile, so the number of tiles is the number in the draw."}
                 </p>
               </div>
             ) : null}

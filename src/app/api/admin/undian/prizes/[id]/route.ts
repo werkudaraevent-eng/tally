@@ -72,6 +72,7 @@ const patchSchema = z.object({
   backup_per_draw: z.number().int().min(0).max(20).optional(),
   animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "instant"]).optional(),
   wall_names: z.enum(["full", "initials"]).optional(),
+  wall_tiles: z.enum(["all", "fixed"]).optional(),
   spin_mode: z.enum(["timed", "manual"]).optional(),
   spin_seconds: z.number().min(1).max(60).optional(),
   source: z.enum(["participants", "entries"]).optional(),

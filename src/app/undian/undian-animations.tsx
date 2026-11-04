@@ -46,6 +46,8 @@ export type AnimationProps = {
    * Spotlight wall memakai angka ini untuk menulis "500 dari 812 nama tampil".
    */
   poolSize?: number;
+  /** Spotlight wall: `fixed` = dinding penuh dengan nama bergantian. */
+  wallTiles?: "all" | "fixed";
 };
 
 /**

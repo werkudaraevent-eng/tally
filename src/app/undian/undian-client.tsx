@@ -160,6 +160,7 @@ export default function UndianClient({ initial }: Props) {
     // muncul. Tidak membocorkan apa pun tentang siapa yang menang.
     pendingCount: state.prize?.winners_per_draw,
     poolSize: state.pool_size,
+    wallTiles: state.prize?.wall_tiles,
   };
 
   return <main

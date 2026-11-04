@@ -4,7 +4,7 @@ import { ArrowCounterClockwise, Check, Stop } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button, Dialog } from "@/components/m3";
-import { ANIMATIONS, initialsOf, type SpinMode, type UndianAnimation, type WallNames } from "@/lib/undian";
+import { ANIMATIONS, initialsOf, type SpinMode, type UndianAnimation, type WallNames, type WallTiles } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import {
   CardsAnimation, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, type AnimationProps,
@@ -33,11 +33,12 @@ const PANGGUNG = { width: 1280, height: 720 };
  * dengan nama contoh. Tidak ada yang diundi atau disimpan.
  */
 export function AnimationPreview({
-  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick, wallNames = "full",
+  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick, wallNames = "full", wallTiles = "all",
 }: {
   open: boolean; onClose: () => void; animation: UndianAnimation; spinMode: SpinMode; spinSeconds: number;
   winnersPerDraw: number; names: string[]; stage: StageLook; onPick: (value: UndianAnimation) => void;
   wallNames?: WallNames;
+  wallTiles?: WallTiles;
 }) {
   const durasi = (value: UndianAnimation) =>
     spinMode === "manual" || value === "instant" ? null : Date.now() + spinSeconds * 1000;
@@ -89,7 +90,7 @@ export function AnimationPreview({
 
   const props: AnimationProps = {
     roster, winners: revealed ? winners : [], endsAt, accent: stage.accent, text: stage.text,
-    fontFamily: stage.fontFamily, round, pendingCount: jumlah,
+    fontFamily: stage.fontFamily, round, pendingCount: jumlah, wallTiles,
   };
 
   return (

@@ -29,7 +29,7 @@ const STATE_ROW = "mode,rehearsal,active_prize_id,phase,draw_round,spin_started_
 const SETTINGS_ROW =
   `page_title,page_subtitle,name_display,show_company,show_seat,show_lineup,show_pool_size,sound_enabled,confetti_enabled,` +
   `reveal_delay_seconds,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
-const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
+const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,wall_tiles,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
 
 type PendingWinner = {
   ref: string;
@@ -123,6 +123,7 @@ export async function GET(request: Request) {
         image_url: (row.image_url as string | null) ?? null,
         sponsor_name: (row.sponsor_name as string | null) ?? null,
         animation: row.animation as UndianState["prize"] extends null ? never : NonNullable<UndianState["prize"]>["animation"],
+        wall_tiles: row.wall_tiles === "fixed" ? "fixed" : "all",
         spin_seconds: Number(row.spin_seconds),
         winners_per_draw: Number(row.winners_per_draw),
         winner_quota: Number(row.winner_quota),
