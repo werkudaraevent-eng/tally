@@ -184,6 +184,11 @@ export function PrizeEditor({
               A quota higher than the winners per draw means this prize is drawn several times.
               Backups are drawn at the same time and used if a main winner is absent.
             </p>
+            {draft.winners_per_draw > 30 ? (
+              <p className="text-body-medium text-warning">
+                More than 30 winners per draw: the names get small on the stage screen. For a large room, draw in rounds of 30 or fewer.
+              </p>
+            ) : null}
           </DetailSection>
 
           {/* Tulisan layar panggung setelah nama keluar (stageMessage di
