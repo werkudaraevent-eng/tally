@@ -501,7 +501,7 @@ function RuleDialog({
           {check.matched.length === 0
             ? "No rows match participants in this event. Check the QR or Email column, then upload again."
             : check.missing_total > 0
-              ? "Correct the file in Excel and upload again, or save now and fix it later using \"Replace file\"."
+              ? "Correct the file in Excel and upload again, or save now and fix it later using \"Change people\"."
               : "All rows matched."}
         </p>
       </div>
@@ -566,8 +566,11 @@ function ChanceLine({ context, candidate, source }: { context: ChanceContext; ca
   const share = hit.reduce((sum, group) => sum + group.count * group.tickets, 0) / total;
   const quota = context.winnerQuota;
   const expected = Math.min(quota, people, quota * share);
-  // Tiket orang di grup ini: grup terbesar menentukan "N× peserta biasa".
-  const ticketsEach = Math.max(...hit.map((group) => group.tickets));
+  // Tiket orang yang hanya kena aturan ini (tanpa aturan lain yang tumpang
+  // tindih), dibatasi tiket maksimum: itulah "N× peserta biasa" untuk aturan ini.
+  const ticketsEach = Math.min(1 + candidate.tickets, context.weightMax);
+  const capped = 1 + candidate.tickets > context.weightMax;
+  const listed = candidate.source === "list" ? candidate.participant_ids.length : 0;
   const percent = new Intl.NumberFormat("en-GB", { maximumFractionDigits: share < 0.01 ? 1 : 0 });
   const decimal = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 });
   return box(
@@ -575,7 +578,8 @@ function ChanceLine({ context, candidate, source }: { context: ChanceContext; ca
       {people.toLocaleString("en-GB")} {people === 1 ? "person holds" : "people hold"} <strong>{percent.format(share * 100)}% of tickets</strong>
       {" "}({ticketsEach}× the chance of a standard participant).
       {" "}Of {quota} {quota === 1 ? "winner" : "winners"}, an average of <strong>{decimal.format(expected)}</strong> will come from this group.
-      {ticketsEach >= context.weightMax ? <span className="text-on-surface-variant"> Capped at the maximum of {context.weightMax} tickets per person.</span> : null}
+      {listed > people ? <span className="text-on-surface-variant"> {listed - people} of the {listed} people on this list {listed - people === 1 ? "is" : "are"} not in this prize’s draw (prize conditions, exclusion rules or already won).</span> : null}
+      {capped ? <span className="text-on-surface-variant"> Capped at the maximum of {context.weightMax} tickets per person.</span> : null}
     </p>,
   );
 }
