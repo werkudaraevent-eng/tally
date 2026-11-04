@@ -1091,6 +1091,33 @@ html:hover {
 	}
 }
 
+/* Spotlight wall (src/app/undian/undian-wall.tsx): sebagian ubin menyala
+   sekejap selama lampu menyapu, masing-masing dengan irama dan jedanya
+   sendiri. Hanya opacity. */
+.wall-flicker {
+	animation: wall-flicker var(--flicker-duration, 2.6s) ease-in-out infinite;
+	animation-delay: var(--flicker-delay, 0s);
+}
+
+@keyframes wall-flicker {
+	0%,
+	80%,
+	100% {
+		opacity: 0;
+	}
+
+	88% {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wall-flicker {
+		animation: none;
+		opacity: 0;
+	}
+}
+
 /* Kilau emas yang menyapu teks: nama hadiah dan nama pemenang
    (lihat ShineText di src/app/undian/undian-stage-fx.tsx).
 

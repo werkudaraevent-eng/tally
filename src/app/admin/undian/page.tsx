@@ -40,7 +40,7 @@ function newPrizeDraft(): Omit<UndianPrize, "id"> {
   return {
     name: "", description: null, image_url: null, sponsor_name: null, claim_note: null, after_win: "none", stage_note: null,
     winners_per_draw: 1, winner_quota: 1, backup_per_draw: 0,
-    animation: "wheel", spin_mode: "timed", spin_seconds: 6,
+    animation: "wheel", wall_names: "full", spin_mode: "timed", spin_seconds: 6,
     source: "participants", entry_group_id: null,
     conditions: EMPTY_CONDITIONS, exclude_scope: "all_prizes",
     weight_mode: "equal", weight_var: "total_spend", weight_divisor: 500000, weight_base: 1, weight_max: 10,

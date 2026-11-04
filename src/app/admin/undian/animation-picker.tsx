@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/m3";
-import { ANIMATIONS, type SpinMode, type UndianAnimation } from "@/lib/undian";
+import { ANIMATIONS, type SpinMode, type UndianAnimation, type WallNames } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
@@ -20,11 +20,11 @@ const AnimationPreview = dynamic(() => import("./animation-preview").then((mod) 
  * panggung yang SAMA (komponen /undian), dengan warna Stage screen.
  */
 export function AnimationPicker({
-  value, onChange, spinMode, spinSeconds, winnersPerDraw, sampleNames, stage,
+  value, onChange, spinMode, spinSeconds, winnersPerDraw, sampleNames, stage, wallNames,
 }: {
   value: UndianAnimation; onChange: (value: UndianAnimation) => void;
   spinMode: SpinMode; spinSeconds: number; winnersPerDraw: number;
-  sampleNames: string[]; stage: StageLook;
+  sampleNames: string[]; stage: StageLook; wallNames?: WallNames;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   // Kunci baru setiap kali dibuka: pratinjau dipasang ulang dan langsung berputar
@@ -71,7 +71,7 @@ export function AnimationPicker({
           key={previewKey}
           open={previewOpen} onClose={() => setPreviewOpen(false)}
           animation={value} spinMode={spinMode} spinSeconds={spinSeconds} winnersPerDraw={winnersPerDraw}
-          names={sampleNames} stage={stage}
+          names={sampleNames} stage={stage} wallNames={wallNames}
           onPick={onChange}
         />,
         document.body,
