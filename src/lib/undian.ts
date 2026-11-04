@@ -745,6 +745,18 @@ export function drawWinners(pool: Candidate[], count: number): Candidate[] {
   return winners;
 }
 
+/**
+ * Baris kolam untuk layar panggung: nama, kursi, dan PANJANG kode saja.
+ *
+ * Layar panggung publik (proyektor berjalan tanpa login), sedangkan kode
+ * peserta hanya untuk admin. Varian digit hanya butuh panjang kode untuk
+ * menggambar jumlah digit yang berputar, jadi kodenya diganti nol sepanjang
+ * aslinya: tampilannya sama, isinya tidak ikut terkirim.
+ */
+export function stageRosterItem(item: { name: string; seat: string | null; code: string | null }) {
+  return { name: item.name, seat: item.seat, code: item.code ? "0".repeat(Math.min(item.code.length, 16)) : null };
+}
+
 /** Fisher-Yates, dipakai layar panggung untuk mengacak urutan nama yang berputar. */
 export function shuffle<T>(items: T[]): T[] {
   const result = [...items];
