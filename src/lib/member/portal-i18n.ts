@@ -121,6 +121,10 @@ export type PortalUiText = {
         received: string;
         /** Di kanan kepala kartu sebelum diambil. */
         stored: string;
+        /** Kepala kartu untuk catatan 0 bagasi: bukan "Dititipkan". */
+        recorded: string;
+        /** Baris di kartu 0 bagasi: salah catat di meja bisa dibetulkan. */
+        noneHint: string;
         pickedUpAt: string;
         checkAfter: string;
         openPhoto: string;
@@ -436,6 +440,8 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           check: "Jumlahnya tidak sesuai? Beri tahu panitia di meja bagasi sebelum berangkat.",
           received: "Sudah kamu terima",
           stored: "Dititipkan",
+          recorded: "Tercatat",
+          noneHint: "Sebenarnya menitip bagasi? Beri tahu panitia di meja bagasi.",
           pickedUpAt: "Diambil",
           checkAfter: "Ada yang kurang? Segera beri tahu panitia.",
           openPhoto: "Buka foto bagasi layar penuh",
@@ -705,6 +711,8 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           check: "Count not right? Tell the luggage desk before you leave.",
           received: "Back with you",
           stored: "Dropped off",
+          recorded: "Recorded",
+          noneHint: "Did you drop off luggage? Tell the luggage desk.",
           pickedUpAt: "Picked up",
           checkAfter: "Something missing? Tell the committee straight away.",
           openPhoto: "Open the luggage photo full screen",
