@@ -36,6 +36,9 @@ const jam = (iso: string | null | undefined) =>
 const hari = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 const kantong = (n: number) => `${n} ${n === 1 ? "bag" : "bags"}`;
 
+/** Unggahan foto serah terima yang lebih lama dari ini dianggap gagal: Try photo again atau Skip photo. */
+const BATAS_UNGGAH_MS = 15_000;
+
 type Fase = "muat" | "siap" | "serah" | "batal" | "tenang" | "foto" | "fotoGagal";
 
 export function LuggageHandover({
@@ -66,6 +69,9 @@ export function LuggageHandover({
   const [baru, setBaru] = useState(false);
   const [foto, setFoto] = useState<{ blob: Blob; url: string } | null>(null);
   const pilihFoto = useRef<HTMLInputElement>(null);
+  // Unggahan foto yang sedang berjalan: Skip photo dan batas waktu menghentikannya,
+  // supaya sinyal lemah tidak menahan antrean di meja ambil.
+  const unggahRef = useRef<AbortController | null>(null);
 
   const menunggu = titipan.filter((item) => item.bag_count > 0 && !item.handed_over_at);
   const jumlahMenunggu = menunggu.reduce((total, item) => total + item.bag_count, 0);
@@ -124,7 +130,14 @@ export function LuggageHandover({
     form.set("session_id", String(sessionId));
     form.set("participant_id", participantId);
     form.set("file", blob, "handover.jpg");
-    const response = await fetch(eventApiPath("/api/attendance/luggage/handover/photo"), { method: "POST", body: form }).catch(() => null);
+    const kendali = new AbortController();
+    unggahRef.current = kendali;
+    const batas = window.setTimeout(() => kendali.abort(), BATAS_UNGGAH_MS);
+    const response = await fetch(eventApiPath("/api/attendance/luggage/handover/photo"), { method: "POST", body: form, signal: kendali.signal }).catch(() => null);
+    window.clearTimeout(batas);
+    if (unggahRef.current === kendali) unggahRef.current = null;
+    // Dilewati petugas selama mengunggah: lembar sudah tenang, jangan diubah lagi.
+    if (kendali.signal.aborted && kendali.signal.reason === "lewati") return;
     if (!response?.ok) {
       // Yang perlu diketahui petugas: kopernya sudah tercatat diserahkan, fotonya belum.
       setGalat("The bags are handed over, but the photo did not upload. Try again, or skip the photo.");
@@ -150,6 +163,8 @@ export function LuggageHandover({
   }
 
   function lewatiFoto() {
+    unggahRef.current?.abort("lewati");
+    unggahRef.current = null;
     setFoto(null);
     setGalat("");
     setFase("tenang");
@@ -216,7 +231,7 @@ export function LuggageHandover({
       </Button>
     ) : fase === "foto" || fase === "fotoGagal" ? (
       <>
-        <Button variant="text" size="md" disabled={fase === "foto"} onClick={lewatiFoto}>Skip photo</Button>
+        <Button variant="text" size="md" onClick={lewatiFoto}>Skip photo</Button>
         <Button variant="filled" size="md" loading={fase === "foto"} onClick={() => { if (foto) void kirimFoto(foto.blob); }}>
           Try photo again
         </Button>
@@ -252,9 +267,15 @@ export function LuggageHandover({
             return (
               <div key={item.id} className="flex flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3">
                 {item.photo_url ? (
-                  <a href={item.photo_url} target="_blank" rel="noreferrer noopener" aria-label="Open luggage photo">
+                  <a href={item.photo_url} target="_blank" rel="noreferrer noopener" aria-label="Open drop-off photo" className="relative block">
                     {/* eslint-disable-next-line @next/next/no-img-element -- signed URL berumur pendek */}
-                    <img src={item.photo_url} alt={`Luggage photo, ${kantong(item.bag_count)}`} className="aspect-[4/3] w-full rounded-md object-cover" />
+                    <img src={item.photo_url} alt={`Drop-off photo, ${kantong(item.bag_count)}`} className="aspect-[4/3] w-full rounded-md object-cover" />
+                    {/* Dua foto di satu kartu (Photo at hand-over): yang besar selalu foto dari meja titip. */}
+                    {fotoAktif || item.handover_photo_url ? (
+                      <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2.5 py-1 text-label-medium font-medium text-white">
+                        Drop-off photo · {jam(item.recorded_at)}
+                      </span>
+                    ) : null}
                   </a>
                 ) : null}
                 <div className="flex items-center gap-3 px-1">
@@ -279,7 +300,7 @@ export function LuggageHandover({
                   <a href={item.handover_photo_url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 px-1" aria-label="Open hand-over photo">
                     {/* eslint-disable-next-line @next/next/no-img-element -- signed URL berumur pendek */}
                     <img src={item.handover_photo_url} alt="" className="h-14 w-[72px] shrink-0 rounded-md object-cover" />
-                    <span className="text-body-medium text-on-surface-variant">Hand-over photo</span>
+                    <span className="text-body-medium text-on-surface-variant">Hand-over photo · {jam(item.handed_over_at)}</span>
                   </a>
                 ) : null}
               </div>
@@ -303,13 +324,16 @@ export function LuggageHandover({
           {foto ? (
             <div className="flex min-h-[72px] items-center gap-3 rounded-lg border border-outline bg-surface-container-lowest px-4 py-3">
               {/* eslint-disable-next-line @next/next/no-img-element -- blob: pratinjau, bukan aset statis */}
-              <img src={foto.url} alt="Hand-over photo" className="h-14 w-[72px] shrink-0 rounded-md object-cover" />
+              <img src={foto.url} alt="Hand-over photo" className="h-12 w-16 shrink-0 rounded-md object-cover" />
               <span className="min-w-0 flex-1">
-                <span className="block text-body-large font-medium">{fase === "foto" ? "Uploading photo…" : "Photo added"}</span>
+                <span className="block text-body-large font-medium">Hand-over photo</span>
+                <span className="block text-body-medium text-on-surface-variant">{fase === "foto" ? "Uploading…" : fase === "fotoGagal" ? "Not uploaded" : "Saved with the handover"}</span>
               </span>
               {fase === "siap" || fase === "serah" ? (
                 <>
-                  <Button variant="text" size="md" disabled={fotoTerkunci} onClick={bukaKamera}>Retake</Button>
+                  <IconButton label="Retake photo" disabled={fotoTerkunci} onClick={bukaKamera}>
+                    <Camera size={20} />
+                  </IconButton>
                   <IconButton label="Remove photo" disabled={fotoTerkunci} onClick={() => setFoto(null)}>
                     <X size={20} />
                   </IconButton>
@@ -327,7 +351,7 @@ export function LuggageHandover({
                 <Camera size={24} aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-body-large font-medium text-primary">{fase === "tenang" ? "Add hand-over photo" : "Take photo"}</span>
+                <span className="block text-body-large font-medium text-primary">{fase === "tenang" ? "Add hand-over photo" : "Take hand-over photo"}</span>
                 <span className="block text-body-medium text-on-surface-variant">Optional · the bags being handed over</span>
               </span>
             </button>
