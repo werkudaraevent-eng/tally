@@ -1355,7 +1355,8 @@ export async function DashboardGathering({
             id={item === bagasi[0] ? "bagasi" : undefined}
             judul={tl.title}
             Ikon={Suitcase}
-            meta={{ teks: item.handed_over_at ? tl.received : tl.stored, nada: item.handed_over_at ? "hijau" : "redup" }}
+            // 0 bagasi bukan "Dititipkan": kepala netral, judulnya yang berbicara.
+            meta={{ teks: item.bag_count === 0 ? tl.recorded : item.handed_over_at ? tl.received : tl.stored, nada: item.handed_over_at && item.bag_count > 0 ? "hijau" : "redup" }}
             tanpaKepala={trip}
             nama={item.bag_count === 0 ? tl.none : tl.count(item.bag_count)}
             baris={[
@@ -1372,7 +1373,7 @@ export async function DashboardGathering({
                 teks={{ buka: tl.openPhoto, perbesar: tl.enlarge, tutup: tl.close, judul: tl.title }}
               />
             ) : null}
-            {item.bag_count > 0 ? <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{item.handed_over_at ? tl.checkAfter : tl.check}</p> : null}
+            <p className="text-[14px] leading-5" style={{ color: "#526078" }}>{item.bag_count === 0 ? tl.noneHint : item.handed_over_at ? tl.checkAfter : tl.check}</p>
           </KartuInfoHorizon>
         ))}
       </>
