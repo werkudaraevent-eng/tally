@@ -7,7 +7,7 @@ import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
   AFTER_WIN_TEXT, EXCLUDE_SCOPE_LABEL, SPIN_MODES, STAGE_NOTE_MAX, WEIGHT_VAR_LABEL, ruleBrokenMessage,
-  type AfterWin, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WeightMode, type WeightVar,
+  type AfterWin, type BonusRule, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import { AnimationPicker, type StageLook } from "./animation-picker";
@@ -30,7 +30,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "");
  */
 export function PrizeEditor({
   draft, isNew, legacyFormula, groups, preview, previewFailed, saving, uploading, error,
-  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, onNewEntryList, stage, order,
+  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, onPreviewRules, onNewEntryList, stage, order,
 }: {
   draft: Draft; isNew: boolean; legacyFormula: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
   saving: boolean; uploading: boolean; error: string;
@@ -41,6 +41,8 @@ export function PrizeEditor({
   /** Membuka dialog import daftar entri tanpa meninggalkan editor. */
   onNewEntryList?: () => void;
   onRetrySessions?: () => void;
+  /** Pratinjau kolam dengan aturan tiket yang belum disimpan (dialog aturan tiket). */
+  onPreviewRules?: (rules: BonusRule[]) => Promise<Preview | null>;
   stage: StageLook;
   /**
    * Urutan undi (run of show). Tidak ada untuk hadiah baru: hadiah baru selalu
@@ -292,6 +294,7 @@ export function PrizeEditor({
                   preview={preview}
                   previewFailed={previewFailed}
                   onRetrySessions={onRetrySessions}
+                  onPreviewRules={onPreviewRules}
                   onChange={(bonus_rules) => onChange({ bonus_rules })}
                   onWeightMax={(weight_max) => onChange({ weight_max })}
                 />

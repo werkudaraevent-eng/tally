@@ -310,7 +310,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
   - Eligibility conditions with AND/OR groups: organisation, name, job title, type, RSVP, check-in (any or one session), seat, spend, booths visited, scans, checkpoint points/goal, form answers; with a pool preview.
   - After the winner is revealed: stage screen text per prize (nothing, come to the stage, collect at the desk, or own text).
   - Win again: can win many times, not this prize twice, or excluded from all prizes after one win (default).
-  - Chances: equal, or bonus tickets from a file or from conditions, capped per person.
+  - Chances: equal, or bonus tickets from an organisers’ list (pick participants by name, or upload a file of QR codes or emails) or from conditions, capped per person. While adding a rule, a live line shows how many people it covers, their share of tickets, how many times a standard participant’s chance, and the average number of winners from them, updating as tickets, people or conditions change.
   - Exclusion rules and per-person exclusions.
   - Stage display: title, name display, organisation, seat, prize lineup on the waiting screen (off by default), sound, confetti, reveal delay, colours, background.
   - Sessions & results: start/close a session, export, delete results (owner only).
