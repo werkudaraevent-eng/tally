@@ -292,6 +292,8 @@ export default function UndianAdminPage() {
         name_display: settings.name_display,
         show_company: settings.show_company,
         show_seat: settings.show_seat,
+        show_lineup: settings.show_lineup,
+        show_pool_size: settings.show_pool_size,
         sound_enabled: settings.sound_enabled,
         confetti_enabled: settings.confetti_enabled,
         reveal_delay_seconds: settings.reveal_delay_seconds,

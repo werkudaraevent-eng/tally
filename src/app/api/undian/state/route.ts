@@ -1,5 +1,5 @@
 import { apiErrorPeserta } from "@/lib/api";
-import { getPublicRequestEvent } from "@/lib/auth/request-event";
+import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
 import { normalizeAfterWin, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 
 const STATE_ROW = "mode,rehearsal,active_prize_id,phase,draw_round,spin_started_at,reveal_at,pending,pool,pool_size,updated_at";
 const SETTINGS_ROW =
-  `page_title,page_subtitle,name_display,show_company,show_seat,show_lineup,sound_enabled,confetti_enabled,` +
+  `page_title,page_subtitle,name_display,show_company,show_seat,show_lineup,show_pool_size,sound_enabled,confetti_enabled,` +
   `reveal_delay_seconds,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
 const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
 
@@ -61,6 +61,7 @@ const DEFAULT_SETTINGS = {
   show_company: true,
   show_seat: true,
   show_lineup: false,
+  show_pool_size: true,
   sound_enabled: true,
   confetti_enabled: true,
   background_color: null,
@@ -87,6 +88,7 @@ export async function GET(request: Request) {
     show_company: settingsRow.show_company !== false,
     show_seat: settingsRow.show_seat !== false,
     show_lineup: settingsRow.show_lineup === true,
+    show_pool_size: settingsRow.show_pool_size !== false,
     sound_enabled: settingsRow.sound_enabled !== false,
     confetti_enabled: settingsRow.confetti_enabled !== false,
     background_color: (settingsRow.background_color as string | null) ?? null,
@@ -252,6 +254,15 @@ export async function GET(request: Request) {
     }));
   }
 
+  // Stage display > Show the number in the draw: off sends no number to the
+  // stage. The operator panel (?operator=1, signed-in admin of this event)
+  // still gets the real count.
+  let poolSize = settings.show_pool_size ? state.pool_size : 0;
+  if (!settings.show_pool_size && new URL(request.url).searchParams.get("operator") === "1") {
+    const auth = await requireRequestEvent(request, ["admin"]);
+    if (!auth.response && auth.scope.event.id === eventId) poolSize = state.pool_size;
+  }
+
   return Response.json({
     mode: state.mode,
     rehearsal: state.rehearsal,
@@ -261,7 +272,7 @@ export async function GET(request: Request) {
     // Disaring lagi di sini, bukan hanya saat kolam dibekukan: baris yang sudah
     // tersimpan sebelum aturan ini tetap tidak boleh keluar apa adanya.
     roster: (state.pool ?? []).map(stageRosterItem),
-    pool_size: state.pool_size,
+    pool_size: poolSize,
     spin_started_at: state.spin_started_at,
     reveal_at: state.reveal_at,
     winners,

@@ -337,6 +337,9 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
         ? `Cadangan: ${backups.map((winner) => winner.name).join(" · ")}`
         : !drawing && step > 0 && step <= WAVES.length
           ? `${litNow.size} nama tersisa`
+          : !poolSize
+            // Jumlah disembunyikan (Stage display): tanpa angka sama sekali.
+            ? "Semua nama ikut diundi"
           : total > shown
             ? `${shown} dari ${total} nama tampil · semua ${total} ikut diundi`
             : `${shown} nama di dinding`}

@@ -86,7 +86,7 @@ export default function UndianControlPage() {
   const toast = useToast();
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/undian/state", { cache: "no-store" }).catch(() => null);
+    const response = await fetch("/api/undian/state?operator=1", { cache: "no-store" }).catch(() => null);
     if (response?.ok) { setState((await response.json()) as State); setStateFailed(false); }
     else setStateFailed(true);
   }, []);

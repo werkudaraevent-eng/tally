@@ -31,7 +31,7 @@ export type AttendanceSessionOption = { id: number; name: string };
 export type Settings = {
   page_title: string; page_subtitle: string | null;
   name_display: "full" | "follow_event";
-  show_company: boolean; show_seat: boolean; show_lineup: boolean;
+  show_company: boolean; show_seat: boolean; show_lineup: boolean; show_pool_size: boolean;
   sound_enabled: boolean; confetti_enabled: boolean;
   reveal_delay_seconds: number;
   background_color: string | null; text_color: string | null; accent_color: string | null;
