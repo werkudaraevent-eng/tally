@@ -17,10 +17,34 @@ import { textToRows, xlsxToRows } from "@/lib/undian-import";
 // Dua bentuk permintaan:
 //   multipart  berkas .xlsx / .csv / .txt -> hasil pencocokan per baris.
 //   JSON       { participant_ids } -> nama peserta itu, untuk "Lihat nama".
+//   GET ?q=    cari peserta untuk "Pick names" (maks. 20 hasil).
 
 // 5.000 baris CSV sekitar 200 KB, xlsx lebih kecil lagi. Di bawah batas body
 // proxy Next (10 MB), supaya berkas besar mendapat pesan ini, bukan 500.
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+const SEARCH_LIMIT = 20;
+
+/**
+ * Cari peserta untuk dipilih langsung ke daftar tiket tambahan. Disaring di
+ * server dari peserta acara (bukan `.or(ilike)`), supaya koma atau kurung di
+ * kata kunci tidak bisa mengubah filter PostgREST.
+ */
+export async function GET(request: Request) {
+  const auth = await requireRequestEvent(request, ["admin"], { readOnly: true });
+  if (auth.response) return auth.response;
+  const q = (new URL(request.url).searchParams.get("q") ?? "").trim().toLocaleLowerCase("id-ID").slice(0, 100);
+  if (q.length === 0) return Response.json({ participants: [] });
+  const people = await eventParticipants(auth.scope.event.id);
+  if (!people) return apiError("INTERNAL_ERROR", 500);
+  const hits = people
+    .filter((person) => [person.name, person.company, person.qr_code, person.email]
+      .some((value) => (value ?? "").toLocaleLowerCase("id-ID").includes(q)))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, SEARCH_LIMIT)
+    .map((person) => ({ participant_id: person.id, name: person.name, company: person.company, qr_code: person.qr_code }));
+  return Response.json({ participants: hits });
+}
 
 const idsSchema = z.object({ participant_ids: z.array(z.string().uuid()).max(BONUS_LIST_MAX) });
 

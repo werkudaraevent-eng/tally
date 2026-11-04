@@ -1,14 +1,14 @@
 "use client";
 
-import { DownloadSimple, Minus, Plus, UploadSimple } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { Check, DownloadSimple, MagnifyingGlass, Minus, Plus, UploadSimple, X } from "@phosphor-icons/react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Button, ButtonLink, Dialog } from "@/components/m3";
+import { Button, ButtonLink, Dialog, SegmentedButton, TextField } from "@/components/m3";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import { cx } from "@/lib/m3/cx";
 import { BONUS_TEMPLATE_HEADERS } from "@/lib/undian-bonus-list";
 import {
-  BONUS_RULES_MAX, BONUS_TICKETS_MAX, EMPTY_CONDITIONS, describeConditions,
+  BONUS_LIST_MAX, BONUS_RULES_MAX, BONUS_TICKETS_MAX, EMPTY_CONDITIONS, describeConditions,
   type BonusRule, type UndianConditionGroup,
 } from "@/lib/undian";
 import { NumberField, PaneError, UploadButton } from "./form";
@@ -23,11 +23,12 @@ import type { Preview } from "./types";
  * lewat "Simpan hadiah", sama seperti isian hadiah lain.
  */
 export function BonusRules({
-  rules, weightMax, winnerQuota, preview, previewFailed, onRetrySessions, onChange, onWeightMax,
+  rules, weightMax, winnerQuota, preview, previewFailed, onRetrySessions, onPreviewRules, onChange, onWeightMax,
 }: {
   rules: BonusRule[]; weightMax: number; winnerQuota: number;
   preview: Preview | null; previewFailed: boolean;
   onRetrySessions?: () => void;
+  onPreviewRules?: (rules: BonusRule[]) => Promise<Preview | null>;
   onChange: (rules: BonusRule[]) => void; onWeightMax: (value: number) => void;
 }) {
   const [editing, setEditing] = useState<{ index: number | null; startAt: Step } | null>(null);
@@ -70,7 +71,7 @@ export function BonusRules({
                   </span>
                   <span className="min-w-0 break-words text-on-surface-variant">
                     {rule.source === "list"
-                      ? [`${rule.participant_ids.length.toLocaleString("en-GB")} ${rule.participant_ids.length === 1 ? "person" : "people"}`, rule.file_name, uploadedLabel(rule.uploaded_at)].filter(Boolean).join(" · ")
+                      ? [`${rule.participant_ids.length.toLocaleString("en-GB")} ${rule.participant_ids.length === 1 ? "person" : "people"}`, rule.file_name ?? "Picked by name", uploadedLabel(rule.uploaded_at)].filter(Boolean).join(" · ")
                       : `${describeConditions(rule.conditions, sessionNames, answerLabels)}${preview?.bonus_rule_counts ? ` · ${(preview.bonus_rule_counts[index] ?? 0).toLocaleString("en-GB")} ${(preview.bonus_rule_counts[index] ?? 0) === 1 ? "person" : "people"}` : ""}`}
                   </span>
                 </div>
@@ -78,7 +79,7 @@ export function BonusRules({
                   {rule.source === "list" ? (
                     <>
                       <Button type="button" variant="text" size="sm" onClick={() => setNames(rule)}>View names</Button>
-                      <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "upload" })}>Replace file</Button>
+                      <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "upload" })}>Change people</Button>
                     </>
                   ) : null}
                   <Button type="button" variant="text" size="sm" onClick={() => setEditing({ index, startAt: "rule" })}>Edit</Button>
@@ -115,6 +116,7 @@ export function BonusRules({
           preview={preview}
           previewFailed={previewFailed}
           onRetrySessions={onRetrySessions}
+          chances={onPreviewRules ? { rules, index: editing.index, winnerQuota, weightMax, preview: onPreviewRules } : undefined}
           onClose={() => setEditing(null)}
           onSave={save}
         />,
@@ -208,6 +210,9 @@ function OddsTable({ rules, preview, failed, winnerQuota }: { rules: BonusRule[]
 
 type Step = "rule" | "upload" | "review";
 
+type Person = { participant_id: string; name: string; company: string | null; qr_code?: string | null };
+type AddMode = "pick" | "file";
+
 type CheckResult = {
   file_name: string;
   rows_read: number;
@@ -219,10 +224,11 @@ type CheckResult = {
 
 /** Dialog tambah atau ubah aturan: Aturan, lalu (untuk daftar) Upload dan Cek hasil. */
 function RuleDialog({
-  initial, startAt, preview, previewFailed, onRetrySessions, onClose, onSave,
+  initial, startAt, preview, previewFailed, onRetrySessions, chances, onClose, onSave,
 }: {
   initial: BonusRule | null; startAt: Step; preview: Preview | null; previewFailed: boolean;
   onRetrySessions?: () => void;
+  chances?: ChanceContext;
   onClose: () => void; onSave: (rule: BonusRule) => void;
 }) {
   const [step, setStep] = useState<Step>(startAt);
@@ -233,6 +239,11 @@ function RuleDialog({
   const [checking, setChecking] = useState(false);
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<AddMode>(initial?.source === "list" && initial.file_name ? "file" : "pick");
+  // Peserta yang dipilih lewat "Pick names". Untuk daftar yang sudah ada, diisi
+  // dari server saat langkah 2 dibuka, supaya mengubah daftar dimulai dari isinya.
+  const [picked, setPicked] = useState<Person[] | null>(initial?.source === "list" ? null : []);
+  const [pickedFailed, setPickedFailed] = useState(false);
 
   const existingList = initial?.source === "list" ? initial : null;
   const listSteps = source === "list";
@@ -266,6 +277,41 @@ function RuleDialog({
     setStep("review");
   }
 
+  useEffect(() => {
+    if (step !== "upload" || picked !== null || initial?.source !== "list") return;
+    let alive = true;
+    void fetch("/api/admin/undian/bonus-list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participant_ids: initial.participant_ids }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error("load");
+      const data = await response.json();
+      if (alive) setPicked(data.participants ?? []);
+    }).catch(() => { if (alive) setPickedFailed(true); });
+    return () => { alive = false; };
+  }, [step, picked, initial]);
+
+  // Aturan seperti yang sedang diisi, untuk perkiraan peluang yang ikut bergerak
+  // saat tiket, orang, atau syaratnya diubah. Daftar dari berkas memakai hasil
+  // cek berkas bila ada, kalau belum: isi daftar lama.
+  const candidateIds = mode === "file" && check
+    ? check.matched.map((item) => item.participant_id)
+    : picked?.map((item) => item.participant_id) ?? (initial?.source === "list" ? initial.participant_ids : []);
+  const candidate: BonusRule | null = source === "conditions"
+    ? (conditions.children.length > 0 ? { name: name.trim() || "New rule", tickets, source, conditions } : null)
+    : (candidateIds.length > 0 ? { name: name.trim() || "New rule", tickets, source: "list", participant_ids: candidateIds, file_name: null, uploaded_at: null } : null);
+  const chanceLine = chances ? <ChanceLine context={chances} candidate={candidate} source={source} /> : null;
+
+  function savePicked() {
+    if (!picked || picked.length === 0 || !validRule()) return;
+    onSave({
+      name: name.trim(), tickets, source: "list",
+      participant_ids: picked.map((item) => item.participant_id),
+      file_name: null, uploaded_at: new Date().toISOString(),
+    });
+  }
+
   function saveList() {
     if (!check || check.matched.length === 0) return;
     onSave({
@@ -279,7 +325,7 @@ function RuleDialog({
     <ol className="flex flex-wrap gap-x-4 text-body-small text-on-surface-variant" aria-label="Steps">
       {(["rule", "upload", "review"] as const).map((item, index) => (
         <li key={item} aria-current={step === item ? "step" : undefined} className={cx(step === item && "font-semibold text-primary")}>
-          {index + 1} {item === "rule" ? "Rule" : item === "upload" ? "Upload list" : "Review results"}
+          {index + 1} {item === "rule" ? "Rule" : item === "upload" ? "Add people" : "Review results"}
         </li>
       ))}
     </ol>
@@ -293,9 +339,9 @@ function RuleDialog({
     actions = (
       <>
         <Button type="button" variant="text" onClick={onClose}>Cancel</Button>
-        {source === "list" && existingList ? <Button type="button" variant="outlined" onClick={() => validRule() && setStep("upload")}>Replace file</Button> : null}
+        {source === "list" && existingList ? <Button type="button" variant="outlined" onClick={() => validRule() && setStep("upload")}>Change people</Button> : null}
         {source === "list" && !existingList
-          ? <Button type="button" onClick={() => validRule() && setStep("upload")}>Next: upload list</Button>
+          ? <Button type="button" onClick={() => validRule() && setStep("upload")}>Next: add people</Button>
           : <Button type="button" onClick={saveRule}>Save rule</Button>}
       </>
     );
@@ -308,7 +354,7 @@ function RuleDialog({
             checked={source === "list"}
             onSelect={() => setSource("list")}
             title="List from organisers"
-            description="Upload an Excel file with participant QR codes or email addresses. Use it for VIPs, special guests or quiz winners."
+            description="Pick participants by name, or upload an Excel file with QR codes or email addresses. Use it for VIPs, special guests or quiz winners."
           />
           <Choice
             checked={source === "conditions"}
@@ -332,6 +378,7 @@ function RuleDialog({
           <p className="font-medium" id="bonus-tickets-label">Bonus tickets per person</p>
           <Stepper value={tickets} onChange={setTickets} labelledBy="bonus-tickets-label" />
         </div>
+        {source === "list" ? chanceLine : null}
         {source === "conditions" ? (
           <div>
             <p className="mb-1.5 font-medium">Conditions</p>
@@ -348,15 +395,37 @@ function RuleDialog({
             />
           </div>
         ) : null}
+        {source === "conditions" ? chanceLine : null}
         {error ? <PaneError>{error}</PaneError> : null}
       </div>
     );
   } else if (step === "upload") {
-    title = `Upload the ${name.trim()} list`;
-    actions = <Button type="button" variant="text" disabled={checking} onClick={() => { setError(""); setStep("rule"); }}>Back</Button>;
+    title = `Add people to ${name.trim()}`;
+    const count = picked?.length ?? 0;
+    actions = (
+      <>
+        <Button type="button" variant="text" disabled={checking} onClick={() => { setError(""); setStep("rule"); }}>Back</Button>
+        {mode === "pick"
+          ? <Button type="button" disabled={count === 0} onClick={savePicked}>{count === 0 ? "Save" : `Save ${count.toLocaleString("en-GB")} ${count === 1 ? "person" : "people"}`}</Button>
+          : null}
+      </>
+    );
     content = (
       <div className="flex flex-col gap-4 text-body-medium">
         {stepper}
+        <SegmentedButton<AddMode>
+          label="How to add people"
+          value={mode}
+          onChange={(value) => { setError(""); setMode(value); }}
+          options={[{ value: "pick", label: "Pick names" }, { value: "file", label: "Upload file" }]}
+          className="w-full"
+        />
+        {mode === "pick" ? (
+          pickedFailed ? <PaneError>Could not load the people on this list. Close and try again.</PaneError>
+            : picked === null ? <p className="text-on-surface-variant">Loading names...</p>
+            : <PeoplePicker picked={picked} onChange={setPicked} chances={chanceLine} />
+        ) : (
+        <>
         <div className="flex gap-3">
           <Num>1</Num>
           <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -390,6 +459,8 @@ function RuleDialog({
             {error ? <PaneError>{error}</PaneError> : null}
           </div>
         </div>
+        </>
+        )}
       </div>
     );
   } else if (check) {
@@ -408,6 +479,7 @@ function RuleDialog({
           {check.duplicates > 0 ? <Summary value={check.duplicates} label="duplicates" note="the same person listed more than once, counted once" /> : null}
           {check.missing_total > 0 ? <Summary value={check.missing_total} tone="bad" label="not found" note="will not receive tickets" /> : null}
         </dl>
+        {chanceLine}
         {check.missing.length > 0 ? (
           <div className="max-h-56 overflow-auto">
             <table className="w-full border-collapse tabular-nums">
@@ -440,6 +512,184 @@ function RuleDialog({
     <Dialog open onClose={onClose} dismissible={!checking} title={title} size="lg" scrollBody fullScreenOnMobile actions={actions}>
       {content}
     </Dialog>
+  );
+}
+
+type ChanceContext = {
+  rules: BonusRule[]; index: number | null; winnerQuota: number; weightMax: number;
+  preview: (rules: BonusRule[]) => Promise<Preview | null>;
+};
+
+/**
+ * Perkiraan peluang aturan yang sedang diisi, dihitung server dari kolam yang
+ * benar-benar diundi (syarat hadiah, pengecualian, aturan lain, batas tiket).
+ * Diminta ulang dengan jeda setiap kali tiket, orang, atau syaratnya berubah.
+ */
+function ChanceLine({ context, candidate, source }: { context: ChanceContext; candidate: BonusRule | null; source: BonusRule["source"] }) {
+  const [result, setResult] = useState<{ key: string; preview: Preview | null } | null>(null);
+  const key = candidate ? JSON.stringify(candidate) : "";
+  const contextRef = useRef(context);
+  useEffect(() => { contextRef.current = context; });
+
+  useEffect(() => {
+    if (!key) return;
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      const { rules, index, preview } = contextRef.current;
+      const rule = JSON.parse(key) as BonusRule;
+      const next = index === null ? [...rules, rule] : rules.map((item, i) => (i === index ? rule : item));
+      void preview(next).then((data) => { if (alive) setResult({ key, preview: data }); });
+    }, 400);
+    return () => { alive = false; window.clearTimeout(timer); };
+  }, [key]);
+
+  const box = (children: ReactNode) => (
+    <div className="rounded-md bg-surface-container-high p-3 text-body-medium" aria-live="polite">
+      <p className="mb-1 font-semibold">Winning chances</p>
+      {children}
+    </div>
+  );
+  if (!candidate) {
+    return box(<p className="text-on-surface-variant">{source === "conditions" ? "Add a condition to see the chances for this rule." : "Add people to see the chances for this rule."}</p>);
+  }
+  if (result?.key !== key) return box(<p className="text-on-surface-variant">Calculating...</p>);
+  const groups = result.preview?.bonus_groups;
+  if (!groups) return box(<p className="text-on-surface-variant">Could not calculate chances. Change the rule to try again.</p>);
+
+  const at = context.index ?? context.rules.length;
+  const total = groups.reduce((sum, group) => sum + group.count * group.tickets, 0);
+  const hit = groups.filter((group) => group.rules.includes(at));
+  const people = hit.reduce((sum, group) => sum + group.count, 0);
+  if (people === 0 || total === 0) {
+    return box(<p className="text-on-surface-variant">Nobody this rule adds tickets to is in the draw for this prize yet{source === "conditions" ? "" : " (they may not meet the prize conditions or be excluded)"}.</p>);
+  }
+  const share = hit.reduce((sum, group) => sum + group.count * group.tickets, 0) / total;
+  const quota = context.winnerQuota;
+  const expected = Math.min(quota, people, quota * share);
+  // Tiket orang di grup ini: grup terbesar menentukan "N× peserta biasa".
+  const ticketsEach = Math.max(...hit.map((group) => group.tickets));
+  const percent = new Intl.NumberFormat("en-GB", { maximumFractionDigits: share < 0.01 ? 1 : 0 });
+  const decimal = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 });
+  return box(
+    <p>
+      {people.toLocaleString("en-GB")} {people === 1 ? "person holds" : "people hold"} <strong>{percent.format(share * 100)}% of tickets</strong>
+      {" "}({ticketsEach}× the chance of a standard participant).
+      {" "}Of {quota} {quota === 1 ? "winner" : "winners"}, an average of <strong>{decimal.format(expected)}</strong> will come from this group.
+      {ticketsEach >= context.weightMax ? <span className="text-on-surface-variant"> Capped at the maximum of {context.weightMax} tickets per person.</span> : null}
+    </p>,
+  );
+}
+
+/**
+ * Cari lalu centang peserta, untuk daftar kecil yang tidak perlu dibuat di
+ * Excel. Yang terpilih tampil sebagai chip di atas hasil pencarian; nama kembar
+ * dibedakan dari perusahaan dan QR di baris hasil.
+ */
+function PeoplePicker({ picked, onChange, chances }: { picked: Person[]; onChange: (people: Person[]) => void; chances?: ReactNode }) {
+  const [query, setQuery] = useState("");
+  // Hasil disimpan bersama kata kuncinya; "mencari" = hasil untuk kata kunci
+  // yang sekarang belum tiba. Tidak ada setState langsung di effect.
+  const [found, setFound] = useState<{ q: string; people: Person[] | "failed" } | null>(null);
+  const latest = useRef("");
+  const term = query.trim();
+  const results: Person[] | "loading" | "failed" = term.length < 2 ? [] : found?.q === term ? found.people : "loading";
+  const chosen = new Set(picked.map((item) => item.participant_id));
+  const full = picked.length >= BONUS_LIST_MAX;
+
+  useEffect(() => {
+    const q = query.trim();
+    latest.current = q;
+    if (q.length < 2) return;
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/admin/undian/bonus-list?q=${encodeURIComponent(q)}`, { cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("search");
+          const data = await response.json();
+          if (latest.current === q) setFound({ q, people: data.participants ?? [] });
+        })
+        .catch(() => { if (latest.current === q) setFound({ q, people: "failed" }); });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  function toggle(person: Person) {
+    if (chosen.has(person.participant_id)) onChange(picked.filter((item) => item.participant_id !== person.participant_id));
+    else if (!full) onChange([...picked, person]);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {picked.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <p className="font-medium">Selected ({picked.length.toLocaleString("en-GB")})</p>
+          <ul className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto" aria-label="Selected participants">
+            {picked.map((person) => (
+              <li key={person.participant_id} className="inline-flex h-8 max-w-full items-center gap-1 rounded-sm bg-primary-soft pl-2.5 pr-1 text-body-medium text-on-primary-soft">
+                <span className="min-w-0 truncate">{person.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${person.name}`}
+                  onClick={() => toggle(person)}
+                  className="flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-surface-container-high"
+                >
+                  <X size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {picked.length > 0 ? chances : null}
+      <TextField
+        label="Search participants"
+        type="search"
+        value={query}
+        autoComplete="off"
+        placeholder="Name, company, QR or email"
+        leading={<MagnifyingGlass size={16} />}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <div aria-live="polite">
+        {query.trim().length < 2 ? (
+          <p className="text-on-surface-variant">{picked.length === 0 ? "Type at least 2 letters, then tap a name to add it." : "Search for more people, or save."}</p>
+        ) : results === "loading" ? (
+          <p className="text-on-surface-variant">Searching...</p>
+        ) : results === "failed" ? (
+          <PaneError>Could not search participants. Try again.</PaneError>
+        ) : results.length === 0 ? (
+          <p className="text-on-surface-variant">No participants match “{query.trim()}”.</p>
+        ) : (
+          <ul className="flex max-h-64 flex-col divide-y divide-outline-variant overflow-y-auto rounded-md border border-outline-variant">
+            {results.map((person) => {
+              const on = chosen.has(person.participant_id);
+              return (
+                <li key={person.participant_id}>
+                  <button
+                    type="button"
+                    aria-pressed={on}
+                    disabled={!on && full}
+                    onClick={() => toggle(person)}
+                    className="flex min-h-12 w-full items-center gap-3 px-3 py-1.5 text-left hover:bg-primary-soft disabled:opacity-40"
+                  >
+                    <span className={cx(
+                      "flex size-[18px] shrink-0 items-center justify-center rounded-[2px] border-2",
+                      on ? "border-primary bg-primary text-on-primary" : "border-outline",
+                    )} aria-hidden>
+                      {on ? <Check size={14} weight="bold" /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words font-medium">{person.name}</span>
+                      <span className="block break-words text-body-small text-on-surface-variant">{[person.company, person.qr_code].filter(Boolean).join(" · ") || "No company"}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      {results !== "loading" && results !== "failed" && results.length === 20 ? <p className="-mt-2 text-body-small text-on-surface-variant">Showing the first 20 matches. Type more to narrow the search.</p> : null}
+    </div>
   );
 }
 

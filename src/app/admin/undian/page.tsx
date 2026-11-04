@@ -10,7 +10,7 @@ import { SessionHistory } from "@/components/admin/undian-session-history";
 import { useToast } from "@/components/toast";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding } from "@/lib/branding";
 import { cx } from "@/lib/m3/cx";
-import { ANIMATIONS, EMPTY_CONDITIONS, describeConditions, normalizePrize, type UndianPrize } from "@/lib/undian";
+import { ANIMATIONS, EMPTY_CONDITIONS, describeConditions, normalizePrize, type BonusRule, type UndianPrize } from "@/lib/undian";
 import { undianCanRun, undianReadiness, type ReadinessStep, type ReadinessTab } from "@/lib/undian-readiness";
 import {
   Banner, Button, ButtonLink, Dialog, EmptyState, IconButton, ListDetail, ListRow, MetaSeparator, PageLoading, Pane, PaneBody,
@@ -158,29 +158,43 @@ export default function UndianAdminPage() {
   // Jedanya wajib: tanpa itu setiap ketikan di kolom nominal memicu satu query
   // agregat lintas seluruh tabel order. Mengetik "500000" berarti enam query yang
   // lima di antaranya sudah tidak relevan sebelum jawabannya tiba.
+  // Isi permintaan pratinjau untuk hadiah yang sedang diedit. Dipakai juga oleh
+  // dialog aturan tiket, yang meminta pratinjau dengan aturan yang belum disimpan.
+  function previewRequest(bonusRules: BonusRule[]): RequestInit {
+    return {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conditions: draft.conditions, weight_mode: draft.weight_mode, weight_var: draft.weight_var,
+        weight_divisor: draft.weight_divisor, weight_base: draft.weight_base, weight_max: draft.weight_max,
+        bonus_rules: bonusRules, exclude_scope: draft.exclude_scope,
+        // Aturan pengecualian bisa berlaku khusus untuk satu hadiah, jadi
+        // pratinjaunya harus tahu hadiah mana yang sedang diedit. Tanpa ini,
+        // angka di layar mengabaikan aturan khusus dan menjanjikan kolam yang
+        // lebih besar daripada yang benar-benar akan diundi.
+        prize_id: editingId === "new" ? null : editingId,
+      }),
+    };
+  }
+
+  async function previewWithRules(bonusRules: BonusRule[]): Promise<Preview | null> {
+    const response = await fetch("/api/admin/undian/preview", previewRequest(bonusRules)).catch(() => null);
+    if (!response?.ok) return null;
+    return (await response.json().catch(() => null)) as Preview | null;
+  }
+
   useEffect(() => {
     if (editingId === null || draft.source !== "participants") return;
     const timer = window.setTimeout(() => {
       void (async () => {
-        const response = await fetch("/api/admin/undian/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conditions: draft.conditions, weight_mode: draft.weight_mode, weight_var: draft.weight_var,
-            weight_divisor: draft.weight_divisor, weight_base: draft.weight_base, weight_max: draft.weight_max,
-            bonus_rules: draft.bonus_rules, exclude_scope: draft.exclude_scope,
-            // Aturan pengecualian bisa berlaku khusus untuk satu hadiah, jadi
-            // pratinjaunya harus tahu hadiah mana yang sedang diedit. Tanpa ini,
-            // angka di layar mengabaikan aturan khusus dan menjanjikan kolam yang
-            // lebih besar daripada yang benar-benar akan diundi.
-            prize_id: editingId === "new" ? null : editingId,
-          }),
-        }).catch(() => null);
+        const response = await fetch("/api/admin/undian/preview", previewRequest(draft.bonus_rules)).catch(() => null);
         if (response?.ok) { setPreview((await response.json()) as Preview); setPreviewFailed(false); }
         else setPreviewFailed(true);
       })();
     }, 400);
     return () => window.clearTimeout(timer);
+    // `previewRequest` hanya membaca isian di bawah ini.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, draft.conditions, draft.source, draft.weight_mode, draft.weight_var, draft.weight_divisor, draft.weight_base, draft.weight_max, draft.bonus_rules, draft.exclude_scope, previewRetry]);
 
   const branding = useMemo(
@@ -518,6 +532,7 @@ export default function UndianAdminPage() {
       preview={preview}
       previewFailed={previewFailed}
       onRetrySessions={() => setPreviewRetry((current) => current + 1)}
+      onPreviewRules={previewWithRules}
       onNewEntryList={() => { setImportForPrize(true); setImportName(draft.name ? `${draft.name} entries` : ""); setImportText(""); setImportFile(null); setError(""); }}
       stage={{
         background: settings?.background_color ?? FALLBACK.background_color,
