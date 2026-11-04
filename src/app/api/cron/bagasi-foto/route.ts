@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { apiError } from "@/lib/api";
 import { BUCKET_BAGASI } from "@/lib/bagasi/server";
+import { kolomBelumAda } from "@/lib/logistik/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -96,6 +97,14 @@ export async function POST(request: Request) {
           .eq("event_id", eventId)
           .in("photo_path", paths.slice(awal, awal + 100));
         if (error) throw error;
+        // Foto serah terima (migrasi 202611040003). Sebelum migrasinya kolomnya
+        // belum ada dan tidak ada yang menunjuk berkas lewat kolom itu.
+        const { error: galatSerah } = await db
+          .from("luggage_drops")
+          .update({ handover_photo_path: null } as never)
+          .eq("event_id", eventId)
+          .in("handover_photo_path", paths.slice(awal, awal + 100));
+        if (galatSerah && !kolomBelumAda(galatSerah)) throw galatSerah;
       }
       dihapus += paths.length;
     }

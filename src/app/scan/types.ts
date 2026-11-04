@@ -23,6 +23,8 @@ export type Sesi = {
   bagasi?: true;
   /** Check-in > Sessions > Luggage: Pick-up: lembar hasil menampilkan titipan peserta untuk diserahkan. */
   ambil_bagasi?: true;
+  /** Luggage: Pick-up > Photo at hand-over: petugas boleh memotret koper yang diserahkan. */
+  foto_ambil?: true;
   /** Check-in > Sessions > Allow check-in without signal: pindaian disimpan di ponsel saat sinyal hilang. */
   tanpa_sinyal?: true;
 };
@@ -189,6 +191,8 @@ export type TitipanBagasi = {
   by: string | null;
   handed_over_at: string | null;
   handed_over_by: string | null;
+  /** Foto serah terima dari meja ambil (Photo at hand-over); null bila tidak ada. */
+  handover_photo_url: string | null;
   mine: boolean;
 };
 

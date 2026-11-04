@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { hapusFotoBagasi } from "@/lib/bagasi/server";
+import { hapusFotoBagasi, hapusFotoSerahYatim } from "@/lib/bagasi/server";
 import { ringkasReset } from "@/lib/reset-check-in";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -34,7 +34,7 @@ const querySchema = z.object({ session: z.string().regex(/^[1-9]\d{0,15}$/).tran
 
 type Scan = { id: number; session_id: number; scanned_at: string; scanned_by: string | null; method?: string | null };
 type Pickup = { id: number; item_id: number; session_id: number | null; size: string | null; picked_up_at: string; picked_up_by: string | null };
-type Bagasi = { id: number; session_id: number; bag_count: number; photo_path: string | null; recorded_at: string; recorded_by: string | null; handed_over_at?: string | null; handed_over_by?: string | null };
+type Bagasi = { id: number; session_id: number; bag_count: number; photo_path: string | null; recorded_at: string; recorded_by: string | null; handed_over_at?: string | null; handed_over_by?: string | null; handover_photo_path?: string | null };
 
 async function bacaBukti(eventId: string, participantId: string, sessionId: number | undefined) {
   const client = getSupabaseServiceClient();
@@ -163,6 +163,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (galat) return apiError("INTERNAL_ERROR", 500, { message: `Scans were reset, but the luggage record could not be. Try again.` });
     luggage = data?.length ?? 0;
     await hapusFotoBagasi(bukti.luggage.map((row) => row.photo_path));
+    await hapusFotoSerahYatim(eventId, bukti.luggage.map((row) => row.handover_photo_path));
   }
   return Response.json({ scans, pickups, luggage });
 }

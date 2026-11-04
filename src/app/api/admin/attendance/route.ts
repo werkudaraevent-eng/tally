@@ -31,6 +31,8 @@ const sessionSchema = z.object({
   records_luggage: z.boolean().optional(),
   /** Luggage: Pick-up (migrasi 202610240001). Tidak boleh bersamaan dengan records_luggage. */
   luggage_pickup: z.boolean().optional(),
+  /** Luggage: Pick-up > Photo at hand-over (migrasi 202611040003). Bawaan false. */
+  handover_photo: z.boolean().optional(),
   /**
    * Shown after scan (migrasi 202610300001): info di bawah nama pada hasil scan
    * petugas, urut. Null = Company · Title seperti sebelumnya (lib/info-scan.ts).
@@ -217,7 +219,7 @@ export async function PATCH(request: Request) {
     // Satu saklar dikirim sendirian ke sesi yang saklar lainnya menyala: CHECK
     // database yang menolak, tetap dijawab sebagai salah isi, bukan 500.
     // Sebelum migrasi 202610300001 kolomnya belum ada.
-    if (("repeat_scan" in patch || "offline_ok" in patch) && kolomBelumAda(error)) {
+    if (("repeat_scan" in patch || "offline_ok" in patch || "handover_photo" in patch) && kolomBelumAda(error)) {
       return apiError("VALIDATION_ERROR", 422, { message: "This setting can't be saved yet: the database update for it hasn't been run." });
     }
     if ("scan_fields" in patch && kolomBelumAda(error)) {

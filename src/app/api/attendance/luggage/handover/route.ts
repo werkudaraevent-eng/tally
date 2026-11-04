@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { sesiAmbilBagasi, titipanPeserta } from "@/lib/bagasi/server";
+import { hapusFotoSerahYatim, sesiAmbilBagasi, titipanPeserta } from "@/lib/bagasi/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -66,13 +66,27 @@ export async function DELETE(request: Request) {
   const siap = await siapkan(request, "query");
   if ("response" in siap) return siap.response;
   // Hanya penyerahan milik petugas ini: Undo untuk salah tekan di meja, bukan
-  // untuk menghapus jejak petugas lain.
-  const { error } = await getSupabaseServiceClient()
+  // untuk menghapus jejak petugas lain. Foto serah terimanya ikut dilepas
+  // (CHECK: foto hanya ada selama handed_over_at terisi), lalu berkasnya
+  // dihapus bila tidak ada baris lain yang menunjuknya.
+  const db = getSupabaseServiceClient();
+  // select *: handover_photo_path baru ada setelah migrasi 202611040003.
+  const { data: milik, error: galatBaca } = await db
     .from("luggage_drops")
-    .update({ handed_over_at: null, handed_over_by: null } as never)
+    .select("*")
+    .eq("event_id", siap.eventId)
+    .eq("participant_id", siap.participantId)
+    .eq("handed_over_by", siap.userId);
+  if (galatBaca) return apiError("INTERNAL_ERROR", 500);
+  const baris = (milik ?? []) as Array<{ handover_photo_path?: string | null }>;
+  const adaKolomFoto = baris.some((item) => "handover_photo_path" in item);
+  const { error } = await db
+    .from("luggage_drops")
+    .update({ handed_over_at: null, handed_over_by: null, ...(adaKolomFoto ? { handover_photo_path: null } : {}) } as never)
     .eq("event_id", siap.eventId)
     .eq("participant_id", siap.participantId)
     .eq("handed_over_by", siap.userId);
   if (error) return apiError("INTERNAL_ERROR", 500);
+  await hapusFotoSerahYatim(siap.eventId, baris.map((item) => item.handover_photo_path));
   return jawab(siap.eventId, siap.participantId, siap.userId);
 }

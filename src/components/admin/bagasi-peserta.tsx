@@ -17,6 +17,8 @@ type Titipan = {
   by: string | null;
   handed_over_at: string | null;
   handed_over_by: string | null;
+  /** Foto serah terima dari meja ambil (Photo at hand-over). */
+  handover_photo_url?: string | null;
 };
 
 /**
@@ -107,6 +109,9 @@ export function BagasiPeserta({ participant, nomor, versi, waktu, onReset }: {
             <span className="text-body-small text-on-surface-variant">
               {item.session_name || "Check-in point"} · {waktu(item.recorded_at)}{item.by ? ` · by ${item.by}` : ""}
             </span>
+            {item.handed_over_at && item.handover_photo_url ? (
+              <span><a href={item.handover_photo_url} target="_blank" rel="noreferrer" className="text-body-small font-medium text-primary underline-offset-2 hover:underline">Hand-back photo ↗</a></span>
+            ) : null}
             {item.photo_url && fotoGagal.has(item.id)
               ? <span><Button variant="text" size="sm" className="-mx-2" onClick={() => setUlang((n) => n + 1)}>Load photo again</Button></span>
               : !item.photo_url && item.bag_count > 0 ? <span className="text-body-small text-on-surface-variant">No photo</span> : null}

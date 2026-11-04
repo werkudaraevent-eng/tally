@@ -78,17 +78,20 @@ export async function sesiBagasi(eventId: string, sessionId: number): Promise<{ 
   return { id: sesi.id, name: sesi.name };
 }
 
-/** Sesi milik acara ini yang dibuka dan menjadi meja AMBIL bagasi, atau null. */
-export async function sesiAmbilBagasi(eventId: string, sessionId: number): Promise<{ id: number; name: string } | null> {
+/**
+ * Sesi milik acara ini yang dibuka dan menjadi meja AMBIL bagasi, atau null.
+ * `foto`: Photo at hand-over menyala (migrasi 202611040003; sebelum itu false).
+ */
+export async function sesiAmbilBagasi(eventId: string, sessionId: number): Promise<{ id: number; name: string; foto: boolean } | null> {
   const { data, error } = await getSupabaseServiceClient()
     .from("attendance_sessions")
     .select("*")
     .eq("event_id", eventId)
     .eq("id", sessionId)
     .maybeSingle();
-  const sesi = data as { id: number; name: string; is_active: boolean; luggage_pickup?: boolean } | null;
+  const sesi = data as { id: number; name: string; is_active: boolean; luggage_pickup?: boolean; handover_photo?: boolean } | null;
   if (error || !sesi || !sesi.is_active || sesi.luggage_pickup !== true) return null;
-  return { id: sesi.id, name: sesi.name };
+  return { id: sesi.id, name: sesi.name, foto: sesi.handover_photo === true };
 }
 
 /** Satu catatan titip seperti yang dilihat petugas meja ambil. */
@@ -105,6 +108,8 @@ export type TitipanBagasi = {
   /** Null = masih dititipkan. */
   handed_over_at: string | null;
   handed_over_by: string | null;
+  /** Foto serah terima dari meja ambil (Photo at hand-over), signed URL; null bila tidak ada. */
+  handover_photo_url: string | null;
   /** Diserahkan oleh petugas yang sedang membuka layar ini (boleh Undo). */
   mine: boolean;
 };
@@ -118,14 +123,20 @@ export type TitipanBagasi = {
  */
 export async function titipanPeserta(eventId: string, participantId: string, petugasId: string): Promise<TitipanBagasi[]> {
   const db = getSupabaseServiceClient();
+  // select *: handover_photo_path baru ada setelah migrasi 202611040003.
   const { data, error } = await db
     .from("luggage_drops")
-    .select(`id,${KOLOM},handed_over_at,handed_over_by`)
+    .select("*")
     .eq("event_id", eventId)
     .eq("participant_id", participantId)
     .order("recorded_at", { ascending: true });
   if (error) throw new Error("LUGGAGE_READ");
-  const baris = (data ?? []) as Array<BarisBagasi & { id: number; handed_over_at: string | null; handed_over_by: string | null }>;
+  const baris = (data ?? []) as Array<BarisBagasi & { id: number; handed_over_at: string | null; handed_over_by: string | null; handover_photo_path?: string | null }>;
+  // Satu penyerahan bisa mencakup beberapa titipan yang menunjuk foto yang sama: satu tautan per berkas.
+  const tautanSerah = new Map<string, Promise<string | null>>();
+  for (const item of baris) {
+    if (item.handover_photo_path && !tautanSerah.has(item.handover_photo_path)) tautanSerah.set(item.handover_photo_path, tautan(item.handover_photo_path, UMUR_TAUTAN_STAF));
+  }
   if (baris.length === 0) return [];
   const idPetugas = [...new Set(baris.flatMap((item) => [item.recorded_by, item.handed_over_by]).filter((id): id is string => Boolean(id)))];
   const [sesi, petugas] = await Promise.all([
@@ -145,6 +156,7 @@ export async function titipanPeserta(eventId: string, participantId: string, pet
       by: item.recorded_by ? namaPetugas.get(item.recorded_by) ?? null : null,
       handed_over_at: item.handed_over_at,
       handed_over_by: item.handed_over_by ? namaPetugas.get(item.handed_over_by) ?? null : null,
+      handover_photo_url: item.handover_photo_path ? await tautanSerah.get(item.handover_photo_path)! : null,
       mine: item.handed_over_by === petugasId,
     })),
   );
@@ -355,6 +367,25 @@ export async function hapusFotoBagasi(paths: Array<string | null>): Promise<void
   const daftar = paths.filter((path): path is string => Boolean(path));
   if (daftar.length === 0) return;
   await getSupabaseServiceClient().storage.from(BUCKET_BAGASI).remove(daftar).catch(() => null);
+}
+
+/**
+ * Hapus foto serah terima yang tidak lagi ditunjuk baris mana pun. Satu foto
+ * bisa dipakai beberapa titipan (satu penyerahan dari beberapa meja titip),
+ * jadi berkas yang masih ditunjuk baris lain dibiarkan. Gagal tidak
+ * dilaporkan, dengan alasan yang sama dengan hapusFotoBagasi.
+ */
+export async function hapusFotoSerahYatim(eventId: string, paths: Array<string | null | undefined>): Promise<void> {
+  const daftar = [...new Set(paths.filter((path): path is string => Boolean(path)))];
+  if (daftar.length === 0) return;
+  const { data, error } = await getSupabaseServiceClient()
+    .from("luggage_drops")
+    .select("handover_photo_path")
+    .eq("event_id", eventId)
+    .in("handover_photo_path", daftar);
+  if (error) return;
+  const masihDipakai = new Set(((data ?? []) as Array<{ handover_photo_path: string | null }>).map((item) => item.handover_photo_path));
+  await hapusFotoBagasi(daftar.filter((path) => !masihDipakai.has(path)));
 }
 
 /**

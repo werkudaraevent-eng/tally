@@ -2536,7 +2536,7 @@ export default function ScanClient() {
         barang={sessionId !== null && (sesiAktif?.jumlah_barang ?? 0) > 0 ? { sessionId, laneId } : null}
         onCentang={onCentang}
         bagasi={sessionId !== null && sesiAktif?.bagasi ? { sessionId } : null}
-        ambilBagasi={sessionId !== null && sesiAktif?.ambil_bagasi ? { sessionId } : null}
+        ambilBagasi={sessionId !== null && sesiAktif?.ambil_bagasi ? { sessionId, foto: sesiAktif.foto_ambil === true } : null}
         onBagasi={onBagasi}
         onKameraFoto={onKameraFoto}
         alasanTahan={alasanTahan}
