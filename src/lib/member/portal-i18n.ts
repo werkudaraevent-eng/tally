@@ -712,7 +712,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
           received: "Back with you",
           stored: "Dropped off",
           recorded: "Recorded",
-          noneHint: "Did drop off luggage? Tell the luggage desk.",
+          noneHint: "Did you drop off luggage? Tell the luggage desk.",
           pickedUpAt: "Picked up",
           checkAfter: "Something missing? Tell the committee straight away.",
           openPhoto: "Open the luggage photo full screen",
