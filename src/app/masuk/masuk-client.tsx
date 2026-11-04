@@ -101,6 +101,7 @@ export function MasukClient({
   lang = "id",
   halamanUrl = `/e/${slug}`,
   cara = { jenis: "password" },
+  lanjut = null,
 }: {
   slug: string;
   modeAwal: MasukMode;
@@ -111,6 +112,8 @@ export function MasukClient({
   halamanUrl?: string;
   /** Cara masuk acara ini (landing_config.member.sign_in). */
   cara?: CaraMasukPublik;
+  /** Alamat checkpoint dari `?lanjut=` (lanjutPindai): tujuan sesudah masuk, menggantikan area peserta. */
+  lanjut?: string | null;
 }) {
   const t = MASUK_UI[lang];
   const [mode, setMode] = useState<MasukMode>(modeAwalUntuk(modeAwal, cara));
@@ -154,7 +157,7 @@ export function MasukClient({
     // Akun yang baru masuk tidak boleh mewarisi salinan QR luring akun
     // sebelumnya di ponsel ini; portalnya menyimpan salinan baru sendiri.
     await hapusSalinanQr(lingkupSalinanQr(slug));
-    window.location.assign(`${halamanUrl}/peserta`);
+    window.location.assign(lanjut ?? `${halamanUrl}/peserta`);
   }
 
   async function kirimUlang() {

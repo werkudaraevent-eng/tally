@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { berlakuSampai, jendela, kodeCheckpoint, kodeSah, PERIODE_DETIK } from "./kode-qr.ts";
-import { alamatQrCheckpoint, bacaQrCheckpoint } from "./qr-alamat.ts";
+import { alamatQrCheckpoint, bacaQrCheckpoint, lanjutPindai } from "./qr-alamat.ts";
 
 const R = "rahasia-uji-0123456789";
 const EV = "00000000-0000-0000-0000-000000000001";
@@ -86,3 +86,16 @@ console.log("kode-qr.check: ok");
   assert.equal(undianMemakaiSesi(null, 900), false);
   assert.equal(undianMemakaiSesi({ op: "and", children: "x" }, 900), false);
 }
+
+// ?lanjut= sesudah masuk: hanya checkpoint acara ini, disusun ulang.
+assert.equal(lanjutPindai("kso", "/e/kso/pindai?s=7&k=abcdefghijkl"), "/e/kso/pindai?s=7&k=abcdefghijkl");
+assert.equal(lanjutPindai("kso", "/e/kso/pindai?k=abcdefghijkl&s=7&x=1"), "/e/kso/pindai?s=7&k=abcdefghijkl");
+assert.equal(lanjutPindai("kso", "/e/lain/pindai?s=7&k=abcdefghijkl"), null);
+assert.equal(lanjutPindai("kso", "/pindai?s=7&k=abcdefghijkl"), null);
+assert.equal(lanjutPindai("kso", "//jahat.test/e/kso/pindai?s=7&k=abcdefghijkl"), null);
+assert.equal(lanjutPindai("kso", "/\\jahat.test/e/kso/pindai?s=7&k=abcdefghijkl"), null);
+assert.equal(lanjutPindai("kso", "https://jahat.test/e/kso/pindai?s=7&k=abcdefghijkl"), null);
+assert.equal(lanjutPindai("kso", "/e/kso/peserta"), null);
+assert.equal(lanjutPindai("kso", "/e/kso/pindai?s=7&k=pendek"), null);
+assert.equal(lanjutPindai("kso", ["/e/kso/pindai?s=7&k=abcdefghijkl"]), null);
+assert.equal(lanjutPindai("kso 21", "/e/kso%2021/pindai?s=7&k=abcdefghijkl"), "/e/kso%2021/pindai?s=7&k=abcdefghijkl");

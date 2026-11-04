@@ -26,7 +26,7 @@ import { EventLandingForum } from "@/components/landing/forum/event-landing-foru
 export function renderLanding(
   asli: EventRow,
   lang: LandingLang = landingDefaultLang(asli.landing_config as EventLandingConfig),
-  opsi: { halaman?: LandingForumPage; pratinjau?: boolean; masukAwal?: MasukMode | null; sandi?: MasukSandi } = {},
+  opsi: { halaman?: LandingForumPage; pratinjau?: boolean; masukAwal?: MasukMode | null; sandi?: MasukSandi; masukLanjut?: string | null } = {},
 ) {
   const halaman = opsi.halaman ?? "beranda";
   if ((asli.landing_config as EventLandingConfig | null)?.layout === "forum") {
@@ -48,6 +48,7 @@ export function renderLanding(
         otherLang={adaEnglish ? (lang === "en" ? "id" : "en") : null}
         masukAwal={opsi.masukAwal ?? null}
         sandi={opsi.sandi ?? null}
+        masukLanjut={opsi.masukLanjut ?? null}
         pratinjau={opsi.pratinjau ?? false}
       />
     );

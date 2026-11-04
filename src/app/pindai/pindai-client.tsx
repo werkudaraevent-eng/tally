@@ -8,14 +8,14 @@ import { kirimQrCheckpoint, LayarHasil, type KabarCheckpoint } from "@/component
 const TEKS = {
   id: {
     mencatat: "Mencatat checkpoint…",
-    masuk: "Masuk dulu ke Dashboard saya, lalu pindai lagi QR di layar panitia.",
+    masuk: "Masuk dulu ke Dashboard saya. Sesudah masuk, checkpoint ini langsung tercatat.",
     rusak: "QR ini tidak lengkap. Pindai lagi dari layar panitia.",
     keHalaman: "Buka Dashboard saya",
     keMasuk: "Masuk",
   },
   en: {
     mencatat: "Recording the checkpoint…",
-    masuk: "Sign in to My dashboard first, then scan the QR on the organisers' screen again.",
+    masuk: "Sign in to My dashboard first. The checkpoint is recorded as soon as you sign in.",
     rusak: "This QR is incomplete. Scan it again from the organisers' screen.",
     keHalaman: "Open My dashboard",
     keMasuk: "Sign in",
@@ -29,6 +29,7 @@ export function HalamanPindai({
   sesi,
   kode,
   masuk,
+  masukUrl,
 }: {
   slug: string;
   namaAcara: string;
@@ -36,6 +37,8 @@ export function HalamanPindai({
   sesi: number | null;
   kode: string | null;
   masuk: boolean;
+  /** `/e/<slug>/masuk?lanjut=<alamat ini>`: sesudah masuk kembali ke checkpoint ini. */
+  masukUrl: string;
 }) {
   const t = TEKS[lang];
   const [hasil, setHasil] = useState<{ ok: true; kabar: KabarCheckpoint } | { ok: false; pesan: string } | null>(null);
@@ -48,7 +51,7 @@ export function HalamanPindai({
   }, [masuk, slug, sesi, kode, lang]);
 
   const portal = `/e/${encodeURIComponent(slug)}/peserta`;
-  const pesan = !masuk ? t.masuk : sesi === null || kode === null ? t.rusak : null;
+  const pesan = sesi === null || kode === null ? t.rusak : !masuk ? t.masuk : null;
 
   // Hasil dari server: layar penuh yang sama dengan kamera di portal. Di sini
   // tidak ada portal di belakangnya, jadi tidak tutup sendiri; tombolnya ke portal.
@@ -75,7 +78,7 @@ export function HalamanPindai({
             {t.mencatat}
           </p>
         )}
-        <a href={portal} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#151A24] px-5 text-[15px] font-semibold text-white">
+        <a href={masuk ? portal : masukUrl} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#151A24] px-5 text-[15px] font-semibold text-white">
           {masuk ? t.keHalaman : t.keMasuk}
         </a>
       </section>
