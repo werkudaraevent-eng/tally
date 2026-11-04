@@ -38,15 +38,33 @@ export const penerimaSchema = z.object({
     .nullable()
     .optional(),
   audience_ids: z.array(z.string().uuid()).min(1).max(PILIH_MAX).nullable().optional(),
+  /** Match: Any condition. Hanya untuk syarat dengan dua syarat atau lebih. */
+  audience_any: z.boolean().optional(),
 });
 
-export type Penerima = { audience: AudiensPengumuman; audience_rules: Array<{ field: string; values: string[] }> | null; audience_ids: string[] | null };
+export type Penerima = {
+  audience: AudiensPengumuman;
+  audience_rules: Array<{ field: string; values: string[] }> | null;
+  audience_ids: string[] | null;
+  /** Salah satu syarat cukup (migrasi 202611040001). Selalu false selain syarat dengan 2+ syarat. */
+  audience_any: boolean;
+};
 
 type AcaraPenerima = Pick<EventRow, "id" | "registration_form_config" | "landing_config"> & { time_zone?: unknown };
 
 /** Kolom penerima dari migrasi 202610300004 sudah ada? */
 export async function penerimaSiap(): Promise<boolean> {
   const { error } = await getSupabaseServiceClient().from("event_announcements").select("audience_rules,audience_ids").limit(0);
+  return !error;
+}
+
+/**
+ * Kolom audience_any dari migrasi 202611040001 (Match: Any condition) sudah
+ * ada? Sebelum itu semua syarat tetap harus cocok, dan pilihan Any condition
+ * tidak ditampilkan.
+ */
+export async function salahSatuSiap(): Promise<boolean> {
+  const { error } = await getSupabaseServiceClient().from("event_announcements").select("audience_any").limit(0);
   return !error;
 }
 
@@ -69,7 +87,7 @@ export async function periksaPenerima(
   kustom: boolean,
 ): Promise<{ penerima: Penerima } | { galat: string | null }> {
   const { audience } = masuk;
-  if (audience === "semua" || audience === "disetujui") return { penerima: { audience, audience_rules: null, audience_ids: null } };
+  if (audience === "semua" || audience === "disetujui") return { penerima: { audience, audience_rules: null, audience_ids: null, audience_any: false } };
 
   if (audience === "pilih") {
     const ids = [...new Set(masuk.audience_ids ?? [])];
@@ -81,7 +99,7 @@ export async function periksaPenerima(
       for (const baris of (data ?? []) as Array<{ id: string }>) ada.add(baris.id);
     }
     if (ada.size !== ids.length) return { galat: "Some chosen participants are no longer in this event. Reload the page." };
-    return { penerima: { audience, audience_rules: null, audience_ids: ids } };
+    return { penerima: { audience, audience_rules: null, audience_ids: ids, audience_any: false } };
   }
 
   const syarat = masuk.audience_rules ?? [];
@@ -96,7 +114,8 @@ export async function periksaPenerima(
     const sah = await periksaSyarat(kolom, event);
     if ("galat" in sah) return sah;
   }
-  return { penerima: { audience, audience_rules: bacaSyaratPengumuman(syarat), audience_ids: null } };
+  // Satu syarat: semua dan salah satu sama saja, jadi disimpan sebagai semua.
+  return { penerima: { audience, audience_rules: bacaSyaratPengumuman(syarat), audience_ids: null, audience_any: syarat.length > 1 && masuk.audience_any === true } };
 }
 
 type BarisPeserta = { id: string; name: string; company: string | null; extra: Record<string, unknown> | null };
@@ -130,7 +149,7 @@ export async function pesertaCocok(event: AcaraPenerima, penerima: Penerima): Pr
   const kunci = syarat.map((isi) => isi.field).filter((field) => field && field !== KOLOM_HOTEL && field !== KOLOM_ORGANISASI);
   const cocok = peserta.filter((orang) => {
     const jawaban = Object.fromEntries(kunci.map((key) => [key, jawabanPeserta(orang.extra, key)]));
-    return syaratCocok(syarat, orang.company, { jawaban, stays: stays.get(orang.id) ?? [], offset, kolom });
+    return syaratCocok(syarat, orang.company, { jawaban, stays: stays.get(orang.id) ?? [], offset, kolom }, penerima.audience_any);
   });
   return { cocok, total: peserta.length };
 }

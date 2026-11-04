@@ -68,4 +68,29 @@ assert.equal(pengumumanUntuk({ audience: "syarat", audience_rules: null }, orang
 // Kolom yang perlu dimuat: tanpa Organisasi dan tanpa pengumuman lain.
 assert.deepEqual(syaratKolom([dua, { audience: "semua" }, { audience: "pilih", audience_ids: ["p1"] }]), [{ field: "batch", values: ["Batch 2"] }]);
 
+
+// Match: Any condition (audience_any). Salah satu syarat cukup; hanya `true` yang berarti salah satu.
+const atau = { audience: "syarat", audience_rules: [{ field: "batch", values: ["Batch 1"] }, { field: KOLOM_HOTEL, values: ["7"] }] };
+assert.equal(pengumumanUntuk(atau, orang()), false); // Batch 2 di hotel 7: semua syarat tidak cocok
+assert.equal(pengumumanUntuk({ ...atau, audience_any: true }, orang()), true); // hotel 7 cukup
+assert.equal(pengumumanUntuk({ ...atau, audience_any: true }, orang({ data: data({ batch: "Batch 1" }) })), true); // batch cukup
+assert.equal(pengumumanUntuk({ ...atau, audience_any: true }, orang({ data: data({ batch: "Batch 2" }, 8) })), false); // tidak satu pun
+assert.equal(pengumumanUntuk({ ...atau, audience_any: "true" }, orang()), false);
+assert.equal(pengumumanUntuk({ ...atau, audience_any: 1 }, orang()), false);
+assert.equal(pengumumanUntuk({ ...atau, audience_any: null }, orang()), false);
+assert.equal(pengumumanUntuk({ ...atau, audience_any: true }, orang({ disetujui: false })), false);
+assert.equal(pengumumanUntuk({ ...atau, audience_any: true }, orang({ participantId: null })), false);
+assert.equal(pengumumanUntuk({ ...atau, audience_any: true }, orang({ data: null })), false); // tanpa data: tidak satu pun
+// Organisasi ATAU batch: organisasi cocok tanpa data jawaban.
+const orgAtau = { audience: "syarat", audience_any: true, audience_rules: [{ field: KOLOM_ORGANISASI, values: ["PT Satu"] }, { field: "batch", values: ["Batch 9"] }] };
+assert.equal(pengumumanUntuk(orgAtau, orang({ data: null })), true);
+assert.equal(pengumumanUntuk(orgAtau, orang({ company: "PT Lain", data: null })), false);
+// Syarat rusak: dengan salah satu tidak ikut menentukan; semua rusak = tidak ada yang cocok.
+assert.equal(pengumumanUntuk({ audience: "syarat", audience_any: true, audience_rules: [null, { field: "batch", values: ["Batch 2"] }] }, orang()), true);
+assert.equal(pengumumanUntuk({ audience: "syarat", audience_any: true, audience_rules: [null, { field: "Batch!", values: ["Batch 2"] }] }, orang()), false);
+assert.equal(pengumumanUntuk({ audience: "syarat", audience_any: true, audience_rules: null }, orang()), false);
+assert.equal(pengumumanUntuk({ audience: "syarat", audience_any: true, audience_rules: [] }, orang()), false);
+// audience_any tidak berarti apa-apa di penerima lain.
+assert.equal(pengumumanUntuk({ audience: "pilih", audience_any: true, audience_ids: ["p2"] }, orang()), false);
+assert.equal(pengumumanUntuk({ audience: "disetujui", audience_any: true }, orang({ disetujui: false })), false);
 console.log("sasaran-pengumuman ok");

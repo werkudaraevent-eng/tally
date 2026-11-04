@@ -3,7 +3,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { semuaBaris } from "@/lib/logistik/server";
 import { memberConfig } from "@/lib/member/account";
-import { akunPenerima, penerimaSchema, penerimaSiap, periksaPenerima, pesertaCocok } from "@/lib/pengumuman-penerima-server";
+import { akunPenerima, penerimaSchema, penerimaSiap, periksaPenerima, pesertaCocok, salahSatuSiap } from "@/lib/pengumuman-penerima-server";
 import { kolomSasaran } from "@/lib/sasaran-bagian";
 import { muatHotel } from "@/lib/sasaran-baris-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -12,8 +12,10 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 //
 //   GET   kolom pilihan peserta, hotel Logistics, dan organisasi peserta untuk
 //         "Participants who match". `available` false: migrasi 202610300004
-//         belum dijalankan. Akun peran kustom tidak mendapat hotel.
-//   POST  {audience, audience_rules?, audience_ids?}: berapa peserta yang
+//         belum dijalankan. `match_any_available` false: migrasi
+//         202611040001 (Match: Any condition) belum dijalankan. Akun peran
+//         kustom tidak mendapat hotel.
+//   POST  {audience, audience_rules?, audience_ids?, audience_any?}: berapa peserta yang
 //         cocok dan berapa akun yang melihatnya sekarang, dengan aturan yang
 //         sama dengan portal. Untuk `pilih` juga nama peserta terpilih, untuk
 //         chip di penyunting.
@@ -25,8 +27,9 @@ export async function GET(request: Request) {
   const kustom = auth.scope.role === "custom";
   const db = getSupabaseServiceClient();
 
-  const [siap, hotels, perusahaan] = await Promise.all([
+  const [siap, salahSatu, hotels, perusahaan] = await Promise.all([
     penerimaSiap(),
+    salahSatuSiap(),
     kustom ? Promise.resolve([]) : muatHotel(event.id),
     semuaBaris<{ company: string | null }>(() => db.from("participants").select("company").eq("event_id", event.id).is("source_removed_at", null).order("id")),
   ]);
@@ -41,6 +44,7 @@ export async function GET(request: Request) {
   }
   return Response.json({
     available: siap,
+    match_any_available: siap && salahSatu,
     fields: kolomSasaran(event.registration_form_config),
     hotels: hotels ?? [],
     hotels_failed: hotels === null,

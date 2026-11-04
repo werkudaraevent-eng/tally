@@ -28,7 +28,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import { KUNCI_UMUMKAN, PILIH_MAX, type AudiensPengumuman } from "@/lib/sasaran-pengumuman";
 import { PesanTabs } from "../pesan-tabs";
-import { kirimanPenerima, penerimaLengkap, PilihPenerima, ringkasPenerima, useHitungPenerima, type DrafSyarat, type InfoPenerima, type Orang } from "./penerima";
+import { kirimanPenerima, penerimaLengkap, PilihPenerima, ringkasPenerima, salahSatuBerlaku, useHitungPenerima, type DrafSyarat, type InfoPenerima, type Orang } from "./penerima";
 
 /**
  * Pengumuman panitia untuk peserta (tab Pengumuman di menu Pesan peserta).
@@ -54,6 +54,8 @@ type Item = {
   /** Ada setelah migrasi 202610300004. */
   audience_rules?: DrafSyarat | null;
   audience_ids?: string[] | null;
+  /** Ada setelah migrasi 202611040001. */
+  audience_any?: boolean | null;
   pinned: boolean;
   published_at: string;
   email_summary: Ringkasan | null;
@@ -69,6 +71,7 @@ type Muat = {
   member_enabled?: boolean;
   time_zone?: string;
   targeting_ready?: boolean;
+  match_any_ready?: boolean;
 };
 type Draft = {
   id: string | null;
@@ -79,10 +82,11 @@ type Draft = {
   audience: Audience;
   audience_rules: DrafSyarat | null;
   audience_ids: string[];
+  audience_any: boolean;
   pinned: boolean;
 };
 
-const KOSONG: Draft = { id: null, title: "", body: "", link_url: "", link_label: "", audience: "semua", audience_rules: null, audience_ids: [], pinned: false };
+const KOSONG: Draft = { id: null, title: "", body: "", link_url: "", link_label: "", audience: "semua", audience_rules: null, audience_ids: [], audience_any: false, pinned: false };
 
 const PENERIMA: Record<Audience, string> = {
   semua: "All participant accounts",
@@ -125,6 +129,7 @@ function keDraft(item: Item): Draft {
     // Hanya penerima yang berlaku; sisa pilihan lain tidak ikut dibandingkan.
     audience_rules: item.audience === "syarat" ? item.audience_rules ?? [] : null,
     audience_ids: item.audience === "pilih" ? item.audience_ids ?? [] : [],
+    audience_any: item.audience === "syarat" && (item.audience_rules?.length ?? 0) > 1 && item.audience_any === true,
     pinned: item.pinned,
   };
 }
@@ -135,6 +140,7 @@ function bersih(draft: Draft): Draft {
     ...draft,
     audience_rules: draft.audience === "syarat" ? draft.audience_rules ?? [] : null,
     audience_ids: draft.audience === "pilih" ? draft.audience_ids : [],
+    audience_any: salahSatuBerlaku(draft),
   };
 }
 
@@ -378,7 +384,7 @@ export default function PengumumanPage() {
                       {disunting ? <span className="text-body-small text-on-surface-variant">Edited {waktu(item.updated_at, data?.time_zone)}</span> : null}
                     </td>
                     <td className="max-w-[200px] truncate whitespace-nowrap border-b border-outline-variant px-3 py-2.5">
-                      {ringkasPenerima({ audience: item.audience, audience_rules: item.audience_rules ?? null, audience_ids: item.audience_ids ?? [] }, info)}
+                      {ringkasPenerima({ audience: item.audience, audience_rules: item.audience_rules ?? null, audience_ids: item.audience_ids ?? [], audience_any: item.audience_any === true }, info)}
                     </td>
                     <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5 tabular-nums">{waktu(item.published_at, data?.time_zone)}</td>
                     <td className="border-b border-outline-variant px-3 py-2.5">

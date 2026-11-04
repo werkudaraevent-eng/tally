@@ -2,7 +2,7 @@
 
 import { MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { Button, FilterChip, IconButton, SelectMenu, TextField } from "@/components/m3";
+import { Button, FilterChip, IconButton, SegmentedButton, SelectMenu, TextField } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import type { KolomSasaran } from "@/lib/sasaran-bagian";
@@ -31,11 +31,23 @@ export type InfoPenerima = {
   rooms_shown: boolean;
   companies: Array<{ company: string; count: number }>;
   companies_failed: boolean;
+  /** Migrasi 202611040001 sudah dijalankan: Match: Any condition bisa disimpan. */
+  match_any_available?: boolean;
 };
 
 export type DrafSyarat = Array<{ field: string; values: string[] }>;
 export type Orang = { id: string; name: string; company: string | null };
-export type DrafPenerima = { audience: AudiensPengumuman; audience_rules: DrafSyarat | null; audience_ids: string[] };
+export type DrafPenerima = {
+  audience: AudiensPengumuman;
+  audience_rules: DrafSyarat | null;
+  audience_ids: string[];
+  /** Match: Any condition. Hanya berlaku untuk syarat dengan dua syarat atau lebih. */
+  audience_any: boolean;
+};
+
+/** Salah satu syarat cukup? Hanya untuk syarat dengan 2+ syarat; selain itu semua. */
+export const salahSatuBerlaku = (draf: Pick<DrafPenerima, "audience" | "audience_rules" | "audience_any">) =>
+  draf.audience === "syarat" && (draf.audience_rules?.length ?? 0) > 1 && draf.audience_any;
 
 export type HasilHitung = { matches: number; total: number; accounts: number; people?: Orang[] };
 
@@ -65,6 +77,7 @@ export function kirimanPenerima(draf: DrafPenerima) {
     audience: draf.audience,
     audience_rules: draf.audience === "syarat" ? draf.audience_rules : null,
     audience_ids: draf.audience === "pilih" ? draf.audience_ids : null,
+    audience_any: salahSatuBerlaku(draf),
   };
 }
 
@@ -73,32 +86,35 @@ export function kirimanPenerima(draf: DrafPenerima) {
  * sudah dihapus dari formulir, atau hotelnya dari Logistics. Pengumuman itu
  * tidak tampil ke siapa pun. Organisasi tidak pernah dianggap mati: nama yang
  * belum dipakai peserta mana pun bisa cocok begitu datanya diisi. Hotel yang
- * gagal dimuat tidak dihitung mati.
+ * gagal dimuat tidak dihitung mati. Dengan Any condition pengumuman baru mati
+ * bila semua syaratnya mati.
  */
-export function syaratMatiPengumuman(syarat: DrafSyarat | null, info: InfoPenerima | null): boolean {
+export function syaratMatiPengumuman(syarat: DrafSyarat | null, info: InfoPenerima | null, salahSatu = false): boolean {
   if (!syarat || !info) return false;
   const kolom = daftarKolom(info);
-  return syarat.some((isi) => {
+  const mati = (isi: { field: string; values: string[] }) => {
     if (!isi.field || isi.field === KOLOM_ORGANISASI) return false;
     if (isi.field === KOLOM_HOTEL && (info.hotels_failed || info.hotels_hidden)) return false;
     const k = kolom.find((x) => x.key === isi.field);
     return !k || (isi.values.length > 0 && !isi.values.some((v) => k.options.some((o) => samaJawaban(o.value, v))));
-  });
+  };
+  return salahSatu ? syarat.length > 0 && syarat.every(mati) : syarat.some(mati);
 }
 
-/** "Batch 2 · RAY", "12 people": isi kolom Send to di daftar. */
-export function ringkasPenerima(draf: Pick<DrafPenerima, "audience" | "audience_rules" | "audience_ids">, info: InfoPenerima | null): string {
+/** "Batch 2 · RAY", "Batch 2 or RAY" (Any condition), "12 people": isi kolom Send to di daftar. */
+export function ringkasPenerima(draf: Pick<DrafPenerima, "audience" | "audience_rules" | "audience_ids" | "audience_any">, info: InfoPenerima | null): string {
   if (draf.audience === "semua") return "All accounts";
   if (draf.audience === "disetujui") return "Approved";
   if (draf.audience === "pilih") return plural(draf.audience_ids.length, "person", "people");
-  if (syaratMatiPengumuman(draf.audience_rules, info)) return "Nobody (field removed)";
+  const salahSatu = salahSatuBerlaku(draf);
+  if (syaratMatiPengumuman(draf.audience_rules, info, salahSatu)) return "Nobody (field removed)";
   const kolom = info ? daftarKolom(info) : [];
   const teks = (draf.audience_rules ?? [])
     .map((isi) => {
       const k = kolom.find((x) => x.key === isi.field);
       return isi.values.map((v) => k?.options.find((o) => samaJawaban(o.value, v))?.label ?? (isi.field === KOLOM_HOTEL ? "Hotel" : v)).join(" or ");
     })
-    .join(" · ");
+    .join(salahSatu ? " or " : " · ");
   return teks || "Some participants";
 }
 
@@ -152,7 +168,7 @@ export function PilihPenerima({ draf, onChange, info, infoGagal, siap, akun, hit
   const deskripsi: Record<AudiensPengumuman, string> = {
     semua: `${plural(akun.semua, "account")}, including registrants not yet approved.`,
     disetujui: `${plural(akun.disetujui, "account")} already approved as participants.`,
-    syarat: "Same rules as Agenda › Who sees it. Checked when they open the portal, so someone who later moves to the matching batch or hotel sees it too.",
+    syarat: "Same fields as Agenda › Who sees it. Checked when they open the portal, so someone who later moves to the matching batch or hotel sees it too.",
     pilih: `Search by name and pick up to ${PILIH_MAX}.`,
   };
   return (
@@ -175,6 +191,7 @@ export function PilihPenerima({ draf, onChange, info, infoGagal, siap, akun, hit
                     audience: pilihan.value,
                     audience_rules: pilihan.value === "syarat" ? draf.audience_rules ?? [{ field: "", values: [] }] : draf.audience_rules,
                     audience_ids: draf.audience_ids,
+                    audience_any: draf.audience_any,
                   })
                 }
                 className="mt-0.5 size-4 shrink-0 accent-primary"
@@ -185,7 +202,15 @@ export function PilihPenerima({ draf, onChange, info, infoGagal, siap, akun, hit
               </span>
             </label>
             {aktif && pilihan.value === "syarat" ? (
-              info ? <PenyuntingSyarat info={info} value={draf.audience_rules ?? []} onChange={(audience_rules) => onChange({ ...draf, audience_rules })} />
+              info ? (
+                <PenyuntingSyarat
+                  info={info}
+                  value={draf.audience_rules ?? []}
+                  onChange={(audience_rules) => onChange({ ...draf, audience_rules })}
+                  salahSatu={draf.audience_any}
+                  onSalahSatu={(audience_any) => onChange({ ...draf, audience_any })}
+                />
+              )
                 : <p className="text-body-small text-on-surface-variant">{infoGagal ? "Couldn’t load participant fields. Reload the page." : "Loading participant fields…"}</p>
             ) : null}
             {aktif && pilihan.value === "pilih" ? (
@@ -200,7 +225,7 @@ export function PilihPenerima({ draf, onChange, info, infoGagal, siap, akun, hit
 }
 
 function KalimatHitung({ draf, hitung, info }: { draf: DrafPenerima; hitung: ReturnType<typeof useHitungPenerima>; info: InfoPenerima | null }) {
-  if (draf.audience === "syarat" && syaratMatiPengumuman(draf.audience_rules, info)) {
+  if (draf.audience === "syarat" && syaratMatiPengumuman(draf.audience_rules, info, salahSatuBerlaku(draf))) {
     return (
       <p role="status" className="rounded-md bg-error-container px-3 py-2 text-body-medium text-on-error-container">
         Nobody sees this announcement: a chosen field or answer no longer exists. Choose again or pick another Send to.
@@ -228,7 +253,9 @@ function KalimatHitung({ draf, hitung, info }: { draf: DrafPenerima; hitung: Ret
           <span className="font-semibold">
             {draf.audience === "pilih" ? `${plural(data.matches, "participant")} chosen.` : `Matches ${data.matches.toLocaleString("en-GB")} of ${data.total.toLocaleString("en-GB")} participants.`}
           </span>{" "}
-          {data.matches - data.accounts > 0
+          {data.matches === 0
+            ? "Nobody sees it now. Anyone who matches later sees it then."
+            : data.matches - data.accounts > 0
             ? `${data.accounts.toLocaleString("en-GB")} can see it now; the other ${(data.matches - data.accounts).toLocaleString("en-GB")} ${data.matches - data.accounts === 1 ? "sees" : "see"} it when they first sign in.`
             : "All of them can see it now."}
           {pakaiHotel && info && !info.rooms_shown ? " Rooms aren’t shown to participants in Participant area yet, so nobody matches the hotel condition until they are." : ""}
@@ -241,7 +268,14 @@ function KalimatHitung({ draf, hitung, info }: { draf: DrafPenerima; hitung: Ret
 /** Organisasi bisa ratusan: pilihan disaring dengan kotak cari, yang terpilih selalu tampil. */
 const ORGANISASI_TAMPIL = 24;
 
-function PenyuntingSyarat({ info, value, onChange }: { info: InfoPenerima; value: DrafSyarat; onChange: (next: DrafSyarat) => void }) {
+function PenyuntingSyarat({ info, value, onChange, salahSatu, onSalahSatu }: {
+  info: InfoPenerima;
+  value: DrafSyarat;
+  onChange: (next: DrafSyarat) => void;
+  /** Match: Any condition. */
+  salahSatu: boolean;
+  onSalahSatu: (salahSatu: boolean) => void;
+}) {
   const kolom = daftarKolom(info);
   const [cariOrg, setCariOrg] = useState("");
   if (kolom.length === 0) {
@@ -250,8 +284,27 @@ function PenyuntingSyarat({ info, value, onChange }: { info: InfoPenerima; value
   const ubah = (indeks: number, isi: { field: string; values: string[] }) => onChange(value.map((lama, i) => (i === indeks ? isi : lama)));
   const dipakai = new Set(value.map((isi) => isi.field).filter(Boolean));
   const sisa = kolom.filter((k) => !dipakai.has(k.key));
+  // Pilihan Match hanya bila ada dua syarat atau lebih, dan migrasinya sudah
+  // dijalankan. Sebelum itu semua syarat harus cocok, seperti dulu.
+  const pilihCocok = value.length > 1 && Boolean(info.match_any_available);
+  const atau = pilihCocok && salahSatu;
   return (
     <div className="flex flex-col gap-2">
+      {pilihCocok ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-1">
+          <span id="pengumuman-cocok" className="text-body-medium text-on-surface-variant">Match</span>
+          <SegmentedButton<"semua" | "salah-satu">
+            label="Match"
+            labelledBy="pengumuman-cocok"
+            value={atau ? "salah-satu" : "semua"}
+            onChange={(pilihan) => onSalahSatu(pilihan === "salah-satu")}
+            options={[
+              { value: "semua", label: "All conditions" },
+              { value: "salah-satu", label: "Any condition" },
+            ]}
+          />
+        </div>
+      ) : null}
       {value.map((isi, indeks) => {
         const k = kolom.find((x) => x.key === isi.field) ?? null;
         const pilihan = [...(k ? [k] : []), ...sisa];
@@ -267,7 +320,7 @@ function PenyuntingSyarat({ info, value, onChange }: { info: InfoPenerima; value
         const yatim = k ? isi.values.filter((v) => !k.options.some((o) => samaJawaban(o.value, v))) : [];
         return (
           <div key={indeks} className="flex flex-col gap-2">
-            {indeks > 0 ? <p className="text-label-medium font-semibold tracking-wide text-on-surface-variant" aria-hidden>AND</p> : null}
+            {indeks > 0 ? <p className="text-label-medium font-semibold tracking-wide text-on-surface-variant" aria-hidden>{atau ? "OR" : "AND"}</p> : null}
             <div role="group" aria-label={`Condition ${indeks + 1}`} className="flex flex-col gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
@@ -313,7 +366,9 @@ function PenyuntingSyarat({ info, value, onChange }: { info: InfoPenerima; value
           Add condition
         </Button>
       ) : null}
-      <p className="text-body-small text-on-surface-variant">Participants must match every condition. Up to {SYARAT_PENGUMUMAN_MAX}.</p>
+      <p className="text-body-small text-on-surface-variant">
+        {atau ? "Participants who match at least one condition see it." : "Participants must match every condition."} Up to {SYARAT_PENGUMUMAN_MAX}.
+      </p>
     </div>
   );
 }
