@@ -73,6 +73,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #391 Lucky draw stage with many winners (4 Nov, QA GO, no SQL): winner cards fit one screen (columns and type size from the screen, equal width, last row centred) for 1 to 50 winners; while drawing, prize image and name sit on one row under the title; prize editor warns above 30 winners per draw.
 - #390 Lucky draw bonus tickets: Pick names (search, tick, chips) next to Upload file, and a live Winning chances line in the Add ticket rule dialog (4 Nov, QA GO, admin only, no SQL).
 - #388 Tell participants their room number (4 Nov, SQL `202611040003_kabar_kamar` run by Mas, post-check true, QA GO): Logistics > Assignments banner "N participants have a room number they haven't been told about" with Tell participants; Send through Participant area and email (default) or Participant area only. One bell notice (announcement to those participants) plus, with email, a personal email in the event language (hotel, room, roommates sharing nights when shown, check-in/out). Recorded per person in room_notices; failed emails stay on the list; a changed number or a second hotel's number puts the person back. Hidden on past events; button off while Rooms are hidden. Later (after KSO): automatic send with a 10-minute hold, "New" on the Hotel card, WhatsApp.
 - #386 Lucky draw "Spotlight wall" animation (4 Nov, SQL `202611040002_undian_dinding_sorot` run by Mas, QA GO): whole pool on one wall, spotlight sweep, waves 60/12/winners, cards fly out of the tiles; per prize "Names on the wall" Full names / Initials. Opt-in per prize, existing prizes unchanged.
@@ -316,6 +317,9 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #127 L11/L12: the editor tile colours are hard-coded instead of themed, and reordering ways keeps focus on the old position, with index keys.
 
 ### Lucky draw
+- #391 L1: a name over about 47 characters is cut with "…" after 2 lines, even for 1 winner.
+- #391 L2: 50 winners at 1280 and 1366 overflow by about 10-17 px (top row under the note pill, bottom row over "Cadangan").
+- #391 L3: a long prize name wraps left-aligned beside the image while drawing.
 - #388 L3: removing a second hotel's number re-sends "ready" for the unchanged hotel.
 - #388 L5: two admins pressing at once with different lists can double-email the overlap; each press adds its own bell notice.
 - #388 L6: EN email says "Roommate" with two names.

@@ -54,6 +54,40 @@ function layoutFor(count: number, width: number, height: number) {
   return { columns, rows, tileW: width / columns, tileH: height / rows };
 }
 
+/**
+ * Kartu pemenang yang muat satu layar. Kolom dipilih supaya huruf nama sebesar
+ * mungkin: tinggi kartu memuat label, nama dua baris dan perusahaan; lebarnya
+ * memuat separuh nama terpanjang per baris. Kartu sama lebar, baris terakhir
+ * di tengah. Sebelumnya kartu ber-flex-wrap dengan huruf tetap, sehingga 25
+ * pemenang meluber keluar layar atas dan bawah.
+ */
+export function fitCards(count: number, longest: number, width: number, height: number, withSub: boolean) {
+  if (count === 0 || width <= 0 || height <= 0) return { columns: 1, cardW: 0, font: 0, gap: 0 };
+  const gap = Math.max(6, Math.min(width, height) * 0.018);
+  // Tinggi kartu dalam satuan huruf nama: padding 0.9, label 0.55, nama
+  // 1.08 per baris, perusahaan 0.75. Lebar: 0.56 em per huruf tebal + 1.4 em
+  // padding samping. Nama satu baris lebih mudah dibaca dari jauh, jadi dipilih
+  // selama hurufnya tidak lebih dari ~10% lebih kecil daripada dua baris.
+  const base = 0.9 + 0.55 + (withSub ? 0.75 : 0);
+  const chars = Math.min(longest, 40);
+  const cap = count === 1 ? 120 : count <= 3 ? 64 : count <= 6 ? 48 : 40;
+  let best = { columns: 1, cardW: 0, font: 0, gap, perLine: chars, score: 0 };
+  for (let columns = 1; columns <= Math.min(count, 8); columns++) {
+    const rows = Math.ceil(count / columns);
+    const cardW = (width - gap * (columns - 1)) / columns;
+    const cardH = (height - gap * (rows - 1)) / rows;
+    for (const lineCount of [1, 2]) {
+      const perLine = Math.max(6, Math.ceil(chars / lineCount) + (lineCount === 2 ? 1 : 0));
+      const font = Math.min(cap, cardH / (base + 1.08 * lineCount), cardW / (perLine * 0.56 + 1.4));
+      const score = font * (lineCount === 1 ? 1.12 : 1);
+      if (score > best.score) best = { columns, cardW, font, gap, perLine, score };
+    }
+  }
+  // Kartu tidak lebih lebar daripada isinya: satu pemenang tidak menjadi pita selebar layar.
+  const cardW = Math.min(best.cardW, best.font * (best.perLine * 0.56 + 1.4) * 1.25);
+  return { columns: best.columns, font: best.font, gap: best.gap, cardW };
+}
+
 export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamily, round, poolSize }: AnimationProps) {
   const reduceMotion = useReducedMotion() ?? false;
   const drawing = winners.length === 0;
@@ -179,11 +213,9 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   };
 
   const cardCount = Math.max(1, main.length);
-  const nameSize = cardCount === 1 ? "clamp(28px, 6.4vw, 120px)"
-    : cardCount <= 3 ? "clamp(18px, 3.4vw, 60px)"
-    : cardCount <= 6 ? "clamp(14px, 2.3vw, 40px)"
-    : "clamp(11px, 1.6vw, 28px)";
-  const subSize = cardCount === 1 ? "clamp(12px, 1.8vw, 30px)" : "clamp(9px, 1.15vw, 18px)";
+  const withSub = main.some((winner) => winner.company || winner.seat);
+  const longest = main.reduce((max, winner) => Math.max(max, winner.name.length), 0);
+  const fit = fitCards(cardCount, longest, box.width * 0.96, box.height * 0.96, withSub);
   const shown = names.length;
   const total = poolSize ?? shown;
 
@@ -266,7 +298,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
       </div> : null}
 
       {/* Kartu pemenang. */}
-      {showCards ? <div className="absolute inset-0 z-10 flex flex-wrap content-center items-center justify-center gap-[1.6vw] px-[2vw]">
+      {showCards ? <div className="absolute inset-0 z-10 flex flex-wrap content-center items-stretch justify-center" style={{ gap: fit.gap, padding: "2%" }}>
         {main.map((winner, index) => {
           const fromTile = winnerTiles[index] >= 0;
           return <motion.div
@@ -275,22 +307,23 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
             initial={fromTile ? undefined : { opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ ...expressive.spatial.slow, delay: Math.min(index * 0.22, 1.2) }}
-            className="flex min-w-0 max-w-[90%] flex-col items-center justify-center text-center"
+            className="flex min-w-0 flex-col items-center justify-center overflow-hidden text-center"
             style={{
-              borderRadius: "1.2vw",
-              padding: cardCount === 1 ? "3vh 3.4vw" : "1.6vh 1.8vw",
+              width: fit.cardW,
+              borderRadius: Math.max(8, fit.font * 0.5),
+              padding: `${fit.font * 0.45}px ${fit.font * 0.7}px`,
               background: accent,
               color: onAccent,
               boxShadow: `0 0 0 0.25vw ${onAccent}33, 0 2vh 6vh rgba(0, 0, 0, 0.45), 0 0 8vh ${accent}99`,
             }}
           >
-            <p className="font-semibold uppercase" style={{ fontFamily, fontSize: "clamp(9px, 1vw, 16px)", letterSpacing: "0.28em", opacity: 0.75 }}>
+            <p className="font-semibold uppercase" style={{ fontFamily, fontSize: Math.max(9, fit.font * 0.42), lineHeight: 1.3, letterSpacing: "0.2em", opacity: 0.75 }}>
               {main.length === 1 ? "Pemenang" : `Pemenang ${index + 1}`}
             </p>
-            <p className="max-w-full font-bold tracking-[-0.02em]" style={{ fontFamily, fontSize: nameSize, lineHeight: 1.05, marginTop: "0.8vh", textWrap: "balance" }}>
+            <p className="line-clamp-2 max-w-full font-bold tracking-[-0.02em]" style={{ fontFamily, fontSize: fit.font, lineHeight: 1.08, textWrap: "balance" }}>
               {winner.name}
             </p>
-            {winner.company || winner.seat ? <p className="max-w-full truncate" style={{ fontFamily, fontSize: subSize, opacity: 0.8, marginTop: "0.6vh" }}>
+            {winner.company || winner.seat ? <p className="max-w-full truncate" style={{ fontFamily, fontSize: Math.max(10, fit.font * 0.58), lineHeight: 1.3, opacity: 0.8 }}>
               {[winner.company, winner.seat && `Kursi ${winner.seat}`].filter(Boolean).join(" · ")}
             </p> : null}
           </motion.div>;

@@ -253,7 +253,10 @@ export default function UndianClient({ initial }: Props) {
             disapu kilau emas. Inilah "poster" yang dilihat ruangan sepanjang
             jeda antara dua undian. */}
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={state.prize.id} className="flex shrink-0 flex-col items-center gap-[1vh] text-center" {...TUKAR_PANGGUNG}>
+          {/* Saat mengundi, gambar dan nama hadiah menjadi satu baris: tumpukan
+              judul, gambar, dan nama memakan seperlima layar yang dibutuhkan
+              kartu pemenang, dan jaraknya tampak tidak rata. */}
+          <motion.div key={state.prize.id} className={running ? "flex max-w-full shrink-0 flex-row items-center justify-center gap-[1.4vw] pt-[1vh] text-left" : "flex shrink-0 flex-col items-center gap-[1vh] text-center"} {...TUKAR_PANGGUNG}>
             {state.prize.image_url && (
               // `img` biasa, bukan next/image: URL-nya dari Supabase Storage dan
               // bisa berubah kapan saja lewat CMS, sedangkan next/image butuh host
@@ -263,7 +266,7 @@ export default function UndianClient({ initial }: Props) {
                 alt=""
                 aria-hidden="true"
                 className="transition-[height] duration-500 ease-emphasized"
-                style={{ height: running ? "min(8vh, 96px)" : "min(14vh, 160px)", width: "auto", objectFit: "contain", filter: "drop-shadow(0 1.2vh 2.4vh rgba(0, 0, 0, 0.35))" }}
+                style={{ height: running ? "min(7vh, 80px)" : "min(14vh, 160px)", width: "auto", objectFit: "contain", filter: "drop-shadow(0 1.2vh 2.4vh rgba(0, 0, 0, 0.35))" }}
                 animate={{ y: ["0vh", "-1.2vh", "0vh"], rotate: [-1, 1, -1] }}
                 transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
               />
