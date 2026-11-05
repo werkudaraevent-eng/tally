@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAdminPage } from "@/components/admin/page-context";
 import { MetaSeparator, Tabs, WorkspaceHeader, WorkspacePage } from "@/components/m3";
+import { ApiKeysPanel } from "@/components/admin/api-keys-panel";
 import { AuditPanel } from "@/components/admin/audit-panel";
 import { PaymentMethodManager } from "@/components/admin/payment-method-manager";
 import { ScannerPanel } from "@/components/admin/scanner-panel";
@@ -102,7 +103,7 @@ export default function SettingsPage() {
       <div role="tabpanel" id={`pengaturan-panel-${aktif}`} aria-labelledby={`pengaturan-tab-${aktif}`} className="flex flex-col gap-4">
         {aktif === "acara" ? <><SettingsPanel /><DomainPanel /></>
           : aktif === "pembayaran" ? <PaymentMethodManager />
-          : aktif === "integrasi" ? <ScannerPanel />
+          : aktif === "integrasi" ? <><ScannerPanel /><ApiKeysPanel /></>
           : aktif === "audit" ? <AuditPanel />
           : <DangerZonePanel />}
       </div>

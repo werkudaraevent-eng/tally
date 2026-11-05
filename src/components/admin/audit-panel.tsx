@@ -30,6 +30,7 @@ const CATEGORIES: Array<{ value: string; label: string }> = [
   { value: "undian", label: "Undian" },
   { value: "participants", label: "Peserta & registrasi" },
   { value: "messages", label: "Pesan" },
+  { value: "logistics", label: "Logistics" },
   { value: "users", label: "User & role" },
   { value: "danger", label: "Danger zone" },
   { value: "orders", label: "Transaksi" },
@@ -41,6 +42,10 @@ const ACTION_LABEL: Record<string, string> = {
   settings_update: "Mengubah settings acara",
   participant_check_in_reset: "Mereset check-in peserta",
   participant_luggage_reset: "Mereset bagasi peserta",
+  room_number_set_by_bot: "Mengisi nomor kamar",
+  api_key_create: "Membuat API key",
+  api_key_revoke: "Mencabut API key",
+  room_notice_send: "Mengirim kabar nomor kamar",
   display_settings_update: "Mengubah Papan peringkat",
   display_background_upload: "Mengganti latar Papan peringkat",
   leaderboard_reveal_config: "Mengatur reveal bertahap",
@@ -245,6 +250,10 @@ function summarise(entry: Entry): string {
   if (entry.action === "participant_sync") {
     const synced = payload.synced as Record<string, unknown> | undefined;
     return `${payload.fetched ?? 0} peserta diterima · ${synced?.inserted ?? 0} baru · ${synced?.newly_removed ?? 0} ditandai hilang`;
+  }
+  if (entry.action === "room_number_set_by_bot") {
+    const kamar = [payload.label, payload.hotel].filter(Boolean).join(" · ");
+    return `${kamar || "Kamar"}: ${payload.old_number ?? "kosong"} → ${payload.new_number ?? "?"} (${payload.participant_name ?? "?"})`;
   }
   if (entry.action === "participant_qr_archived") {
     return `${payload.old_qr_code ?? "?"} → ${payload.new_qr_code ?? "?"}`;
