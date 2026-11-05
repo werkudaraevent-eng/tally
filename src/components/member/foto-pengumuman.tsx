@@ -6,6 +6,9 @@
  * padahal gunanya justru mengenali wajah. Ketuk = buka ukuran penuh di tab
  * baru, tempat peserta bisa memperbesar dengan dua jari.
  *
+ * Bingkai mengikuti ukuran foto (w-fit), jadi foto potret rata kiri dan chip
+ * Perbesar menempel di sudut foto, bukan di sudut kotak kosong.
+ *
  * `ringkas`: untuk lonceng, yang sempit dan memotong isi tiga baris.
  */
 export function FotoPengumuman({
@@ -27,7 +30,7 @@ export function FotoPengumuman({
       href={src}
       target="_blank"
       rel="noreferrer noopener"
-      className={`relative block overflow-hidden rounded-[12px] bg-[rgb(16_30_56/0.06)] outline-offset-2 ${className}`}
+      className={`relative block w-fit max-w-full overflow-hidden rounded-[12px] bg-[rgb(16_30_56/0.06)] outline-offset-2 ${className}`}
     >
       {/* Gambar unggahan panitia di bucket publik; next/image butuh domain terdaftar per proyek. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -36,7 +39,7 @@ export function FotoPengumuman({
         alt={alt}
         loading="lazy"
         decoding="async"
-        className={`mx-auto block w-full object-contain ${ringkas ? "max-h-40" : "max-h-[480px]"}`}
+        className={`block h-auto w-auto max-w-full object-contain ${ringkas ? "max-h-40" : "max-h-[480px]"}`}
       />
       {ringkas ? null : (
         <span
