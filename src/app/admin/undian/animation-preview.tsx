@@ -7,11 +7,12 @@ import { Button, Dialog } from "@/components/m3";
 import { ANIMATIONS, initialsOf, type AnimSpeed, type SpinMode, type UndianAnimation, type WallNames, type WallTiles } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import {
-  CardsAnimation, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, type AnimationProps,
+  CardsAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, type AnimationProps,
 } from "@/app/undian/undian-animations";
 import { WallAnimation } from "@/app/undian/undian-wall";
 import { TunnelAnimation } from "@/app/undian/undian-tunnel";
 import { DrumAnimation } from "@/app/undian/undian-drum";
+import { DartAnimation3D } from "@/app/undian/undian-dart";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
 const CONTOH = ["Andi Pratama", "Siti Rahma", "Budi Santoso", "Dewi Lestari", "Rizky Hidayat", "Nur Aisyah", "Agus Wibowo", "Maya Putri", "Fajar Nugroho", "Intan Sari", "Hendra Saputra", "Lina Marlina"];
@@ -132,7 +133,7 @@ export function AnimationPreview({
             : animation === "slot" ? <SlotAnimation {...props} />
             : animation === "cards" ? <CardsAnimation {...props} />
             : animation === "digits" ? <DigitsAnimation {...props} />
-            : animation === "dart" ? <DartAnimation {...props} />
+            : animation === "dart" ? <DartAnimation3D {...props} />
             : animation === "wall" ? <WallAnimation {...props} />
             : animation === "tunnel" ? <TunnelAnimation {...props} />
             : animation === "drum" ? <DrumAnimation {...props} />
