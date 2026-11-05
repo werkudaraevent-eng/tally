@@ -133,7 +133,11 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   useEffect(() => {
     if (!wantsFullscreen) return;
     const enter = () => {
-      void document.documentElement.requestFullscreen?.().catch(() => {});
+      // Di layar besar panggung ada di dalam iframe (StageScaler): yang dibuat
+      // layar penuh adalah halaman induknya, bukan iframe, supaya skalanya
+      // tetap. Aktivasi pengguna di iframe ikut berlaku untuk induknya.
+      const root = window.parent !== window ? window.parent.document : document;
+      void root.documentElement.requestFullscreen?.().catch(() => {});
       window.removeEventListener("click", enter);
     };
     window.addEventListener("click", enter);
@@ -327,7 +331,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
             key={`pesan-${state.prize.id}-${state.draw_round}`}
             aria-hidden={!revealed}
             className="max-w-[80vw] shrink-0 rounded-full px-[2.4vw] py-[0.8vh] text-center font-semibold"
-            style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.2vw, 36px)", lineHeight: 1.2, color: text, border: `2px solid ${accent}`, background: `${accent}22` }}
+            style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.2vw, 36px)", lineHeight: 1.2, color: text, border: `2px solid ${accent}`, background: greenScreen ? `color-mix(in srgb, ${accent} 13%, ${settings.background_color ?? "#0B1020"})` : `${accent}22` }}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={revealed
               ? { opacity: 1, scale: 1, transition: { ...expressive.spatial.default, delay: revealSettleMs(state.prize.animation, animationProps.winners) / 1000 + 0.4 } }
