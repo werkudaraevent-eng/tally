@@ -56,6 +56,8 @@ export type Rencana = {
   kamarBaru: KamarBaru[];
   /** Impor kamar: kamar yang sudah ada yang isiannya diubah. Kosong untuk jenis lain. */
   kamarUbah?: KamarUbah[];
+  /** Impor kamar: label yang dipakai kelompok berbeda di malam lain (dipisah, kecuali "Same room" dipilih). */
+  labelDipecah?: LabelDipecah[];
   /** Impor kamar: judul kolom berkas dan isian yang dibacanya, supaya panitia melihat kolom mana jadi apa. */
   kolomDibaca?: Array<{ judul: string; jadi: string }>;
   busBaru: string[];
@@ -323,7 +325,83 @@ function kolomKamarDibaca(judul: string[], kolom: Kolom): Array<{ judul: string;
 /** "To follow" (ekspor Daftar peserta), "room later", "-": belum ada nomor kamar. */
 const KAMAR_MENYUSUL = new Set(["to follow", "room to follow", "room later", "later", "menyusul", "-", "–", "—"]);
 
-export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara): Rencana {
+/**
+ * Satu label untuk kelompok orang berbeda di malam yang tidak bersambung
+ * (GH20: dua orang 5–6 Nov, dua orang lain 6–8 Nov). Rooming list panitia
+ * memakai label untuk satu pasangan, jadi ini hampir selalu kode yang dipakai
+ * ulang. Tanpa dipisah, nomor kamar yang diisi untuk satu periode ikut sampai
+ * ke kelompok lainnya.
+ */
+export type LabelDipecah = {
+  hotel: string;
+  label: string;
+  /** Per periode, urut tanggal. `label`: label yang dipakai bila dipisah. */
+  periode: Array<{ label: string; malam: Malam | null; nama: string[] }>;
+};
+
+export type OpsiKamar = {
+  /** "Same room": label yang dipakai ulang tetap satu kamar (perilaku lama). */
+  labelSatuKamar?: boolean;
+};
+
+/**
+ * Periode tiap label di berkas: baris dengan label sama di hotel sama,
+ * dikumpulkan per malam yang bertabrakan. Label dipecah bila periodenya diisi
+ * orang yang berbeda; kelompok yang sama kembali di periode lain (A,B 5–6 Nov
+ * lalu A,B 7–8 Nov) tetap satu kamar. Periode yang paling banyak berisi
+ * penghuni kamar berlabel itu sekarang memakai label aslinya, supaya impor
+ * ulang tidak memindahkan siapa pun; periode lain mendapat label "GH20 · 6 Nov".
+ * Baris tanpa malam yang diketahui (tanpa tanggal, hotel tanpa tanggal)
+ * bertabrakan dengan semuanya, jadi labelnya tidak dipecah.
+ */
+export function pecahLabel(
+  baris: Array<{ i: number; hotel: string; label: string; orang: string; nama: string; malam: Malam | null }>,
+  penghuniLabel: (hotel: string, label: string) => Set<string>,
+): { labelBaris: Map<number, string>; dipecah: LabelDipecah[] } {
+  const perLabel = new Map<string, typeof baris>();
+  for (const b of baris) {
+    if (!b.label) continue;
+    const k = `${kunci(b.hotel)}\u0000${kunci(b.label)}`;
+    perLabel.set(k, [...(perLabel.get(k) ?? []), b]);
+  }
+  const labelBaris = new Map<number, string>();
+  const dipecah: LabelDipecah[] = [];
+  for (const isi of perLabel.values()) {
+    if (isi.length < 2 || isi.some((b) => !b.malam)) continue;
+    const urut = [...isi].sort((a, b) => a.malam!.masuk.localeCompare(b.malam!.masuk));
+    const periode: Array<{ masuk: string; keluar: string; baris: typeof baris }> = [];
+    for (const b of urut) {
+      const akhir = periode.at(-1);
+      if (akhir && b.malam!.masuk < akhir.keluar) {
+        akhir.baris.push(b);
+        if (b.malam!.keluar > akhir.keluar) akhir.keluar = b.malam!.keluar;
+      } else periode.push({ masuk: b.malam!.masuk, keluar: b.malam!.keluar, baris: [b] });
+    }
+    if (periode.length < 2) continue;
+    const kunciOrang = (p: (typeof periode)[number]) => [...new Set(p.baris.map((b) => b.orang))].sort().join("\u0000");
+    if (new Set(periode.map(kunciOrang)).size < 2) continue;
+    const { hotel, label } = isi[0];
+    const sekarang = penghuniLabel(hotel, label);
+    const skor = periode.map((p) => p.baris.filter((b) => sekarang.has(b.orang)).length);
+    const tetap = Math.max(...skor) > 0 ? skor.indexOf(Math.max(...skor)) : 0;
+    // Kelompok yang sama di dua periode memakai label yang sama.
+    const labelPerOrang = new Map<string, string>();
+    const hasil: LabelDipecah["periode"] = [];
+    periode.forEach((p, j) => {
+      const k = kunciOrang(p);
+      const baru = j === tetap ? label : labelPerOrang.get(k) ?? `${label} · ${hariBulan(p.masuk)}`.slice(0, 40);
+      if (!labelPerOrang.has(k) || j === tetap) labelPerOrang.set(k, baru);
+      for (const b of p.baris) labelBaris.set(b.i, baru);
+      hasil.push({ label: baru, malam: { masuk: p.masuk, keluar: p.keluar }, nama: [...new Set(p.baris.map((b) => b.nama))] });
+    });
+    dipecah.push({ hotel, label, periode: hasil });
+  }
+  return { labelBaris, dipecah };
+}
+
+const hariBulan = (tanggal: string) => `${Number(tanggal.slice(8, 10))} ${BULAN_PENDEK[Number(tanggal.slice(5, 7)) - 1]}`;
+
+export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: OpsiKamar = {}): Rencana {
   const lebar = lebarKePanjang(selBerkas);
   const sel = lebar?.sel ?? selBerkas;
   const judul = bacaJudul(sel);
@@ -414,11 +492,34 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara): Rencan
   const baris: BarisRencana[] = [];
   const banyakHotel = kolom.hotel !== undefined && new Set(isi.map((b) => kunci(b[kolom.hotel!])).filter(Boolean)).size > 1;
 
+  // Label yang dipakai ulang untuk orang berbeda di malam lain dipecah dulu,
+  // sebelum baris dikelompokkan per kamar (lihat `pecahLabel`).
+  const pecahan = kolom.label === undefined ? null : pecahLabel(
+    isi.flatMap((sel1, i) => {
+      const hotel = hotelTetap ?? rapi(sel1[kolom.hotel!]);
+      const label = labelKamar(sel1);
+      const kode = kolom.kode !== undefined ? rapi(sel1[kolom.kode]) : "";
+      const nama = kolom.nama !== undefined ? rapi(sel1[kolom.nama]) : "";
+      if (!hotel || !label || (!kode && !nama)) return [];
+      const masuk = bacaTanggal(kolom.masuk !== undefined ? rapi(sel1[kolom.masuk]) : "");
+      const keluar = bacaTanggal(kolom.keluar !== undefined ? rapi(sel1[kolom.keluar]) : "");
+      const malam = masuk && keluar ? { masuk, keluar } : masuk === null && keluar === null ? malamHotel(hotelPerNama.get(kunci(hotel))) : null;
+      const cocok = cocokkan(kode, nama);
+      return [{ i, hotel, label, orang: "id" in cocok ? cocok.id : `?${kunci(kode || nama)}`, nama: nama || kode, malam }];
+    }),
+    (hotel, label) => {
+      const hotelAda = hotelPerNama.get(kunci(hotel));
+      const kamar = hotelAda ? kamarPerLabel.get(`${hotelAda.id}\u0000${kunci(label)}`) : undefined;
+      return new Set(kamar ? acara.lodging.filter((b) => b.room_id === kamar.id).map((b) => b.participant_id) : []);
+    },
+  );
+  const labelDipecah = pecahan?.dipecah ?? [];
+
   isi.forEach((sel1, i) => {
     const nomorBaris = lebar ? lebar.nomorAsli[i] : mulai + i + 1;
     const hotel = hotelTetap ?? rapi(sel1[kolom.hotel!]);
     const nomor = nomorKamar(sel1);
-    const label = labelKamar(sel1);
+    const label = (opsi.labelSatuKamar ? undefined : pecahan?.labelBaris.get(i)) ?? labelKamar(sel1);
     // Baris berkamar: punya nomor, atau label panitia (nomornya menyusul).
     const adaKamar = Boolean(nomor || label);
     const kode = kolom.kode !== undefined ? rapi(sel1[kolom.kode]) : "";
@@ -739,7 +840,7 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara): Rencan
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kamar", galat: null, baris, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, kamarUbah, kolomDibaca: lebar ? undefined : kolomKamarDibaca(sel[mulai - 1] ?? [], kolom), busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, akhir, tiket: [], dilewati: 0, busTrip: [] };
+  return { jenis: "kamar", galat: null, baris, labelDipecah, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, kamarUbah, kolomDibaca: lebar ? undefined : kolomKamarDibaca(sel[mulai - 1] ?? [], kolom), busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, akhir, tiket: [], dilewati: 0, busTrip: [] };
 }
 
 /** Data untuk "Download current stays". */

@@ -587,4 +587,21 @@ const ulangNomor = rencanaKamar(unduhLabel.map((b, i) => (i > 0 ? [...b.slice(0,
 assert.deepEqual(ulangNomor.kamarUbah, [{ id: 40, nama: "Kamar 01", hotel: "Mulia", room_number: "1301" }]);
 assert.deepEqual(ulangNomor.akhir, []);
 
+// Satu label untuk dua kelompok di malam berbeda (GH20): dipisah jadi dua kamar, kecuali "Same room".
+const gh = [
+  ["Hotel", "Room label", "Check-in", "Check-out", "Name"],
+  ["Mulia", "GH20", "05/11/2026", "06/11/2026", "Andi Pratama"],
+  ["Mulia", "GH20", "05/11/2026", "06/11/2026", "Budi Santoso"],
+  ["Mulia", "GH20", "06/11/2026", "08/11/2026", "Citra Lestari"],
+  ["Mulia", "GH20", "06/11/2026", "08/11/2026", "Dewi"],
+];
+const ghPisah = rencanaKamar(gh, bebas);
+assert.equal(ghPisah.galat, null);
+assert.deepEqual(ghPisah.labelDipecah?.map((d) => d.periode.map((p) => `${p.label}:${p.nama.join("+")}`)), [["GH20:Andi Pratama+Budi Santoso", "GH20 · 6 Nov:Citra Lestari+Dewi"]]);
+assert.deepEqual(ghPisah.kamarBaru.map((k) => k.label).sort(), ["GH20", "GH20 · 6 Nov"]);
+assert.deepEqual(ghPisah.baris.map((b) => b.status), ["masuk", "masuk", "masuk", "masuk"]);
+const ghSatu = rencanaKamar(gh, bebas, { labelSatuKamar: true });
+assert.deepEqual(ghSatu.kamarBaru.map((k) => k.label), ["GH20"]);
+assert.equal(ghSatu.labelDipecah?.length, 1);
+
 console.log("impor.check: ok");

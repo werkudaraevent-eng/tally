@@ -118,6 +118,27 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     return { isi, semua, puncak, lebih, campuran, bergantian };
   }
 
+  /**
+   * Penghuni kamar per periode (malam yang bertumpuk digabung). Dipakai dialog
+   * Edit room: nomor kamar berlaku untuk semua periode, jadi panitia perlu
+   * melihat siapa saja yang ikut menerimanya sebelum menyimpan.
+   */
+  function periodeKamar(kamar: Kamar): PeriodeKamar[] {
+    const hotel = hotelById.get(kamar.hotel_id);
+    const semua = [...(penghuniKamar.get(kamar.id) ?? [])].sort((a, b) => (a.r?.[0] ?? -Infinity) - (b.r?.[0] ?? -Infinity));
+    const hasil: Array<{ awal: number; akhir: number; masuk: string | null; keluar: string | null; orang: LogistikPeserta[] }> = [];
+    for (const { orang, stay, r } of semua) {
+      const [a, b] = r ?? [-Infinity, Infinity];
+      const { masuk, keluar } = tanggalStay(stay, hotel);
+      const akhir = hasil.at(-1);
+      if (akhir && a < akhir.akhir) {
+        if (!akhir.orang.some((x) => x.id === orang.id)) akhir.orang.push(orang);
+        if (b > akhir.akhir) { akhir.akhir = b; akhir.keluar = keluar; }
+      } else hasil.push({ awal: a, akhir: b, masuk, keluar, orang: [orang] });
+    }
+    return hasil.map((p) => ({ rentang: labelRentang(p.masuk, p.keluar, offset), nama: p.orang.map((o) => o.name).sort((x, y) => x.localeCompare(y, "id")), ids: p.orang.map((o) => o.id) }));
+  }
+
   function keadaan(kamar: Kamar): Keadaan {
     const { isi, puncak, lebih, campuran } = masalah(kamar);
     if (lebih || campuran) return "perlu-dicek";
@@ -565,6 +586,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       <FormKamar
         state={baru ? { mode: "baru", hotelId: pilihan?.jenis === "hotel" ? pilihan.id : kamarDipilih?.hotel_id } : dialogKamar}
         hotels={data.hotels}
+        periode={!baru && dialogKamar?.mode === "ubah" ? periodeKamar(dialogKamar.kamar) : []}
         busy={busy}
         onClose={() => { setDialogKamar(null); tutupBaru(); }}
         simpan={async (nilai, id) => {
@@ -662,9 +684,13 @@ function DialogAturan({ open, onClose, busy, data, simpan }: {
 
 type NilaiKamar = { hotel_id: number; room_number: string | null; label: string | null; bed_type: string | null; room_type: string | null; capacity: number; floor: string | null; notes: string | null };
 
-function FormKamar({ state, hotels, busy, onClose, simpan }: {
+type PeriodeKamar = { rentang: string | null; nama: string[]; ids: string[] };
+
+function FormKamar({ state, hotels, periode, busy, onClose, simpan }: {
   state: DialogKamar;
   hotels: Hotel[];
+  /** Penghuni kamar yang diedit, per periode. Kosong untuk kamar baru. */
+  periode: PeriodeKamar[];
   busy: boolean;
   onClose: () => void;
   simpan: (nilai: NilaiKamar, id?: number) => Promise<boolean>;
@@ -716,6 +742,7 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
         </SelectField>
         <TextField label="Room number" placeholder="e.g. 1208" hint="Leave empty if the hotel has not given it yet." autoFocus value={nilai.room_number} onChange={(event) => ubah("room_number", event.target.value)} className="max-sm:col-span-2" />
         <TextField label="Label" optional placeholder="e.g. Kamar 01" hint="Your own code from the rooming list. Not shown to participants." value={nilai.label} onChange={(event) => ubah("label", event.target.value)} className="max-sm:col-span-2" />
+        {periode.length > 0 ? <PenghuniPeriode periode={periode} /> : null}
         <TextField label="Bed" optional placeholder="e.g. Twin, King" value={nilai.bed_type} onChange={(event) => ubah("bed_type", event.target.value)} className="max-sm:col-span-2" />
         <TextField label="Room type" optional placeholder="e.g. Deluxe" value={nilai.room_type} onChange={(event) => ubah("room_type", event.target.value)} className="max-sm:col-span-2" />
         <TextField label="Capacity" type="number" inputMode="numeric" min={1} max={20} value={nilai.capacity} error={nilai.capacity ? galatKapasitas : undefined} onChange={(event) => ubah("capacity", event.target.value)} className="max-sm:col-span-2" />
@@ -723,6 +750,37 @@ function FormKamar({ state, hotels, busy, onClose, simpan }: {
         <TextArea label="Staff notes" optional rows={2} hint="Not shown to participants." value={nilai.notes} onChange={(event) => ubah("notes", event.target.value)} className="col-span-2" />
       </form>
     </Dialog>
+  );
+}
+
+/**
+ * Siapa yang ikut menerima nomor kamar ini. Satu label yang dipakai dua
+ * kelompok di malam berbeda (GH20 untuk 5–6 Nov dan 6–8 Nov) membuat nomor
+ * untuk satu kelompok sampai juga ke kelompok lain; peringatannya muncul di
+ * sini, sebelum disimpan.
+ */
+function PenghuniPeriode({ periode }: { periode: PeriodeKamar[] }) {
+  const orang = new Set(periode.flatMap((p) => p.ids)).size;
+  const berbeda = periode.length > 1 && new Set(periode.map((p) => [...p.ids].sort().join(","))).size > 1;
+  return (
+    <div className="col-span-2 flex flex-col gap-2">
+      <p className="text-label-large text-on-surface">
+        Applies to {plural(orang, "person", "people")}{periode.length > 1 ? ` on ${periode.length} periods` : ""}
+      </p>
+      <ul className="overflow-hidden rounded-md border border-outline-variant">
+        {periode.map((p, i) => (
+          <li key={i} className={cx("flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-2 text-body-medium", i > 0 && "border-t border-outline-variant")}>
+            {p.rentang ? <span className="shrink-0 font-medium tabular-nums text-on-surface">{p.rentang}</span> : null}
+            <span className="min-w-0 break-words text-on-surface-variant">{p.nama.join(", ")}</span>
+          </li>
+        ))}
+      </ul>
+      {berbeda ? (
+        <Banner tone="warning" icon={<Warning size={18} />}>
+          Different people on different nights share this room, so a room number reaches all of them. If the hotel gave a number for one period only, add a separate room for the other group and move them with Change room first.
+        </Banner>
+      ) : null}
+    </div>
   );
 }
 
