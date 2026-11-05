@@ -1,9 +1,9 @@
 "use client";
 
-import { FloppyDisk, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowSquareOut, FloppyDisk, UploadSimple, Warning } from "@phosphor-icons/react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { ImagePreview } from "@/components/admin/image-preview";
-import { Button, DetailSection, Pane, PaneBody, PaneFooter, SegmentedButton, Switch } from "@/components/m3";
+import { Button, ButtonLink, DetailSection, Pane, PaneBody, PaneFooter, SegmentedButton, Switch } from "@/components/m3";
 import type { Branding } from "@/lib/branding";
 import { Field, INPUT, UploadButton } from "./form";
 import { FALLBACK, type Settings } from "./types";
@@ -83,6 +83,15 @@ export function DisplaySettings({
             <label htmlFor="reveal-delay" className="block text-body-medium font-medium">Delay before names appear: <span className="tabular-nums">{settings.reveal_delay_seconds.toFixed(1)}</span> {settings.reveal_delay_seconds === 1 ? "second" : "seconds"}</label>
             <input id="reveal-delay" type="range" min={0} max={5} step={0.5} value={settings.reveal_delay_seconds} onChange={(event) => onChange({ reveal_delay_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full max-w-md accent-[var(--md-sys-color-primary)]" />
             <p className="mt-1 text-body-medium text-on-surface-variant">Extra time after the animation stops, giving the MC a moment to pause.</p>
+          </div>
+          {/* Lewat link, bukan setelan: proyektor ruangan dan input vMix bisa
+              menyala bersamaan, masing-masing dengan tampilannya. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 max-w-md">
+              <p className="text-body-medium font-medium">Green screen for vMix</p>
+              <p className="text-body-medium text-on-surface-variant">A copy of the stage on flat green for chroma key, without background glow, shadows or faded text. Use this link as the vMix input; the normal stage screen does not change.</p>
+            </div>
+            <ButtonLink href="/undian?greenscreen=1" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open green screen</ButtonLink>
           </div>
         </DetailSection>
 

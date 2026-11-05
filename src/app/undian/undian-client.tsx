@@ -8,7 +8,7 @@ import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Brandi
 import { expressive } from "@/lib/m3/motion";
 import type { UndianState } from "@/lib/undian";
 import { CardsAnimation, ConfettiBurst, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealFxDelayMs, revealSettleMs } from "./undian-animations";
-import { AmbientStage, RevealBurst, ShineText } from "./undian-stage-fx";
+import { AmbientStage, GREEN_SCREEN_COLOR, GreenScreenContext, RevealBurst, ShineText, useStageDim } from "./undian-stage-fx";
 import { WallAnimation } from "./undian-wall";
 import { TunnelAnimation } from "./undian-tunnel";
 import { DrumAnimation, preloadDrum } from "./undian-drum";
@@ -40,9 +40,9 @@ const TUKAR_PANGGUNG = {
 
 const POLL_MS = 2000;
 
-type Props = { initial: UndianState & { branding: Branding } };
+type Props = { initial: UndianState & { branding: Branding }; greenScreen?: boolean };
 
-export default function UndianClient({ initial }: Props) {
+export default function UndianClient({ initial, greenScreen = false }: Props) {
   const [state, setState] = useState(initial);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   // Kilatan dan cincin saat pemenang tampil. Terpisah dari confetti karena
@@ -141,7 +141,8 @@ export default function UndianClient({ initial }: Props) {
   }, [wantsFullscreen]);
 
   const settings = state.settings;
-  const background = settings.background_color ?? "#0B1020";
+  const background = greenScreen ? GREEN_SCREEN_COLOR : settings.background_color ?? "#0B1020";
+  const dim = (opacity: number) => (greenScreen ? 1 : opacity);
   const text = settings.text_color ?? "#FFFFFF";
   const accent = settings.accent_color ?? "#F5C451";
   const branding = state.branding ?? DEFAULT_BRANDING;
@@ -185,15 +186,16 @@ export default function UndianClient({ initial }: Props) {
     // `relative isolate`: lapisan suasana (`-z-10`) harus jatuh di bawah isi
     // tetapi di atas latar main, dan itu hanya terjamin di konteks tumpukan
     // milik main sendiri.
-    className="relative isolate flex h-dvh flex-col overflow-hidden"
+    className={`relative isolate flex h-dvh flex-col overflow-hidden${greenScreen ? " undian-gs" : ""}`}
     style={{
-      background: settings.background_image_url ? `url(${settings.background_image_url}) center/cover no-repeat, ${background}` : background,
+      background: settings.background_image_url && !greenScreen ? `url(${settings.background_image_url}) center/cover no-repeat, ${background}` : background,
       color: text,
     }}
   >
-    <AmbientStage accent={accent} text={text} />
+    <GreenScreenContext.Provider value={greenScreen}>
+    {!greenScreen && <AmbientStage accent={accent} text={text} />}
     <ConfettiBurst trigger={confettiTrigger} accent={accent} text={text} />
-    <RevealBurst trigger={burst} accent={accent} />
+    {!greenScreen && <RevealBurst trigger={burst} accent={accent} />}
 
     {/* Penanda LATIHAN.
         Gladi bersih hampir selalu dijalankan dengan layar panggung sungguhan
@@ -244,7 +246,7 @@ export default function UndianClient({ initial }: Props) {
           fontFamily: headingFont,
           fontSize: scaleClamp("clamp(11px, 1.8vmin, 26px)", branding.subtitle_scale),
           color: branding.subtitle_color ?? text,
-          opacity: branding.subtitle_color ? 1 : 0.7,
+          opacity: branding.subtitle_color ? 1 : dim(0.7),
           marginTop: "0.6vh",
         }}
       >
@@ -263,7 +265,7 @@ export default function UndianClient({ initial }: Props) {
         <LineupBoard lineup={state.lineup} currentId={null} accent={accent} text={text} fontFamily={headingFont} />
       ) : state.mode === "off" || !state.prize ? <div className="flex flex-col items-center gap-[2.4vh] text-center">
         <LoadingIndicator size="min(9vh, 96px)" color={accent} label="Menunggu sesi undian" />
-        <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.35 }}>
+        <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: dim(0.35) }}>
           Menunggu sesi undian
         </p>
       </div> : <>
@@ -300,10 +302,10 @@ export default function UndianClient({ initial }: Props) {
             >
               <ShineText color={accent}>{state.prize.name}</ShineText>
             </p>
-            {state.prize.sponsor_name && !running && <p style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.4vw, 20px)", opacity: 0.6, letterSpacing: "0.18em" }}>
+            {state.prize.sponsor_name && !running && <p style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.4vw, 20px)", opacity: dim(0.6), letterSpacing: "0.18em" }}>
               {state.prize.sponsor_name.toUpperCase()}
             </p>}
-            {state.prize.description && !running && <p style={{ fontFamily: headingFont, fontSize: "clamp(11px, 1.6vw, 24px)", opacity: 0.7 }}>
+            {state.prize.description && !running && <p style={{ fontFamily: headingFont, fontSize: "clamp(11px, 1.6vw, 24px)", opacity: dim(0.7) }}>
               {state.prize.description}
             </p>}
           </motion.div>
@@ -354,7 +356,7 @@ export default function UndianClient({ initial }: Props) {
                 {state.lineup.length > 0
                   ? <LineupBoard lineup={state.lineup} currentId={state.prize.id} accent={accent} text={text} fontFamily={headingFont} compact />
                   : <LoadingIndicator size="min(7vh, 72px)" color={accent} label="Bersiap mengundi" />}
-                <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.4vw, 34px)", opacity: 0.4 }}>
+                <p aria-hidden style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.4vw, 34px)", opacity: dim(0.4) }}>
                   {state.pool_size > 0 ? `${state.pool_size} peserta siap diundi` : "Bersiap"}
                 </p>
               </motion.div>
@@ -369,7 +371,7 @@ export default function UndianClient({ initial }: Props) {
                   : state.prize.animation === "tunnel" ? <TunnelAnimation {...animationProps} />
                   : state.prize.animation === "drum" ? <DrumAnimation {...animationProps} />
                   : spinning
-                    ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
+                    ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: dim(0.5) }}>Mengundi...</p>
                     : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}
               </motion.div>
             )}
@@ -386,10 +388,10 @@ export default function UndianClient({ initial }: Props) {
           animate={{ opacity: 1, y: 0 }}
           transition={expressive.spatial.default}
         >
-          <p style={{ fontFamily: headingFont, fontSize: "clamp(8px, 1vw, 13px)", letterSpacing: "0.2em", opacity: 0.45 }}>
+          <p style={{ fontFamily: headingFont, fontSize: "clamp(8px, 1vw, 13px)", letterSpacing: "0.2em", opacity: dim(0.45) }}>
             PEMENANG SEBELUMNYA
           </p>
-          <p className="mt-[0.4vh] line-clamp-2" style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.3vw, 18px)", opacity: 0.7 }}>
+          <p className="mt-[0.4vh] line-clamp-2" style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.3vw, 18px)", opacity: dim(0.7) }}>
             {state.confirmed.map((winner) => winner.name).join(" · ")}
           </p>
         </motion.div>}
@@ -399,6 +401,7 @@ export default function UndianClient({ initial }: Props) {
     <footer className="shrink-0 px-[4vw] pb-[2.5vh] pt-[1vh]">
       <BrandFooter branding={branding} textColor={text} variant="led" />
     </footer>
+    </GreenScreenContext.Provider>
   </main>;
 }
 
@@ -456,9 +459,10 @@ function LineupBoard({ lineup, currentId, accent, text, fontFamily, compact = fa
   fontFamily: string;
   compact?: boolean;
 }) {
+  const dim = useStageDim();
   return (
     <div className="flex w-full max-w-[88vw] flex-col items-center gap-[1.6vh] text-center">
-      <p style={{ fontFamily, fontSize: compact ? "clamp(9px, 1.1vw, 15px)" : "clamp(11px, 1.5vw, 22px)", letterSpacing: "0.22em", opacity: 0.55 }}>
+      <p style={{ fontFamily, fontSize: compact ? "clamp(9px, 1.1vw, 15px)" : "clamp(11px, 1.5vw, 22px)", letterSpacing: "0.22em", opacity: dim(0.55) }}>
         DAFTAR HADIAH
       </p>
       <ol className={`flex flex-wrap justify-center ${compact ? "gap-[0.8vw]" : "gap-[1.2vw]"}`}>
@@ -472,10 +476,10 @@ function LineupBoard({ lineup, currentId, accent, text, fontFamily, compact = fa
                 padding: compact ? "0.7vh 1.3vw" : "1.2vh 1.8vw",
                 border: `2px solid ${current ? accent : `${text}33`}`,
                 background: current ? `${accent}26` : "transparent",
-                opacity: item.done && !current ? 0.45 : 1,
+                opacity: item.done && !current ? dim(0.45) : 1,
               }}
               initial={{ opacity: 0, y: "1vh" }}
-              animate={{ opacity: item.done && !current ? 0.45 : 1, y: 0 }}
+              animate={{ opacity: item.done && !current ? dim(0.45) : 1, y: 0 }}
               transition={{ ...expressive.spatial.default, delay: Math.min(index * 0.06, 0.6) }}
             >
               {!compact && item.image_url ? (

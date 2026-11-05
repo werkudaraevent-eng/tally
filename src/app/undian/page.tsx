@@ -95,6 +95,9 @@ export default async function UndianPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const event = await getPublicPageEvent(searchParams);
-  return <UndianClient initial={event ? await loadInitial(event.id) : DEFAULT_STATE} />;
+  const params = await searchParams;
+  const event = await getPublicPageEvent(Promise.resolve(params));
+  // `greenscreen=1`: latar hijau rata untuk chroma key vMix (lihat undian-stage-fx).
+  const greenScreen = params.greenscreen === "1";
+  return <UndianClient initial={event ? await loadInitial(event.id) : DEFAULT_STATE} greenScreen={greenScreen} />;
 }

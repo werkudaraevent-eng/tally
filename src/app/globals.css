@@ -1051,6 +1051,30 @@ html:hover {
    yang dianimasikan.
    ========================================================================== */
 
+/* Mode green screen (link panggung + `greenscreen=1`, untuk chroma key vMix).
+   Keyer membaca piksel yang bercampur hijau sebagai setengah transparan, jadi
+   glow, bayangan, dan teks redup di atas latar dimatikan. `!important` perlu
+   untuk mengalahkan gaya inline dan nilai yang dianimasikan framer-motion. */
+.undian-gs,
+.undian-gs * {
+	box-shadow: none !important;
+	text-shadow: none !important;
+	filter: none !important;
+}
+
+.undian-gs .gs-hide {
+	display: none !important;
+}
+
+.undian-gs .gs-solid {
+	opacity: 1 !important;
+}
+
+/* Pelat gelap tembus pandang (pill Cadangan di atas papan panah) dibuat pekat. */
+.undian-gs .gs-plate {
+	background: #1f1f1f !important;
+}
+
 /* Dua sapuan warna raksasa yang hanyut perlahan di belakang panggung. */
 .aurora-drift {
 	animation: aurora-drift 38s ease-in-out infinite alternate;

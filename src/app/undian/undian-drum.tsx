@@ -104,7 +104,7 @@ export function DrumAnimation({ roster, winners, accent, text, fontFamily, round
       transition={{ duration: 0.4 }}
     >
       {failed
-        ? !hasWinners && <p className="flex h-full items-center justify-center" style={{ fontFamily, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
+        ? !hasWinners && <p className="gs-solid flex h-full items-center justify-center" style={{ fontFamily, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
         : <canvas ref={canvasRef} aria-hidden className="block h-full w-full" />}
     </motion.div>
     <AnimatePresence>
