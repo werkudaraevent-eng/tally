@@ -438,9 +438,13 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     const dolly = t < 0 ? 0 : clamp01((t - 2.4) / 1.6);
     const ease = dolly * dolly * (3 - 2 * dolly);
     const near = (4.8 + names.length * 0.3) * portrait;
-    const far = 10.5 * portrait;
-    camera.position.set(0, 0.6 + (PIPE_Y + 2.2 - 0.6) * ease, far + (RAIL_Z + near - far) * ease);
-    look.set(0, -0.4 + (PIPE_Y + 0.3 + 0.4) * ease, (RAIL_Z - 0.4) * ease);
+    // Jarak jauh dihitung supaya seluruh mesin (cincin atas sampai alas, kira-kira
+    // y -3,6 sampai 3,9) masuk FOV vertikal 40 derajat dengan sedikit ruang,
+    // dan titik pandang di tengahnya. Dulu 10,5 dengan titik pandang -0,4:
+    // cincin atas terpotong judul di layar laptop (KSO, 5 Nov).
+    const far = 13 * portrait;
+    camera.position.set(0, 0.3 + (PIPE_Y + 2.2 - 0.3) * ease, far + (RAIL_Z + near - far) * ease);
+    look.set(0, 0.1 + (PIPE_Y + 0.3 - 0.1) * ease, (RAIL_Z - 0.4) * ease);
     camera.lookAt(look);
     railLight.intensity = t > 2 ? 2.5 : 0;
     renderer.render(scene, camera);

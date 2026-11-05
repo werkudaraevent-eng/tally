@@ -516,6 +516,30 @@ export default function UndianControlPage() {
                 {cadanganMenunggu.length > 0 ? "Absent" : "Absent, draw a replacement"}
               </Button>
             ) : null}
+            {/* Jalan lanjut tanpa memutuskan: layar dikosongkan, pemenang tetap
+                tercatat "pending" dan tetap tidak ikut diundi lagi. Panel ini
+                tidak bisa memutuskan mereka sesudahnya (hanya "Undi ulang" yang
+                membatalkannya), jadi labelnya jujur: "leave unconfirmed", bukan
+                "decide later". Dulu hanya
+                ada tombol teks "Clear screen" di bawah, dan operator mengira
+                satu-satunya jalan ke undian berikutnya adalah Mark present.
+                Saat gladi, Mark present justru yang harus dihindari: pemenang
+                sah muncul di "Hadiah kamu" peserta. */}
+            {belumDiputuskan.length > 0 ? (
+              <Button
+                variant="outlined"
+                block
+                icon={<SkipForward size={16} />}
+                loading={busy === "reset"}
+                disabled={busy !== null}
+                onClick={() => void send({ action: "reset" }, "reset")}
+              >
+                {drawBlocked ? "Clear screen, leave unconfirmed" : "Next draw, leave unconfirmed"}
+              </Button>
+            ) : null}
+            {belumDiputuskan.length > 0 ? (
+              <p className="text-body-small text-on-surface-variant">Unconfirmed names stay out of later draws but are not recorded as prize winners. Useful for a run-through without Rehearsal mode.</p>
+            ) : null}
           </div>
         ) : drawBlocked ? (
           // Kuota penuh: JALAN KELUAR, bukan kalimat buntu. Jalan keluarnya ada
@@ -592,9 +616,11 @@ export default function UndianControlPage() {
           </p>
         ) : null}
 
-        <Button variant="text" size="sm" className="-ml-3 self-start" disabled={busy !== null} onClick={() => void send({ action: "reset" }, "reset")}>
-          Clear screen (winners stay on record)
-        </Button>
+        {langkah && belumDiputuskan.length > 0 ? null : (
+          <Button variant="text" size="sm" className="-ml-3 self-start" disabled={busy !== null} onClick={() => void send({ action: "reset" }, "reset")}>
+            Clear screen (winners stay on record)
+          </Button>
+        )}
       </div>
     );
   }

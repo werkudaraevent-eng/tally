@@ -1192,6 +1192,17 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
 // ===========================================================================
 // Daftar pemenang, dipakai bersama beberapa varian
 // ===========================================================================
+/**
+ * Ukuran huruf nama pemenang yang muat dalam dua baris selebar layar.
+ *
+ * Huruf kapital tebal rata-rata ~0,7em per karakter (font judul serif). Dua baris ~88vw
+ * memuat 2 * 88 / (0,7 * panjang) vw. Nama pendek tetap memakai ukuran penuh.
+ */
+function fitTwoLines(size: string, name: string) {
+  const fit = (2 * 88) / (0.7 * Math.max(1, name.length));
+  return `min(${size}, ${fit.toFixed(2)}vw)`;
+}
+
 export function WinnerList({
   winners, accent, text, fontFamily,
 }: {
@@ -1224,11 +1235,15 @@ export function WinnerList({
           // 0.35s tetap, sepuluh nama butuh 3,5 detik dan yang terakhir muncul
           // setelah MC selesai menyebutkan semuanya.
           transition={{ ...expressive.spatial.default, delay: Math.min(index * 0.35, index * (2 / Math.max(1, main.length))) }}
-          className="min-w-0 text-center"
+          // `w-full`: tanpa lebar, anak flex `items-center` selebar isinya, jadi
+          // nama panjang melampaui wadah dan terpotong di kedua sisi (KSO, 5 Nov).
+          className="w-full min-w-0 text-center"
         >
           {/* Kilau emas menyapu nama pemenang. Nama yang diam berwarna aksen
               sudah benar; nama yang berkilau adalah nama yang baru saja menang. */}
-          <p className="truncate font-bold uppercase tracking-[-0.03em]" style={{ fontFamily, fontSize: size, lineHeight: 1.1 }}>
+          {/* Sampai tiga nama, nama panjang turun ke baris kedua, bukan dipotong:
+              nama pemenang yang terpotong di layar panggung tidak bisa dibaca MC. */}
+          <p className={`font-bold uppercase tracking-[-0.03em] ${main.length <= 3 ? "line-clamp-2 text-balance break-words" : "truncate"}`} style={{ fontFamily, fontSize: main.length <= 3 ? fitTwoLines(size, winner.name) : size, lineHeight: 1.1 }}>
             <ShineText color={accent}>{winner.name}</ShineText>
           </p>
           {(winner.company || winner.seat) && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: text, opacity: 0.75 }}>

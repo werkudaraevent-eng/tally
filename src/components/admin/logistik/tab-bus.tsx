@@ -17,6 +17,8 @@ import {
   angkaAtauNull, BarisOrang, dariInputWaktu, formatWaktu, keInputWaktu, KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps,
 } from "./bersama";
 import { PilihBarisAgenda, useAgendaTrip, type AgendaTrip } from "./pilih-baris-agenda";
+import { DialogPindah, TripKendaraan, useMuatanTrip } from "./penumpang-trip";
+import { timeZoneOffset } from "@/lib/timezone";
 
 /**
  * Tab Bus, dengan dua bagian: Daftar bus dan Agenda.
@@ -90,6 +92,10 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
   }, [adaTrip, data.transport, data.trips, data.participants]);
 
   const lebihDi = (bus: Bus) => data.overview.filter((baris) => baris.vehicle_id === bus.id && baris.over_capacity).length;
+  const { zone } = useEventTimeZone();
+  const offset = timeZoneOffset(zone);
+  const muatan = useMuatanTrip(data, offset);
+  const [pindah, setPindah] = useState<{ trip: Agenda; orang: LogistikPeserta } | null>(null);
 
   const daftar = (
     <Pane aria-label="Vehicles">
@@ -134,6 +140,9 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
                   <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                     <span className="text-on-surface">{bus.code}</span>
                     {lebih ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
+                    {muatan.campur.has(bus.id) ? (
+                      <StatusChip dot tone="warning">{`${muatan.campur.get(bus.id)!.hotel} hotels on ${plural(muatan.campur.get(bus.id)!.trips, "trip")}`}</StatusChip>
+                    ) : null}
                   </span>
                   <span className="w-28 shrink-0 truncate text-on-surface-variant max-sm:hidden">{bus.plate_number ?? EMPTY_VALUE}</span>
                   <span className={cx("w-36 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>{teksIsi}</span>
@@ -172,19 +181,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
           {data.trips.length === 0 ? (
             <p className="text-body-medium text-on-surface-variant">No trips yet. Create them under Trips so participants can see their vehicle schedule.</p>
           ) : (
-            <ul className="flex flex-col">
-              {data.trips.map((agenda) => {
-                const baris = data.overview.find((o) => o.trip_id === agenda.id && o.vehicle_id === bus.id);
-                const isi = baris?.load ?? 0;
-                return (
-                  <li key={agenda.id} className="flex items-center gap-3 py-1.5 text-body-medium">
-                    <span className="min-w-0 flex-1 truncate text-on-surface">{agenda.name}</span>
-                    {baris?.over_capacity ? <StatusChip dot tone="error">Over</StatusChip> : null}
-                    <span className={cx("shrink-0 tabular-nums", baris?.over_capacity ? "text-error" : "text-on-surface-variant")}>{isiTeks(isi, bus.capacity)}</span>
-                  </li>
-                );
-              })}
-            </ul>
+            <TripKendaraan key={bus.id} bus={bus} data={data} muatan={muatan} offset={offset} orangById={orangById} isiTeks={isiTeks} busy={busy} onPindah={(trip, orang) => setPindah({ trip, orang })} />
           )}
         </DetailSection>
         {bus.crew_contact ? (
@@ -228,6 +225,20 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
   return (
     <>
       <ListDetail list={daftar} detail={detail} />
+
+      {bus ? (
+        <DialogPindah
+          key={pindah ? `${pindah.trip.id}-${pindah.orang.id}` : "tutup"}
+          pindah={pindah}
+          dari={bus}
+          data={data}
+          muatan={muatan}
+          offset={offset}
+          busy={busy}
+          onClose={() => setPindah(null)}
+          kirim={kirim}
+        />
+      ) : null}
 
       {bus ? (
         <PilihPeserta
