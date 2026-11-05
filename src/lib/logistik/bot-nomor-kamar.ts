@@ -43,6 +43,9 @@ export function cariPeserta(nama: string, semua: PesertaBot[]): HasilCari {
   const persis = semua.filter((orang) => rapikanNama(orang.name) === kunci);
   if (persis.length === 1) return { jenis: "satu", peserta: persis[0] };
   if (persis.length > 1) return { jenis: "kembar", pilihan: persis.slice(0, MAKS_PILIHAN) };
+  // Pencarian terlalu pendek tidak memberi pilihan: satu huruf akan
+  // mendaftar nama siapa saja yang kebetulan berawalan huruf itu.
+  if (kunci.replace(/ /g, "").length < 3) return { jenis: "tidak_ada", pilihan: [] };
   const kata = kunci.split(" ");
   const mirip = semua.filter((orang) => {
     const isi = ` ${rapikanNama(orang.name)} `;

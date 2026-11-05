@@ -53,7 +53,9 @@ export async function POST(request: Request) {
   const db = getSupabaseServiceClient();
   const eventId = auth.scope.event.id;
   const { count } = await db.from("api_keys").select("id", { head: true, count: "exact" })
-    .eq("event_id", eventId).is("revoked_at", null);
+    .eq("event_id", eventId).is("revoked_at", null)
+    // Kunci kedaluwarsa tidak dihitung: tidak bisa dipakai lagi.
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
   if ((count ?? 0) >= MAKS_KUNCI_AKTIF) {
     return apiError("VALIDATION_ERROR", 422, { formErrors: [`This event already has ${MAKS_KUNCI_AKTIF} active keys. Revoke one first.`], fieldErrors: {} });
   }

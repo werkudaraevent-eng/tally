@@ -251,6 +251,10 @@ function summarise(entry: Entry): string {
     const synced = payload.synced as Record<string, unknown> | undefined;
     return `${payload.fetched ?? 0} peserta diterima · ${synced?.inserted ?? 0} baru · ${synced?.newly_removed ?? 0} ditandai hilang`;
   }
+  if (entry.action === "room_number_set_by_bot") {
+    const kamar = [payload.label, payload.hotel].filter(Boolean).join(" · ");
+    return `${kamar || "Kamar"}: ${payload.old_number ?? "kosong"} → ${payload.new_number ?? "?"} (${payload.participant_name ?? "?"})`;
+  }
   if (entry.action === "participant_qr_archived") {
     return `${payload.old_qr_code ?? "?"} → ${payload.new_qr_code ?? "?"}`;
   }

@@ -23,6 +23,8 @@ assert.deepEqual(cariPeserta("Citra Lestari", orang), { jenis: "kembar", pilihan
 assert.deepEqual(cariPeserta("Budi S", orang), { jenis: "tidak_ada", pilihan: [orang[1], orang[2]] });
 assert.deepEqual(cariPeserta("Andi", orang), { jenis: "tidak_ada", pilihan: [orang[0]] });
 assert.deepEqual(cariPeserta("Zainal", orang), { jenis: "tidak_ada", pilihan: [] });
+assert.deepEqual(cariPeserta("A", orang), { jenis: "tidak_ada", pilihan: [] });
+assert.deepEqual(cariPeserta("Bu", orang), { jenis: "tidak_ada", pilihan: [] });
 assert.deepEqual(cariPeserta("  ", orang), { jenis: "tidak_ada", pilihan: [] });
 
 const hotel = [{ id: 1, name: "Hotel Mulia" }, { id: 2, name: "Seruni" }];

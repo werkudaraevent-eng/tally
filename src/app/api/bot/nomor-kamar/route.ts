@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { kunciDariRequest } from "@/lib/api-keys";
+import { kunciKamar } from "@/lib/logistik/cari-kamar";
 import { klien, semuaBaris } from "@/lib/logistik/server";
 import {
   cariPeserta, pilihKamar, rapikanNomor,
@@ -120,16 +121,16 @@ export async function POST(request: Request) {
   const { data: penghuni } = await db.from("lodging_assignments").select("participant_id").eq("event_id", event.id).eq("room_id", kamar.id);
   const idPenghuni = [...new Set(((penghuni ?? []) as Array<{ participant_id: string }>).map((p) => p.participant_id))];
   const { data: namaPenghuni } = idPenghuni.length
-    ? await db.from("participants").select("id,name").eq("event_id", event.id).in("id", idPenghuni)
+    ? await db.from("participants").select("id,name").eq("event_id", event.id).is("source_removed_at", null).in("id", idPenghuni)
     : { data: [] };
   const occupants = ((namaPenghuni ?? []) as Array<{ name: string }>).map((p) => p.name).sort();
   const ringkas = { participant: siapa, room: { room_id: kamar.id, hotel: namaHotel, label: kamar.label, room_number: kamar.room_number }, occupants };
 
-  if (kamar.room_number === nomor) return Response.json({ ok: true, changed: false, message: `Room already has number ${nomor}.`, ...ringkas });
+  if (kamar.room_number !== null && kunciKamar(kamar.room_number) === kunciKamar(nomor)) return Response.json({ ok: true, changed: false, message: `Room already has number ${nomor}.`, ...ringkas });
   if (kamar.room_number && !isi.replace) {
     return tolak(409, { code: "ROOM_HAS_NUMBER", message: `This room already has number ${kamar.room_number}. Send replace: true only if the organiser confirms the change to ${nomor}.`, ...ringkas });
   }
-  const bentrok = semuaKamar.find((k) => k.id !== kamar.id && k.hotel_id === kamar.hotel_id && k.room_number === nomor);
+  const bentrok = semuaKamar.find((k) => k.id !== kamar.id && k.hotel_id === kamar.hotel_id && k.room_number !== null && kunciKamar(k.room_number) === kunciKamar(nomor));
   if (bentrok) {
     return tolak(409, { code: "NUMBER_TAKEN", message: `Number ${nomor} is already used by another room at ${namaHotel}${bentrok.label ? ` (label ${bentrok.label})` : ""}. Check the photo.`, ...ringkas });
   }
@@ -148,12 +149,14 @@ export async function POST(request: Request) {
   }
   if (!tertulis?.length) return tolak(409, { code: "ROOM_CHANGED", message: "This room changed a moment ago. Send the request again." });
 
-  await db.from("audit_logs").insert({
+  const { error: galatAudit } = await db.from("audit_logs").insert({
     event_id: event.id,
     user_id: null,
     action: "room_number_set_by_bot",
-    payload: { bot: namaBot, api_key_id: kunci.id, participant_id: peserta.id, participant_name: peserta.name, room_id: kamar.id, hotel: namaHotel, label: kamar.label, old: kamar.room_number, new: nomor },
+    payload: { bot: namaBot, api_key_id: kunci.id, participant_id: peserta.id, participant_name: peserta.name, room_id: kamar.id, hotel: namaHotel, label: kamar.label, old_number: kamar.room_number, new_number: nomor },
   } as never);
+  // Nomornya sudah tersimpan; tanpa baris audit, jejaknya tetap ada di log server.
+  if (galatAudit) console.error("room_number_set_by_bot audit insert failed", { room_id: kamar.id, code: (galatAudit as { code?: string }).code });
 
   return Response.json({
     ok: true,
