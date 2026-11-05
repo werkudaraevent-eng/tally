@@ -64,7 +64,7 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
       baris={data.items}
       kunciBaris={(barang) => String(barang.id)}
       kolom={kolomBarang}
-      urutAwal={{ key: "item", dir: "asc" }}
+      urutAwal={null}
       cariLabel="Search kit items"
       cariPlaceholder="Search kit item or check-in point…"
       dipilih={pilih !== null ? String(pilih) : null}

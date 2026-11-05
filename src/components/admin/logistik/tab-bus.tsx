@@ -117,7 +117,10 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
     },
     {
       key: "check", label: "Check", lebar: 200,
-      nilai: (bus) => [lebihBus(bus) ? "Over capacity" : "", muatan.campur.has(bus.id) ? "More than one hotel" : ""].filter(Boolean),
+      nilai: (bus) => {
+        const isi = [lebihBus(bus) ? "Over capacity" : "", muatan.campur.has(bus.id) ? "More than one hotel" : ""].filter(Boolean);
+        return isi.length ? isi : ["No issues"];
+      },
       sel: (bus) => (
         <span className="flex min-h-7 flex-wrap items-center gap-1.5">
           {lebihBus(bus) ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
@@ -127,7 +130,7 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
       ),
     },
     { key: "plate", label: "Plate", lebar: 120, saring: "teks", nilai: (bus) => (bus.plate_number ? [bus.plate_number] : []) },
-    { key: "capacity", label: "Capacity", lebar: 96, rata: "kanan", urut: "angka", nilai: (bus) => (bus.capacity === null ? [] : [String(bus.capacity)]), kunciUrut: (bus) => String(bus.capacity ?? "").padStart(4, "0") },
+    { key: "capacity", label: "Capacity", lebar: 96, rata: "kanan", urut: "angka", nilai: (bus) => (bus.capacity === null ? [] : [String(bus.capacity)]), kunciUrut: (bus) => (bus.capacity === null ? "" : String(bus.capacity).padStart(4, "0")) },
     {
       key: "passengers", label: adaTrip ? "Passengers" : "Default passengers", lebar: 152, rata: "kanan", urut: "angka",
       nilai: (bus) => [muatBus(bus).teks], kunciUrut: (bus) => String(muatBus(bus).urut).padStart(4, "0"),
@@ -373,6 +376,8 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
   pilihAwal?: number | null;
 }) {
   const { zone, abbr } = useEventTimeZone();
+  /** Export: waktu di zona acara, "2026-11-07 18:00", supaya bisa diurut di Excel. */
+  const waktuCsv = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
   const { orangById, busById, bawaan, pengganti, busDi } = usePetaBus(data);
   // Sebelum migrasi 202610170002 trip belum bisa ditautkan: tidak ada pemilih
   // yang bisa dipakai lalu gagal saat disimpan, dan panel detail tetap seperti dulu.
@@ -413,7 +418,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
         </span>
       ),
     },
-    { key: "departs", label: "Departs", lebar: 160, urut: "waktu", nilai: (agenda) => (agenda.depart_at ? [formatWaktu(agenda.depart_at, zone)] : []), csv: (agenda) => teks(agenda.depart_at), kunciUrut: (agenda) => agenda.depart_at ?? "" },
+    { key: "departs", label: "Departs", lebar: 160, urut: "waktu", nilai: (agenda) => (agenda.depart_at ? [formatWaktu(agenda.depart_at, zone)] : []), csv: (agenda) => (agenda.depart_at ? [waktuCsv(agenda.depart_at)] : []), kunciUrut: (agenda) => agenda.depart_at ?? "" },
     { key: "from", label: "From", lebar: 160, nilai: (agenda) => teks(agenda.origin) },
     { key: "to", label: "To", lebar: 160, nilai: (agenda) => teks(agenda.destination) },
     { key: "meeting", label: "Meeting point", lebar: 160, tersembunyi: true, nilai: (agenda) => teks(agenda.meeting_point) },
@@ -435,7 +440,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
       onPilih={(agenda) => setPilih(agenda.id)}
       labelBaris={(agenda) => `Trip ${agenda.name}`}
       namaFile="trips"
-      kaki={data.trips.length > 0 && data.vehicles.length === 0 ? () => "No vehicles yet. Add them under Vehicles before assigning participants." : undefined}
+      catatan={data.trips.length > 0 && data.vehicles.length === 0 ? "No vehicles yet. Add them under Vehicles before assigning participants." : undefined}
       kosong={(
         <EmptyState
           plain
