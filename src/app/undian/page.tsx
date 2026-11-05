@@ -3,6 +3,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, DEFAULT_BRANDING, normalizeBranding, type Branding } from "@/lib/branding";
 import type { UndianState } from "@/lib/undian";
 import UndianClient from "./undian-client";
+import { StageScaler } from "./stage-scaler";
 
 // Layar panggung undian. Publik — proyektor berjalan tanpa login.
 //
@@ -99,5 +100,5 @@ export default async function UndianPage({
   const event = await getPublicPageEvent(Promise.resolve(params));
   // `greenscreen=1`: latar hijau rata untuk chroma key vMix (lihat undian-stage-fx).
   const greenScreen = params.greenscreen === "1";
-  return <UndianClient initial={event ? await loadInitial(event.id) : DEFAULT_STATE} greenScreen={greenScreen} />;
+  return <StageScaler><UndianClient initial={event ? await loadInitial(event.id) : DEFAULT_STATE} greenScreen={greenScreen} /></StageScaler>;
 }
