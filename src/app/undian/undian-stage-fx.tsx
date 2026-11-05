@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useMemo, type CSSProperties } from "react";
+import { createContext, useContext, useMemo, type CSSProperties } from "react";
 
 /**
  * Lapisan efek layar panggung undian: suasana di belakang, ledakan saat
@@ -13,6 +13,24 @@ import { useMemo, type CSSProperties } from "react";
  * bagian "Efek layar panggung undian"). Framer Motion hanya dipakai untuk gerak
  * yang dipicu sekali: ledakan.
  */
+
+/**
+ * Mode green screen (link panggung + `greenscreen=1`): latar hijau rata untuk
+ * chroma key vMix. Keyer membaca setiap piksel yang bercampur hijau sebagai
+ * setengah transparan, jadi semua yang membaur ke latar dimatikan: sapuan
+ * warna, kerlip, vignette, kilatan, glow, bayangan, dan teks redup.
+ *
+ * Lewat link, bukan setelan acara: layar proyektor di ruangan dan input vMix
+ * bisa menyala bersamaan dengan tampilan masing-masing.
+ */
+export const GREEN_SCREEN_COLOR = "#00B140";
+export const GreenScreenContext = createContext(false);
+
+/** Opasitas teks redup; di mode green screen selalu penuh. */
+export function useStageDim() {
+  const greenScreen = useContext(GreenScreenContext);
+  return (opacity: number) => (greenScreen ? 1 : opacity);
+}
 
 /** Acak yang dapat diulang. Server dan browser harus menggambar titik yang sama. */
 function scatter(index: number, salt: number) {

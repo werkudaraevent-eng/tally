@@ -289,8 +289,8 @@ export function SlotAnimation({ roster, winners, endsAt, accent, text, fontFamil
           {/* Bayangan tepi atas-bawah: gulungan terbaca sebagai silinder yang
               berputar di balik jendela, bukan teks yang sekadar berganti. */}
           {!done && <>
-            <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[30%]" style={{ background: "linear-gradient(to bottom, rgba(0, 0, 0, 0.42), transparent)" }} />
-            <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30%]" style={{ background: "linear-gradient(to top, rgba(0, 0, 0, 0.42), transparent)" }} />
+            <span aria-hidden className="gs-hide pointer-events-none absolute inset-x-0 top-0 z-10 h-[30%]" style={{ background: "linear-gradient(to bottom, rgba(0, 0, 0, 0.42), transparent)" }} />
+            <span aria-hidden className="gs-hide pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[30%]" style={{ background: "linear-gradient(to top, rgba(0, 0, 0, 0.42), transparent)" }} />
           </>}
           {/* `key` berganti tiap denyut, jadi tiap nama baru meluncur masuk
               dari bawah (`reel-in`) — bukan bertukar di tempat. */}
@@ -314,7 +314,7 @@ export function SlotAnimation({ roster, winners, endsAt, accent, text, fontFamil
       })}
     </div>
 
-    {!spinning && backups.length > 0 && <p className="px-[3vw] text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.4vw, 20px)", color: text, opacity: 0.7 }}>
+    {!spinning && backups.length > 0 && <p className="gs-solid px-[3vw] text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.4vw, 20px)", color: text, opacity: 0.7 }}>
       Cadangan: {backups.map((winner) => winner.name).join(" · ")}
     </p>}
   </div>;
@@ -539,7 +539,7 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
           sendiri. */}
       <motion.span
         aria-hidden
-        className="absolute left-1/2 top-0 z-10 rounded-full"
+        className="gs-hide absolute left-1/2 top-0 z-10 rounded-full"
         style={{ width: "6vh", height: "6vh", background: accent, filter: "blur(1.4vh)", translateX: "-50%", translateY: "-50%" }}
         animate={settled ? { opacity: [0, 1, 0.55], scale: [0.5, 1.8, 1.2] } : { opacity: 0, scale: 0.5 }}
         transition={{ duration: 0.8, ease: easing.emphasizedDecelerate }}
@@ -659,7 +659,7 @@ export function WheelAnimation({ roster, winners, endsAt, accent, text, fontFami
       >
         {winner.name}
       </span>)}
-      {revealing && shown > 0 && <span style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
+      {revealing && shown > 0 && <span className="gs-solid" style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
         {shown} dari {winnerCount}
       </span>}
     </div>}
@@ -781,7 +781,7 @@ export function CardsAnimation({ roster, winners, endsAt, accent, text, fontFami
       >
         <div className={face} style={{ borderColor: accent, background: `${accent}14`, backfaceVisibility: "hidden" }}>
           {spinning ? <span aria-hidden className="shine-sweep pointer-events-none absolute inset-0" /> : null}
-          <span className="relative truncate font-semibold uppercase" style={{ fontFamily, fontSize: nameSize, color: text, opacity: 0.5 }}>
+          <span className="gs-solid relative truncate font-semibold uppercase" style={{ fontFamily, fontSize: nameSize, color: text, opacity: 0.5 }}>
             {spinning ? current : "..."}
           </span>
         </div>
@@ -968,7 +968,7 @@ export function DigitsAnimation({ roster, winners, accent, text, fontFamily, rou
         {settledAll && (!spellsName || main[strip]?.company) && <AnimatePresence>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-[70vw] text-center">
             {!spellsName && <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: box.name, color: accent }}>{main[strip]?.name}</p>}
-            {main[strip]?.company && <p className="truncate" style={{ fontFamily, fontSize: box.name, color: text, opacity: 0.7 }}>{main[strip].company}</p>}
+            {main[strip]?.company && <p className="gs-solid truncate" style={{ fontFamily, fontSize: box.name, color: text, opacity: 0.7 }}>{main[strip].company}</p>}
           </motion.div>
         </AnimatePresence>}
       </div>;
@@ -979,7 +979,7 @@ export function DigitsAnimation({ roster, winners, accent, text, fontFamily, rou
         pemenangnya ada empat. */}
     {/* `gridColumn: 1 / -1` supaya baris cadangan tetap melintang penuh saat
         deretnya disusun dua kolom, bukan terjepit di satu sel. */}
-    {!spinning && backups.length > 0 && <p className="text-center" style={{ gridColumn: "1 / -1", fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
+    {!spinning && backups.length > 0 && <p className="gs-solid text-center" style={{ gridColumn: "1 / -1", fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
       Cadangan: {backups.map((winner) => winner.name).join(" · ")}
     </p>}
   </div>;
@@ -1227,11 +1227,11 @@ export function DartAnimation({ roster, winners, accent, text, fontFamily, pendi
 
     {/* Jumlah kertas TIDAK menyatakan besarnya kolam — kolam bisa ratusan.
         Keterangan ini mencegah penonton menyimpulkan pesertanya cuma enam belas. */}
-    {drawing && <p className="relative z-10 mt-[2vh]" style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.55 }}>
+    {drawing && <p className="gs-solid relative z-10 mt-[2vh]" style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.55 }}>
       {roster.length > papers.length ? `${roster.length} nama di kolam` : ""}
     </p>}
 
-    {!drawing && backups.length > 0 && <p className="relative z-10 mt-[2vh] px-[3vw] text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
+    {!drawing && backups.length > 0 && <p className="gs-solid relative z-10 mt-[2vh] px-[3vw] text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.6vh, 22px)", color: text, opacity: 0.7 }}>
       Cadangan: {backups.map((winner) => winner.name).join(" · ")}
     </p>}
   </div>;
@@ -1294,7 +1294,7 @@ export function WinnerList({
           <p className={`font-bold uppercase tracking-[-0.03em] ${main.length <= 3 ? "line-clamp-2 text-balance break-words" : "truncate"}`} style={{ fontFamily, fontSize: main.length <= 3 ? fitTwoLines(size, winner.name) : size, lineHeight: 1.1 }}>
             <ShineText color={accent}>{winner.name}</ShineText>
           </p>
-          {(winner.company || winner.seat) && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: text, opacity: 0.75 }}>
+          {(winner.company || winner.seat) && <p className="gs-solid truncate" style={{ fontFamily, fontSize: subSize, color: text, opacity: 0.75 }}>
             {[winner.company, winner.seat && `Kursi ${winner.seat}`].filter(Boolean).join(" · ")}
           </p>}
         </motion.div>)}
@@ -1302,8 +1302,8 @@ export function WinnerList({
     </div>
 
     {backups.length > 0 && <div className="w-full shrink-0 border-t pt-[1vh] text-center" style={{ borderColor: `${text}33` }}>
-      <p className="font-semibold uppercase tracking-[0.2em]" style={{ fontFamily, fontSize: "clamp(9px, 1.1vw, 15px)", color: text, opacity: 0.5 }}>Cadangan</p>
-      <p className="mt-[0.4vh] line-clamp-2" style={{ fontFamily, fontSize: "clamp(11px, 1.6vw, 24px)", color: text, opacity: 0.8 }}>
+      <p className="gs-solid font-semibold uppercase tracking-[0.2em]" style={{ fontFamily, fontSize: "clamp(9px, 1.1vw, 15px)", color: text, opacity: 0.5 }}>Cadangan</p>
+      <p className="gs-solid mt-[0.4vh] line-clamp-2" style={{ fontFamily, fontSize: "clamp(11px, 1.6vw, 24px)", color: text, opacity: 0.8 }}>
         {backups.map((winner) => winner.name).join(" · ")}
       </p>
     </div>}

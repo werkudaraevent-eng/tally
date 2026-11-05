@@ -152,7 +152,7 @@ export function DartAnimation3D(props: AnimationProps) {
       {done && <p key={`sr-${round}`} className="sr-only">{shown.map((winner) => winner.name).join(", ")}</p>}
       {done && backups.length > 0 && <motion.p
         key={`cadangan-${round}`}
-        className="absolute bottom-[3%] left-1/2 line-clamp-2 max-w-[92%] -translate-x-1/2 rounded-[1.2em] px-[2.4%] py-[0.6%] text-center"
+        className="gs-plate absolute bottom-[3%] left-1/2 line-clamp-2 max-w-[92%] -translate-x-1/2 rounded-[1.2em] px-[2.4%] py-[0.6%] text-center"
         style={{ fontFamily, fontSize: "clamp(11px, 1.8vh, 24px)", color: "#FFFFFF", background: "rgba(0, 0, 0, 0.55)" }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -230,6 +230,9 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
   const wall = new T.Mesh(keep(new T.PlaneGeometry(40, 24)), keep(new T.ShadowMaterial({ opacity: 0.45 })));
   wall.position.z = -0.09;
   wall.receiveShadow = true;
+  // Green screen: bayangan di dinding transparan menjadi hijau gelap yang tidak
+  // ter-key. Papan gabusnya sendiri tetap berbayang.
+  wall.visible = !canvas.closest(".undian-gs");
   scene.add(wall);
 
   const board = new T.Group();

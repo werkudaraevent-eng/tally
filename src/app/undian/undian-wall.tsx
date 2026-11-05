@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { expressive } from "@/lib/m3/motion";
 import { readableOn } from "@/lib/color";
 import { initialsOf } from "@/lib/undian";
 import { WALL_WAVE_MS, type AnimationProps } from "./undian-animations";
+import { GreenScreenContext } from "./undian-stage-fx";
 
 // ===========================================================================
 // Spotlight wall (Dinding Sorot)
@@ -102,6 +103,7 @@ export function fitCards(count: number, longest: number, width: number, height: 
 
 export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamily, round, poolSize, wallTiles }: AnimationProps) {
   const reduceMotion = useReducedMotion() ?? false;
+  const greenScreen = useContext(GreenScreenContext);
   const drawing = winners.length === 0;
   const main = useMemo(() => winners.filter((winner) => !winner.is_backup), [winners]);
   const backups = useMemo(() => winners.filter((winner) => winner.is_backup), [winners]);
@@ -277,6 +279,11 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   }, [drawing, endsAt, reduceMotion, round]);
 
   const onAccent = readableOn(accent);
+  // Green screen: ubin tembus pandang di atas hijau ter-key menjadi bayangan
+  // hijau samar. Ubin dibuat pekat di atas warna dasar yang kontras dengan
+  // teks, dan redupnya pindah ke warna, bukan opasitas.
+  const plate = readableOn(text);
+  const mix = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, ${plate})`;
   const gridStyle: CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
@@ -301,7 +308,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   return <div className="relative flex h-full min-h-0 w-full flex-col items-center justify-center overflow-hidden px-[3vw] py-[1.5vh]">
     <div ref={boxRef} className="relative min-h-0 w-full flex-1">
       {/* Dinding redup: semua nama, selalu terpasang. */}
-      <div aria-hidden className="absolute inset-0" style={{ ...gridStyle, opacity: showCards ? 0.28 : 1, transition: "opacity 600ms ease" }}>
+      <div aria-hidden className="absolute inset-0" style={{ ...gridStyle, opacity: showCards ? (greenScreen ? 0 : 0.28) : 1, transition: "opacity 600ms ease" }}>
         {tileNames.map((name, index) => {
           const on = litNow.has(index);
           const hot = !drawing && step > 0 && on;
@@ -323,6 +330,11 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
               transform: final ? "scale(1.18)" : on ? "scale(1)" : "scale(0.86)",
               boxShadow: final ? `0 0 ${tileH * 0.8}px ${accent}` : hot ? `0 0 ${tileH * 0.4}px ${accent}99` : "none",
               zIndex: final ? 2 : hot ? 1 : 0,
+              ...(greenScreen ? {
+                background: final ? accent : hot ? mix(accent, 70) : mix(text, on ? 14 : 7),
+                color: final || hot ? onAccent : mix(text, on ? 70 : 30),
+                opacity: showCards && winnerAt >= 0 ? 0 : 1,
+              } : {}),
               transition: reduceMotion ? "none" : `opacity 520ms ease ${(scatter(index, round) * 600).toFixed(0)}ms, transform 520ms ease, background 400ms ease, box-shadow 400ms ease`,
             }}
           >
@@ -416,7 +428,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
     </div>
 
     {/* Keterangan di bawah dinding: berapa nama yang tampil, dan cadangan. */}
-    <p className="mt-[1vh] shrink-0 text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.3vw, 20px)", color: text, opacity: 0.6 }}>
+    <p className="gs-solid mt-[1vh] shrink-0 text-center" style={{ fontFamily, fontSize: "clamp(10px, 1.3vw, 20px)", color: text, opacity: 0.6 }}>
       {showCards && backups.length > 0
         ? `Cadangan: ${backups.map((winner) => winner.name).join(" · ")}`
         : fixed
