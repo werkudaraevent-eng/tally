@@ -112,7 +112,15 @@ export function cariPeserta(nama: string, semua: PesertaBot[]): HasilCari & { ka
   const kunci = rapikanNama(nama);
   if (!kunci) return { jenis: "tidak_ada", pilihan: [], kandidat: [] };
   const persis = semua.filter((orang) => rapikanNama(orang.name) === kunci);
-  if (persis.length === 1) return { jenis: "satu", peserta: persis[0], kandidat: persis };
+  if (persis.length === 1) {
+    // Persis tapi ada nama lain yang memuat semua kata itu ("Saiful Bahri" dan
+    // "Saiful Bahri (OB)"): kunci kamar sering hanya bertulis nama pendek,
+    // jadi ini tetap ditanyakan (atau dipastikan lewat teman sekamar).
+    const serupa = semua.filter((orang) => orang !== persis[0] && (skorNama(kunci, orang.name) ?? 1) < 1);
+    if (!serupa.length) return { jenis: "satu", peserta: persis[0], kandidat: persis };
+    const urut = [persis[0], ...serupa];
+    return { jenis: "kembar", pilihan: urut.slice(0, MAKS_PILIHAN), kandidat: urut.slice(0, MAKS_KANDIDAT) };
+  }
   if (persis.length > 1) return { jenis: "kembar", pilihan: persis.slice(0, MAKS_PILIHAN), kandidat: persis.slice(0, MAKS_KANDIDAT) };
   // Pencarian terlalu pendek tidak memberi pilihan: satu huruf akan
   // mendaftar nama siapa saja yang kebetulan berawalan huruf itu.

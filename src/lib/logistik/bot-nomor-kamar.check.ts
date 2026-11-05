@@ -108,6 +108,18 @@ assert.deepEqual(cariPeserta("Zainal Abidin", tim), { jenis: "tidak_ada", piliha
 // Satu kata foto tidak boleh dipakai dua kali untuk dua kata nama.
 assert.equal(skorNama("Wijaya Wijaya", "Andi Wijaya"), null);
 
+// Nama sama, satu berlabel: nama pendek tidak dipilihkan, nama berlabel boleh.
+const kembarLabel = [
+  { id: "s1", name: "Saiful Bahri", company: null },
+  { id: "s2", name: "Saiful Bahri (OB)", company: null },
+  { id: "s3", name: "Saiful Anwar", company: null },
+];
+assert.deepEqual(cariPeserta("Saiful Bahri", kembarLabel), { jenis: "kembar", pilihan: [kembarLabel[0], kembarLabel[1]] });
+assert.deepEqual(cariPeserta("saiful bahri ob", kembarLabel), { jenis: "satu", peserta: kembarLabel[1] });
+assert.deepEqual(cariPeserta("Saiful Bahri (OB)", kembarLabel), { jenis: "satu", peserta: kembarLabel[1] });
+// Salah ketik saja (skor 1) tidak membuat nama persis menjadi ragu.
+assert.deepEqual(cariPeserta("Andi Wijaya", tim), { jenis: "satu", peserta: tim[4] });
+
 // Dua nama di satu kunci: hanya pasangan yang sekamar.
 const penghuni = [
   { participant_id: "r", room_id: 609 }, { participant_id: "h", room_id: 609 },
