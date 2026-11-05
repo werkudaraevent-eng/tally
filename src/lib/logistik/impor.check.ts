@@ -587,4 +587,38 @@ const ulangNomor = rencanaKamar(unduhLabel.map((b, i) => (i > 0 ? [...b.slice(0,
 assert.deepEqual(ulangNomor.kamarUbah, [{ id: 40, nama: "Kamar 01", hotel: "Mulia", room_number: "1301" }]);
 assert.deepEqual(ulangNomor.akhir, []);
 
+// Satu label untuk dua kelompok di malam berbeda (GH20): dipisah jadi dua kamar, kecuali "Same room".
+const gh = [
+  ["Hotel", "Room label", "Check-in", "Check-out", "Name"],
+  ["Mulia", "GH20", "05/11/2026", "06/11/2026", "Andi Pratama"],
+  ["Mulia", "GH20", "05/11/2026", "06/11/2026", "Budi Santoso"],
+  ["Mulia", "GH20", "06/11/2026", "08/11/2026", "Citra Lestari"],
+  ["Mulia", "GH20", "06/11/2026", "08/11/2026", "Dewi"],
+];
+const ghPisah = rencanaKamar(gh, bebas);
+assert.equal(ghPisah.galat, null);
+assert.deepEqual(ghPisah.labelDipecah?.map((d) => d.periode.map((p) => `${p.label}:${p.nama.join("+")}`)), [["GH20:Andi Pratama+Budi Santoso", "GH20 · 6 Nov:Citra Lestari+Dewi"]]);
+assert.deepEqual(ghPisah.kamarBaru.map((k) => k.label).sort(), ["GH20", "GH20 · 6 Nov"]);
+assert.deepEqual(ghPisah.baris.map((b) => b.status), ["masuk", "masuk", "masuk", "masuk"]);
+const ghSatu = rencanaKamar(gh, bebas, { labelSatuKamar: true });
+assert.deepEqual(ghSatu.kamarBaru.map((k) => k.label), ["GH20"]);
+assert.equal(ghSatu.labelDipecah?.length, 1);
+// Sudah satu kamar GH20 = 1210 berisi keempatnya (keadaan KSO).
+const ghAda = { ...bebas, rooms: [...bebas.rooms, { id: 50, hotel_id: 1, room_number: "1210", label: "GH20", capacity: 2 }],
+  lodging: [
+    { participant_id: "a", hotel_id: 1, room_id: 50, check_in_at: "2026-11-05T07:00:00.000Z", check_out_at: "2026-11-06T05:00:00.000Z" },
+    { participant_id: "b", hotel_id: 1, room_id: 50, check_in_at: "2026-11-05T07:00:00.000Z", check_out_at: "2026-11-06T05:00:00.000Z" },
+    { participant_id: "c", hotel_id: 1, room_id: 50, check_in_at: "2026-11-06T07:00:00.000Z", check_out_at: "2026-11-08T05:00:00.000Z" },
+    { participant_id: "d", hotel_id: 1, room_id: 50, check_in_at: "2026-11-06T07:00:00.000Z", check_out_at: "2026-11-08T05:00:00.000Z" },
+  ] };
+const denganNomor = (pilih: (nama: string) => string) => [["Hotel", "Room label", "Room number", "Check-in", "Check-out", "Name"], ...gh.slice(1).map((b) => [b[0], b[1], pilih(b[4]), b[2], b[3], b[4]])];
+// Download current stays ditulis ulang (nomor di setiap baris): tidak dipecah, tidak ada yang ditolak.
+const pulangPergi = rencanaKamar(denganNomor(() => "1210"), ghAda);
+assert.deepEqual(pulangPergi.labelDipecah, []);
+assert.ok(pulangPergi.baris.every((b) => b.status !== "tolak"));
+// 1210 hanya untuk kelompok 6–8 Nov: kelompok itu tetap di GH20, kelompok 5–6 Nov pindah ke kamar baru.
+const nomorBelakang = rencanaKamar(denganNomor((n) => (n === "Citra Lestari" || n === "Dewi" ? "1210" : "")), ghAda);
+assert.ok(nomorBelakang.baris.every((b) => b.status !== "tolak"));
+assert.deepEqual(nomorBelakang.labelDipecah?.[0].periode.map((p) => [p.label, p.tetap, p.nomor]), [["GH20 · 5 Nov", false, null], ["GH20", true, "1210"]]);
+
 console.log("impor.check: ok");

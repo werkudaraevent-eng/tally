@@ -6,7 +6,7 @@ import { Banner, Button, Dialog, SegmentedButton, StatusDot } from "@/components
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
-import type { BarisRencana, JenisImpor, KamarUbah, Rencana, StatusBaris } from "@/lib/logistik/impor";
+import type { BarisRencana, JenisImpor, KamarUbah, LabelDipecah, Rencana, StatusBaris } from "@/lib/logistik/impor";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
@@ -60,6 +60,8 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   const [proses, setProses] = useState<"baca" | "simpan" | null>(null);
   const [hanyaTolak, setHanyaTolak] = useState(false);
   const [bukaUntuk, setBukaUntuk] = useState<JenisImpor | null>(null);
+  // "Same room" untuk label yang dipakai kelompok berbeda di malam lain; bawaannya dipisah.
+  const [labelSatu, setLabelSatu] = useState(false);
 
   // Keadaan dikosongkan setiap kali dialog dibuka, dengan jenis dari tab yang
   // sedang tampil. Disetel saat render, bukan di efek, supaya tidak ada satu
@@ -72,14 +74,16 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     setHasil(null);
     setGalat("");
     setHanyaTolak(false);
+    setLabelSatu(false);
   }
   if (!open && bukaUntuk !== null) setBukaUntuk(null);
 
-  const kirim = async (file: File, jenisBerkas: JenisImpor, simpan: boolean) => {
+  const kirim = async (file: File, jenisBerkas: JenisImpor, simpan: boolean, satu = labelSatu) => {
     const form = new FormData();
     form.set("file", file);
     form.set("jenis", jenisBerkas);
     if (simpan) form.set("simpan", "1");
+    if (satu) form.set("label_satu", "1");
     const response = await fetch(eventApiPath("/api/admin/logistik/impor"), { method: "POST", body: form }).catch(() => null);
     if (!response) return { galat: "Connection failed. Try again." };
     const json = await response.json().catch(() => ({}));
@@ -87,7 +91,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     return json as { rencana: Rencana; hasil?: Hasil };
   };
 
-  const baca = async (file: File | null, jenisBerkas: JenisImpor) => {
+  const baca = async (file: File | null, jenisBerkas: JenisImpor, satu = labelSatu) => {
     setBerkas(file);
     setRencana(null);
     setHasil(null);
@@ -95,7 +99,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     setHanyaTolak(false);
     if (!file) return;
     setProses("baca");
-    const jawaban = await kirim(file, jenisBerkas, false);
+    const jawaban = await kirim(file, jenisBerkas, false, satu);
     setProses(null);
     if ("galat" in jawaban) setGalat(jawaban.galat);
     else setRencana(jawaban.rencana);
@@ -215,7 +219,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                   // Dikosongkan supaya memilih berkas yang sama lagi (setelah
                   // dibetulkan di Excel) tetap memicu pratinjau baru.
                   event.target.value = "";
-                  void baca(file, jenis);
+                  // Berkas baru mulai lagi dari pilihan yang disarankan.
+                  setLabelSatu(false);
+                  void baca(file, jenis, false);
                 }}
               />
             </label>
@@ -281,6 +287,14 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                 {dibuatNanti.length > 0 ? <span>Will be created: {dibuatNanti.join(", ")}</span> : null}
                 {kamarDiubah > 0 ? <span>Will be updated: {plural(kamarDiubah, "room")}</span> : null}
               </div>
+              {rencana.labelDipecah && rencana.labelDipecah.length > 0 ? (
+                <LabelGanda
+                  dipecah={rencana.labelDipecah}
+                  satu={labelSatu}
+                  disabled={proses !== null}
+                  onChange={(satu) => { setLabelSatu(satu); void baca(berkas, jenis, satu); }}
+                />
+              ) : null}
               {rencana.kolomDibaca && rencana.kolomDibaca.length > 0 ? <KolomDibaca kolom={rencana.kolomDibaca} /> : null}
               {kamarDiubah > 0 ? <KamarDiubah kamar={rencana.kamarUbah!} /> : null}
 
@@ -344,6 +358,70 @@ function ContohStay() {
       </p>
     </div>
   );
+}
+
+/**
+ * Label yang dipakai kelompok berbeda di malam lain (GH20: dua orang 5–6 Nov,
+ * dua orang lain 6–8 Nov). Bawaannya dipisah jadi kamar sendiri per periode,
+ * supaya nomor kamar untuk satu periode tidak sampai ke kelompok lain. "Same
+ * room" untuk kamar fisik yang memang dipakai bergantian.
+ */
+function LabelGanda({ dipecah, satu, disabled, onChange }: { dipecah: LabelDipecah[]; satu: boolean; disabled: boolean; onChange: (satu: boolean) => void }) {
+  const banyakHotel = new Set(dipecah.map((d) => kunciTeks(d.hotel))).size > 1;
+  const tampil = dipecah.slice(0, 5);
+  const opsi = (nilai: boolean, judul: string, keterangan: string) => (
+    <label className={cx("flex cursor-pointer items-start gap-3 px-4 py-2.5 text-body-medium hover:bg-panel-high", satu === nilai && "bg-accent-soft", disabled && "pointer-events-none opacity-60")}>
+      <input type="radio" name="label-ganda" checked={satu === nilai} disabled={disabled} onChange={() => onChange(nilai)} className="mt-1 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-on-surface">{judul}</span>
+        <span className="block text-on-surface-variant">{keterangan}</span>
+      </span>
+    </label>
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      <Banner tone="warning" icon={<Warning size={18} />}>
+        <span className="block font-medium">
+          {dipecah.length === 1 ? `Room label ${dipecah[0].label} is used by different people on different nights` : `${dipecah.length} room labels are used by different people on different nights`}
+        </span>
+        <ul className="mt-1 flex flex-col gap-2">
+          {tampil.map((d) => (
+            <li key={`${d.hotel}\u0000${d.label}`}>
+              {dipecah.length > 1 || banyakHotel ? <span className="block font-medium">{d.label}{banyakHotel ? ` · ${d.hotel}` : ""}</span> : null}
+              {d.periode.map((p, j) => (
+                <span key={j} className="block">
+                  {p.malam ? <span className="font-medium tabular-nums">{rentangTeks(p.malam)}: </span> : null}
+                  {p.nama.join(", ")}
+                  {satu ? null : (
+                    <span className="block pl-4 text-body-small">
+                      {p.tetap ? `Stays in ${p.label}` : `New room ${p.label}`}
+                      {p.nomor ? `, room number ${p.nomor}` : ", room number to follow"}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </li>
+          ))}
+          {dipecah.length > tampil.length ? <li>and {dipecah.length - tampil.length} more</li> : null}
+        </ul>
+      </Banner>
+      <fieldset className="rounded-md border border-outline-variant">
+        <legend className="sr-only">Reused room labels</legend>
+        {opsi(false, "Separate rooms (recommended)", `Each group gets its own room, e.g. ${dipecah[0].periode.map((p) => p.label).join(" and ")}, and later its own room number.`)}
+        <div className="border-t border-outline-variant">
+          {opsi(true, "Same room", "One room used by both groups on different nights. A room number given later reaches everyone.")}
+        </div>
+      </fieldset>
+    </div>
+  );
+}
+
+const kunciTeks = (teks: string) => teks.trim().toLowerCase();
+const BULAN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "5–6 Nov" dari tanggal YYYY-MM-DD. */
+function rentangTeks(malam: { masuk: string; keluar: string }) {
+  const [a, b] = [malam.masuk, malam.keluar].map((t) => ({ hari: Number(t.slice(8, 10)), bulan: BULAN[Number(t.slice(5, 7)) - 1] }));
+  return a.bulan === b.bulan ? `${a.hari}–${b.hari} ${b.bulan}` : `${a.hari} ${a.bulan} – ${b.hari} ${b.bulan}`;
 }
 
 /** Kolom berkas dan isian yang dibacanya, supaya judul yang berbeda dari templat terlihat sebelum disimpan. */
