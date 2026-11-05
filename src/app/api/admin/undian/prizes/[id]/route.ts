@@ -3,7 +3,7 @@ import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { STAGE_NOTE_MAX, auditPrize, normalizePrize, type UndianConditionNode } from "@/lib/undian";
+import { STAGE_NOTE_MAX, auditPrize, maxWinnersPerDraw, normalizePrize, type UndianConditionNode } from "@/lib/undian";
 import { unknownAnswerError } from "@/lib/undian-pool";
 import { bonusRulesSchema } from "@/lib/undian-bonus-schema";
 import { PRIZE_COLUMNS } from "../route";
@@ -70,9 +70,10 @@ const patchSchema = z.object({
   winners_per_draw: z.number().int().min(1).max(50).optional(),
   winner_quota: z.number().int().min(1).max(500).optional(),
   backup_per_draw: z.number().int().min(0).max(20).optional(),
-  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "instant"]).optional(),
+  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "tunnel", "drum", "instant"]).optional(),
   wall_names: z.enum(["full", "initials"]).optional(),
   wall_tiles: z.enum(["all", "fixed"]).optional(),
+  anim_speed: z.enum(["slow", "normal", "fast"]).optional(),
   spin_mode: z.enum(["timed", "manual"]).optional(),
   spin_seconds: z.number().min(1).max(60).optional(),
   source: z.enum(["participants", "entries"]).optional(),
@@ -125,6 +126,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   if (merged.winners_per_draw + merged.backup_per_draw > 60) {
     return apiError("VALIDATION_ERROR", 422, { fieldErrors: { backup_per_draw: ["Pemenang + cadangan per undi maksimal 60."] } });
+  }
+  if (merged.winners_per_draw > maxWinnersPerDraw(merged.animation)) {
+    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { winners_per_draw: [`Animasi ini memuat paling banyak ${maxWinnersPerDraw(merged.animation)} pemenang per undi.`] } });
   }
 
   const { data, error } = await client

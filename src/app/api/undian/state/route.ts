@@ -2,7 +2,7 @@ import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
-import { normalizeAfterWin, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
+import { normalizeAfterWin, normalizeAnimSpeed, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
 
 // State undian untuk layar panggung. PUBLIK — proyektor berjalan tanpa login.
 //
@@ -29,7 +29,7 @@ const STATE_ROW = "mode,rehearsal,active_prize_id,phase,draw_round,spin_started_
 const SETTINGS_ROW =
   `page_title,page_subtitle,name_display,show_company,show_seat,show_lineup,show_pool_size,sound_enabled,confetti_enabled,` +
   `reveal_delay_seconds,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
-const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,wall_tiles,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
+const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,wall_tiles,anim_speed,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
 
 type PendingWinner = {
   ref: string;
@@ -124,6 +124,7 @@ export async function GET(request: Request) {
         sponsor_name: (row.sponsor_name as string | null) ?? null,
         animation: row.animation as UndianState["prize"] extends null ? never : NonNullable<UndianState["prize"]>["animation"],
         wall_tiles: row.wall_tiles === "fixed" ? "fixed" : "all",
+        anim_speed: normalizeAnimSpeed(row.anim_speed),
         spin_seconds: Number(row.spin_seconds),
         winners_per_draw: Number(row.winners_per_draw),
         winner_quota: Number(row.winner_quota),

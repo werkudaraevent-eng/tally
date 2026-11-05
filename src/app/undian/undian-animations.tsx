@@ -48,6 +48,8 @@ export type AnimationProps = {
   poolSize?: number;
   /** Spotlight wall: `fixed` = dinding penuh dengan nama bergantian. */
   wallTiles?: "all" | "fixed";
+  /** Terowongan nama dan Tabung bola: kecepatan gerak selama mengundi. */
+  speed?: "slow" | "normal" | "fast";
 };
 
 /**
@@ -58,6 +60,33 @@ export type AnimationProps = {
 export const WALL_WAVE_MS = 1300;
 /** Saat kartu pemenang Spotlight wall mulai terbang, dihitung dari nama tiba. */
 export const WALL_CARDS_AT_MS = 250 + 3 * WALL_WAVE_MS;
+
+/** Terowongan nama: lama nama pemenang terbang dari ujung sampai berhenti di depan. */
+export const TUNNEL_ARRIVE_MS = 2400;
+/** Jarak tiba antar pemenang di terowongan. Tiga nama atau kurang mendapat jeda lebih lama. */
+export function tunnelGapMs(count: number): number {
+  return count <= 3 ? 2000 : 1400;
+}
+/** Tabung bola: bola pertama tiba di nampan, dihitung dari pemenang datang. */
+export const DRUM_FIRST_LAND_MS = 3200;
+/** Jarak antar bola yang jatuh dari tabung. */
+export const DRUM_DROP_GAP_MS = 2000;
+/** Terowongan dan tabung: jeda dari pemenang terakhir tiba sampai daftar nama tampil. */
+export const LIST_AFTER_MS = 800;
+
+/**
+ * Jeda confetti, ledakan, dan fanfare dari saat pemenang datang. Animasi yang
+ * butuh beberapa detik sebelum nama pertama terbaca menunggu nama itu, supaya
+ * perayaan tidak mendahului nama.
+ */
+export function revealFxDelayMs(animation: string): number {
+  switch (animation) {
+    case "wall": return WALL_CARDS_AT_MS;
+    case "tunnel": return TUNNEL_ARRIVE_MS;
+    case "drum": return DRUM_FIRST_LAND_MS;
+    default: return 0;
+  }
+}
 
 /** Nama cadangan saat kolam belum termuat, supaya animasi tidak kosong. */
 const PLACEHOLDER = ["• • •", "• • • •", "• • •"];
@@ -1321,6 +1350,15 @@ export function revealSettleMs(animation: string, winners: { is_backup: boolean 
     case "dart": return n * 70 + 1300;
     // Mulai 250 ms, tiga langkah gelombang, lalu kartu terbang (~900 ms) satu per satu.
     case "wall": return WALL_CARDS_AT_MS + 900 + Math.min((n - 1) * 220, 1200);
+    // Pemenang tiba satu per satu, lalu daftar nama tampil dengan jeda per nama (WinnerList).
+    case "tunnel": {
+      const shown = Math.min(n, 10);
+      return TUNNEL_ARRIVE_MS + (shown - 1) * tunnelGapMs(shown) + LIST_AFTER_MS + Math.min(n * 350, 2000);
+    }
+    case "drum": {
+      const shown = Math.min(n, 6);
+      return DRUM_FIRST_LAND_MS + (shown - 1) * DRUM_DROP_GAP_MS + LIST_AFTER_MS + Math.min(n * 350, 2000);
+    }
     default: return Math.min(n * 350, 2000) + 600;
   }
 }
