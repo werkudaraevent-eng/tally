@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { cariPeserta, pilihKamar, rapikanNama, rapikanNomor } from "./bot-nomor-kamar.ts";
+import { cariPeserta as cariLengkap, jarakKata, pasanganSekamar, pilihKamar, rapikanNama, rapikanNomor, skorNama } from "./bot-nomor-kamar.ts";
+
+/** Bentuk lama tanpa `kandidat`, supaya uji di bawah tetap ringkas. */
+const cariPeserta = (...args: Parameters<typeof cariLengkap>) => { const hasil: Partial<ReturnType<typeof cariLengkap>> = { ...cariLengkap(...args) }; delete hasil.kandidat; return hasil; };
 
 const orang = [
   { id: "a", name: "Andi Pratama", company: "PT A" },
@@ -76,5 +79,44 @@ assert.deepEqual(pilihKamar({ stays: [s(20, 2)], kamar, hotel, tanggal: "2026-11
 // Satu kamar, dua stay terpisah: rentang pertama..terakhir.
 assert.deepEqual(pilihKamar({ stays: [s(10, 1, "2026-11-06T07:00:00Z", "2026-11-07T05:00:00Z"), s(10, 1, "2026-11-07T07:00:00Z", "2026-11-08T05:00:00Z")], kamar, hotel }),
   { jenis: "satu", kamar: kamar[0], malam: { check_in: "2026-11-06", check_out: "2026-11-08" } });
+
+// Ejaan tidak persis (foto kunci kamar 609): singkatan dan salah ketik.
+const tim = [
+  { id: "r", name: "Muhammad Rivaldi", company: null },
+  { id: "h", name: "Muhammad Hafidz", company: null },
+  { id: "h2", name: "Muhammad Hafiz Ramadhan", company: null },
+  { id: "rs", name: "Muhammad Rivaldi Saputra", company: null },
+  { id: "an", name: "Andi Wijaya", company: null },
+  { id: "in", name: "Indi Wijaya", company: null },
+  { id: "x", name: "Rina Kusuma", company: null },
+];
+assert.equal(jarakKata("hafdiz", "hafidz"), 1);
+assert.equal(jarakKata("hafiz", "hafidz"), 1);
+// Singkatan Muh = Muhammad: tetap kandidat, tidak dipilih otomatis; yang paling pas di atas.
+const riv = cariLengkap("Muh rivaldi", tim);
+assert.equal(riv.jenis, "tidak_ada");
+assert.deepEqual(riv.jenis === "tidak_ada" && riv.pilihan.map((p) => p.id), ["r", "rs"]);
+const haf = cariLengkap("Muhammad hafdiz", tim);
+assert.deepEqual(haf.jenis === "tidak_ada" && haf.pilihan.map((p) => p.id), ["h", "h2"]);
+assert.deepEqual(cariPeserta("M. Hafidz", tim), { jenis: "tidak_ada", pilihan: [tim[1], tim[2]] });
+assert.deepEqual(cariPeserta("Moh Rivaldi Saputra", tim), { jenis: "tidak_ada", pilihan: [tim[3]] });
+// Kata 4 huruf: satu huruf beda boleh, tapi tidak menebak kata pendek.
+assert.equal(skorNama("Andi", "Indi Wijaya"), 1.1);
+assert.equal(skorNama("Ani", "Andi Wijaya"), null);
+assert.equal(skorNama("Rina Kusuma", "Rina"), null);
+assert.deepEqual(cariPeserta("Zainal Abidin", tim), { jenis: "tidak_ada", pilihan: [] });
+// Satu kata foto tidak boleh dipakai dua kali untuk dua kata nama.
+assert.equal(skorNama("Wijaya Wijaya", "Andi Wijaya"), null);
+
+// Dua nama di satu kunci: hanya pasangan yang sekamar.
+const penghuni = [
+  { participant_id: "r", room_id: 609 }, { participant_id: "h", room_id: 609 },
+  { participant_id: "rs", room_id: 610 }, { participant_id: "h2", room_id: 611 },
+  { participant_id: "an", room_id: null },
+];
+assert.deepEqual(pasanganSekamar(["r", "rs"], ["h", "h2"], penghuni), [{ participant_id: "r", room_id: 609 }]);
+assert.deepEqual(pasanganSekamar(["rs"], ["h", "h2"], penghuni), []);
+// Nama yang sama untuk keduanya bukan bukti sekamar.
+assert.deepEqual(pasanganSekamar(["r"], ["r"], penghuni), []);
 
 console.log("bot-nomor-kamar ok");

@@ -31,27 +31,125 @@ export type HasilCari =
   | { jenis: "tidak_ada"; pilihan: PesertaBot[] };
 
 const MAKS_PILIHAN = 5;
+/** Kandidat yang dipakai untuk mencocokkan teman sekamar (lebih banyak dari yang ditampilkan). */
+export const MAKS_KANDIDAT = 20;
 
 /**
- * Cocok PERSIS (setelah dirapikan) atau tidak sama sekali. Nama dari foto
- * yang terpotong ("Budi S") tidak pernah dipilihkan otomatis: kandidat yang
- * memuat semua kata pencarian dikembalikan sebagai pilihan.
+ * Singkatan dan ejaan nama yang lazim di Indonesia, ke satu bentuk. Daftar
+ * ini sengaja pendek: tiap entri harus jelas satu nama, bukan tebakan.
  */
-export function cariPeserta(nama: string, semua: PesertaBot[]): HasilCari {
+const ALIAS_KATA: Record<string, string> = {
+  m: "muhammad", muh: "muhammad", moh: "muhammad", mhd: "muhammad", mohd: "muhammad", moch: "muhammad",
+  mochammad: "muhammad", mochamad: "muhammad", mohammad: "muhammad", mohamad: "muhammad", muhamad: "muhammad",
+  muhammmad: "muhammad", muchammad: "muhammad", muchamad: "muhammad",
+  abd: "abdul", achmad: "ahmad", akhmad: "ahmad", ahmed: "ahmad",
+};
+const bentuk = (kata: string) => ALIAS_KATA[kata] ?? kata;
+
+/** Jarak Damerau-Levenshtein terbatas (tukar dua huruf bersebelahan = 1). */
+export function jarakKata(a: string, b: string): number {
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const biaya = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + biaya);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+/**
+ * Seberapa jauh kata dari foto (`q`) dari kata nama terdaftar (`n`). Null =
+ * tidak cocok. 0 = sama (termasuk singkatan baku), 0.5 = awalan ("Rival" untuk
+ * "Rivaldi", "S" untuk "Santoso"), 1-2 = salah ketik. Salah ketik hanya untuk kata 4+ huruf, dua
+ * huruf hanya untuk 8+ huruf, supaya "Andi" tidak menjadi "Indi".
+ */
+function selisihKata(q: string, n: string): number | null {
+  const bq = bentuk(q);
+  const bn = bentuk(n);
+  if (bq === bn) return 0;
+  if (n.startsWith(q)) return 0.5;
+  const pendek = Math.min(bq.length, bn.length);
+  const batas = pendek >= 8 ? 2 : pendek >= 4 ? 1 : 0;
+  if (!batas) return null;
+  const jarak = jarakKata(bq, bn);
+  return jarak <= batas ? jarak : null;
+}
+
+/** Skor kecocokan nama (lebih kecil lebih mirip), atau null. Tiap kata foto harus cocok dengan kata nama yang berbeda. */
+export function skorNama(cari: string, nama: string): number | null {
+  const q = rapikanNama(cari).split(" ").filter(Boolean);
+  const n = rapikanNama(nama).split(" ").filter(Boolean);
+  if (!q.length || q.length > n.length) return null;
+  let total = 0;
+  const terpakai = new Set<number>();
+  for (const kata of q) {
+    let terbaik: { i: number; s: number } | null = null;
+    n.forEach((isi, i) => {
+      if (terpakai.has(i)) return;
+      const s = selisihKata(kata, isi);
+      if (s !== null && (!terbaik || s < terbaik.s)) terbaik = { i, s };
+    });
+    if (!terbaik) return null;
+    const pilih = terbaik as { i: number; s: number };
+    terpakai.add(pilih.i);
+    total += pilih.s;
+  }
+  // Kata nama yang tidak disebut di foto menambah sedikit, supaya "Muh Rivaldi"
+  // lebih dekat ke "Muhammad Rivaldi" daripada ke "Muhammad Rivaldi Saputra".
+  return total + (n.length - q.length) * 0.1;
+}
+
+/**
+ * Cocok PERSIS (setelah dirapikan) = dipilih. Selain itu tidak pernah
+ * dipilihkan otomatis: kandidat yang mirip (singkatan, awalan, salah ketik)
+ * dikembalikan urut dari yang paling mirip. `kandidat` = sampai MAKS_KANDIDAT
+ * untuk dicocokkan dengan teman sekamar; `pilihan` = lima teratas untuk ditanyakan.
+ */
+export function cariPeserta(nama: string, semua: PesertaBot[]): HasilCari & { kandidat: PesertaBot[] } {
   const kunci = rapikanNama(nama);
-  if (!kunci) return { jenis: "tidak_ada", pilihan: [] };
+  if (!kunci) return { jenis: "tidak_ada", pilihan: [], kandidat: [] };
   const persis = semua.filter((orang) => rapikanNama(orang.name) === kunci);
-  if (persis.length === 1) return { jenis: "satu", peserta: persis[0] };
-  if (persis.length > 1) return { jenis: "kembar", pilihan: persis.slice(0, MAKS_PILIHAN) };
+  if (persis.length === 1) return { jenis: "satu", peserta: persis[0], kandidat: persis };
+  if (persis.length > 1) return { jenis: "kembar", pilihan: persis.slice(0, MAKS_PILIHAN), kandidat: persis.slice(0, MAKS_KANDIDAT) };
   // Pencarian terlalu pendek tidak memberi pilihan: satu huruf akan
   // mendaftar nama siapa saja yang kebetulan berawalan huruf itu.
-  if (kunci.replace(/ /g, "").length < 3) return { jenis: "tidak_ada", pilihan: [] };
-  const kata = kunci.split(" ");
-  const mirip = semua.filter((orang) => {
-    const isi = ` ${rapikanNama(orang.name)} `;
-    return kata.every((k) => isi.includes(` ${k}`));
-  });
-  return { jenis: "tidak_ada", pilihan: mirip.slice(0, MAKS_PILIHAN) };
+  if (kunci.replace(/ /g, "").length < 3) return { jenis: "tidak_ada", pilihan: [], kandidat: [] };
+  const mirip = semua
+    .map((orang) => ({ orang, skor: skorNama(kunci, orang.name) }))
+    .filter((x): x is { orang: PesertaBot; skor: number } => x.skor !== null)
+    .sort((x, y) => x.skor - y.skor || x.orang.name.localeCompare(y.orang.name))
+    .map((x) => x.orang);
+  return { jenis: "tidak_ada", pilihan: mirip.slice(0, MAKS_PILIHAN), kandidat: mirip.slice(0, MAKS_KANDIDAT) };
+}
+
+/**
+ * Dua nama di satu kunci kamar: pasangan (peserta A, kamar) yang SEKAMAR
+ * dengan salah satu kandidat B. Satu pasangan saja = bukti kuat, dua bacaan
+ * foto yang terpisah menunjuk kamar yang sama.
+ */
+export function pasanganSekamar(
+  kandidatA: string[],
+  kandidatB: string[],
+  penghuni: Array<{ participant_id: string; room_id: number | null }>,
+): Array<{ participant_id: string; room_id: number }> {
+  const b = new Set(kandidatB);
+  const kamarB = new Map<number, Set<string>>();
+  for (const baris of penghuni) {
+    if (baris.room_id === null || !b.has(baris.participant_id)) continue;
+    kamarB.set(baris.room_id, (kamarB.get(baris.room_id) ?? new Set()).add(baris.participant_id));
+  }
+  const a = new Set(kandidatA);
+  const hasil = new Map<string, { participant_id: string; room_id: number }>();
+  for (const baris of penghuni) {
+    if (baris.room_id === null || !a.has(baris.participant_id)) continue;
+    const lain = kamarB.get(baris.room_id);
+    if (!lain || ![...lain].some((id) => id !== baris.participant_id)) continue;
+    hasil.set(`${baris.participant_id}:${baris.room_id}`, { participant_id: baris.participant_id, room_id: baris.room_id });
+  }
+  return [...hasil.values()];
 }
 
 export type StayBot = { room_id: number | null; hotel_id: number; check_in_at: string | null; check_out_at: string | null };
