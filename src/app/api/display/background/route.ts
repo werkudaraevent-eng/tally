@@ -26,7 +26,9 @@ const ALLOWED = new Map<string, string>([
 // folder backgrounds — bekerja, tetapi menaruh gambar hadiah bercampur dengan
 // latar layar dan mempersulit penelusuran saat panitia mencari berkas salah unggah.
 // `badge`: latar depan dan belakang badge kertas yang dirancang di luar Tally.
-const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote", "landing", "email", "badge"]);
+// `pengumuman`: satu foto per pengumuman peserta (src/lib/pengumuman-foto.ts
+// hanya menerima URL dari folder ini).
+const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote", "landing", "email", "badge", "pengumuman"]);
 
 /**
  * Lebar dan tinggi dari kepala berkas (PNG IHDR, JPEG SOFn, WebP VP8/VP8L/VP8X),

@@ -101,6 +101,7 @@ const messages: Record<ApiErrorCode, string> = {
   ROOM_NOTICES_NOT_READY: "Room number emails are not active yet: database migration 202611040003 has not been run.",
   ANNOUNCEMENT_AUDIENCE_NOT_READY: "Sending to some participants needs a database update first (migration 202610300004). All accounts and Approved still work.",
   ANNOUNCEMENT_MATCH_ANY_NOT_READY: "Any condition needs a database update first (migration 202611040001). Choose All conditions for now.",
+  ANNOUNCEMENT_PHOTO_NOT_READY: "Photos need a database update first (migration 202611060001). Remove the photo to save for now.",
   BADGE_NOT_READY: "Badge kertas belum bisa disimpan: migrasi database 202610040002 belum dijalankan.",
   STASIUN_NOT_READY: "Print stations are not active yet: database migration 202610040009 has not been run.",
   // Menyebut SIAPA yang harus bertindak. Panitia yang membaca "gagal terkirim"

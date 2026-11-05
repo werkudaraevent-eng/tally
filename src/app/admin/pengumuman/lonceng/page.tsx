@@ -1,5 +1,6 @@
 "use client";
 
+import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { useBatasPesan } from "@/components/admin/page-context";
 import Link from "next/link";
 import { EnvelopeSimple, Info, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
@@ -49,6 +50,8 @@ type Item = {
   title: string;
   body: string;
   link_url: string | null;
+  image_url?: string | null;
+  image_alt?: string | null;
   link_label: string | null;
   audience: Audience;
   /** Ada setelah migrasi 202610300004. */
@@ -72,12 +75,16 @@ type Muat = {
   time_zone?: string;
   targeting_ready?: boolean;
   match_any_ready?: boolean;
+  /** Ada setelah migrasi 202611060001 (foto pengumuman). */
+  photo_ready?: boolean;
 };
 type Draft = {
   id: string | null;
   title: string;
   body: string;
   link_url: string;
+  image_url: string | null;
+  image_alt: string;
   link_label: string;
   audience: Audience;
   audience_rules: DrafSyarat | null;
@@ -86,7 +93,7 @@ type Draft = {
   pinned: boolean;
 };
 
-const KOSONG: Draft = { id: null, title: "", body: "", link_url: "", link_label: "", audience: "semua", audience_rules: null, audience_ids: [], audience_any: false, pinned: false };
+const KOSONG: Draft = { id: null, title: "", body: "", image_url: null, image_alt: "", link_url: "", link_label: "", audience: "semua", audience_rules: null, audience_ids: [], audience_any: false, pinned: false };
 
 const PENERIMA: Record<Audience, string> = {
   semua: "All participant accounts",
@@ -124,6 +131,8 @@ function keDraft(item: Item): Draft {
     title: item.title,
     body: item.body,
     link_url: item.link_url ?? "",
+    image_url: item.image_url ?? null,
+    image_alt: item.image_alt ?? "",
     link_label: item.link_label ?? "",
     audience: item.audience,
     // Hanya penerima yang berlaku; sisa pilihan lain tidak ikut dibandingkan.
@@ -232,6 +241,8 @@ export default function PengumumanPage() {
       body: draft.body,
       link_url: draft.link_url,
       link_label: draft.link_label,
+      // Foto hanya dikirim setelah migrasinya: sebelum itu kolomnya tidak ada.
+      ...(data?.photo_ready ? { image_url: draft.image_url, image_alt: draft.image_url ? draft.image_alt : "" } : {}),
       // Penerima hanya dikirim bila berubah: menyunting judul pengumuman lama
       // tidak memeriksa ulang syaratnya (mis. Hotel, yang tidak boleh diubah
       // akun peran kustom).
@@ -460,6 +471,32 @@ export default function PengumumanPage() {
                   onChange={(event) => setDraft((kini) => kini && { ...kini, body: event.target.value })}
                   hint="Press Enter for a new line. The bell shows only the first three lines."
                 />
+                {data?.photo_ready ? (
+                  <>
+                    <ImageUploadField
+                      label="Photo"
+                      hint="One photo, e.g. the team waiting at the station. JPG, PNG or WebP. Participants see it whole, never cropped, and can tap to enlarge."
+                      value={draft.image_url}
+                      onChange={(url) => setDraft((kini) => kini && { ...kini, image_url: url })}
+                      kind="pengumuman"
+                      previewClassName="h-28 w-44"
+                      fit="contain"
+                      perkecil={{ lebar: 1600, mutu: 0.85 }}
+                      disabled={simpan}
+                    />
+                    {draft.image_url ? (
+                      <TextField
+                        label="Describe the photo"
+                        optional
+                        maxLength={150}
+                        value={draft.image_alt}
+                        onChange={(event) => setDraft((kini) => kini && { ...kini, image_alt: event.target.value })}
+                        placeholder="e.g. Six organisers in navy shirts at Platform 4"
+                        hint="Read aloud by screen readers. Leave empty to use the title."
+                      />
+                    ) : null}
+                  </>
+                ) : null}
                 <TextField
                   label="Link"
                   optional

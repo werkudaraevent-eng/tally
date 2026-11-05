@@ -26,6 +26,9 @@ export type Announcement = {
   audience: AnnouncementAudience;
   pinned: boolean;
   published_at: string;
+  /** Satu foto opsional (migrasi foto pengumuman); null sebelum migrasinya. */
+  image_url?: string | null;
+  image_alt?: string | null;
 };
 
 export type MemberAnnouncements = {
@@ -47,6 +50,8 @@ export const ANNOUNCEMENT_COLUMNS = "id,title,body,link_url,link_label,audience,
 const KOLOM_PENERIMA = "audience_rules,audience_ids";
 /** Match: Any condition, dari migrasi 202611040001. */
 const KOLOM_SALAH_SATU = "audience_any";
+/** Satu foto per pengumuman, dari migrasi foto pengumuman. */
+const KOLOM_FOTO = "image_url,image_alt";
 
 /**
  * Pengumuman bersasaran yang dibaca sebelum disaring. Jauh di atas jumlah
@@ -82,13 +87,14 @@ export async function loadMemberAnnouncements(
   };
 
   const [hasil, akun] = await Promise.all([
-    kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU}`),
+    kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU},${KOLOM_FOTO}`),
     client.from("participant_accounts").select("announcements_seen_at").eq("id", sesi.accountId).maybeSingle(),
   ]);
   let { data, error } = hasil;
   // Sebelum migrasi 202611040001 audience_any belum ada (semua syarat harus
   // cocok), sebelum 202610300004 semua kolom penerima: baca seperti dulu.
   const belumAda = () => error?.code === "42703" || error?.code === "PGRST204";
+  if (belumAda()) ({ data, error } = await kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU}`));
   if (belumAda()) ({ data, error } = await kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA}`));
   if (belumAda()) ({ data, error } = await kueri(ANNOUNCEMENT_COLUMNS));
   if (error || !data) return { ready: false, items: [], unread: 0, seenAt: null };
@@ -127,6 +133,8 @@ async function saringUntukPeserta(
       audience: item.audience,
       pinned: item.pinned,
       published_at: item.published_at,
+      image_url: item.image_url ?? null,
+      image_alt: item.image_alt ?? null,
     }));
 }
 

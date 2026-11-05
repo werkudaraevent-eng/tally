@@ -68,6 +68,12 @@ export async function salahSatuSiap(): Promise<boolean> {
   return !error;
 }
 
+/** Foto pengumuman (image_url, image_alt) dari migrasi 202611060001. */
+export async function fotoSiap(): Promise<boolean> {
+  const { error } = await getSupabaseServiceClient().from("event_announcements").select("image_url,image_alt").limit(0);
+  return !error;
+}
+
 /** Id dalam potongan kecil supaya URL PostgREST `in.(...)` tetap pendek. */
 function potong<T>(isi: T[], ukuran = 100): T[][] {
   const hasil: T[][] = [];

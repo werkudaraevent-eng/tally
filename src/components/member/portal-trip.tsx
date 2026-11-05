@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FotoPengumuman } from "@/components/member/foto-pengumuman";
 import Link from "next/link";
 import { ArrowRight, ArrowSquareOut, ArrowsOut, Bell, CalendarPlus, CaretRight, Train } from "@phosphor-icons/react/dist/ssr";
 import { TeksKaya } from "@/components/landing/teks-kaya";
@@ -624,14 +625,14 @@ export function AgendaHariTrip({ judul, meta, butir }: { judul: string; meta: st
   );
 }
 
-export type PengumumanTripItem = { id: string; judul: string; isi: string | null; waktu: string; baru: boolean; disematkan: boolean; tautan: { href: string; label: string } | null };
+export type PengumumanTripItem = { id: string; judul: string; isi: string | null; waktu: string; baru: boolean; disematkan: boolean; tautan: { href: string; label: string } | null; foto?: { src: string; alt: string } | null };
 
 /**
  * Pengumuman dalam satu kartu berbaris (pola kotak masuk Traveloka): ubin
  * lonceng, waktu, judul, isi. Yang belum dibaca berlatar kuning pucat dengan
  * titik "Baru"; yang disematkan berpil di kanan.
  */
-export function PengumumanTrip({ item, teks }: { item: PengumumanTripItem[]; teks: { baru: string; disematkan: string; kosongJudul: string; kosongIsi: string } }) {
+export function PengumumanTrip({ item, teks, lang = "id" }: { item: PengumumanTripItem[]; teks: { baru: string; disematkan: string; kosongJudul: string; kosongIsi: string }; lang?: string }) {
   if (item.length === 0) {
     return (
       <div className={`${KARTU_TRIP} flex flex-col items-center gap-2 px-6 py-12 text-center`} style={{ color: TINTA }}>
@@ -668,6 +669,7 @@ export function PengumumanTrip({ item, teks }: { item: PengumumanTripItem[]; tek
                   {baris.isi}
                 </p>
               ) : null}
+              {baris.foto ? <FotoPengumuman src={baris.foto.src} alt={baris.foto.alt} lang={lang} className="mt-2" /> : null}
               {baris.tautan ? (
                 <div className="mt-2">
                   <a href={baris.tautan.href} target="_blank" rel="noreferrer noopener" className={`${TAUTAN_TRIP} gap-2`} style={{ color: TINTA }}>
