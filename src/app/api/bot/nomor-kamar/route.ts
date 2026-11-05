@@ -47,7 +47,8 @@ const skema = z.object({
   /**
    * Nama lain di kunci kamar yang sama ("Muhammad hafdiz"). Bila nama utama
    * tidak persis, Tally mencari kandidat yang SEKAMAR dengan kandidat nama
-   * ini: tepat satu pasangan = dipakai; selain itu tetap ditanyakan.
+   * ini: tepat satu pasangan = disarankan (CONFIRM_MATCH), tidak ditulis
+   * sampai panitia mengirim ulang dengan participant_id dan room_id.
    */
   roommates: z.array(z.string().trim().min(1).max(200)).max(3).optional(),
   /** Periksa saja, jangan tulis. */
@@ -79,8 +80,6 @@ export async function POST(request: Request) {
 
   // Peserta: hanya nama dan perusahaan, tidak pernah QR, email, atau telepon.
   let peserta: PesertaBot;
-  /** Kamar yang dipastikan lewat nama teman sekamar (lihat `roommates`). */
-  let kamarDariTeman: number | undefined;
   if (isi.participant_id) {
     const { data } = await db.from("participants").select("id,name,company").eq("event_id", event.id)
       .eq("id", isi.participant_id).is("source_removed_at", null).maybeSingle();
@@ -97,22 +96,31 @@ export async function POST(request: Request) {
       const teman = (isi.roommates ?? []).map((nama) => cariPeserta(nama, semua).kandidat.map((o) => o.id));
       const cocok = teman.length && hasil.kandidat.length ? await pasanganTeman(db, event.id, hasil.kandidat.map((o) => o.id), teman) : null;
       if (cocok === "galat") return tolak(500, { code: "INTERNAL_ERROR", message: "Could not read rooms. Try again." });
+      const choices = await denganKamar(db, event.id, cocok
+        ? [hasil.kandidat.find((o) => o.id === cocok.participant_id)!, ...hasil.pilihan.filter((o) => o.id !== cocok.participant_id)].slice(0, 5)
+        : hasil.pilihan);
       if (cocok) {
-        peserta = hasil.kandidat.find((o) => o.id === cocok.participant_id)!;
-        kamarDariTeman = cocok.room_id;
-      } else {
-        const choices = await denganKamar(db, event.id, hasil.pilihan);
-        if (hasil.jenis === "kembar") {
-          return tolak(409, { code: "NAME_AMBIGUOUS", message: "More than one participant has this name. Ask which one, then send participant_id.", choices });
-        }
-        return tolak(404, {
-          code: "NAME_NOT_FOUND",
-          message: hasil.pilihan.length
-            ? `No exact match${teman.length ? ", and the roommate names did not point to one room" : ""}. Ask which one, then send participant_id.`
-            : "No participant matches this name. Ask for the full name as registered.",
+        // Nama teman sekamar hanya MENYARANKAN, tidak pernah menulis sendiri:
+        // pada nama mirip di kamar bertukar, tebakan ini bisa salah orang.
+        const saran = choices[0];
+        const kamarSaran = await kamarSingkat(db, event.id, cocok.room_id);
+        return tolak(409, {
+          code: "CONFIRM_MATCH",
+          message: `Likely ${saran.name}${kamarSaran ? `, room ${kamarSaran.label ?? kamarSaran.room_number ?? ""} at ${kamarSaran.hotel}` : ""}, based on the roommate name. Ask the organiser to confirm, then send participant_id and room_id.`,
+          suggestion: { participant_id: saran.id, name: saran.name, company: saran.company, room_id: cocok.room_id, ...(kamarSaran ?? {}) },
           choices,
         });
       }
+      if (hasil.jenis === "kembar") {
+        return tolak(409, { code: "NAME_AMBIGUOUS", message: "More than one participant has this name. Ask which one, then send participant_id.", choices });
+      }
+      return tolak(404, {
+        code: "NAME_NOT_FOUND",
+        message: hasil.pilihan.length
+          ? `No exact match${teman.length ? ", and the roommate names did not point to one room" : ""}. Ask which one, then send participant_id.`
+          : "No participant matches this name. Ask for the full name as registered.",
+        choices,
+      });
     }
   }
 
@@ -125,7 +133,7 @@ export async function POST(request: Request) {
   const semuaKamar = kamarHasil;
   const hotel = (hotelHasil.data ?? []) as HotelBot[];
 
-  const pilihan = pilihKamar({ stays: (stayHasil.data ?? []) as StayBot[], kamar: semuaKamar, hotel, roomId: isi.room_id ?? kamarDariTeman, namaHotel: isi.hotel,
+  const pilihan = pilihKamar({ stays: (stayHasil.data ?? []) as StayBot[], kamar: semuaKamar, hotel, roomId: isi.room_id, namaHotel: isi.hotel,
     tanggal: isi.date, offset: timeZoneOffset(normalizeTimeZone(event.time_zone)) });
   const siapa = { participant_id: peserta.id, name: peserta.name, company: peserta.company };
   if (pilihan.jenis === "tanpa_stay") {
@@ -151,7 +159,7 @@ export async function POST(request: Request) {
     ? await db.from("participants").select("id,name").eq("event_id", event.id).is("source_removed_at", null).in("id", idPenghuni)
     : { data: [] };
   const occupants = ((namaPenghuni ?? []) as Array<{ name: string }>).map((p) => p.name).sort();
-  const ringkas = { ...(kamarDariTeman ? { matched_by_roommate: true } : {}), participant: siapa, room: { room_id: kamar.id, hotel: namaHotel, label: kamar.label, room_number: kamar.room_number, ...pilihan.malam }, occupants };
+  const ringkas = { participant: siapa, room: { room_id: kamar.id, hotel: namaHotel, label: kamar.label, room_number: kamar.room_number, ...pilihan.malam }, occupants };
 
   if (kamar.room_number !== null && kunciKamar(kamar.room_number) === kunciKamar(nomor)) return Response.json({ ok: true, changed: false, message: `Room already has number ${nomor}.`, ...ringkas });
   if (kamar.room_number && !isi.replace) {
@@ -235,4 +243,12 @@ async function denganKamar(db: Db, eventId: string, pilihan: PesertaBot[]) {
       return { hotel: s.hotel_id !== null ? petaHotel.get(s.hotel_id) ?? null : null, label: k?.label ?? null, room_number: k?.room_number ?? null };
     }),
   }));
+}
+
+async function kamarSingkat(db: Db, eventId: string, roomId: number) {
+  const { data } = await db.from("lodging_rooms").select("label,room_number,hotel_id").eq("event_id", eventId).eq("id", roomId).maybeSingle();
+  const k = data as { label: string | null; room_number: string | null; hotel_id: number } | null;
+  if (!k) return null;
+  const { data: h } = await db.from("lodging_hotels").select("name").eq("event_id", eventId).eq("id", k.hotel_id).maybeSingle();
+  return { hotel: (h as { name: string } | null)?.name ?? "Hotel", label: k.label, room_number: k.room_number };
 }
