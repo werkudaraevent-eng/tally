@@ -140,6 +140,8 @@ import { HapusSalinanQr } from "@/components/member/form-keluar";
 import { SimpanQrGaleri } from "@/components/member/simpan-qr-galeri";
 import { KerangkaPortal, PenandaTab, type KepalaTab } from "@/components/member/muat-portal";
 import { TandaiPengumumanDibaca } from "@/components/member/tandai-pengumuman";
+import { FotoPengumuman } from "@/components/member/foto-pengumuman";
+import { altFotoPengumuman } from "@/lib/pengumuman-foto";
 import { bagianOutfitTanggal, labelOutfit, type OutfitEntry } from "@/lib/outfit";
 import { loadOutfitBagian } from "@/lib/outfit-server";
 import { apaRingkas, fotoRingkas, kapanOutfit, outfitTerlihat } from "@/lib/outfit";
@@ -1709,7 +1711,9 @@ export async function DashboardGathering({
               baru: isUnread(item, pengumuman.seenAt),
               disematkan: Boolean(item.pinned),
               tautan: item.link_url ? { href: item.link_url, label: item.link_label?.trim() || item.link_url } : null,
+              foto: item.image_url ? { src: item.image_url, alt: altFotoPengumuman(item) } : null,
             }))}
+            lang={lang}
           />
         ) : pengumuman.items.length === 0 ? (
           <p className={`${KARTU} ${horizon ? GARIS_KARTU : ""} text-body-large ${MUTED}`}>{t.noAnnouncements}</p>
@@ -1732,6 +1736,7 @@ export async function DashboardGathering({
                 {/* Horizon: Title Medium 600 + Body Medium, sama dengan kartu Pengumuman di Beranda; 22 px tebal terlalu berat untuk daftar. */}
                 <h2 className={`max-w-[70ch] [overflow-wrap:anywhere] ${horizon ? "text-title-medium font-semibold" : "text-title-large font-bold"}`}>{item.title}</h2>
                 {item.body ? <p className={`max-w-[70ch] whitespace-pre-line [overflow-wrap:anywhere] ${horizon ? "mt-1 text-body-medium" : "mt-1.5 text-body-large"} ${MUTED}`}>{item.body}</p> : null}
+                {item.image_url ? <FotoPengumuman src={item.image_url} alt={altFotoPengumuman(item)} lang={lang} className="mt-3" /> : null}
                 {item.link_url ? (
                   <a href={item.link_url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex min-h-12 items-center gap-1.5 text-title-small font-bold text-[var(--alis)]">
                     {item.link_label?.trim() || item.link_url}

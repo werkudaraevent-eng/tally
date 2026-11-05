@@ -5,7 +5,8 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { tabelBelumAda } from "@/lib/member/pengumuman";
-import { penerimaSchema, penerimaSiap, periksaPenerima, salahSatuSiap, type Penerima } from "@/lib/pengumuman-penerima-server";
+import { fotoSiap, penerimaSchema, penerimaSiap, periksaPenerima, salahSatuSiap, type Penerima } from "@/lib/pengumuman-penerima-server";
+import { ALT_FOTO_MAX, fotoPengumumanSah } from "@/lib/pengumuman-foto";
 
 /**
  * Pengumuman panitia untuk area peserta (menu admin "Pengumuman").
@@ -21,20 +22,36 @@ import { penerimaSchema, penerimaSiap, periksaPenerima, salahSatuSiap, type Pene
  *
  * Match: Any condition (audience_any) butuh migrasi 202611040001. Sebelum itu
  * kolomnya tidak dibaca maupun ditulis, dan syarat selalu semua harus cocok.
+ *
+ * Foto (image_url, image_alt) butuh migrasi 202611060001. Sebelum itu kolomnya
+ * tidak dibaca, kolom Photo tidak tampil (`photo_ready` false), dan menyimpan
+ * foto dijawab 409.
  */
 
 const KOLOM = "id,title,body,link_url,link_label,audience,pinned,published_at,email_summary,created_at,updated_at";
 const KOLOM_PENERIMA = `${KOLOM},audience_rules,audience_ids`;
 const KOLOM_SALAH_SATU = `${KOLOM_PENERIMA},audience_any`;
+const KOLOM_FOTO = "image_url,image_alt";
 
-type Siap = { penerima: boolean; salahSatu: boolean };
+type Siap = { penerima: boolean; salahSatu: boolean; foto: boolean };
 
 async function kesiapan(): Promise<Siap> {
-  const [penerima, salahSatu] = await Promise.all([penerimaSiap(), salahSatuSiap()]);
-  return { penerima, salahSatu: penerima && salahSatu };
+  const [penerima, salahSatu, foto] = await Promise.all([penerimaSiap(), salahSatuSiap(), fotoSiap()]);
+  return { penerima, salahSatu: penerima && salahSatu, foto };
 }
 
-const kolomBaca = (siap: Siap) => (siap.salahSatu ? KOLOM_SALAH_SATU : siap.penerima ? KOLOM_PENERIMA : KOLOM);
+const kolomBaca = (siap: Siap) => {
+  const dasar = siap.salahSatu ? KOLOM_SALAH_SATU : siap.penerima ? KOLOM_PENERIMA : KOLOM;
+  return siap.foto ? `${dasar},${KOLOM_FOTO}` : dasar;
+};
+
+const fotoSchema = z
+  .string()
+  .trim()
+  .transform((nilai) => nilai || null)
+  .refine((nilai) => nilai === null || fotoPengumumanSah(nilai, process.env.NEXT_PUBLIC_SUPABASE_URL), "Upload the photo again.")
+  .nullable()
+  .optional();
 
 const tautanSchema = z
   .string()
@@ -54,8 +71,26 @@ const isiSchema = z.object({
     .transform((nilai) => nilai || null)
     .nullable()
     .optional(),
+  image_url: fotoSchema,
+  image_alt: z
+    .string()
+    .trim()
+    .max(ALT_FOTO_MAX)
+    .transform((nilai) => nilai || null)
+    .nullable()
+    .optional(),
   pinned: z.boolean().default(false),
 });
+
+/**
+ * Kolom foto yang ditulis. Tanpa foto, deskripsinya ikut dikosongkan. Null =
+ * ada foto tetapi migrasinya belum dijalankan.
+ */
+function fotoTulis(isi: { image_url?: string | null; image_alt?: string | null }, siap: Siap): Record<string, unknown> | null {
+  if (isi.image_url === undefined && isi.image_alt === undefined) return {};
+  if (!siap.foto) return isi.image_url ? null : {};
+  return { image_url: isi.image_url ?? null, image_alt: isi.image_url ? (isi.image_alt ?? null) : null };
+}
 
 const buatSchema = isiSchema.merge(penerimaSchema.partial({ audience: true }));
 const ubahSchema = isiSchema.partial().merge(penerimaSchema.partial()).extend({ id: z.string().uuid() });
@@ -113,6 +148,7 @@ export async function GET(request: Request) {
     time_zone: auth.scope.event.time_zone,
     targeting_ready: siap.penerima,
     match_any_ready: siap.salahSatu,
+    photo_ready: siap.foto,
   });
 }
 
@@ -121,17 +157,19 @@ export async function POST(request: Request) {
   if (auth.response) return auth.response;
   const parsed = buatSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  const { audience = "semua", audience_rules, audience_ids, audience_any, ...isi } = parsed.data;
+  const { audience = "semua", audience_rules, audience_ids, audience_any, image_url, image_alt, ...isi } = parsed.data;
   const sah = await periksaPenerima({ audience, audience_rules, audience_ids, audience_any }, auth.scope.event, auth.scope.role === "custom");
   if ("galat" in sah) return sah.galat ? apiError("VALIDATION_ERROR", 422, { message: sah.galat }) : apiError("INTERNAL_ERROR", 500);
   const siap = await kesiapan();
   const penerima = kolomTulis(sah.penerima, siap);
   if (!penerima) return belumBisa(sah.penerima, siap);
+  const foto = fotoTulis({ image_url, image_alt }, siap);
+  if (!foto) return apiError("ANNOUNCEMENT_PHOTO_NOT_READY", 409);
 
   const client = getSupabaseServiceClient();
   const { data, error } = await client
     .from("event_announcements")
-    .insert({ ...isi, ...penerima, event_id: auth.scope.event.id, created_by: auth.user.id } as never)
+    .insert({ ...isi, ...penerima, ...foto, event_id: auth.scope.event.id, created_by: auth.user.id } as never)
     .select(kolomBaca(siap))
     .single();
   if (tabelBelumAda(error)) return apiError("ANNOUNCEMENTS_NOT_READY", 409);
@@ -151,8 +189,11 @@ export async function PATCH(request: Request) {
   if (auth.response) return auth.response;
   const parsed = ubahSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  const { id, audience, audience_rules, audience_ids, audience_any, ...isi } = parsed.data;
+  const { id, audience, audience_rules, audience_ids, audience_any, image_url, image_alt, ...isiTeks } = parsed.data;
   const siap = await kesiapan();
+  const foto = fotoTulis({ image_url, image_alt }, siap);
+  if (!foto) return apiError("ANNOUNCEMENT_PHOTO_NOT_READY", 409);
+  const isi = { ...isiTeks, ...foto };
   let ubah: Record<string, unknown> = isi;
   // Penerima selalu dikirim utuh: audience bersama syarat atau pesertanya.
   if (audience) {

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { FotoPengumuman } from "@/components/member/foto-pengumuman";
+import { altFotoPengumuman } from "@/lib/pengumuman-foto";
 import { SegarkanSesi } from "@/components/member/segarkan-sesi";
 import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { notFound, redirect } from "next/navigation";
@@ -339,6 +341,7 @@ export default async function AreaPesertaPage({
                         {item.title}
                       </h3>
                       {item.body ? <p className={`mt-1 whitespace-pre-line text-body-large ${MUTED}`}>{item.body}</p> : null}
+                      {item.image_url ? <FotoPengumuman src={item.image_url} alt={altFotoPengumuman(item)} lang="id" className="mt-3" /> : null}
                       {item.link_url ? (
                         <a href={item.link_url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-flex min-h-10 items-center text-title-small font-semibold text-[var(--reg-primary)]">
                           {item.link_label?.trim() || item.link_url}

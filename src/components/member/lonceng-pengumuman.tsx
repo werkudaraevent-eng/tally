@@ -1,5 +1,6 @@
 "use client";
 
+import { FotoPengumuman } from "@/components/member/foto-pengumuman";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowSquareOut, Bell, PushPin, X } from "@phosphor-icons/react";
@@ -29,6 +30,8 @@ export type LoncengItem = {
   body: string;
   link_url: string | null;
   link_label: string | null;
+  /** Foto pengumuman (migrasi 202611060001); kecil di lonceng, utuh di tab Pengumuman. */
+  foto?: { src: string; alt: string } | null;
   pinned: boolean;
   /** Waktu terbit, sudah diformat server dalam zona waktu acara. */
   waktu: string;
@@ -204,6 +207,7 @@ export function LoncengPengumuman({
                     {item.body ? (
                       <p className="mt-0.5 line-clamp-3 whitespace-pre-line text-[14px] leading-5 text-[#414651]">{item.body}</p>
                     ) : null}
+                    {item.foto ? <FotoPengumuman src={item.foto.src} alt={item.foto.alt} lang={lang} ringkas className="mt-2" /> : null}
                     {item.link_url ? (
                       <a
                         href={item.link_url}

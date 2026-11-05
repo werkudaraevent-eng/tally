@@ -3,6 +3,7 @@ import { landingDefaultLang, landingPath, type LandingLang } from "@/lib/landing
 import type { MemberSession } from "@/lib/member/account";
 import { isUnread, loadMemberAnnouncements, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import type { LoncengItem } from "@/components/member/lonceng-pengumuman";
+import { altFotoPengumuman } from "@/lib/pengumuman-foto";
 
 /**
  * Isi bilah atas untuk peserta yang sudah masuk: lonceng pengumuman dan tombol
@@ -63,6 +64,7 @@ export function itemLonceng(
     body: item.body,
     link_url: item.link_url,
     link_label: item.link_label,
+    foto: item.image_url ? { src: item.image_url, alt: altFotoPengumuman(item) } : null,
     pinned: item.pinned,
     waktu: waktuPengumuman(item.published_at, event.time_zone, lang),
     baru: isUnread(item, data.seenAt),

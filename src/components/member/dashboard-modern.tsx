@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import { FotoPengumuman } from "@/components/member/foto-pengumuman";
+import { altFotoPengumuman } from "@/lib/pengumuman-foto";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -467,6 +469,7 @@ export async function DashboardModern({
                                   {item.title}
                                 </h3>
                                 {item.body ? <p className={`mt-1 whitespace-pre-line text-isi ${MUTED}`}>{item.body}</p> : null}
+                                {item.image_url ? <FotoPengumuman src={item.image_url} alt={altFotoPengumuman(item)} lang={lang} className="mt-2" /> : null}
                                 {item.link_url ? (
                                   <a
                                     href={item.link_url}

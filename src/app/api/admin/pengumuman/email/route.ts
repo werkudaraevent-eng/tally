@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { altFotoPengumuman } from "@/lib/pengumuman-foto";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { publicEventName } from "@/lib/domain";
@@ -36,7 +37,9 @@ export async function POST(request: Request) {
   // Sebelum migrasi 202611040001 audience_any belum ada, sebelum 202610300004
   // semua kolom penerima: baca ulang tanpa kolom itu.
   const belumAda = (galat: { code?: string } | null) => galat?.code === "42703" || galat?.code === "PGRST204";
-  let { data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any");
+  // Foto (202611060001) dibaca terpisah: sebelum migrasinya cukup tanpa foto.
+  let { data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any,image_url,image_alt");
+  if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any"));
   if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids"));
   if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience"));
   if (tabelBelumAda(error)) return apiError("ANNOUNCEMENTS_NOT_READY", 409);
@@ -44,6 +47,7 @@ export async function POST(request: Request) {
   if (!baris) return apiError("ANNOUNCEMENT_NOT_FOUND", 404);
   const item = baris as unknown as {
     id: string; title: string; body: string; link_url: string | null; link_label: string | null; audience: string; audience_rules?: unknown; audience_ids?: unknown; audience_any?: unknown;
+    image_url?: string | null; image_alt?: string | null;
   };
 
   // Penerima yang sama dengan portal, saat ini: syarat dicek terhadap data
@@ -73,6 +77,7 @@ export async function POST(request: Request) {
     body: item.body,
     linkUrl: item.link_url,
     linkLabel: item.link_label,
+    foto: item.image_url ? { src: item.image_url, alt: altFotoPengumuman(item) } : null,
     dashboardUrl: `${origin}/e/${encodeURIComponent(event.slug)}/peserta`,
   });
   const hasil = await sendEmailBatch(penerima.map((to) => ({ to, ...isi })), event.id);
