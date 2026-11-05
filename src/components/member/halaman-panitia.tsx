@@ -189,8 +189,29 @@ function RinciTitik({
   const t = PANITIA_UI[lang];
   const [tab, setTab] = useState<"belum" | "sudah">("belum");
   const [cari, setCari] = useState("");
-  const persen = persenKehadiran(baris);
-  const daftar = tab === "belum" ? belum : sudah;
+  // Kelompok = jawaban Who sees it baris Agenda titik ini (mis. Batch), dari
+  // data yang sudah diisi panitia. Angka, batang, dan tab ikut kelompok yang
+  // dipilih; pencarian hanya menyaring daftar nama.
+  const [pilihKelompok, setPilihKelompok] = useState<string | null>(null);
+  const kelompokAda = useMemo(() => {
+    const nilai = new Set<string>();
+    let tanpa = false;
+    for (const orang of [...belum, ...sudah]) {
+      if (orang.kelompok) nilai.add(orang.kelompok);
+      else tanpa = true;
+    }
+    const urut = [...nilai].sort((a, b) => a.localeCompare(b, "id", { numeric: true }));
+    return urut.length + (tanpa ? 1 : 0) > 1 ? [...urut, ...(tanpa ? [TANPA_KELOMPOK] : [])] : [];
+  }, [belum, sudah]);
+  const kelompok = pilihKelompok && kelompokAda.includes(pilihKelompok) ? pilihKelompok : null;
+  const diKelompok = (orang: OrangKehadiran) => kelompok === null || (orang.kelompok ?? TANPA_KELOMPOK) === kelompok;
+  const belumK = kelompok === null ? belum : belum.filter(diKelompok);
+  const sudahK = kelompok === null ? sudah : sudah.filter(diKelompok);
+  const angkaSudah = kelompok === null ? baris.sudah : sudahK.length;
+  const angkaHarap = kelompok === null ? baris.diharapkan : belumK.length + sudahK.length;
+  const persen = kelompok === null ? persenKehadiran(baris) : persenKehadiran({ sudah: angkaSudah, diharapkan: angkaHarap });
+  const namaKelompok = (nilai: string) => (nilai === TANPA_KELOMPOK ? t.tanpaKelompok : nilai);
+  const daftar = tab === "belum" ? belumK : sudahK;
   const kunci = cari.trim().toLocaleLowerCase("id");
   const tampil = useMemo(
     () => (kunci ? daftar.filter((orang) => [orang.nama, orang.unit, orang.kelompok].some((isi) => isi?.toLocaleLowerCase("id").includes(kunci))) : daftar),
@@ -201,8 +222,11 @@ function RinciTitik({
     <>
       <section className="flex flex-col gap-3">
         <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[34px] font-bold leading-10 tabular-nums">{angkaKehadiran(baris.sudah, lang)}</span>
-          <span className={`text-[14px] leading-5 ${nada.redup}`}>{t.sudahDari(baris.sudah, baris.diharapkan, persen)}</span>
+          <span className="text-[34px] font-bold leading-10 tabular-nums">{angkaKehadiran(angkaSudah, lang)}</span>
+          <span className={`text-[14px] leading-5 ${nada.redup}`}>
+            {t.sudahDari(angkaSudah, angkaHarap, persen)}
+            {kelompok !== null ? ` · ${namaKelompok(kelompok)}` : null}
+          </span>
         </p>
         <Batang persen={persen} nada={nada} />
         {baris.tempat || baris.jam ? (
@@ -212,6 +236,21 @@ function RinciTitik({
           </p>
         ) : null}
       </section>
+      {kelompokAda.length > 0 ? (
+        <div role="group" aria-label={t.kelompokLabel} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+          {[null, ...kelompokAda].map((nilai) => (
+            <button
+              key={nilai ?? "semua"}
+              type="button"
+              aria-pressed={nilai === kelompok}
+              onClick={() => setPilihKelompok(nilai)}
+              className={`m3-state min-h-12 shrink-0 rounded-full px-4 text-[14px] font-semibold ${nilai === kelompok ? nada.chipAktif : nada.chip}`}
+            >
+              {nilai === null ? t.semuaKelompok : namaKelompok(nilai)}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div role="group" className={`grid grid-cols-2 overflow-hidden rounded-full border ${nada.garis}`}>
         {(["belum", "sudah"] as const).map((pilihan) => (
           <button
@@ -221,7 +260,7 @@ function RinciTitik({
             onClick={() => setTab(pilihan)}
             className={`m3-state min-h-12 text-[14px] font-semibold tabular-nums ${tab === pilihan ? nada.segAktif : ""}`}
           >
-            {pilihan === "belum" ? t.tabBelum(belum.length) : t.tabSudah(sudah.length)}
+            {pilihan === "belum" ? t.tabBelum(belumK.length) : t.tabSudah(sudahK.length)}
           </button>
         ))}
       </div>
@@ -263,6 +302,9 @@ function RinciTitik({
     </>
   );
 }
+
+/** Penanda pilihan "tanpa kelompok"; tidak mungkin sama dengan jawaban formulir. */
+const TANPA_KELOMPOK = "\u0000tanpa";
 
 function inisial(nama: string) {
   const kata = nama.trim().split(/\s+/).filter(Boolean);
