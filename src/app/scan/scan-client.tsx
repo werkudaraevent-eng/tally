@@ -2092,16 +2092,6 @@ export default function ScanClient() {
                           >
                             {suara ? <SpeakerHigh size={22} weight="fill" /> : <SpeakerSlash size={22} weight="fill" />}
                           </IconButton>
-                          {bisaGantiKamera ? (
-                            <IconButton
-                              label={kameraDepan ? "Use back camera" : "Use front camera"}
-                              selected={kameraDepan}
-                              onClick={gantiKamera}
-                              className={kameraDepan ? "!size-12 !rounded-full" : "!size-12 !rounded-full !bg-black/70 !text-white"}
-                            >
-                              <CameraRotate size={22} weight="fill" />
-                            </IconButton>
-                          ) : null}
                           {senter.ada ? (
                             <IconButton
                               label="Torch"
@@ -2136,6 +2126,19 @@ export default function ScanClient() {
                         ) : (
                           <span className="flex-1" />
                         )}
+                        {/* Ganti kamera di baris bawah, bersama tombol mematikan
+                            kamera, seperti aplikasi kamera HP. Di baris atas ia
+                            menyempitkan pil angka hadir di layar 360 px. */}
+                        {bisaGantiKamera ? (
+                          <IconButton
+                            label={kameraDepan ? "Use back camera" : "Use front camera"}
+                            selected={kameraDepan}
+                            onClick={gantiKamera}
+                            className={kameraDepan ? "!size-14 !rounded-full" : "!size-14 !rounded-full !bg-black/70 !text-white"}
+                          >
+                            <CameraRotate size={22} weight="fill" />
+                          </IconButton>
+                        ) : null}
                         <IconButton label="Turn off camera" onClick={() => setScanning(false)} className="!size-14 !rounded-full !bg-black/70 !text-white">
                           <VideoCameraSlash size={22} weight="fill" />
                         </IconButton>
