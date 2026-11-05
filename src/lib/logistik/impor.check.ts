@@ -375,7 +375,7 @@ assert.equal(isiKereta.dilewati, 2);
 // Mode dan Segment: transit = dua segmen satu arah; Mode kosong mempertahankan moda lama.
 const pesawat = rencanaKereta([
   TEMPLAT.kereta.judul,
-  ["", "Andi Pratama", "Outbound", "1", "Pesawat", "Garuda GA 181", "Economy", "Medan KNO", "Jakarta CGK", "06/11/2026", "06:10", "08:35", "", "21C", "GX4R7P"],
+  ["", "Andi Pratama", "Outbound", "1", "Pesawat", "Garuda GA 181", "Economy", "Medan KNO", "Jakarta CGK", "06/11/2026", "06:10", "08:35", "EKS 9", "21C", "GX4R7P"], // Gerbong diabaikan untuk pesawat
   ["", "Andi Pratama", "Outbound", "2", "Flight", "Garuda GA 208", "", "Jakarta CGK", "Yogyakarta YIA", "06/11/2026", "10:20", "11:35", "", "14A", "GX4R7P"],
   ["", "Andi Pratama", "Outbound", "2", "Flight", "Garuda GA 210"],
   ["", "Andi Pratama", "Return", "7", "Flight", "GA 209"],

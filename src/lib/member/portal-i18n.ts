@@ -68,7 +68,8 @@ export type PortalUiText = {
        * Dengan zona waktu jam check-in, bus, dan kereta (U-24). `sebagian`:
        * panitia menyembunyikan bagian Logistik, jadi daftarnya tidak disebut.
        */
-      note: (zona: string, sebagian?: boolean) => string;
+      /** `moda`: moda semua tiket peserta (modaTiket); kereta atau kosong = teks lama. */
+      note: (zona: string, sebagian?: boolean, moda?: ModaTiket | "campur" | null) => string;
       empty: string;
       backToMenu: string;
       hotelTitle: string;
@@ -402,7 +403,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tabs: { beranda: "Beranda", jadwal: "Susunan acara", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Profil" },
       tabsShort: { beranda: "Beranda", jadwal: "Acara", perjalanan: "Perjalanan", info: "Pengumuman", profil: "Menu" },
       travel: {
-        note: (zona, sebagian) => `${sebagian ? "Info perjalanan kamu dari panitia." : "Hotel, kamar, kendaraan, dan kereta kamu."} Waktu tercantum dalam ${zona}.`,
+        note: (zona, sebagian, moda) => `${sebagian ? "Info perjalanan kamu dari panitia." : `Hotel, kamar, kendaraan, dan ${({ flight: "tiket pesawat", ship: "tiket kapal", campur: "tiket" } as const)[moda as "flight"] ?? "kereta"} kamu.`} Waktu tercantum dalam ${zona}.`,
         empty: "Info perjalanan belum dibagikan panitia.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & kamar",
@@ -673,7 +674,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
       tabs: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Profile" },
       tabsShort: { beranda: "Home", jadwal: "Schedule", perjalanan: "Travel", info: "Updates", profil: "Menu" },
       travel: {
-        note: (zona, sebagian) => `${sebagian ? "Your travel details from the organisers." : "Your hotel, room, vehicle, and train."} Times shown in ${zona}.`,
+        note: (zona, sebagian, moda) => `${sebagian ? "Your travel details from the organisers." : `Your hotel, room, vehicle, and ${({ flight: "flight", ship: "ship ticket", campur: "tickets" } as const)[moda as "flight"] ?? "train"}.`} Times shown in ${zona}.`,
         empty: "The organisers haven't shared travel details yet.",
         backToMenu: "Menu",
         hotelTitle: "Hotel & room",

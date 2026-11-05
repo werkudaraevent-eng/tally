@@ -1303,6 +1303,8 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
       // undefined = kolomnya tidak ada di berkas: nilai lama dipertahankan.
       return [bidang, nilai === undefined ? ada?.[bidang] ?? null : nilai || null];
     })) } as TiketImpor;
+    // Gerbong hanya untuk kereta, sama dengan form Edit (QA #405 L1).
+    if (baru.mode !== "train") baru.carriage = null;
     const sama = ada !== null && BIDANG_KERETA.every((bidang) => (ada[bidang] ?? null) === baru[bidang]);
     const kursi = [baru.carriage, baru.seat].filter(Boolean).join(" / ");
     baris.push({

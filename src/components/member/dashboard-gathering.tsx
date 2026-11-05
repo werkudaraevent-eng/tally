@@ -1191,7 +1191,7 @@ export async function DashboardGathering({
   } else if (tabAktif === "perjalanan") {
     // Hanya Horizon (preset lain sudah dialihkan ke Beranda di atas).
     const tv = tH.travel;
-    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note(singkatanZona, bagianTersembunyi(member).size > 0) };
+    judulHorizon = { alis: nama, judul: tH.tabs.perjalanan, catatan: tv.note(singkatanZona, bagianTersembunyi(member).size > 0, modaTiket(tiketSemua)) };
     const petaHotel = (h: LogistikKamar["hotel"]) =>
       h.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([h.name, h.address].filter(Boolean).join(", "))}`;
     // Satu kartu per stay, berurutan tanggal. Peserta yang pindah hotel
@@ -2516,7 +2516,7 @@ export async function DashboardGathering({
     const kepalaTab: Record<string, KepalaTab> = {
       beranda: { alis: tanggalSapaan(kini.tanggal, lang), judul: tH.home.heading(namaLengkapSesi), judulPonsel: tH.home.heading(namaLengkapSesi), catatan: tH.home.timeNote(singkatanZona), jenis: "kartu", sapaan: true },
       jadwal: { alis: alisJadwal || nama, judul: t.schedule, judulPonsel: t.schedule, catatan: catatanJadwal, jenis: "jadwal" },
-      perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona, bagianTersembunyi(member).size > 0), jenis: "kartu" },
+      perjalanan: { alis: nama, judul: tH.tabs.perjalanan, judulPonsel: tH.tabs.perjalanan, catatan: tH.travel.note(singkatanZona, bagianTersembunyi(member).size > 0, modaTiket(tiketSemua)), jenis: "kartu" },
       outfit: { alis: outfitDiAcara ? t.schedule : nama, judul: labelOutfitHalaman, judulPonsel: labelOutfitHalaman, catatan: tH.outfit.note, jenis: outfitDiAcara ? "jadwal" : "kartu" },
       info: { alis: nama, judul: tH.tabs.info, judulPonsel: tH.tabs.info, catatan: t.infoNote, jenis: "kartu" },
       profil: { alis: nama, judul: tH.tabs.profil, judulPonsel: tH.tabs.profil, catatan: tH.profile.note, jenis: "kartu" },
