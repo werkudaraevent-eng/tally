@@ -23,7 +23,6 @@ import {
   PushPin,
   SignOut,
   Suitcase,
-  Train,
   Ticket,
   User,
   Users,
@@ -118,6 +117,8 @@ import {
 import { LompatPerjalanan } from "@/components/member/lompat-perjalanan";
 import { GulirKeHash } from "@/components/member/gulir-ke-hash";
 import { jamLeg, jamTiket, legSelesai, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
+import { judulTiket, lompatTiket, modaTiket } from "@/lib/logistik/moda";
+import { ikonModa } from "@/components/member/ikon-moda";
 import { kelompokkanHari, menitDari, ringkasanBeranda, statusHari, tanpaLabelBagian, type StatusButir } from "@/lib/member/hari-agenda";
 import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/trip-jadwal";
 import { rentangPerjalanan } from "@/lib/member/rentang-perjalanan";
@@ -698,10 +699,17 @@ export async function DashboardGathering({
     ) : null;
 
   // Tiket kereta Horizon: kartu di halaman Perjalanan, baris ringkas di Beranda.
-  const legKereta: LegKereta[] = (logistik?.trains ?? []).map((tiket) => {
+  const tiketSemua = logistik?.trains ?? [];
+  // Kereta saja: judul, label lompat, dan ikon lama persis; pesawat atau kapal mengganti katanya.
+  const judulKereta = judulTiket(lang, tiketSemua, tH.train.title);
+  const lompatKereta = lompatTiket(lang, tiketSemua, tH.travel.jump.train);
+  const IkonKereta = ikonModa(modaTiket(tiketSemua));
+  const legKereta: LegKereta[] = tiketSemua.map((tiket) => {
     const rute = ruteLeg(tiket);
     return {
-      kunci: tiket.direction,
+      // Transit: arah yang sama bisa punya beberapa segmen.
+      kunci: `${tiket.direction}-${tiket.segment}`,
+      moda: tiket.mode,
       arah: gabungMeta([tiket.direction === "outbound" ? tH.train.outbound : tH.train.return, tanggalLeg(tiket.depart_date, lang)]),
       judul: rute ?? tiket.train_name,
       baris: gabungMeta([rute ? tiket.train_name : null, tiket.travel_class]) || null,
@@ -1323,9 +1331,11 @@ export async function DashboardGathering({
       ) : null;
     // Simpan ke kalender per leg kereta (E-07): berkasnya dari server, pengingatnya berbunyi tanpa sinyal.
     const legDenganKalender = legKereta.map((leg) => {
-      const tiket = logistik?.trains.find((item) => item.direction === leg.kunci);
+      const tiket = logistik?.trains.find((item) => `${item.direction}-${item.segment}` === leg.kunci);
+      // Segmen 1 tanpa parameter segmen: tautan lama tetap sama untuk acara tanpa transit.
+      const segmen = tiket && tiket.segment > 1 ? `&segmen=${tiket.segment}` : "";
       const denganKalender = tiket?.depart_date && tiket.depart_time
-        ? { ...leg, kalender: { href: `/e/${encodeURIComponent(event.slug)}/api/peserta/kalender-kereta?arah=${leg.kunci}${lang === utama ? "" : `&bahasa=${lang}`}`, label: tv.addToCalendar } }
+        ? { ...leg, kalender: { href: `/e/${encodeURIComponent(event.slug)}/api/peserta/kalender-kereta?arah=${tiket.direction}${segmen}${lang === utama ? "" : `&bahasa=${lang}`}`, label: tv.addToCalendar } }
         : leg;
       // Leg yang sudah tiba dilipat jadi satu baris: "Berangkat · Kam, 5 Nov · selesai".
       return tiket && legSelesai(tiket, zona, sekarang)
@@ -1333,7 +1343,7 @@ export async function DashboardGathering({
         : denganKalender;
     });
     const kartuKeretaHorizon =
-      legKereta.length > 0 ? <TiketKeretaHorizon judul={tH.train.title} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking, jumlah: tH.train.count, selesai: tH.train.done, ke: tH.train.to }} leg={legDenganKalender} /> : null;
+      legKereta.length > 0 ? <TiketKeretaHorizon judul={judulKereta} Ikon={IkonKereta} label={{ gerbong: tH.train.carriage, kursi: tH.train.seat, kode: tH.train.booking, jumlah: tH.train.count, selesai: tH.train.done, ke: tH.train.to }} leg={legDenganKalender} /> : null;
     // Bagasi (Record luggage): satu kartu per meja bagasi tempat peserta dipindai.
     // Pola kartu klaim titip koper hotel dan "bags checked" di aplikasi maskapai:
     // jumlah besar, kapan dan di mana, foto, lalu ajakan memeriksa sebelum pergi.
@@ -1399,7 +1409,7 @@ export async function DashboardGathering({
     const bagianLompat = [
       kartuHotel ? { id: "hotel", label: tv.jump.hotel } : null,
       kartuBusHorizon ? { id: "bus", label: tv.jump.bus } : null,
-      kartuKeretaHorizon ? { id: "kereta", label: tv.jump.train } : null,
+      kartuKeretaHorizon ? { id: "kereta", label: lompatKereta } : null,
       kartuBagasi ? { id: "bagasi", label: tv.jump.luggage } : null,
       rutePerjalanan.length ? { id: "rute", label: tv.jump.routes } : null,
     ].filter((item): item is { id: string; label: string } => item !== null);
@@ -1455,7 +1465,7 @@ export async function DashboardGathering({
         lewat: langkah.kunci < `${kini.tanggal} ${String(Math.floor(kini.menit / 60)).padStart(2, "0")}:${String(kini.menit % 60).padStart(2, "0")}`,
       }));
       const bagianTrip = [
-        legKereta.length > 0 ? { id: "kereta", label: tv.jump.train } : null,
+        legKereta.length > 0 ? { id: "kereta", label: lompatKereta } : null,
         daftarStay.length > 0 ? { id: "hotel", label: tv.jump.hotel } : null,
         kartuBusHorizon ? { id: "kendaraan", label: tv.jump.bus } : null,
         kartuBagasi ? { id: "koper", label: tv.jump.luggage } : null,
@@ -1475,7 +1485,7 @@ export async function DashboardGathering({
               <LompatPerjalanan aria={tv.jump.aria} bagian={bagianTrip} latar={LATAR_PORTAL_HORIZON} className="lg:hidden" />
             ) : null}
             {legKereta.length > 0 ? (
-              <BagianTrip id="kereta" Ikon={Train} nada="kereta" judul={tH.train.title} meta={legAktif > 0 ? tH.train.count(legAktif) : tH.train.done} duaKolom>
+              <BagianTrip id="kereta" Ikon={IkonKereta} nada="kereta" judul={judulKereta} meta={legAktif > 0 ? tH.train.count(legAktif) : tH.train.done} duaKolom>
                 {legDenganKalender.map((leg, urut) => (
                   <TiketKeretaTrip key={leg.kunci} leg={leg} label={labelKereta} pertama={urut === legDenganKalender.findIndex((item) => !item.lipat)} />
                 ))}
@@ -2272,7 +2282,7 @@ export async function DashboardGathering({
                 ? [
                     {
                       kunci: "kereta",
-                      label: tH.home.trainNext(legBeranda.direction === "return"),
+                      label: tH.home.trainNext(legBeranda.direction === "return", legBeranda.mode),
                       judul: gabungMeta([tanggalLeg(legBeranda.depart_date, lang), jamTampil(legBeranda.depart_time, lang)]) || ruteLeg(legBeranda) || legBeranda.train_name,
                       catatan: tH.travel.seatLine(legBeranda.carriage, legBeranda.seat),
                     },
@@ -2296,9 +2306,9 @@ export async function DashboardGathering({
           .map((leg, urut) => ({
             kunci: `kereta-${arah}-${urut}`,
             href: `${keTab("perjalanan")}#kereta`,
-            Ikon: Train,
+            Ikon: ikonModa(leg.mode),
             nada: "kereta" as const,
-            judul: ruteLeg(leg) || leg.train_name || tH.train.title,
+            judul: ruteLeg(leg) || leg.train_name || judulKereta,
             catatan: gabungMeta([gabungMeta([tanggalLeg(leg.depart_date, lang), jamTampil(leg.depart_time, lang)]) || null, tH.travel.seatLine(leg.carriage, leg.seat)]) || null,
           }));
       const barisPerjalananTrip =

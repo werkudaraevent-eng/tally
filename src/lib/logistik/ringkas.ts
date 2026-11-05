@@ -10,7 +10,7 @@
  */
 
 import { labelTanggal, tanggalZona } from "./stay.ts";
-import type { ArahKereta, TiketKereta } from "./types";
+import { LABEL_MODA, type ArahKereta, type TiketKereta } from "./types.ts";
 
 export type StayRingkas = {
   hotel: string;
@@ -29,7 +29,8 @@ export type LogistikRingkas = {
   bus: string | null;
   /** Urut tanggal, sama dengan portal. */
   stays: StayRingkas[];
-  kereta?: Partial<Record<ArahKereta, TiketRingkas>>;
+  /** Tiket per arah, urut segmen (transit = lebih dari satu). */
+  kereta?: Partial<Record<ArahKereta, TiketRingkas[]>>;
   /** Barang yang sudah diambil, per id barang; nilainya ukuran (boleh null). */
   kit?: Record<string, string | null>;
 };
@@ -61,7 +62,9 @@ export type KolomLogistik = {
 };
 
 const ISIAN_TIKET: Array<[keyof TiketRingkas, string]> = [
-  ["train_name", "train"],
+  ["mode", "mode"],
+  // Kunci tetap train_name (pilihan kolom tersimpan), labelnya umum: bisa pesawat atau kapal.
+  ["train_name", "ticket"],
   ["travel_class", "class"],
   ["origin", "from"],
   ["destination", "to"],
@@ -104,12 +107,14 @@ export function kolomLogistik(bentuk: BentukLogistik): KolomLogistik[] {
         kolom.push({
           key: `kereta:${arah}:${isian}`,
           label: `${LABEL_ARAH[arah]} ${label}`,
-          nilai: (r, _offset, b) => {
-            const v = r?.kereta?.[arah]?.[isian];
+          // Transit: nilai tiap segmen digabung " / ", urut segmen.
+          nilai: (r, _offset, b) => (r?.kereta?.[arah] ?? []).map((t) => {
+            const v = t[isian];
             if (typeof v !== "string" || !v) return "";
+            if (isian === "mode") return LABEL_MODA[v as keyof typeof LABEL_MODA] ?? v;
             if (isian === "depart_date" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return teksTanggal(v, b);
             return isian.endsWith("_time") ? v.slice(0, 5) : v;
-          },
+          }).filter(Boolean).join(" / "),
         });
       }
     }

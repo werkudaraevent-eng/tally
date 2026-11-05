@@ -156,11 +156,12 @@ assert.equal(bacaJam("24:00"), undefined);
 assert.equal(bacaJam("pagi"), undefined);
 
 const tersimpan = {
-  id: 1, participant_id: "a", direction: "outbound" as const, train_name: "Argo Lawu 8", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta",
+  id: 1, participant_id: "a", direction: "outbound" as const, mode: "train" as const, segment: 1, train_name: "Argo Lawu 8", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta",
   depart_date: "2026-11-06", depart_time: "08:20", arrive_time: "15:10", carriage: "EKS 3", seat: "12A", booking_code: "KBX7Q2",
 };
+// Berkas lama (sebelum Mode dan Segment): tetap terbaca, semuanya kereta segmen 1.
 const kereta = rencanaKereta([
-  TEMPLAT.kereta.judul,
+  ["QR code", "Name", "Direction", "Train", "Class", "From", "To", "Date", "Departs", "Arrives", "Carriage", "Seat", "Booking code"],
   ["", "Andi Pratama", "Berangkat", "Argo Lawu 8", "Executive", "Gambir", "Yogyakarta", "06/11/2026", "08:20", "15:10", "EKS 3", "12A", "KBX7Q2"],
   ["", "Andi Pratama", "Pulang", "Taksaka 72", "Executive", "Yogyakarta", "Gambir", "2026-11-08", "15.30", "22:05", "EKS 5", "8C", ""],
   ["Q-2", "", "outbound", "Argo Lawu 8", "", "", "", "06/11/2026", "", "", "EKS 1", "1A", ""],
@@ -177,7 +178,7 @@ const sk = Object.fromEntries(kereta.baris.map((b) => [b.baris, `${b.status}:${b
 assert.equal(sk[2], "tetap:Already saved");
 assert.equal(sk[3], "masuk:");
 assert.equal(sk[4], "pindah:Updates the saved ticket");
-assert.equal(sk[5], "tolak:Same person and direction already on row 4");
+assert.equal(sk[5], "tolak:Same person, direction and segment already on row 4. A transit needs Segment 2");
 assert.match(sk[6], /^tolak:Direction must be/);
 // Orang dan arah saja, kolom tiket kosong: dilewati, bukan ditolak.
 assert.equal(sk[7], undefined);
@@ -188,7 +189,7 @@ assert.match(sk[10], /^tolak:2 participants have this name/);
 assert.equal(kereta.baris.length, 8);
 assert.equal(kereta.tiket.length, 2);
 assert.deepEqual(kereta.tiket[0], {
-  participant_id: "a", direction: "return", train_name: "Taksaka 72", travel_class: "Executive", origin: "Yogyakarta", destination: "Gambir",
+  participant_id: "a", direction: "return", mode: "train", segment: 1, train_name: "Taksaka 72", travel_class: "Executive", origin: "Yogyakarta", destination: "Gambir",
   depart_date: "2026-11-08", depart_time: "15:30", arrive_time: "22:05", carriage: "EKS 5", seat: "8C", booking_code: null,
 });
 // Kolom yang ada tetapi kosong mengosongkan nilai lama.
@@ -197,14 +198,14 @@ assert.equal(kereta.tiket[1].seat, "1A");
 
 // Kolom yang tidak ada di berkas mempertahankan nilai lama.
 const sebagian = rencanaKereta([["Name", "Direction", "Train", "Seat"], ["Andi Pratama", "Outbound", "Argo Lawu 8", "14C"]], { ...acara, kereta: [tersimpan] });
-assert.deepEqual(sebagian.tiket[0], { participant_id: "a", direction: "outbound", train_name: "Argo Lawu 8", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta", depart_date: "2026-11-06", depart_time: "08:20", arrive_time: "15:10", carriage: "EKS 3", seat: "14C", booking_code: "KBX7Q2" });
+assert.deepEqual(sebagian.tiket[0], { participant_id: "a", direction: "outbound", mode: "train", segment: 1, train_name: "Argo Lawu 8", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta", depart_date: "2026-11-06", depart_time: "08:20", arrive_time: "15:10", carriage: "EKS 3", seat: "14C", booking_code: "KBX7Q2" });
 assert.match(rencanaKereta([["Name", "Train"], ["Andi", "X"]], acara).galat ?? "", /Direction/);
 
 // Nilai di atas batas tabel ditolak di pratinjau, tidak dipotong diam-diam.
 const panjang = rencanaKereta([["Name", "Direction", "Train", "Seat", "Booking code"], ["Andi Pratama", "Outbound", "Argo Lawu 8", "14C", "K".repeat(41)], ["Andi Pratama", "Return", "T".repeat(81), "1A", "X"]], acara);
 assert.equal(panjang.tiket.length, 0);
 assert.equal(panjang.baris[0].alasan, "Booking code is longer than 40 characters");
-assert.equal(panjang.baris[1].alasan, "Train is longer than 80 characters");
+assert.equal(panjang.baris[1].alasan, "Train / flight is longer than 80 characters");
 
 // Pindah hotel: satu baris per hotel, setiap baris bertanggal.
 const duaHotel: KeadaanAcara = {
@@ -356,8 +357,8 @@ const unduhKereta = barisPesertaKereta({
   vehicles: [], busBawaan: [], trips: [], busTrip: [], offset: "+07:00", kereta: [tersimpan],
 });
 assert.deepEqual(unduhKereta[0].slice(-3), ["Booking code", "Batch (info)", "Class (info)"]);
-assert.deepEqual(unduhKereta.slice(1).map((b) => `${b[1]}|${b[2]}|${b[3]}`), ["Andi Pratama|Outbound|Argo Lawu 8", "Andi Pratama|Return|", "Budi Santoso|Outbound|", "Budi Santoso|Return|"]);
-assert.deepEqual(unduhKereta[1].slice(7, 10), ["06/11/2026", "08:20", "15:10"]);
+assert.deepEqual(unduhKereta.slice(1).map((b) => `${b[1]}|${b[2]}|${b[3]}|${b[4]}|${b[5]}`), ["Andi Pratama|Outbound|1|Train|Argo Lawu 8", "Andi Pratama|Return|1||", "Budi Santoso|Outbound|1||", "Budi Santoso|Return|1||"]);
+assert.deepEqual(unduhKereta[1].slice(9, 12), ["06/11/2026", "08:20", "15:10"]);
 assert.deepEqual(unduhKereta[3].slice(-2), ["", "VIP"]);
 const balikKereta = rencanaKereta(unduhKereta, { ...acara, kereta: [tersimpan] });
 assert.equal(balikKereta.galat, null);
@@ -366,10 +367,37 @@ assert.equal(balikKereta.dilewati, 3);
 assert.equal(balikKereta.tiket.length, 0);
 // Satu baris diisi panitia: hanya itu yang ditulis.
 const diisi = unduhKereta.map((b) => [...b]);
-diisi[3][3] = "Taksaka 72";
+diisi[3][5] = "Taksaka 72";
 const isiKereta = rencanaKereta(diisi, { ...acara, kereta: [tersimpan] });
-assert.deepEqual(isiKereta.tiket.map((t) => `${t.participant_id}:${t.direction}:${t.train_name}`), ["b:outbound:Taksaka 72"]);
+assert.deepEqual(isiKereta.tiket.map((t) => `${t.participant_id}:${t.direction}:${t.mode}:${t.train_name}`), ["b:outbound:train:Taksaka 72"]);
 assert.equal(isiKereta.dilewati, 2);
+
+// Mode dan Segment: transit = dua segmen satu arah; Mode kosong mempertahankan moda lama.
+const pesawat = rencanaKereta([
+  TEMPLAT.kereta.judul,
+  ["", "Andi Pratama", "Outbound", "1", "Pesawat", "Garuda GA 181", "Economy", "Medan KNO", "Jakarta CGK", "06/11/2026", "06:10", "08:35", "", "21C", "GX4R7P"],
+  ["", "Andi Pratama", "Outbound", "2", "Flight", "Garuda GA 208", "", "Jakarta CGK", "Yogyakarta YIA", "06/11/2026", "10:20", "11:35", "", "14A", "GX4R7P"],
+  ["", "Andi Pratama", "Outbound", "2", "Flight", "Garuda GA 210"],
+  ["", "Andi Pratama", "Return", "7", "Flight", "GA 209"],
+  ["", "Andi Pratama", "Return", "", "Bus", "X"],
+  ["Q-2", "", "Return", "", "", "KMP Legundi"],
+], { ...acara, kereta: [tersimpan, { ...tersimpan, id: 3, participant_id: "b", direction: "return", mode: "ship" as const }] });
+const sTransit = Object.fromEntries(pesawat.baris.map((b) => [b.baris, `${b.status}:${b.alasan ?? ""}`]));
+assert.equal(sTransit[2], "pindah:Updates the saved ticket");
+assert.equal(sTransit[3], "masuk:New transit segment");
+assert.match(sTransit[4], /^tolak:Same person, direction and segment already on row 3/);
+assert.match(sTransit[5], /^tolak:Segment must be a number from 1 to 6/);
+assert.match(sTransit[6], /^tolak:Mode must be Train, Flight or Ship/);
+assert.deepEqual(pesawat.tiket.map((t) => `${t.participant_id}:${t.direction}:${t.segment}:${t.mode}:${t.train_name}:${t.carriage ?? ""}`), [
+  "a:outbound:1:flight:Garuda GA 181:", "a:outbound:2:flight:Garuda GA 208:", "b:return:1:ship:KMP Legundi:",
+]);
+assert.match(pesawat.baris.find((b) => b.baris === 3)!.tujuan, /^Outbound 2 · Flight · Garuda GA 208/);
+// Unduh: satu baris per segmen tersimpan.
+const unduhTransit = barisPesertaKereta({
+  peserta: [{ id: "a", name: "Andi Pratama", qr_code: "Q-1", extra: {} }], info: [], vehicles: [], busBawaan: [], trips: [], busTrip: [], offset: "+07:00",
+  kereta: [{ ...tersimpan, id: 9, segment: 2, mode: "flight" as const, train_name: "GA 208" }, tersimpan],
+});
+assert.deepEqual(unduhTransit.slice(1).map((b) => `${b[2]}|${b[3]}|${b[4]}|${b[5]}`), ["Outbound|1|Train|Argo Lawu 8", "Outbound|2|Flight|GA 208", "Return|1||"]);
 
 // Download participant list, bus: kendaraan bawaan terisi, yang kosong dilewati.
 const unduhBus = barisPesertaBus({

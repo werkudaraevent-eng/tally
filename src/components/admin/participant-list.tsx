@@ -107,8 +107,7 @@ function RincianLogistik({ logistik, bentuk, offset }: { logistik: LogistikRingk
   const nilai = (key: string) => kolom.get(key)?.nilai(logistik, offset, "layar") ?? "";
   const stays = logistik?.stays ?? [];
   const tiket = (arah: "outbound" | "return") => {
-    const t = logistik?.kereta?.[arah];
-    if (!t) return null;
+    if (!logistik?.kereta?.[arah]?.length) return null;
     const isi = (k: string) => nilai(`kereta:${arah}:${k}`);
     const bagian = [
       [isi("train_name"), isi("travel_class")].filter(Boolean).join(", "),

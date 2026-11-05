@@ -171,6 +171,9 @@ const JENIS: Record<string, Jenis> = {
     skema: z.object({
       participant_id: z.string().uuid(),
       direction: z.enum(["outbound", "return"]),
+      // Tanpa nilai = bawaan database (kereta, segmen 1).
+      mode: z.enum(["train", "flight", "ship"]).optional(),
+      segment: z.number().int().min(1).max(6).optional(),
       train_name: z.string().trim().min(1).max(80),
       travel_class: teks(40),
       origin: teks(80),
@@ -182,7 +185,7 @@ const JENIS: Record<string, Jenis> = {
       seat: teks(20),
       booking_code: teks(40),
     }),
-    ganda: "This participant already has a ticket in that direction. Edit that ticket instead.",
+    ganda: "This participant already has a ticket for that direction and segment. Edit that ticket, or give this one the next segment.",
     indukHilang: "The participant was not found. Reload the page.",
     // Tiket tidak punya turunan; menghapusnya hanya menghapus tiket itu.
   },

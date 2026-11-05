@@ -1,4 +1,6 @@
 import type { LandingLang } from "@/lib/landing-i18n";
+import { KATA_MODA } from "@/lib/logistik/moda";
+import type { ModaTiket } from "@/lib/logistik/types";
 
 /**
  * Teks portal peserta gaya gathering (DashboardGathering, rancangan pen.dev
@@ -192,7 +194,8 @@ export type PortalUiText = {
       duration: (menit: number) => string;
       hotelN: (urut: number) => string;
       hotels: (jumlah: number) => string;
-      trainLeg: (dari: string, ke: string) => string;
+      /** moda: kereta (bawaan, teks lama), pesawat, atau kapal. */
+      trainLeg: (dari: string, ke: string, moda?: ModaTiket) => string;
       checkInAt: (hotel: string) => string;
       moveTo: (hotel: string) => string;
       checkOutAt: (hotel: string) => string;
@@ -280,7 +283,7 @@ export type PortalUiText = {
       travelTitle: string;
       travelLink: string;
       roommates: (nama: string, jumlah: number) => string;
-      trainNext: (pulang: boolean) => string;
+      trainNext: (pulang: boolean, moda?: ModaTiket) => string;
       /** Fakta kartu perjalanan sebelum berangkat: jam kereta berangkat. */
       departs: string;
       /** Kartu perjalanan: tanggal acara di samping tanggal perjalanan peserta bila berbeda ("Acara 6–8 Nov"). */
@@ -486,7 +489,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         duration: (menit) => (menit % 60 ? `${Math.floor(menit / 60)}j ${menit % 60}m` : `${menit / 60}j`),
         hotelN: (urut) => `Hotel ${urut}`,
         hotels: (jumlah) => `${jumlah} hotel`,
-        trainLeg: (dari, ke) => `Kereta ${dari} → ${ke}`,
+        trainLeg: (dari, ke, moda = "train") => `${KATA_MODA.id[moda]} ${dari} → ${ke}`,
         checkInAt: (hotel) => `Check-in ${hotel}`,
         moveTo: (hotel) => `Pindah ke ${hotel}`,
         checkOutAt: (hotel) => `Check-out ${hotel}`,
@@ -563,7 +566,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         travelTitle: "Perjalananmu",
         travelLink: "Detail perjalanan",
         roommates: (nama, jumlah) => `${jumlah > 1 ? "teman-teman sekamar" : "teman sekamar"} ${nama}`,
-        trainNext: (pulang) => (pulang ? "Kereta pulang" : "Kereta berangkat"),
+        trainNext: (pulang, moda = "train") => `${KATA_MODA.id[moda]} ${pulang ? "pulang" : "berangkat"}`,
         departs: "Berangkat",
         eventDates: (tanggal) => `Acara ${tanggal}`,
         announcement: "Pengumuman",
@@ -757,7 +760,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         duration: (menit) => (menit % 60 ? `${Math.floor(menit / 60)}h ${menit % 60}m` : `${menit / 60}h`),
         hotelN: (urut) => `Hotel ${urut}`,
         hotels: (jumlah) => `${jumlah} ${jumlah === 1 ? "hotel" : "hotels"}`,
-        trainLeg: (dari, ke) => `Train ${dari} → ${ke}`,
+        trainLeg: (dari, ke, moda = "train") => `${KATA_MODA.en[moda]} ${dari} → ${ke}`,
         checkInAt: (hotel) => `Check in at ${hotel}`,
         moveTo: (hotel) => `Move to ${hotel}`,
         checkOutAt: (hotel) => `Check out of ${hotel}`,
@@ -834,7 +837,7 @@ export const PORTAL_UI: Record<LandingLang, PortalUiText> = {
         travelTitle: "Your trip",
         travelLink: "Travel details",
         roommates: (nama, jumlah) => `${jumlah > 1 ? "roommates" : "roommate"} ${nama}`,
-        trainNext: (pulang) => (pulang ? "Return train" : "Outbound train"),
+        trainNext: (pulang, moda = "train") => `${pulang ? "Return" : "Outbound"} ${KATA_MODA.en[moda].toLowerCase()}`,
         departs: "Departs",
         eventDates: (tanggal) => `Event ${tanggal}`,
         announcement: "Announcement",

@@ -14,7 +14,7 @@
 
 import { judulKamar, namaKamar } from "./nama-kamar.ts";
 import { jamZona, puncakHuni, stayPerPeserta, tanggalStay, tanggalZona } from "./stay.ts";
-import type { ArahKereta, TiketKereta } from "./types";
+import { LABEL_MODA, type ArahKereta, type ModaTiket, type TiketKereta } from "./types.ts";
 
 export type JenisImpor = "kamar" | "bus" | "kereta";
 
@@ -134,7 +134,10 @@ const ALIAS = {
   nama: ["nama", "nama peserta", "nama lengkap", "nama tamu", "name", "guest", "guest name", "peserta", "tamu", "participant", "participant name", "full name"],
   bus: ["vehicle", "bus", "nama bus", "kendaraan", "nama kendaraan", "armada", "bus name", "vehicle name", "default vehicle", "default bus"],
   arah: ["direction", "arah", "leg", "pergi/pulang", "berangkat/pulang", "outbound/return"],
-  kereta: ["train", "kereta", "nama kereta", "kereta api", "train name", "nama ka", "ka"],
+  // Nama dan nomor layanan: kereta, penerbangan, atau kapal.
+  kereta: ["train", "kereta", "nama kereta", "kereta api", "train name", "nama ka", "ka", "train / flight", "train/flight", "flight", "flight number", "flight no", "nomor penerbangan", "penerbangan", "pesawat", "ship", "kapal", "service", "layanan"],
+  moda: ["mode", "moda", "transport", "transportasi", "moda transportasi", "jenis transportasi"],
+  segmen: ["segment", "segmen", "transit", "urutan", "leg no", "leg number"],
   kelas: ["class", "kelas", "travel class"],
   dari: ["from", "dari", "asal", "origin", "stasiun asal", "departure station"],
   ke: ["to", "ke", "tujuan", "destination", "stasiun tujuan", "arrival station"],
@@ -168,10 +171,13 @@ export const TEMPLAT: Record<JenisImpor, { judul: string[]; contoh: string[][] }
     ],
   },
   kereta: {
-    judul: ["QR code", "Name", "Direction", "Train", "Class", "From", "To", "Date", "Departs", "Arrives", "Carriage", "Seat", "Booking code"],
+    judul: ["QR code", "Name", "Direction", "Segment", "Mode", "Train / flight", "Class", "From", "To", "Date", "Departs", "Arrives", "Carriage", "Seat", "Booking code"],
     contoh: [
-      ["", "Budi Santoso", "Outbound", "Argo Lawu 8", "Executive", "Gambir", "Yogyakarta", "06/11/2026", "08:20", "15:10", "EKS 3", "12A", "KBX7Q2"],
-      ["", "Budi Santoso", "Return", "Taksaka 72", "Executive", "Yogyakarta", "Gambir", "08/11/2026", "15:30", "22:05", "EKS 5", "8C", "KBX7Q2"],
+      ["", "Budi Santoso", "Outbound", "1", "Train", "Argo Lawu 8", "Executive", "Gambir", "Yogyakarta", "06/11/2026", "08:20", "15:10", "EKS 3", "12A", "KBX7Q2"],
+      ["", "Budi Santoso", "Return", "1", "Train", "Taksaka 72", "Executive", "Yogyakarta", "Gambir", "08/11/2026", "15:30", "22:05", "EKS 5", "8C", "KBX7Q2"],
+      // Transit: segmen 1 lalu 2 pada arah yang sama.
+      ["", "Siti Rahayu", "Outbound", "1", "Flight", "Garuda GA 181", "Economy", "Medan KNO", "Jakarta CGK", "06/11/2026", "06:10", "08:35", "", "21C", "GX4R7P"],
+      ["", "Siti Rahayu", "Outbound", "2", "Flight", "Garuda GA 208", "Economy", "Jakarta CGK", "Yogyakarta YIA", "06/11/2026", "10:20", "11:35", "", "14A", "GX4R7P"],
     ],
   },
 };
@@ -1160,6 +1166,14 @@ const ARAH: Record<string, ArahKereta> = {
 
 export const LABEL_ARAH: Record<ArahKereta, string> = { outbound: "Outbound", return: "Return" };
 
+/** Isi kolom Mode (Inggris atau Indonesia) ke moda tiket. */
+const MODA: Record<string, ModaTiket> = {
+  train: "train", kereta: "train", "kereta api": "train", ka: "train", rail: "train",
+  flight: "flight", pesawat: "flight", "pesawat terbang": "flight", plane: "flight", air: "flight", penerbangan: "flight",
+  ship: "ship", kapal: "ship", "kapal laut": "ship", ferry: "ship", boat: "ship", feri: "ship",
+};
+const SEGMEN_MAKS = 6;
+
 /**
  * Tanggal tiket ke YYYY-MM-DD. Menerima hasil sel tanggal Excel (2026-11-06)
  * dan tulisan Indonesia/Inggris hari dulu (06/11/2026, 6-11-26, 6.11.2026).
@@ -1190,11 +1204,11 @@ export function bacaJam(teks: string): string | null | undefined {
   return `${String(jam).padStart(2, "0")}:${cocok[2]}`;
 }
 
-const BIDANG_KERETA = ["train_name", "travel_class", "origin", "destination", "depart_date", "depart_time", "arrive_time", "carriage", "seat", "booking_code"] as const;
+const BIDANG_KERETA = ["mode", "train_name", "travel_class", "origin", "destination", "depart_date", "depart_time", "arrive_time", "carriage", "seat", "booking_code"] as const;
 
 /** Batas panjang kolom tiket kereta, sama dengan check di tabel train_tickets. */
 const BATAS_KERETA: [keyof typeof ALIAS, string, number][] = [
-  ["kereta", "Train", 80],
+  ["kereta", "Train / flight", 80],
   ["kelas", "Class", 40],
   ["dari", "From", 80],
   ["ke", "To", 80],
@@ -1204,22 +1218,24 @@ const BATAS_KERETA: [keyof typeof ALIAS, string, number][] = [
 ];
 
 /**
- * Impor tiket kereta: satu baris = satu orang satu arah (Outbound atau
- * Return). Tiket yang sudah ada untuk orang dan arah yang sama diperbarui.
+ * Impor tiket (kereta, pesawat, kapal): satu baris = satu orang satu arah
+ * (Outbound atau Return) satu segmen (kosong = 1; transit = 2 dan seterusnya).
+ * Tiket yang sudah ada untuk orang, arah, dan segmen yang sama diperbarui.
+ * Mode kosong = moda tiket lama, atau kereta untuk tiket baru.
  * Kolom yang tidak ada di berkas tidak menyentuh nilai lama; kolom yang ada
  * tetapi selnya kosong mengosongkannya, karena itulah isi berkas terbaru.
  */
 export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
   const judul = bacaJudul(sel);
   if (!judul || judul.kolom.kereta === undefined || judul.kolom.arah === undefined || (judul.kolom.nama === undefined && judul.kolom.kode === undefined)) {
-    return kosong("kereta", "Train, Direction and Name (or QR code) columns not found in the header row. Download the template for an example.");
+    return kosong("kereta", "Train / flight, Direction and Name (or QR code) columns not found in the header row. Download the template for an example.");
   }
   const { kolom, mulai } = judul;
   const isi = sel.slice(mulai);
   if (isi.length > BATAS_BARIS) return kosong("kereta", `You can import at most ${BATAS_BARIS.toLocaleString("en-GB")} rows at a time.`);
 
   const orangById = new Map(acara.peserta.map((orang) => [orang.id, orang]));
-  const lama = new Map(acara.kereta.map((t) => [`${t.participant_id}\u0000${t.direction}`, t]));
+  const lama = new Map(acara.kereta.map((t) => [`${t.participant_id}\u0000${t.direction}\u0000${t.segment}`, t]));
   const cocokkan = buatPencocok(acara.peserta);
   const baris: BarisRencana[] = [];
   const tiket: TiketImpor[] = [];
@@ -1234,6 +1250,8 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
     const kereta = ambil(sel1, "kereta") ?? "";
     const arahTeks = kunci(sel1[kolom.arah!]);
     if (!kode && !nama && !kereta && !arahTeks) return;
+    const segmenTeks = ambil(sel1, "segmen") ?? "";
+    const modaTeks = kunci(ambil(sel1, "moda") ?? "");
     const tujuanSementara = [arahTeks ? LABEL_ARAH[ARAH[arahTeks]] ?? arahTeks : "", kereta].filter(Boolean).join(" · ");
     const tolak = (alasan: string) => { baris.push({ baris: nomorBaris, nama, kode: kode || null, tujuan: tujuanSementara, status: "tolak", alasan, participant_id: null }); };
     if (!kode && !nama) return tolak("Name and QR code are empty");
@@ -1245,7 +1263,11 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
     }
     const arah = ARAH[arahTeks];
     if (!arah) return tolak("Direction must be Outbound or Return (Berangkat or Pulang)");
-    if (!kereta) return tolak("Train name is empty");
+    if (!kereta) return tolak("Train / flight is empty");
+    const segmen = segmenTeks ? Number(segmenTeks) : 1;
+    if (!Number.isInteger(segmen) || segmen < 1 || segmen > SEGMEN_MAKS) return tolak(`Segment must be a number from 1 to ${SEGMEN_MAKS}`);
+    const moda = modaTeks ? MODA[modaTeks] : undefined;
+    if (modaTeks && !moda) return tolak("Mode must be Train, Flight or Ship (Kereta, Pesawat or Kapal)");
     // Ditolak, bukan dipotong diam-diam: kode booking atau kursi yang terpotong menyesatkan peserta.
     const terlalu = BATAS_KERETA.find(([nama, , maks]) => (ambil(sel1, nama)?.length ?? 0) > maks);
     if (terlalu) return tolak(`${terlalu[1]} is longer than ${terlalu[2]} characters`);
@@ -1256,13 +1278,15 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
     if (berangkat === undefined || tiba === undefined) return tolak("Time not recognised. Use HH:MM, such as 08:20");
     const hasil = cocokkan(kode, nama);
     if ("alasan" in hasil) return tolak(hasil.alasan);
-    const kunciTiket = `${hasil.id}\u0000${arah}`;
+    const kunciTiket = `${hasil.id}\u0000${arah}\u0000${segmen}`;
     const pertama = sudah.get(kunciTiket);
-    if (pertama !== undefined) return tolak(`Same person and direction already on row ${pertama}`);
+    if (pertama !== undefined) return tolak(`Same person, direction and segment already on row ${pertama}. A transit needs Segment 2`);
     sudah.set(kunciTiket, nomorBaris);
 
     const ada = lama.get(kunciTiket) ?? null;
     const dariBerkas = {
+      // Mode kosong atau kolomnya tidak ada: moda tiket lama; tiket baru = kereta.
+      mode: moda ?? (ada ? undefined : "train"),
       train_name: kereta,
       travel_class: ambil(sel1, "kelas"),
       origin: ambil(sel1, "dari"),
@@ -1274,7 +1298,7 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
       seat: ambil(sel1, "kursi"),
       booking_code: ambil(sel1, "booking"),
     };
-    const baru: TiketImpor = { participant_id: hasil.id, direction: arah, ...Object.fromEntries(BIDANG_KERETA.map((bidang) => {
+    const baru: TiketImpor = { participant_id: hasil.id, direction: arah, segment: segmen, ...Object.fromEntries(BIDANG_KERETA.map((bidang) => {
       const nilai = dariBerkas[bidang];
       // undefined = kolomnya tidak ada di berkas: nilai lama dipertahankan.
       return [bidang, nilai === undefined ? ada?.[bidang] ?? null : nilai || null];
@@ -1285,9 +1309,9 @@ export function rencanaKereta(sel: string[][], acara: KeadaanAcara): Rencana {
       baris: nomorBaris,
       nama: orangById.get(hasil.id)!.name,
       kode: kode || null,
-      tujuan: [LABEL_ARAH[arah], baru.train_name, kursi].filter(Boolean).join(" · "),
+      tujuan: [segmen > 1 ? `${LABEL_ARAH[arah]} ${segmen}` : LABEL_ARAH[arah], baru.mode === "train" ? "" : LABEL_MODA[baru.mode], baru.train_name, kursi].filter(Boolean).join(" · "),
       status: sama ? "tetap" : ada ? "pindah" : "masuk",
-      alasan: sama ? "Already saved" : ada ? "Updates the saved ticket" : null,
+      alasan: sama ? "Already saved" : ada ? "Updates the saved ticket" : segmen > 1 ? "New transit segment" : null,
       participant_id: hasil.id,
     });
     if (!sama) tiket.push(baru);
@@ -1352,21 +1376,26 @@ export function barisPesertaBus(data: PesertaUnduh): string[][] {
 }
 
 /**
- * Semua peserta aktif dalam bentuk templat kereta: dua baris per orang
- * (Outbound lalu Return), urut nama, tiket yang tersimpan sudah terisi
- * (tanggal DD/MM/YYYY, jam HH:MM, sama dengan yang dibaca impor).
+ * Semua peserta aktif dalam bentuk templat tiket: per orang Outbound lalu
+ * Return, satu baris per segmen tersimpan (orang tanpa tiket satu baris
+ * kosong per arah), urut nama, tiket yang tersimpan sudah terisi (tanggal
+ * DD/MM/YYYY, jam HH:MM, sama dengan yang dibaca impor).
  */
 export function barisPesertaKereta(data: PesertaUnduh): string[][] {
-  const tiket = new Map(data.kereta.map((t) => [`${t.participant_id}\u0000${t.direction}`, t]));
+  const tiket = new Map<string, TiketKereta[]>();
+  for (const t of [...data.kereta].sort((a, b) => a.segment - b.segment)) {
+    const k = `${t.participant_id}\u0000${t.direction}`;
+    tiket.set(k, [...(tiket.get(k) ?? []), t]);
+  }
   const tanggal = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "");
   const jam = (teks: string | null) => (teks ? teks.slice(0, 5) : "");
   const hasil: string[][] = [[...TEMPLAT.kereta.judul, ...data.info.map((k) => judulInfo(k.label))]];
   for (const orang of urutNama(data)) {
     const info = data.info.map((k) => jawabanInfo(orang.extra, k.key));
     for (const arah of ["outbound", "return"] as const) {
-      const t = tiket.get(`${orang.id}\u0000${arah}`);
-      hasil.push([
-        orang.qr_code, orang.name, LABEL_ARAH[arah],
+      const daftar: Array<TiketKereta | undefined> = tiket.get(`${orang.id}\u0000${arah}`) ?? [undefined];
+      for (const t of daftar) hasil.push([
+        orang.qr_code, orang.name, LABEL_ARAH[arah], String(t?.segment ?? 1), t ? LABEL_MODA[t.mode] : "",
         t?.train_name ?? "", t?.travel_class ?? "", t?.origin ?? "", t?.destination ?? "",
         tanggal(t?.depart_date ?? null), jam(t?.depart_time ?? null), jam(t?.arrive_time ?? null),
         t?.carriage ?? "", t?.seat ?? "", t?.booking_code ?? "",

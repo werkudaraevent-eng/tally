@@ -17,7 +17,7 @@ assert.deepEqual(label.slice(0, 9), [
 ]);
 assert.equal(dua[0].key, "kamar");
 assert.equal(dua[4].key, "stay:hotel:2");
-assert.ok(label.includes("Outbound train") && label.includes("Return seat") && label.includes("Outbound booking code"));
+assert.ok(label.includes("Outbound ticket") && label.includes("Outbound mode") && label.includes("Return seat") && label.includes("Outbound booking code"));
 assert.deepEqual(label.slice(-2), ["Kit: T-shirt", "Kit: Lanyard"]);
 assert.equal(new Set(dua.map((k) => k.key)).size, dua.length);
 
@@ -29,10 +29,13 @@ const pindah: LogistikRingkas = {
     { hotel: "Royal Ambarrukmo", room: null, check_in_at: "2026-11-06T07:00:00Z", check_out_at: "2026-11-08T05:00:00Z" },
   ],
   kereta: {
-    outbound: {
-      direction: "outbound", train_name: "Taksaka", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta",
+    outbound: [{
+      direction: "outbound", mode: "train", segment: 1, train_name: "Taksaka", travel_class: "Executive", origin: "Gambir", destination: "Yogyakarta",
       depart_date: "2026-11-05", depart_time: "08:45:00", arrive_time: "15:10:00", carriage: "3", seat: "12A", booking_code: "ABC123",
-    } as never,
+    } as never, {
+      direction: "outbound", mode: "flight", segment: 2, train_name: "GA 208", travel_class: null, origin: "Yogyakarta", destination: "Denpasar",
+      depart_date: "2026-11-05", depart_time: "18:00", arrive_time: "20:10", carriage: null, seat: "21C", booking_code: null,
+    } as never],
   },
   kit: { "7": "L", "8": null },
 };
@@ -47,10 +50,13 @@ assert.equal(nilai("stay:in:1", pindah, "layar"), "Thu 5 Nov");
 assert.equal(nilai("stay:out:2", pindah, "layar"), "Sun 8 Nov");
 assert.equal(nilai("stay:in:2", pindah, "berkas"), "06/11/2026");
 assert.equal(nilai("bus", pindah, "layar"), "B2");
-assert.equal(nilai("kereta:outbound:train_name", pindah, "layar"), "Taksaka");
-assert.equal(nilai("kereta:outbound:depart_time", pindah, "layar"), "08:45");
-assert.equal(nilai("kereta:outbound:depart_date", pindah, "layar"), "Thu 5 Nov");
-assert.equal(nilai("kereta:outbound:depart_date", pindah, "berkas"), "05/11/2026");
+// Transit: dua segmen digabung urut segmen; isian kosong tidak meninggalkan " / ".
+assert.equal(nilai("kereta:outbound:train_name", pindah, "layar"), "Taksaka / GA 208");
+assert.equal(nilai("kereta:outbound:mode", pindah, "layar"), "Train / Flight");
+assert.equal(nilai("kereta:outbound:depart_time", pindah, "layar"), "08:45 / 18:00");
+assert.equal(nilai("kereta:outbound:carriage", pindah, "layar"), "3");
+assert.equal(nilai("kereta:outbound:depart_date", pindah, "layar"), "Thu 5 Nov / Thu 5 Nov");
+assert.equal(nilai("kereta:outbound:depart_date", pindah, "berkas"), "05/11/2026 / 05/11/2026");
 assert.equal(nilai("kereta:return:seat", pindah, "layar"), "");
 assert.equal(nilai("kit:7", pindah, "layar"), "L");
 assert.equal(nilai("kit:8", pindah, "layar"), "Collected");
