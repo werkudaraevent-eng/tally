@@ -7,9 +7,11 @@ import { LoadingIndicator } from "@/components/m3";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
 import { expressive } from "@/lib/m3/motion";
 import type { UndianState } from "@/lib/undian";
-import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WALL_CARDS_AT_MS, WinnerList, revealSettleMs } from "./undian-animations";
+import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealFxDelayMs, revealSettleMs } from "./undian-animations";
 import { AmbientStage, RevealBurst, ShineText } from "./undian-stage-fx";
 import { WallAnimation } from "./undian-wall";
+import { TunnelAnimation } from "./undian-tunnel";
+import { DrumAnimation, preloadDrum } from "./undian-drum";
 
 /**
  * Pergantian blok di panggung: yang lama menyusut-pudar, yang baru mengembang
@@ -74,9 +76,11 @@ export default function UndianClient({ initial }: Props) {
   const revealKey = state.phase === "revealed" && state.winners.length > 0
     ? `${state.prize?.id ?? 0}-${state.draw_round}`
     : "";
-  // Spotlight wall memadamkan dinding beberapa detik dulu sebelum nama tampil;
-  // confetti, ledakan, dan fanfare menunggu kartu pemenang, bukan mendahuluinya.
-  const wallReveal = state.prize?.animation === "wall";
+  // Spotlight wall, Terowongan nama, dan Tabung bola butuh beberapa detik
+  // sebelum nama pertama tampil; confetti, ledakan, dan fanfare menunggu nama
+  // itu, bukan mendahuluinya.
+  const fxDelay = revealFxDelayMs(state.prize?.animation ?? "");
+  const delayedReveal = fxDelay > 0;
   const confettiOn = state.settings.confetti_enabled;
   // Dibaca lewat ref supaya mengubah Confetti tidak memutar ulang fanfare
   // atau mengulang timer kartu dinding.
@@ -87,7 +91,7 @@ export default function UndianClient({ initial }: Props) {
   const [seenReveal, setSeenReveal] = useState("");
   if (revealKey !== "" && seenReveal !== revealKey) {
     setSeenReveal(revealKey);
-    if (!wallReveal) {
+    if (!delayedReveal) {
       if (confettiOn) setConfettiTrigger((value) => value + 1);
       setBurst((value) => value + 1);
     }
@@ -95,7 +99,7 @@ export default function UndianClient({ initial }: Props) {
 
   useEffect(() => {
     if (revealKey === "") return;
-    if (!wallReveal) {
+    if (!delayedReveal) {
       if (state.settings.sound_enabled) playFanfare();
       return;
     }
@@ -103,9 +107,17 @@ export default function UndianClient({ initial }: Props) {
       if (confettiRef.current) setConfettiTrigger((value) => value + 1);
       setBurst((value) => value + 1);
       if (state.settings.sound_enabled) playFanfare();
-    }, WALL_CARDS_AT_MS);
+    }, fxDelay);
     return () => window.clearTimeout(timer);
-  }, [revealKey, state.settings.sound_enabled, wallReveal]);
+  }, [revealKey, state.settings.sound_enabled, delayedReveal, fxDelay]);
+
+  // Tabung bola memakai three.js (~150 KB gz). Dimuat begitu hadiah dengan
+  // tabung dipilih, saat layar masih menunggu, supaya tidak ada jeda unduhan
+  // ketika operator menekan Undi di jaringan venue.
+  const drumNext = state.prize?.animation === "drum";
+  useEffect(() => {
+    if (drumNext) preloadDrum();
+  }, [drumNext]);
 
   // Fullscreen dibaca di inisialisasi state, bukan di effect, supaya render
   // pertama sudah benar. Permintaan fullscreen sendiri butuh gestur pengguna,
@@ -161,6 +173,7 @@ export default function UndianClient({ initial }: Props) {
     pendingCount: state.prize?.winners_per_draw,
     poolSize: state.pool_size,
     wallTiles: state.prize?.wall_tiles,
+    speed: state.prize?.anim_speed,
   };
 
   return <main
@@ -344,6 +357,8 @@ export default function UndianClient({ initial }: Props) {
                   : state.prize.animation === "digits" ? <DigitsAnimation {...animationProps} />
                   : state.prize.animation === "dart" ? <DartAnimation {...animationProps} />
                   : state.prize.animation === "wall" ? <WallAnimation {...animationProps} />
+                  : state.prize.animation === "tunnel" ? <TunnelAnimation {...animationProps} />
+                  : state.prize.animation === "drum" ? <DrumAnimation {...animationProps} />
                   : spinning
                     ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: 0.5 }}>Mengundi...</p>
                     : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}

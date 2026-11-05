@@ -783,7 +783,29 @@ export function shuffle<T>(items: T[]): T[] {
 // Hadiah dan state
 // ---------------------------------------------------------------------------
 
-export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "instant";
+export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "tunnel" | "drum" | "instant";
+
+/** Kecepatan gerak Terowongan nama dan Tabung bola selama mengundi. Lama undian tetap diatur Duration. */
+export type AnimSpeed = "slow" | "normal" | "fast";
+export const ANIM_SPEEDS: { value: AnimSpeed; label: string }[] = [
+  { value: "slow", label: "Slow" },
+  { value: "normal", label: "Normal" },
+  { value: "fast", label: "Fast" },
+];
+/** Animasi yang punya pilihan kecepatan; editor hanya menampilkan pilihan itu untuk animasi ini. */
+export const SPEED_ANIMATIONS: UndianAnimation[] = ["tunnel", "drum"];
+
+/**
+ * Batas pemenang utama per undi untuk animasi yang mengungkap pemenang satu per
+ * satu dengan gerakan panjang. Terowongan: tiap nama butuh ~2 detik untuk tiba;
+ * tabung: tiap bola butuh ~2,5 detik untuk jatuh ke nampan, dan nampan memuat 6.
+ * Di atas batas ini MC menunggu terlalu lama, jadi undi dibagi beberapa putaran.
+ */
+export const ANIMATION_MAX_WINNERS: Partial<Record<UndianAnimation, number>> = { tunnel: 10, drum: 6 };
+export const WINNERS_PER_DRAW_MAX = 50;
+export function maxWinnersPerDraw(animation: UndianAnimation): number {
+  return ANIMATION_MAX_WINNERS[animation] ?? WINNERS_PER_DRAW_MAX;
+}
 
 /** Nama di Spotlight wall selama undian: lengkap atau inisial. */
 export type WallNames = "full" | "initials";
@@ -809,6 +831,8 @@ export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }
   { value: "digits", label: "Digit reveal", hint: "Seat numbers or codes appear digit by digit to build suspense." },
   { value: "dart", label: "Dart throw", hint: "Draw slips float, then a dart lands on the winner. Most lively on a large screen." },
   { value: "wall", label: "Spotlight wall", hint: "Every name in the pool fills one wall, a spotlight sweeps across it, then the wall goes dark in waves until only the winners are lit. Made for a gala screen; shows up to 500 names." },
+  { value: "tunnel", label: "Name tunnel", hint: "Names fly towards the screen through a tunnel. Each winner's name enters from the far end and stops in front. Any number of names in the draw; up to 10 winners per draw." },
+  { value: "drum", label: "Lottery drum", hint: "A 3D glass drum blows coloured balls around, then the gate at the bottom opens and one ball per winner drops into the tray. Always 44 balls on screen; up to 6 winners per draw. Test it on the stage laptop first." },
   { value: "instant", label: "Instant reveal", hint: "No animation. A fallback when time is short." },
 ];
 
@@ -863,6 +887,8 @@ export type UndianPrize = {
   wall_names: WallNames;
   /** Spotlight wall saja: satu ubin per orang, atau dinding penuh dengan nama bergantian. */
   wall_tiles: WallTiles;
+  /** Terowongan nama dan Tabung bola saja: kecepatan gerak selama mengundi. */
+  anim_speed: AnimSpeed;
   /**
    * `manual` membuat animasi berputar sampai operator menekan Berhenti.
    *
@@ -885,6 +911,10 @@ export type UndianPrize = {
   sort_order: number;
   is_active: boolean;
 };
+
+export function normalizeAnimSpeed(value: unknown): AnimSpeed {
+  return value === "slow" || value === "fast" ? value : "normal";
+}
 
 /**
  * `numeric` di Postgres diserialkan menjadi string oleh driver supaya presisinya
@@ -912,6 +942,7 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     animation: (ANIMATIONS.some((item) => item.value === raw.animation) ? raw.animation : "wheel") as UndianAnimation,
     wall_names: raw.wall_names === "initials" ? "initials" : "full",
     wall_tiles: raw.wall_tiles === "fixed" ? "fixed" : "all",
+    anim_speed: normalizeAnimSpeed(raw.anim_speed),
     spin_mode: raw.spin_mode === "manual" ? "manual" : "timed",
     spin_seconds: numeric(raw.spin_seconds, 6),
     source: raw.source === "entries" ? "entries" : "participants",
@@ -989,6 +1020,8 @@ export type UndianState = {
     animation: UndianAnimation;
     /** Spotlight wall: ubin per orang atau dinding penuh (WallTiles). */
     wall_tiles: WallTiles;
+    /** Terowongan nama dan Tabung bola: kecepatan gerak (AnimSpeed). */
+    anim_speed: AnimSpeed;
     spin_seconds: number;
     winners_per_draw: number;
     winner_quota: number;

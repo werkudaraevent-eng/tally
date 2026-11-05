@@ -1,6 +1,6 @@
 # Tally status
 
-Current state only. History is in `git log` and PR descriptions. Last updated: 2026-11-04.
+Current state only. History is in `git log` and PR descriptions. Last updated: 2026-11-05.
 
 ## How to update this file
 
@@ -74,6 +74,7 @@ Current state only. History is in `git log` and PR descriptions. Last updated: 2
 
 ## Recently merged (for context; details in the PRs)
 
+- #396 Lucky draw "Name tunnel" and "Lottery drum" animations (5 Nov, SQL `202611050001_undian_terowongan_tabung` run by Mas, post-check true, QA GO): tunnel names fly in and each winner's name stops in front, 3D drum drops one ball per winner through the bottom gate onto the rail with initials; per-prize Speed (Slow/Normal/Fast); Per draw capped at 10 / 6 (editor and API). Existing prizes unchanged.
 - #394 Lucky draw Spotlight wall "Wall size" per prize (5 Nov, SQL `202611040005_undian_dinding_penuh` run by Mas, post-check true, QA GO): One tile per person (default, unchanged) or Full wall, names rotate (fixed grid that fills the screen, names rotate while drawing; when it freezes a winner's name sits only on the winner tile; footer never shows a tile count).
 - #392 Lucky draw Stage display > "Show the number in the draw" (4 Nov, SQL `202611040004_undian_tampil_jumlah` run by Mas, post-check true, QA GO): Off sends no count to the stage ("Semua nama ikut diundi"); the operator panel still shows it. Default on. Also fixes "Show the prize lineup" (#368) not saving.
 - #391 Lucky draw stage with many winners (4 Nov, QA GO, no SQL): winner cards fit one screen (columns and type size from the screen, equal width, last row centred) for 1 to 50 winners; while drawing, prize image and name sit on one row under the title; prize editor warns above 30 winners per draw.
@@ -320,6 +321,8 @@ Known issues that QA left open on purpose, by area. Fix one only when it is chea
 - #127 L11/L12: the editor tile colours are hard-coded instead of themed, and reordering ways keeps focus on the old position, with index keys.
 
 ### Lucky draw
+- #396 L1: no reduced-motion handling in Name tunnel or Lottery drum. L2: the drum's final winner list sits over the dimmed tray balls at 1280 (readable but busy). L3: without WebGL the drum shows names 3.2 s before confetti. L4: Per draw lowered by the clamp does not come back when switching to another animation.
+- Lottery drum: needs WebGL; without it the stage shows "Mengundi..." then the list. Test on the stage laptop before the event (swiftshader in QA, not a real projector laptop).
 - #394 L1: on Full wall, all tiles re-deal names in one frame when the wall freezes, a visible flicker just before the 60 wave.
 - #392 L1: with "Show the number in the draw" off, the stage roster still carries up to 500 names, so the count can be worked out from the browser network tab.
 - #391 L1: a name over about 47 characters is cut with "…" after 2 lines, even for 1 winner.

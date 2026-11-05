@@ -6,8 +6,8 @@ import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
-  AFTER_WIN_TEXT, EXCLUDE_SCOPE_LABEL, SPIN_MODES, STAGE_NOTE_MAX, WEIGHT_VAR_LABEL, ruleBrokenMessage,
-  type AfterWin, type BonusRule, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WallTiles, type WeightMode, type WeightVar,
+  AFTER_WIN_TEXT, ANIM_SPEEDS, EXCLUDE_SCOPE_LABEL, SPEED_ANIMATIONS, SPIN_MODES, maxWinnersPerDraw, STAGE_NOTE_MAX, WEIGHT_VAR_LABEL, ruleBrokenMessage,
+  type AfterWin, type AnimSpeed, type BonusRule, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WallTiles, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import { AnimationPicker, type StageLook } from "./animation-picker";
@@ -120,10 +120,13 @@ export function PrizeEditor({
 
           <DetailSection title="Draw settings">
             <AnimationPicker
-              value={draft.animation} onChange={(value) => onChange({ animation: value })}
+              // Terowongan dan tabung punya batas pemenang per undi; angka yang
+              // melewatinya diturunkan saat animasi dipilih, bukan ditolak saat Save.
+              value={draft.animation}
+              onChange={(value) => onChange({ animation: value, winners_per_draw: Math.min(draft.winners_per_draw, maxWinnersPerDraw(value)) })}
               spinMode={draft.spin_mode} spinSeconds={draft.spin_seconds} winnersPerDraw={draft.winners_per_draw}
               sampleNames={(preview?.sample ?? []).map((row) => row.name)} stage={stage}
-              wallNames={draft.wall_names} wallTiles={draft.wall_tiles}
+              wallNames={draft.wall_names} wallTiles={draft.wall_tiles} speed={draft.anim_speed}
             />
 
             {/* Spotlight wall saja: nama di dinding selama undian. Inisial
@@ -160,6 +163,25 @@ export function PrizeEditor({
               </div>
             ) : null}
 
+            {/* Kecepatan gerak hanya untuk animasi yang memakainya (SPEED_ANIMATIONS). */}
+            {SPEED_ANIMATIONS.includes(draft.animation) ? (
+              <div>
+                <p className="text-body-medium font-medium">Speed</p>
+                <SegmentedButton<AnimSpeed>
+                  label={draft.animation === "drum" ? "How fast the balls are blown around" : "How fast the names fly"}
+                  value={draft.anim_speed}
+                  onChange={(value) => onChange({ anim_speed: value })}
+                  options={ANIM_SPEEDS}
+                  className="mt-1.5 w-full"
+                />
+                <p className="mt-1 text-body-medium text-on-surface-variant">
+                  {draft.animation === "drum"
+                    ? "How hard the air blows the balls around the drum while drawing. How long the draw lasts is set under Stop."
+                    : "How fast names fly through the tunnel while drawing. How long the draw lasts is set under Stop."}
+                </p>
+              </div>
+            ) : null}
+
             {/* Pilihan berhenti hanya berarti bila ADA animasi. Mode `instant`
                 menampilkan pemenang seketika, jadi tidak ada apa pun untuk
                 dihentikan. */}
@@ -189,7 +211,7 @@ export function PrizeEditor({
             ) : null}
 
             <div className="grid grid-cols-3 gap-3">
-              <NumberField id="winners-per-draw" label="Per draw" value={draft.winners_per_draw} min={1} max={50} onChange={(value) => onChange({ winners_per_draw: value })} />
+              <NumberField id="winners-per-draw" label="Per draw" value={draft.winners_per_draw} min={1} max={maxWinnersPerDraw(draft.animation)} onChange={(value) => onChange({ winners_per_draw: value })} />
               <NumberField id="winner-quota" label="Total quota" value={draft.winner_quota} min={1} max={500} onChange={(value) => onChange({ winner_quota: value })} />
               <NumberField id="backup-per-draw" label="Backups" value={draft.backup_per_draw} min={0} max={20} onChange={(value) => onChange({ backup_per_draw: value })} />
             </div>
@@ -197,6 +219,11 @@ export function PrizeEditor({
               A quota higher than the winners per draw means this prize is drawn several times.
               Backups are drawn at the same time and used if a main winner is absent.
             </p>
+            {maxWinnersPerDraw(draft.animation) < 50 ? (
+              <p className="text-body-medium text-on-surface-variant">
+                {draft.animation === "drum" ? "Lottery drum" : "Name tunnel"} reveals winners one at a time, so it takes up to {maxWinnersPerDraw(draft.animation)} winners per draw. For more winners, raise the quota and draw again.
+              </p>
+            ) : null}
             {draft.winners_per_draw > 30 ? (
               <p className="text-body-medium text-warning">
                 More than 30 winners per draw: the names get small on the stage screen. For a large room, draw in rounds of 30 or fewer.

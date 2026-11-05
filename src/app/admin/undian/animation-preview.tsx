@@ -4,12 +4,14 @@ import { ArrowCounterClockwise, Check, Stop } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button, Dialog } from "@/components/m3";
-import { ANIMATIONS, initialsOf, type SpinMode, type UndianAnimation, type WallNames, type WallTiles } from "@/lib/undian";
+import { ANIMATIONS, initialsOf, type AnimSpeed, type SpinMode, type UndianAnimation, type WallNames, type WallTiles } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import {
   CardsAnimation, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, type AnimationProps,
 } from "@/app/undian/undian-animations";
 import { WallAnimation } from "@/app/undian/undian-wall";
+import { TunnelAnimation } from "@/app/undian/undian-tunnel";
+import { DrumAnimation } from "@/app/undian/undian-drum";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
 const CONTOH = ["Andi Pratama", "Siti Rahma", "Budi Santoso", "Dewi Lestari", "Rizky Hidayat", "Nur Aisyah", "Agus Wibowo", "Maya Putri", "Fajar Nugroho", "Intan Sari", "Hendra Saputra", "Lina Marlina"];
@@ -33,12 +35,13 @@ const PANGGUNG = { width: 1280, height: 720 };
  * dengan nama contoh. Tidak ada yang diundi atau disimpan.
  */
 export function AnimationPreview({
-  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick, wallNames = "full", wallTiles = "all",
+  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick, wallNames = "full", wallTiles = "all", speed = "normal",
 }: {
   open: boolean; onClose: () => void; animation: UndianAnimation; spinMode: SpinMode; spinSeconds: number;
   winnersPerDraw: number; names: string[]; stage: StageLook; onPick: (value: UndianAnimation) => void;
   wallNames?: WallNames;
   wallTiles?: WallTiles;
+  speed?: AnimSpeed;
 }) {
   const durasi = (value: UndianAnimation) =>
     spinMode === "manual" || value === "instant" ? null : Date.now() + spinSeconds * 1000;
@@ -90,7 +93,7 @@ export function AnimationPreview({
 
   const props: AnimationProps = {
     roster, winners: revealed ? winners : [], endsAt, accent: stage.accent, text: stage.text,
-    fontFamily: stage.fontFamily, round, pendingCount: jumlah, wallTiles,
+    fontFamily: stage.fontFamily, round, pendingCount: jumlah, wallTiles, speed,
   };
 
   return (
@@ -131,6 +134,8 @@ export function AnimationPreview({
             : animation === "digits" ? <DigitsAnimation {...props} />
             : animation === "dart" ? <DartAnimation {...props} />
             : animation === "wall" ? <WallAnimation {...props} />
+            : animation === "tunnel" ? <TunnelAnimation {...props} />
+            : animation === "drum" ? <DrumAnimation {...props} />
             : <WinnerList winners={props.winners} accent={stage.accent} text={stage.text} fontFamily={stage.fontFamily} />}
         </div>
       </StageFrame>
