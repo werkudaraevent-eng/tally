@@ -413,7 +413,7 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
         </span>
       ),
     },
-    { key: "departs", label: "Departs", lebar: 160, urut: "waktu", nilai: (agenda) => (agenda.depart_at ? [formatWaktu(agenda.depart_at, zone)] : []), kunciUrut: (agenda) => agenda.depart_at ?? "" },
+    { key: "departs", label: "Departs", lebar: 160, urut: "waktu", nilai: (agenda) => (agenda.depart_at ? [formatWaktu(agenda.depart_at, zone)] : []), csv: (agenda) => teks(agenda.depart_at), kunciUrut: (agenda) => agenda.depart_at ?? "" },
     { key: "from", label: "From", lebar: 160, nilai: (agenda) => teks(agenda.origin) },
     { key: "to", label: "To", lebar: 160, nilai: (agenda) => teks(agenda.destination) },
     { key: "meeting", label: "Meeting point", lebar: 160, tersembunyi: true, nilai: (agenda) => teks(agenda.meeting_point) },

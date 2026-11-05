@@ -40,6 +40,12 @@ export type KolomTabel<T> = {
   urut?: JenisUrutKolom;
   /** Kunci urut sendiri bila teks selnya tidak urut dengan benar (tanggal). */
   kunciUrut?: (b: T) => string;
+  /** Tetap tampil meski kosong di semua baris (Room: chip To follow ada di sini). */
+  selalu?: boolean;
+  /** Selalu ikut Export di depan, meski disembunyikan di layar (Hotel). */
+  csvWajib?: boolean;
+  /** Teks Export bila berbeda dari layar, mis. tanggal ISO supaya bisa diurut di Excel. */
+  csv?: (b: T) => string[];
 };
 
 /** Baris tambahan di awal satu grup, mis. "To follow" (tamu hotel tanpa kamar). */
@@ -57,13 +63,15 @@ export type GrupTabel = {
 const PER_HALAMAN = 100;
 
 export function TabelLogistik<T>({
-  label, tabel, baris, kunciBaris, kolom, cariLabel, cariPlaceholder, awal, chip, ujung, menyaringLuar = false, hapusSaringanLuar, urutAwal,
+  label, tabel, baris, semuaBaris, kunciBaris, kolom, cariLabel, cariPlaceholder, awal, chip, ujung, menyaringLuar = false, hapusSaringanLuar, urutAwal,
   grup, grupBaris, dipilih, onPilih, labelBaris, kaki, namaFile, kosong,
 }: {
   label: string;
   /** Kunci simpan pilihan kolom (per akun per acara). */
   tabel: string;
   baris: T[];
+  /** Semua baris sebelum chip tab menyaring; kolom bawaan dihitung dari sini supaya kolom tidak hilang-muncul saat chip dipilih. */
+  semuaBaris?: T[];
   kunciBaris: (b: T) => string;
   kolom: KolomTabel<T>[];
   cariLabel: string;
@@ -97,9 +105,10 @@ export function TabelLogistik<T>({
 
   // Kolom yang kosong di semua baris tidak tampil sampai dipilih (acara tanpa
   // Label atau Bed tidak berubah); pilihan panitia disimpan seperti Daftar peserta.
+  const dasar = semuaBaris ?? baris;
   const bawaan = useMemo(
-    () => kolom.filter((k) => k.kunci || (!k.tersembunyi && baris.some((b) => k.nilai(b).some((v) => v.trim())))).map((k) => k.key),
-    [kolom, baris],
+    () => kolom.filter((k) => k.kunci || (!k.tersembunyi && (k.selalu || dasar.some((b) => k.nilai(b).some((v) => v.trim()))))).map((k) => k.key),
+    [kolom, dasar],
   );
   const { visible, setVisible, isDefault } = useColumnPrefs(`logistik-${tabel}`, bawaan);
   const tampilKolom = kolom.filter((k) => k.kunci || visible.includes(k.key));
@@ -123,7 +132,15 @@ export function TabelLogistik<T>({
   const barisHalaman = pakaiHalaman ? hasil.slice((hal - 1) * PER_HALAMAN, hal * PER_HALAMAN) : hasil;
 
   function unduh() {
-    const csv = keCsv(tampilKolom.map((k) => k.label), hasil.map((b) => tampilKolom.map((k) => k.nilai(b))));
+    // Kolom wajib (Hotel) di depan, lalu kolom yang tampil. Bila berkelompok,
+    // berkas diurut per kelompok seperti layar, baru urutan kolom yang dipilih.
+    const wajib = kolom.filter((k) => k.csvWajib && !tampilKolom.includes(k));
+    const kolomCsv = [...wajib, ...tampilKolom];
+    const urutGrup = new Map((grup ?? []).map((g, i) => [g.key, i]));
+    const barisCsv = grup && grupBaris
+      ? hasil.map((b, i) => ({ b, i, g: urutGrup.get(grupBaris(b)) ?? urutGrup.size })).sort((x, y) => x.g - y.g || x.i - y.i).map((x) => x.b)
+      : hasil;
+    const csv = keCsv(kolomCsv.map((k) => k.label), barisCsv.map((b) => kolomCsv.map((k) => (k.csv ?? k.nilai)(b))));
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;

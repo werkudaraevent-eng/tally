@@ -192,6 +192,12 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     const v = sisi === "masuk" ? t.masuk : t.keluar;
     return v ? labelTanggal(tanggalZona(v, offset)).slice(4) : "";
   });
+  /** Untuk Export: tanggal ISO (2026-11-06) supaya bisa diurut di Excel. */
+  const tanggalPenghuniCsv = (kamar: Kamar, sisi: "masuk" | "keluar") => masalah(kamar).semua.map(({ stay }) => {
+    const t = tanggalStay(stay, hotelById.get(kamar.hotel_id));
+    const v = sisi === "masuk" ? t.masuk : t.keluar;
+    return v ? tanggalZona(v, offset) : "";
+  });
   const kunciTanggal = (kamar: Kamar, sisi: "masuk" | "keluar") => {
     const s = masalah(kamar).semua[0]?.stay;
     if (!s) return "";
@@ -203,6 +209,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     label: "Room",
     lebar: 112,
     kunci: !adaLabel,
+    selalu: true,
     nilai: (kamar) => (kamar.room_number ? [kamar.room_number] : []),
     sel: (kamar) => {
       const { lebih, campuran } = masalah(kamar);
@@ -224,22 +231,31 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       sel: (kamar: Kamar) => <span title={kamar.label ?? undefined} className="block h-7 truncate font-medium leading-7 text-on-surface">{kamar.label ?? EMPTY_VALUE}</span>,
     }] : []),
     nomorAtauLabel,
-    { key: "hotel", label: "Hotel", lebar: 200, tersembunyi: true, nilai: (kamar) => [hotelById.get(kamar.hotel_id)?.name ?? ""] },
-    { key: "occupant", label: "Occupant", lebar: 220, saring: "teks", nilai: (kamar) => masalah(kamar).isi.map((orang) => orang.name) },
+    { key: "hotel", label: "Hotel", lebar: 200, tersembunyi: true, csvWajib: true, nilai: (kamar) => [hotelById.get(kamar.hotel_id)?.name ?? ""] },
+    {
+      key: "occupant", label: "Occupant", lebar: 220, saring: "teks",
+      nilai: (kamar) => masalah(kamar).isi.map((orang) => orang.name),
+      sel: (kamar) => {
+        const isi = masalah(kamar).isi;
+        if (isi.length === 0) return <span className="block h-7 leading-7 text-on-surface-variant">Empty</span>;
+        return isi.map((orang, i) => <span key={i} title={orang.name} className="block h-7 truncate leading-7 text-on-surface">{orang.name}</span>);
+      },
+    },
+    {
+      key: "filled", label: "Filled", lebar: 80, rata: "kanan", urut: "angka",
+      nilai: (kamar) => [`${masalah(kamar).puncak}/${kamar.capacity}`],
+      // Terisi dulu, lalu kapasitas: 2/2 sebelum 2/3, jadi kamar yang masih ada tempat menyusul.
+      kunciUrut: (kamar) => `${String(masalah(kamar).puncak).padStart(3, "0")}-${String(kamar.capacity).padStart(3, "0")}`,
+      sel: (kamar) => { const { puncak, lebih } = masalah(kamar); return <span className={cx("block h-7 leading-7 tabular-nums", lebih ? "text-error" : puncak === 0 ? "text-on-surface-variant" : "text-on-surface")}>{puncak}/{kamar.capacity}</span>; },
+    },
     { key: "organisation", label: "Organisation", lebar: 160, nilai: (kamar) => masalah(kamar).isi.map((orang) => orang.company ?? "") },
     ...(kunciField ? [{ key: "gender", label: namaField ?? "Gender", lebar: 96, tersembunyi: !wajibSama, nilai: (kamar: Kamar) => masalah(kamar).isi.map((orang) => orang.gender ?? "") }] : []),
-    { key: "masuk", label: "Check-in", lebar: 96, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "masuk"), kunciUrut: (kamar) => kunciTanggal(kamar, "masuk") },
-    { key: "keluar", label: "Check-out", lebar: 104, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "keluar"), kunciUrut: (kamar) => kunciTanggal(kamar, "keluar") },
+    { key: "masuk", label: "Check-in", lebar: 96, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "masuk"), csv: (kamar) => tanggalPenghuniCsv(kamar, "masuk"), kunciUrut: (kamar) => kunciTanggal(kamar, "masuk") },
+    { key: "keluar", label: "Check-out", lebar: 104, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "keluar"), csv: (kamar) => tanggalPenghuniCsv(kamar, "keluar"), kunciUrut: (kamar) => kunciTanggal(kamar, "keluar") },
     { key: "bed", label: "Bed", lebar: 88, nilai: (kamar) => (kamar.bed_type ? [kamar.bed_type] : []) },
     { key: "type", label: "Room type", lebar: 112, nilai: (kamar) => (kamar.room_type ? [kamar.room_type] : []) },
     { key: "floor", label: "Floor", lebar: 72, rata: "kanan", urut: "angka", tersembunyi: true, nilai: (kamar) => (kamar.floor ? [kamar.floor] : []) },
     { key: "notes", label: "Staff notes", lebar: 200, saring: "teks", tersembunyi: true, nilai: (kamar) => (kamar.notes ? [kamar.notes] : []) },
-    {
-      key: "filled", label: "Filled", lebar: 80, rata: "kanan", urut: "angka",
-      nilai: (kamar) => [`${masalah(kamar).puncak}/${kamar.capacity}`],
-      kunciUrut: (kamar) => String(masalah(kamar).puncak).padStart(3, "0"),
-      sel: (kamar) => { const { puncak, lebih } = masalah(kamar); return <span className={cx("block h-7 leading-7 tabular-nums", lebih ? "text-error" : puncak === 0 ? "text-on-surface-variant" : "text-on-surface")}>{puncak}/{kamar.capacity}</span>; },
-    },
   ];
   const kolomPertama = kolomKamar[0].key;
 
@@ -291,6 +307,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       label="Rooms"
       tabel="rooms"
       baris={kamarTampil}
+      semuaBaris={data.rooms}
       kunciBaris={(kamar) => String(kamar.id)}
       kolom={kolomKamar}
       cariLabel="Search rooms"
