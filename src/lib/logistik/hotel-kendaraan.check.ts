@@ -15,6 +15,10 @@ assert.equal(hotelDiTrip(pindah, "2026-11-06T06:15:00Z", off), 2);
 assert.equal(hotelDiTrip(pindah, "2026-11-07T01:00:00Z", off), 2);
 // 8 Nov 13.00 ke stasiun, sesudah check-out: hotel yang ditinggalkan.
 assert.equal(hotelDiTrip(pindah, "2026-11-08T06:00:00Z", off), 2);
+// 6 Nov 08.00 (hari pindah, sebelum check-out GRAMM 12.00): dijemput di GRAMM.
+assert.equal(hotelDiTrip(pindah, "2026-11-06T01:00:00Z", off), 1);
+// 8 Nov 10.00 ke stasiun, sebelum check-out: masih RAY.
+assert.equal(hotelDiTrip(pindah, "2026-11-08T03:00:00Z", off), 2);
 // Berangkat sebelum semua stay: stay paling awal.
 assert.equal(hotelDiTrip(pindah, "2026-11-03T01:00:00Z", off), 1);
 // Trip tanpa jam: stay pertama.

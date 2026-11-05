@@ -2,11 +2,12 @@
  * Hotel penumpang di satu Trip, untuk panel Vehicles: "apakah semua yang naik
  * kendaraan A menginap di hotel A?".
  *
- * Hotel seseorang di sebuah Trip = hotel tempat ia tidur pada malam tanggal
- * berangkat (zona acara): stay yang check-in-nya pada atau sebelum tanggal itu
- * dan check-out-nya sesudahnya. Jadi Trip "Menuju Hotel" pada hari pindah
- * memakai hotel baru, dan Trip pagi memakai hotel tempat ia bangun. Trip pada
- * hari check-out terakhir (ke stasiun) tidak punya malam itu: dipakai hotel
+ * Hotel seseorang di sebuah Trip: stay yang sedang ditempati saat berangkat
+ * (jam check-in sampai jam check-out), jadi Trip pagi pada hari pindah memakai
+ * hotel tempat ia dijemput. Di luar itu (sebelum check-in, atau jeda antar
+ * hotel) dipakai hotel tempat ia tidur pada malam tanggal berangkat (zona
+ * acara): Trip "Menuju Hotel" pada hari pindah memakai hotel baru. Trip
+ * sesudah check-out terakhir (ke stasiun) tidak punya malam itu: dipakai hotel
  * yang ditinggalkan hari itu atau sebelumnya. Berangkat sebelum semua stay:
  * stay paling awal. Trip tanpa jam: stay pertama.
  *
@@ -23,6 +24,9 @@ export function hotelDiTrip(stays: StayEfektif[], berangkat: string | null, offs
   if (stays.length === 0) return null;
   const urut = [...stays].sort((a, b) => (a.masuk ?? "").localeCompare(b.masuk ?? ""));
   if (!berangkat) return urut[0].hotel_id;
+  const waktu = Date.parse(berangkat);
+  const ditempati = urut.filter((s) => s.masuk !== null && Date.parse(s.masuk) <= waktu && (s.keluar === null || waktu < Date.parse(s.keluar)));
+  if (ditempati.length > 0) return ditempati[ditempati.length - 1].hotel_id;
   const hari = tanggalZona(berangkat, offset);
   const tglMasuk = (s: StayEfektif) => (s.masuk ? tanggalZona(s.masuk, offset) : null);
   const tglKeluar = (s: StayEfektif) => (s.keluar ? tanggalZona(s.keluar, offset) : null);

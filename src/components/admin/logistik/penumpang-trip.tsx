@@ -247,6 +247,7 @@ export function DialogPindah({ pindah, dari, data, muatan, offset, busy, onClose
   return (
     <Dialog
       open
+      scrollBody
       onClose={onClose}
       dismissible={!busy}
       title={`Move ${orang.name}`}
