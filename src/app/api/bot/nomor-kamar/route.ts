@@ -252,7 +252,7 @@ async function denganKamar(db: Db, eventId: string, pilihan: PesertaBot[]) {
     ...orang,
     rooms: stays.filter((s) => s.participant_id === orang.id).map((s) => {
       const k = s.room_id !== null ? petaKamar.get(s.room_id) : undefined;
-      return { hotel: s.hotel_id !== null ? petaHotel.get(s.hotel_id) ?? null : null, label: k?.label ?? null, room_number: k?.room_number ?? null };
+      return { room_id: s.room_id, hotel: s.hotel_id !== null ? petaHotel.get(s.hotel_id) ?? null : null, label: k?.label ?? null, room_number: k?.room_number ?? null };
     }),
   }));
 }
