@@ -74,15 +74,46 @@ export const DRUM_DROP_GAP_MS = 2000;
 /**
  * Lempar dart 3D (undian-dart.tsx): dart pertama menancap, jarak antar dart,
  * jeda dari dart terakhir sampai kertas mulai dicabut (kamera maju), lama satu
- * kertas terbang ke depan kamera, dan jeda antar kertas. Paling banyak enam dart
- * dilempar; pemenang lain tampil di daftar nama sesudahnya.
+ * kertas terbang ke depan kamera, dan jeda antar kertas. Setiap pemenang kena
+ * satu dart. Sampai enam pemenang semua dilempar pelan; lebih dari enam, tiga
+ * pertama pelan lalu sisanya beruntun cepat (Hanung 5 Nov: "dart nya kok ga
+ * banyak? padahal hasil undian banyak").
  */
 export const DART_LAND_MS = 1340;
 export const DART_GAP_MS = 1020;
 export const DART_CARDS_AFTER_MS = 1770;
 export const DART_CARD_MS = 980;
 export const DART_CARD_STAGGER_MS = 110;
-export const DART_MAX_SHOWN = 6;
+/** Lemparan pelan (dari tangan) sebelum lemparan beruntun, bila pemenang lebih dari enam. */
+export const DART_SLOW_COUNT = 3;
+/** Lama terbang satu dart beruntun, dan jeda dari dart pelan terakhir. */
+export const DART_RAPID_FLY_MS = 420;
+export const DART_RAPID_AFTER_MS = 250;
+
+/** Berapa dart dilempar pelan dari tangan untuk `n` pemenang. */
+export function dartSlowCount(n: number) {
+  return n <= 6 ? n : DART_SLOW_COUNT;
+}
+/** Jarak antar dart beruntun: seluruh rentetan sekitar enam detik, 180–340 ms per dart. */
+export function dartRapidGapMs(n: number) {
+  return Math.max(180, Math.min(340, 6000 / Math.max(1, n - DART_SLOW_COUNT)));
+}
+/** Saat dart ke-`index` (dari 0) menancap, dalam ms sejak pemenang datang. */
+export function dartLandMs(index: number, n: number) {
+  const slow = dartSlowCount(n);
+  if (index < slow) return DART_LAND_MS + index * DART_GAP_MS;
+  const lastSlow = DART_LAND_MS + (slow - 1) * DART_GAP_MS;
+  return lastSlow + DART_RAPID_AFTER_MS + (index - slow) * dartRapidGapMs(n) + DART_RAPID_FLY_MS;
+}
+/** Jeda antar kertas yang dicabut: semua kertas berangkat dalam ~1,5 detik. */
+export function dartCardStaggerMs(n: number) {
+  return n <= 6 ? DART_CARD_STAGGER_MS : Math.min(DART_CARD_STAGGER_MS, 1500 / (n - 1));
+}
+/** Kertas terakhir berhenti di depan kamera. */
+export function dartDoneMs(n: number) {
+  if (n <= 0) return 0;
+  return dartLandMs(n - 1, n) + DART_CARDS_AFTER_MS + (n - 1) * dartCardStaggerMs(n) + DART_CARD_MS;
+}
 /** Terowongan dan tabung: jeda dari pemenang terakhir tiba sampai daftar nama tampil. */
 export const LIST_AFTER_MS = 800;
 
@@ -1379,14 +1410,8 @@ export function revealSettleMs(animation: string, winners: { is_backup: boolean 
     case "slot": return (n - 1) * Math.max(320, Math.min(900, Math.round(2400 / n))) + 900;
     case "cards": return (n - 1) * Math.max(180, Math.min(700, Math.round(3000 / n))) + 800;
     case "digits": return 3200;
-    case "dart": {
-      // Dart 3D: lemparan satu per satu, kamera maju, lalu kertas dicabut.
-      const shown = Math.min(n, DART_MAX_SHOWN);
-      const lastLand = DART_LAND_MS + (shown - 1) * DART_GAP_MS;
-      // Lebih dari enam pemenang: tanpa kartu, daftar nama menyusul dart terakhir.
-      if (n > DART_MAX_SHOWN) return lastLand + LIST_AFTER_MS + Math.min(n * 350, 2000);
-      return lastLand + DART_CARDS_AFTER_MS + (shown - 1) * DART_CARD_STAGGER_MS + DART_CARD_MS;
-    }
+    // Dart 3D: satu dart per pemenang, kamera maju, lalu kertas dicabut.
+    case "dart": return dartDoneMs(n);
     // Mulai 250 ms, tiga langkah gelombang, lalu kartu terbang (~900 ms) satu per satu.
     case "wall": return WALL_CARDS_AT_MS + 900 + Math.min((n - 1) * 220, 1200);
     // Pemenang tiba satu per satu, lalu daftar nama tampil dengan jeda per nama (WinnerList).

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { expressive } from "@/lib/m3/motion";
 import {
-  DART_CARD_MS, DART_CARD_STAGGER_MS, DART_CARDS_AFTER_MS, DART_GAP_MS, DART_LAND_MS, DART_MAX_SHOWN, LIST_AFTER_MS,
-  DartAnimation as FlatDartAnimation, WinnerList, type AnimationProps,
+  DART_CARD_MS, DART_GAP_MS, DART_LAND_MS, DART_RAPID_FLY_MS,
+  DartAnimation as FlatDartAnimation, dartCardStaggerMs, dartDoneMs, dartLandMs, dartSlowCount, type AnimationProps,
 } from "./undian-animations";
 
 // ===========================================================================
@@ -14,15 +14,18 @@ import {
 //
 // Semua nama di kolam ditempel di papan gabus dengan paku payung, dilihat dari
 // mata pelempar. Selama mengundi, dart dipegang di bawah layar dan bergoyang
-// pelan mengikuti bidikan. Begitu `winners` datang, dart dilempar satu per satu
-// (paling banyak enam): terbang melengkung menjauh, menancap miring, bergetar,
-// papan ikut bergetar. Lalu kamera maju, lampu ruangan meredup, dan kertas
-// pemenang dicabut dari paku dan dibawa ke depan kamera (Hanung, 5 Nov:
-// versi 2D "ga terasa realistis", versi 3D disetujui, minta kualitas HD).
+// pelan mengikuti bidikan. Begitu `winners` datang, setiap pemenang kena satu
+// dart: terbang melengkung menjauh, menancap miring, bergetar, papan ikut
+// bergetar, dan kertasnya menyala. Lebih dari enam pemenang: tiga pertama dari
+// tangan, sisanya beruntun cepat. Lalu kamera maju, lampu ruangan meredup, dan
+// semua kertas pemenang dicabut dari paku dan berbaris di depan kamera
+// (Hanung, 5 Nov: versi 2D "ga terasa realistis", versi 3D disetujui, minta
+// HD; lalu "dart nya kok ga banyak", "yg di kenain dart sudah tidak ada
+// kertasnya", daftar nama di atas papan "jelek").
 //
 // Kontraknya sama dengan varian lain: sebelum `winners` terisi tidak ada kertas
-// yang dipilih. Pemenang lebih dari enam: enam pertama dilempar, sisanya
-// tampil di daftar nama sesudahnya.
+// yang dipilih, dan kertas pemenang baru berbeda dari kertas lain saat dartnya
+// menancap.
 //
 // three.js dimuat dinamis (modul yang sama dengan Tabung bola). Bila WebGL
 // gagal, layar jatuh ke versi 2D lama supaya undian tetap berjalan.
@@ -52,7 +55,9 @@ const GAP = DART_GAP_MS / 1000;
 const CAM_AFTER = 0.42;
 const CAM_DUR = 1.05;
 const CARD_DUR = DART_CARD_MS / 1000;
-const CARD_STAGGER = DART_CARD_STAGGER_MS / 1000;
+const RAPID_FLY = DART_RAPID_FLY_MS / 1000;
+/** Batas kertas pemenang per undi; sama dengan WINNERS_PER_DRAW_MAX di lib/undian. */
+const DART_MAX = 50;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const easeOut = (k: number) => 1 - (1 - k) ** 3;
@@ -72,45 +77,45 @@ function hashOf(text: string) {
   return hash >>> 0;
 }
 
-/** Jadwal satu dart, dalam detik sejak pemenang datang. */
-function dartTimes(index: number) {
-  if (index === 0) return { reload: -1, settle: 0, settleEnd: 0.65, windEnd: 0.82, land: LAND0 };
-  const start = LAND0 + (index - 1) * GAP;
-  return { reload: start, settle: start + 0.22, settleEnd: start + 0.48, windEnd: start + 0.59, land: start + GAP };
+/**
+ * Jadwal satu dart, dalam detik sejak pemenang datang. Dart pelan diangkat ke
+ * tangan, dibidikkan, ditarik, lalu dilempar; dart beruntun langsung terbang
+ * dari bawah layar.
+ */
+function dartTimes(index: number, n: number) {
+  const land = dartLandMs(index, n) / 1000;
+  if (index >= dartSlowCount(n)) return { rapid: true, reload: land - RAPID_FLY, settle: land - RAPID_FLY, settleEnd: land - RAPID_FLY, windEnd: land - RAPID_FLY, land };
+  if (index === 0) return { rapid: false, reload: -1, settle: 0, settleEnd: 0.65, windEnd: 0.82, land: LAND0 };
+  const start = land - GAP;
+  return { rapid: false, reload: start, settle: start + 0.22, settleEnd: start + 0.48, windEnd: start + 0.59, land };
 }
 
 type Shown = { name: string; company: string | null };
-type Live = { current: { names: string[]; shown: Shown[]; overflow: boolean; accent: string; fontFamily: string; speed: NonNullable<AnimationProps["speed"]>; round: number } };
+type Live = { current: { names: string[]; shown: Shown[]; accent: string; fontFamily: string; speed: NonNullable<AnimationProps["speed"]>; round: number } };
 
 export function DartAnimation3D(props: AnimationProps) {
-  const { roster, winners, accent, text, fontFamily, round, speed = "normal" } = props;
+  const { roster, winners, accent, fontFamily, round, speed = "normal" } = props;
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [failed, setFailed] = useState(false);
   const mains = winners.filter((winner) => !winner.is_backup);
   const backups = winners.filter((winner) => winner.is_backup);
-  const shown = (mains.length > 0 ? mains : winners).slice(0, DART_MAX_SHOWN).map((winner) => ({ name: winner.name, company: winner.company }));
-  const overflow = mains.length > DART_MAX_SHOWN;
+  const shown = (mains.length > 0 ? mains : winners).slice(0, DART_MAX).map((winner) => ({ name: winner.name, company: winner.company }));
 
-  const live = useRef({ names: roster.map((item) => item.name), shown, overflow, accent, fontFamily, speed, round });
+  const live = useRef({ names: roster.map((item) => item.name), shown, accent, fontFamily, speed, round });
   useEffect(() => {
-    live.current = { names: roster.map((item) => item.name), shown, overflow, accent, fontFamily, speed, round };
+    live.current = { names: roster.map((item) => item.name), shown, accent, fontFamily, speed, round };
   });
 
-  // Daftar nama (pemenang lebih dari enam) atau baris cadangan tampil setelah
-  // kartu terakhir berhenti.
+  // Baris cadangan tampil setelah kartu terakhir berhenti.
   const [doneRound, setDoneRound] = useState<number | null>(() => (winners.length > 0 ? round : null));
   const hasWinners = winners.length > 0;
   const shownCount = shown.length;
   useEffect(() => {
     if (!hasWinners || doneRound === round) return;
-    // Lebih dari enam pemenang: tidak ada kartu yang dicabut, daftar nama
-    // langsung menyusul dart terakhir.
-    const lastLand = DART_LAND_MS + (shownCount - 1) * DART_GAP_MS;
-    const delay = overflow ? lastLand + LIST_AFTER_MS : lastLand + DART_CARDS_AFTER_MS + (shownCount - 1) * DART_CARD_STAGGER_MS + DART_CARD_MS;
-    const timer = window.setTimeout(() => setDoneRound(round), delay);
+    const timer = window.setTimeout(() => setDoneRound(round), dartDoneMs(shownCount));
     return () => window.clearTimeout(timer);
-  }, [hasWinners, shownCount, round, doneRound, overflow]);
+  }, [hasWinners, shownCount, round, doneRound]);
   const done = doneRound === round && hasWinners;
   const skipReveal = useRef(winners.length > 0);
 
@@ -139,28 +144,13 @@ export function DartAnimation3D(props: AnimationProps) {
   if (failed) return <FlatDartAnimation {...props} />;
 
   return <div className="relative h-full w-full min-h-0">
-    <motion.div
-      ref={wrapRef}
-      className="absolute inset-0"
-      animate={{ opacity: done && overflow ? 0.25 : 1 }}
-      transition={{ duration: 0.4 }}
-    >
+    <div ref={wrapRef} className="absolute inset-0">
       <canvas ref={canvasRef} aria-hidden className="block h-full w-full" />
-    </motion.div>
+    </div>
     <AnimatePresence>
-      {done && overflow && <motion.div
-        key={`daftar-${round}`}
-        className="absolute inset-0"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={expressive.effects.default}
-      >
-        <WinnerList winners={winners} accent={accent} text={text} fontFamily={fontFamily} />
-      </motion.div>}
       {/* Kartu pemenang hanya ada di canvas: pembaca layar mendapat teksnya di sini. */}
-      {done && !overflow && <p key={`sr-${round}`} className="sr-only">{shown.map((winner) => winner.name).join(", ")}</p>}
-      {done && !overflow && backups.length > 0 && <motion.p
+      {done && <p key={`sr-${round}`} className="sr-only">{shown.map((winner) => winner.name).join(", ")}</p>}
+      {done && backups.length > 0 && <motion.p
         key={`cadangan-${round}`}
         className="absolute bottom-[3%] left-1/2 line-clamp-2 max-w-[92%] -translate-x-1/2 rounded-[1.2em] px-[2.4%] py-[0.6%] text-center"
         style={{ fontFamily, fontSize: "clamp(11px, 1.8vh, 24px)", color: "#FFFFFF", background: "rgba(0, 0, 0, 0.55)" }}
@@ -319,12 +309,19 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     }
     return group;
   };
-  const darts = Array.from({ length: DART_MAX_SHOWN }, () => {
-    const dart = makeDart();
-    dart.visible = false;
-    board.add(dart);
-    return dart;
-  });
+  // Dart dibuat sesuai kebutuhan. Hanya enam pertama yang berbayang: puluhan
+  // dart beruntun di pass bayangan memberatkan laptop panggung.
+  const darts: import("three").Group[] = [];
+  const ensureDarts = (count: number) => {
+    while (darts.length < Math.max(1, count)) {
+      const dart = makeDart();
+      if (darts.length >= 6) dart.traverse((part) => { part.castShadow = false; });
+      dart.visible = false;
+      board.add(dart);
+      darts.push(dart);
+    }
+  };
+  ensureDarts(1);
   const UP = new T.Vector3(0, 1, 0);
   const spinQ = new T.Quaternion();
   const orient = (object: import("three").Object3D, direction: V3, spin: number) => {
@@ -520,7 +517,7 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
   };
 
   // ---- Kertas pemenang: mesh sendiri, tekstur tajam, berporos di paku ----
-  type Winner = { index: number; mesh: import("three").Mesh; material: import("three").MeshStandardMaterial; texture: import("three").CanvasTexture; target: V3 };
+  type Winner = { index: number; mesh: import("three").Mesh; material: import("three").MeshStandardMaterial; texture: import("three").CanvasTexture; target: V3; hit: boolean };
   let chosen: Winner[] = [];
   const clearChosen = () => {
     for (const item of chosen) {
@@ -534,6 +531,9 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     for (const dart of darts) dart.visible = false;
   };
   const choose = (shown: Shown[]) => {
+    ensureDarts(shown.length);
+    // Kartu kecil di grid tidak butuh tekstur sebesar kartu tunggal.
+    const px = shown.length <= 6 ? 1536 : shown.length <= 20 ? 768 : 512;
     const used = new Set<number>();
     chosen = shown.map((winner, order) => {
       let index = slips.findIndex((slip, at) => !used.has(at) && slip.name === winner.name);
@@ -545,8 +545,6 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
       }
       used.add(index);
       const slip = slips[index];
-      // 1536 cukup untuk kartu selebar ~40% layar 1080p yang dirender 1,5x.
-      const px = 1536;
       const paper = doc.createElement("canvas");
       paper.width = px;
       paper.height = Math.round(px / SLIP_RATIO);
@@ -560,11 +558,13 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
       const material = new T.MeshStandardMaterial({ map: texture, roughness: 0.85, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0 });
       const mesh = new T.Mesh(geometry, material);
       mesh.castShadow = mesh.receiveShadow = true;
+      // Kertas pemenang baru menggantikan kertas biasa saat dartnya menancap;
+      // sebelum itu bingkai warnanya akan membocorkan siapa yang menang.
+      mesh.visible = false;
       board.add(mesh);
-      showSlip(index, false);
       const random = seeded(hashOf(winner.name) + order);
       const target = new T.Vector3(slip.x + (random() - 0.5) * slipW * 0.35, slip.y - slipH * 0.05 + (random() - 0.5) * slipH * 0.3, -0.028);
-      return { index, mesh, material, texture, target };
+      return { index, mesh, material, texture, target, hit: false };
     });
   };
 
@@ -572,6 +572,7 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
   const tanHalf = Math.tan(T.MathUtils.degToRad(camera.fov / 2));
   const home = { pos: new T.Vector3(), look: new T.Vector3(0, -0.05, 0) };
   const handBase = new T.Vector3();
+  let reach = 1;
   const resize = () => {
     const rect = wrap.getBoundingClientRect();
     renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false);
@@ -582,7 +583,7 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     home.pos.set(distance * 0.066, -0.1, distance);
     // Tangan berjarak sebanding dengan jarak kamera, supaya ukuran dart di
     // layar sama di layar lebar maupun pratinjau tegak.
-    const reach = distance / 5.3;
+    reach = distance / 5.3;
     handBase.set(home.pos.x + 0.01 * reach, -0.1 - 0.2 * reach, distance - 1.35 * reach);
   };
   resize();
@@ -656,6 +657,8 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
   const cardM = new T.Matrix4();
   const shakeAxis = new T.Vector3();
   const quiver = new T.Quaternion();
+  const accentColor = new T.Color(live.current.accent);
+  const WHITE = new T.Color(0xffffff);
 
   const reset = () => {
     clearChosen();
@@ -668,6 +671,7 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     const { names, shown, speed, round, accent } = live.current;
     const pace = SPEED[speed];
     flightMaterial.color.set(accent);
+    accentColor.set(accent);
 
     if (round !== revealRound) {
       revealRound = round;
@@ -709,14 +713,38 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     } else {
       let shakeZ = 0;
       let shakeX = 0;
-      for (let index = 0; index < DART_MAX_SHOWN; index += 1) {
+      for (let index = 0; index < darts.length; index += 1) {
         const dart = darts[index];
         if (index >= k) {
           dart.visible = false;
           continue;
         }
-        const times = dartTimes(index);
+        const times = dartTimes(index, k);
         const target = chosen[index].target;
+        if (times.rapid) {
+          // Beruntun: dart datang dari bawah layar, langsung ke sasaran.
+          if (t < times.windEnd) {
+            dart.visible = false;
+            continue;
+          }
+          dart.visible = true;
+          const random = seeded(index * 7919 + 17);
+          const start = handBase.clone().add(new T.Vector3((random() - 0.5) * 0.9 * reach, -0.35 * reach, 0.15 * reach));
+          const at = (u: number) => new T.Vector3(lerp(start.x, target.x, u), lerp(start.y, target.y, u) + 0.3 * 4 * u * (1 - u), lerp(start.z, target.z, u));
+          const u = 1 - (1 - clamp01((t - times.windEnd) / RAPID_FLY)) ** 1.35;
+          const p = at(u);
+          const ahead = u < 1 ? at(Math.min(1, u + 0.02)).sub(p) : p.clone().sub(at(0.98));
+          dart.position.copy(p);
+          orient(dart, ahead.normalize(), u * 2.2 + index);
+          if (t >= times.land) {
+            const since = t - times.land;
+            shakeAxis.set(1, 0, 0).applyQuaternion(dart.quaternion);
+            dart.quaternion.premultiply(quiver.setFromAxisAngle(shakeAxis, 0.12 * Math.exp(-since * 8) * Math.sin(since * 52)));
+            const s2 = clamp01(since / 0.25);
+            if (s2 < 1) shakeZ += -0.005 * Math.exp(-s2 * 5) * Math.sin(s2 * 22);
+          }
+          continue;
+        }
         const from = index === 0 ? revealFrom : chosen[index - 1].target;
         if (index > 0 && t < times.reload) {
           dart.visible = false;
@@ -765,10 +793,10 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     }
 
     // Kertas pemenang: bergoyang saat tertancap, lalu dicabut ke depan kamera.
-    const lastLand = k > 0 ? dartTimes(k - 1).land : 0;
+    const lastLand = k > 0 ? dartTimes(k - 1, k).land : 0;
     const camStart = lastLand + CAM_AFTER;
     const cardsStart = camStart + CAM_DUR + 0.3;
-    const shot = k > 0 && t >= 0 && !live.current.overflow ? framing() : null;
+    const shot = k > 0 && t >= 0 ? framing() : null;
     const cam = clamp01((t - camStart) / CAM_DUR);
     if (shot && t >= camStart) {
       const ease = easeInOut(cam);
@@ -795,10 +823,20 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
       const reach = Math.min(1.1, shot.distance * 0.42);
       const viewH = 2 * reach * tanHalf;
       const viewW = viewH * camera.aspect;
-      const columns = camera.aspect < 1 ? Math.min(k, 2) : Math.min(k, 3);
+      const gap = viewW * (k > 6 ? 0.014 : 0.025);
+      const spanW = viewW * (k === 1 ? 0.62 : k > 6 ? 0.94 : 0.9);
+      const spanH = viewH * (k > 6 ? 0.86 : 0.66);
+      // Jumlah kolom yang membuat kartu paling besar (20 nama di layar lebar: 5 x 4).
+      const widthFor = (cols: number) => {
+        const r = Math.ceil(k / cols);
+        return Math.min((spanW - (cols - 1) * gap) / cols, ((spanH - (r - 1) * gap) / r) * SLIP_RATIO);
+      };
+      let columns = 1;
+      if (k <= 6) columns = camera.aspect < 1 ? Math.min(k, 2) : Math.min(k, 3);
+      else for (let cols = 2; cols <= k; cols += 1) if (widthFor(cols) > widthFor(columns)) columns = cols;
       const rows = Math.ceil(k / columns);
-      const gap = viewW * 0.025;
-      const cardW = Math.min((viewW * (k === 1 ? 0.62 : 0.9) - (columns - 1) * gap) / columns, ((viewH * 0.66 - (rows - 1) * gap) / rows) * SLIP_RATIO);
+      const cardW = widthFor(columns);
+      const stagger = dartCardStaggerMs(k) / 1000;
       const cardH = cardW / SLIP_RATIO;
       const centre = shot.pos.clone().addScaledVector(forward, reach);
       cardLight.position.copy(shot.pos).addScaledVector(up, 0.6);
@@ -807,18 +845,28 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
       chosen.forEach((item, index) => {
         const slip = slips[item.index];
         const mesh = item.mesh;
-        const land = dartTimes(index).land;
+        const land = dartTimes(index, k).land;
+        if (!item.hit && t >= land) {
+          item.hit = true;
+          mesh.visible = true;
+          showSlip(item.index, false);
+        }
         const flap = clamp01((t - land) / 0.7);
         const baseZ = slip.rz + (t >= land && flap < 1 ? 0.09 * Math.exp(-flap * 5) * Math.sin(flap * 20) : 0);
         const baseX = slip.rx + (t >= land && flap < 1 ? 0.12 * Math.exp(-flap * 6) * Math.abs(Math.sin(flap * 14)) : 0);
         const restQ = new T.Quaternion().setFromEuler(new T.Euler(baseX, 0, baseZ));
         const p0 = slip.pin.clone().setZ(slip.z + 0.001);
-        const raw = clamp01((t - cardsStart - index * CARD_STAGGER) / CARD_DUR);
+        const raw = clamp01((t - cardsStart - index * stagger) / CARD_DUR);
         if (raw <= 0) {
           mesh.position.copy(p0);
           mesh.quaternion.copy(restQ);
           mesh.scale.setScalar(1);
-          item.material.emissiveIntensity = 0;
+          // Kena dart: kertas menyala warna acara dan tetap begitu di papan,
+          // supaya 500 kertas kecil pun terlihat mana yang menang.
+          // Kertas putih yang ditambah cahaya tetap putih, jadi warnanya diubah.
+          item.material.color.copy(WHITE).lerp(accentColor, 0.8);
+          item.material.emissive.copy(accentColor);
+          item.material.emissiveIntensity = t >= land ? 0.12 + 0.5 * Math.exp(-(t - land) * 3) : 0;
           return;
         }
         const row = Math.floor(index / columns);
@@ -836,12 +884,17 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
           mesh.quaternion.slerpQuaternions(restQ, peelQ, peel);
           mesh.position.lerpVectors(p0, lift, peel);
           mesh.scale.setScalar(1);
+          item.material.color.copy(WHITE).lerp(accentColor, 0.8);
+          item.material.emissive.copy(accentColor);
+          item.material.emissiveIntensity = 0.12;
         } else {
           const fly = easeInOut((raw - 0.25) / 0.75);
           mesh.quaternion.slerpQuaternions(peelQ, cardQ, fly);
           mesh.position.copy(toLocal(lift.clone().lerp(pinTo, fly).addScaledVector(forward, -Math.sin(fly * Math.PI) * 0.25)));
           mesh.scale.setScalar(lerp(1, cardW / slipW, fly));
-          item.material.emissiveIntensity = lerp(0, 0.62, fly);
+          item.material.color.copy(WHITE).lerp(accentColor, 0.8 * (1 - fly));
+          item.material.emissive.copy(accentColor).lerp(WHITE, fly);
+          item.material.emissiveIntensity = lerp(0.12, 0.62, fly);
         }
       });
     }

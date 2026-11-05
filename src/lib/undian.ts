@@ -829,7 +829,7 @@ export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }
   { value: "slot", label: "Slot machine", hint: "Names scroll quickly, then stop. Works well with hundreds or thousands of names." },
   { value: "cards", label: "Card reveal", hint: "Cards are revealed one at a time. Best for several winners in one draw." },
   { value: "digits", label: "Digit reveal", hint: "Seat numbers or codes appear digit by digit to build suspense." },
-  { value: "dart", label: "Dart throw", hint: "Every name is pinned to a 3D cork board. A dart is thrown at each winner, then the camera moves in and the slip is pulled off the board. Up to 6 darts per draw; more winners appear in a list after. Test it on the stage laptop first." },
+  { value: "dart", label: "Dart throw", hint: "Every name is pinned to a 3D cork board. Every winner gets a dart (more than 6: the first 3 slowly, the rest in a quick volley), then the winning slips are pulled off the board and lined up as cards. Test it on the stage laptop first." },
   { value: "wall", label: "Spotlight wall", hint: "Every name in the pool fills one wall, a spotlight sweeps across it, then the wall goes dark in waves until only the winners are lit. Made for a gala screen; shows up to 500 names." },
   { value: "tunnel", label: "Name tunnel", hint: "Names fly towards the screen through a tunnel. Each winner's name enters from the far end and stops in front. Any number of names in the draw; up to 10 winners per draw." },
   { value: "drum", label: "Lottery drum", hint: "A 3D glass drum blows coloured balls around, then the gate at the bottom opens and one ball per winner drops into the tray. Always 44 balls on screen; up to 6 winners per draw. Test it on the stage laptop first." },
