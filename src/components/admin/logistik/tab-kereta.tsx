@@ -74,19 +74,19 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
       nilai: (t) => [orangById.get(t.participant_id)!.name],
       sel: (t) => <span title={orangById.get(t.participant_id)!.name} className="block h-7 truncate font-medium leading-7 text-on-surface">{orangById.get(t.participant_id)!.name}</span>,
     },
-    { key: "organisation", label: "Organisation", lebar: 160, nilai: (t) => teks(orangById.get(t.participant_id)!.company) },
-    { key: "qr", label: "QR code", lebar: 120, tersembunyi: true, saring: "teks", nilai: (t) => [orangById.get(t.participant_id)!.qr_code] },
     { key: "direction", label: "Direction", lebar: 104, nilai: (t) => [LABEL_ARAH[t.direction]] },
-    { key: "train", label: "Train", lebar: 150, nilai: (t) => teks(t.train_name) },
-    { key: "class", label: "Class", lebar: 104, nilai: (t) => teks(t.travel_class) },
-    { key: "from", label: "From", lebar: 140, nilai: (t) => teks(t.origin) },
-    { key: "to", label: "To", lebar: 140, nilai: (t) => teks(t.destination) },
-    { key: "date", label: "Date", lebar: 112, urut: "waktu", nilai: (t) => teks(tanggalTiket(t.depart_date)?.replace(/ \d{4}$/, "")), kunciUrut: (t) => t.depart_date ?? "" },
-    { key: "departs", label: "Departs", lebar: 88, rata: "kanan", urut: "waktu", nilai: (t) => teks(t.depart_time?.slice(0, 5)) },
-    { key: "arrives", label: "Arrives", lebar: 88, rata: "kanan", urut: "waktu", nilai: (t) => teks(t.arrive_time?.slice(0, 5)) },
+    { key: "date", label: "Date", lebar: 112, urut: "waktu", nilai: (t) => teks(tanggalTiket(t.depart_date)?.replace(/ \d{4}$/, "")), csv: (t) => teks(t.depart_date), kunciUrut: (t) => (t.depart_date ? `${t.depart_date} ${t.depart_time ?? ""}` : "") },
+    { key: "departs", label: "Departs", lebar: 88, rata: "kanan", urut: "waktu", nilai: (t) => teks(t.depart_time?.slice(0, 5)), kunciUrut: (t) => (t.depart_time ? `${t.depart_date ?? ""} ${t.depart_time}` : "") },
     { key: "carriage", label: "Carriage", lebar: 96, nilai: (t) => teks(t.carriage) },
     { key: "seat", label: "Seat", lebar: 72, saring: "teks", nilai: (t) => teks(t.seat) },
+    { key: "train", label: "Train", lebar: 150, nilai: (t) => teks(t.train_name) },
     { key: "booking", label: "Booking code", lebar: 128, saring: "teks", nilai: (t) => teks(t.booking_code) },
+    { key: "organisation", label: "Organisation", lebar: 160, nilai: (t) => teks(orangById.get(t.participant_id)!.company) },
+    { key: "qr", label: "QR code", lebar: 120, tersembunyi: true, saring: "teks", nilai: (t) => [orangById.get(t.participant_id)!.qr_code] },
+    { key: "class", label: "Class", tersembunyi: true, lebar: 104, nilai: (t) => teks(t.travel_class) },
+    { key: "from", label: "From", tersembunyi: true, lebar: 140, nilai: (t) => teks(t.origin) },
+    { key: "to", label: "To", tersembunyi: true, lebar: 140, nilai: (t) => teks(t.destination) },
+    { key: "arrives", label: "Arrives", lebar: 88, rata: "kanan", urut: "waktu", nilai: (t) => teks(t.arrive_time?.slice(0, 5)) },
   ];
 
   const daftar = (
@@ -94,6 +94,7 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
       label="Train tickets"
       tabel="trains"
       baris={tampil}
+      semuaBaris={tiket}
       kunciBaris={(t) => String(t.id)}
       kolom={kolomTiket}
       cariLabel="Search tickets"
