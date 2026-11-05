@@ -538,7 +538,7 @@ export default function UndianControlPage() {
               </Button>
             ) : null}
             {belumDiputuskan.length > 0 ? (
-              <p className="text-body-small text-on-surface-variant">Unconfirmed names stay out of later draws but are not recorded as prize winners. Use it for rehearsals.</p>
+              <p className="text-body-small text-on-surface-variant">Unconfirmed names stay out of later draws but are not recorded as prize winners. Useful for a run-through without Rehearsal mode.</p>
             ) : null}
           </div>
         ) : drawBlocked ? (

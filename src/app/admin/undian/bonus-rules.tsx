@@ -573,14 +573,26 @@ function ChanceLine({ context, candidate, source }: { context: ChanceContext; ca
   const listed = candidate.source === "list" ? candidate.participant_ids.length : 0;
   const percent = new Intl.NumberFormat("en-GB", { maximumFractionDigits: share < 0.01 ? 1 : 0 });
   const decimal = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 });
+  // Kalimat biasa, satu fakta per kalimat (Mas 5 Nov: "penjelasan saya ga
+  // paham"). Untuk satu pemenang, "peluang pemenang dari kelompok ini" sama
+  // dengan bagian tiketnya; untuk banyak pemenang, perkiraan jumlahnya.
+  const notIn = listed - people;
   return box(
-    <p>
-      {people.toLocaleString("en-GB")} {people === 1 ? "person holds" : "people hold"} <strong>{percent.format(share * 100)}% of tickets</strong>
-      {" "}({ticketsEach}× the chance of a standard participant).
-      {" "}Of {quota} {quota === 1 ? "winner" : "winners"}, an average of <strong>{decimal.format(expected)}</strong> will come from this group.
-      {listed > people ? <span className="text-on-surface-variant"> {listed - people} of the {listed} people on this list {listed - people === 1 ? "is" : "are"} not in this prize’s draw (prize conditions, exclusion rules or already won).</span> : null}
-      {capped ? <span className="text-on-surface-variant"> Capped at the maximum of {context.weightMax} tickets per person.</span> : null}
-    </p>,
+    <>
+      <p>
+        {listed > 0
+          ? <>{people.toLocaleString("en-GB")} of the {listed.toLocaleString("en-GB")} {listed === 1 ? "person" : "people"} {people === 1 ? "is" : "are"} in this prize’s draw.</>
+          : <>{people.toLocaleString("en-GB")} {people === 1 ? "person matches" : "people match"} this rule and {people === 1 ? "is" : "are"} in this prize’s draw.</>}
+        {" "}Each has <strong>{ticketsEach}×</strong> the chance of a standard participant.
+      </p>
+      <p className="mt-1">
+        {quota === 1
+          ? <>Chance the winner comes from this group: <strong>about {percent.format(share * 100)}%</strong>.</>
+          : <>Of {quota} winners, about <strong>{decimal.format(expected)}</strong> will come from this group.</>}
+      </p>
+      {notIn > 0 ? <p className="mt-1 text-on-surface-variant">{notIn} not in the draw: prize conditions, exclusion rules or already won.</p> : null}
+      {capped ? <p className="mt-1 text-on-surface-variant">Limited to {context.weightMax} tickets each by Maximum tickets per person, under the rule list. Raise it to give more.</p> : null}
+    </>,
   );
 }
 
