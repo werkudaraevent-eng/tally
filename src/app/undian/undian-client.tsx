@@ -282,7 +282,9 @@ export default function UndianClient({ initial }: Props) {
                 className="transition-[height] duration-500 ease-emphasized"
                 // Saat diam, gambar diberi ruang di bawahnya: ia melayang naik-turun
                 // 1,2vh, dan tanpa jarak ini ujungnya menempel ke nama hadiah.
-                style={{ height: running ? "min(7vh, 80px)" : "min(22vh, 240px)", marginBottom: running ? 0 : "2.4vh", width: "auto", objectFit: "contain", filter: "drop-shadow(0 1.2vh 2.4vh rgba(0, 0, 0, 0.35))" }}
+                // Dengan lineup di bawahnya, gambar lebih kecil: gambar besar +
+                // nama tiga baris + lineup tidak muat di 1280x720.
+                style={{ height: running ? "min(7vh, 80px)" : state.lineup.length > 0 ? "min(14vh, 160px)" : "min(22vh, 240px)", marginBottom: running ? 0 : "2.4vh", width: "auto", objectFit: "contain", filter: "drop-shadow(0 1.2vh 2.4vh rgba(0, 0, 0, 0.35))" }}
                 animate={{ y: ["0vh", "-1.2vh", "0vh"], rotate: [-1, 1, -1] }}
                 transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
               />
