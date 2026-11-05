@@ -270,7 +270,7 @@ export default function UndianClient({ initial }: Props) {
           {/* Saat mengundi, gambar dan nama hadiah menjadi satu baris: tumpukan
               judul, gambar, dan nama memakan seperlima layar yang dibutuhkan
               kartu pemenang, dan jaraknya tampak tidak rata. */}
-          <motion.div key={state.prize.id} className={running ? "flex max-w-full shrink-0 flex-row items-center justify-center gap-[1.4vw] pt-[1vh] text-left" : "flex shrink-0 flex-col items-center gap-[1vh] text-center"} {...TUKAR_PANGGUNG}>
+          <motion.div key={state.prize.id} className={running ? "flex max-w-full shrink-0 flex-row items-center justify-center gap-[1.4vw] pt-[1vh] text-left" : "flex shrink-0 flex-col items-center gap-[1vh] pt-[4vh] text-center"} {...TUKAR_PANGGUNG}>
             {state.prize.image_url && (
               // `img` biasa, bukan next/image: URL-nya dari Supabase Storage dan
               // bisa berubah kapan saja lewat CMS, sedangkan next/image butuh host
@@ -280,7 +280,11 @@ export default function UndianClient({ initial }: Props) {
                 alt=""
                 aria-hidden="true"
                 className="transition-[height] duration-500 ease-emphasized"
-                style={{ height: running ? "min(7vh, 80px)" : "min(14vh, 160px)", width: "auto", objectFit: "contain", filter: "drop-shadow(0 1.2vh 2.4vh rgba(0, 0, 0, 0.35))" }}
+                // Saat diam, gambar diberi ruang di bawahnya: ia melayang naik-turun
+                // 1,2vh, dan tanpa jarak ini ujungnya menempel ke nama hadiah.
+                // Dengan lineup di bawahnya, gambar lebih kecil: gambar besar +
+                // nama tiga baris + lineup tidak muat di 1280x720.
+                style={{ height: running ? "min(7vh, 80px)" : state.lineup.length > 0 ? "min(14vh, 160px)" : "min(22vh, 240px)", marginBottom: running ? 0 : "2.4vh", width: "auto", objectFit: "contain", filter: "drop-shadow(0 1.2vh 2.4vh rgba(0, 0, 0, 0.35))" }}
                 animate={{ y: ["0vh", "-1.2vh", "0vh"], rotate: [-1, 1, -1] }}
                 transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
               />
@@ -333,7 +337,7 @@ export default function UndianClient({ initial }: Props) {
             memperbesar wadahnya sendiri, mendorong header keluar layar, dan
             membuat halaman ikut menggulir. Di proyektor tidak ada yang bisa
             menggulirkannya kembali. */}
-        <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
+        <div className={`flex min-h-0 w-full items-center justify-center overflow-hidden ${running ? "flex-1" : "flex-none pb-[2vh] pt-[4vh]"}`}>
           {/* `key` HANYA berganti antara diam dan berjalan, bukan per fase.
               Komponen animasi harus tetap terpasang dari `spinning` sampai
               `revealed`: roda yang melambat dan kartu yang membalik bekerja
