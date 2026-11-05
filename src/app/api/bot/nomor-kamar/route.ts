@@ -1,5 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { kunciDariRequest } from "@/lib/api-keys";
 import { klien, semuaBaris } from "@/lib/logistik/server";
 import {
   cariPeserta, pilihKamar, rapikanNomor,
@@ -12,20 +12,16 @@ import {
  *
  * Kewenangannya sengaja sesempit mungkin (pola restricted key Stripe dan
  * fine-grained token GitHub):
- * - satu kunci untuk SATU acara, keduanya di env Vercel (Production saja),
- *   tidak pernah di repo. Mencabut = hapus env, lalu redeploy;
+ * - satu kunci untuk SATU acara dengan izin "Room numbers", dibuat panitia
+ *   di Event settings > Integrations > API keys (lib/api-keys.ts). Dicabut
+ *   atau kedaluwarsa = langsung 401;
  * - hanya menulis `lodging_rooms.room_number` untuk kamar yang sudah ada dan
  *   sudah ditempati peserta yang disebut. Tidak membuat kamar, tidak memindah
  *   orang, tidak mengirim pemberitahuan, tidak membaca QR/email/telepon;
  * - setiap keraguan ditolak dengan pilihan (lib/logistik/bot-nomor-kamar.ts);
  * - setiap penulisan tercatat di audit_logs (`room_number_set_by_bot`) dengan
  *   nilai lama dan nama bot.
- *
- * Env:
- *   BOT_NOMOR_KAMAR_KEY    rahasia acak, minimal 32 karakter
- *   BOT_NOMOR_KAMAR_EVENT  slug acara yang boleh ditulis
- *   BOT_NOMOR_KAMAR_NAME   nama bot di Audit trail (bawaan "Bot")
- * Tanpa salah satu dari dua yang pertama, route ini 404.
+ * - nama kunci (mis. "Hermes") menjadi pelaku di Audit trail.
  */
 
 export const dynamic = "force-dynamic";
@@ -34,17 +30,6 @@ type Galat = { code: string; message: string; [kunci: string]: unknown };
 
 function tolak(status: number, galat: Galat) {
   return Response.json({ ok: false, error: galat }, { status, headers: { "cache-control": "no-store" } });
-}
-
-function digest(teks: string) {
-  return createHash("sha256").update(teks).digest();
-}
-
-/** Kunci cocok, dibandingkan lewat sha256 supaya panjangnya tidak bocor. */
-function kunciCocok(request: Request, rahasia: string) {
-  const diberikan = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
-  if (!diberikan) return false;
-  return timingSafeEqual(digest(diberikan), digest(rahasia));
 }
 
 const skema = z.object({
@@ -60,12 +45,9 @@ const skema = z.object({
 }).strict().refine((isi) => Boolean(isi.name || isi.participant_id), { message: "Send name or participant_id." });
 
 export async function POST(request: Request) {
-  const rahasia = process.env.BOT_NOMOR_KAMAR_KEY ?? "";
-  const slug = process.env.BOT_NOMOR_KAMAR_EVENT?.trim() ?? "";
-  // Mati bila belum disetel: tidak memberi tahu bahwa route ini ada.
-  if (rahasia.length < 32 || !slug) return new Response("Not found", { status: 404 });
-  if (!kunciCocok(request, rahasia)) return tolak(401, { code: "UNAUTHENTICATED", message: "Wrong or missing bot key." });
-  const namaBot = (process.env.BOT_NOMOR_KAMAR_NAME?.trim() || "Bot").slice(0, 40);
+  const kunci = await kunciDariRequest(request, "room_numbers");
+  if (!kunci) return tolak(401, { code: "UNAUTHENTICATED", message: "Wrong, revoked or expired API key, or the key has no Room numbers permission." });
+  const namaBot = kunci.name;
 
   let mentah: unknown;
   try {
@@ -78,9 +60,9 @@ export async function POST(request: Request) {
   const isi = parsed.data;
 
   const db = klien();
-  const { data: acara } = await db.from("events").select("id,status").eq("slug", slug).maybeSingle();
+  const { data: acara } = await db.from("events").select("id,status").eq("id", kunci.event_id).maybeSingle();
   const event = acara as { id: string; status: string } | null;
-  if (!event) return tolak(404, { code: "EVENT_NOT_FOUND", message: "The bot's event was not found." });
+  if (!event) return tolak(404, { code: "EVENT_NOT_FOUND", message: "The key's event was not found." });
   if (event.status === "completed" || event.status === "archived") {
     return tolak(409, { code: "EVENT_CLOSED", message: "This event is closed. Room numbers can no longer be changed by the bot." });
   }
@@ -170,7 +152,7 @@ export async function POST(request: Request) {
     event_id: event.id,
     user_id: null,
     action: "room_number_set_by_bot",
-    payload: { bot: namaBot, participant_id: peserta.id, participant_name: peserta.name, room_id: kamar.id, hotel: namaHotel, label: kamar.label, old: kamar.room_number, new: nomor },
+    payload: { bot: namaBot, api_key_id: kunci.id, participant_id: peserta.id, participant_name: peserta.name, room_id: kamar.id, hotel: namaHotel, label: kamar.label, old: kamar.room_number, new: nomor },
   } as never);
 
   return Response.json({

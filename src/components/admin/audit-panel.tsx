@@ -43,6 +43,8 @@ const ACTION_LABEL: Record<string, string> = {
   participant_check_in_reset: "Mereset check-in peserta",
   participant_luggage_reset: "Mereset bagasi peserta",
   room_number_set_by_bot: "Mengisi nomor kamar",
+  api_key_create: "Membuat API key",
+  api_key_revoke: "Mencabut API key",
   room_notice_send: "Mengirim kabar nomor kamar",
   display_settings_update: "Mengubah Papan peringkat",
   display_background_upload: "Mengganti latar Papan peringkat",

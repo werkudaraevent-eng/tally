@@ -19,6 +19,8 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "leaderboard_exclusion_create", "leaderboard_exclusion_update", "leaderboard_exclusion_delete",
     // Check-in > Checkpoints: sakelar dan tujuan poin (tujuan menjanjikan sesuatu ke peserta).
     "checkpoint_settings_update",
+    // Event settings > Integrations > API keys: siapa membuat dan mencabut kunci.
+    "api_key_create", "api_key_revoke",
   ],
   offers: ["special_offer_create", "special_offer_update", "special_offer_delete"],
   booths: ["booth_create", "booth_update"],
