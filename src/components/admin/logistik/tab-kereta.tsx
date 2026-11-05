@@ -3,13 +3,13 @@
 import { Train, Warning } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import {
-  Banner, Button, DetailSection, Dialog, EmptyState, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, SelectField, TextField, EMPTY_VALUE,
+  Banner, Button, ChipMenu, DetailSection, Dialog, EmptyState, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, SelectField, TextField, EMPTY_VALUE,
 } from "@/components/m3";
 import { LABEL_ARAH } from "@/lib/logistik/impor";
 import type { ArahKereta, TiketKereta } from "@/lib/logistik/types";
-import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
-import { KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps } from "./bersama";
+import { KepalaDetail, PilihPeserta, type TabProps } from "./bersama";
+import { TabelLogistik, type KolomTabel } from "./tabel-logistik";
 
 /**
  * Tab Trains: tiket kereta tiap peserta, satu baris per orang per arah
@@ -28,7 +28,6 @@ export function tanggalTiket(iso: string | null): string | null {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
-const kursiTiket = (tiket: TiketKereta) => [tiket.carriage, tiket.seat].filter(Boolean).join(" / ") || null;
 const jamTiket = (tiket: TiketKereta) => [tiket.depart_time, tiket.arrive_time].filter(Boolean).join("–") || null;
 
 /** Tiket yang sedang ditambah: peserta dan arah sudah dipilih, isi tiket belum. */
@@ -38,7 +37,7 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
   const [pilih, setPilih] = useState<number | null>(null);
   const [arahBaru, setArahBaru] = useState<ArahKereta>("outbound");
   const [tiketBaru, setTiketBaru] = useState<TiketBaru | null>(null);
-  const [cari, setCari] = useState("");
+  const [saringArah, setSaringArah] = useState<ArahKereta[]>([]);
   const [ubah, setUbah] = useState<TiketKereta | null>(null);
   const [hapus, setHapus] = useState<TiketKereta | null>(null);
 
@@ -50,13 +49,7 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
     .sort((a, b) => orangById.get(a.participant_id)!.name.localeCompare(orangById.get(b.participant_id)!.name, "en-GB")
       || a.participant_id.localeCompare(b.participant_id)
       || (a.direction === b.direction ? 0 : a.direction === "outbound" ? -1 : 1)), [data.trains, orangById]);
-  const kata = cari.trim().toLowerCase();
-  const tampil = kata
-    ? tiket.filter((t) => {
-        const orang = orangById.get(t.participant_id)!;
-        return [orang.name, orang.company, t.train_name, t.booking_code, kursiTiket(t)].some((isi) => (isi ?? "").toLowerCase().includes(kata)) || orang.qr_code.toLowerCase() === kata;
-      })
-    : tiket;
+  const tampil = saringArah.length ? tiket.filter((t) => saringArah.includes(t.direction)) : tiket;
   const punyaTiket = new Set(tiket.map((t) => t.participant_id)).size;
   const sudahPunya = useMemo(() => new Set(tiket.filter((t) => t.direction === arahBaru).map((t) => t.participant_id)), [tiket, arahBaru]);
 
@@ -74,54 +67,64 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
     );
   }
 
+  const teks = (v: string | null | undefined) => (v && v.trim() ? [v] : []);
+  const kolomTiket: KolomTabel<TiketKereta>[] = [
+    {
+      key: "participant", label: "Participant", lebar: 200, kunci: true, saring: "teks",
+      nilai: (t) => [orangById.get(t.participant_id)!.name],
+      sel: (t) => <span title={orangById.get(t.participant_id)!.name} className="block h-7 truncate font-medium leading-7 text-on-surface">{orangById.get(t.participant_id)!.name}</span>,
+    },
+    { key: "organisation", label: "Organisation", lebar: 160, nilai: (t) => teks(orangById.get(t.participant_id)!.company) },
+    { key: "qr", label: "QR code", lebar: 120, tersembunyi: true, saring: "teks", nilai: (t) => [orangById.get(t.participant_id)!.qr_code] },
+    { key: "direction", label: "Direction", lebar: 104, nilai: (t) => [LABEL_ARAH[t.direction]] },
+    { key: "train", label: "Train", lebar: 150, nilai: (t) => teks(t.train_name) },
+    { key: "class", label: "Class", lebar: 104, nilai: (t) => teks(t.travel_class) },
+    { key: "from", label: "From", lebar: 140, nilai: (t) => teks(t.origin) },
+    { key: "to", label: "To", lebar: 140, nilai: (t) => teks(t.destination) },
+    { key: "date", label: "Date", lebar: 112, urut: "waktu", nilai: (t) => teks(tanggalTiket(t.depart_date)?.replace(/ \d{4}$/, "")), kunciUrut: (t) => t.depart_date ?? "" },
+    { key: "departs", label: "Departs", lebar: 88, rata: "kanan", urut: "waktu", nilai: (t) => teks(t.depart_time?.slice(0, 5)) },
+    { key: "arrives", label: "Arrives", lebar: 88, rata: "kanan", urut: "waktu", nilai: (t) => teks(t.arrive_time?.slice(0, 5)) },
+    { key: "carriage", label: "Carriage", lebar: 96, nilai: (t) => teks(t.carriage) },
+    { key: "seat", label: "Seat", lebar: 72, saring: "teks", nilai: (t) => teks(t.seat) },
+    { key: "booking", label: "Booking code", lebar: 128, saring: "teks", nilai: (t) => teks(t.booking_code) },
+  ];
+
   const daftar = (
-    <Pane aria-label="Train tickets">
-      {tiket.length > 12 ? (
-        <PaneHeader className="px-3 py-2.5">
-          <KolomCari label="Search tickets" placeholder="Search name, train, seat or booking code" value={cari} onChange={setCari} />
-        </PaneHeader>
+    <TabelLogistik<TiketKereta>
+      label="Train tickets"
+      tabel="trains"
+      baris={tampil}
+      kunciBaris={(t) => String(t.id)}
+      kolom={kolomTiket}
+      cariLabel="Search tickets"
+      cariPlaceholder="Search name, train, seat or booking code…"
+      menyaringLuar={saringArah.length > 0}
+      hapusSaringanLuar={() => setSaringArah([])}
+      chip={tiket.length > 0 ? (
+        <ChipMenu
+          label="Direction"
+          multiple
+          options={(["outbound", "return"] as const).map((arah) => ({ value: arah, label: LABEL_ARAH[arah], count: tiket.filter((t) => t.direction === arah).length }))}
+          selected={saringArah}
+          onChange={(next) => setSaringArah(next as ArahKereta[])}
+        />
       ) : null}
-      <PaneBody>
-        {tiket.length === 0 ? (
-          <EmptyState
-            plain
-            icon={<Train size={40} />}
-            title="No train tickets yet"
-            description="Use Import from Excel at the top right for the whole list (one row per person per direction), or Add ticket for one person. Participants see their tickets once Room and vehicle is on in the Participant area."
-          />
-        ) : tampil.length === 0 ? (
-          <p className="px-4 py-6 text-center text-body-medium text-on-surface-variant">No tickets match that search.</p>
-        ) : (
-          <>
-            <KepalaKolom kolom={[["Participant", "min-w-0 flex-1"], ["Direction", "w-20"], ["Carriage / seat", "w-28 text-right"]]} />
-            {tampil.map((t) => {
-              const orang = orangById.get(t.participant_id)!;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  aria-pressed={pilih === t.id}
-                  onClick={() => setPilih(t.id)}
-                  className={cx("flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                    pilih === t.id ? "bg-accent-soft" : "hover:bg-primary-soft")}
-                >
-                  {/* Kereta dan tanggal di baris kedua: panel detail yang terbuka menyisakan daftar selebar ±500px. */}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-on-surface">{orang.name}</span>
-                    <span className="block truncate text-on-surface-variant">{[t.train_name, tanggalTiket(t.depart_date)].filter(Boolean).join(" · ")}</span>
-                  </span>
-                  <span className="w-20 shrink-0 text-on-surface-variant">{LABEL_ARAH[t.direction]}</span>
-                  <span className="w-28 shrink-0 text-right tabular-nums text-on-surface [overflow-wrap:anywhere]">{kursiTiket(t) ?? EMPTY_VALUE}</span>
-                </button>
-              );
-            })}
-          </>
-        )}
-      </PaneBody>
-      {tiket.length > 0 ? (
-        <PaneFooter note={`${plural(tiket.length, "ticket")} for ${punyaTiket.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")}.`} />
-      ) : null}
-    </Pane>
+      dipilih={pilih !== null ? String(pilih) : null}
+      onPilih={(t) => setPilih(t.id)}
+      labelBaris={(t) => `${orangById.get(t.participant_id)!.name}, ${LABEL_ARAH[t.direction].toLowerCase()} ticket`}
+      namaFile="train-tickets"
+      kaki={(hasil) => tiket.length === 0 ? null : hasil.length === tiket.length
+        ? `${plural(tiket.length, "ticket")} for ${punyaTiket.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")}.`
+        : `${hasil.length.toLocaleString("en-GB")} of ${plural(tiket.length, "ticket")}.`}
+      kosong={(
+        <EmptyState
+          plain
+          icon={<Train size={40} />}
+          title="No train tickets yet"
+          description="Use Import from Excel at the top right for the whole list (one row per person per direction), or Add ticket for one person. Participants see their tickets once Room and vehicle is on in the Participant area."
+        />
+      )}
+    />
   );
 
   const dipilih = pilih !== null ? tiket.find((t) => t.id === pilih) ?? null : null;

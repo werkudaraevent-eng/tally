@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  ArrowCounterClockwise, ArrowDown, ArrowUp, CaretDown, CaretLeft, CaretRight, CaretUpDown, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
-  Bed, Bus as IkonBus, Funnel, MagnifyingGlass, Megaphone, Package, Paperclip, PencilSimple, Plus, SuitcaseRolling, Trash, UsersThree, X, XCircle,
+  ArrowCounterClockwise, CaretDown, CaretLeft, CaretRight, Check, Copy, EnvelopeSimple, FileCsv, FileXls, LockSimple,
+  Bed, Bus as IkonBus, MagnifyingGlass, Megaphone, Package, Paperclip, PencilSimple, Plus, SuitcaseRolling, Trash, UsersThree, X, XCircle,
 } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
@@ -27,6 +27,7 @@ import type { RegistrationField } from "@/lib/domain";
 import { FILE_FIELD_TYPES, MAX_CUSTOM_FIELDS } from "@/lib/registration-fields";
 import { BATAS_SARINGAN, LABEL_ASAL, LABEL_PORTAL, LABEL_RSVP, bacaSaringan, bacaSaringanMentah, kolomSaringanAdmin, kolomSaringanKustom, type Saringan } from "@/lib/saringan-kolom";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
+import { KepalaKolomUrut as KepalaKolom, type JenisUrutKolom } from "@/components/admin/kepala-kolom";
 import { DEFAULT_TIME_ZONE, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { kolomLogistik, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
 import { LogistikDariPeserta, type AksiLogistik } from "@/components/admin/logistik/dari-peserta";
@@ -199,74 +200,7 @@ function CentangHalaman({ checked, indeterminate, onChange }: { checked: boolean
   );
 }
 
-type JenisUrut = "teks" | "waktu" | "angka";
-const KATA_URUT: Record<JenisUrut, [string, string]> = {
-  teks: ["Sort A → Z", "Sort Z → A"],
-  waktu: ["Sort earliest first", "Sort latest first"],
-  angka: ["Sort lowest first", "Sort highest first"],
-};
-
-/**
- * Judul kolom yang bisa diurutkan: klik membuka menu kecil berisi dua arah
- * urutan dan, bila kolomnya bisa disaring, "Filter this column". Satu tempat
- * yang sama untuk semua kolom, jadi admin tidak perlu tahu kolom mana yang
- * punya chip sendiri dan mana yang ada di "+ Filter".
- */
-function KepalaKolom({ label, aktif, dir, jenis = "teks", align, onUrut, onSaring }: {
-  label: string;
-  aktif: boolean;
-  dir: "asc" | "desc";
-  jenis?: JenisUrut;
-  align?: "right";
-  onUrut: (dir: "asc" | "desc") => void;
-  onSaring?: () => void;
-}) {
-  const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
-  const menu = usePopoverAnchor(pemicu);
-  const id = useId();
-  const [naik, turun] = KATA_URUT[jenis];
-  const butir = "flex min-h-9 w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-body-medium font-normal text-on-surface hover:bg-primary-soft";
-  const arah = (nilai: "asc" | "desc", teks: string, Ikon: typeof ArrowUp) => (
-    <button type="button" role="menuitemradio" aria-checked={aktif && dir === nilai} onClick={() => { menu.tutup(); onUrut(nilai); }} className={butir}>
-      <Ikon size={16} aria-hidden className="shrink-0 text-on-surface-variant" />
-      <span className="flex-1">{teks}</span>
-      {aktif && dir === nilai ? <Check size={16} aria-hidden className="shrink-0 text-primary" /> : null}
-    </button>
-  );
-  return (
-    <>
-      <button
-        ref={setPemicu}
-        type="button"
-        onClick={menu.toggle}
-        aria-haspopup="menu"
-        aria-expanded={menu.open}
-        aria-controls={menu.open ? id : undefined}
-        // min-h-6: area tekan 24 px; -my-0.5 supaya tinggi kepala tabel tidak berubah.
-        className={cx("-my-0.5 inline-flex min-h-6 max-w-full items-center gap-1 whitespace-nowrap hover:text-on-surface", (aktif || menu.open) && "text-on-surface", align === "right" && "ml-auto")}
-        title={onSaring ? `Sort or filter by ${label}` : `Sort by ${label}`}
-      >
-        <span className="truncate">{label}</span>
-        {aktif ? (dir === "asc" ? <ArrowUp size={14} className="shrink-0" /> : <ArrowDown size={14} className="shrink-0" />) : <CaretUpDown size={14} className="shrink-0 text-outline" />}
-      </button>
-      {menu.open ? (
-        <Popover anchor={menu} id={id} label={label} align={align === "right" ? "end" : "start"} width={232}>
-          {arah("asc", naik, ArrowUp)}
-          {arah("desc", turun, ArrowDown)}
-          {onSaring ? (
-            <>
-              <div role="separator" className="my-1 border-t border-outline-variant" />
-              <button type="button" role="menuitem" onClick={() => { menu.tutup(); onSaring(); }} className={butir}>
-                <Funnel size={16} aria-hidden className="shrink-0 text-on-surface-variant" />
-                <span className="flex-1">Filter this column…</span>
-              </button>
-            </>
-          ) : null}
-        </Popover>
-      ) : null}
-    </>
-  );
-}
+type JenisUrut = JenisUrutKolom;
 
 /** Ekspor yang dicentang: format yang sama dengan Export di kepala halaman, ukuran bilah. */
 function EksporTerpilih({ busy, onPick }: { busy: boolean; onPick: (format: "xlsx" | "csv") => void }) {

@@ -1,21 +1,22 @@
 "use client";
 
-import { Bed, Buildings, MagnifyingGlass, SignOut, Warning } from "@phosphor-icons/react";
+import { Bed, Buildings, SignOut, Warning } from "@phosphor-icons/react";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   Banner, Button, ChipMenu, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
-  PaneHeader, SelectField, StatusChip, StatusDot, Switch, TextArea, TextField, EMPTY_VALUE,
+  SelectField, StatusChip, StatusDot, Switch, TextArea, TextField, EMPTY_VALUE,
 } from "@/components/m3";
-import { bertabrakan, labelRentang, puncakHuni, rentangStay, tanggalStay, type Stay } from "@/lib/logistik/stay";
-import { judulKamar, urutKamar } from "@/lib/logistik/nama-kamar";
+import { bertabrakan, labelRentang, labelTanggal, puncakHuni, rentangStay, tanggalStay, tanggalZona, type Stay } from "@/lib/logistik/stay";
+import { judulKamar } from "@/lib/logistik/nama-kamar";
 import { kunciGender, type Hotel, type Kamar, type LogistikData, type LogistikPeserta } from "@/lib/logistik/types";
 import { timeZoneOffset } from "@/lib/timezone";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
-  angkaAtauNull, BarisKelompok, BarisOrang, dariInputWaktu, formatWaktu, keInputWaktu, KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps,
+  angkaAtauNull, BarisKelompok, BarisOrang, dariInputWaktu, formatWaktu, keInputWaktu, KepalaDetail, PilihPeserta, type TabProps,
 } from "./bersama";
+import { TabelLogistik, type GrupTabel, type KolomTabel } from "./tabel-logistik";
 
 /**
  * Tab Kamar: siapa tidur di mana, dan kamar mana yang perlu dibereskan.
@@ -49,7 +50,6 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   const { zone, abbr } = useEventTimeZone();
   const offset = timeZoneOffset(zone);
   const [pilihan, setPilihan] = useState<Pilihan>(null);
-  const [cari, setCari] = useState("");
   const [saringHotel, setSaringHotel] = useState<string[]>([]);
   const [saringKeadaan, setSaringKeadaan] = useState<string[]>([]);
   const [dialogKamar, setDialogKamar] = useState<DialogKamar>(null);
@@ -146,26 +146,15 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     return puncak >= kamar.capacity ? "penuh" : "ada-tempat";
   }
 
-  const kata = cari.trim().toLowerCase();
   const kamarTampil = data.rooms.filter((kamar) => {
     if (saringHotel.length > 0 && !saringHotel.includes(String(kamar.hotel_id))) return false;
-    if (saringKeadaan.length > 0 && !saringKeadaan.includes(keadaan(kamar))) return false;
-    if (!kata) return true;
-    return [kamar.room_number, kamar.label].some((teks) => teks?.toLowerCase().includes(kata)) ||
-      (penghuniKamar.get(kamar.id) ?? []).some(({ orang }) => orang.name.toLowerCase().includes(kata));
+    if (saringKeadaan.length > 0 && !saringKeadaan.some((s) => (s === "menyusul" ? kamar.room_number === null : s === keadaan(kamar)))) return false;
+    return true;
   });
-  // Kolom Label dan Bed hanya ada bila salah satu kamar mengisinya: acara lama tidak berubah.
+  // Kolom Label hanya ada bila salah satu kamar mengisinya: acara lama tidak berubah.
   const adaLabel = data.rooms.some((kamar) => kamar.label);
-  const adaKasur = data.rooms.some((kamar) => kamar.bed_type);
-  // Dengan Label dan Bed, daftar kamar terlalu sempit untuk semua kolom: Bed
-  // dan Type tampil dari xl selama panel detail tertutup (2xl bila terbuka),
-  // dan selalu ada di panel detail kamar. Di bawah sm, Label dan Room
-  // menjadi satu kolom: nomor kamar, atau labelnya selama nomor menyusul.
-  const lebar = pilihan === null ? "max-xl:hidden" : "max-2xl:hidden";
-  const sempit = adaLabel || adaKasur ? `w-28 ${lebar}` : "w-28 max-sm:hidden";
-  const kolomLabel = "w-24 max-sm:hidden";
   const perluDicek = data.rooms.filter((kamar) => keadaan(kamar) === "perlu-dicek").length;
-  const menyaring = Boolean(kata) || saringHotel.length > 0 || saringKeadaan.length > 0;
+  const menyaringLuar = saringHotel.length > 0 || saringKeadaan.length > 0;
 
   // ---- Tulis ---------------------------------------------------------------
   /** Keluar dari kamar, tetap tamu hotelnya dengan malam yang sama (kembali ke "Room to follow"). */
@@ -192,17 +181,125 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   // Aturan kamar duduk di ujung bilah saringan, bukan pita sendiri: ia dibaca
   // sekali saat menyiapkan acara, lalu hanya perlu terlihat, bukan menonjol.
   const tombolAturan = (
-    <Button variant="text" size="sm" className="ml-auto" icon={<StatusDot tone={aturanTerpasang ? "success" : "warning"} />} onClick={() => setAturan(true)}>
+    <Button variant="text" size="sm" icon={<StatusDot tone={aturanTerpasang ? "success" : "warning"} />} onClick={() => setAturan(true)}>
       {!wajibSama ? "Rule: mixed rooms allowed" : kunciField ? `Rule: same ${namaField}` : "Room rules incomplete"}
     </Button>
   );
 
-  const saringan = (
-    <PaneHeader className="flex-wrap gap-2 px-3 py-2.5">
-      {atas}
-      {data.rooms.length > 0 ? (
+  /** Tanggal masuk/keluar per penghuni, "Fri 6 Nov" tanpa hari supaya kolomnya sempit. */
+  const tanggalPenghuni = (kamar: Kamar, sisi: "masuk" | "keluar") => masalah(kamar).semua.map(({ stay }) => {
+    const t = tanggalStay(stay, hotelById.get(kamar.hotel_id));
+    const v = sisi === "masuk" ? t.masuk : t.keluar;
+    return v ? labelTanggal(tanggalZona(v, offset)).slice(4) : "";
+  });
+  const kunciTanggal = (kamar: Kamar, sisi: "masuk" | "keluar") => {
+    const s = masalah(kamar).semua[0]?.stay;
+    if (!s) return "";
+    const t = tanggalStay(s, hotelById.get(kamar.hotel_id));
+    return (sisi === "masuk" ? t.masuk : t.keluar) ?? "";
+  };
+  const nomorAtauLabel: KolomTabel<Kamar> = {
+    key: "room",
+    label: "Room",
+    lebar: 112,
+    kunci: !adaLabel,
+    nilai: (kamar) => (kamar.room_number ? [kamar.room_number] : []),
+    sel: (kamar) => {
+      const { lebih, campuran } = masalah(kamar);
+      return (
+        <span className="flex flex-col items-start">
+          {kamar.room_number
+            ? <span className="block h-7 truncate font-medium leading-7 tabular-nums text-on-surface">{kamar.room_number}</span>
+            : <span className="flex h-7 items-center"><StatusChip dot tone="warning">To follow</StatusChip></span>}
+          {lebih ? <span className="flex h-7 items-center"><StatusChip dot tone="error">Over capacity</StatusChip></span> : null}
+          {campuran ? <span className="flex h-7 items-center"><StatusChip dot tone="warning">Mixed gender</StatusChip></span> : null}
+        </span>
+      );
+    },
+  };
+  const kolomKamar: KolomTabel<Kamar>[] = [
+    ...(adaLabel ? [{
+      key: "label", label: "Label", lebar: 96, kunci: true, saring: "teks" as const,
+      nilai: (kamar: Kamar) => (kamar.label ? [kamar.label] : []),
+      sel: (kamar: Kamar) => <span title={kamar.label ?? undefined} className="block h-7 truncate font-medium leading-7 text-on-surface">{kamar.label ?? EMPTY_VALUE}</span>,
+    }] : []),
+    nomorAtauLabel,
+    { key: "hotel", label: "Hotel", lebar: 200, tersembunyi: true, nilai: (kamar) => [hotelById.get(kamar.hotel_id)?.name ?? ""] },
+    { key: "occupant", label: "Occupant", lebar: 220, saring: "teks", nilai: (kamar) => masalah(kamar).isi.map((orang) => orang.name) },
+    { key: "organisation", label: "Organisation", lebar: 160, nilai: (kamar) => masalah(kamar).isi.map((orang) => orang.company ?? "") },
+    ...(kunciField ? [{ key: "gender", label: namaField ?? "Gender", lebar: 96, tersembunyi: !wajibSama, nilai: (kamar: Kamar) => masalah(kamar).isi.map((orang) => orang.gender ?? "") }] : []),
+    { key: "masuk", label: "Check-in", lebar: 96, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "masuk"), kunciUrut: (kamar) => kunciTanggal(kamar, "masuk") },
+    { key: "keluar", label: "Check-out", lebar: 104, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "keluar"), kunciUrut: (kamar) => kunciTanggal(kamar, "keluar") },
+    { key: "bed", label: "Bed", lebar: 88, nilai: (kamar) => (kamar.bed_type ? [kamar.bed_type] : []) },
+    { key: "type", label: "Room type", lebar: 112, nilai: (kamar) => (kamar.room_type ? [kamar.room_type] : []) },
+    { key: "floor", label: "Floor", lebar: 72, rata: "kanan", urut: "angka", tersembunyi: true, nilai: (kamar) => (kamar.floor ? [kamar.floor] : []) },
+    { key: "notes", label: "Staff notes", lebar: 200, saring: "teks", tersembunyi: true, nilai: (kamar) => (kamar.notes ? [kamar.notes] : []) },
+    {
+      key: "filled", label: "Filled", lebar: 80, rata: "kanan", urut: "angka",
+      nilai: (kamar) => [`${masalah(kamar).puncak}/${kamar.capacity}`],
+      kunciUrut: (kamar) => String(masalah(kamar).puncak).padStart(3, "0"),
+      sel: (kamar) => { const { puncak, lebih } = masalah(kamar); return <span className={cx("block h-7 leading-7 tabular-nums", lebih ? "text-error" : puncak === 0 ? "text-on-surface-variant" : "text-on-surface")}>{puncak}/{kamar.capacity}</span>; },
+    },
+  ];
+  const kolomPertama = kolomKamar[0].key;
+
+  const grupHotel: GrupTabel[] = data.hotels.filter((hotel) => saringHotel.length === 0 || saringHotel.includes(String(hotel.id))).map((hotel) => {
+    const menunggu = menungguHotel.get(hotel.id) ?? [];
+    const semuaKamar = data.rooms.filter((kamar) => kamar.hotel_id === hotel.id);
+    const terisi = semuaKamar.reduce((jumlah, kamar) => jumlah + masalah(kamar).puncak, 0);
+    const tempat = semuaKamar.reduce((jumlah, kamar) => jumlah + kamar.capacity, 0);
+    const nama = [...new Set(menunggu.map(({ orang }) => orang.name))];
+    return {
+      key: String(hotel.id),
+      kepala: (
+        <BarisKelompok label={`Hotel ${hotel.name}`} selected={pilihan?.jenis === "hotel" && pilihan.id === hotel.id} onSelect={() => setPilihan({ jenis: "hotel", id: hotel.id })}>
+          <Buildings size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
+          <span className="min-w-0 truncate font-medium text-on-surface">{hotel.name}</span>
+          {menunggu.length > 0 ? <StatusChip dot tone="warning">{jumlahOrang(menunggu).toLocaleString("en-GB")} waiting for a room</StatusChip> : null}
+          <span className="shrink-0 tabular-nums text-on-surface-variant"><span className="max-sm:hidden">{plural(semuaKamar.length, "room")} · </span>{terisi}/{tempat} places</span>
+        </BarisKelompok>
+      ),
+      // Tamu hotel tanpa kamar: satu baris "To follow". Status tidak berlaku
+      // untuknya (itu keadaan kamar), cari mencocokkan nama tamu.
+      sebelum: (q, saring) => {
+        if (menunggu.length === 0 || saring) return null;
+        const kataCari = q.toLocaleLowerCase("en").split(/\s+/).filter(Boolean);
+        if (kataCari.length && !nama.some((n) => kataCari.every((k) => n.toLocaleLowerCase("en").includes(k)))) return null;
+        return {
+          key: `tunggu-${hotel.id}`,
+          label: `${hotel.name}: ${jumlahOrang(menunggu)} waiting for a room`,
+          dipilih: pilihan?.jenis === "tunggu" && pilihan.id === hotel.id,
+          onPilih: () => setPilihan({ jenis: "tunggu", id: hotel.id }),
+          sel: {
+            [kolomPertama]: <span className="block h-7 leading-7 text-on-surface">To follow</span>,
+            occupant: <span className="block h-7 max-w-[220px] truncate leading-7 text-on-surface-variant" title={nama.join(", ")}>{nama.join(", ")}</span>,
+            filled: <span className="block h-7 leading-7 tabular-nums text-on-surface">{jumlahOrang(menunggu).toLocaleString("en-GB")}</span>,
+          },
+        };
+      },
+      kosong: semuaKamar.length === 0 ? (
+        <div className="flex flex-wrap items-center gap-3 text-body-medium text-on-surface-variant">
+          <span className="min-w-0 flex-1">No rooms in this hotel yet.</span>
+          <Button variant="outlined" size="sm" onClick={() => setDialogKamar({ mode: "baru", hotelId: hotel.id })}>Add room</Button>
+        </div>
+      ) : undefined,
+    };
+  });
+
+  const daftar = (
+    <TabelLogistik<Kamar>
+      label="Rooms"
+      tabel="rooms"
+      baris={kamarTampil}
+      kunciBaris={(kamar) => String(kamar.id)}
+      kolom={kolomKamar}
+      cariLabel="Search rooms"
+      cariPlaceholder={adaLabel ? "Search label, room or name…" : "Search room or name…"}
+      menyaringLuar={menyaringLuar}
+      hapusSaringanLuar={() => { setSaringHotel([]); setSaringKeadaan([]); }}
+      awal={atas}
+      chip={data.rooms.length > 0 ? (
         <>
-          <KolomCari className="max-w-80" label="Search rooms or occupants" placeholder={adaLabel ? "Search room, label or occupant" : "Search room number or occupant name"} value={cari} onChange={setCari} />
           {data.hotels.length > 1 ? (
             <ChipMenu
               label="Hotel"
@@ -216,6 +313,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             label="Status"
             multiple
             options={[
+              { value: "menyusul", label: "Room number to follow", count: data.rooms.filter((kamar) => kamar.room_number === null).length },
               { value: "kosong", label: "Empty" },
               { value: "ada-tempat", label: "Space left" },
               { value: "penuh", label: "Full" },
@@ -226,131 +324,23 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
           />
         </>
       ) : null}
-      {tombolAturan}
-    </PaneHeader>
-  );
-
-  const daftar = (
-    <Pane aria-label="Rooms">
-      {saringan}
-      <PaneBody>
-        {data.hotels.length === 0 ? (
-          <EmptyState
-            plain
-            icon={<Buildings size={40} />}
-            title="No hotels yet"
-            description="Every room belongs to a hotel. Start with Add hotel at the top right, then add its rooms."
-          />
-        ) : (
-          <>
-            <KepalaKolom kolom={[
-              ...(adaLabel ? [["Label", kolomLabel] as [string, string]] : []),
-              ["Room", "w-24"],
-              ["Occupants", "min-w-0 flex-1"],
-              ...(adaKasur ? [["Bed", `w-20 ${lebar}`] as [string, string]] : []),
-              ["Type", sempit],
-              ["Filled", "w-16 text-right"],
-            ]} />
-            {menyaring && kamarTampil.length === 0 ? (
-              <EmptyState
-                plain
-                icon={<MagnifyingGlass size={40} />}
-                title="No matching rooms"
-                description="Change your search or clear the filters to see every room."
-                action={<Button variant="outlined" onClick={() => { setCari(""); setSaringHotel([]); setSaringKeadaan([]); }}>Clear filters</Button>}
-              />
-            ) : data.hotels.filter((hotel) => saringHotel.length === 0 || saringHotel.includes(String(hotel.id))).map((hotel) => {
-              const kamarHotel = kamarTampil.filter((kamar) => kamar.hotel_id === hotel.id).sort(urutKamar);
-              const menunggu = menungguHotel.get(hotel.id) ?? [];
-              // Baris "Room to follow" ikut saringan: Status tidak berlaku
-              // untuknya (itu keadaan kamar), cari mencocokkan nama tamu.
-              const tampilTunggu = menunggu.length > 0 && saringKeadaan.length === 0 &&
-                (!kata || menunggu.some(({ orang }) => orang.name.toLowerCase().includes(kata)));
-              if (menyaring && kamarHotel.length === 0 && !tampilTunggu) return null;
-              const tungguDipilih = pilihan?.jenis === "tunggu" && pilihan.id === hotel.id;
-              const semuaKamar = data.rooms.filter((kamar) => kamar.hotel_id === hotel.id);
-              const terisi = semuaKamar.reduce((jumlah, kamar) => jumlah + masalah(kamar).puncak, 0);
-              const tempat = semuaKamar.reduce((jumlah, kamar) => jumlah + kamar.capacity, 0);
-              return (
-                <div key={hotel.id}>
-                  <BarisKelompok
-                    label={`Hotel ${hotel.name}`}
-                    selected={pilihan?.jenis === "hotel" && pilihan.id === hotel.id}
-                    onSelect={() => setPilihan({ jenis: "hotel", id: hotel.id })}
-                  >
-                    <Buildings size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
-                    <span className="min-w-0 flex-1 truncate text-on-surface">{hotel.name}</span>
-                    {menunggu.length > 0 ? <StatusChip dot tone="warning">{jumlahOrang(menunggu).toLocaleString("en-GB")} waiting for a room</StatusChip> : null}
-                    <span className="shrink-0 tabular-nums text-on-surface-variant"><span className="max-sm:hidden">{plural(semuaKamar.length, "room")} · </span>{terisi}/{tempat} places</span>
-                  </BarisKelompok>
-                  {tampilTunggu ? (
-                    <button
-                      type="button"
-                      aria-pressed={tungguDipilih}
-                      onClick={() => setPilihan({ jenis: "tunggu", id: hotel.id })}
-                      className={cx(
-                        "flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2 text-left text-body-medium",
-                        tungguDipilih ? "bg-accent-soft" : "hover:bg-panel-high",
-                      )}
-                    >
-                      {adaLabel ? <span className={cx("shrink-0", kolomLabel)} /> : null}
-                      <span className="w-24 shrink-0 truncate text-on-surface">To follow</span>
-                      <span className="min-w-0 flex-1 truncate text-on-surface-variant">{[...new Set(menunggu.map(({ orang }) => orang.name))].join(", ")}</span>
-                      {adaKasur ? <span className={cx("w-20 shrink-0", lebar)} /> : null}
-                      <span className={cx("shrink-0", sempit)} />
-                      <span className="w-16 shrink-0 text-right tabular-nums text-on-surface">{jumlahOrang(menunggu).toLocaleString("en-GB")}</span>
-                    </button>
-                  ) : null}
-                  {semuaKamar.length === 0 && !menyaring ? (
-                    <div className="flex flex-wrap items-center gap-3 border-b border-outline-variant px-4 py-3 text-body-medium text-on-surface-variant">
-                      <span className="min-w-0 flex-1">No rooms in this hotel yet.</span>
-                      <Button variant="outlined" size="sm" onClick={() => setDialogKamar({ mode: "baru", hotelId: hotel.id })}>Add room</Button>
-                    </div>
-                  ) : kamarHotel.map((kamar) => {
-                    const { isi, puncak, lebih, campuran } = masalah(kamar);
-                    const dipilih = pilihan?.jenis === "kamar" && pilihan.id === kamar.id;
-                    return (
-                      <button
-                        key={kamar.id}
-                        type="button"
-                        aria-pressed={dipilih}
-                        onClick={() => setPilihan({ jenis: "kamar", id: kamar.id })}
-                        className={cx(
-                          "flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2 text-left text-body-medium",
-                          dipilih ? "bg-accent-soft" : "hover:bg-panel-high",
-                        )}
-                      >
-                        {adaLabel ? <span title={kamar.label ?? undefined} className={cx("shrink-0 truncate text-on-surface", kolomLabel)}>{kamar.label ?? EMPTY_VALUE}</span> : null}
-                        <span title={kamar.room_number === null ? undefined : kamar.room_number} className="w-24 shrink-0 truncate tabular-nums text-on-surface">
-                          {kamar.room_number ?? (
-                            <>
-                              <span className="sm:hidden">{kamar.label}</span>
-                              <span className="max-sm:hidden"><StatusChip dot tone="warning">To follow</StatusChip></span>
-                            </>
-                          )}
-                        </span>
-                        <span className="flex min-w-0 flex-1 items-center gap-2">
-                          {lebih ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
-                          {campuran ? <StatusChip dot tone="warning">Mixed gender</StatusChip> : null}
-                          <span className="min-w-0 truncate text-on-surface-variant">
-                            {isi.length > 0 ? isi.map((orang) => orang.name).join(", ") : "Empty"}
-                          </span>
-                        </span>
-                        {adaKasur ? <span className={cx("w-20 shrink-0 truncate text-on-surface-variant", lebar)}>{kamar.bed_type ?? EMPTY_VALUE}</span> : null}
-                        <span className={cx("shrink-0 truncate text-on-surface-variant", sempit)}>{kamar.room_type ?? EMPTY_VALUE}</span>
-                        <span className={cx("w-16 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>
-                          {puncak}/{kamar.capacity}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </>
-        )}
-      </PaneBody>
-    </Pane>
+      ujung={tombolAturan}
+      grup={data.hotels.length > 0 ? grupHotel : undefined}
+      grupBaris={(kamar) => String(kamar.hotel_id)}
+      dipilih={pilihan?.jenis === "kamar" ? String(pilihan.id) : null}
+      onPilih={(kamar) => setPilihan({ jenis: "kamar", id: kamar.id })}
+      labelBaris={(kamar) => judulKamar(kamar)}
+      namaFile="rooms"
+      kaki={(tampil) => tampil.length === 0 ? null : `${plural(tampil.length, "room")} · ${tampil.reduce((t, k) => t + masalah(k).puncak, 0).toLocaleString("en-GB")} of ${tampil.reduce((t, k) => t + k.capacity, 0).toLocaleString("en-GB")} places filled${tampil.some((k) => k.room_number === null) ? ` · ${tampil.filter((k) => k.room_number === null).length.toLocaleString("en-GB")} room numbers to follow` : ""}`}
+      kosong={data.hotels.length === 0 ? (
+        <EmptyState
+          plain
+          icon={<Buildings size={40} />}
+          title="No hotels yet"
+          description="Every room belongs to a hotel. Start with Add hotel at the top right, then add its rooms."
+        />
+      ) : undefined}
+    />
   );
 
   // ---- Detail --------------------------------------------------------------
