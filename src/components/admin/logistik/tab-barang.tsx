@@ -7,7 +7,8 @@ import {
 } from "@/components/m3";
 import type { Barang } from "@/lib/logistik/types";
 import { cx } from "@/lib/m3/cx";
-import { KepalaDetail, KepalaKolom, type TabProps } from "./bersama";
+import { KepalaDetail, type TabProps } from "./bersama";
+import { TabelLogistik, type KolomTabel } from "./tabel-logistik";
 
 /**
  * Tab Barang: apa yang dibagikan ke peserta (kaos, goodie bag, ID card),
@@ -35,51 +36,51 @@ export function TabBarang({ data, kirim, busy, baru, tutupBaru }: TabProps) {
   );
   const sesi = (barang: Barang) => data.item_sessions.filter((baris) => baris.item_id === barang.id);
 
+  const kolomBarang: KolomTabel<Barang>[] = [
+    {
+      key: "item", label: "Kit item", lebar: 200, kunci: true, saring: "teks",
+      nilai: (barang) => [barang.name],
+      sel: (barang) => <span className="block h-7 truncate font-medium leading-7 text-on-surface" title={barang.name}>{barang.name}</span>,
+    },
+    { key: "size", label: "Size from", lebar: 160, nilai: (barang) => [labelField(barang.size_field_key) ?? "No size"] },
+    {
+      key: "checked", label: "Checked at", lebar: 220,
+      // Tanpa titik check-in tetap bernilai, supaya kolomnya (dan peringatannya) tidak ikut tersembunyi.
+      nilai: (barang) => (sesi(barang).length ? sesi(barang).map((baris) => baris.session_name) : ["No check-in point"]),
+      sel: (barang) => sesi(barang).length === 0
+        ? <span className="flex h-7 items-center"><StatusChip dot tone="warning">No check-in point</StatusChip></span>
+        : sesi(barang).map((baris) => <span key={baris.session_id} className="block h-7 truncate leading-7 text-on-surface">{baris.session_name}</span>),
+    },
+    { key: "participants", label: "Participants", lebar: 120, rata: "kanan", urut: "angka", nilai: (barang) => [String(jumlah(barang).peserta)], kunciUrut: (barang) => String(jumlah(barang).peserta).padStart(5, "0") },
+    { key: "collected", label: "Collected", lebar: 112, rata: "kanan", urut: "angka", nilai: (barang) => [String(jumlah(barang).diambil)], kunciUrut: (barang) => String(jumlah(barang).diambil).padStart(5, "0") },
+    { key: "left", label: "Not yet", lebar: 104, rata: "kanan", urut: "angka", nilai: (barang) => [String(jumlah(barang).peserta - jumlah(barang).diambil)], kunciUrut: (barang) => String(jumlah(barang).peserta - jumlah(barang).diambil).padStart(5, "0") },
+    { key: "note", label: "Note for participants", lebar: 240, tersembunyi: true, saring: "teks", nilai: (barang) => (barang.pickup_note ? [barang.pickup_note] : []) },
+  ];
+
   const daftar = (
-    <Pane aria-label="Kit items">
-      <PaneBody>
-        {data.items.length === 0 ? (
-          <EmptyState
-            plain
-            icon={<Package size={40} />}
-            title="No kit items yet"
-            description="Add the kit items you hand out with Add kit item at the top right, such as T-shirts or goodie bags. Then choose the check-in point that checks them on the Check-in page."
-          />
-        ) : (
-          <>
-            <KepalaKolom kolom={[["Kit item", "min-w-0 flex-1"], ["Checked at", "w-40 max-sm:hidden"], ["Collected", "w-24 text-right"]]} />
-            {data.items.map((barang) => {
-              const { peserta, diambil } = jumlah(barang);
-              const diSesi = sesi(barang);
-              return (
-                <button
-                  key={barang.id}
-                  type="button"
-                  aria-pressed={pilih === barang.id}
-                  onClick={() => setPilih(barang.id)}
-                  className={cx("flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                    pilih === barang.id ? "bg-accent-soft" : "hover:bg-primary-soft")}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-on-surface">{barang.name}</span>
-                      {diSesi.length === 0 ? <StatusChip dot tone="warning">No check-in point</StatusChip> : null}
-                    </span>
-                    <span className="block truncate text-on-surface-variant">
-                      {barang.size_field_key ? `Size from ${labelField(barang.size_field_key)}` : "No size"}
-                    </span>
-                  </span>
-                  <span className="w-40 shrink-0 truncate text-on-surface-variant max-sm:hidden">
-                    {diSesi.length === 0 ? EMPTY_VALUE : diSesi.map((baris) => baris.session_name).join(", ")}
-                  </span>
-                  <span className="w-24 shrink-0 text-right tabular-nums text-on-surface">{diambil}/{peserta}</span>
-                </button>
-              );
-            })}
-          </>
-        )}
-      </PaneBody>
-    </Pane>
+    <TabelLogistik<Barang>
+      label="Kit items"
+      tabel="kit"
+      baris={data.items}
+      kunciBaris={(barang) => String(barang.id)}
+      kolom={kolomBarang}
+      urutAwal={{ key: "item", dir: "asc" }}
+      cariLabel="Search kit items"
+      cariPlaceholder="Search kit item or check-in point…"
+      dipilih={pilih !== null ? String(pilih) : null}
+      onPilih={(barang) => setPilih(barang.id)}
+      labelBaris={(barang) => barang.name}
+      namaFile="kit-items"
+      kaki={() => (data.items.length > 0 ? "Who still has to collect an item: Participant list, one column per kit item." : null)}
+      kosong={(
+        <EmptyState
+          plain
+          icon={<Package size={40} />}
+          title="No kit items yet"
+          description="Add the kit items you hand out with Add kit item at the top right, such as T-shirts or goodie bags. Then choose the check-in point that checks them on the Check-in page."
+        />
+      )}
+    />
   );
 
   const barang = pilih !== null ? data.items.find((item) => item.id === pilih) ?? null : null;

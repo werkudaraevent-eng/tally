@@ -5,7 +5,7 @@ import Link from "@/components/event-link";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, DetailSection, Dialog, EmptyState, IconButton, KeyValue, ListDetail, Pane, PaneBody, PaneFooter,
-  PaneHeader, SelectField, StatusChip, Switch, TextField, EMPTY_VALUE,
+  SelectField, StatusChip, Switch, TextField, EMPTY_VALUE,
 } from "@/components/m3";
 import { hrefBarisAgenda, jamPendek, keteranganTrip, namaMirip, petunjukBerangkat, selisihMenit, tanggalGanda, teksBaris } from "@/lib/logistik/trip-agenda";
 import type { Agenda, Bus, LogistikPeserta } from "@/lib/logistik/types";
@@ -14,8 +14,9 @@ import { kurangKendaraan, petaKendaraan } from "@/lib/logistik/kendaraan-trip";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import {
-  angkaAtauNull, BarisOrang, dariInputWaktu, formatWaktu, keInputWaktu, KepalaDetail, KepalaKolom, KolomCari, PilihPeserta, type TabProps,
+  angkaAtauNull, BarisOrang, dariInputWaktu, formatWaktu, keInputWaktu, KepalaDetail, KolomCari, PilihPeserta, type TabProps,
 } from "./bersama";
+import { TabelLogistik, type KolomTabel } from "./tabel-logistik";
 import { PilihBarisAgenda, useAgendaTrip, type AgendaTrip } from "./pilih-baris-agenda";
 import { DialogPindah, TripKendaraan, useMuatanTrip } from "./penumpang-trip";
 import { timeZoneOffset } from "@/lib/timezone";
@@ -97,67 +98,72 @@ export function TabBus({ data, kirim, busy, baru, tutupBaru, atas }: TabProps & 
   const muatan = useMuatanTrip(data, offset);
   const [pindah, setPindah] = useState<{ trip: Agenda; orang: LogistikPeserta } | null>(null);
 
+  const teksTampil = !tampil.logistics ? "Participants don't see vehicles yet" : !kendaraanTampil ? "Hidden from participants" : tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see vehicle name only";
+  /** Isi kendaraan: dengan Trip, isi tersedikit sampai terbanyak di antara semua trip (`transport_overview`). */
+  const muatBus = (bus: Bus) => {
+    const isi = penumpang.get(bus.id)?.length ?? 0;
+    if (!adaTrip) return { teks: isiTeks(isi, bus.capacity), urut: isi };
+    const perTrip = data.trips.map((agenda) => data.overview.find((o) => o.trip_id === agenda.id && o.vehicle_id === bus.id)?.load ?? 0);
+    const min = Math.min(...perTrip);
+    const max = Math.max(...perTrip);
+    return { teks: min === max ? isiTeks(min, bus.capacity) : `${min}–${isiTeks(max, bus.capacity)}`, urut: max };
+  };
+  const lebihBus = (bus: Bus) => (bus.capacity !== null && (penumpang.get(bus.id)?.length ?? 0) > bus.capacity) || lebihDi(bus) > 0;
+  const kolomBus: KolomTabel<Bus>[] = [
+    {
+      key: "vehicle", label: "Vehicle", lebar: 160, kunci: true, saring: "teks",
+      nilai: (bus) => [bus.code],
+      sel: (bus) => <span className="block h-7 truncate font-medium leading-7 text-on-surface" title={bus.code}>{bus.code}</span>,
+    },
+    {
+      key: "check", label: "Check", lebar: 200,
+      nilai: (bus) => [lebihBus(bus) ? "Over capacity" : "", muatan.campur.has(bus.id) ? "More than one hotel" : ""].filter(Boolean),
+      sel: (bus) => (
+        <span className="flex min-h-7 flex-wrap items-center gap-1.5">
+          {lebihBus(bus) ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
+          {muatan.campur.has(bus.id) ? <StatusChip dot tone="warning">{`${muatan.campur.get(bus.id)!.hotel} hotels on ${plural(muatan.campur.get(bus.id)!.trips, "trip")}`}</StatusChip> : null}
+          {!lebihBus(bus) && !muatan.campur.has(bus.id) ? <span className="text-on-surface-variant">{EMPTY_VALUE}</span> : null}
+        </span>
+      ),
+    },
+    { key: "plate", label: "Plate", lebar: 120, saring: "teks", nilai: (bus) => (bus.plate_number ? [bus.plate_number] : []) },
+    { key: "capacity", label: "Capacity", lebar: 96, rata: "kanan", urut: "angka", nilai: (bus) => (bus.capacity === null ? [] : [String(bus.capacity)]), kunciUrut: (bus) => String(bus.capacity ?? "").padStart(4, "0") },
+    {
+      key: "passengers", label: adaTrip ? "Passengers" : "Default passengers", lebar: 152, rata: "kanan", urut: "angka",
+      nilai: (bus) => [muatBus(bus).teks], kunciUrut: (bus) => String(muatBus(bus).urut).padStart(4, "0"),
+      sel: (bus) => <span className={cx("block h-7 leading-7 tabular-nums", lebihBus(bus) ? "text-error" : "text-on-surface")}>{muatBus(bus).teks}</span>,
+    },
+    { key: "crew", label: "Crew contact", lebar: 200, tersembunyi: true, saring: "teks", nilai: (bus) => (bus.crew_contact ? [bus.crew_contact] : []) },
+  ];
+
   const daftar = (
-    <Pane aria-label="Vehicles">
-      {atas ? (
-        <PaneHeader className="flex flex-wrap items-center gap-2 px-3 py-2.5">
-          {atas}
-          {/* Sama dengan Room rules di tab Rooms: disetel sekali, cukup terlihat. */}
-          <Button variant="text" size="sm" className="ml-auto" icon={<Eye size={16} />} onClick={() => setTampilan(true)}>
-            {!tampil.logistics ? "Participants don't see vehicles yet" : !kendaraanTampil ? "Hidden from participants" : tampil.plate && tampil.crew ? "Participants see plate and crew" : tampil.plate ? "Participants see plate" : tampil.crew ? "Participants see crew" : "Participants see vehicle name only"}
-          </Button>
-        </PaneHeader>
-      ) : null}
-      <PaneBody>
-        {data.vehicles.length === 0 ? (
-          <EmptyState
-            plain
-            icon={<IkonBus size={40} />}
-            title="No vehicles yet"
-            description="Start with Add vehicle at the top right. Give each vehicle the name participants will see, such as Bus 1, then assign its default passengers."
-          />
-        ) : (
-          <>
-            <KepalaKolom kolom={[["Vehicle", "min-w-0 flex-1"], ["Plate", "w-28 max-sm:hidden"], [adaTrip ? "Passengers" : "Default passengers", "w-36 text-right"]]} />
-            {data.vehicles.map((bus) => {
-              const isi = penumpang.get(bus.id)?.length ?? 0;
-              const lebih = (bus.capacity !== null && isi > bus.capacity) || lebihDi(bus) > 0;
-              // Dengan Trip: isi tersedikit sampai terbanyak di antara semua trip
-              // (`transport_overview`), karena kendaraan bisa diisi per trip saja.
-              const perTrip = data.trips.map((agenda) => data.overview.find((o) => o.trip_id === agenda.id && o.vehicle_id === bus.id)?.load ?? 0);
-              const teksIsi = !adaTrip ? isiTeks(isi, bus.capacity)
-                : Math.min(...perTrip) === Math.max(...perTrip) ? isiTeks(perTrip[0], bus.capacity)
-                  : `${Math.min(...perTrip)}–${isiTeks(Math.max(...perTrip), bus.capacity)}`;
-              return (
-                <button
-                  key={bus.id}
-                  type="button"
-                  aria-pressed={pilih === bus.id}
-                  onClick={() => setPilih(bus.id)}
-                  className={cx("flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                    pilih === bus.id ? "bg-accent-soft" : "hover:bg-primary-soft")}
-                >
-                  <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    <span className="text-on-surface">{bus.code}</span>
-                    {lebih ? <StatusChip dot tone="error">Over capacity</StatusChip> : null}
-                    {muatan.campur.has(bus.id) ? (
-                      <StatusChip dot tone="warning">{`${muatan.campur.get(bus.id)!.hotel} hotels on ${plural(muatan.campur.get(bus.id)!.trips, "trip")}`}</StatusChip>
-                    ) : null}
-                  </span>
-                  <span className="w-28 shrink-0 truncate text-on-surface-variant max-sm:hidden">{bus.plate_number ?? EMPTY_VALUE}</span>
-                  <span className={cx("w-36 shrink-0 text-right tabular-nums", lebih ? "text-error" : "text-on-surface")}>{teksIsi}</span>
-                </button>
-              );
-            })}
-          </>
-        )}
-      </PaneBody>
-      {data.vehicles.length > 0 ? (
-        <PaneFooter note={adaTrip
-          ? (kurangDiTrip === 0 ? "Every participant has a vehicle on every trip." : `${kurangDiTrip.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} are missing a vehicle on a trip.`)
-          : tanpaBus === 0 ? "Every participant has a default vehicle." : `${tanpaBus.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} have no default vehicle.`} />
-      ) : null}
-    </Pane>
+    <TabelLogistik<Bus>
+      label="Vehicles"
+      tabel="vehicles"
+      baris={data.vehicles}
+      kunciBaris={(bus) => String(bus.id)}
+      kolom={kolomBus}
+      cariLabel="Search vehicles"
+      cariPlaceholder="Search vehicle, plate or crew…"
+      awal={atas}
+      // Sama dengan aturan kamar di Rooms: disetel sekali, cukup terlihat di kaki panel.
+      ujung={<Button variant="text" size="sm" icon={<Eye size={16} />} onClick={() => setTampilan(true)}>{teksTampil}</Button>}
+      dipilih={pilih !== null ? String(pilih) : null}
+      onPilih={(bus) => setPilih(bus.id)}
+      labelBaris={(bus) => bus.code}
+      namaFile="vehicles"
+      kaki={() => data.vehicles.length === 0 ? null : adaTrip
+        ? (kurangDiTrip === 0 ? "Every participant has a vehicle on every trip." : `${kurangDiTrip.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} are missing a vehicle on a trip.`)
+        : tanpaBus === 0 ? "Every participant has a default vehicle." : `${tanpaBus.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")} have no default vehicle.`}
+      kosong={(
+        <EmptyState
+          plain
+          icon={<IkonBus size={40} />}
+          title="No vehicles yet"
+          description="Start with Add vehicle at the top right. Give each vehicle the name participants will see, such as Bus 1, then assign its default passengers."
+        />
+      )}
+    />
   );
 
   const bus = pilih !== null ? busById.get(pilih) ?? null : null;
@@ -392,56 +398,53 @@ export function TabAgenda({ data, kirim, busy, baru, tutupBaru, atas, pilihAwal 
     return `Linked to agenda row ${teksBaris(lokasi.bagian.event_date, lokasi.baris.start_time, lokasi.baris.title)}${tab}`;
   };
 
+  const totalTrip = (agenda: Agenda) => muatan(agenda).reduce((jumlah, baris) => jumlah + baris.load, 0);
+  const teks = (v: string | null | undefined) => (v && v.trim() ? [v] : []);
+  const kolomTrip: KolomTabel<Agenda>[] = [
+    {
+      key: "trip", label: "Trip", lebar: 220, kunci: true, saring: "teks",
+      nilai: (agenda) => [agenda.name],
+      sel: (agenda) => (
+        <span className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1 py-0.5">
+          <span className="font-medium text-on-surface">{agenda.name}</span>
+          {agenda.rundown_item_id !== null ? <StatusChip tone="neutral" title={keteranganChip(agenda)}>Agenda</StatusChip> : null}
+          {!agenda.follows_default ? <StatusChip tone="neutral">Own list</StatusChip> : null}
+          {muatan(agenda).some((baris) => baris.over_capacity) ? <StatusChip dot tone="error">Vehicle over capacity</StatusChip> : null}
+        </span>
+      ),
+    },
+    { key: "departs", label: "Departs", lebar: 160, urut: "waktu", nilai: (agenda) => (agenda.depart_at ? [formatWaktu(agenda.depart_at, zone)] : []), kunciUrut: (agenda) => agenda.depart_at ?? "" },
+    { key: "from", label: "From", lebar: 160, nilai: (agenda) => teks(agenda.origin) },
+    { key: "to", label: "To", lebar: 160, nilai: (agenda) => teks(agenda.destination) },
+    { key: "meeting", label: "Meeting point", lebar: 160, tersembunyi: true, nilai: (agenda) => teks(agenda.meeting_point) },
+    { key: "passengers", label: "Passengers", lebar: 112, rata: "kanan", urut: "angka", nilai: (agenda) => [String(totalTrip(agenda))], kunciUrut: (agenda) => String(totalTrip(agenda)).padStart(5, "0") },
+  ];
+
   const daftar = (
-    <Pane aria-label="Vehicle trips">
-      {atas ? <PaneHeader className="px-3 py-2.5">{atas}</PaneHeader> : null}
-      {data.trips.length > 0 && data.vehicles.length === 0 ? (
-        <PaneHeader className="text-body-medium text-on-surface-variant">No vehicles yet. Add them under Vehicles before assigning participants.</PaneHeader>
-      ) : null}
-      <PaneBody>
-        {data.trips.length === 0 ? (
-          <EmptyState
-            plain
-            icon={<CalendarDots size={40} />}
-            title="No vehicle trips yet"
-            description="A trip is one journey, such as Hotel to venue or Gala dinner. Create one with Add trip at the top right; participants see their vehicle for each trip."
-          />
-        ) : (
-          <>
-            <KepalaKolom kolom={[["Trip", "min-w-0 flex-1"], ["Departs", "w-36 max-sm:hidden"], ["Passengers", "w-24 text-right"]]} />
-            {data.trips.map((agenda) => {
-              const isi = muatan(agenda);
-              const total = isi.reduce((jumlah, baris) => jumlah + baris.load, 0);
-              const lebih = isi.some((baris) => baris.over_capacity);
-              return (
-                <button
-                  key={agenda.id}
-                  type="button"
-                  aria-pressed={pilih === agenda.id}
-                  onClick={() => setPilih(agenda.id)}
-                  className={cx("flex w-full items-center gap-3 border-b border-outline-variant px-4 py-2.5 text-left text-body-medium",
-                    pilih === agenda.id ? "bg-accent-soft" : "hover:bg-primary-soft")}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-on-surface">{agenda.name}</span>
-                      {agenda.rundown_item_id !== null ? <StatusChip tone="neutral" title={keteranganChip(agenda)}>Agenda</StatusChip> : null}
-                      {!agenda.follows_default ? <StatusChip tone="neutral">Own list</StatusChip> : null}
-                      {lebih ? <StatusChip dot tone="error">Vehicle over capacity</StatusChip> : null}
-                    </span>
-                    {agenda.origin || agenda.destination ? (
-                      <span className="block truncate text-on-surface-variant">{[agenda.origin, agenda.destination].filter(Boolean).join(" to ")}</span>
-                    ) : null}
-                  </span>
-                  <span className="w-36 shrink-0 text-on-surface-variant max-sm:hidden">{agenda.depart_at ? formatWaktu(agenda.depart_at, zone) : EMPTY_VALUE}</span>
-                  <span className="w-24 shrink-0 text-right tabular-nums text-on-surface">{total}</span>
-                </button>
-              );
-            })}
-          </>
-        )}
-      </PaneBody>
-    </Pane>
+    <TabelLogistik<Agenda>
+      label="Vehicle trips"
+      tabel="trips"
+      baris={data.trips}
+      kunciBaris={(agenda) => String(agenda.id)}
+      kolom={kolomTrip}
+      urutAwal={{ key: "departs", dir: "asc" }}
+      cariLabel="Search trips"
+      cariPlaceholder="Search trip, place or meeting point…"
+      awal={atas}
+      dipilih={pilih !== null ? String(pilih) : null}
+      onPilih={(agenda) => setPilih(agenda.id)}
+      labelBaris={(agenda) => `Trip ${agenda.name}`}
+      namaFile="trips"
+      kaki={data.trips.length > 0 && data.vehicles.length === 0 ? () => "No vehicles yet. Add them under Vehicles before assigning participants." : undefined}
+      kosong={(
+        <EmptyState
+          plain
+          icon={<CalendarDots size={40} />}
+          title="No vehicle trips yet"
+          description="A trip is one journey, such as Hotel to venue or Gala dinner. Create one with Add trip at the top right; participants see their vehicle for each trip."
+        />
+      )}
+    />
   );
 
   const agenda = pilih !== null ? data.trips.find((t) => t.id === pilih) ?? null : null;

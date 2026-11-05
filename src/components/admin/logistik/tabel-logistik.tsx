@@ -57,7 +57,7 @@ export type GrupTabel = {
 const PER_HALAMAN = 100;
 
 export function TabelLogistik<T>({
-  label, tabel, baris, kunciBaris, kolom, cariLabel, cariPlaceholder, awal, chip, ujung, menyaringLuar = false, hapusSaringanLuar,
+  label, tabel, baris, kunciBaris, kolom, cariLabel, cariPlaceholder, awal, chip, ujung, menyaringLuar = false, hapusSaringanLuar, urutAwal,
   grup, grupBaris, dipilih, onPilih, labelBaris, kaki, namaFile, kosong,
 }: {
   label: string;
@@ -76,6 +76,8 @@ export function TabelLogistik<T>({
   ujung?: ReactNode;
   menyaringLuar?: boolean;
   hapusSaringanLuar?: () => void;
+  /** Urutan awal; bawaannya kolom pertama, A → Z. */
+  urutAwal?: { key: string; dir: "asc" | "desc" };
   /** Kelompok berurutan (hotel). Urut berlaku di dalam tiap kelompok. */
   grup?: GrupTabel[];
   grupBaris?: (b: T) => string;
@@ -90,7 +92,7 @@ export function TabelLogistik<T>({
   const [cari, setCari] = useState("");
   const [saringan, setSaringan] = useState<Saringan[]>([]);
   const [mintaSaring, setMintaSaring] = useState<{ key: string; n: number } | null>(null);
-  const [urut, setUrut] = useState<{ key: string; dir: "asc" | "desc" }>({ key: kolom[0].key, dir: "asc" });
+  const [urut, setUrut] = useState<{ key: string; dir: "asc" | "desc" }>(urutAwal ?? { key: kolom[0].key, dir: "asc" });
   const [halaman, setHalaman] = useState(1);
 
   // Kolom yang kosong di semua baris tidak tampil sampai dipilih (acara tanpa
