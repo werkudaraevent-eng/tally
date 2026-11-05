@@ -769,9 +769,10 @@ function PenghuniPeriode({ periode }: { periode: PeriodeKamar[] }) {
       </p>
       <ul className="overflow-hidden rounded-md border border-outline-variant">
         {periode.map((p, i) => (
-          <li key={i} className={cx("flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-2 text-body-medium", i > 0 && "border-t border-outline-variant")}>
-            {p.rentang ? <span className="shrink-0 font-medium tabular-nums text-on-surface">{p.rentang}</span> : null}
-            <span className="min-w-0 break-words text-on-surface-variant">{p.nama.join(", ")}</span>
+          <li key={i} className={cx("flex items-baseline gap-3 px-3 py-2 text-body-medium", i > 0 && "border-t border-outline-variant")}>
+            {/* Kolom tanggal selebar tetap, supaya nama selalu sejajar di sebelahnya, juga saat terbungkus. */}
+            {p.rentang ? <span className="w-[5.5rem] shrink-0 font-medium tabular-nums text-on-surface">{p.rentang}</span> : null}
+            <span className="min-w-0 flex-1 break-words text-on-surface-variant">{p.nama.join(", ")}</span>
           </li>
         ))}
       </ul>

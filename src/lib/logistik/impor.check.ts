@@ -603,5 +603,22 @@ assert.deepEqual(ghPisah.baris.map((b) => b.status), ["masuk", "masuk", "masuk",
 const ghSatu = rencanaKamar(gh, bebas, { labelSatuKamar: true });
 assert.deepEqual(ghSatu.kamarBaru.map((k) => k.label), ["GH20"]);
 assert.equal(ghSatu.labelDipecah?.length, 1);
+// Sudah satu kamar GH20 = 1210 berisi keempatnya (keadaan KSO).
+const ghAda = { ...bebas, rooms: [...bebas.rooms, { id: 50, hotel_id: 1, room_number: "1210", label: "GH20", capacity: 2 }],
+  lodging: [
+    { participant_id: "a", hotel_id: 1, room_id: 50, check_in_at: "2026-11-05T07:00:00.000Z", check_out_at: "2026-11-06T05:00:00.000Z" },
+    { participant_id: "b", hotel_id: 1, room_id: 50, check_in_at: "2026-11-05T07:00:00.000Z", check_out_at: "2026-11-06T05:00:00.000Z" },
+    { participant_id: "c", hotel_id: 1, room_id: 50, check_in_at: "2026-11-06T07:00:00.000Z", check_out_at: "2026-11-08T05:00:00.000Z" },
+    { participant_id: "d", hotel_id: 1, room_id: 50, check_in_at: "2026-11-06T07:00:00.000Z", check_out_at: "2026-11-08T05:00:00.000Z" },
+  ] };
+const denganNomor = (pilih: (nama: string) => string) => [["Hotel", "Room label", "Room number", "Check-in", "Check-out", "Name"], ...gh.slice(1).map((b) => [b[0], b[1], pilih(b[4]), b[2], b[3], b[4]])];
+// Download current stays ditulis ulang (nomor di setiap baris): tidak dipecah, tidak ada yang ditolak.
+const pulangPergi = rencanaKamar(denganNomor(() => "1210"), ghAda);
+assert.deepEqual(pulangPergi.labelDipecah, []);
+assert.ok(pulangPergi.baris.every((b) => b.status !== "tolak"));
+// 1210 hanya untuk kelompok 6–8 Nov: kelompok itu tetap di GH20, kelompok 5–6 Nov pindah ke kamar baru.
+const nomorBelakang = rencanaKamar(denganNomor((n) => (n === "Citra Lestari" || n === "Dewi" ? "1210" : "")), ghAda);
+assert.ok(nomorBelakang.baris.every((b) => b.status !== "tolak"));
+assert.deepEqual(nomorBelakang.labelDipecah?.[0].periode.map((p) => [p.label, p.tetap, p.nomor]), [["GH20 · 5 Nov", false, null], ["GH20", true, "1210"]]);
 
 console.log("impor.check: ok");

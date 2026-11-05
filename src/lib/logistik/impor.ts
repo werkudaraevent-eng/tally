@@ -335,8 +335,13 @@ const KAMAR_MENYUSUL = new Set(["to follow", "room to follow", "room later", "la
 export type LabelDipecah = {
   hotel: string;
   label: string;
-  /** Per periode, urut tanggal. `label`: label yang dipakai bila dipisah. */
-  periode: Array<{ label: string; malam: Malam | null; nama: string[] }>;
+  /**
+   * Per periode, urut tanggal. `label`: label yang dipakai bila dipisah.
+   * `tetap`: periode yang memakai kamar berlabel itu (dan nomornya bila sudah
+   * ada); periode lain mendapat kamar baru. `nomor`: nomor kamar periode itu
+   * setelah impor (dari berkas, atau nomor kamar lama untuk yang tetap).
+   */
+  periode: Array<{ label: string; malam: Malam | null; nama: string[]; tetap: boolean; nomor: string | null }>;
 };
 
 export type OpsiKamar = {
@@ -348,15 +353,19 @@ export type OpsiKamar = {
  * Periode tiap label di berkas: baris dengan label sama di hotel sama,
  * dikumpulkan per malam yang bertabrakan. Label dipecah bila periodenya diisi
  * orang yang berbeda; kelompok yang sama kembali di periode lain (A,B 5–6 Nov
- * lalu A,B 7–8 Nov) tetap satu kamar. Periode yang paling banyak berisi
- * penghuni kamar berlabel itu sekarang memakai label aslinya, supaya impor
- * ulang tidak memindahkan siapa pun; periode lain mendapat label "GH20 · 6 Nov".
+ * lalu A,B 7–8 Nov) tetap satu kamar. Tidak dipecah bila setiap periode diberi
+ * nomor kamar yang sama (hotel memang memberi satu kamar fisik, atau "Download
+ * current stays" menulis nomor kamar lama di setiap baris).
+ * Yang memakai label aslinya: periode yang barisnya memberi nomor kamar lama,
+ * lalu periode yang paling banyak berisi penghuni kamar itu sekarang (impor
+ * ulang tidak memindahkan siapa pun), lalu periode pertama. Periode lain
+ * mendapat label "GH20 · 6 Nov".
  * Baris tanpa malam yang diketahui (tanpa tanggal, hotel tanpa tanggal)
  * bertabrakan dengan semuanya, jadi labelnya tidak dipecah.
  */
 export function pecahLabel(
-  baris: Array<{ i: number; hotel: string; label: string; orang: string; nama: string; malam: Malam | null }>,
-  penghuniLabel: (hotel: string, label: string) => Set<string>,
+  baris: Array<{ i: number; hotel: string; label: string; orang: string; nama: string; malam: Malam | null; nomor?: string }>,
+  kamarLabel: (hotel: string, label: string) => { penghuni: Set<string>; nomor: string | null },
 ): { labelBaris: Map<number, string>; dipecah: LabelDipecah[] } {
   const perLabel = new Map<string, typeof baris>();
   for (const b of baris) {
@@ -380,19 +389,29 @@ export function pecahLabel(
     if (periode.length < 2) continue;
     const kunciOrang = (p: (typeof periode)[number]) => [...new Set(p.baris.map((b) => b.orang))].sort().join("\u0000");
     if (new Set(periode.map(kunciOrang)).size < 2) continue;
+    const nomorBerkas = new Set(isi.map((b) => kunci(b.nomor ?? "")).filter(Boolean));
+    if (nomorBerkas.size === 1 && periode.every((p) => p.baris.some((b) => kunci(b.nomor ?? "")))) continue;
     const { hotel, label } = isi[0];
-    const sekarang = penghuniLabel(hotel, label);
-    const skor = periode.map((p) => p.baris.filter((b) => sekarang.has(b.orang)).length);
-    const tetap = Math.max(...skor) > 0 ? skor.indexOf(Math.max(...skor)) : 0;
+    const lama = kamarLabel(hotel, label);
+    const nomorLama = lama.nomor ? kunci(lama.nomor) : null;
+    const memberiNomorLama = periode.findIndex((p) => nomorLama !== null && p.baris.some((b) => kunci(b.nomor ?? "") === nomorLama));
+    const skor = periode.map((p) => p.baris.filter((b) => lama.penghuni.has(b.orang)).length);
+    const tetap = memberiNomorLama >= 0 ? memberiNomorLama : Math.max(...skor) > 0 ? skor.indexOf(Math.max(...skor)) : 0;
     // Kelompok yang sama di dua periode memakai label yang sama.
     const labelPerOrang = new Map<string, string>();
     const hasil: LabelDipecah["periode"] = [];
     periode.forEach((p, j) => {
       const k = kunciOrang(p);
-      const baru = j === tetap ? label : labelPerOrang.get(k) ?? `${label} · ${hariBulan(p.masuk)}`.slice(0, 40);
+      const akhiran = ` · ${hariBulan(p.masuk)}`;
+      // Label panjang dipotong di depan akhiran, supaya tanggalnya tetap ada.
+      const baru = j === tetap ? label : labelPerOrang.get(k) ?? `${label.slice(0, 40 - akhiran.length).trimEnd()}${akhiran}`;
       if (!labelPerOrang.has(k) || j === tetap) labelPerOrang.set(k, baru);
       for (const b of p.baris) labelBaris.set(b.i, baru);
-      hasil.push({ label: baru, malam: { masuk: p.masuk, keluar: p.keluar }, nama: [...new Set(p.baris.map((b) => b.nama))] });
+      const nomor = p.baris.map((b) => b.nomor?.trim() ?? "").find(Boolean) ?? null;
+      hasil.push({
+        label: baru, malam: { masuk: p.masuk, keluar: p.keluar }, nama: [...new Set(p.baris.map((b) => b.nama))],
+        tetap: baru === label, nomor: nomor ?? (baru === label ? lama.nomor : null),
+      });
     });
     dipecah.push({ hotel, label, periode: hasil });
   }
@@ -504,13 +523,19 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
       const masuk = bacaTanggal(kolom.masuk !== undefined ? rapi(sel1[kolom.masuk]) : "");
       const keluar = bacaTanggal(kolom.keluar !== undefined ? rapi(sel1[kolom.keluar]) : "");
       const malam = masuk && keluar ? { masuk, keluar } : masuk === null && keluar === null ? malamHotel(hotelPerNama.get(kunci(hotel))) : null;
+      // Orang yang tidak dikenali ditolak di barisnya: tidak ikut membentuk periode,
+      // supaya salah ketik nama tidak memecah label dan membuat kamar kosong.
       const cocok = cocokkan(kode, nama);
-      return [{ i, hotel, label, orang: "id" in cocok ? cocok.id : `?${kunci(kode || nama)}`, nama: nama || kode, malam }];
+      if (!("id" in cocok)) return [];
+      return [{ i, hotel, label, orang: cocok.id, nama: nama || kode, malam, nomor: nomorKamar(sel1) }];
     }),
     (hotel, label) => {
       const hotelAda = hotelPerNama.get(kunci(hotel));
       const kamar = hotelAda ? kamarPerLabel.get(`${hotelAda.id}\u0000${kunci(label)}`) : undefined;
-      return new Set(kamar ? acara.lodging.filter((b) => b.room_id === kamar.id).map((b) => b.participant_id) : []);
+      return {
+        penghuni: new Set(kamar ? acara.lodging.filter((b) => b.room_id === kamar.id).map((b) => b.participant_id) : []),
+        nomor: kamar?.room_number ?? null,
+      };
     },
   );
   const labelDipecah = pecahan?.dipecah ?? [];

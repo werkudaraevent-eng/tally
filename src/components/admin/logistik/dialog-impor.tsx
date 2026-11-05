@@ -219,7 +219,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                   // Dikosongkan supaya memilih berkas yang sama lagi (setelah
                   // dibetulkan di Excel) tetap memicu pratinjau baru.
                   event.target.value = "";
-                  void baca(file, jenis);
+                  // Berkas baru mulai lagi dari pilihan yang disarankan.
+                  setLabelSatu(false);
+                  void baca(file, jenis, false);
                 }}
               />
             </label>
@@ -390,6 +392,12 @@ function LabelGanda({ dipecah, satu, disabled, onChange }: { dipecah: LabelDipec
                 <span key={j} className="block">
                   {p.malam ? <span className="font-medium tabular-nums">{rentangTeks(p.malam)}: </span> : null}
                   {p.nama.join(", ")}
+                  {satu ? null : (
+                    <span className="block pl-4 text-body-small">
+                      {p.tetap ? `Stays in ${p.label}` : `New room ${p.label}`}
+                      {p.nomor ? `, room number ${p.nomor}` : ", room number to follow"}
+                    </span>
+                  )}
                 </span>
               ))}
             </li>
