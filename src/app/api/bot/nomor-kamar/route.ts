@@ -92,6 +92,23 @@ export async function POST(request: Request) {
     const hasil = cariPeserta(isi.name ?? "", semua);
     if (hasil.jenis === "satu") {
       peserta = hasil.peserta;
+      // Nama persis, tapi teman sekamar yang disebut tidak sekamar dengannya:
+      // tanda kuat kamar tertukar, jadi ditanyakan, tidak ditulis.
+      for (const nama of isi.roommates ?? []) {
+        const orangTeman = cariPeserta(nama, semua).kandidat.filter((o) => o.id !== peserta.id);
+        const calon = orangTeman.map((o) => o.id);
+        const sekamar = calon.length ? await pasanganTeman(db, event.id, [peserta.id], [calon]) : null;
+        if (sekamar === "galat") return tolak(500, { code: "INTERNAL_ERROR", message: "Could not read rooms. Try again." });
+        if (!sekamar) {
+          const [orang, ...teman] = await denganKamar(db, event.id, [peserta, ...orangTeman.slice(0, 5)]);
+          return tolak(409, {
+            code: "ROOMMATE_MISMATCH",
+            message: `${peserta.name} is not in a room with anyone named "${nama}". The rooms may have been swapped: ask the organiser, then send participant_id and room_id.`,
+            participant: orang,
+            choices: teman,
+          });
+        }
+      }
     } else {
       const teman = (isi.roommates ?? []).map((nama) => cariPeserta(nama, semua).kandidat.map((o) => o.id));
       const cocok = teman.length && hasil.kandidat.length ? await pasanganTeman(db, event.id, hasil.kandidat.map((o) => o.id), teman) : null;
@@ -107,7 +124,7 @@ export async function POST(request: Request) {
         return tolak(409, {
           code: "CONFIRM_MATCH",
           message: `Likely ${saran.name}${kamarSaran ? `, room ${kamarSaran.label ?? kamarSaran.room_number ?? ""} at ${kamarSaran.hotel}` : ""}, based on the roommate name. Ask the organiser to confirm, then send participant_id and room_id.`,
-          suggestion: { participant_id: saran.id, name: saran.name, company: saran.company, room_id: cocok.room_id, ...(kamarSaran ?? {}) },
+          suggestion: { participant_id: saran.id, name: saran.name, company: saran.company, room_id: cocok.room_id, ...(kamarSaran ?? {}), occupants: await namaPenghuni(db, event.id, cocok.room_id) },
           choices,
         });
       }
@@ -153,12 +170,7 @@ export async function POST(request: Request) {
   const namaHotel = hotel.find((h) => h.id === kamar.hotel_id)?.name ?? "Hotel";
   const nomor = isi.room_number;
 
-  const { data: penghuni } = await db.from("lodging_assignments").select("participant_id").eq("event_id", event.id).eq("room_id", kamar.id);
-  const idPenghuni = [...new Set(((penghuni ?? []) as Array<{ participant_id: string }>).map((p) => p.participant_id))];
-  const { data: namaPenghuni } = idPenghuni.length
-    ? await db.from("participants").select("id,name").eq("event_id", event.id).is("source_removed_at", null).in("id", idPenghuni)
-    : { data: [] };
-  const occupants = ((namaPenghuni ?? []) as Array<{ name: string }>).map((p) => p.name).sort();
+  const occupants = await namaPenghuni(db, event.id, kamar.id);
   const ringkas = { participant: siapa, room: { room_id: kamar.id, hotel: namaHotel, label: kamar.label, room_number: kamar.room_number, ...pilihan.malam }, occupants };
 
   if (kamar.room_number !== null && kunciKamar(kamar.room_number) === kunciKamar(nomor)) return Response.json({ ok: true, changed: false, message: `Room already has number ${nomor}.`, ...ringkas });
@@ -188,7 +200,7 @@ export async function POST(request: Request) {
     event_id: event.id,
     user_id: null,
     action: "room_number_set_by_bot",
-    payload: { bot: namaBot, api_key_id: kunci.id, participant_id: peserta.id, participant_name: peserta.name, room_id: kamar.id, hotel: namaHotel, label: kamar.label, old_number: kamar.room_number, new_number: nomor },
+    payload: { bot: namaBot, api_key_id: kunci.id, matched_by: isi.participant_id ? "participant_id" : "name", sent_name: isi.name ?? null, sent_roommates: isi.roommates ?? [], participant_id: peserta.id, participant_name: peserta.name, room_id: kamar.id, hotel: namaHotel, label: kamar.label, old_number: kamar.room_number, new_number: nomor },
   } as never);
   // Nomornya sudah tersimpan; tanpa baris audit, jejaknya tetap ada di log server.
   if (galatAudit) console.error("room_number_set_by_bot audit insert failed", { room_id: kamar.id, code: (galatAudit as { code?: string }).code });
@@ -251,4 +263,13 @@ async function kamarSingkat(db: Db, eventId: string, roomId: number) {
   if (!k) return null;
   const { data: h } = await db.from("lodging_hotels").select("name").eq("event_id", eventId).eq("id", k.hotel_id).maybeSingle();
   return { hotel: (h as { name: string } | null)?.name ?? "Hotel", label: k.label, room_number: k.room_number };
+}
+
+/** Nama penghuni kamar (tanpa peserta yang sudah dihapus dari sumber). */
+async function namaPenghuni(db: Db, eventId: string, roomId: number) {
+  const { data: penghuni } = await db.from("lodging_assignments").select("participant_id").eq("event_id", eventId).eq("room_id", roomId);
+  const id = [...new Set(((penghuni ?? []) as Array<{ participant_id: string }>).map((p) => p.participant_id))];
+  if (!id.length) return [];
+  const { data } = await db.from("participants").select("id,name").eq("event_id", eventId).is("source_removed_at", null).in("id", id);
+  return ((data ?? []) as Array<{ name: string }>).map((p) => p.name).sort();
 }
