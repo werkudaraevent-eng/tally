@@ -158,9 +158,11 @@ export function DartAnimation3D(props: AnimationProps) {
       >
         <WinnerList winners={winners} accent={accent} text={text} fontFamily={fontFamily} />
       </motion.div>}
+      {/* Kartu pemenang hanya ada di canvas: pembaca layar mendapat teksnya di sini. */}
+      {done && !overflow && <p key={`sr-${round}`} className="sr-only">{shown.map((winner) => winner.name).join(", ")}</p>}
       {done && !overflow && backups.length > 0 && <motion.p
         key={`cadangan-${round}`}
-        className="absolute bottom-[3%] left-1/2 max-w-[92%] -translate-x-1/2 truncate rounded-full px-[2.4%] py-[0.6%] text-center"
+        className="absolute bottom-[3%] left-1/2 line-clamp-2 max-w-[92%] -translate-x-1/2 rounded-[1.2em] px-[2.4%] py-[0.6%] text-center"
         style={{ fontFamily, fontSize: "clamp(11px, 1.8vh, 24px)", color: "#FFFFFF", background: "rgba(0, 0, 0, 0.55)" }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -393,7 +395,7 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     lines.forEach((line, index) => pen.fillText(line, x + w / 2, top + index * lineHeight));
     if (sub) {
       pen.font = `500 ${size * 0.48}px ${font}`;
-      pen.fillStyle = "rgba(35,27,14,.62)";
+      pen.fillStyle = "rgba(35,27,14,.82)";
       pen.fillText(sub, x + w / 2, top + (lines.length - 1) * lineHeight + size * 1.05);
     }
   };
@@ -407,6 +409,9 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
   let pinMesh: import("three").InstancedMesh | null = null;
   let atlas: { canvas: HTMLCanvasElement; texture: import("three").CanvasTexture; px: number; py: number; columns: number } | null = null;
   let slipsKey = "";
+  let boardFrom: string[] | null = null;
+  let boardNames: string[] = [];
+  let boardKey = "";
   const slipMatrix = new T.Matrix4();
   const slipQuat = new T.Quaternion();
   const slipEuler = new T.Euler();
@@ -446,16 +451,19 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     slipW = Math.min(cellW * 0.86, sw * 0.3, cellH * 0.78 * SLIP_RATIO);
     slipH = slipW / SLIP_RATIO;
 
-    let px = count <= 20 ? 1024 : count <= 100 ? 768 : 448;
-    while (Math.ceil(count / Math.floor(maxTexture / px)) * Math.round(px / SLIP_RATIO) > maxTexture) px = Math.round(px * 0.85);
+    // Di atas 100 nama tiap kertas kecil di layar, jadi atlas dibatasi 4096:
+    // atlas 8192 untuk 500 nama memakan ~160 MB dan membuat frame macet.
+    const atlasMax = count > 100 ? Math.min(4096, maxTexture) : maxTexture;
+    let px = count <= 20 ? 1024 : count <= 100 ? 768 : 384;
+    while (Math.ceil(count / Math.floor(atlasMax / px)) * Math.round(px / SLIP_RATIO) > atlasMax) px = Math.round(px * 0.9);
     const py = Math.round(px / SLIP_RATIO);
-    const atlasColumns = Math.floor(maxTexture / px);
+    const atlasColumns = Math.floor(atlasMax / px);
     const atlasCanvas = doc.createElement("canvas");
-    atlasCanvas.width = Math.min(maxTexture, atlasColumns * px);
+    atlasCanvas.width = Math.min(atlasMax, atlasColumns * px);
     atlasCanvas.height = Math.ceil(count / atlasColumns) * py;
     const texture = new T.CanvasTexture(atlasCanvas);
     texture.colorSpace = T.SRGBColorSpace;
-    texture.anisotropy = anisotropy;
+    texture.anisotropy = Math.min(anisotropy, count > 100 ? 4 : 8);
     atlas = { canvas: atlasCanvas, texture, px, py, columns: atlasColumns };
 
     const geometry = new T.PlaneGeometry(slipW, slipH);
@@ -537,7 +545,8 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
       }
       used.add(index);
       const slip = slips[index];
-      const px = 2048;
+      // 1536 cukup untuk kartu selebar ~40% layar 1080p yang dirender 1,5x.
+      const px = 1536;
       const paper = doc.createElement("canvas");
       paper.width = px;
       paper.height = Math.round(px / SLIP_RATIO);
@@ -615,15 +624,20 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     return { position, direction };
   };
 
-  // Laptop lemah: bila 20 frame rata-rata di atas 25 ms, resolusi dan bayangan
-  // diturunkan sekali. Animasi yang mulus lebih penting dari tepi yang halus.
+  // Laptop lemah: bila frame dalam ~1 detik terakhir umumnya di atas 25 ms,
+  // resolusi dan bayangan diturunkan sekali. Berbasis waktu, bukan jumlah
+  // frame, supaya di 2 fps pun turunnya dalam ~1 detik, bukan 15 detik.
   const stamps: number[] = [];
   let lowered = false;
   const watchSpeed = (now: number) => {
     if (lowered) return;
     stamps.push(now);
-    if (stamps.length > 40) stamps.shift();
-    if (stamps.length >= 30 && (stamps[stamps.length - 1] - stamps[stamps.length - 21]) / 20 > 25) {
+    // Frame dalam 1 detik terakhir, minimal 4 frame terakhir (di bawah 1 fps).
+    while (stamps.length > 4 && now - stamps[0] > 1000) stamps.shift();
+    if (stamps.length < 4) return;
+    // Median, bukan rata-rata: satu frame macet (atlas dibangun) tidak dihitung lambat.
+    const gaps = stamps.slice(1).map((stamp, index) => stamp - stamps[index]).sort((a, b) => a - b);
+    if (gaps[Math.floor(gaps.length / 2)] > 25) {
       lowered = true;
       renderer.setPixelRatio(1);
       spot.shadow.mapSize.set(2048, 2048);
@@ -660,10 +674,17 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
       skipReveal.current = false;
       reset();
     }
-    const key = `${names.length}|${names[0] ?? ""}|${names[names.length - 1] ?? ""}`;
-    if (key !== slipsKey && revealAt === null) {
-      slipsKey = key;
-      buildSlips(names);
+    // Layar mengacak ulang roster tiap draw. Urutan papan dibuat dari isi
+    // roster, bukan urutannya, supaya roster yang sama tidak membangun ulang
+    // atlas tepat saat pemenang datang.
+    if (names !== boardFrom) {
+      boardFrom = names;
+      boardNames = [...names].sort((a, b) => hashOf(a) - hashOf(b) || (a < b ? -1 : a > b ? 1 : 0));
+      boardKey = `${boardNames.length}|${hashOf(boardNames.join("\n"))}`;
+    }
+    if (boardKey !== slipsKey && revealAt === null) {
+      slipsKey = boardKey;
+      buildSlips(boardNames);
     }
     if (shown.length > 0 && revealAt === null) {
       revealAt = skipReveal.current ? now - 60_000 : now;
@@ -845,5 +866,7 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     for (const item of disposables) item.dispose();
     spot.shadow.map?.dispose();
     renderer.dispose();
+    // Ganti hadiah berkali-kali tidak boleh menumpuk konteks WebGL.
+    renderer.forceContextLoss();
   };
 }
