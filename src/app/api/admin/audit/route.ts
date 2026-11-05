@@ -64,6 +64,8 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
     "message_send", "message_schedule", "message_retry", "message_resume", "message_cancel",
   ],
   // Reset check-in atau bagasi satu peserta (uji coba): isi yang dihapus tersalin di payload.
+  // Logistics: nomor kamar dari bot (kunci bot, tanpa akun) dan pemberitahuan kamar.
+  logistics: ["room_number_set_by_bot", "room_notice_send"],
   danger: ["admin_reset_records", "participant_check_in_reset", "participant_luggage_reset"],
   orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan", "admin_order_void"],
   sync: ["participant_sync", "participant_qr_archived"],
@@ -79,17 +81,23 @@ const CONFIG_ACTIONS = [
   ...CATEGORY_ACTIONS.rundown,
   ...CATEGORY_ACTIONS.undian,
   ...CATEGORY_ACTIONS.users,
+  ...CATEGORY_ACTIONS.logistics,
   ...CATEGORY_ACTIONS.danger,
 ];
 
 const querySchema = z.object({
-  category: z.enum(["config", "settings", "offers", "booths", "payment_methods", "rundown", "undian", "users", "participants", "messages", "danger", "orders", "sync", "all"]).default("config"),
+  category: z.enum(["config", "settings", "offers", "booths", "payment_methods", "rundown", "undian", "users", "participants", "messages", "logistics", "danger", "orders", "sync", "all"]).default("config"),
   actor: z.string().uuid().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
+
+function namaBot(payload: unknown): string | null {
+  const bot = payload && typeof payload === "object" ? (payload as { bot?: unknown }).bot : null;
+  return typeof bot === "string" && bot.trim() ? `${bot.trim()} (bot)` : null;
+}
 
 export async function GET(request: Request) {
   // super_admin saja: log ini merekam tindakan klien. Kalau klien dapat
@@ -144,7 +152,8 @@ export async function GET(request: Request) {
         ...entry,
         // null user_id berarti dijalankan sistem (cron sync, auto-void), bukan
         // pelaku yang tidak diketahui. Dibedakan agar tidak terbaca mencurigakan.
-        actor_username: actor?.username ?? (entry.user_id ? "(user terhapus)" : "Sistem"),
+        // Bot tanpa akun (kunci bot) menulis namanya di payload.bot.
+        actor_username: actor?.username ?? (entry.user_id ? "(user terhapus)" : namaBot(entry.payload) ?? "Sistem"),
         actor_role: actor?.role ?? null,
       };
     }),
