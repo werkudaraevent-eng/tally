@@ -581,7 +581,7 @@ function ChanceLine({ context, candidate, source }: { context: ChanceContext; ca
     <>
       <p>
         {listed > 0
-          ? <>{people.toLocaleString("en-GB")} of the {listed.toLocaleString("en-GB")} {listed === 1 ? "person is" : "people are"} in this prize’s draw.</>
+          ? <>{people.toLocaleString("en-GB")} of the {listed.toLocaleString("en-GB")} {listed === 1 ? "person" : "people"} {people === 1 ? "is" : "are"} in this prize’s draw.</>
           : <>{people.toLocaleString("en-GB")} {people === 1 ? "person matches" : "people match"} this rule and {people === 1 ? "is" : "are"} in this prize’s draw.</>}
         {" "}Each has <strong>{ticketsEach}×</strong> the chance of a standard participant.
       </p>
