@@ -391,3 +391,80 @@ export function ringkasAcara(input: BahanPantau, masuk: ReadonlySet<string> | nu
     kelompok,
   };
 }
+
+/**
+ * Siapa yang diharapkan di satu sesi Check-in, untuk layar pemindai (/scan).
+ *
+ * Aturannya sama dengan halaman Kehadiran panitia dan kartu Check-ins by
+ * checkpoint: sesi yang dipakai checkpoint bertautan baris Agenda dengan Who
+ * sees it diharapkan dari peserta yang melihat baris itu. Tanpa daftar per
+ * acara: datanya sudah diisi panitia di Checkpoints (When) dan Agenda (Who sees
+ * it). Sesi tanpa checkpoint, checkpoint tanpa tautan, atau baris tanpa Who sees
+ * it: tidak ada entri, layar pemindai tetap menghitung semua peserta aktif.
+ *
+ * Checkpoint yang dipecah per hari (titik kumpul Batch 0 tanggal 5, Batch 1-4
+ * tanggal 6) memakai hari ini di zona acara; sebelum hari pertama hari terdekat
+ * berikutnya, sesudah hari terakhir hari terakhir. Pada hari itu hanya
+ * pencatatan hari itu yang dihitung, sama dengan halaman panitia.
+ */
+export type SasaranSesi = {
+  /** Peserta yang diharapkan hari itu. */
+  harap: ReadonlySet<string>;
+  /** Tanggal (zona acara) bila sesi dipecah per hari; null = semua pencatatan sesi. */
+  hari: string | null;
+  diharapkan: number;
+  sudah: number;
+  lainnya: number;
+  /** "Batch 1", "Batch 1 / Batch 2". */
+  untuk: string | null;
+};
+
+export function sasaranSesi(input: BahanPantau): Map<number, SasaranSesi> {
+  const offset = input.offset ?? "+00:00";
+  const hariIni = tanggalPada(input.sekarang.toISOString(), offset);
+  const sesiCp = new Map(input.checkpoints.filter((cp) => cp.session_id !== null).map((cp) => [`cp-${cp.id}`, cp.session_id as number]));
+
+  // Titik per sesi, dengan tanggalnya: dari akhiran kunci (dipecah per hari)
+  // atau baris Agenda paling awal yang ditautkan.
+  const perSesi = new Map<number, Array<{ titik: TitikPantau; tanggal: string | null; dipecah: boolean }>>();
+  for (const titik of titikPantau(input)) {
+    if (titik.dasar.jenis !== "sesi") continue;
+    const sesi = sesiCp.get(kunciDasar(titik.dasar.key));
+    if (sesi === undefined) continue;
+    const akhiran = /-(\d{4})(\d{2})(\d{2})$/.exec(titik.dasar.key);
+    const tanggal = akhiran
+      ? `${akhiran[1]}-${akhiran[2]}-${akhiran[3]}`
+      : titik.ids.map((id) => input.agenda.get(id)?.tanggal).filter((isi): isi is string => Boolean(isi)).sort()[0] ?? null;
+    perSesi.set(sesi, [...(perSesi.get(sesi) ?? []), { titik, tanggal, dipecah: Boolean(akhiran) }]);
+  }
+
+  const hasil = new Map<number, SasaranSesi>();
+  for (const [sesi, daftar] of perSesi) {
+    const tanggal = [...new Set(daftar.map((isi) => isi.tanggal).filter((isi): isi is string => Boolean(isi)))].sort();
+    const pilih = tanggal.includes(hariIni) ? hariIni : tanggal.find((isi) => isi > hariIni) ?? tanggal.at(-1) ?? null;
+    const dipilih = daftar.filter((isi) => isi.tanggal === null || isi.tanggal === pilih);
+    // Satu checkpoint untuk semua peserta di sesi ini: tidak dipersempit.
+    if (dipilih.length === 0 || dipilih.some((isi) => isi.titik.harap === null)) continue;
+    const harap = new Set<string>();
+    for (const isi of dipilih) for (const id of isi.titik.harap ?? []) harap.add(id);
+    const orang = new Set<string>();
+    for (const isi of dipilih) for (const id of isi.titik.orang.keys()) orang.add(id);
+    let sudah = 0;
+    for (const id of orang) if (harap.has(id)) sudah += 1;
+    const label = [...new Set(dipilih.map((isi) => labelUntuk(input, isi.titik.ids)).filter((isi): isi is string => Boolean(isi)))].join(" / ");
+    hasil.set(sesi, {
+      harap,
+      hari: dipilih.some((isi) => isi.dipecah) ? pilih : null,
+      diharapkan: harap.size,
+      sudah,
+      lainnya: orang.size - sudah,
+      untuk: label || null,
+    });
+  }
+  return hasil;
+}
+
+/** Tanggal (zona acara) sebuah waktu ISO, untuk penyaring hari di daftar pemindai. */
+export function tanggalCatatan(at: string, offset: string): string {
+  return tanggalPada(at, offset);
+}

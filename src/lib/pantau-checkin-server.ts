@@ -4,7 +4,7 @@ import { semuaBaris } from "@/lib/logistik/server";
 import { memberConfig } from "@/lib/member/account";
 import { jejakPortal, pakaiPortal } from "@/lib/member/jejak-portal";
 import type { EventRow } from "@/lib/domain";
-import { hitungPantau, ringkasAcara, type AgendaPantau, type RingkasAcara, type BahanPantau, type BarisPantau, type CatatanPantau, type SesiPantau } from "@/lib/pantau-checkin";
+import { hitungPantau, ringkasAcara, sasaranSesi, type SasaranSesi, type AgendaPantau, type RingkasAcara, type BahanPantau, type BarisPantau, type CatatanPantau, type SesiPantau } from "@/lib/pantau-checkin";
 import { jawabanPeserta, kolomSasaran } from "@/lib/sasaran-bagian";
 import { bacaSyaratBaris } from "@/lib/sasaran-baris";
 import { muatStayPeserta, type StayPeserta } from "@/lib/sasaran-baris-server";
@@ -41,6 +41,28 @@ export async function muatRingkasCheckin(event: EventRow, sekarang = new Date())
     masuk = await jejakPortal(event.id).then((peta) => new Set(peta.keys())).catch(() => null);
   }
   return { rows: hitungPantau(dimuat.bahan), ringkas: ringkasAcara(dimuat.bahan, masuk) };
+}
+
+/**
+ * Siapa yang diharapkan per sesi Check-in, untuk layar pemindai (lib/pantau-checkin.ts
+ * sasaranSesi). Acara tanpa checkpoint bertautan baris Agenda tidak membaca apa
+ * pun selain daftar checkpoint: hasilnya peta kosong dan layar pemindai tetap
+ * menghitung semua peserta aktif. Null bila gagal dibaca; pemanggil juga jatuh
+ * ke hitungan semua peserta, bukan ke angka salah.
+ */
+export async function muatSasaranSesi(event: EventRow, sekarang = new Date()): Promise<{ sasaran: Map<number, SasaranSesi>; offset: string } | null> {
+  const daftar = await loadDaftarCheckpoint(event.id);
+  const offset = timeZoneOffset(normalizeTimeZone((event as { time_zone?: unknown }).time_zone));
+  if (!daftar) return null;
+  if (!daftar.some((cp) => cp.session_id !== null && cp.agenda_item_ids.length > 0)) return { sasaran: new Map(), offset };
+  const dimuat = await muatBahanPantau(event, sekarang);
+  if (!dimuat) return null;
+  return { sasaran: sasaranSesi(dimuat.bahan), offset };
+}
+
+/** Bentuk yang dikirim ke layar pemindai: angka dan label saja, tanpa id peserta. */
+export function sasaranUntukPemindai(sasaran: ReadonlyMap<number, SasaranSesi>): Record<number, { diharapkan: number; sudah: number; lainnya: number; untuk: string | null; hari: string | null }> {
+  return Object.fromEntries([...sasaran].map(([id, isi]) => [id, { diharapkan: isi.diharapkan, sudah: isi.sudah, lainnya: isi.lainnya, untuk: isi.untuk, hari: isi.hari }]));
 }
 
 /** Peserta aktif dengan nama dan unit, hanya untuk halaman Kehadiran panitia. */

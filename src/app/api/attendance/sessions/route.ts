@@ -7,6 +7,7 @@ import { loadLabelSettings } from "@/lib/label/load";
 import { walkinFields } from "@/lib/participant-input";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { hitungKehadiran } from "@/lib/attendance-progress";
+import { muatSasaranSesi, sasaranUntukPemindai } from "@/lib/pantau-checkin-server";
 import { aturanWalkIn } from "@/lib/walkin-form";
 import { loadDaftarCheckpoint, loadSetelanCheckpoint, scanMandiriPerSesi } from "@/lib/checkpoint/server";
 
@@ -65,7 +66,11 @@ export async function GET(request: Request) {
   // Orang unik per sesi dan jumlah terdaftar, sebagai hitungan. Dulu dihitung
   // dari baris attendance_scans di sini, yang terpotong di 1.000 baris.
   const daftarSesi = (sesi.data ?? []) as Array<{ id: number; name: string; slug: string; sort_order: number; records_luggage?: boolean; luggage_pickup?: boolean; offline_ok?: boolean }>;
-  const angka = await hitungKehadiran(eventId, daftarSesi.map((row) => row.id)).catch(() => null);
+  const [angka, sasaran] = await Promise.all([
+    hitungKehadiran(eventId, daftarSesi.map((row) => row.id)).catch(() => null),
+    // Yang diharapkan per sesi dari checkpoint + Who sees it Agenda; lihat /api/attendance/progress.
+    muatSasaranSesi(auth.scope.event).catch(() => null),
+  ]);
 
   // Setelan walk-in ikut di jawaban yang sama, bukan endpoint kedua, dengan
   // alasan yang sama dengan jalur di atas. Formnya = form registrasi utama:
@@ -120,6 +125,7 @@ export async function GET(request: Request) {
     // juga menerima nomor itu. Acara lain tidak mendapat kunci ini.
     ...(kunciNomorBagasi(config) ? { nomor_bagasi: true } : {}),
     terdaftar: angka?.terdaftar ?? null,
+    sasaran: sasaran ? sasaranUntukPemindai(sasaran.sasaran) : null,
     label,
     // Badge kertas lewat stasiun cetak. Label stiker menang bila keduanya
     // tersimpan menyala: itulah urutan "Yang dicetak di meja registrasi".

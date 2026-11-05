@@ -6,6 +6,8 @@ import { bacaKursor, bacaStatus, ringkasPindaian, saringSetelah, tulisKursor, UK
 const POTONGAN = 100;
 /** Paling banyak 20 x 100 = 2.000 peserta diperiksa per permintaan; sisanya lewat "Show more". */
 const MAKS_PUTARAN = 20;
+import { tanggalCatatan } from "@/lib/pantau-checkin";
+import { muatSasaranSesi } from "@/lib/pantau-checkin-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -44,12 +46,21 @@ export async function GET(request: Request) {
   if (sesi.error) return apiError("INTERNAL_ERROR", 500);
   if (!sesi.data) return apiError("VALIDATION_ERROR", 404, { message: "This check-in point no longer exists. Reload the page." });
 
+  // Sesi yang dipakai checkpoint bertautan baris Agenda dengan Who sees it
+  // (titik kumpul Batch 1): "Not yet" hanya yang diharapkan, dan pada titik yang
+  // dipecah per hari hanya pindaian hari itu yang dihitung. Sama dengan angka di
+  // kartu hitungan (sasaran di /api/attendance/progress) dan halaman Kehadiran
+  // panitia. Gagal dibaca: daftar semua peserta seperti sebelumnya.
+  const dimuat = await muatSasaranSesi(auth.scope.event).catch(() => null);
+  const sasaran = dimuat?.sasaran.get(sessionId) ?? null;
+  const hariIni = (at: string) => !sasaran?.hari || tanggalCatatan(at, dimuat?.offset ?? "+00:00") === sasaran.hari;
+
   // Dua langkah sederhana, bukan anti-join PostgREST (embed !left + is.null):
   // peserta dibaca per potongan urut nama, lalu pindaian sesi ini untuk id
   // potongan itu, dan disaring di sini. Hanya fitur dasar PostgREST yang
   // dipakai, dan batas 1.000 baris tidak pernah tersentuh.
   type Baris = { id: string; name: string; company: string | null; title: string | null };
-  const hasil: Array<Baris & { scan_count: number; first_scan_at: string | null }> = [];
+  const hasil: Array<Baris & { scan_count: number; first_scan_at: string | null; luar?: true }> = [];
   let posisi = kursor;
   let habis = false;
   for (let putaran = 0; putaran < MAKS_PUTARAN && hasil.length < UKURAN_HALAMAN && !habis; putaran++) {
@@ -89,9 +100,13 @@ export async function GET(request: Request) {
 
     for (const row of potongan) {
       posisi = { n: row.name, i: row.id };
-      const ringkas = ringkasPindaian(perOrang.get(row.id));
-      if ((status === "hadir") === (ringkas.scan_count > 0)) {
-        hasil.push({ ...row, ...ringkas });
+      const ringkas = ringkasPindaian(perOrang.get(row.id)?.filter((scan) => hariIni(scan.scanned_at)));
+      const diharapkan = !sasaran || sasaran.harap.has(row.id);
+      // "Not yet" tanpa orang di luar yang diharapkan; "Checked in" tetap semua
+      // yang tercatat, yang di luar ditandai supaya angkanya tidak hilang diam-diam.
+      const masuk = status === "hadir" ? ringkas.scan_count > 0 : ringkas.scan_count === 0 && diharapkan;
+      if (masuk) {
+        hasil.push({ ...row, ...ringkas, ...(diharapkan ? {} : { luar: true as const }) });
         if (hasil.length === UKURAN_HALAMAN) {
           // Berhenti tepat di orang ke-50; sisa potongan dibaca lagi di
           // halaman berikutnya mulai dari sesudah orang ini.

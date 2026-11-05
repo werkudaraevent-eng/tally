@@ -64,12 +64,14 @@ import { TampilQrCheckpoint } from "./tampil-qr";
 import { WalkinDialog } from "./walkin-dialog";
 import {
   FORM_KOSONG,
+  gabungSasaran,
   type BarisCari,
   type FormWalkIn,
   type Hasil,
   type Jalur,
   type Kandidat,
   type ModeCetak,
+  type SasaranPemindai,
   type Sesi,
   type StatusCetak,
 } from "./types";
@@ -439,6 +441,12 @@ export default function ScanClient() {
   // Peserta aktif acara, seluruh meja. Null sampai terbaca, atau bila hitungannya
   // gagal: layar lalu kembali ke angka hadir saja, tanpa "dari".
   const [terdaftar, setTerdaftar] = useState<number | null>(null);
+  // Sesi yang dipakai checkpoint bertautan baris Agenda dengan Who sees it
+  // (titik kumpul Batch 1): yang diharapkan di sana, dari server
+  // (lib/pantau-checkin.ts sasaranSesi). `dasar` = angka hadir semua orang saat
+  // angka ini dibaca, supaya pindaian sesudahnya ikut menaikkan angka sampai
+  // pembaruan 30 detik berikutnya.
+  const [sasaran, setSasaran] = useState<Record<number, SasaranPemindai & { dasar: number | null }>>({});
   const [riwayat, setRiwayat] = useState<BarisRiwayat[]>([]);
   // Dibaca setelah hidrasi (localStorage tidak ada di server), lalu disimpan
   // setiap kali berubah. `riwayatDimuat` mencegah daftar kosong awal menimpa
@@ -594,6 +602,7 @@ export default function ScanClient() {
     setWalkinFields((body.walkin_fields ?? []) as RegistrationField[]);
     if (body.walkin_wajib) setWalkinWajib(body.walkin_wajib as AturanWalkIn);
     setTerdaftar(typeof body.terdaftar === "number" ? body.terdaftar : null);
+    setSasaran(gabungSasaran(body.sasaran, (id) => daftar.find((sesi) => sesi.id === id)?.hadir ?? null));
     setNomorBagasi(body.nomor_bagasi === true);
     // Angka dari daftar sesi lebih baru daripada yang tersimpan dari pindaian
     // sebelumnya: muat ulang berarti "ambil yang terbaru".
@@ -687,9 +696,10 @@ export default function ScanClient() {
       if (document.visibilityState !== "visible") return;
       const response = await fetch(eventApiPath("/api/attendance/progress"), { cache: "no-store" }).catch(() => null);
       if (batal || !response?.ok) return;
-      const body = (await response.json().catch(() => null)) as { terdaftar?: number; hadir?: Record<string, number> } | null;
+      const body = (await response.json().catch(() => null)) as { terdaftar?: number; hadir?: Record<string, number>; sasaran?: unknown } | null;
       if (batal || !body) return;
       if (typeof body.terdaftar === "number") setTerdaftar(body.terdaftar);
+      if (body.sasaran !== undefined) setSasaran(gabungSasaran(body.sasaran, (id) => body.hadir?.[id] ?? null));
       const hadirBaru = body.hadir;
       if (hadirBaru) {
         setHadirTerbaru((current) => {
@@ -1579,7 +1589,7 @@ export default function ScanClient() {
 
   const sesiAktif = sessions.find((sesi) => sesi.id === sessionId);
   useEffect(() => { sesiAmbilRef.current = sesiAktif?.ambil_bagasi === true; }, [sesiAktif]);
-  const hadir = sessionId === null ? null : hadirTerbaru[sessionId] ?? sesiAktif?.hadir ?? null;
+  const hadirSemua = sessionId === null ? null : hadirTerbaru[sessionId] ?? sesiAktif?.hadir ?? null;
   const perluJalur = lanes.length > 0 && laneId === null;
   const jalurAktif = lanes.find((jalur) => jalur.id === laneId);
   // Bilah meja terbuka sampai sesi (dan jalur, bila ada) benar-benar dipilih.
@@ -1701,15 +1711,22 @@ export default function ScanClient() {
 
   // "Belum" dihitung dari dua angka server yang dibaca terpisah; tidak pernah
   // negatif meski pindaian masuk di antara keduanya.
-  const belum = terdaftar === null || hadir === null ? null : Math.max(0, terdaftar - hadir);
-  const persen = terdaftar ? Math.min(100, Math.round(((hadir ?? 0) / terdaftar) * 100)) : 0;
+  // Sesi dengan yang diharapkan (Who sees it Agenda): angka dari situ, dan
+  // pindaian sejak pembaruan terakhir ditambahkan sampai angka server berikutnya.
+  const sasaranAktif = sessionId === null ? null : sasaran[sessionId] ?? null;
+  const tambahan = sasaranAktif && hadirSemua !== null && sasaranAktif.dasar !== null ? Math.max(0, hadirSemua - sasaranAktif.dasar) : 0;
+  const hadir = sasaranAktif ? Math.min(sasaranAktif.diharapkan, sasaranAktif.sudah + tambahan) : hadirSemua;
+  const pembagi = sasaranAktif ? sasaranAktif.diharapkan : terdaftar;
+  const lainnya = sasaranAktif?.lainnya ?? 0;
+  const belum = pembagi === null || hadir === null ? null : Math.max(0, pembagi - hadir);
+  const persen = pembagi ? Math.min(100, Math.round(((hadir ?? 0) / pembagi) * 100)) : 0;
   const angka = (n: number) => n.toLocaleString("en-GB");
   const bilahKemajuan = (
     <div
       role="progressbar"
-      aria-label="Checked in of registered"
+      aria-label={sasaranAktif ? "Checked in of expected" : "Checked in of registered"}
       aria-valuemin={0}
-      aria-valuemax={terdaftar ?? 0}
+      aria-valuemax={pembagi ?? 0}
       aria-valuenow={hadir ?? 0}
       className="h-1.5 overflow-hidden rounded-full bg-surface-container-highest"
     >
@@ -1744,9 +1761,9 @@ export default function ScanClient() {
     <div className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-full bg-black/70 px-4 text-white backdrop-blur-md lg:hidden">
       <p className="shrink-0 text-label-large tabular-nums">
         {angka(hadir ?? 0)}
-        <span className="font-normal text-white/75">{terdaftar !== null ? ` of ${angka(terdaftar)}` : ""} checked in</span>
+        <span className="font-normal text-white/75">{pembagi !== null ? ` of ${angka(pembagi)}` : ""} checked in</span>
       </p>
-      {terdaftar ? (
+      {pembagi ? (
         <div aria-hidden className="h-1 min-w-6 flex-1 overflow-hidden rounded-full bg-white/25">
           <div className="h-full rounded-full bg-white transition-[width] duration-500" style={{ width: `${persen}%` }} />
         </div>
@@ -1761,6 +1778,11 @@ export default function ScanClient() {
    */
   const stripHadir = (
     <div className="rounded-2xl bg-surface-container px-4 pb-3 pt-3 lg:hidden">
+      {/* Kelompok di baris sendiri selebar kotak: label panjang ("Batch 1 /
+          Batch 2 / Batch 3 / Batch 4") tidak boleh menyempitkan kolom tamu terakhir. */}
+      {sasaranAktif?.untuk ? (
+        <p className="mb-2 text-label-medium font-semibold text-on-surface">Counting {sasaranAktif.untuk} only</p>
+      ) : null}
       <div className="flex items-center gap-4">
         <div className="shrink-0">
           <p className="text-label-small text-on-surface-variant">All desks</p>
@@ -1768,9 +1790,9 @@ export default function ScanClient() {
             <span className="text-headline-medium font-semibold tabular-nums">{angka(hadir ?? 0)}</span>
             <span className="text-body-medium text-on-surface-variant">checked in</span>
           </p>
-          {terdaftar !== null ? (
+          {pembagi !== null ? (
             <p className="text-label-medium tabular-nums text-on-surface-variant">
-              of {angka(terdaftar)}{belum !== null ? ` · ${angka(belum)} not yet` : ""}
+              of {angka(pembagi)}{belum !== null ? ` · ${angka(belum)} not yet` : ""}
             </p>
           ) : null}
         </div>
@@ -1786,7 +1808,14 @@ export default function ScanClient() {
           )}
         </div>
       </div>
-      {terdaftar ? <div className="mt-3">{bilahKemajuan}</div> : null}
+      {pembagi ? <div className="mt-3">{bilahKemajuan}</div> : null}
+      {/* Orang dari kelompok lain yang dipindai di sini: tidak menaikkan angka,
+          tetapi tidak hilang diam-diam (pola halaman Kehadiran panitia). */}
+      {sasaranAktif && lainnya > 0 ? (
+        <p className="mt-2 text-label-medium tabular-nums text-on-surface-variant">
+          +{angka(lainnya)} from other groups also checked in here
+        </p>
+      ) : null}
       {/* Siapa yang belum: membuka daftar di Find name. Di tab Find name
           sendiri tombolnya tidak perlu, daftarnya sudah di bawah. */}
       {belum !== null && belum > 0 && mode !== "cari" ? (
@@ -2125,8 +2154,9 @@ export default function ScanClient() {
                         sessionId={sessionId}
                         status={statusDaftar}
                         onStatus={setStatusDaftar}
-                        hadir={hadir}
+                        hadir={hadir === null ? null : hadir + (sasaranAktif ? lainnya : 0)}
                         belum={belum}
+                        untuk={sasaranAktif ? sasaranAktif.untuk ?? "this list" : null}
                         onCatat={(baris) => { bukaSuara(); return catatDariDaftar(baris); }}
                         mencatatId={mencatatId}
                         sibuk={sibuk}
@@ -2246,13 +2276,17 @@ export default function ScanClient() {
           <aside className="hidden lg:sticky lg:top-[88px] lg:block">
             <Card>
               <p className="text-label-large text-on-surface-variant">{sesiAktif?.name ?? "No check-in point yet"} · all desks</p>
+              {sasaranAktif?.untuk ? <p className="mt-1 text-label-medium font-semibold">Counting {sasaranAktif.untuk} only</p> : null}
               <p className="mt-1 flex items-baseline gap-2">
                 <span className="text-display-small tabular-nums">{angka(hadir ?? 0)}</span>
                 <span className="text-body-medium text-on-surface-variant">
-                  {terdaftar !== null ? `checked in of ${angka(terdaftar)} registered` : "people checked in"}
+                  {pembagi !== null ? `checked in of ${angka(pembagi)} ${sasaranAktif ? "expected" : "registered"}` : "people checked in"}
                 </span>
               </p>
-              {terdaftar ? <div className="mt-3">{bilahKemajuan}</div> : null}
+              {pembagi ? <div className="mt-3">{bilahKemajuan}</div> : null}
+              {sasaranAktif && lainnya > 0 ? (
+                <p className="mt-2 text-body-small tabular-nums text-on-surface-variant">+{angka(lainnya)} from other groups also checked in here</p>
+              ) : null}
               {belum !== null ? (
                 <p className="mt-3 flex items-baseline justify-between gap-2 text-body-medium">
                   <span className="text-on-surface-variant">Not checked in yet</span>

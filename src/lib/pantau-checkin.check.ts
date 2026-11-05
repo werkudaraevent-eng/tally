@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { hitungPantau, kunciDasar, rincianPantau, ringkasAcara, type PesertaPantau } from "./pantau-checkin.ts";
+import { hitungPantau, kunciDasar, rincianPantau, ringkasAcara, sasaranSesi, type PesertaPantau } from "./pantau-checkin.ts";
 import { bacaSyaratBaris } from "./sasaran-baris.ts";
 
 const kolom = [{ key: "batch", label: "Batch", options: ["Batch 1", "Batch 2"] }];
@@ -145,3 +145,53 @@ assert.equal(hasil[3].untuk, null);
   assert.equal(ringkasAcara({ ...bahan, agenda: new Map([[12, agenda.get(12)!]]), sekarang: kini }, null).kelompok, null);
 }
 console.log("pantau-checkin ringkas ok");
+
+// Layar pemindai: sesi 1 dipakai checkpoint Batch 1 -> a dan b diharapkan.
+{
+  const s = sasaranSesi({ ...bahan, offset: "+07:00" });
+  const g = s.get(1);
+  assert.ok(g);
+  assert.equal(g.diharapkan, 2);
+  assert.equal(g.sudah, 1); // a (dua pindaian = satu orang)
+  assert.equal(g.lainnya, 1); // c dari Batch 2
+  assert.equal(g.untuk, "Batch 1");
+  assert.equal(g.hari, null);
+  assert.deepEqual([...g.harap].sort(), ["a", "b"]);
+  // Gala dinner tanpa Who sees it, sesi tanpa checkpoint: tidak dipersempit.
+  assert.equal(s.has(2), false);
+  assert.equal(s.has(3), false);
+
+  // Dipecah per hari: Batch 1 tanggal 5, Batch 2 tanggal 6, satu sesi.
+  const agenda2 = new Map([
+    [10, { ...agenda.get(10)!, tanggal: "2026-11-05" }],
+    [11, agenda.get(11)!],
+  ]);
+  const cp2 = [{ id: 101, title: "Kumpul", place: null, session_id: 1, item_id: null, agenda_item_ids: [10, 11] }];
+  const dua = { ...bahan, agenda: agenda2, checkpoints: cp2, offset: "+07:00" };
+  // 6 Nov 07:00 WIB: hari Batch 2; hanya pindaian tanggal 6 yang dihitung.
+  const h6 = sasaranSesi({ ...dua, sekarang: new Date("2026-11-06T00:00:00Z") }).get(1)!;
+  assert.equal(h6.hari, "2026-11-06");
+  assert.deepEqual([...h6.harap], ["c"]);
+  assert.equal(h6.sudah, 1); // c 06:50 WIB
+  assert.equal(h6.lainnya, 1); // a 06:55 WIB, Batch 1 hari lain
+  // 5 Nov: hari Batch 1, tanpa pindaian tanggal 5.
+  const h5 = sasaranSesi({ ...dua, sekarang: new Date("2026-11-05T01:00:00Z") }).get(1)!;
+  assert.equal(h5.hari, "2026-11-05");
+  assert.equal(h5.diharapkan, 2);
+  assert.equal(h5.sudah, 0);
+  // Sebelum hari pertama: hari terdekat. Sesudah hari terakhir: hari terakhir.
+  assert.equal(sasaranSesi({ ...dua, sekarang: new Date("2026-11-01T00:00:00Z") }).get(1)!.hari, "2026-11-05");
+  assert.equal(sasaranSesi({ ...dua, sekarang: new Date("2026-11-20T00:00:00Z") }).get(1)!.hari, "2026-11-06");
+
+  // Satu checkpoint lain di sesi yang sama untuk semua: tidak dipersempit.
+  const cp3 = [...checkpoints, { id: 103, title: "Semua", place: null, session_id: 1, item_id: null, agenda_item_ids: [12] }];
+  assert.equal(sasaranSesi({ ...bahan, checkpoints: cp3 }).has(1), false);
+  // Dua checkpoint per batch di satu sesi, hari sama: gabungan.
+  const cp4 = [{ id: 101, title: "B1", place: null, session_id: 1, item_id: null, agenda_item_ids: [10] }, { id: 104, title: "B2", place: null, session_id: 1, item_id: null, agenda_item_ids: [11] }];
+  const gab = sasaranSesi({ ...bahan, checkpoints: cp4 }).get(1)!;
+  assert.equal(gab.diharapkan, 3);
+  assert.equal(gab.sudah, 2);
+  assert.equal(gab.lainnya, 0);
+  assert.equal(gab.untuk, "Batch 1 / Batch 2");
+}
+console.log("pantau-checkin sasaran sesi ok");

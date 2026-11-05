@@ -149,6 +149,8 @@ export type BarisCari = {
   luggage_number?: string | null;
   scan_count: number;
   first_scan_at: string | null;
+  /** Daftar Checked in di sesi dengan yang diharapkan: orang ini di luar kelompok itu. */
+  luar?: true;
 };
 
 /** Isi dialog tamu walk-in. Kolom bawaan; jawaban formulir terpisah di `extra`. */
@@ -201,3 +203,34 @@ export type CatatanBagasi = {
   updated_at: string;
   by?: string | null;
 };
+
+/**
+ * Yang diharapkan di satu sesi, dari checkpoint bertautan baris Agenda dengan
+ * Who sees it (lib/pantau-checkin.ts sasaranSesi). Hanya angka dan label.
+ */
+export type SasaranPemindai = { diharapkan: number; sudah: number; lainnya: number; untuk: string | null; hari: string | null };
+
+/**
+ * Peta sasaran dari jawaban server, dengan angka hadir semua orang saat dibaca
+ * (`dasar`). Apa pun yang tidak berbentuk dibuang: sesi itu kembali dihitung
+ * dari semua peserta, bukan dari angka setengah jadi.
+ */
+export function gabungSasaran(mentah: unknown, hadirSaatIni: (id: number) => number | null): Record<number, SasaranPemindai & { dasar: number | null }> {
+  if (!mentah || typeof mentah !== "object") return {};
+  const hasil: Record<number, SasaranPemindai & { dasar: number | null }> = {};
+  for (const [kunci, isi] of Object.entries(mentah as Record<string, unknown>)) {
+    const id = Number(kunci);
+    if (!Number.isInteger(id) || !isi || typeof isi !== "object") continue;
+    const { diharapkan, sudah, lainnya, untuk, hari } = isi as Record<string, unknown>;
+    if (typeof diharapkan !== "number" || typeof sudah !== "number" || typeof lainnya !== "number") continue;
+    hasil[id] = {
+      diharapkan,
+      sudah,
+      lainnya,
+      untuk: typeof untuk === "string" && untuk ? untuk : null,
+      hari: typeof hari === "string" ? hari : null,
+      dasar: hadirSaatIni(id),
+    };
+  }
+  return hasil;
+}
