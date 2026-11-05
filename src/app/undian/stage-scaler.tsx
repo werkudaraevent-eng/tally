@@ -24,19 +24,18 @@ import { useEffect, useState, type ReactNode } from "react";
 const BASE_W = 1920;
 const BASE_H = 1080;
 
-function scaleOf() {
-  return Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H);
-}
 
 export function StageScaler({ children }: { children: ReactNode }) {
-  const [scale, setScale] = useState(1);
+  // Ukuran jendela disimpan utuh, bukan hanya skalanya: lebar bisa berubah
+  // sementara skala tetap (dibatasi tinggi), dan iframe harus ikut melebar.
+  const [size, setSize] = useState({ w: 0, h: 0 });
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("scaled") === "1") return;
     url.searchParams.set("scaled", "1");
-    const update = () => setScale(scaleOf());
+    const update = () => setSize({ w: window.innerWidth, h: window.innerHeight });
     const timer = window.setTimeout(() => {
       setSrc(url.toString());
       update();
@@ -47,6 +46,7 @@ export function StageScaler({ children }: { children: ReactNode }) {
 
   // Sedikit di atas 1080p tetap digambar langsung: membesar 3% tidak terlihat,
   // sedangkan iframe menambah satu halaman yang dimuat.
+  const scale = size.w ? Math.min(size.w / BASE_W, size.h / BASE_H) : 1;
   if (!src || scale <= 1.05) return children;
 
   return <iframe
@@ -55,8 +55,8 @@ export function StageScaler({ children }: { children: ReactNode }) {
     allow="fullscreen; autoplay"
     style={{
       position: "fixed", top: 0, left: 0, border: 0,
-      width: `${window.innerWidth / scale}px`,
-      height: `${window.innerHeight / scale}px`,
+      width: `${size.w / scale}px`,
+      height: `${size.h / scale}px`,
       transform: `scale(${scale})`,
       transformOrigin: "0 0",
     }}
