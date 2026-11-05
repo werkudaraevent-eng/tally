@@ -7,11 +7,12 @@ import { LoadingIndicator } from "@/components/m3";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
 import { expressive } from "@/lib/m3/motion";
 import type { UndianState } from "@/lib/undian";
-import { CardsAnimation, ConfettiBurst, DartAnimation, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealFxDelayMs, revealSettleMs } from "./undian-animations";
+import { CardsAnimation, ConfettiBurst, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealFxDelayMs, revealSettleMs } from "./undian-animations";
 import { AmbientStage, RevealBurst, ShineText } from "./undian-stage-fx";
 import { WallAnimation } from "./undian-wall";
 import { TunnelAnimation } from "./undian-tunnel";
 import { DrumAnimation, preloadDrum } from "./undian-drum";
+import { DartAnimation3D, preloadDart } from "./undian-dart";
 
 /**
  * Pergantian blok di panggung: yang lama menyusut-pudar, yang baru mengembang
@@ -118,6 +119,10 @@ export default function UndianClient({ initial }: Props) {
   useEffect(() => {
     if (drumNext) preloadDrum();
   }, [drumNext]);
+  const dartNext = state.prize?.animation === "dart";
+  useEffect(() => {
+    if (dartNext) preloadDart();
+  }, [dartNext]);
 
   // Fullscreen dibaca di inisialisasi state, bukan di effect, supaya render
   // pertama sudah benar. Permintaan fullscreen sendiri butuh gestur pengguna,
@@ -359,7 +364,7 @@ export default function UndianClient({ initial }: Props) {
                   : state.prize.animation === "slot" ? <SlotAnimation {...animationProps} />
                   : state.prize.animation === "cards" ? <CardsAnimation {...animationProps} />
                   : state.prize.animation === "digits" ? <DigitsAnimation {...animationProps} />
-                  : state.prize.animation === "dart" ? <DartAnimation {...animationProps} />
+                  : state.prize.animation === "dart" ? <DartAnimation3D {...animationProps} />
                   : state.prize.animation === "wall" ? <WallAnimation {...animationProps} />
                   : state.prize.animation === "tunnel" ? <TunnelAnimation {...animationProps} />
                   : state.prize.animation === "drum" ? <DrumAnimation {...animationProps} />
