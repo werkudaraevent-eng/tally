@@ -29,14 +29,6 @@ export type TabProps = {
 
 /* ------------------------------------------------------------ Daftar */
 
-export function KepalaKolom({ kolom }: { kolom: Array<[string, string]> }) {
-  return (
-    <div className="sticky top-0 z-[1] flex h-9 shrink-0 items-center gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 text-body-medium font-normal text-on-surface-variant">
-      {kolom.map(([label, lebar]) => <span key={label} className={cx("shrink-0", lebar)}>{label}</span>)}
-    </div>
-  );
-}
-
 /** Baris kelompok di dalam daftar, mis. nama hotel di atas kamar-kamarnya. */
 export function BarisKelompok({ children, selected, onSelect, label }: { children: ReactNode; selected?: boolean; onSelect?: () => void; label: string }) {
   return (

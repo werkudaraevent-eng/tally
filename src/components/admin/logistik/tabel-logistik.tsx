@@ -63,7 +63,7 @@ export type GrupTabel = {
 const PER_HALAMAN = 100;
 
 export function TabelLogistik<T>({
-  label, tabel, baris, semuaBaris, kunciBaris, kolom, cariLabel, cariPlaceholder, awal, chip, ujung, menyaringLuar = false, hapusSaringanLuar,
+  label, tabel, baris, semuaBaris, kunciBaris, kolom, cariLabel, cariPlaceholder, awal, chip, ujung, menyaringLuar = false, hapusSaringanLuar, urutAwal, catatan,
   grup, grupBaris, dipilih, onPilih, labelBaris, kaki, namaFile, kosong,
 }: {
   label: string;
@@ -84,6 +84,11 @@ export function TabelLogistik<T>({
   ujung?: ReactNode;
   menyaringLuar?: boolean;
   hapusSaringanLuar?: () => void;
+  /** Urutan awal; bawaannya kolom pertama, A → Z. */
+  /** Urutan awal; null = urutan data (mis. Kit items sesuai urutan dibuat) sampai judul kolom dipilih. */
+  urutAwal?: { key: string; dir: "asc" | "desc" } | null;
+  /** Pemberitahuan satu baris di bawah bilah alat, mis. "No vehicles yet" di Trips. */
+  catatan?: ReactNode;
   /** Kelompok berurutan (hotel). Urut berlaku di dalam tiap kelompok. */
   grup?: GrupTabel[];
   grupBaris?: (b: T) => string;
@@ -98,7 +103,7 @@ export function TabelLogistik<T>({
   const [cari, setCari] = useState("");
   const [saringan, setSaringan] = useState<Saringan[]>([]);
   const [mintaSaring, setMintaSaring] = useState<{ key: string; n: number } | null>(null);
-  const [urut, setUrut] = useState<{ key: string; dir: "asc" | "desc" }>({ key: kolom[0].key, dir: "asc" });
+  const [urut, setUrut] = useState<{ key: string; dir: "asc" | "desc" } | null>(urutAwal === undefined ? { key: kolom[0].key, dir: "asc" } : urutAwal);
   const [halaman, setHalaman] = useState(1);
 
   // Kolom yang kosong di semua baris tidak tampil sampai dipilih (acara tanpa
@@ -120,6 +125,7 @@ export function TabelLogistik<T>({
     const cocok = baris.filter((b) =>
       cocokCari(kolom.flatMap((k) => k.nilai(b)), cari) &&
       saringanBerlaku.every((s) => cocokSel(perKunci.get(s.k)!.nilai(b), s)));
+    if (!urut) return cocok;
     const k = perKunci.get(urut.key) ?? kolom[0];
     return urutBaris(cocok, (b) => (k.kunciUrut ? k.kunciUrut(b) : k.nilai(b)[0] ?? ""), urut.dir);
   }, [baris, kolom, cari, saringanBerlaku, perKunci, urut]);
@@ -239,6 +245,7 @@ export function TabelLogistik<T>({
         />
         <Button variant="outlined" size="sm" icon={<DownloadSimple size={16} />} disabled={hasil.length === 0} onClick={unduh}>Export</Button>
       </PaneHeader>
+      {catatan ? <PaneHeader className="text-body-medium text-on-surface-variant">{catatan}</PaneHeader> : null}
       <PaneBody>
         {baris.length === 0 && !menyaringLuar && kosong ? kosong : hasil.length === 0 && !(grup && isiGrup.length > 0) ? (
           <EmptyState
@@ -257,13 +264,13 @@ export function TabelLogistik<T>({
                   <th
                     key={k.key}
                     scope="col"
-                    aria-sort={urut.key === k.key ? (urut.dir === "asc" ? "ascending" : "descending") : undefined}
+                    aria-sort={urut?.key === k.key ? (urut.dir === "asc" ? "ascending" : "descending") : undefined}
                     className={cx(th, k.kunci && "sticky left-0 z-10 border-r bg-surface-container-high pl-4", k.rata === "kanan" && "text-right")}
                   >
                     <KepalaKolomUrut
                       label={k.label}
-                      aktif={urut.key === k.key}
-                      dir={urut.dir}
+                      aktif={urut?.key === k.key}
+                      dir={urut?.dir ?? "asc"}
                       jenis={k.urut ?? "teks"}
                       align={k.rata === "kanan" ? "right" : undefined}
                       onUrut={(dir) => { setUrut({ key: k.key, dir }); setHalaman(1); }}
