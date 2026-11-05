@@ -5,6 +5,7 @@ import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import {
   ArrowsClockwise,
   BookOpenText,
+  CameraRotate,
   CaretDown,
   Check,
   CircleNotch,
@@ -135,6 +136,9 @@ const KUNCI_CETAK = "scan-label-autoprint";
 
 /** Lembar hijau menutup sendiri. Bawaan nyala; disimpan per perangkat, seperti Suara. */
 const KUNCI_TUTUP = "scan-tutup-otomatis";
+/** "1" = kamera depan. Disimpan per perangkat: HP yang dipasang tetap di meja
+ *  sebagai kios (peserta menyodorkan QR ke layar) tidak perlu diatur ulang. */
+const KUNCI_KAMERA_DEPAN = "scan-kamera-depan";
 
 /** Nama kolom "ketik kode peserta". Pemindai genggam boleh mengetik ke sana. */
 const KOLOM_KODE = "qr";
@@ -233,6 +237,14 @@ function simpanAntrean(daftar: Antre[]) {
     if (daftar.length) window.localStorage.setItem(kunciAntrean(), JSON.stringify(daftar));
     else window.localStorage.removeItem(kunciAntrean());
   } catch { /* penyimpanan tidak tersedia: antrean tetap di memori sampai halaman ditutup */ }
+}
+
+function bacaKameraDepan(): boolean {
+  try {
+    return window.localStorage.getItem(KUNCI_KAMERA_DEPAN) === "1";
+  } catch {
+    return false;
+  }
 }
 
 function bacaTutupOtomatis(): boolean {
@@ -480,6 +492,10 @@ export default function ScanClient() {
   const [suara, setSuara] = useState(true);
   const suaraRef = useRef(true);
   const [senter, setSenter] = useState<{ ada: boolean; nyala: boolean }>({ ada: false, nyala: false });
+  // Kamera depan atau belakang. Tombolnya hanya muncul bila perangkat punya
+  // lebih dari satu kamera (laptop dan sebagian tablet hanya punya satu).
+  const [kameraDepan, setKameraDepan] = useState(false);
+  const [bisaGantiKamera, setBisaGantiKamera] = useState(false);
   const kontrolKameraRef = useRef<{ stop: () => void; switchTorch?: (nyala: boolean) => Promise<void> } | null>(null);
 
   // ---- Bilah meja -------------------------------------------------------------
@@ -726,6 +742,7 @@ export default function ScanClient() {
       suaraRef.current = nyala;
       setSuara(nyala);
       setTutupOtomatis(bacaTutupOtomatis());
+      setKameraDepan(bacaKameraDepan());
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -1147,7 +1164,7 @@ export default function ScanClient() {
         {
           // `ideal`, bukan nilai pasti: iPhone memilih aliran potretnya sendiri,
           // dan permintaan pasti yang tidak bisa dipenuhi membuat kamera gagal.
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: kameraDepan ? "user" : "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         },
         videoRef.current,
@@ -1166,6 +1183,10 @@ export default function ScanClient() {
         // Senter hanya muncul bila kameranya memang punya. iPhone dan iPad tidak
         // pernah melaporkannya ke peramban.
         setSenter({ ada: typeof kontrol.switchTorch === "function", nyala: false });
+        // Daftar kamera baru lengkap setelah izin kamera diberikan.
+        void navigator.mediaDevices?.enumerateDevices?.()
+          .then((perangkat) => { if (!berhenti) setBisaGantiKamera(perangkat.filter((item) => item.kind === "videoinput").length > 1); })
+          .catch(() => {});
       })
       .catch(() => setPesan("Camera not available or permission denied."));
 
@@ -1175,7 +1196,7 @@ export default function ScanClient() {
       kontrolKameraRef.current = null;
       setSenter({ ada: false, nyala: false });
     };
-  }, [mode, kamera]);
+  }, [mode, kamera, kameraDepan]);
 
   /**
    * Layar tidak meredup selama kamera menyala.
@@ -1204,6 +1225,15 @@ export default function ScanClient() {
       await kontrol.switchTorch(nyala);
       setSenter({ ada: true, nyala });
     } catch { /* sebagian kamera menolak di tengah jalan; tombolnya tetap */ }
+  }
+
+  function gantiKamera() {
+    const depan = !kameraDepan;
+    setKameraDepan(depan);
+    try {
+      if (depan) window.localStorage.setItem(KUNCI_KAMERA_DEPAN, "1");
+      else window.localStorage.removeItem(KUNCI_KAMERA_DEPAN);
+    } catch { /* penyimpanan tidak tersedia; pilihan tetap berlaku sesi ini */ }
   }
 
   function gantiSuara() {
@@ -2020,7 +2050,10 @@ export default function ScanClient() {
                     <>
                       <video
                         ref={videoRef}
-                        className="h-full w-full object-cover"
+                        // Kamera depan dicerminkan seperti aplikasi kamera: peserta
+                        // yang menyodorkan QR melihat gerakannya searah. Membaca
+                        // QR tidak terpengaruh (pembaca memakai aliran aslinya).
+                        className={`h-full w-full object-cover ${kameraDepan ? "-scale-x-100" : ""}`}
                         autoPlay
                         muted
                         playsInline
@@ -2093,6 +2126,19 @@ export default function ScanClient() {
                         ) : (
                           <span className="flex-1" />
                         )}
+                        {/* Ganti kamera di baris bawah, bersama tombol mematikan
+                            kamera, seperti aplikasi kamera HP. Di baris atas ia
+                            menyempitkan pil angka hadir di layar 360 px. */}
+                        {bisaGantiKamera ? (
+                          <IconButton
+                            label={kameraDepan ? "Use back camera" : "Use front camera"}
+                            selected={kameraDepan}
+                            onClick={gantiKamera}
+                            className={kameraDepan ? "!size-14 !rounded-full" : "!size-14 !rounded-full !bg-black/70 !text-white"}
+                          >
+                            <CameraRotate size={22} weight="fill" />
+                          </IconButton>
+                        ) : null}
                         <IconButton label="Turn off camera" onClick={() => setScanning(false)} className="!size-14 !rounded-full !bg-black/70 !text-white">
                           <VideoCameraSlash size={22} weight="fill" />
                         </IconButton>
