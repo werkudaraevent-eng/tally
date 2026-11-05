@@ -1,4 +1,5 @@
 import { icsTiketKereta } from "@/lib/kalender-ics";
+import { KATA_MODA } from "@/lib/logistik/moda";
 import { bagianTampil } from "@/lib/logistik/bagian-tampil";
 import { getMemberSession } from "@/lib/member/account";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
@@ -27,14 +28,19 @@ export async function GET(request: Request) {
   const arah = new URL(request.url).searchParams.get("arah");
   if (arah !== "outbound" && arah !== "return") return memberError("VALIDATION_ERROR", 400, "Arah tiket tidak dikenal.");
 
+  // Transit: ?segmen=2 dan seterusnya; tanpa parameter = segmen 1 (tautan lama).
+  const segmen = Number(new URL(request.url).searchParams.get("segmen") ?? "1");
+  if (!Number.isInteger(segmen) || segmen < 1 || segmen > 6) return memberError("VALIDATION_ERROR", 400, "Segmen tiket tidak dikenal.");
+
   const logistik = await loadMemberLogistics(event.id, sesi.participant.id, true);
-  const tiket = logistik?.trains.find((item) => item.direction === arah);
+  const tiket = logistik?.trains.find((item) => item.direction === arah && item.segment === segmen);
   const bahasa = new URL(request.url).searchParams.get("bahasa") === "en" ? "en" : landingDefaultLang(event.landing_config as EventLandingConfig | null);
   const isi =
     tiket?.depart_date && tiket.depart_time
       ? icsTiketKereta({
-          uid: `${event.id}-${sesi.participant.id}-${arah}@tally`,
+          uid: `${event.id}-${sesi.participant.id}-${arah}${segmen > 1 ? `-${segmen}` : ""}@tally`,
           lang: bahasa,
+          moda: tiket.mode,
           namaKereta: tiket.train_name,
           kelas: tiket.travel_class,
           asal: tiket.origin,
@@ -55,7 +61,7 @@ export async function GET(request: Request) {
   return new Response(isi, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="kereta-${arah === "outbound" ? "berangkat" : "pulang"}.ics"`,
+      "Content-Disposition": `attachment; filename="${KATA_MODA.id[tiket?.mode ?? "train"].toLowerCase()}-${arah === "outbound" ? "berangkat" : "pulang"}${segmen > 1 ? `-${segmen}` : ""}.ics"`,
       // Berisi kode booking peserta: jangan disimpan cache bersama.
       "Cache-Control": "private, no-store",
     },

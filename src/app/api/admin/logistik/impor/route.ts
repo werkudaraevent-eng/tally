@@ -18,14 +18,15 @@ import { textToCells, xlsxToCells } from "@/lib/undian-import";
  * transaksi yang sama dengan penulisannya; rencana hanya menyaring yang pasti
  * ditolak supaya panitia melihatnya sebelum menekan Simpan.
  *
- * Tiket kereta tidak lewat RPC: tidak ada aturan lintas baris selain satu
- * tiket per orang per arah, yang dijaga indeks unik dan upsert.
+ * Tiket (kereta, pesawat, kapal) tidak lewat RPC: tidak ada aturan lintas
+ * baris selain satu tiket per orang per arah per segmen, yang dijaga indeks
+ * unik dan upsert.
  *
  * GET `?jenis=kamar|bus|kereta` mengunduh templatnya. `?jenis=kamar&isi=sekarang`
  * mengunduh stay yang sekarang tersimpan dalam bentuk templat yang sama, untuk
  * diubah di Excel lalu diimpor kembali. `?jenis=bus|kereta&isi=peserta`
  * mengunduh semua peserta aktif dalam bentuk templatnya (kereta dua baris per
- * orang), kendaraan atau tiket yang tersimpan sudah terisi, ditambah kolom
+ * orang, satu baris per segmen tersimpan), kendaraan atau tiket yang tersimpan sudah terisi, ditambah kolom
  * pilihan peserta sebagai "(info)" untuk filter di Excel. Berisi QR code:
  * admin saja, seperti route ini seluruhnya.
  */
@@ -40,7 +41,7 @@ const jenisDari = (nilai: unknown): JenisImpor | null => (nilai === "kamar" || n
 const NAMA_TEMPLAT: Record<JenisImpor, { sheet: string; berkas: string }> = {
   kamar: { sheet: "Rooming list", berkas: "room" },
   bus: { sheet: "Vehicle", berkas: "bus" },
-  kereta: { sheet: "Trains", berkas: "train" },
+  kereta: { sheet: "Tickets", berkas: "tickets" },
 };
 
 export async function GET(request: Request) {
@@ -386,7 +387,7 @@ async function simpanKereta(eventId: string, actor: string, rencana: Rencana, ac
   const sekarang = new Date().toISOString();
   const baris = rencana.tiket.map((tiket) => ({ ...tiket, event_id: eventId, created_by: actor, updated_at: sekarang }));
   const tulis = (potong: typeof baris) =>
-    db.from("train_tickets").upsert(potong as never, { onConflict: "event_id,participant_id,direction" });
+    db.from("train_tickets").upsert(potong as never, { onConflict: "event_id,participant_id,direction,segment" });
   let masuk = 0;
   const gagal: Array<{ nama: string; alasan: string }> = [];
   for (let i = 0; i < baris.length; i += POTONG_TIKET) {

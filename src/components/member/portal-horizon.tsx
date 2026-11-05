@@ -10,6 +10,7 @@ import { PilihanOutfit } from "@/components/member/pilihan-outfit";
 import type { OutfitPilihan } from "@/lib/outfit";
 import { IkonTabBawah, PenandaTab } from "@/components/member/muat-portal";
 import { PemicuQr } from "@/components/member/qr-fokus";
+import type { ModaTiket } from "@/lib/logistik/types";
 
 /**
  * Portal peserta Gathering Horizon: rancangan pen.dev V5 Hanung (2026-10-13),
@@ -978,6 +979,8 @@ export const LATAR_PORTAL_HORIZON = KREM;
 
 export type LegKereta = {
   kunci: string;
+  /** Kereta (bawaan), pesawat, atau kapal: ikon di bentuk tiket. */
+  moda?: ModaTiket;
   arah: string;
   judul: string;
   baris: string | null;
@@ -1001,12 +1004,12 @@ export type LegKereta = {
  * dengan gerbong dan kursi sebesar fakta pass, lalu kode booking. Hanya tampil
  * bila peserta punya tiket (train_tickets).
  */
-export function TiketKeretaHorizon({ judul, label, leg }: { judul: string; label: { gerbong: string; kursi: string; kode: string; jumlah: (n: number) => string; selesai: string; ke: string }; leg: LegKereta[] }) {
+export function TiketKeretaHorizon({ judul, label, leg, Ikon = Train }: { judul: string; label: { gerbong: string; kursi: string; kode: string; jumlah: (n: number) => string; selesai: string; ke: string }; leg: LegKereta[]; /** Ikon moda (pesawat, kapal, tiket campur); bawaan kereta. */ Ikon?: typeof Train }) {
   const pergi = leg.filter((item) => !item.lipat).length;
   return (
     // id "kereta": baris kereta di Beranda membuka Perjalanan tepat di kartu ini (U-17), jarak setinggi bilah atas.
     <section id="kereta" aria-label={judul} className={`${GARIS_KARTU} flex scroll-mt-24 flex-col gap-4 rounded-[16px] bg-white p-4 md:p-6 lg:scroll-mt-32`} style={{ color: TINTA }}>
-      <KepalaKartuHorizon Ikon={Train} judul={judul} meta={pergi > 0 ? label.jumlah(pergi) : label.selesai} nadaMeta={pergi > 0 ? "redup" : "hijau"} />
+      <KepalaKartuHorizon Ikon={Ikon} judul={judul} meta={pergi > 0 ? label.jumlah(pergi) : label.selesai} nadaMeta={pergi > 0 ? "redup" : "hijau"} />
       <div className="flex flex-col xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
       {leg.map((item, index) => {
         const kursi = [item.gerbong ? `${label.gerbong} ${item.gerbong}` : null, item.kursi ? `${label.kursi} ${item.kursi}` : null].filter(Boolean).join(", ");

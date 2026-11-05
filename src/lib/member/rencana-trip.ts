@@ -15,7 +15,7 @@ export type LangkahTrip = {
 };
 
 type Teks = {
-  trainLeg: (dari: string, ke: string) => string;
+  trainLeg: (dari: string, ke: string, moda?: LogistikKereta["mode"]) => string;
   checkInAt: (hotel: string) => string;
   moveTo: (hotel: string) => string;
   checkOutAt: (hotel: string) => string;
@@ -44,7 +44,7 @@ export function rencanaTrip(stays: LogistikKamar[], trains: LogistikKereta[], zo
       kunci: `${tiket.depart_date} ${tiket.depart_time ?? "00:00"}`,
       tanggal: tiket.depart_date,
       jam: tiket.depart_time,
-      teks: dari && ke ? teks.trainLeg(dari, ke) : tiket.train_name,
+      teks: dari && ke ? teks.trainLeg(dari, ke, tiket.mode) : tiket.train_name,
     });
   }
   const urutStay = [...stays].filter((stay) => stay.check_in_at).sort((a, b) => a.check_in_at!.localeCompare(b.check_in_at!));

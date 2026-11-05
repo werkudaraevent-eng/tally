@@ -1,3 +1,5 @@
+import { KATA_MODA } from "./logistik/moda.ts";
+import type { ModaTiket } from "./logistik/types.ts";
 /**
  * Berkas kalender (iCalendar, RFC 5545) untuk acara (app/kalender.ics) dan
  * tiket kereta peserta (api/peserta/kalender-kereta, E-07).
@@ -42,6 +44,8 @@ export type TiketKeretaIcs = {
   /** Kunci tetap per peserta dan arah: menekan tombolnya lagi memperbarui entri yang sama. */
   uid: string;
   lang: "id" | "en";
+  /** Kereta (bawaan), pesawat, atau kapal: kata di judul acara kalender. */
+  moda?: ModaTiket;
   namaKereta: string;
   kelas: string | null;
   asal: string | null;
@@ -78,7 +82,7 @@ export function icsTiketKereta(tiket: TiketKeretaIcs): string | null {
   }
   const en = tiket.lang === "en";
   const rute = [tiket.asal?.trim(), tiket.tujuan?.trim()].filter(Boolean).join(" → ");
-  const judul = `${en ? "Train" : "Kereta"} ${tiket.namaKereta.trim()}${rute ? `: ${rute}` : ""}`;
+  const judul = `${KATA_MODA[en ? "en" : "id"][tiket.moda ?? "train"]} ${tiket.namaKereta.trim()}${rute ? `: ${rute}` : ""}`;
   const kursi = [tiket.gerbong ? `${en ? "Carriage" : "Gerbong"} ${tiket.gerbong}` : null, tiket.kursi ? `${en ? "seat" : "kursi"} ${tiket.kursi}` : null].filter(Boolean).join(", ");
   const keterangan = [
     [tiket.kelas, kursi].filter(Boolean).join(" · "),

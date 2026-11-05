@@ -1,25 +1,35 @@
 "use client";
 
-import { Train, Warning } from "@phosphor-icons/react";
+import { Airplane, Boat, Ticket, Train, Warning } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import {
   Banner, Button, ChipMenu, DetailSection, Dialog, EmptyState, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, SelectField, TextField, EMPTY_VALUE,
 } from "@/components/m3";
 import { LABEL_ARAH } from "@/lib/logistik/impor";
-import type { ArahKereta, TiketKereta } from "@/lib/logistik/types";
+import { LABEL_MODA, MODA_TIKET, type ArahKereta, type ModaTiket, type TiketKereta } from "@/lib/logistik/types";
 import { plural } from "@/lib/plural";
 import { KepalaDetail, PilihPeserta, type TabProps } from "./bersama";
 import { TabelLogistik, type KolomTabel } from "./tabel-logistik";
 
 /**
- * Tab Trains: tiket kereta tiap peserta, satu baris per orang per arah
- * (Outbound, Return).
+ * Tab Tickets: tiket perjalanan tiap peserta (kereta, pesawat, kapal), satu
+ * baris per tiket. Satu orang punya satu tiket per arah (Outbound, Return)
+ * per segmen; transit = segmen 2 dan seterusnya.
  *
- * Tiket biasanya datang dari daftar agen atau KAI lewat Import from Excel;
- * Add ticket menambah satu tiket (pilih peserta dan arah, lalu isi tiketnya)
- * untuk peserta susulan atau pembetulan cepat. Peserta melihat
- * tiketnya di Dashboard saya bila "Kamar dan bus" dinyalakan di Area peserta.
+ * Tiket biasanya datang dari daftar agen, KAI atau maskapai lewat Import from
+ * Excel; Add ticket menambah satu tiket (pilih peserta dan arah, lalu isi
+ * tiketnya) untuk peserta susulan, transit, atau pembetulan cepat. Peserta
+ * melihat tiketnya di Dashboard saya bila "Kamar dan bus" dinyalakan di Area peserta.
  */
+
+export const IKON_MODA: Record<ModaTiket, typeof Train> = { train: Train, flight: Airplane, ship: Boat };
+/** Contoh isian per moda, di form dan placeholder. */
+const CONTOH: Record<ModaTiket, { nama: string; dari: string; ke: string }> = {
+  train: { nama: "e.g. Argo Lawu 8", dari: "e.g. Gambir", ke: "e.g. Yogyakarta" },
+  flight: { nama: "e.g. Garuda GA 208", dari: "e.g. Jakarta CGK", ke: "e.g. Yogyakarta YIA" },
+  ship: { nama: "e.g. KMP Legundi", dari: "e.g. Ketapang", ke: "e.g. Gilimanuk" },
+};
+const SEGMEN_MAKS = 6;
 
 /** "Fri 6 Nov 2026" dari YYYY-MM-DD, tanpa zona: tanggal yang tertulis di tiket. */
 export function tanggalTiket(iso: string | null): string | null {
@@ -30,14 +40,15 @@ export function tanggalTiket(iso: string | null): string | null {
 
 const jamTiket = (tiket: TiketKereta) => [tiket.depart_time, tiket.arrive_time].filter(Boolean).join("–") || null;
 
-/** Tiket yang sedang ditambah: peserta dan arah sudah dipilih, isi tiket belum. */
-type TiketBaru = { participant_id: string; direction: ArahKereta };
+/** Tiket yang sedang ditambah: peserta, arah, dan segmen sudah dipilih, isi tiket belum. */
+type TiketBaru = { participant_id: string; direction: ArahKereta; segment: number };
 
 export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
   const [pilih, setPilih] = useState<number | null>(null);
   const [arahBaru, setArahBaru] = useState<ArahKereta>("outbound");
   const [tiketBaru, setTiketBaru] = useState<TiketBaru | null>(null);
   const [saringArah, setSaringArah] = useState<ArahKereta[]>([]);
+  const [saringModa, setSaringModa] = useState<ModaTiket[]>([]);
   const [ubah, setUbah] = useState<TiketKereta | null>(null);
   const [hapus, setHapus] = useState<TiketKereta | null>(null);
 
@@ -48,18 +59,27 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
     .filter((t) => orangById.has(t.participant_id))
     .sort((a, b) => orangById.get(a.participant_id)!.name.localeCompare(orangById.get(b.participant_id)!.name, "en-GB")
       || a.participant_id.localeCompare(b.participant_id)
-      || (a.direction === b.direction ? 0 : a.direction === "outbound" ? -1 : 1)), [data.trains, orangById]);
-  const tampil = saringArah.length ? tiket.filter((t) => saringArah.includes(t.direction)) : tiket;
+      || (a.direction === b.direction ? 0 : a.direction === "outbound" ? -1 : 1)
+      || a.segment - b.segment), [data.trains, orangById]);
+  const tampil = tiket.filter((t) => (saringArah.length === 0 || saringArah.includes(t.direction)) && (saringModa.length === 0 || saringModa.includes(t.mode)));
   const punyaTiket = new Set(tiket.map((t) => t.participant_id)).size;
-  const sudahPunya = useMemo(() => new Set(tiket.filter((t) => t.direction === arahBaru).map((t) => t.participant_id)), [tiket, arahBaru]);
+  /** Segmen terakhir per peserta untuk arah yang dipilih: tiket baru menjadi segmen berikutnya (transit). */
+  const segmenAkhir = useMemo(() => {
+    const peta = new Map<string, number>();
+    for (const t of tiket) if (t.direction === arahBaru) peta.set(t.participant_id, Math.max(peta.get(t.participant_id) ?? 0, t.segment));
+    return peta;
+  }, [tiket, arahBaru]);
+  const modaDipakai = MODA_TIKET.filter((moda) => tiket.some((t) => t.mode === moda));
+  const adaTransit = tiket.some((t) => t.segment > 1);
+  const kataArah = arahBaru === "outbound" ? "an outbound" : "a return";
 
   if (!data.trains_ready) {
     return (
-      <Pane aria-label="Train tickets">
+      <Pane aria-label="Tickets">
         <PaneBody>
           <div className="p-4">
             <Banner tone="warning" icon={<Warning size={18} />}>
-              Train tickets need a database update first. Ask your Tally administrator to run the train tickets migration, then reload this page.
+              Tickets need a database update first. Ask your Tally administrator to run the tickets migration (mode and segment), then reload this page.
             </Banner>
           </div>
         </PaneBody>
@@ -75,11 +95,16 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
       sel: (t) => <span title={orangById.get(t.participant_id)!.name} className="block h-7 truncate font-medium leading-7 text-on-surface">{orangById.get(t.participant_id)!.name}</span>,
     },
     { key: "direction", label: "Direction", lebar: 104, nilai: (t) => [LABEL_ARAH[t.direction]] },
+    { key: "segment", label: "Segment", lebar: 96, rata: "kanan", urut: "angka", tersembunyi: !adaTransit, nilai: (t) => [String(t.segment)] },
+    {
+      key: "mode", label: "Mode", lebar: 104, tersembunyi: modaDipakai.length <= 1, nilai: (t) => [LABEL_MODA[t.mode]],
+      sel: (t) => { const Ikon = IKON_MODA[t.mode]; return <span className="flex h-7 items-center gap-2 text-on-surface"><Ikon size={16} aria-hidden className="shrink-0 text-on-surface-variant" />{LABEL_MODA[t.mode]}</span>; },
+    },
+    { key: "train", label: "Service", lebar: 160, nilai: (t) => teks(t.train_name) },
     { key: "date", label: "Date", lebar: 112, urut: "waktu", nilai: (t) => teks(tanggalTiket(t.depart_date)?.replace(/ \d{4}$/, "")), csv: (t) => teks(t.depart_date), kunciUrut: (t) => (t.depart_date ? `${t.depart_date} ${t.depart_time ?? ""}` : "") },
     { key: "departs", label: "Departs", lebar: 88, rata: "kanan", urut: "waktu", nilai: (t) => teks(t.depart_time?.slice(0, 5)), kunciUrut: (t) => (t.depart_time ? `${t.depart_date ?? ""} ${t.depart_time}` : "") },
-    { key: "carriage", label: "Carriage", lebar: 96, nilai: (t) => teks(t.carriage) },
     { key: "seat", label: "Seat", lebar: 72, saring: "teks", nilai: (t) => teks(t.seat) },
-    { key: "train", label: "Train", lebar: 150, nilai: (t) => teks(t.train_name) },
+    { key: "carriage", label: "Carriage", lebar: 96, nilai: (t) => teks(t.carriage) },
     { key: "booking", label: "Booking code", lebar: 128, saring: "teks", nilai: (t) => teks(t.booking_code) },
     { key: "organisation", label: "Organisation", lebar: 160, nilai: (t) => teks(orangById.get(t.participant_id)!.company) },
     { key: "qr", label: "QR code", lebar: 120, tersembunyi: true, saring: "teks", nilai: (t) => [orangById.get(t.participant_id)!.qr_code] },
@@ -91,38 +116,50 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
 
   const daftar = (
     <TabelLogistik<TiketKereta>
-      label="Train tickets"
+      label="Tickets"
       tabel="trains"
       baris={tampil}
       semuaBaris={tiket}
       kunciBaris={(t) => String(t.id)}
       kolom={kolomTiket}
       cariLabel="Search tickets"
-      cariPlaceholder="Search name, train, seat or booking code…"
-      menyaringLuar={saringArah.length > 0}
-      hapusSaringanLuar={() => setSaringArah([])}
+      cariPlaceholder="Search name, train or flight, seat or booking code…"
+      menyaringLuar={saringArah.length > 0 || saringModa.length > 0}
+      hapusSaringanLuar={() => { setSaringArah([]); setSaringModa([]); }}
       chip={tiket.length > 0 ? (
-        <ChipMenu
-          label="Direction"
-          multiple
-          options={(["outbound", "return"] as const).map((arah) => ({ value: arah, label: LABEL_ARAH[arah], count: tiket.filter((t) => t.direction === arah).length }))}
-          selected={saringArah}
-          onChange={(next) => setSaringArah(next as ArahKereta[])}
-        />
+        <>
+          <ChipMenu
+            label="Direction"
+            multiple
+            options={(["outbound", "return"] as const).map((arah) => ({ value: arah, label: LABEL_ARAH[arah], count: tiket.filter((t) => t.direction === arah).length }))}
+            selected={saringArah}
+            onChange={(next) => setSaringArah(next as ArahKereta[])}
+          />
+          {/* Mode hanya muncul bila acaranya memakai lebih dari satu moda: acara kereta saja tidak berubah. */}
+          {modaDipakai.length > 1 ? (
+            <ChipMenu
+              label="Mode"
+              multiple
+              options={modaDipakai.map((moda) => ({ value: moda, label: LABEL_MODA[moda], count: tiket.filter((t) => t.mode === moda).length }))}
+              selected={saringModa}
+              onChange={(next) => setSaringModa(next as ModaTiket[])}
+            />
+          ) : null}
+        </>
       ) : null}
       dipilih={pilih !== null ? String(pilih) : null}
       onPilih={(t) => setPilih(t.id)}
-      labelBaris={(t) => `${orangById.get(t.participant_id)!.name}, ${LABEL_ARAH[t.direction].toLowerCase()} ticket`}
-      namaFile="train-tickets"
+      labelBaris={(t) => `${orangById.get(t.participant_id)!.name}, ${LABEL_ARAH[t.direction].toLowerCase()} ${LABEL_MODA[t.mode].toLowerCase()}${t.segment > 1 ? ` segment ${t.segment}` : ""}`}
+      namaFile="tickets"
       kaki={(hasil) => tiket.length === 0 ? null : hasil.length === tiket.length
         ? `${plural(tiket.length, "ticket")} for ${punyaTiket.toLocaleString("en-GB")} of ${plural(data.participants.length, "participant")}.`
         : `${hasil.length.toLocaleString("en-GB")} of ${plural(tiket.length, "ticket")}.`}
       kosong={(
         <EmptyState
           plain
-          icon={<Train size={40} />}
-          title="No train tickets yet"
-          description="Use Import from Excel at the top right for the whole list (one row per person per direction), or Add ticket for one person. Participants see their tickets once Room and vehicle is on in the Participant area."
+          icon={<Ticket size={40} />}
+          title="No tickets yet"
+          description="Train, flight or ship tickets. Use Import from Excel at the top right for the whole list (one row per person per direction; a transit gets Segment 2), or Add ticket for one person. Participants see their tickets once Room and vehicle is on in the Participant area."
         />
       )}
     />
@@ -132,16 +169,20 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
   const pemilik = dipilih ? orangById.get(dipilih.participant_id) ?? null : null;
   const detail = dipilih && pemilik ? (
     <Pane as="aside" aria-label={`${pemilik.name} ${LABEL_ARAH[dipilih.direction].toLowerCase()} ticket`}>
-      <KepalaDetail nama={pemilik.name} sub={[LABEL_ARAH[dipilih.direction], pemilik.company].filter(Boolean).join(" · ")} onClose={() => setPilih(null)} />
+      <KepalaDetail
+        nama={pemilik.name}
+        sub={[LABEL_ARAH[dipilih.direction], LABEL_MODA[dipilih.mode], dipilih.segment > 1 || adaTransit ? `Segment ${dipilih.segment}` : null, pemilik.company].filter(Boolean).join(" · ")}
+        onClose={() => setPilih(null)}
+      />
       <PaneBody>
         <DetailSection title="What the participant sees">
           <dl className="flex flex-col gap-2">
-            <KeyValue label="Train">{dipilih.train_name}</KeyValue>
+            <KeyValue label={LABEL_MODA[dipilih.mode]}>{dipilih.train_name}</KeyValue>
             <KeyValue label="Class">{dipilih.travel_class ?? EMPTY_VALUE}</KeyValue>
             <KeyValue label="Route">{[dipilih.origin, dipilih.destination].filter(Boolean).join(" → ") || EMPTY_VALUE}</KeyValue>
             <KeyValue label="Date">{tanggalTiket(dipilih.depart_date) ?? EMPTY_VALUE}</KeyValue>
             <KeyValue label="Time">{jamTiket(dipilih) ?? EMPTY_VALUE}</KeyValue>
-            <KeyValue label="Carriage">{dipilih.carriage ?? EMPTY_VALUE}</KeyValue>
+            {dipilih.mode === "train" || dipilih.carriage ? <KeyValue label="Carriage">{dipilih.carriage ?? EMPTY_VALUE}</KeyValue> : null}
             <KeyValue label="Seat">{dipilih.seat ?? EMPTY_VALUE}</KeyValue>
             <KeyValue label="Booking code">{dipilih.booking_code ?? EMPTY_VALUE}</KeyValue>
           </dl>
@@ -163,20 +204,22 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
         key={arahBaru}
         open={baru}
         onClose={() => { tutupBaru(); setArahBaru("outbound"); }}
-        title="Add train ticket"
+        title="Add ticket"
         description="Choose the direction and one participant, then fill in the ticket."
         peserta={data.participants}
-        utama={(orang) => !sudahPunya.has(orang.id)}
-        labelUtama={`Participants without ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket.`}
-        labelSemua="Also show participants who already have this ticket"
-        labelHabis={`Every participant already has ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket. Edit a ticket in the list instead.`}
-        alasanTolak={(orang) => (sudahPunya.has(orang.id) ? `Already has ${arahBaru === "outbound" ? "an outbound" : "a return"} ticket` : null)}
+        utama={(orang) => !segmenAkhir.has(orang.id)}
+        labelUtama={`Participants without ${kataArah} ticket.`}
+        // Yang sudah punya tiket arah ini tetap bisa dipilih: tiket baru menjadi segmen berikutnya (transit).
+        labelSemua="Also show participants who already have one (adds a transit segment)"
+        labelHabis={`Every participant already has ${kataArah} ticket. Tick the box above to add a transit segment, or edit a ticket in the list.`}
+        alasanTolak={(orang) => ((segmenAkhir.get(orang.id) ?? 0) >= SEGMEN_MAKS ? `Already has ${SEGMEN_MAKS} ${arahBaru} segments` : null)}
         batas={1}
         tombol="Next"
         busy={busy}
         onSubmit={async ([id]) => {
-          if (!id || sudahPunya.has(id)) return false;
-          setTiketBaru({ participant_id: id, direction: arahBaru });
+          const segmen = (segmenAkhir.get(id ?? "") ?? 0) + 1;
+          if (!id || segmen > SEGMEN_MAKS) return false;
+          setTiketBaru({ participant_id: id, direction: arahBaru, segment: segmen });
           return true;
         }}
       >
@@ -207,7 +250,7 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
         onClose={() => setHapus(null)}
         dismissible={!busy}
         tone="danger"
-        title={`Delete ${hapus ? LABEL_ARAH[hapus.direction].toLowerCase() : ""} ticket?`}
+        title={`Delete ${hapus ? `${LABEL_ARAH[hapus.direction].toLowerCase()} ${LABEL_MODA[hapus.mode].toLowerCase()}` : ""} ticket?`}
         description={`${hapus ? orangById.get(hapus.participant_id)?.name ?? "This participant" : ""} will no longer see this ticket in the participant area. Importing the ticket list again brings it back.`}
         actions={
           <>
@@ -224,7 +267,7 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
   );
 }
 
-type NilaiKereta = Pick<TiketKereta, "train_name" | "travel_class" | "origin" | "destination" | "depart_date" | "depart_time" | "arrive_time" | "carriage" | "seat" | "booking_code">;
+type NilaiKereta = Pick<TiketKereta, "mode" | "segment" | "train_name" | "travel_class" | "origin" | "destination" | "depart_date" | "depart_time" | "arrive_time" | "carriage" | "seat" | "booking_code">;
 
 function FormKereta({ tiket, baru, nama, busy, onClose, simpan }: {
   /** Tiket yang diubah. Dialog tertutup bila ini dan `baru` sama-sama null. */
@@ -238,6 +281,7 @@ function FormKereta({ tiket, baru, nama, busy, onClose, simpan }: {
 }) {
   const arah = tiket?.direction ?? baru?.direction ?? null;
   const awal = {
+    mode: tiket?.mode ?? "train" as ModaTiket, segment: String(tiket?.segment ?? baru?.segment ?? 1),
     train_name: tiket?.train_name ?? "", travel_class: tiket?.travel_class ?? "", origin: tiket?.origin ?? "", destination: tiket?.destination ?? "",
     depart_date: tiket?.depart_date ?? "", depart_time: tiket?.depart_time ?? "", arrive_time: tiket?.arrive_time ?? "",
     carriage: tiket?.carriage ?? "", seat: tiket?.seat ?? "", booking_code: tiket?.booking_code ?? "",
@@ -245,16 +289,21 @@ function FormKereta({ tiket, baru, nama, busy, onClose, simpan }: {
   const [draf, setDraf] = useState<typeof awal | null>(null);
   const nilai = draf ?? awal;
   function tutup() { setDraf(null); onClose(); }
-  const sah = Boolean(nilai.train_name.trim());
-  const isi = (kunci: keyof typeof awal) => ({ value: nilai[kunci], onChange: (event: { target: { value: string } }) => setDraf({ ...nilai, [kunci]: event.target.value }) });
+  const segmen = Number(nilai.segment);
+  const sah = Boolean(nilai.train_name.trim()) && Number.isInteger(segmen) && segmen >= 1 && segmen <= SEGMEN_MAKS;
+  const isi = (kunci: Exclude<keyof typeof awal, "mode">) => ({ value: nilai[kunci], onChange: (event: { target: { value: string } }) => setDraf({ ...nilai, [kunci]: event.target.value }) });
+  const moda = nilai.mode;
+  const IkonModa = IKON_MODA[moda];
 
   async function kirimForm() {
     if (!arah || !sah) return;
     const rapi = (teks: string) => teks.trim() || null;
     const ok = await simpan({
+      mode: moda, segment: segmen,
+      // Gerbong hanya untuk kereta: pindah moda tidak meninggalkan gerbong lama.
       train_name: nilai.train_name.trim(), travel_class: rapi(nilai.travel_class), origin: rapi(nilai.origin), destination: rapi(nilai.destination),
       depart_date: nilai.depart_date || null, depart_time: nilai.depart_time.slice(0, 5) || null, arrive_time: nilai.arrive_time.slice(0, 5) || null,
-      carriage: rapi(nilai.carriage), seat: rapi(nilai.seat), booking_code: rapi(nilai.booking_code),
+      carriage: moda === "train" ? rapi(nilai.carriage) : null, seat: rapi(nilai.seat), booking_code: rapi(nilai.booking_code),
     });
     if (ok) tutup();
   }
@@ -266,7 +315,7 @@ function FormKereta({ tiket, baru, nama, busy, onClose, simpan }: {
       dismissible={!busy}
       title={arah ? `${tiket ? "Edit" : "Add"} ${LABEL_ARAH[arah].toLowerCase()} ticket` : ""}
       description={nama || undefined}
-      icon={<Train size={20} />}
+      icon={<IkonModa size={20} />}
       actions={
         <>
           <Button variant="outlined" disabled={busy} onClick={tutup}>Cancel</Button>
@@ -275,15 +324,19 @@ function FormKereta({ tiket, baru, nama, busy, onClose, simpan }: {
       }
     >
       <form id="form-kereta" className="grid grid-cols-2 gap-4" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
-        <TextField label="Train" placeholder="e.g. Argo Lawu 8" autoFocus maxLength={80} {...isi("train_name")} className="max-sm:col-span-2" />
-        <TextField label="Class" optional placeholder="e.g. Executive" maxLength={40} {...isi("travel_class")} className="max-sm:col-span-2" />
-        <TextField label="From" optional placeholder="e.g. Gambir" maxLength={80} {...isi("origin")} className="max-sm:col-span-2" />
-        <TextField label="To" optional placeholder="e.g. Yogyakarta" maxLength={80} {...isi("destination")} className="max-sm:col-span-2" />
+        <SelectField label="Mode" value={moda} onChange={(event) => setDraf({ ...nilai, mode: event.target.value as ModaTiket })}>
+          {MODA_TIKET.map((m) => <option key={m} value={m}>{LABEL_MODA[m]}</option>)}
+        </SelectField>
+        <TextField label="Segment" type="number" min={1} max={SEGMEN_MAKS} inputMode="numeric" {...isi("segment")} hint="2 or more for a transit" />
+        <TextField label={LABEL_MODA[moda]} placeholder={CONTOH[moda].nama} autoFocus maxLength={80} {...isi("train_name")} className="max-sm:col-span-2" />
+        <TextField label="Class" optional placeholder={moda === "flight" ? "e.g. Economy" : "e.g. Executive"} maxLength={40} {...isi("travel_class")} className="max-sm:col-span-2" />
+        <TextField label="From" optional placeholder={CONTOH[moda].dari} maxLength={80} {...isi("origin")} className="max-sm:col-span-2" />
+        <TextField label="To" optional placeholder={CONTOH[moda].ke} maxLength={80} {...isi("destination")} className="max-sm:col-span-2" />
         <TextField label="Date" optional type="date" {...isi("depart_date")} className="col-span-2" />
         <TextField label="Departs" optional type="time" {...isi("depart_time")} />
         <TextField label="Arrives" optional type="time" {...isi("arrive_time")} />
-        <TextField label="Carriage" optional placeholder="e.g. EKS 3" maxLength={20} {...isi("carriage")} />
-        <TextField label="Seat" optional placeholder="e.g. 12A" maxLength={20} {...isi("seat")} />
+        {moda === "train" ? <TextField label="Carriage" optional placeholder="e.g. EKS 3" maxLength={20} {...isi("carriage")} /> : null}
+        <TextField label="Seat" optional placeholder="e.g. 12A" maxLength={20} {...isi("seat")} className={moda === "train" ? undefined : "col-span-2"} />
         <TextField label="Booking code" optional maxLength={40} {...isi("booking_code")} className="col-span-2" />
       </form>
     </Dialog>

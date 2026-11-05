@@ -26,10 +26,10 @@ type Hasil = { masuk: number; dibuat: string[]; diubah?: number; gagal: Array<{ 
 const URAIAN: Record<JenisImpor, string> = {
   kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
   bus: "One row per person: Vehicle, then QR code or Name. Vehicles that do not exist yet are created with no capacity limit. A \"Trip: …\" column sets a different vehicle for that Trip only.",
-  kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train, then Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction is updated.",
+  kereta: "One row per person per direction: QR code or Name, Direction (Outbound or Return), Train / flight, then Segment (2 for a transit), Mode (Train, Flight or Ship), Class, From, To, Date, Departs, Arrives, Carriage, Seat and Booking code. A person's existing ticket in the same direction and segment is updated.",
 };
 
-const JUDUL: Record<JenisImpor, string> = { kamar: "Import hotel stays from Excel", bus: "Import vehicles from Excel", kereta: "Import train tickets from Excel" };
+const JUDUL: Record<JenisImpor, string> = { kamar: "Import hotel stays from Excel", bus: "Import vehicles from Excel", kereta: "Import tickets from Excel" };
 
 const STATUS: Record<StatusBaris, { label: string; tone: "success" | "warning" | "neutral" | "error" }> = {
   masuk: { label: "Added", tone: "success" },
@@ -197,7 +197,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             label="File contents"
             value={jenis}
             onChange={(nilai) => { setJenis(nilai); if (berkas) void baca(berkas, nilai); }}
-            options={[{ value: "kamar", label: "Hotel stays" }, { value: "bus", label: "Vehicles" }, { value: "kereta", label: "Train tickets" }]}
+            options={[{ value: "kamar", label: "Hotel stays" }, { value: "bus", label: "Vehicles" }, { value: "kereta", label: "Tickets" }]}
             className="self-start"
           />
 
@@ -260,7 +260,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
           ) : (
             <p className="-mt-2 text-body-small text-on-surface-variant">
               {jenis === "kereta"
-                ? "Download participant list gives every participant two rows, Outbound and Return, with tickets already saved. Fill the train columns, leave the rest empty, then choose the file here."
+                ? "Download participant list gives every participant an Outbound and a Return row (one per saved segment), with tickets already saved. Fill the ticket columns, leave the rest empty, then choose the file here."
                 : "Download participant list gives every participant one row, with vehicles already saved, and one column per Trip. Fill Vehicle; fill a Trip column only when the person rides a different vehicle on that Trip (\"No vehicle\" if they do not ride, \"Default\" to go back to the main vehicle). Empty cells change nothing."}
               {" "}Columns marked (info) are only for filtering in Excel. The file contains QR codes, so keep it inside the team.
             </p>
@@ -300,7 +300,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
 
               {rencana.baris.length === 0 ? (
                 <p className="rounded-md border border-outline-variant px-4 py-6 text-center text-body-medium text-on-surface-variant">
-                  {rencana.dilewati > 0 ? `Nothing to import yet: all ${rencana.dilewati} rows are left empty. Fill in ${jenis === "kereta" ? "the train columns" : "Vehicle"} first.` : "This file has no rows with a name or QR code."}
+                  {rencana.dilewati > 0 ? `Nothing to import yet: all ${rencana.dilewati} rows are left empty. Fill in ${jenis === "kereta" ? "the ticket columns" : "Vehicle"} first.` : "This file has no rows with a name or QR code."}
                 </p>
               ) : (
                 <>

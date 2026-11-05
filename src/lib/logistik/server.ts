@@ -103,7 +103,7 @@ export function idDariQuery(request: Request): number | null {
 }
 
 /** Kolom `train_tickets` yang dibaca admin. */
-export const KOLOM_KERETA = "id,participant_id,direction,train_name,travel_class,origin,destination,depart_date,depart_time,arrive_time,carriage,seat,booking_code";
+export const KOLOM_KERETA = "id,participant_id,direction,mode,segment,train_name,travel_class,origin,destination,depart_date,depart_time,arrive_time,carriage,seat,booking_code";
 
 /** Galat PostgREST/Postgres untuk tabel yang belum ada. */
 export const tabelBelumAda = (error: { code?: string | number } | null) => ["PGRST205", "42P01"].includes(String(error?.code ?? ""));
@@ -258,9 +258,9 @@ const kosong = (): LogistikRingkas => ({ kamar: null, bus: null, stays: [] });
 
 /** Tiket kereta dan barang kit ke ringkasan yang sudah ada (atau baru). */
 function tambahKeretaKit(hasil: Map<string, LogistikRingkas>, tiket: TiketKereta[], ambil: BarisAmbil[]) {
-  for (const t of tiket) {
+  for (const t of [...tiket].sort((a, b) => a.segment - b.segment)) {
     const r = hasil.get(t.participant_id) ?? kosong();
-    hasil.set(t.participant_id, { ...r, kereta: { ...r.kereta, [t.direction]: t } });
+    hasil.set(t.participant_id, { ...r, kereta: { ...r.kereta, [t.direction]: [...(r.kereta?.[t.direction] ?? []), t] } });
   }
   for (const a of ambil) {
     const r = hasil.get(a.participant_id) ?? kosong();

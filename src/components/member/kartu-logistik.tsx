@@ -1,10 +1,12 @@
-import { ArrowSquareOut, Bed, Bus, CheckCircle, Package, Phone, Train, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { ArrowSquareOut, Bed, Bus, CheckCircle, Package, Phone, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
 import type { ReactNode } from "react";
 import type { EventTimeZone } from "@/lib/timezone";
 import { nomorKru } from "@/lib/logistik/kontak-kru";
 import { jenisKamar } from "@/lib/logistik/nama-kamar";
 import type { LogistikAgenda, LogistikDetailBus, LogistikPeserta } from "@/lib/logistik/peserta";
 import { jamLeg, ruteLeg, tanggalLeg } from "@/lib/logistik/kereta-tampil";
+import { judulTiket, modaTiket } from "@/lib/logistik/moda";
+import { IkonModa } from "@/components/member/ikon-moda";
 import { HEAD, LABEL_BAGIAN, MUTED } from "@/components/landing/modern/styles";
 
 /**
@@ -305,8 +307,8 @@ export function KartuKereta({ logistik, lang, kelas = KARTU, redup = MUTED }: { 
   return (
     <section aria-labelledby="kereta-judul" className={kelas}>
       <h2 id="kereta-judul" className={`${LABEL_BAGIAN} ${redup} inline-flex items-center gap-1.5`}>
-        <Train size={16} aria-hidden />
-        {t.judul}
+        <IkonModa moda={modaTiket(logistik.trains)} size={16} aria-hidden />
+        {judulTiket(lang, logistik.trains, t.judul)}
       </h2>
       <ul className="mt-3 flex flex-col">
         {logistik.trains.map((tiket, index) => {
@@ -314,7 +316,7 @@ export function KartuKereta({ logistik, lang, kelas = KARTU, redup = MUTED }: { 
           const baris = [rute ? tiket.train_name : null, tiket.travel_class].filter(Boolean).join(", ");
           const jam = jamLeg(tiket, lang);
           return (
-            <li key={tiket.direction} className={index > 0 ? "mt-4 border-t border-dashed border-[#C9D1DE] pt-4" : ""}>
+            <li key={`${tiket.direction}-${tiket.segment}`} className={index > 0 ? "mt-4 border-t border-dashed border-[#C9D1DE] pt-4" : ""}>
               <p className={`text-label-large font-semibold ${redup}`}>
                 {[t[tiket.direction], tanggalLeg(tiket.depart_date, lang)].filter(Boolean).join(", ")}
               </p>

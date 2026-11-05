@@ -8,6 +8,7 @@ import { PemicuQr } from "@/components/member/qr-fokus";
 import { GARIS_KARTU, KELAS_ALIS, KELAS_KET, LATAR_PORTAL_HORIZON, LipatanHorizon, type LegKereta } from "@/components/member/portal-horizon";
 import { SalinKodeTrip } from "@/components/member/salin-kode-trip";
 import { lamaPerjalanan } from "@/lib/member/rencana-trip";
+import { IkonModa } from "@/components/member/ikon-moda";
 
 /**
  * Tema Gathering Trip (keputusan Mas 28 Okt 2026): portal peserta Horizon
@@ -138,7 +139,7 @@ export function TiketKeretaTrip({ leg, label, pertama }: { leg: LegKereta; label
             {lama ? <span className="text-[12px] leading-4">{label.lama(lama)}</span> : null}
             <span className="flex w-full items-center gap-1.5">
               <span className="h-0.5 flex-1" style={{ background: GARIS }} />
-              <Train size={16} aria-label={label.ke} />
+              <IkonModa moda={leg.moda} size={16} aria-label={label.ke} />
               <span className="h-0.5 flex-1" style={{ background: GARIS }} />
             </span>
           </p>

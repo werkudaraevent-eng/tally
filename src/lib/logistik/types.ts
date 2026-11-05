@@ -85,11 +85,14 @@ export type Barang = {
   sort_order: number;
 };
 
-/** Tiket kereta satu peserta untuk satu arah (tabel `train_tickets`). */
+/** Tiket perjalanan satu peserta untuk satu arah dan segmen (tabel `train_tickets`). */
 export type TiketKereta = {
   id: number;
   participant_id: string;
   direction: ArahKereta;
+  mode: ModaTiket;
+  /** Urutan dalam satu arah (transit), 1 sampai 6. */
+  segment: number;
   train_name: string;
   travel_class: string | null;
   origin: string | null;
@@ -105,6 +108,11 @@ export type TiketKereta = {
 };
 
 export type ArahKereta = "outbound" | "return";
+
+/** Moda tiket. Daftarnya tetap di kode: ikon dan kata di Area peserta mengikutinya. */
+export type ModaTiket = "train" | "flight" | "ship";
+export const MODA_TIKET: readonly ModaTiket[] = ["train", "flight", "ship"];
+export const LABEL_MODA: Record<ModaTiket, string> = { train: "Train", flight: "Flight", ship: "Ship" };
 
 export type LogistikData = {
   settings: { gender_field_key: string | null; enforce_same_gender: boolean };

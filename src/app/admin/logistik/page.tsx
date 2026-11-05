@@ -197,7 +197,7 @@ export default function LogistikPage() {
           { value: "penempatan", label: "Assignments" },
           { value: "kamar", label: "Rooms", badge: data?.rooms.length || undefined },
           { value: "bus", label: "Vehicles", badge: data?.vehicles.length || undefined },
-          { value: "kereta", label: "Trains", badge: data?.trains.length || undefined },
+          { value: "kereta", label: "Tickets", badge: data?.trains.length || undefined },
           { value: "barang", label: "Kit items", badge: data?.items.length || undefined },
         ]}
       />

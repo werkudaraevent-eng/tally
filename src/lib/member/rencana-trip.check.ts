@@ -4,7 +4,7 @@ import type { LogistikKamar, LogistikKereta } from "../logistik/peserta.ts";
 
 const teks = { trainLeg: (a: string, b: string) => `K ${a}-${b}`, checkInAt: (h: string) => `in ${h}`, moveTo: (h: string) => `pindah ${h}`, checkOutAt: (h: string) => `out ${h}`, roomOut: (k: string | null) => `keluar ${k ?? "-"}`, roomIn: (k: string | null) => `masuk lagi ${k ?? "-"}` };
 const stay = (name: string, masuk: string | null, keluar: string | null): LogistikKamar => ({ hotel: { name, address: null, map_url: null }, room_number: "1", room_type: null, floor: null, check_in_at: masuk, check_out_at: keluar, roommates: null });
-const kereta = (direction: "outbound" | "return", date: string | null, time: string | null): LogistikKereta => ({ direction, train_name: "Taksaka", travel_class: null, origin: direction === "outbound" ? "Gambir" : "Yogyakarta", destination: direction === "outbound" ? "Yogyakarta" : "Gambir", depart_date: date, depart_time: time, arrive_time: null, carriage: null, seat: null, booking_code: null });
+const kereta = (direction: "outbound" | "return", date: string | null, time: string | null): LogistikKereta => ({ direction, mode: "train", segment: 1, train_name: "Taksaka", travel_class: null, origin: direction === "outbound" ? "Gambir" : "Yogyakarta", destination: direction === "outbound" ? "Yogyakarta" : "Gambir", depart_date: date, depart_time: time, arrive_time: null, carriage: null, seat: null, booking_code: null });
 
 // KSO: kereta 5 Nov, GRAMM 5-6, Alana 6-8, kereta pulang 8 Nov. Jam hotel dalam UTC, ditampilkan WIB.
 const hasil = rencanaTrip(

@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { saringBagian, type BagianLogistik } from "@/lib/logistik/bagian-tampil";
+import type { ModaTiket } from "@/lib/logistik/types";
 
 /**
  * Logistik yang boleh dilihat satu peserta di Dashboard saya: kamar, bus, dan
@@ -41,9 +42,13 @@ export type LogistikAgenda = {
 
 export type LogistikBarang = { name: string; size: string | null; pickup_note: string | null; picked_up_at: string | null };
 
-/** Tiket kereta peserta (tabel `train_tickets`), berangkat dulu lalu pulang. */
+/** Tiket perjalanan peserta (tabel `train_tickets`), berangkat dulu lalu pulang, tiap arah urut segmen. */
 export type LogistikKereta = {
   direction: "outbound" | "return";
+  /** Kereta, pesawat, atau kapal. */
+  mode: ModaTiket;
+  /** Urutan dalam satu arah (transit), mulai 1. */
+  segment: number;
   train_name: string;
   travel_class: string | null;
   origin: string | null;
@@ -154,11 +159,11 @@ async function loadTrainTickets(eventId: string, participantId: string): Promise
   try {
     const { data, error } = await getSupabaseServiceClient()
       .from("train_tickets")
-      .select("direction,train_name,travel_class,origin,destination,depart_date,depart_time,arrive_time,carriage,seat,booking_code")
+      .select("direction,mode,segment,train_name,travel_class,origin,destination,depart_date,depart_time,arrive_time,carriage,seat,booking_code")
       .eq("event_id", eventId)
       .eq("participant_id", participantId);
     if (error || !Array.isArray(data)) return [];
-    return (data as LogistikKereta[]).sort((a, b) => (a.direction === b.direction ? 0 : a.direction === "outbound" ? -1 : 1));
+    return (data as LogistikKereta[]).sort((a, b) => (a.direction === b.direction ? a.segment - b.segment : a.direction === "outbound" ? -1 : 1));
   } catch {
     return [];
   }
