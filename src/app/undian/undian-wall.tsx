@@ -25,6 +25,9 @@ import { GreenScreenContext } from "./undian-stage-fx";
 // lapisan kedua yang di-mask `radial-gradient`; posisinya ditulis ke dua CSS
 // variable per frame, tanpa render React.
 
+/** Jeda terbang kartu pemenang ke-`index`, dalam detik sejak kartu tampil. */
+const cardDelay = (index: number) => Math.min(index * 0.22, 1.2);
+
 /** Ukuran dinding setelah tiap gelombang, sebelum gelombang terakhir (pemenang). */
 const WAVES = [60, 12];
 
@@ -238,6 +241,19 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   const litNow = lit[Math.min(step, lit.length - 1)];
   const showCards = !drawing && step >= WAVES.length + 2;
 
+  // Berapa kartu yang sudah mulai terbang; jadwalnya sama dengan `delay` kartu.
+  const [launch, setLaunch] = useState({ round, count: 0 });
+  const launched = showCards && launch.round === round ? launch.count : 0;
+  const cardTotal = main.length;
+  useEffect(() => {
+    if (!showCards) return;
+    const timers = Array.from({ length: cardTotal }, (_, index) => window.setTimeout(
+      () => setLaunch((current) => ({ round, count: current.round === round ? Math.max(current.count, index + 1) : index + 1 })),
+      cardDelay(index) * 1000,
+    ));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [showCards, cardTotal, round]);
+
   // Lampu sorot: posisi ditulis langsung ke CSS variable, tanpa render React.
   const spotRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -381,9 +397,14 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
             layoutId={fromTile ? `wall-${round}-${index}` : undefined}
             initial={fromTile ? undefined : { opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ ...expressive.spatial.slow, delay: Math.min(index * 0.22, 1.2) }}
-            className="flex min-w-0 flex-col items-center justify-center overflow-hidden text-center"
+            transition={{ ...expressive.spatial.slow, delay: cardDelay(index) }}
+            className="relative flex min-w-0 flex-col items-center justify-center overflow-hidden text-center"
             style={{
+              // Kartu yang masih menunggu jeda terbang di posisi ubinnya selalu
+              // di bawah; kartu yang sudah berangkat di atasnya, yang terakhir
+              // berangkat paling atas. Nama yang sudah tampil tidak tertutup
+              // ubin kecil (Hanung, 5 Nov).
+              zIndex: index < launched ? 100 + index : main.length - index,
               width: fit.cardW,
               borderRadius: Math.max(8, fit.font * 0.5),
               padding: `${fit.font * 0.45}px ${fit.font * 0.7}px`,
