@@ -189,8 +189,7 @@ export async function POST(request: Request) {
     if (gabung === "galat") return tolak(500, { code: "INTERNAL_ERROR", message: "Could not read rooms. Try again." });
     const tujuan = { room_id: bentrok.id, hotel: namaHotel, label: bentrok.label, room_number: bentrok.room_number, occupants: gabung.namaTujuan };
     if (!gabung.boleh) {
-      const sebab = gabung.alasan === "sudah_di_sana" ? ", where some of these guests already stay on other nights. Ask the organiser to change it in Logistics"
-        : gabung.alasan === "tanggal" ? ", and the nights are not set for both rooms. Ask the organiser to change it in Logistics"
+      const sebab = gabung.alasan === "tanggal" ? ", and the nights are not set for both rooms. Ask the organiser to change it in Logistics"
         : ", with guests on the same nights. Check the photo";
       return tolak(409, { code: "NUMBER_TAKEN", message: `Number ${nomor} is already used by another room at ${namaHotel}${bentrok.label ? ` (label ${bentrok.label})` : ""}${sebab}.`, ...ringkas, taken_by: tujuan });
     }
@@ -337,13 +336,14 @@ async function cekGabung(db: Db, eventId: string, asal: KamarBot, tujuan: KamarB
   const diTujuan = baris.filter((b) => b.room_id === tujuan.id);
   const pindah = [...new Set(diAsal.map((b) => b.participant_id))];
   const namaTujuan = await namaPenghuni(db, eventId, tujuan.id);
-  // Orang yang sudah di kamar tujuan tidak "pindah" ke kamar yang sama.
-  const sudahDiSana = pindah.some((id) => diTujuan.some((b) => b.participant_id === id));
+  // Tamu yang sudah di kamar tujuan pada malam lain (05-06 di 303, lalu
+  // 06-08 di label baru) boleh: hasilnya dua stay di kamar yang sama, malam
+  // tidak bertabrakan. Tabrakan tetap ditolak lewat bolehGabung.
   const rAsal = diAsal.map(rentang);
   const rTujuan = diTujuan.map(rentang);
-  const boleh = !sudahDiSana && bolehGabung(rAsal, rTujuan);
+  const boleh = bolehGabung(rAsal, rTujuan);
   if (!boleh) {
-    const alasan = sudahDiSana ? "sudah_di_sana" : [...rAsal, ...rTujuan].some((r) => !r) ? "tanggal" : "bentrok";
+    const alasan = [...rAsal, ...rTujuan].some((r) => !r) ? "tanggal" : "bentrok";
     return { boleh, alasan, namaTujuan, pindah, items: [] };
   }
   const { data: semuaStay, error: galat } = await db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at")
