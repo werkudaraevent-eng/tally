@@ -55,7 +55,10 @@ function catatTutup(kunci: string) {
 export function PopupPengumuman({ items, lang }: { items: PopupItem[]; lang: LandingLang }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const tutupRef = useRef<HTMLButtonElement>(null);
+  const isiRef = useRef<HTMLDivElement>(null);
   const judulId = useId();
+  // Garis pemisah di atas dan bawah isi hanya muncul saat isi bergulir (M3 dialog).
+  const [bergulir, setBergulir] = useState(false);
   const [item, setItem] = useState<PopupItem | null>(null);
   const terbaru = items[0] ?? null;
   const en = lang === "en";
@@ -71,7 +74,8 @@ export function PopupPengumuman({ items, lang }: { items: PopupItem[]; lang: Lan
     if (!item || !dialog || dialog.open) return;
     dialog.showModal();
     // Fokus ke Tutup, bukan ke foto (elemen pertama yang bisa difokus).
-    tutupRef.current?.focus();
+    // preventScroll: peramban tidak boleh menggulir dialog demi tombol ini.
+    tutupRef.current?.focus({ preventScroll: true });
     const gulir = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
     return () => {
@@ -79,7 +83,20 @@ export function PopupPengumuman({ items, lang }: { items: PopupItem[]; lang: Lan
     };
   }, [item]);
 
+  useEffect(() => {
+    const isi = isiRef.current;
+    if (!item || !isi) return;
+    // Ukur ulang saat layar berputar atau foto selesai dimuat.
+    const ukur = () => setBergulir(isi.scrollHeight > isi.clientHeight + 1);
+    ukur();
+    const amati = new ResizeObserver(ukur);
+    amati.observe(isi);
+    for (const anak of Array.from(isi.children)) amati.observe(anak);
+    return () => amati.disconnect();
+  }, [item]);
+
   if (!item) return null;
+  const adaIsi = Boolean(item.body || item.foto);
 
   function tutup() {
     if (item) catatTutup(item.kunci);
@@ -100,7 +117,10 @@ export function PopupPengumuman({ items, lang }: { items: PopupItem[]; lang: Lan
       className="m-auto w-[calc(100%-32px)] max-w-[560px] overflow-hidden rounded-[28px] bg-[var(--reg-surface,#fff)] p-0 text-[var(--reg-on-surface,#1b1b1f)] shadow-xl backdrop:bg-black/50"
     >
       <div className="flex max-h-[calc(100dvh-48px)] flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-6">
+        {/* Judul tetap di atas, hanya isi yang bergulir, tombol tetap di bawah
+            (M3 dialog). Dulu judul ikut area gulir, jadi pengumuman panjang
+            menenggelamkan judulnya saat peserta menggulir. */}
+        <div className={`shrink-0 px-6 pt-6 ${adaIsi ? "pb-4" : ""}`}>
           <p className="flex items-center gap-2 text-[14px] font-medium leading-5 text-[var(--reg-on-surface-variant,#46464f)]">
             <Megaphone size={18} aria-hidden="true" className="shrink-0 text-[var(--reg-primary,#1a56db)]" />
             {en ? "Announcement" : "Pengumuman"} · {item.waktu}
@@ -108,10 +128,21 @@ export function PopupPengumuman({ items, lang }: { items: PopupItem[]; lang: Lan
           <h2 id={judulId} className="mt-3 text-[22px] font-semibold leading-7">
             {item.title}
           </h2>
-          {item.body ? <p className="mt-3 whitespace-pre-line text-[16px] leading-6 text-[var(--reg-on-surface-variant,#46464f)]">{item.body}</p> : null}
-          {item.foto ? <FotoPengumuman src={item.foto.src} alt={item.foto.alt} lang={en ? "en" : "id"} className="mt-4" /> : null}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 px-6 pb-6 pt-4">
+        {adaIsi ? (
+          <div
+            ref={isiRef}
+            // Area gulir tanpa tautan tetap bisa digulir dengan keyboard (WCAG 2.1.1).
+            tabIndex={bergulir ? 0 : undefined}
+            role={bergulir ? "region" : undefined}
+            aria-label={bergulir ? (en ? "Announcement text" : "Isi pengumuman") : undefined}
+            className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 ${bergulir ? "border-y border-[var(--reg-outline-variant,#c7c6d0)] py-4" : ""}`}
+          >
+            {item.body ? <p className="whitespace-pre-line text-[16px] leading-6 text-[var(--reg-on-surface-variant,#46464f)]">{item.body}</p> : null}
+            {item.foto ? <FotoPengumuman src={item.foto.src} alt={item.foto.alt} lang={en ? "en" : "id"} className={item.body ? "mt-4" : ""} /> : null}
+          </div>
+        ) : null}
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 px-6 pb-6 pt-4">
           {item.link_url ? (
             <a
               href={item.link_url}
