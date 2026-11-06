@@ -58,6 +58,12 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   const [dialogHotel, setDialogHotel] = useState<DialogHotel>(null);
   const [aturan, setAturan] = useState(false);
   const [tambahPenghuni, setTambahPenghuni] = useState(false);
+  /**
+   * Konfirmasi pindah (Hanung 2026-11-06): peserta yang sudah berkamar tidak
+   * ditolak, tetapi ditanya "dari X ke kamar ini". `stayId` stay yang dipindah;
+   * null = orang itu belum punya stay di hotel ini (stay lainnya diganti).
+   */
+  const [pindah, setPindah] = useState<{ kamarId: number; orang: Array<{ orang: LogistikPeserta; calon: Stay[]; stayId: number | null }> } | null>(null);
   const [hapus, setHapus] = useState<{ jenis: "kamar"; kamar: Kamar } | { jenis: "hotel"; hotel: Hotel } | null>(null);
 
   const kunciField = data.settings.gender_field_key;
@@ -196,6 +202,20 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       g.isi.forEach((x, i) => baris.push({ jenis: "orang", x, terisi: pakaiJudul && i === 0 ? puncakGrup : null }));
     }
     return { semua, baris, pakaiJudul, terisi: malam === null ? masalah(kamar).puncak : jumlahOrang(semua) };
+  }
+
+  /**
+   * Tempat kosong terbanyak pada satu malam hotel: kamar 2+2 (penuh 5–6 Nov,
+   * kosong 6–8 Nov) masih bisa diisi. Server tetap menolak malam yang penuh.
+   */
+  function tempatMalam(kamar: Kamar): number {
+    const hotel = hotelById.get(kamar.hotel_id);
+    const malamHotel = new Set<string>();
+    for (const baris of data.lodging) if (baris.hotel_id === kamar.hotel_id) for (const t of malamStay(baris, hotel)) malamHotel.add(t);
+    if (malamHotel.size === 0) return kamar.capacity - masalah(kamar).puncak;
+    const isiMalam = new Map<string, Set<string>>();
+    for (const { orang, stay } of masalah(kamar).semua) for (const t of malamStay(stay, hotel)) isiMalam.set(t, (isiMalam.get(t) ?? new Set()).add(orang.id));
+    return kamar.capacity - Math.min(...[...malamHotel].map((t) => isiMalam.get(t)?.size ?? 0));
   }
 
   function keadaan(kamar: Kamar): Keadaan {
@@ -477,6 +497,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     const { semua, puncak, lebih, campuran, bergantian } = masalah(kamarDipilih);
     const hotel = hotelById.get(kamarDipilih.hotel_id);
     const sisa = kamarDipilih.capacity - puncak;
+    const sisaMalam = tempatMalam(kamarDipilih);
     // Kamar dari rooming list (label, kasur, atau nomor menyusul): satu fakta
     // per baris di "Room details", bukan digabung di bawah judul.
     const rinci = kamarDipilih.label !== null || kamarDipilih.bed_type !== null || kamarDipilih.room_number === null;
@@ -544,12 +565,12 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             </DetailSection>
           ) : null}
         </PaneBody>
-        <PaneFooter note={sisa > 0 ? `${plural(sisa, "place")} left${bergantian ? " on the busiest night" : ""}` : "Room full"}>
+        <PaneFooter note={sisa > 0 ? `${plural(sisa, "place")} left${bergantian ? " on the busiest night" : ""}` : sisaMalam > 0 ? `Full on some nights · ${plural(sisaMalam, "place")} free on other nights` : "Room full"}>
           {semua.length === 0 ? (
             <Button simpan variant="outlined" size="sm" className="text-error" disabled={busy} onClick={() => setHapus({ jenis: "kamar", kamar: kamarDipilih })}>Delete</Button>
           ) : null}
           <Button variant="outlined" size="sm" onClick={() => setDialogKamar({ mode: "ubah", kamar: kamarDipilih })}>Edit</Button>
-          <Button simpan size="sm" disabled={busy || sisa <= 0} onClick={() => setTambahPenghuni(true)}>Add occupants</Button>
+          <Button simpan size="sm" disabled={busy || sisaMalam <= 0} onClick={() => setTambahPenghuni(true)}>Add occupants</Button>
         </PaneFooter>
       </Pane>
     );
@@ -676,18 +697,95 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             return [kunciField ? orang.gender ?? "No gender" : null, status].filter(Boolean).join(" · ") || null;
           }}
           alasanTolak={(orang) => {
-            if ((stayPeserta.get(orang.id) ?? []).some((s) => s.room_id === kamarDipilih.id)) return "Already in this room";
+            // Ditolak hanya bila semua malamnya di hotel ini sudah di kamar ini.
+            // Orang yang di kamar ini 5–6 Nov dan di kamar lain 6–8 Nov boleh dipilih.
+            const diHotel = (stayPeserta.get(orang.id) ?? []).filter((s) => s.hotel_id === kamarDipilih.hotel_id);
+            if (diHotel.length > 0 && diHotel.every((s) => s.room_id === kamarDipilih.id)) return "Already in this room";
             if (!wajibSama || !kunciField) return null;
             if (!orang.gender) return "Gender not filled in";
             if (genderKamar && kunciGender(orang.gender) !== genderKamar) return "Different gender";
             return null;
           }}
-          batas={Math.max(kamarDipilih.capacity - (isiDipilih?.puncak ?? 0), 0)}
+          batas={Math.max(tempatMalam(kamarDipilih), 0)}
           tombol="Add to room"
           busy={busy}
-          onSubmit={async (ids) => Boolean(await kirim("/api/admin/logistik/penghuni", "POST", { room_id: kamarDipilih.id, participant_ids: ids }))}
+          onSubmit={async (ids) => {
+            const daftarOrang = ids.map((id) => {
+              const orang = orangById.get(id)!;
+              const stays = stayPeserta.get(id) ?? [];
+              const calon = stays.filter((s) => s.hotel_id === kamarDipilih.hotel_id && s.room_id !== kamarDipilih.id);
+              // Satu stay tanpa kamar di hotel ini: langsung, seperti sebelumnya.
+              const langsung = stays.every((s) => s.room_id === null) && calon.length <= 1;
+              return { orang, calon, stayId: calon.length === 1 ? calon[0].id : null, langsung };
+            });
+            if (daftarOrang.every((x) => x.langsung)) return Boolean(await kirim("/api/admin/logistik/penghuni", "POST", { room_id: kamarDipilih.id, participant_ids: ids }));
+            setPindah({ kamarId: kamarDipilih.id, orang: daftarOrang.map(({ orang, calon, stayId }) => ({ orang, calon, stayId })) });
+            return true;
+          }}
         />
       ) : null}
+
+      {pindah ? (() => {
+        const kamar = kamarById.get(pindah.kamarId);
+        if (!kamar) return null;
+        const hotel = hotelById.get(kamar.hotel_id);
+        const keterangan = (stay: Stay) => {
+          const t = tanggalStay(stay, hotelById.get(stay.hotel_id));
+          const lama = stay.room_id !== null ? kamarById.get(stay.room_id) : undefined;
+          return [lama ? judulKamar(lama, "room") : "Room to follow", labelRentang(t.masuk, t.keluar, offset)].filter(Boolean).join(" · ");
+        };
+        const belumPilih = pindah.orang.some((x) => x.calon.length > 1 && x.stayId === null);
+        async function jalankan() {
+          if (!pindah) return;
+          for (const x of pindah.orang) {
+            const ok = await kirim("/api/admin/logistik/penghuni", "POST", { room_id: pindah.kamarId, participant_ids: [x.orang.id], ...(x.stayId !== null ? { stay_id: x.stayId } : {}) });
+            if (!ok) return;
+          }
+          setPindah(null);
+        }
+        return (
+          <Dialog
+            open
+            onClose={() => setPindah(null)}
+            dismissible={!busy}
+            title={`Move to ${judulKamar(kamar, "room")}?`}
+            description={pindah.orang.length === 1 ? "This person already has a room. Check the change before saving." : "Some of these people already have a room. Check each change before saving."}
+            actions={
+              <>
+                <Button variant="outlined" disabled={busy} onClick={() => setPindah(null)}>Cancel</Button>
+                <Button simpan loading={busy} disabled={belumPilih} onClick={() => void jalankan()}>{pindah.orang.length === 1 ? "Move" : `Move ${pindah.orang.length} people`}</Button>
+              </>
+            }
+          >
+            <ul className="flex flex-col gap-4 pt-2">
+              {pindah.orang.map((x, i) => {
+                const lainHotel = (stayPeserta.get(x.orang.id) ?? []).filter((s) => s.hotel_id !== kamar.hotel_id);
+                return (
+                  <li key={x.orang.id} className="flex flex-col gap-1">
+                    <span className="text-body-medium font-medium text-on-surface">{x.orang.name}</span>
+                    {x.calon.length > 1 ? (
+                      <SelectField
+                        label="Which nights move here"
+                        value={x.stayId === null ? "" : String(x.stayId)}
+                        onChange={(e) => setPindah({ ...pindah, orang: pindah.orang.map((y, j) => (j === i ? { ...y, stayId: e.target.value ? Number(e.target.value) : null } : y)) })}
+                      >
+                        <option value="">Choose…</option>
+                        {x.calon.map((s) => <option key={s.id} value={s.id}>{keterangan(s)}</option>)}
+                      </SelectField>
+                    ) : x.calon.length === 1 ? (
+                      <span className="text-body-medium text-on-surface-variant">From {keterangan(x.calon[0])} → {judulKamar(kamar, "room")}</span>
+                    ) : (
+                      <span className="text-body-medium text-on-surface-variant">
+                        {lainHotel.length > 0 ? `Leaves ${lainHotel.map((s) => `${keterangan(s)} at ${hotelById.get(s.hotel_id)?.name ?? "another hotel"}`).join(", ")} → ${judulKamar(kamar, "room")} at ${hotel?.name ?? "this hotel"}` : `New → ${judulKamar(kamar, "room")}`}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Dialog>
+        );
+      })() : null}
 
       <DialogAturan
         open={aturan}
