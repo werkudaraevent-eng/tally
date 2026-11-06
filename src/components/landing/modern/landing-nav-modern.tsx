@@ -7,6 +7,7 @@ import type { LandingNavWidth } from "@/lib/domain";
 import { LANDING_LANG_LABELS, LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { HtmlLang } from "@/components/html-lang";
 import { LoncengPengumuman } from "@/components/member/lonceng-pengumuman";
+import { PopupPengumuman } from "@/components/member/popup-pengumuman";
 import type { NavPeserta } from "@/lib/member/nav";
 
 /**
@@ -495,6 +496,7 @@ export function LandingNavModern({
                   onBukaChange={ubahLonceng}
                 />
               ) : null}
+              {peserta.lonceng?.popup.length ? <PopupPengumuman items={peserta.lonceng.popup} lang={lang} /> : null}
               <Link
                 href={peserta.dashboardHref}
                 aria-current={dashboardAktif ? "page" : undefined}

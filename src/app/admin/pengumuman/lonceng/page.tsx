@@ -3,7 +3,7 @@
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { useBatasPesan } from "@/components/admin/page-context";
 import Link from "next/link";
-import { EnvelopeSimple, Info, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
+import { BellRinging, EnvelopeSimple, Eye, EyeSlash, Info, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banner,
@@ -61,6 +61,9 @@ type Item = {
   audience_any?: boolean | null;
   pinned: boolean;
   published_at: string;
+  /** Ada setelah migrasi 202611060002. Terisi = disembunyikan dari peserta. */
+  hidden_at?: string | null;
+  popup?: boolean;
   email_summary: Ringkasan | null;
   created_at: string;
   updated_at: string;
@@ -77,6 +80,8 @@ type Muat = {
   match_any_ready?: boolean;
   /** Ada setelah migrasi 202611060001 (foto pengumuman). */
   photo_ready?: boolean;
+  /** Ada setelah migrasi 202611060002 (Hide tanpa menghapus). */
+  hide_ready?: boolean;
 };
 type Draft = {
   id: string | null;
@@ -91,9 +96,10 @@ type Draft = {
   audience_ids: string[];
   audience_any: boolean;
   pinned: boolean;
+  popup: boolean;
 };
 
-const KOSONG: Draft = { id: null, title: "", body: "", image_url: null, image_alt: "", link_url: "", link_label: "", audience: "semua", audience_rules: null, audience_ids: [], audience_any: false, pinned: false };
+const KOSONG: Draft = { id: null, title: "", body: "", image_url: null, image_alt: "", link_url: "", link_label: "", audience: "semua", audience_rules: null, audience_ids: [], audience_any: false, pinned: false, popup: false };
 
 const PENERIMA: Record<Audience, string> = {
   semua: "All participant accounts",
@@ -125,6 +131,14 @@ function waktu(iso: string, timeZone?: string) {
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
 }
 
+/** Jeda Notify again, sama dengan server (/api/admin/pengumuman/status). */
+const JEDA_ULANG_MS = 10 * 60_000;
+
+/** Lonceng dinyalakan lagi: published_at digeser lewat Notify again. */
+function dikirimUlang(item: Pick<Item, "published_at" | "created_at">) {
+  return new Date(item.published_at).getTime() - new Date(item.created_at).getTime() > 60_000;
+}
+
 function keDraft(item: Item): Draft {
   return {
     id: item.id,
@@ -140,6 +154,7 @@ function keDraft(item: Item): Draft {
     audience_ids: item.audience === "pilih" ? item.audience_ids ?? [] : [],
     audience_any: item.audience === "syarat" && (item.audience_rules?.length ?? 0) > 1 && item.audience_any === true,
     pinned: item.pinned,
+    popup: item.popup === true,
   };
 }
 
@@ -164,6 +179,14 @@ export default function PengumumanPage() {
   const [galat, setGalat] = useState("");
   const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
   const [konfirmasiEmail, setKonfirmasiEmail] = useState(false);
+  const [konfirmasiUlang, setKonfirmasiUlang] = useState(false);
+  const [ubahStatus, setUbahStatus] = useState<"hide" | "show" | "notify" | null>(null);
+  // Jam sekarang untuk jeda Notify again; diperbarui tiap menit.
+  const [kini, setKini] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setKini(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
   const [kirim, setKirim] = useState(false);
   const [info, setInfo] = useState<InfoPenerima | null>(null);
   const [infoGagal, setInfoGagal] = useState(false);
@@ -248,6 +271,8 @@ export default function PengumumanPage() {
       // akun peran kustom).
       ...(penerimaBerubah ? kirimanPenerima(draft) : {}),
       pinned: draft.pinned,
+      // Pop-up hanya dikirim setelah migrasi 202611060002.
+      ...(data?.hide_ready ? { popup: draft.popup } : {}),
     };
     const response = await fetch("/api/admin/pengumuman", {
       method: draft.id ? "PATCH" : "POST",
@@ -287,6 +312,31 @@ export default function PengumumanPage() {
     }
     toast.success("Announcement deleted", "Participants no longer see it.");
     tutup();
+    void muat();
+  }
+
+  async function ubahTampil(action: "hide" | "show" | "notify") {
+    if (!draft?.id) return;
+    setUbahStatus(action);
+    const response = await fetch("/api/admin/pengumuman/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: draft.id, action }),
+    }).catch(() => null);
+    const body = await response?.json().catch(() => null);
+    setUbahStatus(null);
+    setKonfirmasiUlang(false);
+    if (!response?.ok) {
+      toast.error(
+        action === "notify" ? "Participants weren't notified" : action === "hide" ? "Couldn't hide announcement" : "Couldn't show announcement",
+        body?.error?.message ?? "Try again.",
+      );
+      void muat();
+      return;
+    }
+    if (action === "notify") toast.success(`Notified ${plural(jumlahPenerima, "account")} again`, "The bell shows it as new and it's at the top of their list.");
+    else if (action === "hide") toast.success("Announcement hidden", "Participants no longer see it. Nothing was deleted.");
+    else toast.success("Announcement showing again", "It's back in its place. The bell doesn't light up; use Notify again for that.");
     void muat();
   }
 
@@ -373,6 +423,12 @@ export default function PengumumanPage() {
               {items.map((item) => {
                 const aktif = draft?.id === item.id;
                 const disunting = new Date(item.updated_at).getTime() - new Date(item.created_at).getTime() > 60_000;
+                const tersembunyi = Boolean(item.hidden_at);
+                const keterangan = [
+                  item.popup ? "Pop-up" : null,
+                  dikirimUlang(item) ? `Sent again · first posted ${waktu(item.created_at, data?.time_zone)}` : null,
+                  disunting ? `Edited ${waktu(item.updated_at, data?.time_zone)}` : null,
+                ].filter(Boolean);
                 return (
                   <tr
                     key={item.id}
@@ -387,12 +443,17 @@ export default function PengumumanPage() {
                           setDraft(keDraft(item));
                         }}
                         aria-pressed={aktif}
-                        className="flex w-full min-w-0 items-center gap-1.5 rounded-sm text-left font-medium text-on-surface"
+                        className={cx("flex w-full min-w-0 items-center gap-1.5 rounded-sm text-left font-medium", tersembunyi ? "text-on-surface-variant" : "text-on-surface")}
                       >
-                        {item.pinned ? <PushPin size={14} weight="fill" className="shrink-0 text-primary" aria-label="Pinned" /> : null}
+                        {item.pinned ? <PushPin size={14} weight="fill" className={cx("shrink-0", tersembunyi ? "text-on-surface-variant" : "text-primary")} aria-label="Pinned" /> : null}
                         <span className="truncate">{item.title}</span>
+                        {tersembunyi ? (
+                          <StatusChip tone="neutral" icon={<EyeSlash size={12} aria-hidden="true" />} className="ml-1 shrink-0">
+                            Hidden
+                          </StatusChip>
+                        ) : null}
                       </button>
-                      {disunting ? <span className="text-body-small text-on-surface-variant">Edited {waktu(item.updated_at, data?.time_zone)}</span> : null}
+                      {keterangan.length ? <span className="text-body-small text-on-surface-variant">{keterangan.join(" · ")}</span> : null}
                     </td>
                     <td className="max-w-[200px] truncate whitespace-nowrap border-b border-outline-variant px-3 py-2.5">
                       {ringkasPenerima({ audience: item.audience, audience_rules: item.audience_rules ?? null, audience_ids: item.audience_ids ?? [], audience_any: item.audience_any === true }, info)}
@@ -428,7 +489,15 @@ export default function PengumumanPage() {
           <div className="min-w-0 flex-1">
             <h2 className="min-w-0 truncate text-title-medium font-semibold leading-6">{baru ? "New announcement" : terpilih?.title ?? draft.title}</h2>
             <p className="text-body-medium text-on-surface-variant">
-              {baru ? "Publishes when you save it." : `Published ${terpilih ? waktu(terpilih.published_at, data?.time_zone) : ""}`}
+              {baru
+                ? "Publishes when you save it."
+                : !terpilih
+                  ? ""
+                  : terpilih.hidden_at
+                    ? `Hidden ${waktu(terpilih.hidden_at, data?.time_zone)}`
+                    : dikirimUlang(terpilih)
+                      ? `Sent again ${waktu(terpilih.published_at, data?.time_zone)} · first posted ${waktu(terpilih.created_at, data?.time_zone)}`
+                      : `Published ${waktu(terpilih.published_at, data?.time_zone)}`}
             </p>
           </div>
           <IconButton size="sm" label="Close details" onClick={tutup} disabled={simpan}>
@@ -534,8 +603,61 @@ export default function PengumumanPage() {
                   label="Pin to top"
                   description="Shows first until you unpin it."
                 />
+                {data?.hide_ready ? (
+                  <Switch
+                    checked={draft.popup}
+                    onChange={(popup) => setDraft((kini) => kini && { ...kini, popup })}
+                    label="Show as pop-up"
+                    description="Opens over their page until they close it, once per phone. Keep it for urgent news."
+                  />
+                ) : null}
               </div>
             </DetailSection>
+
+            {!baru && terpilih && batas.ubah ? (
+              <DetailSection title="In the participant area">
+                {terpilih.hidden_at ? (
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="text-body-medium text-on-surface-variant">
+                      Hidden since {waktu(terpilih.hidden_at, data?.time_zone)}. Participants don&apos;t see it in the bell or My dashboard. Nothing was deleted.
+                    </p>
+                    <Button type="button" variant="outlined" size="sm" icon={<Eye size={16} />} loading={ubahStatus === "show"} disabled={ubahStatus !== null} onClick={() => void ubahTampil("show")}>
+                      Show again
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="text-body-medium text-on-surface-variant">
+                      Showing in the event page bell and My dashboard. Notify again to make the bell show it as new for everyone it&apos;s sent to.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        size="sm"
+                        icon={<BellRinging size={16} />}
+                        disabled={berubah || ubahStatus !== null || jumlahPenerima === 0 || kini - new Date(terpilih.published_at).getTime() < JEDA_ULANG_MS}
+                        onClick={() => setKonfirmasiUlang(true)}
+                      >
+                        Notify again
+                      </Button>
+                      {data?.hide_ready ? (
+                        <Button type="button" variant="text" size="sm" icon={<EyeSlash size={16} />} loading={ubahStatus === "hide"} disabled={berubah || ubahStatus !== null} onClick={() => void ubahTampil("hide")}>
+                          Hide
+                        </Button>
+                      ) : null}
+                    </div>
+                    {berubah ? (
+                      <p className="text-body-small text-on-surface-variant">Save your changes first.</p>
+                    ) : kini - new Date(terpilih.published_at).getTime() < JEDA_ULANG_MS ? (
+                      <p className="text-body-small text-on-surface-variant">
+                        Published less than 10 minutes ago. You can notify again from {waktu(new Date(new Date(terpilih.published_at).getTime() + JEDA_ULANG_MS).toISOString(), data?.time_zone)}.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </DetailSection>
+            ) : null}
 
             {!baru ? (
               <DetailSection title="Email copy">
@@ -553,7 +675,7 @@ export default function PengumumanPage() {
                       variant="outlined"
                       size="sm"
                       icon={<EnvelopeSimple size={16} />}
-                      disabled={berubah || jumlahPenerima === 0}
+                      disabled={berubah || jumlahPenerima === 0 || Boolean(terpilih?.hidden_at)}
                       onClick={() => setKonfirmasiEmail(true)}
                     >
                       {terpilih?.email_summary ? "Resend by email" : "Send by email"}
@@ -671,13 +793,41 @@ export default function PengumumanPage() {
       </Dialog>
 
       <Dialog
+        open={konfirmasiUlang}
+        onClose={() => setKonfirmasiUlang(false)}
+        dismissible={ubahStatus === null}
+        icon={<BellRinging size={22} />}
+        title={`Notify ${plural(jumlahPenerima, "account")} again?`}
+        description="The bell shows it as new and it moves to the top of their list, including for people who already read it. No email is sent. Use this for news that changed or is urgent, not as a reminder for every post."
+        actions={
+          <>
+            <Button variant="outlined" size="sm" disabled={ubahStatus !== null} onClick={() => setKonfirmasiUlang(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" loading={ubahStatus === "notify"} onClick={() => void ubahTampil("notify")}>
+              Notify again
+            </Button>
+          </>
+        }
+      >
+        {draft ? (
+          <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4">
+            <p className="text-body-small text-on-surface-variant">
+              {draft.audience === "syarat" || draft.audience === "pilih" ? `${PENERIMA[draft.audience]}: ${ringkasPenerima(draft, info)}` : PENERIMA[draft.audience]}
+            </p>
+            <p className="mt-1 text-title-small font-semibold">{draft.title}</p>
+          </div>
+        ) : null}
+      </Dialog>
+
+      <Dialog
         open={konfirmasiHapus}
         onClose={() => setKonfirmasiHapus(false)}
         dismissible={!simpan}
         tone="danger"
         icon={<Trash size={22} />}
         title="Delete this announcement?"
-        description="It disappears from the event page bell and My dashboard for all participants. Emails already sent stay sent."
+        description={`It disappears from the event page bell and My dashboard for all participants. Emails already sent stay sent.${data?.hide_ready ? " To take it down for now and keep it, use Hide instead." : ""}`}
         actions={
           <>
             <Button variant="outlined" size="sm" disabled={simpan} onClick={() => setKonfirmasiHapus(false)}>

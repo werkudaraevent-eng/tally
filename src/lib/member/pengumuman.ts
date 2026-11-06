@@ -29,6 +29,8 @@ export type Announcement = {
   /** Satu foto opsional (migrasi foto pengumuman); null sebelum migrasinya. */
   image_url?: string | null;
   image_alt?: string | null;
+  /** Show as pop-up (migrasi 202611060002); false sebelum migrasinya. */
+  popup?: boolean;
 };
 
 export type MemberAnnouncements = {
@@ -73,7 +75,7 @@ export async function loadMemberAnnouncements(
   // "disetujui" = akun yang sudah tertaut ke peserta, sama dengan status
   // "approved" di getMemberSession. Yang belum disetujui hanya membaca "semua".
   const disetujui = sesi.status === "approved";
-  const kueri = (kolom: string) => {
+  const kueri = (kolom: string, tanpaTersembunyi = false) => {
     let query = client
       .from("event_announcements")
       .select(kolom)
@@ -83,17 +85,22 @@ export async function loadMemberAnnouncements(
       .order("published_at", { ascending: false })
       .limit(disetujui ? BACA_MAX : limit);
     if (!disetujui) query = query.eq("audience", "semua");
+    // Disembunyikan panitia (migrasi 202611060002): tidak tampil sama sekali.
+    if (tanpaTersembunyi) query = query.is("hidden_at", null);
     return query;
   };
 
   const [hasil, akun] = await Promise.all([
-    kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU},${KOLOM_FOTO}`),
+    kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU},${KOLOM_FOTO},popup`, true),
     client.from("participant_accounts").select("announcements_seen_at").eq("id", sesi.accountId).maybeSingle(),
   ]);
   let { data, error } = hasil;
   // Sebelum migrasi 202611040001 audience_any belum ada (semua syarat harus
   // cocok), sebelum 202610300004 semua kolom penerima: baca seperti dulu.
   const belumAda = () => error?.code === "42703" || error?.code === "PGRST204";
+  // Sebelum migrasi 202611060002 hidden_at dan popup belum ada: belum ada
+  // yang bisa disembunyikan, jadi cukup membaca tanpa saringan itu.
+  if (belumAda()) ({ data, error } = await kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU},${KOLOM_FOTO}`));
   if (belumAda()) ({ data, error } = await kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA},${KOLOM_SALAH_SATU}`));
   if (belumAda()) ({ data, error } = await kueri(`${ANNOUNCEMENT_COLUMNS},${KOLOM_PENERIMA}`));
   if (belumAda()) ({ data, error } = await kueri(ANNOUNCEMENT_COLUMNS));
@@ -135,6 +142,7 @@ async function saringUntukPeserta(
       published_at: item.published_at,
       image_url: item.image_url ?? null,
       image_alt: item.image_alt ?? null,
+      popup: item.popup === true,
     }));
 }
 

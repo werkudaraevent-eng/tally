@@ -50,6 +50,11 @@ export async function POST(request: Request) {
     image_url?: string | null; image_alt?: string | null;
   };
 
+  // Tersembunyi (migrasi 202611060002) tidak dikirim: peserta tidak bisa
+  // membukanya di Dashboard saya. Sebelum migrasinya kolom ini belum ada.
+  const { data: sembunyi } = await client.from("event_announcements").select("hidden_at").eq("id", item.id).maybeSingle();
+  if ((sembunyi as { hidden_at?: string | null } | null)?.hidden_at) return apiError("ANNOUNCEMENT_HIDDEN", 409);
+
   // Penerima yang sama dengan portal, saat ini: syarat dicek terhadap data
   // peserta sekarang. Penerima yang tidak dikenal tidak dikirimi siapa pun.
   const audience = item.audience;

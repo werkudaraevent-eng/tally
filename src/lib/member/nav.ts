@@ -3,6 +3,7 @@ import { landingDefaultLang, landingPath, type LandingLang } from "@/lib/landing
 import type { MemberSession } from "@/lib/member/account";
 import { isUnread, loadMemberAnnouncements, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import type { LoncengItem } from "@/components/member/lonceng-pengumuman";
+import type { PopupItem } from "@/components/member/popup-pengumuman";
 import { altFotoPengumuman } from "@/lib/pengumuman-foto";
 
 /**
@@ -16,7 +17,7 @@ export type NavPeserta = {
   /** Dua huruf awal nama, untuk lingkaran di tombol Dashboard saya. */
   inisial: string;
   /** null: fitur pengumuman belum siap (migrasi belum jalan), lonceng disembunyikan. */
-  lonceng: { items: LoncengItem[]; unread: number } | null;
+  lonceng: { items: LoncengItem[]; unread: number; popup: PopupItem[] } | null;
 };
 
 /** Paling banyak lima di lonceng; sisanya di Dashboard saya. */
@@ -72,6 +73,26 @@ export function itemLonceng(
 }
 
 /**
+ * Pengumuman Show as pop-up untuk peserta ini, yang terbaru dulu. Komponennya
+ * membuka yang pertama yang belum ditutup di perangkat ini. `kunci` memuat
+ * published_at, jadi Notify again membuatnya terbuka lagi.
+ */
+export function itemPopup(data: MemberAnnouncements, event: Pick<EventRow, "time_zone">, lang: LandingLang): PopupItem[] {
+  return data.items
+    .filter((item) => item.popup)
+    .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
+    .map((item) => ({
+      kunci: `${item.id}:${item.published_at}`,
+      title: item.title,
+      body: item.body,
+      link_url: item.link_url,
+      link_label: item.link_label,
+      foto: item.image_url ? { src: item.image_url, alt: altFotoPengumuman(item) } : null,
+      waktu: waktuPengumuman(item.published_at, event.time_zone, lang),
+    }));
+}
+
+/**
  * `data`: pengumuman yang sudah dimuat pemanggil (Dashboard saya memuatnya
  * sekali untuk lonceng dan daftarnya). `unread` dipaksa nol oleh pemanggil
  * yang sedang menampilkan semua pengumuman.
@@ -92,6 +113,6 @@ export async function muatNavPeserta(
     dashboardHref: `${landingPath(slug, lang, utama)}/peserta`,
     keluarAction: `/e/${slug}/api/peserta/keluar`,
     inisial: inisialNama(sesi.name),
-    lonceng: data.ready ? { items: itemLonceng(data, event, lang), unread: opsi.unread ?? data.unread } : null,
+    lonceng: data.ready ? { items: itemLonceng(data, event, lang), unread: opsi.unread ?? data.unread, popup: itemPopup(data, event, lang) } : null,
   };
 }

@@ -5,7 +5,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isEmailConfigured } from "@/lib/email/client";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { tabelBelumAda } from "@/lib/member/pengumuman";
-import { fotoSiap, penerimaSchema, penerimaSiap, periksaPenerima, salahSatuSiap, type Penerima } from "@/lib/pengumuman-penerima-server";
+import { fotoSiap, penerimaSchema, penerimaSiap, periksaPenerima, salahSatuSiap, sembunyiSiap, type Penerima } from "@/lib/pengumuman-penerima-server";
 import { ALT_FOTO_MAX, fotoPengumumanSah } from "@/lib/pengumuman-foto";
 
 /**
@@ -26,6 +26,10 @@ import { ALT_FOTO_MAX, fotoPengumumanSah } from "@/lib/pengumuman-foto";
  * Foto (image_url, image_alt) butuh migrasi 202611060001. Sebelum itu kolomnya
  * tidak dibaca, kolom Photo tidak tampil (`photo_ready` false), dan menyimpan
  * foto dijawab 409.
+ *
+ * Sembunyikan (hidden_at) dan Show as pop-up (popup) butuh migrasi
+ * 202611060002 (`hide_ready`). Sebelum itu popup true dijawab 409. Hide, Show
+ * dan Notify again lewat /api/admin/pengumuman/status.
  */
 
 const KOLOM = "id,title,body,link_url,link_label,audience,pinned,published_at,email_summary,created_at,updated_at";
@@ -33,16 +37,17 @@ const KOLOM_PENERIMA = `${KOLOM},audience_rules,audience_ids`;
 const KOLOM_SALAH_SATU = `${KOLOM_PENERIMA},audience_any`;
 const KOLOM_FOTO = "image_url,image_alt";
 
-type Siap = { penerima: boolean; salahSatu: boolean; foto: boolean };
+type Siap = { penerima: boolean; salahSatu: boolean; foto: boolean; sembunyi: boolean };
 
 async function kesiapan(): Promise<Siap> {
-  const [penerima, salahSatu, foto] = await Promise.all([penerimaSiap(), salahSatuSiap(), fotoSiap()]);
-  return { penerima, salahSatu: penerima && salahSatu, foto };
+  const [penerima, salahSatu, foto, sembunyi] = await Promise.all([penerimaSiap(), salahSatuSiap(), fotoSiap(), sembunyiSiap()]);
+  return { penerima, salahSatu: penerima && salahSatu, foto, sembunyi };
 }
 
 const kolomBaca = (siap: Siap) => {
   const dasar = siap.salahSatu ? KOLOM_SALAH_SATU : siap.penerima ? KOLOM_PENERIMA : KOLOM;
-  return siap.foto ? `${dasar},${KOLOM_FOTO}` : dasar;
+  const denganFoto = siap.foto ? `${dasar},${KOLOM_FOTO}` : dasar;
+  return siap.sembunyi ? `${denganFoto},hidden_at,popup` : denganFoto;
 };
 
 const fotoSchema = z
@@ -80,6 +85,7 @@ const isiSchema = z.object({
     .nullable()
     .optional(),
   pinned: z.boolean().default(false),
+  popup: z.boolean().optional(),
 });
 
 /**
@@ -149,6 +155,7 @@ export async function GET(request: Request) {
     targeting_ready: siap.penerima,
     match_any_ready: siap.salahSatu,
     photo_ready: siap.foto,
+    hide_ready: siap.sembunyi,
   });
 }
 
@@ -157,7 +164,7 @@ export async function POST(request: Request) {
   if (auth.response) return auth.response;
   const parsed = buatSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  const { audience = "semua", audience_rules, audience_ids, audience_any, image_url, image_alt, ...isi } = parsed.data;
+  const { audience = "semua", audience_rules, audience_ids, audience_any, image_url, image_alt, popup, ...isiDasar } = parsed.data;
   const sah = await periksaPenerima({ audience, audience_rules, audience_ids, audience_any }, auth.scope.event, auth.scope.role === "custom");
   if ("galat" in sah) return sah.galat ? apiError("VALIDATION_ERROR", 422, { message: sah.galat }) : apiError("INTERNAL_ERROR", 500);
   const siap = await kesiapan();
@@ -165,6 +172,8 @@ export async function POST(request: Request) {
   if (!penerima) return belumBisa(sah.penerima, siap);
   const foto = fotoTulis({ image_url, image_alt }, siap);
   if (!foto) return apiError("ANNOUNCEMENT_PHOTO_NOT_READY", 409);
+  if (popup && !siap.sembunyi) return apiError("ANNOUNCEMENT_HIDE_NOT_READY", 409);
+  const isi = siap.sembunyi && popup !== undefined ? { ...isiDasar, popup } : isiDasar;
 
   const client = getSupabaseServiceClient();
   const { data, error } = await client
@@ -189,11 +198,12 @@ export async function PATCH(request: Request) {
   if (auth.response) return auth.response;
   const parsed = ubahSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
-  const { id, audience, audience_rules, audience_ids, audience_any, image_url, image_alt, ...isiTeks } = parsed.data;
+  const { id, audience, audience_rules, audience_ids, audience_any, image_url, image_alt, popup, ...isiTeks } = parsed.data;
   const siap = await kesiapan();
   const foto = fotoTulis({ image_url, image_alt }, siap);
   if (!foto) return apiError("ANNOUNCEMENT_PHOTO_NOT_READY", 409);
-  const isi = { ...isiTeks, ...foto };
+  if (popup && !siap.sembunyi) return apiError("ANNOUNCEMENT_HIDE_NOT_READY", 409);
+  const isi = { ...isiTeks, ...foto, ...(siap.sembunyi && popup !== undefined ? { popup } : {}) };
   let ubah: Record<string, unknown> = isi;
   // Penerima selalu dikirim utuh: audience bersama syarat atau pesertanya.
   if (audience) {
