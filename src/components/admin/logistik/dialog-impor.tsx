@@ -150,7 +150,8 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
         rencana.busBaru.length > 0 ? plural(rencana.busBaru.length, "vehicle") : null,
       ].filter(Boolean)
     : [];
-  const kamarDiubah = rencana?.kamarUbah?.length ?? 0;
+  const ubahPerKamar = satuPerKamar(rencana?.kamarUbah ?? []);
+  const kamarDiubah = ubahPerKamar.length;
   const tampil = (rencana?.baris ?? []).filter((b) => !hanyaTolak || b.status === "tolak");
   const sibuk = proses !== null;
 
@@ -308,7 +309,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                 />
               ) : null}
               {rencana.kolomDibaca && rencana.kolomDibaca.length > 0 ? <KolomDibaca kolom={rencana.kolomDibaca} /> : null}
-              {kamarDiubah > 0 ? <KamarDiubah kamar={rencana.kamarUbah!} /> : null}
+              {kamarDiubah > 0 ? <KamarDiubah kamar={ubahPerKamar} /> : null}
 
               {rencana.baris.length === 0 ? (
                 <p className="rounded-md border border-outline-variant px-4 py-6 text-center text-body-medium text-on-surface-variant">
@@ -501,6 +502,16 @@ function KolomDibaca({ kolom }: { kolom: NonNullable<Rencana["kolomDibaca"]> }) 
 
 const ISIAN_KAMAR: Array<[keyof KamarUbah, string]> = [["room_number", "Room number"], ["label", "Label"], ["bed_type", "Bed"], ["room_type", "Room type"]];
 
+/**
+ * Satu baris per kamar dengan keadaan akhirnya. Rencana bisa menulis kamar yang
+ * sama dua kali (nomornya dilepas dulu, lalu diberi nomor barunya).
+ */
+function satuPerKamar(kamar: KamarUbah[]): KamarUbah[] {
+  const perId = new Map<number, KamarUbah>();
+  for (const k of kamar) perId.set(k.id, { ...perId.get(k.id), ...k, nama: perId.get(k.id)?.nama ?? k.nama });
+  return [...perId.values()];
+}
+
 /** Kamar yang sudah ada dan isiannya diubah berkas, satu isian per kolom. */
 function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
   const kolom = ISIAN_KAMAR.filter(([isian]) => kamar.some((k) => k[isian] !== undefined));
@@ -515,8 +526,8 @@ function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
           </tr>
         </thead>
         <tbody>
-          {kamar.slice(0, BATAS_TAMPIL).map((k, i) => (
-            <tr key={`${k.id}-${i}`} className="h-9 border-b border-outline-variant last:border-b-0">
+          {kamar.slice(0, BATAS_TAMPIL).map((k) => (
+            <tr key={k.id} className="h-9 border-b border-outline-variant last:border-b-0">
               <td className="px-4 text-on-surface">{k.nama}</td>
               {kolom.map(([isian]) => <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] === null ? "To follow" : k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
             </tr>

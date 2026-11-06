@@ -572,11 +572,36 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   );
   const labelDipecah = pecahan?.dipecah ?? [];
 
+  const labelBaris = (sel1: string[], i: number) => (opsi.labelSatuKamar ? undefined : pecahan?.labelBaris.get(i)) ?? labelKamar(sel1);
+  // Label yang di berkas tetap memakai nomornya sekarang dibaca lebih dulu:
+  // pemegang nomor menang atas label lain yang menyebut nomor itu (salah ketik
+  // atau malam lain), di baris mana pun ia berada.
+  const pemegangTetap = new Set<string>();
   isi.forEach((sel1, i) => {
+    const hotel = hotelTetap ?? rapi(sel1[kolom.hotel!]);
+    const label = labelBaris(sel1, i);
+    const nomor = nomorKamar(sel1);
+    const hotelAda = hotel ? hotelPerNama.get(kunci(hotel)) : undefined;
+    if (!hotelAda || !label || !nomor) return;
+    const kamar = kamarPerLabel.get(`${hotelAda.id}\u0000${kunci(label)}`);
+    if (kamar?.room_number && kunci(kamar.room_number) === kunci(nomor)) pemegangTetap.add(`${kunci(hotel)}\u0000L${kunci(label)}`);
+  });
+  const urutan = isi.map((sel1, i) => i);
+  if (pemegangTetap.size > 0) {
+    const dulu = (i: number) => {
+      const hotel = hotelTetap ?? rapi(isi[i][kolom.hotel!]);
+      const label = labelBaris(isi[i], i);
+      return label && pemegangTetap.has(`${kunci(hotel)}\u0000L${kunci(label)}`) ? 0 : 1;
+    };
+    urutan.sort((a, b) => dulu(a) - dulu(b) || a - b);
+  }
+
+  urutan.forEach((i) => {
+    const sel1 = isi[i];
     const nomorBaris = lebar ? lebar.nomorAsli[i] : mulai + i + 1;
     const hotel = hotelTetap ?? rapi(sel1[kolom.hotel!]);
     const nomor = nomorKamar(sel1);
-    const label = (opsi.labelSatuKamar ? undefined : pecahan?.labelBaris.get(i)) ?? labelKamar(sel1);
+    const label = labelBaris(sel1, i);
     // Baris berkamar: punya nomor, atau label panitia (nomornya menyusul).
     const adaKamar = Boolean(nomor || label);
     const kode = kolom.kode !== undefined ? rapi(sel1[kolom.kode]) : "";
@@ -727,6 +752,11 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
     malamBaris.set(baru, malam);
     barisOrang.set(hasil.id, [...sebelumnya, { baris: baru, hotelKunci: kunci(hotel), hotelId: hotelAda?.id ?? null, hotel: hotelAda?.name ?? hotel, grup: grup ?? null, malam, kamar: Boolean(grup), diSini }]);
   });
+  // Kembali ke urutan berkas untuk pratinjau (stabil: satu baris Excel bisa jadi dua).
+  if (pemegangTetap.size > 0) {
+    baris.sort((a, b) => a.baris - b.baris);
+    for (const daftar of barisOrang.values()) daftar.sort((a, b) => a.baris.baris - b.baris.baris);
+  }
 
   // Orang dengan beberapa baris (pindah hotel atau kamar): bila satu barisnya
   // ditolak, juga karena kamarnya penuh atau jenis kelaminnya berbeda, semua
@@ -921,6 +951,8 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   // label untuk kamar bernomor, kasur, jenis kamar. Isian kosong tidak
   // menghapus apa pun.
   const kamarUbah: KamarUbah[] = [];
+  // "GH118 · 718": label dan nomor sekarang, supaya kamar yang nomornya ditukar tetap dikenali.
+  const namaUbah = (k: KeadaanAcara["rooms"][number]) => [k.label, k.room_number].filter(Boolean).join(" · ") || namaKamar(k);
   // Label lama dilepas dulu (label unik per hotel), baru dipasang di kamar
   // bernomornya. Kamar lama yang kosong sesudah impor dihapus.
   const kamarHapus: number[] = [];
@@ -928,17 +960,17 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   // bila berkas memberi kamar itu nomor baru, nomor barunya ditulis sesudahnya.
   for (const grup of kelompok.values()) {
     if (grup.galat || !grup.ambilDari) continue;
-    kamarUbah.push({ id: grup.ambilDari.id, nama: namaKamar(grup.ambilDari), hotel: grup.hotel, room_number: null });
+    kamarUbah.push({ id: grup.ambilDari.id, nama: namaUbah(grup.ambilDari), hotel: grup.hotel, room_number: null });
   }
   for (const grup of kelompok.values()) {
     if (grup.galat || !grup.lepasLabel || !grup.label) continue;
-    kamarUbah.push({ id: grup.lepasLabel.id, nama: namaKamar(grup.lepasLabel), hotel: grup.hotel, label: `${grup.label} (old)` });
+    kamarUbah.push({ id: grup.lepasLabel.id, nama: namaUbah(grup.lepasLabel), hotel: grup.hotel, label: `${grup.label} (old)` });
     kamarHapus.push(grup.lepasLabel.id);
   }
   for (const grup of kelompok.values()) {
     const ada = grup.ada;
     if (!ada || grup.galat || grup.gabungKe) continue;
-    const ubah: KamarUbah = { id: ada.id, nama: namaKamar(ada), hotel: grup.hotel };
+    const ubah: KamarUbah = { id: ada.id, nama: namaUbah(ada), hotel: grup.hotel };
     const dilepas = [...kelompok.values()].some((g) => !g.galat && g.ambilDari?.id === ada.id);
     if (grup.nomor !== null && (grup.nomor !== ada.room_number || dilepas)) ubah.room_number = grup.nomor;
     if (grup.label && grup.label !== ada.label) ubah.label = grup.label;

@@ -574,7 +574,7 @@ assert.deepEqual(nomorDatang.kamarUbah, [{ id: 40, nama: "Kamar 01", hotel: "Mul
 // Nomor kosong lagi tidak menghapus nomor yang sudah ada; jenis yang berubah ikut diperbarui.
 const tanpaNomor = rencanaKamar(panitia("").map((b, i) => (i > 0 ? [b[0], b[1], "KING", ...b.slice(3)] : b)),
   { ...sudah, rooms: [...bebas.rooms, { ...sudah.rooms[1], room_number: "1301" }] });
-assert.deepEqual(tanpaNomor.kamarUbah, [{ id: 40, nama: "1301", hotel: "Mulia", bed_type: "King" }]);
+assert.deepEqual(tanpaNomor.kamarUbah, [{ id: 40, nama: "Kamar 01 · 1301", hotel: "Mulia", bed_type: "King" }]);
 // Nomor milik kamar tanpa label (dibuat dialog Stays): kamar bernomor itu
 // memakai label dari berkas; label lama dilepas dulu dan kamarnya dihapus bila kosong.
 const ambil = rencanaKamar(panitia("1208"), sudah);
@@ -592,7 +592,7 @@ assert.deepEqual(bentrok.nomorBentrok, [{ hotel: "Mulia", nomor: "1305", labelBe
 // "Use the numbers in this file": nomornya pindah ke Kamar 01, Kamar 05 menjadi nomor menyusul (dilepas paling awal).
 const ikut = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"], ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"]], lainLabel, { nomorIkutBerkas: true });
 assert.notEqual(ikut.baris[0].status, "tolak");
-assert.deepEqual(ikut.kamarUbah?.[0], { id: 41, nama: "1305", hotel: "Mulia", room_number: null });
+assert.deepEqual(ikut.kamarUbah?.[0], { id: 41, nama: "Kamar 05 · 1305", hotel: "Mulia", room_number: null });
 assert.deepEqual(ikut.kamarUbah?.find((k) => k.id === 40)?.room_number, "1305");
 // Tukar nomor di berkas: Kamar 05 diberi 1306, Kamar 01 mengambil 1305.
 const tukar2 = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"], ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"], ["Kamar 05", "1306", "Budi Santoso", "06/11/2026", "08/11/2026"]], lainLabel, { nomorIkutBerkas: true });
@@ -691,3 +691,15 @@ assert.ok(nomorBelakang.baris.every((b) => b.status !== "tolak"));
 assert.deepEqual(nomorBelakang.labelDipecah?.[0].periode.map((p) => [p.label, p.tetap, p.nomor]), [["GH20 · 5 Nov", false, null], ["GH20", true, "1210"]]);
 
 console.log("impor.check: ok");
+// Pemegang nomor yang tetap memakainya di berkas menang, di baris mana pun:
+// label lain yang menyebut nomor itu pada malam yang sama ditolak, bukan merebutnya.
+for (const opsiNomor of [{ nomorIkutBerkas: true }, {}]) {
+  const salahKetik = rencanaKamar([
+    ["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"],
+    ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"], ["Kamar 05", "1305", "Budi Santoso", "06/11/2026", "08/11/2026"],
+  ], lainLabel, opsiNomor);
+  assert.deepEqual(salahKetik.baris.map((b) => [b.baris, b.status === "tolak"]), [[2, true], [3, false]]);
+  assert.match(salahKetik.baris[0].alasan!, /also given to Kamar 05/);
+  assert.deepEqual(salahKetik.nomorBentrok, []);
+  assert.equal(salahKetik.kamarUbah?.some((k) => k.id === 41 && k.room_number === null), false);
+}
