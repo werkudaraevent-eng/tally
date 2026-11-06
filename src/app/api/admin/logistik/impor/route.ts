@@ -227,6 +227,23 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
     dibuat.push(plural(rencana.hotelBaru.length, "hotel"));
   }
 
+  // Kamar yang sudah ada: nomor yang baru datang, label, kasur, jenis kamar.
+  // Ditulis sebelum stay, supaya portal langsung menampilkan nomor barunya, dan
+  // sebelum kamar baru: label lama yang dilepas (" (old)") harus bebas dulu,
+  // dan bila ini gagal belum ada kamar baru yang tertulis setengah.
+  const kamarUbah = rencana.kamarUbah ?? [];
+  for (const ubah of kamarUbah) {
+    const { id, room_number, label, room_type, bed_type } = ubah;
+    const { error } = await db.from("lodging_rooms")
+      .update({ room_number, label, room_type, bed_type, updated_at: new Date().toISOString() } as never)
+      .eq("id", id).eq("event_id", eventId);
+    if (error) {
+      return { galat: error.code === "23505"
+        ? `Room ${room_number ?? label ?? ubah.nama} already exists in this hotel. Reload the page, then import again.`
+        : "Rooms could not be updated. Reload the page, then import again." };
+    }
+  }
+
   // Kamar baru ditunjuk lewat kuncinya di rencana (belum punya id).
   const kamarBaruId = new Map<string, number>();
   if (rencana.kamarBaru.length > 0) {
@@ -252,21 +269,6 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
       if (baris) kamarBaruId.set(kamar.kunci, baris.id);
     }
     dibuat.push(plural(rencana.kamarBaru.length, "room"));
-  }
-
-  // Kamar yang sudah ada: nomor yang baru datang, label, kasur, jenis kamar.
-  // Ditulis sebelum stay, supaya portal langsung menampilkan nomor barunya.
-  const kamarUbah = rencana.kamarUbah ?? [];
-  for (const ubah of kamarUbah) {
-    const { id, room_number, label, room_type, bed_type } = ubah;
-    const { error } = await db.from("lodging_rooms")
-      .update({ room_number, label, room_type, bed_type, updated_at: new Date().toISOString() } as never)
-      .eq("id", id).eq("event_id", eventId);
-    if (error) {
-      return { galat: error.code === "23505"
-        ? `Room ${room_number ?? label ?? ubah.nama} already exists in this hotel. Reload the page, then import again.`
-        : "Rooms could not be updated. Reload the page, then import again." };
-    }
   }
 
   // Semua stay akhir tiap orang ditulis dengan satu `replace_stays`: stay lama
@@ -312,6 +314,12 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
         sisa = lagi.map((u) => u.item);
       }
     }
+  }
+  // Kamar label lama yang labelnya diserahkan ke kamar bernomornya: dihapus
+  // bila sudah kosong. Yang masih berpenghuni tetap ada dengan akhiran " (old)".
+  for (const id of rencana.kamarHapus ?? []) {
+    const { count } = await db.from("lodging_assignments").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("room_id", id);
+    if (count === 0) await db.from("lodging_rooms").delete().eq("id", id).eq("event_id", eventId);
   }
   return { masuk, dibuat, gagal, diubah: kamarUbah.length };
 }

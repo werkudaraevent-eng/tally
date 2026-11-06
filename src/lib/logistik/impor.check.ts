@@ -575,20 +575,17 @@ assert.deepEqual(nomorDatang.kamarUbah, [{ id: 40, nama: "Kamar 01", hotel: "Mul
 const tanpaNomor = rencanaKamar(panitia("").map((b, i) => (i > 0 ? [b[0], b[1], "KING", ...b.slice(3)] : b)),
   { ...sudah, rooms: [...bebas.rooms, { ...sudah.rooms[1], room_number: "1301" }] });
 assert.deepEqual(tanpaNomor.kamarUbah, [{ id: 40, nama: "1301", hotel: "Mulia", bed_type: "King" }]);
-// Nomor milik kamar tanpa label (dibuat dialog Stays): kamar label ini mengambil
-// nomornya; nomor dilepas dulu dari kamar lama, orangnya tidak pindah.
-const ambil = rencanaKamar(panitia("", "1208"), sudah);
-assert.deepEqual(ambil.baris.map((b) => b.status), ["tetap", "tetap"]);
-assert.deepEqual(ambil.kamarUbah, [{ id: 10, nama: "1208", hotel: "Mulia", room_number: null }, { id: 40, nama: "Kamar 01", hotel: "Mulia", room_number: "1208" }]);
-// Nomor milik kamar berlabel lain, baris bertanggal: rombongan lain di kamar
-// yang sama (5–6 lalu 6–8 Nov), orangnya masuk kamar itu.
+// Nomor milik kamar tanpa label (dibuat dialog Stays): kamar bernomor itu
+// memakai label dari berkas; label lama dilepas dulu dan kamarnya dihapus bila kosong.
+const ambil = rencanaKamar(panitia("1208"), sudah);
+assert.deepEqual(ambil.baris.map((b) => b.status), ["pindah", "pindah"]);
+assert.deepEqual(ambil.akhir.map((o) => o.stays[0].kamar), [{ id: 10 }, { id: 10 }]);
+assert.deepEqual(ambil.kamarUbah, [{ id: 40, nama: "Kamar 01", hotel: "Mulia", label: "Kamar 01 (old)" }, { id: 10, nama: "1208", hotel: "Mulia", label: "Kamar 01", room_type: "Deluxe", bed_type: "Twin" }]);
+assert.deepEqual(ambil.kamarHapus, [40]);
+// Nomor milik kamar berlabel lain: tetap ditolak, juga bertanggal (berkas bisa
+// menomori ulang kamar itu, jadi nomor lamanya bukan bukti kamar yang sama).
 const lainLabel = { ...sudah, rooms: [...bebas.rooms, sudah.rooms[1], { id: 41, hotel_id: 1, room_number: "1305", label: "Kamar 05", room_type: null, bed_type: null, capacity: 2 }] };
-const gabungAda = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"], ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"]], lainLabel);
-assert.equal(gabungAda.baris[0].status, "pindah");
-assert.deepEqual(gabungAda.akhir[0].stays[0].kamar, { id: 41 });
-assert.deepEqual(gabungAda.kamarUbah, []);
-// Tanpa tanggal tetap ditolak: tidak bisa dibedakan dari salah ketik.
-const bentrok = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA"], ["Kamar 01", "1305", "Andi Pratama"]], lainLabel);
+const bentrok = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"], ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"]], lainLabel);
 assert.match(bentrok.baris[0].alasan!, /Room 1305 already exists as Kamar 05/);
 assert.deepEqual(bentrok.kamarUbah, []);
 // Dua label baru dengan nomor yang sama di berkas, bertanggal: satu kamar.
@@ -599,6 +596,22 @@ const gabungBerkas = rencanaKamar([
 assert.deepEqual(gabungBerkas.baris.map((b) => b.status), ["masuk", "masuk"]);
 assert.equal(gabungBerkas.kamarBaru.length, 1);
 assert.deepEqual(gabungBerkas.akhir.map((o) => o.stays[0].kamar), [{ baru: gabungBerkas.kamarBaru[0].kunci }, { baru: gabungBerkas.kamarBaru[0].kunci }]);
+// Malam yang bertabrakan dengan label lain bernomor sama: ditolak (salah ketik).
+const tabrakBerkas = rencanaKamar([
+  ["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"],
+  ["Kamar 01", "1401", "Andi Pratama", "05/11/2026", "07/11/2026"], ["Kamar 02", "1401", "Budi Santoso", "06/11/2026", "08/11/2026"],
+], bebas);
+assert.deepEqual(tabrakBerkas.baris.map((b) => b.status), ["masuk", "tolak"]);
+assert.match(tabrakBerkas.baris[1].alasan!, /same nights/);
+// Sudah di kamar labelnya sendiri: digabung tetap tercatat pindah, bukan "tetap".
+const sudahDua = { ...bebas, rooms: [...bebas.rooms, { id: 50, hotel_id: 1, room_number: null, label: "Kamar 01", room_type: null, bed_type: null, capacity: 2 }, { id: 51, hotel_id: 1, room_number: null, label: "Kamar 02", room_type: null, bed_type: null, capacity: 2 }],
+  lodging: [{ participant_id: "a", hotel_id: 1, room_id: 50, check_in_at: "2026-11-05T07:00:00Z", check_out_at: "2026-11-06T05:00:00Z" }, { participant_id: "b", hotel_id: 1, room_id: 51, check_in_at: "2026-11-06T07:00:00Z", check_out_at: "2026-11-08T05:00:00Z" }] };
+const gabungAda = rencanaKamar([
+  ["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"],
+  ["Kamar 01", "1401", "Andi Pratama", "05/11/2026", "06/11/2026"], ["Kamar 02", "1401", "Budi Santoso", "06/11/2026", "08/11/2026"],
+], sudahDua);
+assert.equal(gabungAda.baris[1].status, "pindah");
+assert.deepEqual(gabungAda.akhir.find((o) => o.participant_id === "b")?.stays[0].kamar, { id: 50 });
 // Dua label diberi nomor yang sama di berkas: label kedua ditolak.
 const ganda = rencanaKamar([
   ["KAMAR", "ROOM NUMBER", "NAMA"], ["Kamar 01", "1301", "Andi Pratama"], ["Kamar 02", "1301", "Budi Santoso"],
