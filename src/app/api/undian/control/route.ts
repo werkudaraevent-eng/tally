@@ -80,6 +80,14 @@ const postSchema = z.object({
   on: z.boolean().optional(),
   prize_id: z.number().int().positive().nullable().optional(),
   winner_id: z.number().int().positive().optional(),
+  /**
+   * Untuk aksi `decide`: beberapa pemenang sekaligus ("Mark all N present",
+   * "Release backups"). Dulu klien mengirim satu permintaan per nama, berurutan,
+   * dan memuat ulang state di antara setiap nama; 20 pemenang berarti 60
+   * panggilan dan operator menunggu di atas panggung. Semua nama diputuskan
+   * dalam satu pembaruan: semua berhasil atau tidak ada yang berubah.
+   */
+  winner_ids: z.array(z.number().int().positive()).min(1).max(100).optional(),
   status: z.enum(["confirmed", "rejected"]).optional(),
   reason: z.string().trim().max(200).optional(),
   /**
@@ -403,63 +411,89 @@ export async function POST(request: Request) {
 
     // -----------------------------------------------------------------------
     case "decide": {
-      if (!parsed.data.winner_id || !parsed.data.status) return apiError("VALIDATION_ERROR", 422);
-      const { data: winner } = await client
+      const status = parsed.data.status;
+      const ids = [...new Set(parsed.data.winner_ids ?? (parsed.data.winner_id ? [parsed.data.winner_id] : []))];
+      if (ids.length === 0 || !status) return apiError("VALIDATION_ERROR", 422);
+      const { data: winnerRows, error: winnerError } = await client
         .from("undian_winners")
         .select("id,prize_id,session_id,display_name,status")
         .eq("event_id", eventId)
-        .eq("id", parsed.data.winner_id)
-        .maybeSingle();
-      if (!winner) return apiError("UNDIAN_WINNER_NOT_FOUND", 404);
-      const current = winner as { id: number; prize_id: number; session_id: number | null; display_name: string; status: string };
+        .in("id", ids);
+      if (winnerError) return apiError("INTERNAL_ERROR", 500);
+      const winners = (winnerRows ?? []) as { id: number; prize_id: number; session_id: number | null; display_name: string; status: string }[];
+      if (winners.length !== ids.length) return apiError("UNDIAN_WINNER_NOT_FOUND", 404);
       // Sudah diputuskan berarti hadiahnya sudah diserahkan atau sudah diundi
       // ulang. Membalik keputusan lewat endpoint ini akan membuat dua orang
-      // memegang klaim atas satu hadiah yang sama.
-      if (current.status !== "pending") return apiError("UNDIAN_WINNER_DECIDED", 409);
+      // memegang klaim atas satu hadiah yang sama. Satu nama yang sudah
+      // diputuskan (mis. operator lain di tab lain) menggagalkan seluruh
+      // permintaan, supaya panel memuat ulang dan operator melihat keadaan nyata.
+      if (winners.some((winner) => winner.status !== "pending")) return apiError("UNDIAN_WINNER_DECIDED", 409);
 
-      // Pengaman kuota di server. Cadangan yang disahkan juga memegang hadiah:
-      // tanpa pemeriksaan ini, "sahkan semua" (atau dua operator di dua tab)
-      // bisa mengesahkan pemenang utama DAN cadangannya untuk hadiah berkuota 1.
-      if (parsed.data.status === "confirmed") {
-        const { data: prizeRow } = await client
-          .from("undian_prizes")
-          .select("winner_quota")
-          .eq("event_id", eventId)
-          .eq("id", current.prize_id)
-          .maybeSingle();
-        const quota = (prizeRow as { winner_quota: number } | null)?.winner_quota;
-        if (typeof quota === "number") {
+      // Pengaman kuota di server, dihitung per (hadiah, sesi). Cadangan yang
+      // disahkan juga memegang hadiah: tanpa pemeriksaan ini, "sahkan semua"
+      // (atau dua operator di dua tab) bisa mengesahkan pemenang utama DAN
+      // cadangannya untuk hadiah berkuota 1.
+      if (status === "confirmed") {
+        const groups = new Map<string, { prizeId: number; sessionId: number | null; count: number }>();
+        for (const winner of winners) {
+          const key = `${winner.prize_id}:${winner.session_id ?? ""}`;
+          const group = groups.get(key) ?? { prizeId: winner.prize_id, sessionId: winner.session_id, count: 0 };
+          group.count += 1;
+          groups.set(key, group);
+        }
+        for (const group of groups.values()) {
+          const { data: prizeRow } = await client
+            .from("undian_prizes")
+            .select("winner_quota")
+            .eq("event_id", eventId)
+            .eq("id", group.prizeId)
+            .maybeSingle();
+          const quota = (prizeRow as { winner_quota: number } | null)?.winner_quota;
+          if (typeof quota !== "number") continue;
           let confirmedQuery = client
             .from("undian_winners")
             .select("id")
             .eq("event_id", eventId)
-            .eq("prize_id", current.prize_id)
+            .eq("prize_id", group.prizeId)
             .eq("status", "confirmed");
-          confirmedQuery = current.session_id === null
+          confirmedQuery = group.sessionId === null
             ? confirmedQuery.is("session_id", null)
-            : confirmedQuery.eq("session_id", current.session_id);
+            : confirmedQuery.eq("session_id", group.sessionId);
           const { data: confirmedRows, error: countError } = await confirmedQuery;
           if (countError) return apiError("INTERNAL_ERROR", 500);
-          if ((confirmedRows ?? []).length >= quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
+          if ((confirmedRows ?? []).length + group.count > quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
         }
       }
 
-      const { error } = await client
+      // `status = pending` di WHERE: bila tab lain memutuskan salah satu nama di
+      // antara pemeriksaan di atas dan pembaruan ini, nama itu tidak ditimpa.
+      const { data: updated, error } = await client
         .from("undian_winners")
         .update({
-          status: parsed.data.status,
-          reject_reason: parsed.data.status === "rejected" ? parsed.data.reason?.trim() || null : null,
+          status,
+          reject_reason: status === "rejected" ? parsed.data.reason?.trim() || null : null,
           decided_at: now.toISOString(),
           decided_by: auth.user.id,
         } as never)
         .eq("event_id", eventId)
-        .eq("id", current.id);
+        .eq("status", "pending")
+        .in("id", ids)
+        .select("id");
       if (error) return apiError("INTERNAL_ERROR", 500);
+      const changed = new Set(((updated ?? []) as { id: number }[]).map((row) => row.id));
 
-      await audit(eventId, auth.user.id, parsed.data.status === "confirmed" ? "undian_winner_confirm" : "undian_winner_reject", {
-        old: { name: current.display_name, status: "pending" },
-        new: { name: current.display_name, status: parsed.data.status, reason: parsed.data.reason ?? null },
-      });
+      // Satu baris audit per nama, sama seperti sebelumnya, dalam satu insert.
+      const rows = winners.filter((winner) => changed.has(winner.id)).map((winner) => ({
+        event_id: eventId,
+        user_id: auth.user.id,
+        action: status === "confirmed" ? "undian_winner_confirm" : "undian_winner_reject",
+        payload: {
+          old: { name: winner.display_name, status: "pending" },
+          new: { name: winner.display_name, status, reason: parsed.data.reason ?? null },
+        },
+      }));
+      if (rows.length > 0) await client.from("audit_logs").insert(rows as never);
+      if (changed.size !== ids.length) return apiError("UNDIAN_WINNER_DECIDED", 409);
       break;
     }
 

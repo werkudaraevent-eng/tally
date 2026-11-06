@@ -162,6 +162,14 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   // semua orang selama jeda.
   const running = state.phase !== "idle";
 
+  // "Pemenang sebelumnya" berarti undian SEBELUMNYA. Nama rombongan yang sedang
+  // tampil di tengah layar tidak ikut di sini: dulu setiap Mark present
+  // menambah satu nama ke pita ini, pita tumbuh dan beranimasi ulang 20 kali,
+  // dan panggung utama terdorong naik selama operator mengesahkan. Rombongan
+  // ini baru masuk pita setelah layar beralih ke undian berikutnya.
+  const tampilSekarang = new Set(revealed ? state.winners.map((winner) => winner.id).filter((id) => id !== undefined) : []);
+  const pemenangSebelumnya = state.confirmed.filter((winner) => winner.id === undefined || !tampilSekarang.has(winner.id));
+
   const animationProps = {
     roster: state.roster,
     // Pemenang yang dibatalkan operator dijatuhkan dari layar: nama itu sudah
@@ -384,8 +392,8 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
 
         {/* Rekap pemenang yang sudah sah, dibatasi supaya tidak mendorong
             panggung utama keluar layar. */}
-        {state.confirmed.length > 0 && <motion.div
-          key={state.confirmed.length}
+        {pemenangSebelumnya.length > 0 && <motion.div
+          key={pemenangSebelumnya.length}
           className="w-full shrink-0 border-t pt-[1.2vh] text-center"
           style={{ borderColor: `${text}22` }}
           initial={{ opacity: 0, y: "1.5vh" }}
@@ -396,7 +404,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
             PEMENANG SEBELUMNYA
           </p>
           <p className="mt-[0.4vh] line-clamp-2" style={{ fontFamily: headingFont, fontSize: "clamp(10px, 1.3vw, 18px)", opacity: dim(0.7) }}>
-            {state.confirmed.map((winner) => winner.name).join(" · ")}
+            {pemenangSebelumnya.map((winner) => winner.name).join(" · ")}
           </p>
         </motion.div>}
       </>}
