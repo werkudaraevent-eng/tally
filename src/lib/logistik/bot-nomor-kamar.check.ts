@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cariPeserta as cariLengkap, jarakKata, pasanganSekamar, pilihKamar, rapikanNama, rapikanNomor, skorNama } from "./bot-nomor-kamar.ts";
+import { bolehGabung, cariPeserta as cariLengkap, jarakKata, rentangStay, pasanganSekamar, pilihKamar, rapikanNama, rapikanNomor, skorNama } from "./bot-nomor-kamar.ts";
 
 /** Bentuk lama tanpa `kandidat`, supaya uji di bawah tetap ringkas. */
 const cariPeserta = (...args: Parameters<typeof cariLengkap>) => { const hasil: Partial<ReturnType<typeof cariLengkap>> = { ...cariLengkap(...args) }; delete hasil.kandidat; return hasil; };
@@ -130,5 +130,20 @@ assert.deepEqual(pasanganSekamar(["r", "rs"], ["h", "h2"], penghuni), [{ partici
 assert.deepEqual(pasanganSekamar(["rs"], ["h", "h2"], penghuni), []);
 // Nama yang sama untuk keduanya bukan bukti sekamar.
 assert.deepEqual(pasanganSekamar(["r"], ["r"], penghuni), []);
+
+// Gabung kamar: malam 5-6 dan 6-8 tidak bertabrakan (hari check-out = hari check-in).
+const r = (a: string, b: string) => [Date.parse(a), Date.parse(b)] as [number, number];
+const lima = r("2026-11-05T07:00:00Z", "2026-11-06T05:00:00Z");
+const enam = r("2026-11-06T07:00:00Z", "2026-11-08T05:00:00Z");
+assert.equal(bolehGabung([enam, enam], [lima, lima]), true);
+assert.equal(bolehGabung([enam], []), true);
+assert.equal(bolehGabung([enam], [r("2026-11-05T07:00:00Z", "2026-11-07T05:00:00Z")]), false);
+assert.equal(bolehGabung([enam], [null]), false);
+assert.equal(bolehGabung([null], [lima]), false);
+assert.equal(bolehGabung([], [lima]), false);
+// Tanggal stay, lalu kamar, lalu hotel.
+assert.deepEqual(rentangStay(s(10, 1), kamar[0], hotel[0]), r("2026-11-06T07:00:00Z", "2026-11-08T05:00:00Z"));
+assert.deepEqual(rentangStay(s(10, 1, "2026-11-05T07:00:00Z", "2026-11-06T05:00:00Z"), kamar[0], hotel[0]), lima);
+assert.equal(rentangStay(s(20, 2), kamar[2], hotel[1]), null);
 
 console.log("bot-nomor-kamar ok");

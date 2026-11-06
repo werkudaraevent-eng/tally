@@ -262,3 +262,26 @@ export function pilihKamar(input: {
 export function rapikanNomor(nomor: string): string {
   return nomor.replace(/\s+/g, " ").trim();
 }
+
+/**
+ * Rentang menginap sebuah stay: tanggal stay, lalu kamar, lalu hotel (sama
+ * dengan aturan Logistics). Null bila salah satu ujung tidak diketahui.
+ */
+export function rentangStay(stay: StayBot, kamar: KamarBot | undefined, hotel: HotelBot | undefined): [number, number] | null {
+  const masuk = stay.check_in_at ?? kamar?.check_in_at ?? hotel?.check_in_at ?? null;
+  const keluar = stay.check_out_at ?? kamar?.check_out_at ?? hotel?.check_out_at ?? null;
+  if (!masuk || !keluar) return null;
+  const a = Date.parse(masuk);
+  const b = Date.parse(keluar);
+  return Number.isFinite(a) && Number.isFinite(b) && a < b ? [a, b] : null;
+}
+
+/**
+ * Dua kamar boleh digabung (satu kamar fisik dipakai rombongan berbeda di
+ * malam berbeda) hanya bila setiap rentang diketahui dan tidak ada malam
+ * yang bertabrakan. Ragu = tidak boleh.
+ */
+export function bolehGabung(asal: Array<[number, number] | null>, tujuan: Array<[number, number] | null>): boolean {
+  if (!asal.length || asal.some((r) => !r) || tujuan.some((r) => !r)) return false;
+  return asal.every((a) => tujuan.every((b) => !(a![0] < b![1] && b![0] < a![1])));
+}
