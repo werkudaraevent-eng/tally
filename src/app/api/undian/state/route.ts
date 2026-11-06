@@ -2,7 +2,7 @@ import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
-import { normalizeAfterWin, normalizeAnimSpeed, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
+import { MUSIC_COLUMNS, MUSIC_OFF, musicFromRow, normalizeAfterWin, normalizeAnimSpeed, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
 
 // State undian untuk layar panggung. PUBLIK — proyektor berjalan tanpa login.
 //
@@ -64,6 +64,7 @@ const DEFAULT_SETTINGS = {
   show_pool_size: true,
   sound_enabled: true,
   confetti_enabled: true,
+  music: MUSIC_OFF,
   background_color: null,
   text_color: null,
   accent_color: null,
@@ -75,10 +76,15 @@ export async function GET(request: Request) {
   if (!event) return apiErrorPeserta("INTERNAL_ERROR", 404);
   const eventId = event.id;
   const client = getSupabaseServiceClient();
-  const [stateResult, settingsResult] = await Promise.all([
+  const [stateResult, settingsFull] = await Promise.all([
     client.from("undian_state").select(STATE_ROW).eq("event_id", eventId).maybeSingle(),
-    client.from("undian_settings").select(SETTINGS_ROW).eq("event_id", eventId).maybeSingle(),
+    client.from("undian_settings").select(`${SETTINGS_ROW},${MUSIC_COLUMNS}`).eq("event_id", eventId).maybeSingle(),
   ]);
+  // Sebelum migrasi 202611060003_undian_musik kolom musik belum ada (42703):
+  // baca ulang tanpa musik, layar tetap menyala seperti biasa.
+  const settingsResult = settingsFull.error?.code === "42703"
+    ? await client.from("undian_settings").select(SETTINGS_ROW).eq("event_id", eventId).maybeSingle()
+    : settingsFull;
 
   const settingsRow = (settingsResult.data ?? {}) as Record<string, unknown>;
   const settings = {
@@ -91,6 +97,7 @@ export async function GET(request: Request) {
     show_pool_size: settingsRow.show_pool_size !== false,
     sound_enabled: settingsRow.sound_enabled !== false,
     confetti_enabled: settingsRow.confetti_enabled !== false,
+    music: musicFromRow(settingsRow),
     background_color: (settingsRow.background_color as string | null) ?? null,
     text_color: (settingsRow.text_color as string | null) ?? null,
     accent_color: (settingsRow.accent_color as string | null) ?? null,

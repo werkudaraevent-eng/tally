@@ -1057,11 +1057,32 @@ export type UndianDisplaySettings = {
   show_pool_size: boolean;
   sound_enabled: boolean;
   confetti_enabled: boolean;
+  /** Stage display > Music. Mati, atau slot kosong, berarti hening untuk bagian itu. */
+  music: UndianMusic;
   background_color: string | null;
   text_color: string | null;
   accent_color: string | null;
   background_image_url: string | null;
 };
+
+export type UndianMusic = { enabled: boolean; waiting: string | null; drawing: string | null; winner: string | null; volume: number };
+
+export const MUSIC_COLUMNS = "music_enabled,music_waiting_url,music_drawing_url,music_winner_url,music_volume";
+export const MUSIC_OFF: UndianMusic = { enabled: false, waiting: null, drawing: null, winner: null, volume: 80 };
+
+/** Musik panggung dari baris undian_settings. Kolom yang belum ada (sebelum migrasi) = mati. */
+export function musicFromRow(row: Record<string, unknown>): UndianMusic {
+  if (row.music_enabled !== true) return MUSIC_OFF;
+  const url = (value: unknown) => (typeof value === "string" && value ? value : null);
+  const volume = Number(row.music_volume);
+  return {
+    enabled: true,
+    waiting: url(row.music_waiting_url),
+    drawing: url(row.music_drawing_url),
+    winner: url(row.music_winner_url),
+    volume: Number.isFinite(volume) ? Math.min(100, Math.max(0, volume)) : 80,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Ringkasan syarat untuk daftar hadiah

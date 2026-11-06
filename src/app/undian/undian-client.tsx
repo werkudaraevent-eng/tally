@@ -13,6 +13,7 @@ import { WallAnimation } from "./undian-wall";
 import { TunnelAnimation } from "./undian-tunnel";
 import { DrumAnimation, preloadDrum } from "./undian-drum";
 import { DartAnimation3D, preloadDart } from "./undian-dart";
+import { MusicClickHint, useStageMusic } from "./undian-musik";
 
 /**
  * Pergantian blok di panggung: yang lama menyusut-pudar, yang baru mengembang
@@ -89,6 +90,15 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   useEffect(() => {
     confettiRef.current = confettiOn;
   }, [confettiOn]);
+  // Nama pemenang sudah tampil (setelah animasi dan jeda): saat chime berbunyi
+  // dan lagu "saat mengundi" berganti ke lagu pemenang. Untuk animasi tanpa
+  // jeda, tampil seketika bersama revealKey.
+  const [shownKey, setShownKey] = useState("");
+  const namesShown = revealKey !== "" && (!delayedReveal || shownKey === revealKey);
+  const music = state.settings.music;
+  const { needsClick } = useStageMusic(music, state.phase, namesShown);
+  // Lagu pemenang menggantikan chime: dua bunyi bersamaan terdengar seperti galat.
+  const chimeOn = state.settings.sound_enabled && !(music.enabled && music.winner);
   const [seenReveal, setSeenReveal] = useState("");
   if (revealKey !== "" && seenReveal !== revealKey) {
     setSeenReveal(revealKey);
@@ -101,16 +111,17 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   useEffect(() => {
     if (revealKey === "") return;
     if (!delayedReveal) {
-      if (state.settings.sound_enabled) playFanfare();
+      if (chimeOn) playFanfare();
       return;
     }
     const timer = window.setTimeout(() => {
       if (confettiRef.current) setConfettiTrigger((value) => value + 1);
       setBurst((value) => value + 1);
-      if (state.settings.sound_enabled) playFanfare();
+      setShownKey(revealKey);
+      if (chimeOn) playFanfare();
     }, fxDelay);
     return () => window.clearTimeout(timer);
-  }, [revealKey, state.settings.sound_enabled, delayedReveal, fxDelay]);
+  }, [revealKey, chimeOn, delayedReveal, fxDelay]);
 
   // Tabung bola memakai three.js (~150 KB gz). Dimuat begitu hadiah dengan
   // tabung dipilih, saat layar masih menunggu, supaya tidak ada jeda unduhan
@@ -405,6 +416,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
     <footer className="shrink-0 px-[4vw] pb-[2.5vh] pt-[1vh]">
       <BrandFooter branding={branding} textColor={text} variant="led" />
     </footer>
+    {needsClick ? <MusicClickHint /> : null}
     </GreenScreenContext.Provider>
   </main>;
 }

@@ -20,6 +20,7 @@ import { DisplaySettings } from "./display-settings";
 import { EntryImportForm, EntryLists } from "./entry-lists";
 import { PrizeEditor } from "./prize-editor";
 import { FALLBACK, type EntryGroup, type Exclusion, type PoolStat, type Preview, type Settings } from "./types";
+import { BUCKET_MUSIK, type SlotMusik } from "@/lib/undian-musik";
 
 // CMS Undian.
 //
@@ -75,6 +76,7 @@ export default function UndianAdminPage() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   const [uploadingPrizeImage, setUploadingPrizeImage] = useState(false);
+  const [uploadingMusic, setUploadingMusic] = useState<SlotMusik | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importName, setImportName] = useState("");
   const [importText, setImportText] = useState("");
@@ -125,7 +127,7 @@ export default function UndianAdminPage() {
       // hadiah tetap dapat disusun tanpa daftar entri dan daftar pengecualian.
       if (settingsResponse.ok) {
         const raw = (await settingsResponse.json()) as Record<string, unknown>;
-        setSettings({ ...(raw as unknown as Settings), ...normalizeBranding(raw), reveal_delay_seconds: Number(raw.reveal_delay_seconds ?? 0) });
+        setSettings({ ...(raw as unknown as Settings), ...normalizeBranding(raw), reveal_delay_seconds: Number(raw.reveal_delay_seconds ?? 0), music_volume: Number(raw.music_volume ?? 80), music_available: raw.music_available === true });
       }
       if (groupResponse.ok) setGroups((await groupResponse.json()).groups ?? []);
       if (exclusionResponse.ok) setExclusions((await exclusionResponse.json()).exclusions ?? []);
@@ -301,6 +303,14 @@ export default function UndianAdminPage() {
         text_color: settings.text_color,
         accent_color: settings.accent_color,
         background_image_url: settings.background_image_url,
+        // Sebelum migrasi musik kolomnya belum ada: jangan dikirim.
+        ...(settings.music_available ? {
+          music_enabled: settings.music_enabled,
+          music_waiting_url: settings.music_waiting_url,
+          music_drawing_url: settings.music_drawing_url,
+          music_winner_url: settings.music_winner_url,
+          music_volume: settings.music_volume,
+        } : {}),
         ...normalizeBranding(settings as unknown as Record<string, unknown>),
       }),
     });
@@ -311,8 +321,38 @@ export default function UndianAdminPage() {
       setError(failure); toast.error("Could not save settings", failure); return;
     }
     const raw = data as Record<string, unknown>;
-    setSettings({ ...(raw as unknown as Settings), ...normalizeBranding(raw), reveal_delay_seconds: Number(raw.reveal_delay_seconds ?? 0) });
+    setSettings({ ...(raw as unknown as Settings), ...normalizeBranding(raw), reveal_delay_seconds: Number(raw.reveal_delay_seconds ?? 0), music_volume: Number(raw.music_volume ?? 80), music_available: raw.music_available === true });
     toast.success("Settings saved", "The draw screen will update in a few seconds.");
+  }
+
+  /**
+   * Unggah satu lagu langsung dari browser ke storage. Server hanya memberi
+   * signed upload URL di folder event ini; berkasnya tidak lewat fungsi Vercel
+   * karena lagu bisa melebihi batas body-nya.
+   */
+  async function uploadMusic(slot: SlotMusik, file: File) {
+    setUploadingMusic(slot); setError("");
+    const gagal = (failure: string) => {
+      setUploadingMusic(null); setError(failure); toast.error("Could not upload music", failure);
+    };
+    const response = await fetch("/api/admin/undian/music", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slot, name: file.name, type: file.type, size: file.size }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return gagal(data?.error?.details?.file ?? data?.error?.message ?? "Could not upload music.");
+    try {
+      const { supabase } = await import("@/lib/supabase/client");
+      const { error: uploadError } = await supabase.storage.from(BUCKET_MUSIK).uploadToSignedUrl(data.path, data.token, file, { contentType: data.content_type });
+      if (uploadError) return gagal("The upload did not finish. Check the connection and try again.");
+    } catch {
+      return gagal("The upload did not finish. Check the connection and try again.");
+    }
+    setUploadingMusic(null);
+    const key = slot === "waiting" ? "music_waiting_url" : slot === "drawing" ? "music_drawing_url" : "music_winner_url";
+    updateSettings({ [key]: data.url } as Partial<Settings>);
+    toast.info("Music uploaded", "Click Save to apply it.");
   }
 
   async function uploadImage(file: File, target: "background" | "prize") {
@@ -646,8 +686,9 @@ export default function UndianAdminPage() {
         {tab === "display" ? (
           settings && branding ? (
             <DisplaySettings
-              settings={settings} branding={branding} saving={savingSettings} uploading={uploadingBackground}
+              settings={settings} branding={branding} saving={savingSettings} uploading={uploadingBackground} uploadingMusic={uploadingMusic}
               onChange={updateSettings} onSave={() => void saveSettings()} onUpload={(file) => void uploadImage(file, "background")}
+              onUploadMusic={(slot, file) => void uploadMusic(slot, file)}
             />
           ) : !loaded ? <PageLoading /> : (
             <EmptyState

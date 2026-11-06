@@ -36,6 +36,11 @@ export type Settings = {
   reveal_delay_seconds: number;
   background_color: string | null; text_color: string | null; accent_color: string | null;
   background_image_url: string | null;
+  music_enabled: boolean;
+  music_waiting_url: string | null; music_drawing_url: string | null; music_winner_url: string | null;
+  music_volume: number;
+  /** false sampai migrasi 202611060003_undian_musik dijalankan: bagian Music disembunyikan. */
+  music_available: boolean;
 } & Branding;
 
 // Nilai yang ditampilkan <input type="color"> ketika kolomnya masih null. Bukan
