@@ -344,7 +344,14 @@ export default function UndianAdminPage() {
     if (!response.ok) return gagal(data?.error?.details?.file ?? data?.error?.message ?? "Could not upload music.");
     try {
       const { supabase } = await import("@/lib/supabase/client");
-      const { error: uploadError } = await supabase.storage.from(BUCKET_MUSIK).uploadToSignedUrl(data.path, data.token, file, { contentType: data.content_type });
+      const { error: uploadError } = await supabase.storage.from(BUCKET_MUSIK).uploadToSignedUrl(
+        data.path, data.token,
+        // storage-js membungkus Blob dalam FormData dengan type milik berkas itu
+        // sendiri, bukan contentType: .m4a dari Windows (type "") dan "audio/mp3"
+        // ditolak bucket. Salinan dengan type yang sudah dinormalkan server.
+        file.slice(0, file.size, data.content_type),
+        { contentType: data.content_type },
+      );
       if (uploadError) return gagal("The upload did not finish. Check the connection and try again.");
     } catch {
       return gagal("The upload did not finish. Check the connection and try again.");

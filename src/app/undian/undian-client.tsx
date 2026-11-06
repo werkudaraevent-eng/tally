@@ -6,7 +6,7 @@ import { BrandFooter, BrandLogo } from "@/components/brand-header-footer";
 import { LoadingIndicator } from "@/components/m3";
 import { DEFAULT_BRANDING, fontStack, normalizeBranding, scaleClamp, type Branding } from "@/lib/branding";
 import { expressive } from "@/lib/m3/motion";
-import type { UndianState } from "@/lib/undian";
+import { MUSIC_OFF, type UndianState } from "@/lib/undian";
 import { CardsAnimation, ConfettiBurst, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealFxDelayMs, revealSettleMs } from "./undian-animations";
 import { AmbientStage, GREEN_SCREEN_COLOR, GreenScreenContext, RevealBurst, ShineText, useStageDim } from "./undian-stage-fx";
 import { WallAnimation } from "./undian-wall";
@@ -95,7 +95,9 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   // jeda, tampil seketika bersama revealKey.
   const [shownKey, setShownKey] = useState("");
   const namesShown = revealKey !== "" && (!delayedReveal || shownKey === revealKey);
-  const music = state.settings.music;
+  // Green screen untuk vMix: tanpa musik. Biasanya dibuka bersama layar
+  // panggung biasa, dan dua pemutar membuat lagunya berbunyi dua kali.
+  const music = greenScreen ? MUSIC_OFF : state.settings.music;
   const { needsClick } = useStageMusic(music, state.phase, namesShown);
   // Lagu pemenang menggantikan chime: dua bunyi bersamaan terdengar seperti galat.
   const chimeOn = state.settings.sound_enabled && !(music.enabled && music.winner);

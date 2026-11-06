@@ -131,7 +131,7 @@ export function DisplaySettings({
                               </p>
                               <audio controls preload="none" src={url} className="h-9 w-full max-w-sm" aria-label={`${label} music preview`} />
                             </>
-                          ) : <p className="text-body-medium text-on-surface-variant">No music. Silent for this part.</p>}
+                          ) : <p className="text-body-medium text-on-surface-variant">{slot === "winner" ? (settings.sound_enabled ? "No music. The Sound chime plays." : "No music. Silent for this part.") : "No music. Silent for this part."}</p>}
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <UploadButton
