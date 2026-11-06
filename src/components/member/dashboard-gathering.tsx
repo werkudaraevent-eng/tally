@@ -74,6 +74,7 @@ import { QrMini } from "@/components/member/qr-mini";
 import { bagianModern, gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD, SHELL } from "@/components/landing/modern/styles";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
+import { PopupPengumuman } from "@/components/member/popup-pengumuman";
 import { LatarKv, inisialNama as inisialAcara } from "@/components/landing/modern/gathering-app";
 import { TeksKaya } from "@/components/landing/teks-kaya";
 import { teksPolos } from "@/lib/landing-teks-kaya";
@@ -2560,6 +2561,8 @@ export async function DashboardGathering({
           }
         />
         {!pratinjau ? <KerangkaPortal kepala={kepalaTab} garisLabel={tH.loading} /> : null}
+        {/* Bilah atas Horizon bukan LandingNavModern, jadi pop-up dipasang di sini. */}
+        {!pratinjau && navPeserta.lonceng?.popup.length ? <PopupPengumuman items={navPeserta.lonceng.popup} lang={lang} /> : null}
       </>
     );
     return (

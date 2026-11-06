@@ -74,6 +74,12 @@ export async function fotoSiap(): Promise<boolean> {
   return !error;
 }
 
+/** Hide (hidden_at) dan Show as pop-up (popup) dari migrasi 202611060002. */
+export async function sembunyiSiap(): Promise<boolean> {
+  const { error } = await getSupabaseServiceClient().from("event_announcements").select("hidden_at,popup").limit(0);
+  return !error;
+}
+
 /** Id dalam potongan kecil supaya URL PostgREST `in.(...)` tetap pendek. */
 function potong<T>(isi: T[], ukuran = 100): T[][] {
   const hasil: T[][] = [];
