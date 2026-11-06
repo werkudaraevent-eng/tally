@@ -52,6 +52,8 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   const [pilihan, setPilihan] = useState<Pilihan>(null);
   const [saringHotel, setSaringHotel] = useState<string[]>([]);
   const [saringKeadaan, setSaringKeadaan] = useState<string[]>([]);
+  /** Satu malam ("2026-11-06" di zona acara): hanya yang menginap malam itu. */
+  const [malam, setMalam] = useState<string | null>(null);
   const [dialogKamar, setDialogKamar] = useState<DialogKamar>(null);
   const [dialogHotel, setDialogHotel] = useState<DialogHotel>(null);
   const [aturan, setAturan] = useState(false);
@@ -139,6 +141,61 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     return hasil.map((p) => ({ rentang: labelRentang(p.masuk, p.keluar, offset), nama: p.orang.map((o) => o.name).sort((x, y) => x.localeCompare(y, "id")), ids: p.orang.map((o) => o.id) }));
   }
 
+  /** Malam-malam yang dilewati satu stay: masuk 6 Nov keluar 8 Nov = 6 dan 7 Nov. */
+  function malamStay(stay: Stay, hotel: Hotel | undefined): string[] {
+    const { masuk, keluar } = tanggalStay(stay, hotel);
+    if (!masuk || !keluar) return [];
+    const akhir = tanggalZona(keluar, offset);
+    const hasil: string[] = [];
+    for (let t = tanggalZona(masuk, offset); t < akhir && hasil.length < 62;) {
+      hasil.push(t);
+      const d = new Date(`${t}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + 1);
+      t = d.toISOString().slice(0, 10);
+    }
+    return hasil;
+  }
+  const semuaMalam = useMemo(() => {
+    const hotelPeta = new Map(data.hotels.map((hotel) => [hotel.id, hotel]));
+    const set = new Set<string>();
+    for (const baris of data.lodging) if (baris.room_id !== null) for (const t of malamStay(baris, hotelPeta.get(baris.hotel_id))) set.add(t);
+    return [...set].sort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.lodging, data.hotels, offset]);
+  const malamIni = tanggalZona(new Date().toISOString(), offset);
+
+  /**
+   * Baris sel kamar. Kamar yang dipakai rombongan berbeda di malam berbeda
+   * (satu nomor, 5–6 Nov lalu 6–8 Nov) diberi judul kecil per periode,
+   * supaya 2 + 2 orang tidak terbaca 4 orang sekamar. Saringan Night
+   * menyisakan yang menginap malam itu saja, tanpa judul.
+   */
+  function barisKamar(kamar: Kamar) {
+    const hotel = hotelById.get(kamar.hotel_id);
+    const semua = masalah(kamar).semua.filter(({ stay }) => malam === null || malamStay(stay, hotel).includes(malam));
+    const grup: Array<{ awal: number; akhir: number; masuk: string | null; keluar: string | null; isi: typeof semua }> = [];
+    for (const x of semua) {
+      const [a, b] = x.r ?? [-Infinity, Infinity];
+      const { masuk, keluar } = tanggalStay(x.stay, hotel);
+      const akhir = grup.at(-1);
+      if (akhir && (malam !== null || a < akhir.akhir)) {
+        akhir.isi.push(x);
+        if (b > akhir.akhir) { akhir.akhir = b; akhir.keluar = keluar; }
+      } else grup.push({ awal: a, akhir: b, masuk, keluar, isi: [x] });
+    }
+    const pakaiJudul = grup.length > 1;
+    const baris: Array<{ jenis: "judul"; label: string; malamIni: boolean } | { jenis: "orang"; x: (typeof semua)[number]; terisi: number | null }> = [];
+    for (const g of grup) {
+      if (pakaiJudul) {
+        const awal = g.masuk ? tanggalZona(g.masuk, offset) : "";
+        const akhir = g.keluar ? tanggalZona(g.keluar, offset) : "";
+        baris.push({ jenis: "judul", label: labelRentang(g.masuk, g.keluar, offset) ?? "No dates", malamIni: awal <= malamIni && malamIni < akhir });
+      }
+      g.isi.forEach((x, i) => baris.push({ jenis: "orang", x, terisi: pakaiJudul && i === 0 ? jumlahOrang(g.isi) : null }));
+    }
+    return { semua, baris, pakaiJudul, terisi: malam === null ? masalah(kamar).puncak : jumlahOrang(semua) };
+  }
+
   function keadaan(kamar: Kamar): Keadaan {
     const { isi, puncak, lebih, campuran } = masalah(kamar);
     if (lebih || campuran) return "perlu-dicek";
@@ -148,13 +205,14 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
 
   const kamarTampil = data.rooms.filter((kamar) => {
     if (saringHotel.length > 0 && !saringHotel.includes(String(kamar.hotel_id))) return false;
+    if (malam !== null && barisKamar(kamar).semua.length === 0) return false;
     if (saringKeadaan.length > 0 && !saringKeadaan.some((s) => (s === "menyusul" ? kamar.room_number === null : s === "bernomor" ? kamar.room_number !== null : s === keadaan(kamar)))) return false;
     return true;
   });
   // Kolom Label hanya ada bila salah satu kamar mengisinya: acara lama tidak berubah.
   const adaLabel = data.rooms.some((kamar) => kamar.label);
   const perluDicek = data.rooms.filter((kamar) => keadaan(kamar) === "perlu-dicek").length;
-  const menyaringLuar = saringHotel.length > 0 || saringKeadaan.length > 0;
+  const menyaringLuar = saringHotel.length > 0 || saringKeadaan.length > 0 || malam !== null;
 
   // ---- Tulis ---------------------------------------------------------------
   /** Keluar dari kamar, tetap tamu hotelnya dengan malam yang sama (kembali ke "Room to follow"). */
@@ -187,13 +245,13 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   );
 
   /** Tanggal masuk/keluar per penghuni, "Fri 6 Nov" tanpa hari supaya kolomnya sempit. */
-  const tanggalPenghuni = (kamar: Kamar, sisi: "masuk" | "keluar") => masalah(kamar).semua.map(({ stay }) => {
+  const tanggalPenghuni = (kamar: Kamar, sisi: "masuk" | "keluar") => barisKamar(kamar).semua.map(({ stay }) => {
     const t = tanggalStay(stay, hotelById.get(kamar.hotel_id));
     const v = sisi === "masuk" ? t.masuk : t.keluar;
     return v ? labelTanggal(tanggalZona(v, offset)).slice(4) : "";
   });
   /** Untuk Export: tanggal ISO (2026-11-06) supaya bisa diurut di Excel. */
-  const tanggalPenghuniCsv = (kamar: Kamar, sisi: "masuk" | "keluar") => masalah(kamar).semua.map(({ stay }) => {
+  const tanggalPenghuniCsv = (kamar: Kamar, sisi: "masuk" | "keluar") => barisKamar(kamar).semua.map(({ stay }) => {
     const t = tanggalStay(stay, hotelById.get(kamar.hotel_id));
     const v = sisi === "masuk" ? t.masuk : t.keluar;
     return v ? tanggalZona(v, offset) : "";
@@ -203,6 +261,21 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     if (!s) return "";
     const t = tanggalStay(s, hotelById.get(kamar.hotel_id));
     return (sisi === "masuk" ? t.masuk : t.keluar) ?? "";
+  };
+  /** Sel per penghuni yang ikut judul periode: baris judul dibiarkan kosong supaya tetap sejajar. */
+  const selPerOrang = (kamar: Kamar, isi: (orang: LogistikPeserta, stay: Stay) => string) => {
+    const { baris, semua } = barisKamar(kamar);
+    if (semua.length === 0) return <span className="block h-7 leading-7 text-on-surface-variant">{EMPTY_VALUE}</span>;
+    return baris.map((b, i) => {
+      if (b.jenis === "judul") return <span key={i} aria-hidden className="block h-7" />;
+      const v = isi(b.x.orang, b.x.stay);
+      return <span key={i} title={v} className="block h-7 truncate leading-7 text-on-surface">{v || EMPTY_VALUE}</span>;
+    });
+  };
+  const tanggalSel = (kamar: Kamar, stay: Stay, sisi: "masuk" | "keluar") => {
+    const t = tanggalStay(stay, hotelById.get(kamar.hotel_id));
+    const v = sisi === "masuk" ? t.masuk : t.keluar;
+    return v ? labelTanggal(tanggalZona(v, offset)).slice(4) : "";
   };
   const nomorAtauLabel: KolomTabel<Kamar> = {
     key: "room",
@@ -234,11 +307,19 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     { key: "hotel", label: "Hotel", lebar: 200, tersembunyi: true, csvWajib: true, nilai: (kamar) => [hotelById.get(kamar.hotel_id)?.name ?? ""] },
     {
       key: "occupant", label: "Occupant", lebar: 220, saring: "teks",
-      nilai: (kamar) => masalah(kamar).isi.map((orang) => orang.name),
+      nilai: (kamar) => barisKamar(kamar).semua.map((x) => x.orang.name),
       sel: (kamar) => {
-        const isi = masalah(kamar).isi;
-        if (isi.length === 0) return <span className="block h-7 leading-7 text-on-surface-variant">Empty</span>;
-        return isi.map((orang, i) => <span key={i} title={orang.name} className="block h-7 truncate leading-7 text-on-surface">{orang.name}</span>);
+        const { baris, semua } = barisKamar(kamar);
+        if (semua.length === 0) return <span className="block h-7 leading-7 text-on-surface-variant">Empty</span>;
+        return baris.map((b, i) => b.jenis === "judul"
+          ? (
+            <span key={i} className="flex h-7 items-center">
+              <span className={cx("rounded-sm px-2 py-0.5 text-label-small font-medium", b.malamIni ? "bg-success-container text-on-success-container" : "bg-surface-container-high text-on-surface-variant")}>
+                {b.label}{b.malamIni ? " · tonight" : ""}
+              </span>
+            </span>
+          )
+          : <span key={i} title={b.x.orang.name} className="block h-7 truncate leading-7 text-on-surface">{b.x.orang.name}</span>);
       },
     },
     {
@@ -246,12 +327,21 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       nilai: (kamar) => [`${masalah(kamar).puncak}/${kamar.capacity}`],
       // Terisi dulu, lalu kapasitas: 2/2 sebelum 2/3, jadi kamar yang masih ada tempat menyusul.
       kunciUrut: (kamar) => `${String(masalah(kamar).puncak).padStart(3, "0")}-${String(kamar.capacity).padStart(3, "0")}`,
-      sel: (kamar) => { const { puncak, lebih } = masalah(kamar); return <span className={cx("block h-7 leading-7 tabular-nums", lebih ? "text-error" : puncak === 0 ? "text-on-surface-variant" : "text-on-surface")}>{puncak}/{kamar.capacity}</span>; },
+      sel: (kamar) => {
+        const { lebih } = masalah(kamar);
+        const { baris, pakaiJudul, terisi } = barisKamar(kamar);
+        const angka = (n: number) => cx("block h-7 leading-7 tabular-nums", n > kamar.capacity || (lebih && malam === null) ? "text-error" : n === 0 ? "text-on-surface-variant" : "text-on-surface");
+        // Rombongan per periode: angka di baris orang pertama tiap rombongan.
+        if (pakaiJudul) return baris.map((b, i) => b.jenis === "orang" && b.terisi !== null
+          ? <span key={i} className={angka(b.terisi)}>{b.terisi}/{kamar.capacity}</span>
+          : <span key={i} aria-hidden className="block h-7" />);
+        return <span className={angka(terisi)}>{terisi}/{kamar.capacity}</span>;
+      },
     },
-    { key: "organisation", label: "Organisation", lebar: 160, nilai: (kamar) => masalah(kamar).isi.map((orang) => orang.company ?? "") },
-    ...(kunciField ? [{ key: "gender", label: namaField ?? "Gender", lebar: 96, tersembunyi: !wajibSama, nilai: (kamar: Kamar) => masalah(kamar).isi.map((orang) => orang.gender ?? "") }] : []),
-    { key: "masuk", label: "Check-in", lebar: 96, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "masuk"), csv: (kamar) => tanggalPenghuniCsv(kamar, "masuk"), kunciUrut: (kamar) => kunciTanggal(kamar, "masuk") },
-    { key: "keluar", label: "Check-out", lebar: 104, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "keluar"), csv: (kamar) => tanggalPenghuniCsv(kamar, "keluar"), kunciUrut: (kamar) => kunciTanggal(kamar, "keluar") },
+    { key: "organisation", label: "Organisation", lebar: 160, nilai: (kamar) => barisKamar(kamar).semua.map((x) => x.orang.company ?? ""), sel: (kamar) => selPerOrang(kamar, (orang) => orang.company ?? "") },
+    ...(kunciField ? [{ key: "gender", label: namaField ?? "Gender", lebar: 96, tersembunyi: !wajibSama, nilai: (kamar: Kamar) => barisKamar(kamar).semua.map((x) => x.orang.gender ?? ""), sel: (kamar: Kamar) => selPerOrang(kamar, (orang) => orang.gender ?? "") }] : []),
+    { key: "masuk", label: "Check-in", lebar: 96, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "masuk"), sel: (kamar) => selPerOrang(kamar, (_o, stay) => tanggalSel(kamar, stay, "masuk")), csv: (kamar) => tanggalPenghuniCsv(kamar, "masuk"), kunciUrut: (kamar) => kunciTanggal(kamar, "masuk") },
+    { key: "keluar", label: "Check-out", lebar: 104, urut: "waktu", nilai: (kamar) => tanggalPenghuni(kamar, "keluar"), sel: (kamar) => selPerOrang(kamar, (_o, stay) => tanggalSel(kamar, stay, "keluar")), csv: (kamar) => tanggalPenghuniCsv(kamar, "keluar"), kunciUrut: (kamar) => kunciTanggal(kamar, "keluar") },
     { key: "bed", label: "Bed", lebar: 88, nilai: (kamar) => (kamar.bed_type ? [kamar.bed_type] : []) },
     { key: "type", label: "Room type", lebar: 112, nilai: (kamar) => (kamar.room_type ? [kamar.room_type] : []) },
     { key: "floor", label: "Floor", lebar: 72, rata: "kanan", urut: "angka", tersembunyi: true, nilai: (kamar) => (kamar.floor ? [kamar.floor] : []) },
@@ -316,7 +406,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       cariLabel="Search rooms"
       cariPlaceholder={adaLabel ? "Search label, room or name…" : "Search room or name…"}
       menyaringLuar={menyaringLuar}
-      hapusSaringanLuar={() => { setSaringHotel([]); setSaringKeadaan([]); }}
+      hapusSaringanLuar={() => { setSaringHotel([]); setSaringKeadaan([]); setMalam(null); }}
       awal={atas}
       chip={data.rooms.length > 0 ? (
         <>
@@ -327,6 +417,14 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
               options={data.hotels.map((hotel) => ({ value: String(hotel.id), label: hotel.name, count: data.rooms.filter((kamar) => kamar.hotel_id === hotel.id).length }))}
               selected={saringHotel}
               onChange={setSaringHotel}
+            />
+          ) : null}
+          {semuaMalam.length > 1 ? (
+            <ChipMenu
+              label="Night"
+              options={semuaMalam.map((t) => ({ value: t, label: `${labelTanggal(t)}${t === malamIni ? " (tonight)" : ""}` }))}
+              selected={malam ? [malam] : []}
+              onChange={(next) => setMalam(next[0] ?? null)}
             />
           ) : null}
           <ChipMenu
@@ -352,7 +450,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       onPilih={(kamar) => setPilihan({ jenis: "kamar", id: kamar.id })}
       labelBaris={(kamar) => judulKamar(kamar)}
       namaFile="rooms"
-      kaki={(tampil) => tampil.length === 0 ? null : `${plural(tampil.length, "room")} · ${tampil.reduce((t, k) => t + masalah(k).puncak, 0).toLocaleString("en-GB")} of ${tampil.reduce((t, k) => t + k.capacity, 0).toLocaleString("en-GB")} places filled${tampil.some((k) => k.room_number === null) ? ` · ${tampil.filter((k) => k.room_number !== null).length.toLocaleString("en-GB")} numbered, ${tampil.filter((k) => k.room_number === null).length.toLocaleString("en-GB")} to follow` : ""}`}
+      kaki={(tampil) => tampil.length === 0 ? null : `${plural(tampil.length, "room")} · ${tampil.reduce((t, k) => t + barisKamar(k).terisi, 0).toLocaleString("en-GB")} of ${tampil.reduce((t, k) => t + k.capacity, 0).toLocaleString("en-GB")} places filled${tampil.some((k) => k.room_number === null) ? ` · ${tampil.filter((k) => k.room_number !== null).length.toLocaleString("en-GB")} numbered, ${tampil.filter((k) => k.room_number === null).length.toLocaleString("en-GB")} to follow` : ""}`}
       kosong={data.hotels.length === 0 ? (
         <EmptyState
           plain
