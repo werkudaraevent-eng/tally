@@ -2,9 +2,9 @@ import { z } from "zod";
 import { kunciDariRequest } from "@/lib/api-keys";
 import { kunciKamar } from "@/lib/logistik/cari-kamar";
 import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
-import { klien, semuaBaris } from "@/lib/logistik/server";
+import { klien, pesanRpc, semuaBaris } from "@/lib/logistik/server";
 import {
-  cariPeserta, pasanganSekamar, pilihKamar, rapikanNomor,
+  bolehGabung, cariPeserta, pasanganSekamar, pilihKamar, rapikanNomor, rentangStay,
   type HotelBot, type KamarBot, type PesertaBot, type StayBot,
 } from "@/lib/logistik/bot-nomor-kamar";
 
@@ -51,6 +51,12 @@ const skema = z.object({
    * sampai panitia mengirim ulang dengan participant_id dan room_id.
    */
   roommates: z.array(z.string().trim().min(1).max(200)).max(3).optional(),
+  /**
+   * Nomor ini milik kamar lain di malam yang tidak bertabrakan (CAN_JOIN_ROOM):
+   * pindahkan semua penghuni kamar ini ke kamar bernomor itu. Hanya setelah
+   * panitia memastikan itu kamar fisik yang sama.
+   */
+  join_room: z.boolean().optional(),
   /** Periksa saja, jangan tulis. */
   dry_run: z.boolean().optional(),
 }).strict().refine((isi) => Boolean(isi.name || isi.participant_id), { message: "Send name or participant_id." });
@@ -179,7 +185,44 @@ export async function POST(request: Request) {
   }
   const bentrok = semuaKamar.find((k) => k.id !== kamar.id && k.hotel_id === kamar.hotel_id && k.room_number !== null && kunciKamar(k.room_number) === kunciKamar(nomor));
   if (bentrok) {
-    return tolak(409, { code: "NUMBER_TAKEN", message: `Number ${nomor} is already used by another room at ${namaHotel}${bentrok.label ? ` (label ${bentrok.label})` : ""}. Check the photo.`, ...ringkas });
+    const gabung = await cekGabung(db, event.id, kamar, bentrok, semuaKamar, hotel);
+    if (gabung === "galat") return tolak(500, { code: "INTERNAL_ERROR", message: "Could not read rooms. Try again." });
+    const tujuan = { room_id: bentrok.id, hotel: namaHotel, label: bentrok.label, room_number: bentrok.room_number, occupants: gabung.namaTujuan };
+    if (!gabung.boleh) {
+      const sebab = gabung.alasan === "sudah_di_sana" ? ", where some of these guests already stay on other nights. Ask the organiser to change it in Logistics"
+        : gabung.alasan === "tanggal" ? ", and the nights are not set for both rooms. Ask the organiser to change it in Logistics"
+        : ", with guests on the same nights. Check the photo";
+      return tolak(409, { code: "NUMBER_TAKEN", message: `Number ${nomor} is already used by another room at ${namaHotel}${bentrok.label ? ` (label ${bentrok.label})` : ""}${sebab}.`, ...ringkas, taken_by: tujuan });
+    }
+    const sebutan = `${bentrok.label ?? "room"} (${bentrok.room_number})`;
+    if (!isi.join_room) {
+      return tolak(409, {
+        code: "CAN_JOIN_ROOM",
+        message: `Number ${nomor} belongs to ${sebutan} at ${namaHotel}, used on other nights. If it is the same physical room, ask the organiser, then resend with join_room: true to move everyone in ${kamar.label ?? "this room"} into it.`,
+        ...ringkas,
+        taken_by: tujuan,
+      });
+    }
+    if (isi.dry_run) return Response.json({ ok: true, changed: false, dry_run: true, message: `Would move ${gabung.pindah.length} people into ${sebutan}.`, ...ringkas, taken_by: tujuan });
+    const { error: galatGabung } = await db.rpc("replace_stays" as never, { p_event_id: event.id, p_items: gabung.items, p_actor: null } as never);
+    if (galatGabung) {
+      return tolak(409, { code: "JOIN_REJECTED", message: pesanRpc(galatGabung) ?? "Could not move them into that room. Ask the organiser to do it in Logistics.", ...ringkas, taken_by: tujuan });
+    }
+    const { error: galatAudit } = await db.from("audit_logs").insert({
+      event_id: event.id,
+      user_id: null,
+      action: "room_joined_by_bot",
+      payload: { bot: namaBot, api_key_id: kunci.id, participant_id: peserta.id, participant_name: peserta.name, from_room_id: kamar.id, from_label: kamar.label, room_id: bentrok.id, hotel: namaHotel, label: bentrok.label, new_number: bentrok.room_number, moved: gabung.pindah },
+    } as never);
+    if (galatAudit) console.error("room_joined_by_bot audit insert failed", { room_id: bentrok.id, code: (galatAudit as { code?: string }).code });
+    return Response.json({
+      ok: true,
+      changed: true,
+      message: `Moved ${gabung.pindah.length} people from ${kamar.label ?? "their room"} into ${sebutan} at ${namaHotel}. ${kamar.label ?? "The old room"} is now empty.`,
+      participant: siapa,
+      room: { room_id: bentrok.id, hotel: namaHotel, label: bentrok.label, room_number: bentrok.room_number, ...pilihan.malam },
+      occupants: await namaPenghuni(db, event.id, bentrok.id),
+    });
   }
   if (isi.dry_run) return Response.json({ ok: true, changed: false, dry_run: true, message: `Would set number ${nomor}.`, ...ringkas });
 
@@ -272,4 +315,48 @@ async function namaPenghuni(db: Db, eventId: string, roomId: number) {
   if (!id.length) return [];
   const { data } = await db.from("participants").select("id,name").eq("event_id", eventId).is("source_removed_at", null).in("id", id);
   return ((data ?? []) as Array<{ name: string }>).map((p) => p.name).sort();
+}
+
+type StayPenuh = { participant_id: string; hotel_id: number; room_id: number | null; check_in_at: string | null; check_out_at: string | null };
+
+/**
+ * Apakah penghuni `asal` boleh dipindah ke `tujuan` (kamar bernomor yang
+ * sama): semua malam diketahui dan tidak ada yang bertabrakan. Mengembalikan
+ * juga isi replace_stays: semua stay tiap orang yang pindah, hanya stay di
+ * `asal` yang berganti kamar.
+ */
+async function cekGabung(db: Db, eventId: string, asal: KamarBot, tujuan: KamarBot, semuaKamar: KamarBot[], hotel: HotelBot[]) {
+  const { data, error } = await db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at")
+    .eq("event_id", eventId).in("room_id", [asal.id, tujuan.id]);
+  if (error) return "galat" as const;
+  const baris = (data ?? []) as StayPenuh[];
+  const peta = new Map(semuaKamar.map((k) => [k.id, k]));
+  const h = hotel.find((x) => x.id === asal.hotel_id);
+  const rentang = (st: StayPenuh) => rentangStay(st, peta.get(st.room_id ?? -1), h);
+  const diAsal = baris.filter((b) => b.room_id === asal.id);
+  const diTujuan = baris.filter((b) => b.room_id === tujuan.id);
+  const pindah = [...new Set(diAsal.map((b) => b.participant_id))];
+  const namaTujuan = await namaPenghuni(db, eventId, tujuan.id);
+  // Orang yang sudah di kamar tujuan tidak "pindah" ke kamar yang sama.
+  const sudahDiSana = pindah.some((id) => diTujuan.some((b) => b.participant_id === id));
+  const rAsal = diAsal.map(rentang);
+  const rTujuan = diTujuan.map(rentang);
+  const boleh = !sudahDiSana && bolehGabung(rAsal, rTujuan);
+  if (!boleh) {
+    const alasan = sudahDiSana ? "sudah_di_sana" : [...rAsal, ...rTujuan].some((r) => !r) ? "tanggal" : "bentrok";
+    return { boleh, alasan, namaTujuan, pindah, items: [] };
+  }
+  const { data: semuaStay, error: galat } = await db.from("lodging_assignments").select("participant_id,hotel_id,room_id,check_in_at,check_out_at")
+    .eq("event_id", eventId).in("participant_id", pindah);
+  if (galat) return "galat" as const;
+  const items = pindah.map((id) => ({
+    participant_id: id,
+    stays: ((semuaStay ?? []) as StayPenuh[]).filter((b) => b.participant_id === id).map((b) => ({
+      hotel_id: b.hotel_id,
+      room_id: b.room_id === asal.id ? tujuan.id : b.room_id,
+      check_in_at: b.check_in_at,
+      check_out_at: b.check_out_at,
+    })),
+  }));
+  return { boleh, alasan: null, namaTujuan, pindah, items };
 }

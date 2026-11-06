@@ -43,6 +43,7 @@ const ACTION_LABEL: Record<string, string> = {
   participant_check_in_reset: "Mereset check-in peserta",
   participant_luggage_reset: "Mereset bagasi peserta",
   room_number_set_by_bot: "Mengisi nomor kamar",
+  room_joined_by_bot: "Menggabung kamar",
   api_key_create: "Membuat API key",
   api_key_revoke: "Mencabut API key",
   room_notice_send: "Mengirim kabar nomor kamar",
@@ -254,6 +255,10 @@ function summarise(entry: Entry): string {
   if (entry.action === "room_number_set_by_bot") {
     const kamar = [payload.label, payload.hotel].filter(Boolean).join(" · ");
     return `${kamar || "Kamar"}: ${payload.old_number ?? "kosong"} → ${payload.new_number ?? "?"} (${payload.participant_name ?? "?"})`;
+  }
+  if (entry.action === "room_joined_by_bot") {
+    const pindah = Array.isArray(payload.moved) ? payload.moved.length : 0;
+    return `${payload.from_label ?? "Kamar"} → ${[payload.label, payload.new_number].filter(Boolean).join(" ")} · ${payload.hotel ?? ""}: ${pindah} orang (${payload.participant_name ?? "?"})`;
   }
   if (entry.action === "participant_qr_archived") {
     return `${payload.old_qr_code ?? "?"} → ${payload.new_qr_code ?? "?"}`;

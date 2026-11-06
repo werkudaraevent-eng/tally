@@ -67,7 +67,7 @@ const CATEGORY_ACTIONS: Record<string, string[]> = {
   ],
   // Reset check-in atau bagasi satu peserta (uji coba): isi yang dihapus tersalin di payload.
   // Logistics: nomor kamar dari bot (kunci bot, tanpa akun) dan pemberitahuan kamar.
-  logistics: ["room_number_set_by_bot", "room_notice_send"],
+  logistics: ["room_number_set_by_bot", "room_joined_by_bot", "room_notice_send"],
   danger: ["admin_reset_records", "participant_check_in_reset", "participant_luggage_reset"],
   orders: ["create", "pay", "void", "hand_over", "booth_order_created", "participant_scan", "admin_order_void"],
   sync: ["participant_sync", "participant_qr_archived"],

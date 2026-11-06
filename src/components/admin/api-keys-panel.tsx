@@ -19,7 +19,7 @@ import { useToast } from "@/components/toast";
  */
 
 const IZIN_LAYAR = [
-  { key: "room_numbers", label: "Room numbers", description: "Set the room number of a room a participant already has. Can't create rooms, move people, send messages or read QR codes and emails." },
+  { key: "room_numbers", label: "Room numbers", description: "Set the room number of a room a participant already has, or, after you confirm, move a room's guests into the numbered room they use on other nights. Can't create or delete rooms, send messages or read QR codes and emails." },
 ] as const;
 
 const OPSI_MASA = [
