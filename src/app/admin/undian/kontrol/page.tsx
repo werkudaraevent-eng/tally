@@ -156,8 +156,7 @@ export default function UndianControlPage() {
       setError(failure); toast.error("Action failed", failure);
       return false;
     }
-    await load();
-    await loadPrizes();
+    await Promise.all([load(), loadPrizes()]);
     return true;
   }
 
@@ -271,18 +270,19 @@ export default function UndianControlPage() {
   const posisi = activePrize ? urutan.findIndex((prize) => prize.id === activePrize.id) : -1;
   const hadiahBerikutnya = urutan.slice(posisi + 1).find((prize) => (winnerCounts[prize.id] ?? 0) < prize.winner_quota) ?? null;
 
+  // Satu permintaan untuk semua nama, lalu satu kali muat ulang. Dulu satu
+  // permintaan per nama berurutan, masing-masing diikuti dua kali muat ulang:
+  // 20 pemenang menunggu 60 panggilan.
   async function sahkan(winners: Winner[], key: string) {
-    for (const winner of winners) {
-      const ok = await send({ action: "decide", winner_id: winner.id, status: "confirmed" }, key);
-      if (!ok) return;
-    }
+    const ids = winners.map((winner) => winner.id).filter((id): id is number => id !== undefined);
+    if (ids.length === 0) return;
+    await send({ action: "decide", winner_ids: ids, status: "confirmed" }, key);
   }
 
   async function lepaskan(winners: Winner[]) {
-    for (const winner of winners) {
-      const ok = await send({ action: "decide", winner_id: winner.id, status: "rejected", reason: "Backup not needed" }, "release");
-      if (!ok) return;
-    }
+    const ids = winners.map((winner) => winner.id).filter((id): id is number => id !== undefined);
+    if (ids.length === 0) return;
+    await send({ action: "decide", winner_ids: ids, status: "rejected", reason: "Backup not needed" }, "release");
   }
 
   // Satu aksi utama untuk papan ketik dan klik presenter (PageDown / panah kanan
