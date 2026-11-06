@@ -29,6 +29,7 @@ import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 import { KUNCI_UMUMKAN, PILIH_MAX, type AudiensPengumuman } from "@/lib/sasaran-pengumuman";
 import { PesanTabs } from "../pesan-tabs";
+import { BagianDilihat, SelDilihat, useRingkasDilihat } from "./dilihat";
 import { kirimanPenerima, penerimaLengkap, PilihPenerima, ringkasPenerima, salahSatuBerlaku, useHitungPenerima, type DrafSyarat, type InfoPenerima, type Orang } from "./penerima";
 
 /**
@@ -232,6 +233,9 @@ export default function PengumumanPage() {
   }, []);
 
   const items = data?.items ?? [];
+  // Kolom Seen: dimuat ulang setiap kali daftar berubah (simpan, Notify again, hapus).
+  const kunciDilihat = data?.ready ? items.map((item) => `${item.id}:${item.published_at}`).join(",") || "kosong" : "";
+  const dilihat = useRingkasDilihat(kunciDilihat);
   const terpilih = draft?.id ? items.find((item) => item.id === draft.id) ?? null : null;
   const berubah = draft
     ? terpilih
@@ -410,12 +414,13 @@ export default function PengumumanPage() {
             }
           />
         ) : (
-          <table className="w-full min-w-[560px] border-separate border-spacing-0 text-left text-body-medium">
+          <table className="w-full min-w-[640px] border-separate border-spacing-0 text-left text-body-medium">
             <thead className="sticky top-0 z-10 bg-surface-container-high text-body-medium font-medium text-on-surface-variant">
               <tr>
                 <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Announcement</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Send to</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Published</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 text-right font-medium">Seen</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Email</th>
               </tr>
             </thead>
@@ -459,6 +464,9 @@ export default function PengumumanPage() {
                       {ringkasPenerima({ audience: item.audience, audience_rules: item.audience_rules ?? null, audience_ids: item.audience_ids ?? [], audience_any: item.audience_any === true }, info)}
                     </td>
                     <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5 tabular-nums">{waktu(item.published_at, data?.time_zone)}</td>
+                    <td className="whitespace-nowrap border-b border-outline-variant px-3 py-2.5 text-right">
+                      <SelDilihat ringkas={dilihat?.get(item.id)} />
+                    </td>
                     <td className="border-b border-outline-variant px-3 py-2.5">
                       {item.email_summary ? (
                         <StatusChip dot tone={item.email_summary.gagal > 0 ? "warning" : "success"}>
@@ -689,6 +697,18 @@ export default function PengumumanPage() {
             ) : null}
             </fieldset>
           </form>
+          {/* Di luar formulir: hanya membaca, juga untuk peran View, dan Enter
+              di kotak cari dialognya tidak menyimpan pengumuman. */}
+          {!baru && terpilih ? (
+            <BagianDilihat
+              id={terpilih.id}
+              publishedAt={terpilih.published_at}
+              sentAgain={dikirimUlang(terpilih)}
+              timeZone={data?.time_zone}
+              waktu={waktu}
+              bolehPesan={batas.ubah}
+            />
+          ) : null}
         </PaneBody>
 
         <PaneFooter>

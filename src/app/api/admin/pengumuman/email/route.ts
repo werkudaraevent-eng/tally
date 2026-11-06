@@ -83,7 +83,10 @@ export async function POST(request: Request) {
     linkUrl: item.link_url,
     linkLabel: item.link_label,
     foto: item.image_url ? { src: item.image_url, alt: altFotoPengumuman(item) } : null,
-    dashboardUrl: `${origin}/e/${encodeURIComponent(event.slug)}/peserta`,
+    // Langsung ke tab Pengumuman: di sana pengumuman ditandai dilihat, jadi
+    // yang datang dari email ikut terhitung di laporan Seen. Portal lama
+    // (bukan gathering) mengabaikan ?tab= dan menandainya saat dibuka.
+    dashboardUrl: `${origin}/e/${encodeURIComponent(event.slug)}/peserta?tab=info`,
   });
   const hasil = await sendEmailBatch(penerima.map((to) => ({ to, ...isi })), event.id);
   if ("notConfigured" in hasil) return apiError("EMAIL_NOT_CONFIGURED", 503);
