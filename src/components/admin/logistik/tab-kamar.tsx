@@ -148,7 +148,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
 
   const kamarTampil = data.rooms.filter((kamar) => {
     if (saringHotel.length > 0 && !saringHotel.includes(String(kamar.hotel_id))) return false;
-    if (saringKeadaan.length > 0 && !saringKeadaan.some((s) => (s === "menyusul" ? kamar.room_number === null : s === keadaan(kamar)))) return false;
+    if (saringKeadaan.length > 0 && !saringKeadaan.some((s) => (s === "menyusul" ? kamar.room_number === null : s === "bernomor" ? kamar.room_number !== null : s === keadaan(kamar)))) return false;
     return true;
   });
   // Kolom Label hanya ada bila salah satu kamar mengisinya: acara lama tidak berubah.
@@ -265,6 +265,8 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
     const terisi = semuaKamar.reduce((jumlah, kamar) => jumlah + masalah(kamar).puncak, 0);
     const tempat = semuaKamar.reduce((jumlah, kamar) => jumlah + kamar.capacity, 0);
     const nama = [...new Set(menunggu.map(({ orang }) => orang.name))];
+    // Nomor kamar per hotel (Hanung 2026-11-06): berapa sudah bernomor, berapa menyusul.
+    const menyusul = semuaKamar.filter((kamar) => kamar.room_number === null).length;
     return {
       key: String(hotel.id),
       kepala: (
@@ -272,7 +274,8 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
           <Buildings size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
           <span className="min-w-0 truncate font-medium text-on-surface">{hotel.name}</span>
           {menunggu.length > 0 ? <StatusChip dot tone="warning">{jumlahOrang(menunggu).toLocaleString("en-GB")} waiting for a room</StatusChip> : null}
-          <span className="shrink-0 tabular-nums text-on-surface-variant"><span className="max-sm:hidden">{plural(semuaKamar.length, "room")} · </span>{terisi}/{tempat} places</span>
+          {menyusul > 0 ? <StatusChip dot tone="warning">{plural(menyusul, "room number")} to follow</StatusChip> : null}
+          <span className="shrink-0 tabular-nums text-on-surface-variant"><span className="max-sm:hidden">{plural(semuaKamar.length, "room")}{menyusul > 0 ? ` · ${(semuaKamar.length - menyusul).toLocaleString("en-GB")} numbered` : ""} · </span>{terisi}/{tempat} places</span>
         </BarisKelompok>
       ),
       // Tamu hotel tanpa kamar: satu baris "To follow". Status tidak berlaku
@@ -330,6 +333,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
             label="Status"
             multiple
             options={[
+              { value: "bernomor", label: "Room number set", count: data.rooms.filter((kamar) => kamar.room_number !== null).length },
               { value: "menyusul", label: "Room number to follow", count: data.rooms.filter((kamar) => kamar.room_number === null).length },
               { value: "kosong", label: "Empty" },
               { value: "ada-tempat", label: "Space left" },
@@ -348,7 +352,7 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
       onPilih={(kamar) => setPilihan({ jenis: "kamar", id: kamar.id })}
       labelBaris={(kamar) => judulKamar(kamar)}
       namaFile="rooms"
-      kaki={(tampil) => tampil.length === 0 ? null : `${plural(tampil.length, "room")} · ${tampil.reduce((t, k) => t + masalah(k).puncak, 0).toLocaleString("en-GB")} of ${tampil.reduce((t, k) => t + k.capacity, 0).toLocaleString("en-GB")} places filled${tampil.some((k) => k.room_number === null) ? ` · ${tampil.filter((k) => k.room_number === null).length.toLocaleString("en-GB")} room numbers to follow` : ""}`}
+      kaki={(tampil) => tampil.length === 0 ? null : `${plural(tampil.length, "room")} · ${tampil.reduce((t, k) => t + masalah(k).puncak, 0).toLocaleString("en-GB")} of ${tampil.reduce((t, k) => t + k.capacity, 0).toLocaleString("en-GB")} places filled${tampil.some((k) => k.room_number === null) ? ` · ${tampil.filter((k) => k.room_number !== null).length.toLocaleString("en-GB")} numbered, ${tampil.filter((k) => k.room_number === null).length.toLocaleString("en-GB")} to follow` : ""}`}
       kosong={data.hotels.length === 0 ? (
         <EmptyState
           plain
