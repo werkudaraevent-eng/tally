@@ -42,7 +42,7 @@ export type Malam = { masuk: string; keluar: string };
 export type KamarBaru = { kunci: string; hotel: string; nomor: string | null; label: string | null; tipe: string | null; kasur: string | null; kapasitas: number };
 
 /** Kamar yang sudah ada dan isiannya diubah berkas (nomor yang datang belakangan, label, kasur, jenis kamar). */
-export type KamarUbah = { id: number; nama: string; hotel: string; room_number?: string; label?: string; room_type?: string; bed_type?: string };
+export type KamarUbah = { id: number; nama: string; hotel: string; room_number?: string | null; label?: string; room_type?: string; bed_type?: string };
 
 /** Kamar tujuan sebuah stay: yang sudah ada (id), atau yang dibuat impor ini (`KamarBaru.kunci`). */
 export type RefKamar = { id: number } | { baru: string };
@@ -500,6 +500,10 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   type Kelompok = {
     kunci: string; hotel: string; label: string | null; nomor: string | null; baris: number; tipe: string | null; kasur: string | null; kapasitas: number | null;
     ada: KeadaanAcara["rooms"][number] | null; galat: string | null; orang: BarisRencana[];
+    /** Nomornya diambil dari kamar tanpa label ini (dibuat dialog Stays sebelum label ada). */
+    ambilNomor?: KeadaanAcara["rooms"][number];
+    /** Satu kamar fisik dengan kelompok lain (label lain, nomor sama, malam lain): orangnya masuk kamar itu. */
+    gabungKe?: Kelompok;
   };
   // Nomor kamar yang sudah diklaim sebuah label di berkas ini: hotel + nomor > kelompok.
   const nomorDiklaim = new Map<string, Kelompok>();
@@ -595,13 +599,29 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
       const kunciNomor = `${kunci(hotel)}\u0000${kunci(nomor)}`;
       const lain = nomorDiklaim.get(kunciNomor);
       const perNomor = hotelAda ? kamarPerKunci.get(`${hotelAda.id}\u0000${kunci(nomor)}`) ?? null : null;
-      if (lain && lain !== grup) grup.galat = `Room number ${nomor} is also given to ${lain.label ?? lain.nomor} on row ${lain.baris}`;
-      else if (perNomor && grup.ada?.id !== perNomor.id) grup.galat = `Room ${nomor} already exists${perNomor.label ? ` as ${perNomor.label}` : ""}. Use another number, or change that room first`;
+      // Nomor = kamar fisik (Hanung 2026-11-06). Label lain dengan nomor yang
+      // sama adalah rombongan lain di kamar yang sama (5–6 lalu 6–8 Nov): orangnya
+      // masuk kamar itu, dan isi per malam diperiksa `replace_stays`. Kamar tanpa
+      // label yang memegang nomor itu menyerahkan nomornya ke kamar label ini.
+      if (lain && lain !== grup) {
+        // Hanya baris bertanggal: tanpa tanggal tidak bisa dibedakan dari salah ketik.
+        if (malam && grup.label && lain.label && kunci(grup.label) !== kunci(lain.label)) { grup.gabungKe = lain; grup.nomor = lain.nomor; }
+        else grup.galat = `Room number ${nomor} is also given to ${lain.label ?? lain.nomor} on row ${lain.baris}`;
+      } else if (perNomor && grup.ada?.id !== perNomor.id && grup.label && !perNomor.label && grup.ada) {
+        grup.ambilNomor = perNomor;
+        grup.nomor = nomor;
+        nomorDiklaim.set(kunciNomor, grup);
+      } else if (malam && perNomor && grup.ada?.id !== perNomor.id && grup.label && perNomor.label) {
+        grup.ada = perNomor;
+        grup.label = perNomor.label;
+        grup.nomor = perNomor.room_number;
+        nomorDiklaim.set(kunciNomor, grup);
+      } else if (perNomor && grup.ada?.id !== perNomor.id) grup.galat = `Room ${nomor} already exists${perNomor.label ? ` as ${perNomor.label}` : ""}. Use another number, or change that room first`;
       else {
         grup.nomor = grup.ada?.room_number && kunci(grup.ada.room_number) === kunci(nomor) ? grup.ada.room_number : nomor;
         nomorDiklaim.set(kunciNomor, grup);
       }
-    } else if (grup && nomor && grup.nomor !== null && kunci(grup.nomor) !== kunci(nomor)) {
+    } else if (grup && nomor && grup.nomor !== null && kunci(grup.nomor) !== kunci(nomor) && !grup.gabungKe) {
       return tolak(`${grup.label ?? "This room"} already has room number ${grup.nomor} on another row`);
     }
     if (grup?.galat) return tolak(grup.galat);
@@ -773,6 +793,12 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
     }
     for (const grup of kelompok.values()) {
       if (grup.galat) continue;
+      if (grup.gabungKe) {
+        // Masuk kamar kelompok lain: kamarnya dibuat atau diubah oleh kelompok itu.
+        const t = grup.gabungKe;
+        tambah(t.hotel, t.nomor ?? t.ada?.room_number ?? t.label, ikut(grup.orang).filter((b) => b.status !== "tetap"));
+        continue;
+      }
       const orang = ikut(grup.orang);
       const datang = orang.filter((b) => b.status !== "tetap");
       // Penghuni per malam: yang tinggal, lalu yang datang dan diterima. Kamar
@@ -831,7 +857,7 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   // Stay akhir per orang yang berubah, untuk `replace_stays`.
   const akhir: Rencana["akhir"] = [];
   const refLama = (s: StayLama): RefKamar | null => (s.room_id !== null ? { id: s.room_id } : null);
-  const refGrup = (g: Kelompok | null): RefKamar | null => (g ? (g.ada ? { id: g.ada.id } : { baru: g.kunci }) : null);
+  const refGrup = (g0: Kelompok | null): RefKamar | null => { const g = g0?.gabungKe ?? g0; return g ? (g.ada ? { id: g.ada.id } : { baru: g.kunci }) : null; };
   const tetapLama = (s: StayLama): StayAkhir => ({ hotel: namaHotel(s.hotel_id), kamar: refLama(s), malam: null, asli: { check_in_at: s.check_in_at, check_out_at: s.check_out_at } });
   for (const [pid, daftar] of barisOrang) {
     if (tolakOrang.has(pid)) continue;
@@ -858,9 +884,15 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   // label untuk kamar bernomor, kasur, jenis kamar. Isian kosong tidak
   // menghapus apa pun.
   const kamarUbah: KamarUbah[] = [];
+  // Nomor dilepas dulu dari kamar tanpa label, baru dipasang di kamar labelnya
+  // (nomor unik per hotel, jadi urutannya penting).
+  for (const grup of kelompok.values()) {
+    if (grup.galat || !grup.ambilNomor) continue;
+    kamarUbah.push({ id: grup.ambilNomor.id, nama: namaKamar(grup.ambilNomor), hotel: grup.hotel, room_number: null });
+  }
   for (const grup of kelompok.values()) {
     const ada = grup.ada;
-    if (!ada || grup.galat) continue;
+    if (!ada || grup.galat || grup.gabungKe) continue;
     const ubah: KamarUbah = { id: ada.id, nama: namaKamar(ada), hotel: grup.hotel };
     if (grup.nomor !== null && grup.nomor !== ada.room_number) ubah.room_number = grup.nomor;
     if (grup.label && grup.label !== ada.label) ubah.label = grup.label;
