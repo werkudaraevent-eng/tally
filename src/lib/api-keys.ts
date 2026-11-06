@@ -15,7 +15,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 
 export const IZIN = [
-  { key: "room_numbers", label: "Room numbers", description: "Set the room number of a room a participant already has. Nothing else." },
+  { key: "room_numbers", label: "Room numbers", description: "Set the room number of a room a participant already has, or move a room's guests into the numbered room they use on other nights. Nothing else." },
 ] as const;
 
 export type Izin = (typeof IZIN)[number]["key"];
