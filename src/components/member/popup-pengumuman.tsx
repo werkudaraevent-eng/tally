@@ -120,7 +120,7 @@ export function PopupPengumuman({ items, lang }: { items: PopupItem[]; lang: Lan
         {/* Judul tetap di atas, hanya isi yang bergulir, tombol tetap di bawah
             (M3 dialog). Dulu judul ikut area gulir, jadi pengumuman panjang
             menenggelamkan judulnya saat peserta menggulir. */}
-        <div className={`shrink-0 px-6 pt-6 ${adaIsi ? "pb-4" : ""}`}>
+        <div className={`shrink-0 px-6 pt-6 ${item.body ? "pb-3" : item.foto ? "pb-4" : ""}`}>
           <p className="flex items-center gap-2 text-[14px] font-medium leading-5 text-[var(--reg-on-surface-variant,#46464f)]">
             <Megaphone size={18} aria-hidden="true" className="shrink-0 text-[var(--reg-primary,#1a56db)]" />
             {en ? "Announcement" : "Pengumuman"} · {item.waktu}
