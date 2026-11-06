@@ -191,7 +191,9 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
         const akhir = g.keluar ? tanggalZona(g.keluar, offset) : "";
         baris.push({ jenis: "judul", label: labelRentang(g.masuk, g.keluar, offset) ?? "No dates", malamIni: awal <= malamIni && malamIni < akhir });
       }
-      g.isi.forEach((x, i) => baris.push({ jenis: "orang", x, terisi: pakaiJudul && i === 0 ? jumlahOrang(g.isi) : null }));
+      // Puncak per malam di rombongan ini, bukan jumlah orang: 5→6, 5→7 dan 6→7 = 2.
+      const puncakGrup = Math.max(0, ...g.isi.map((x) => 1 + puncakHuni(g.isi.filter((y) => y !== x).map((y) => y.r), x.r)));
+      g.isi.forEach((x, i) => baris.push({ jenis: "orang", x, terisi: pakaiJudul && i === 0 ? puncakGrup : null }));
     }
     return { semua, baris, pakaiJudul, terisi: malam === null ? masalah(kamar).puncak : jumlahOrang(semua) };
   }
@@ -264,12 +266,15 @@ export function TabKamar({ data, kirim, busy, baru, tutupBaru, hotelBaru, tutupH
   };
   /** Sel per penghuni yang ikut judul periode: baris judul dibiarkan kosong supaya tetap sejajar. */
   const selPerOrang = (kamar: Kamar, isi: (orang: LogistikPeserta, stay: Stay) => string) => {
-    const { baris, semua } = barisKamar(kamar);
-    if (semua.length === 0) return <span className="block h-7 leading-7 text-on-surface-variant">{EMPTY_VALUE}</span>;
+    const { baris, semua, pakaiJudul } = barisKamar(kamar);
+    const nilai = semua.map((x) => isi(x.orang, x.stay));
+    // Tanpa judul periode: sama persis dengan sel bawaan tabel (0 px).
+    if (nilai.length === 0 || nilai.every((v) => !v.trim())) return <span className="block h-7 leading-7 text-on-surface-variant">{EMPTY_VALUE}</span>;
+    if (!pakaiJudul) return nilai.map((v, i) => <span key={i} title={v} className="block h-7 truncate leading-7 text-on-surface">{v || EMPTY_VALUE}</span>);
     return baris.map((b, i) => {
       if (b.jenis === "judul") return <span key={i} aria-hidden className="block h-7" />;
       const v = isi(b.x.orang, b.x.stay);
-      return <span key={i} title={v} className="block h-7 truncate leading-7 text-on-surface">{v || EMPTY_VALUE}</span>;
+      return <span key={i} title={v} className={cx("block h-7 truncate leading-7", v ? "text-on-surface" : "text-on-surface-variant")}>{v || EMPTY_VALUE}</span>;
     });
   };
   const tanggalSel = (kamar: Kamar, stay: Stay, sisi: "masuk" | "keluar") => {
