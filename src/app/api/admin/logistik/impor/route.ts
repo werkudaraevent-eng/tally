@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   const acara = await muatKeadaan(eventId, jenis === "kereta", timeZoneOffset(normalizeTimeZone(auth.scope.event.time_zone)));
   if (acara === "belum") return apiError("VALIDATION_ERROR", 422, { message: "Train tickets need a database update first. Ask your Tally administrator to run the train tickets migration." });
   if (!acara) return apiError("INTERNAL_ERROR", 500);
-  const rencana = jenis === "kamar" ? rencanaKamar(sel, acara, { labelSatuKamar: form.get("label_satu") === "1" }) : jenis === "bus" ? rencanaBus(sel, acara) : rencanaKereta(sel, acara);
+  const rencana = jenis === "kamar" ? rencanaKamar(sel, acara, { labelSatuKamar: form.get("label_satu") === "1", nomorIkutBerkas: form.get("nomor_berkas") === "1" }) : jenis === "bus" ? rencanaBus(sel, acara) : rencanaKereta(sel, acara);
   if (rencana.galat) return apiError("VALIDATION_ERROR", 422, { message: rencana.galat });
 
   if (form.get("simpan") !== "1") return Response.json({ rencana });
