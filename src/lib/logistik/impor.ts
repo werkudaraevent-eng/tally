@@ -42,7 +42,7 @@ export type Malam = { masuk: string; keluar: string };
 export type KamarBaru = { kunci: string; hotel: string; nomor: string | null; label: string | null; tipe: string | null; kasur: string | null; kapasitas: number };
 
 /** Kamar yang sudah ada dan isiannya diubah berkas (nomor yang datang belakangan, label, kasur, jenis kamar). */
-export type KamarUbah = { id: number; nama: string; hotel: string; room_number?: string; label?: string; room_type?: string; bed_type?: string };
+export type KamarUbah = { id: number; nama: string; hotel: string; room_number?: string | null; label?: string; room_type?: string; bed_type?: string };
 
 /** Kamar tujuan sebuah stay: yang sudah ada (id), atau yang dibuat impor ini (`KamarBaru.kunci`). */
 export type RefKamar = { id: number } | { baru: string };
@@ -60,6 +60,8 @@ export type Rencana = {
   kamarHapus?: number[];
   /** Impor kamar: label yang dipakai kelompok berbeda di malam lain (dipisah, kecuali "Same room" dipilih). */
   labelDipecah?: LabelDipecah[];
+  /** Impor kamar: nomor di berkas yang dipegang kamar berlabel lain (lihat `nomorIkutBerkas`). */
+  nomorBentrok?: NomorBentrok[];
   /** Impor kamar: judul kolom berkas dan isian yang dibacanya, supaya panitia melihat kolom mana jadi apa. */
   kolomDibaca?: Array<{ judul: string; jadi: string }>;
   busBaru: string[];
@@ -355,7 +357,16 @@ export type LabelDipecah = {
 export type OpsiKamar = {
   /** "Same room": label yang dipakai ulang tetap satu kamar (perilaku lama). */
   labelSatuKamar?: boolean;
+  /**
+   * "Use the numbers in this file": nomor yang dipegang kamar berlabel lain
+   * pindah ke label di berkas; kamar lain itu menjadi nomor menyusul (kecuali
+   * berkas memberinya nomor sendiri). Tanpa ini barisnya ditolak.
+   */
+  nomorIkutBerkas?: boolean;
 };
+
+/** Nomor kamar di berkas yang sekarang dipegang kamar berlabel lain. */
+export type NomorBentrok = { hotel: string; nomor: string; labelBerkas: string; labelSekarang: string };
 
 /**
  * Periode tiap label di berkas: baris dengan label sama di hotel sama,
@@ -507,6 +518,8 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
      * (dibuat dialog Stays): diberi akhiran " (old)" dulu, dihapus bila kosong.
      */
     lepasLabel?: KeadaanAcara["rooms"][number];
+    /** Kamar berlabel lain yang melepas nomornya ke kelompok ini (`nomorIkutBerkas`). */
+    ambilDari?: KeadaanAcara["rooms"][number];
     /** Satu kamar fisik dengan kelompok lain (label lain, nomor sama, malam lain): orangnya masuk kamar itu. */
     gabungKe?: Kelompok;
     /** Kelompok yang masuk kamar ini, dan malam baris-barisnya: malam yang bertabrakan ditolak. */
@@ -515,6 +528,7 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   };
   // Nomor kamar yang sudah diklaim sebuah label di berkas ini: hotel + nomor > kelompok.
   const nomorDiklaim = new Map<string, Kelompok>();
+  const nomorBentrok: NomorBentrok[] = [];
   const kelompok = new Map<string, Kelompok>();
   // Hotel saja: nama hotel (seperti di berkas, atau nama yang sudah ada) > baris.
   const hotelSaja = new Map<string, { hotel: string; orang: BarisRencana[] }>();
@@ -623,6 +637,13 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
         grup.ada = perNomor;
         grup.nomor = perNomor.room_number;
         nomorDiklaim.set(kunciNomor, grup);
+      } else if (perNomor && grup.ada?.id !== perNomor.id && grup.label && perNomor.label) {
+        nomorBentrok.push({ hotel: grup.hotel, nomor: perNomor.room_number ?? nomor, labelBerkas: grup.label, labelSekarang: perNomor.label });
+        if (opsi.nomorIkutBerkas) {
+          grup.ambilDari = perNomor;
+          grup.nomor = nomor;
+          nomorDiklaim.set(kunciNomor, grup);
+        } else grup.galat = `Room ${nomor} is now ${perNomor.label}. Choose "Use the numbers in this file" above to move it to ${grup.label}`;
       } else if (perNomor && grup.ada?.id !== perNomor.id) grup.galat = `Room ${nomor} already exists${perNomor.label ? ` as ${perNomor.label}` : ""}. Use another number, or change that room first`;
       else {
         grup.nomor = grup.ada?.room_number && kunci(grup.ada.room_number) === kunci(nomor) ? grup.ada.room_number : nomor;
@@ -903,6 +924,12 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   // Label lama dilepas dulu (label unik per hotel), baru dipasang di kamar
   // bernomornya. Kamar lama yang kosong sesudah impor dihapus.
   const kamarHapus: number[] = [];
+  // Nomor yang pindah ke label lain dilepas paling awal (nomor unik per hotel);
+  // bila berkas memberi kamar itu nomor baru, nomor barunya ditulis sesudahnya.
+  for (const grup of kelompok.values()) {
+    if (grup.galat || !grup.ambilDari) continue;
+    kamarUbah.push({ id: grup.ambilDari.id, nama: namaKamar(grup.ambilDari), hotel: grup.hotel, room_number: null });
+  }
   for (const grup of kelompok.values()) {
     if (grup.galat || !grup.lepasLabel || !grup.label) continue;
     kamarUbah.push({ id: grup.lepasLabel.id, nama: namaKamar(grup.lepasLabel), hotel: grup.hotel, label: `${grup.label} (old)` });
@@ -912,7 +939,8 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
     const ada = grup.ada;
     if (!ada || grup.galat || grup.gabungKe) continue;
     const ubah: KamarUbah = { id: ada.id, nama: namaKamar(ada), hotel: grup.hotel };
-    if (grup.nomor !== null && grup.nomor !== ada.room_number) ubah.room_number = grup.nomor;
+    const dilepas = [...kelompok.values()].some((g) => !g.galat && g.ambilDari?.id === ada.id);
+    if (grup.nomor !== null && (grup.nomor !== ada.room_number || dilepas)) ubah.room_number = grup.nomor;
     if (grup.label && grup.label !== ada.label) ubah.label = grup.label;
     // Beda huruf besar saja (TWIN dan Twin) bukan perubahan.
     if (grup.tipe && kunci(grup.tipe) !== kunci(ada.room_type)) ubah.room_type = grup.tipe;
@@ -921,7 +949,7 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
   }
 
   baris.sort((a, b) => a.baris - b.baris);
-  return { jenis: "kamar", galat: null, baris, labelDipecah, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, kamarUbah, kamarHapus, kolomDibaca: lebar ? undefined : kolomKamarDibaca(sel[mulai - 1] ?? [], kolom), busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, akhir, tiket: [], dilewati: 0, busTrip: [] };
+  return { jenis: "kamar", galat: null, baris, labelDipecah, hotelBaru: [...hasil.hotelBaru.values()], kamarBaru: hasil.kamarBaru, kamarUbah, kamarHapus, nomorBentrok, kolomDibaca: lebar ? undefined : kolomKamarDibaca(sel[mulai - 1] ?? [], kolom), busBaru: [], penempatan: hasil.penempatan, lepas: hasil.lepas, akhir, tiket: [], dilewati: 0, busTrip: [] };
 }
 
 /** Data untuk "Download current stays". */

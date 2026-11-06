@@ -6,7 +6,7 @@ import { Banner, Button, Dialog, SegmentedButton, StatusDot } from "@/components
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
-import type { BarisRencana, JenisImpor, KamarUbah, LabelDipecah, Rencana, StatusBaris } from "@/lib/logistik/impor";
+import type { BarisRencana, JenisImpor, KamarUbah, LabelDipecah, NomorBentrok, Rencana, StatusBaris } from "@/lib/logistik/impor";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
@@ -62,6 +62,8 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   const [bukaUntuk, setBukaUntuk] = useState<JenisImpor | null>(null);
   // "Same room" untuk label yang dipakai kelompok berbeda di malam lain; bawaannya dipisah.
   const [labelSatu, setLabelSatu] = useState(false);
+  // "Use the numbers in this file": nomor yang dipegang label lain pindah ke label di berkas.
+  const [nomorBerkas, setNomorBerkas] = useState(false);
 
   // Keadaan dikosongkan setiap kali dialog dibuka, dengan jenis dari tab yang
   // sedang tampil. Disetel saat render, bukan di efek, supaya tidak ada satu
@@ -75,15 +77,17 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     setGalat("");
     setHanyaTolak(false);
     setLabelSatu(false);
+    setNomorBerkas(false);
   }
   if (!open && bukaUntuk !== null) setBukaUntuk(null);
 
-  const kirim = async (file: File, jenisBerkas: JenisImpor, simpan: boolean, satu = labelSatu) => {
+  const kirim = async (file: File, jenisBerkas: JenisImpor, simpan: boolean, satu = labelSatu, ikutBerkas = nomorBerkas) => {
     const form = new FormData();
     form.set("file", file);
     form.set("jenis", jenisBerkas);
     if (simpan) form.set("simpan", "1");
     if (satu) form.set("label_satu", "1");
+    if (ikutBerkas) form.set("nomor_berkas", "1");
     const response = await fetch(eventApiPath("/api/admin/logistik/impor"), { method: "POST", body: form }).catch(() => null);
     if (!response) return { galat: "Connection failed. Try again." };
     const json = await response.json().catch(() => ({}));
@@ -91,7 +95,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     return json as { rencana: Rencana; hasil?: Hasil };
   };
 
-  const baca = async (file: File | null, jenisBerkas: JenisImpor, satu = labelSatu) => {
+  const baca = async (file: File | null, jenisBerkas: JenisImpor, satu = labelSatu, ikutBerkas = nomorBerkas) => {
     setBerkas(file);
     setRencana(null);
     setHasil(null);
@@ -99,7 +103,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     setHanyaTolak(false);
     if (!file) return;
     setProses("baca");
-    const jawaban = await kirim(file, jenisBerkas, false, satu);
+    const jawaban = await kirim(file, jenisBerkas, false, satu, ikutBerkas);
     setProses(null);
     if ("galat" in jawaban) setGalat(jawaban.galat);
     else setRencana(jawaban.rencana);
@@ -295,6 +299,14 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                   onChange={(satu) => { setLabelSatu(satu); void baca(berkas, jenis, satu); }}
                 />
               ) : null}
+              {rencana.nomorBentrok && rencana.nomorBentrok.length > 0 ? (
+                <NomorBentrokPilihan
+                  bentrok={rencana.nomorBentrok}
+                  ikutBerkas={nomorBerkas}
+                  disabled={proses !== null}
+                  onChange={(nilai) => { setNomorBerkas(nilai); void baca(berkas, jenis, labelSatu, nilai); }}
+                />
+              ) : null}
               {rencana.kolomDibaca && rencana.kolomDibaca.length > 0 ? <KolomDibaca kolom={rencana.kolomDibaca} /> : null}
               {kamarDiubah > 0 ? <KamarDiubah kamar={rencana.kamarUbah!} /> : null}
 
@@ -366,6 +378,46 @@ function ContohStay() {
  * supaya nomor kamar untuk satu periode tidak sampai ke kelompok lain. "Same
  * room" untuk kamar fisik yang memang dipakai bergantian.
  */
+function NomorBentrokPilihan({ bentrok, ikutBerkas, disabled, onChange }: { bentrok: NomorBentrok[]; ikutBerkas: boolean; disabled: boolean; onChange: (nilai: boolean) => void }) {
+  const banyakHotel = new Set(bentrok.map((b) => kunciTeks(b.hotel))).size > 1;
+  const tampil = bentrok.slice(0, 5);
+  const opsi = (nilai: boolean, judul: string, keterangan: string) => (
+    <label className={cx("flex cursor-pointer items-start gap-3 px-4 py-2.5 text-body-medium hover:bg-panel-high", ikutBerkas === nilai && "bg-accent-soft", disabled && "pointer-events-none opacity-60")}>
+      <input type="radio" name="nomor-bentrok" checked={ikutBerkas === nilai} disabled={disabled} onChange={() => onChange(nilai)} className="mt-1 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-on-surface">{judul}</span>
+        <span className="block text-on-surface-variant">{keterangan}</span>
+      </span>
+    </label>
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      <Banner tone="warning" icon={<Warning size={18} />}>
+        <span className="block font-medium">
+          {bentrok.length === 1 ? `Room ${bentrok[0].nomor} is now ${bentrok[0].labelSekarang}, the file gives it to ${bentrok[0].labelBerkas}` : `${bentrok.length} room numbers in this file are now held by another label`}
+        </span>
+        {bentrok.length > 1 ? (
+          <ul className="mt-1 flex flex-col gap-1">
+            {tampil.map((b) => (
+              <li key={`${b.hotel}\u0000${b.nomor}`} className="tabular-nums">
+                Room {b.nomor}: now {b.labelSekarang}, file {b.labelBerkas}{banyakHotel ? ` · ${b.hotel}` : ""}
+              </li>
+            ))}
+            {bentrok.length > tampil.length ? <li>and {bentrok.length - tampil.length} more</li> : null}
+          </ul>
+        ) : null}
+      </Banner>
+      <fieldset className="rounded-md border border-outline-variant">
+        <legend className="sr-only">Room numbers held by another label</legend>
+        {opsi(true, "Use the numbers in this file", `Each number moves to the label in the file, e.g. ${bentrok[0].nomor} to ${bentrok[0].labelBerkas}. ${bentrok[0].labelSekarang} keeps its guests, with the number to follow unless the file gives it one.`)}
+        <div className="border-t border-outline-variant">
+          {opsi(false, "Keep the numbers as they are", "These rows are not imported. Nothing else changes.")}
+        </div>
+      </fieldset>
+    </div>
+  );
+}
+
 function LabelGanda({ dipecah, satu, disabled, onChange }: { dipecah: LabelDipecah[]; satu: boolean; disabled: boolean; onChange: (satu: boolean) => void }) {
   const banyakHotel = new Set(dipecah.map((d) => kunciTeks(d.hotel))).size > 1;
   const tampil = dipecah.slice(0, 5);
@@ -463,10 +515,10 @@ function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
           </tr>
         </thead>
         <tbody>
-          {kamar.slice(0, BATAS_TAMPIL).map((k) => (
-            <tr key={k.id} className="h-9 border-b border-outline-variant last:border-b-0">
+          {kamar.slice(0, BATAS_TAMPIL).map((k, i) => (
+            <tr key={`${k.id}-${i}`} className="h-9 border-b border-outline-variant last:border-b-0">
               <td className="px-4 text-on-surface">{k.nama}</td>
-              {kolom.map(([isian]) => <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
+              {kolom.map(([isian]) => <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] === null ? "To follow" : k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
             </tr>
           ))}
         </tbody>

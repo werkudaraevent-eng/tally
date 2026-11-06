@@ -586,8 +586,17 @@ assert.deepEqual(ambil.kamarHapus, [40]);
 // menomori ulang kamar itu, jadi nomor lamanya bukan bukti kamar yang sama).
 const lainLabel = { ...sudah, rooms: [...bebas.rooms, sudah.rooms[1], { id: 41, hotel_id: 1, room_number: "1305", label: "Kamar 05", room_type: null, bed_type: null, capacity: 2 }] };
 const bentrok = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"], ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"]], lainLabel);
-assert.match(bentrok.baris[0].alasan!, /Room 1305 already exists as Kamar 05/);
+assert.match(bentrok.baris[0].alasan!, /Room 1305 is now Kamar 05/);
 assert.deepEqual(bentrok.kamarUbah, []);
+assert.deepEqual(bentrok.nomorBentrok, [{ hotel: "Mulia", nomor: "1305", labelBerkas: "Kamar 01", labelSekarang: "Kamar 05" }]);
+// "Use the numbers in this file": nomornya pindah ke Kamar 01, Kamar 05 menjadi nomor menyusul (dilepas paling awal).
+const ikut = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"], ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"]], lainLabel, { nomorIkutBerkas: true });
+assert.notEqual(ikut.baris[0].status, "tolak");
+assert.deepEqual(ikut.kamarUbah?.[0], { id: 41, nama: "1305", hotel: "Mulia", room_number: null });
+assert.deepEqual(ikut.kamarUbah?.find((k) => k.id === 40)?.room_number, "1305");
+// Tukar nomor di berkas: Kamar 05 diberi 1306, Kamar 01 mengambil 1305.
+const tukar2 = rencanaKamar([["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"], ["Kamar 01", "1305", "Andi Pratama", "06/11/2026", "08/11/2026"], ["Kamar 05", "1306", "Budi Santoso", "06/11/2026", "08/11/2026"]], lainLabel, { nomorIkutBerkas: true });
+assert.deepEqual(tukar2.kamarUbah?.map((k) => [k.id, k.room_number]), [[41, null], [40, "1305"], [41, "1306"]]);
 // Dua label baru dengan nomor yang sama di berkas, bertanggal: satu kamar.
 const gabungBerkas = rencanaKamar([
   ["KAMAR", "ROOM NUMBER", "NAMA", "CHECK IN", "CHECK OUT"],
