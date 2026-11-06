@@ -1,7 +1,7 @@
 import { getPublicPageEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, DEFAULT_BRANDING, normalizeBranding, type Branding } from "@/lib/branding";
-import type { UndianState } from "@/lib/undian";
+import { MUSIC_COLUMNS, MUSIC_OFF, musicFromRow, type UndianState } from "@/lib/undian";
 import UndianClient from "./undian-client";
 import { StageScaler } from "./stage-scaler";
 
@@ -47,6 +47,7 @@ const DEFAULT_STATE: UndianState & { branding: Branding } = {
     show_pool_size: true,
     sound_enabled: true,
     confetti_enabled: true,
+    music: MUSIC_OFF,
     background_color: null,
     text_color: null,
     accent_color: null,
@@ -58,11 +59,14 @@ const DEFAULT_STATE: UndianState & { branding: Branding } = {
 
 async function loadInitial(eventId: string): Promise<UndianState & { branding: Branding }> {
   try {
-    const { data, error } = await getSupabaseServiceClient()
+    const client = getSupabaseServiceClient();
+    let { data, error } = await client
       .from("undian_settings")
-      .select(SETTINGS_ROW)
+      .select(`${SETTINGS_ROW},${MUSIC_COLUMNS}`)
       .eq("event_id", eventId)
       .maybeSingle();
+    // Sebelum migrasi musik: baca tanpa kolom musik.
+    if (error?.code === "42703") ({ data, error } = await client.from("undian_settings").select(SETTINGS_ROW).eq("event_id", eventId).maybeSingle());
     if (error || !data) return DEFAULT_STATE;
     const raw = data as Record<string, unknown>;
     return {
@@ -77,6 +81,7 @@ async function loadInitial(eventId: string): Promise<UndianState & { branding: B
         show_pool_size: raw.show_pool_size !== false,
         sound_enabled: raw.sound_enabled !== false,
         confetti_enabled: raw.confetti_enabled !== false,
+        music: musicFromRow(raw),
         background_color: (raw.background_color as string | null) ?? null,
         text_color: (raw.text_color as string | null) ?? null,
         accent_color: (raw.accent_color as string | null) ?? null,

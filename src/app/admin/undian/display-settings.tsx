@@ -1,12 +1,19 @@
 "use client";
 
-import { ArrowSquareOut, FloppyDisk, UploadSimple, Warning } from "@phosphor-icons/react";
+import { ArrowSquareOut, FloppyDisk, MusicNotes, UploadSimple, Warning } from "@phosphor-icons/react";
 import { BrandingEditor } from "@/components/admin/branding-editor";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { Button, ButtonLink, DetailSection, Pane, PaneBody, PaneFooter, SegmentedButton, Switch } from "@/components/m3";
 import type { Branding } from "@/lib/branding";
 import { Field, INPUT, UploadButton } from "./form";
 import { FALLBACK, type Settings } from "./types";
+import { namaMusik, type SlotMusik } from "@/lib/undian-musik";
+
+const MUSIC_SLOTS: { slot: SlotMusik; key: "music_waiting_url" | "music_drawing_url" | "music_winner_url"; label: string; hint: string }[] = [
+  { slot: "waiting", key: "music_waiting_url", label: "Waiting screen", hint: "Loops before and between draws." },
+  { slot: "drawing", key: "music_drawing_url", label: "While drawing", hint: "Loops from Draw until the names appear." },
+  { slot: "winner", key: "music_winner_url", label: "When winners appear", hint: "Plays once. Replaces the Sound chime." },
+];
 
 /**
  * Tab tampilan panggung: satu panel setelan dengan tombol simpan menempel di
@@ -14,10 +21,11 @@ import { FALLBACK, type Settings } from "./types";
  * tombol simpan untuk seluruh panel memang cerminan perilakunya.
  */
 export function DisplaySettings({
-  settings, branding, saving, uploading, onChange, onSave, onUpload,
+  settings, branding, saving, uploading, uploadingMusic, onChange, onSave, onUpload, onUploadMusic,
 }: {
-  settings: Settings; branding: Branding; saving: boolean; uploading: boolean;
+  settings: Settings; branding: Branding; saving: boolean; uploading: boolean; uploadingMusic: SlotMusik | null;
   onChange: (changes: Partial<Settings>) => void; onSave: () => void; onUpload: (file: File) => void;
+  onUploadMusic: (slot: SlotMusik, file: File) => void;
 }) {
   return (
     <Pane aria-label="Stage display" className="w-full max-w-[960px] flex-1">
@@ -71,7 +79,7 @@ export function DisplaySettings({
             checked={settings.sound_enabled}
             onChange={(checked) => onChange({ sound_enabled: checked })}
             label="Sound"
-            description="Turn off if the venue sound system is already playing music."
+            description="A short chime when winners appear. Turn off if the venue sound system is already playing music."
           />
           <Switch
             checked={settings.confetti_enabled}
@@ -94,6 +102,61 @@ export function DisplaySettings({
             <ButtonLink href="/undian?greenscreen=1" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open green screen</ButtonLink>
           </div>
         </DetailSection>
+
+        {settings.music_available ? (
+          <DetailSection title="Music">
+            <Switch
+              checked={settings.music_enabled}
+              onChange={(checked) => onChange({ music_enabled: checked })}
+              label="Play music on the stage screen"
+              description="Plays from the computer running the stage screen, through its sound output. Browsers only play sound after a click, so click the stage screen once after opening it."
+            />
+            {settings.music_enabled ? (
+              <>
+                <ul className="divide-y divide-outline-variant rounded-md border border-outline-variant">
+                  {MUSIC_SLOTS.map(({ slot, key, label, hint }) => {
+                    const url = settings[key];
+                    return (
+                      <li key={slot} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-4">
+                        <div className="min-w-0 sm:w-48 sm:shrink-0">
+                          <p className="text-body-medium font-medium">{label}</p>
+                          <p className="text-body-medium text-on-surface-variant">{hint}</p>
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                          {url ? (
+                            <>
+                              <p className="flex min-w-0 items-center gap-1.5 text-body-medium">
+                                <MusicNotes size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
+                                <span className="truncate">{namaMusik(url)}</span>
+                              </p>
+                              <audio controls preload="none" src={url} className="h-9 w-full max-w-sm" aria-label={`${label} music preview`} />
+                            </>
+                          ) : <p className="text-body-medium text-on-surface-variant">{slot === "winner" ? (settings.sound_enabled ? "No music. The Sound chime plays." : "No music. Silent for this part.") : "No music. Silent for this part."}</p>}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <UploadButton
+                            label={url ? "Change" : "Upload"}
+                            accept="audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,.mp3,.m4a,.aac,.ogg,.wav"
+                            busy={uploadingMusic === slot}
+                            onFile={(file) => onUploadMusic(slot, file)}
+                            icon={<UploadSimple size={16} />}
+                          />
+                          {url ? <Button variant="text" size="sm" className="text-error" onClick={() => onChange({ [key]: null } as Partial<Settings>)}>Remove</Button> : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-body-medium text-on-surface-variant">MP3, M4A, AAC, OGG or WAV, up to 15 MB each. Use music you have the rights to play at the event.</p>
+                <div>
+                  <label htmlFor="music-volume" className="block text-body-medium font-medium">Volume: <span className="tabular-nums">{settings.music_volume}%</span></label>
+                  <input id="music-volume" type="range" min={0} max={100} step={5} value={settings.music_volume} onChange={(event) => onChange({ music_volume: Number.parseInt(event.target.value, 10) })} className="mt-2 w-full max-w-md accent-[var(--md-sys-color-primary)]" />
+                  <p className="mt-1 text-body-medium text-on-surface-variant">Lower this if the music drowns out the MC. The venue mixer still sets the overall level.</p>
+                </div>
+              </>
+            ) : null}
+          </DetailSection>
+        ) : null}
 
         <DetailSection title="Colours and background">
           <div className="grid grid-cols-3 gap-3 sm:max-w-md">
