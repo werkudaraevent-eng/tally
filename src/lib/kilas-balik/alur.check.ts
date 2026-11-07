@@ -168,3 +168,56 @@ console.log("kilas-balik/sorotan ok");
   assert.deepEqual(periksaJawaban(qq, { momen: ["Kumpul Batch 1"] }, () => []), { ok: true, jawaban: {} });
 }
 console.log("kilas-balik/pilihan-kosong ok");
+
+{
+  // Logic: Show if, recall, carry forward (logika.ts), dan urutan alur.
+  const { alurAktif } = await import("./alur.ts");
+  const { masalahLogika, urutAlur } = await import("./setelan.ts");
+  const { bangunLayar } = await import("./layar.ts");
+  const { cocokFakta, isiRecall, lolosFakta } = await import("./logika.ts");
+  type Q = import("./setelan.ts").Pertanyaan;
+  const qs: Q[] = [
+    { key: "saran", type: "text", title: "Kenapa {momen}?", required: true, after: null, show_if: [{ source: "answer", q: "momen", op: "includes", value: "Gala dinner" }] },
+    { key: "momen", type: "choice", title: "Momen?", options: ["Gala dinner", "City tour", "Sesi utama"], max: 3, required: true, after: "agenda" },
+    { key: "terbaik", type: "choice", title: "Yang terbaik?", options_from: "momen", max: 1, required: true, after: null },
+    { key: "vip", type: "faces", title: "Lounge?", required: true, after: null, show_if: [{ source: "checkin", session: 7, op: "yes" }] },
+  ];
+  assert.deepEqual(urutAlur(qs).map((x) => x.key), ["momen", "saran", "terbaik", "vip"]);
+  assert.deepEqual(masalahLogika(qs), []);
+  // Merujuk pertanyaan yang datang sesudahnya: ditolak.
+  const salah = qs.map((x) => (x.key === "momen" ? { ...x, after: null } : x));
+  assert.ok(masalahLogika(salah).some((m) => m.key === "saran"));
+  assert.equal(setelanSchema.safeParse({ ...rapikanSetelan({}), questions: salah }).success, false);
+  assert.equal(setelanSchema.safeParse({ ...rapikanSetelan({}), questions: qs }).success, true);
+  // Carry forward dari pertanyaan yang hanya boleh satu pilihan: ditolak.
+  assert.ok(masalahLogika(qs.map((x) => (x.key === "momen" ? { ...x, max: 1 } : x))).some((m) => m.key === "terbaik"));
+
+  const tanpa = { sesi: new Set<number>(), hadiah: false, kolom: { divisi: "Sales" } };
+  const hadir = { sesi: new Set([7]), hadiah: true, kolom: null };
+  assert.equal(cocokFakta({ source: "field", field: "divisi", values: ["sales"] }, tanpa), true);
+  assert.equal(lolosFakta(qs[3].show_if, tanpa), false);
+  assert.equal(lolosFakta(qs[3].show_if, hadir), true);
+
+  const pilihan = (x: Q) => x.options ?? [];
+  // Tanpa Gala dinner: "saran" tidak tampil, jadi tidak wajib; terbaik dari dua centang.
+  const r1 = periksaJawaban(qs, { momen: ["City tour", "Sesi utama"], saran: "x", terbaik: ["Sesi utama"] }, pilihan, (x) => lolosFakta(x.show_if, tanpa));
+  assert.deepEqual(r1, { ok: true, jawaban: { momen: ["City tour", "Sesi utama"], terbaik: ["Sesi utama"] } });
+  // Satu centang saja: carry forward tidak ditanyakan.
+  const r2 = periksaJawaban(qs, { momen: ["Gala dinner"], saran: "Seru" }, pilihan, (x) => lolosFakta(x.show_if, tanpa));
+  assert.deepEqual(r2, { ok: true, jawaban: { momen: ["Gala dinner"], saran: "Seru" } });
+  // Gala dinner dicentang tapi saran kosong: wajib. Hadir di sesi 7: vip wajib.
+  const r3 = periksaJawaban(qs, { momen: ["Gala dinner", "City tour"], terbaik: ["Hack"] }, pilihan, (x) => lolosFakta(x.show_if, hadir));
+  assert.deepEqual(r3, { ok: false, kosong: ["saran", "terbaik", "vip"] });
+
+  // HP: layar mengikuti jawaban, recall terisi.
+  const layar = bangunLayar({ questions: qs, cards: KARTU_AWAL, kenangan: penuh, lang: "id", utama: "id", semua: new Set(), milik: new Set(), fakta: tanpa });
+  assert.equal(layar.some((l) => l.jenis === "tanya" && l.q.key === "vip"), false);
+  const label = (_q: unknown, v: unknown) => (Array.isArray(v) ? v.join(" dan ") : String(v));
+  const kunciTanya = (j: Record<string, import("./setelan.ts").NilaiJawaban>) => alurAktif(layar, j, label).flatMap((l) => (l.jenis === "tanya" ? [l.q.key] : []));
+  assert.deepEqual(kunciTanya({}), ["momen"]);
+  assert.deepEqual(kunciTanya({ momen: ["Gala dinner", "City tour"] }), ["momen", "saran", "terbaik"]);
+  const saran = alurAktif(layar, { momen: ["Gala dinner", "City tour"] }, label).find((l) => l.jenis === "tanya" && l.q.key === "saran") as { q: { title: string } } | undefined;
+  assert.equal(saran?.q?.title, "Kenapa Gala dinner dan City tour?");
+  assert.equal(isiRecall("Kamu pilih {x}. Kenapa?", () => null), "Kamu pilih. Kenapa?");
+}
+console.log("kilas-balik/logika ok");

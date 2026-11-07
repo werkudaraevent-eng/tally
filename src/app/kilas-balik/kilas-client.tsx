@@ -5,10 +5,11 @@ import { CaretLeft, Confetti, HandWaving, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { eventApiPath } from "@/lib/event-url";
 import type { LandingLang } from "@/lib/landing-i18n";
-import { layarLanjut, terisi, type Kenangan } from "@/lib/kilas-balik/alur";
+import { alurAktif, layarLanjut, terisi, type Kenangan } from "@/lib/kilas-balik/alur";
 import { KILAS_UI } from "@/lib/kilas-balik/i18n";
-import type { NilaiJawaban, Tampilan } from "@/lib/kilas-balik/setelan";
-import { IsianTanya, Penutup, reduksiGerak, type Kirim, type LayarKlien } from "./bagian";
+import { rapikanSetelan, type KunciKartu, type NilaiJawaban, type Tampilan } from "@/lib/kilas-balik/setelan";
+import { bangunLayar } from "@/lib/kilas-balik/layar";
+import { IsianTanya, Penutup, reduksiGerak, teksJawaban, type Kirim, type LayarKlien } from "./bagian";
 import { Hitung, KataMuncul, Ornamen, Reaksi, Stiker, kenanganMeriah, labelTanya, warnaLayar } from "./meriah";
 import { TampilanPercakapan } from "./tampilan-percakapan";
 import { TampilanRingkas } from "./tampilan-ringkas";
@@ -37,7 +38,22 @@ export type PropsKilas = {
   zona: string;
   /** Nama peserta yang dipratinjau admin. */
   pratinjau: string | null;
+  /** Pratinjau admin: bahan untuk menyusun ulang layar dari draf Build yang belum disimpan. */
+  pratinjauData?: {
+    utama: LandingLang;
+    semua: string[];
+    milik: string[];
+    fakta: { sesi: number[]; hadiah: boolean; kolom: Record<string, unknown> | null };
+  } | null;
 };
+
+/** Pesan dari Admin > Feedback > Build ke iframe pratinjau, dan balasannya. */
+export type PesanDraf = {
+  type: "tally:kilas-draf";
+  setelan: unknown;
+  fokus?: { jenis: "buka" } | { jenis: "tutup" } | { jenis: "kartu"; kartu: KunciKartu } | { jenis: "tanya"; key: string } | null;
+};
+export type BalasanPratinjau = { type: "tally:kilas-siap" } | { type: "tally:kilas-fokus"; ketemu: boolean };
 
 /**
  * Kilas balik untuk peserta. Tiga tampilan (Admin > Feedback > Display)
@@ -51,14 +67,18 @@ export type PropsKilas = {
  * tempat yang sama, dan kiriman yang tertunda dikirim begitu ada sinyal.
  */
 export function useKilas(props: PropsKilas) {
-  const { layar, lang } = props;
+  const { lang } = props;
   const t = KILAS_UI[lang];
   const sudahKirim = props.jawabanAwal !== null;
+  const [jawaban, setJawaban] = useState<Record<string, NilaiJawaban>>(props.jawabanAwal ?? {});
+  // Show if, recall, dan carry forward (logika.ts): daftar layar mengikuti
+  // jawaban. Syarat hanya merujuk pertanyaan sebelumnya, jadi mengubah jawaban
+  // di layar ke-i hanya mengubah layar sesudahnya dan posisi i tetap benar.
+  const layar = useMemo(() => alurAktif(props.layar, jawaban, (q, v) => teksJawaban(lang, q, v)), [props.layar, jawaban, lang]);
   const iTutup = layar.length - 1;
   const [tampilan, setTampilan] = useState<Tampilan>(props.tampilan);
   const [i, setIState] = useState(sudahKirim ? iTutup : 0);
   const [jauh, setJauh] = useState(sudahKirim ? iTutup : 0);
-  const [jawaban, setJawaban] = useState<Record<string, NilaiJawaban>>(props.jawabanAwal ?? {});
   const [kirim, setKirim] = useState<Kirim>(sudahKirim ? "terkirim" : "diam");
   const [galat, setGalat] = useState<string | null>(null);
   const [kosong, setKosong] = useState<string[]>([]);
@@ -97,7 +117,8 @@ export function useKilas(props: PropsKilas) {
     if (simpan.tertunda) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setJawaban(simpan.jawaban);
-      setI(iTutup);
+      // Layar penutup dari daftar sesudah jawaban ini dipulihkan (bisa lebih panjang): dijepit di bawah.
+      setI(Number.MAX_SAFE_INTEGER);
       setKirim("luring");
       return;
     }
@@ -225,7 +246,8 @@ export function useKilas(props: PropsKilas) {
   return {
     props, t, lang, layar, iTutup, tanyaSemua, tutupTanggal,
     tampilan, setTampilan,
-    i, setI, jauh, arah, setArah, maju, majuNanti, mundur, batalTimer,
+    // Daftar layar bisa memendek saat jawaban berubah atau dipulihkan: posisi dijepit ke layar terakhir.
+    i: Math.min(i, iTutup), setI, jauh: Math.min(jauh, iTutup), arah, setArah, maju, majuNanti, mundur, batalTimer,
     jawaban, setNilai, kosong, setKosong,
     kirim, setKirim, kirimJawaban, galat, setGalat,
     lanjutDari, setLanjutDari,
@@ -234,8 +256,50 @@ export function useKilas(props: PropsKilas) {
 
 export type Kilas = ReturnType<typeof useKilas>;
 
-export function KilasClient(props: PropsKilas) {
+export function KilasClient(asli: PropsKilas) {
+  const [timpa, setTimpa] = useState<Partial<PropsKilas> | null>(null);
+  const [fokus, setFokus] = useState<{ nilai: PesanDraf["fokus"]; n: number } | null>(null);
+  const props = useMemo(() => (timpa ? { ...asli, ...timpa } : asli), [asli, timpa]);
   const k = useKilas(props);
+  const data = asli.pratinjauData;
+
+  // Pratinjau langsung: Build mengirim draf lewat postMessage (asal yang sama
+  // saja), halaman ini menyusun ulang layarnya tanpa memuat ulang dan tanpa
+  // menyimpan apa pun, lalu melompat ke layar yang sedang disunting.
+  useEffect(() => {
+    if (!data || window.parent === window) return;
+    const terima = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.source !== window.parent) return;
+      const pesan = e.data as PesanDraf | null;
+      if (!pesan || pesan.type !== "tally:kilas-draf") return;
+      const s = rapikanSetelan(pesan.setelan);
+      const fakta = { sesi: new Set(data.fakta.sesi), hadiah: data.fakta.hadiah, kolom: data.fakta.kolom };
+      setTimpa({
+        layar: bangunLayar({ questions: s.questions, cards: s.cards, kenangan: asli.kenangan, lang: asli.lang, utama: data.utama, semua: new Set(data.semua), milik: new Set(data.milik), fakta }),
+        judul: s.title, intro: s.intro, penutup: s.closing, penanda: s.signed_by,
+      });
+      if (pesan.fokus) setFokus((f) => ({ nilai: pesan.fokus, n: (f?.n ?? 0) + 1 }));
+    };
+    window.addEventListener("message", terima);
+    window.parent.postMessage({ type: "tally:kilas-siap" } satisfies BalasanPratinjau, window.location.origin);
+    return () => window.removeEventListener("message", terima);
+  }, [data, asli.kenangan, asli.lang]);
+
+  const { setI, setArah, setKirim, batalTimer } = k;
+  useEffect(() => {
+    if (!fokus?.nilai) return;
+    const f = fokus.nilai;
+    const ke = k.layar.findIndex((l) => l.jenis === f.jenis && (f.jenis !== "kartu" || (l.jenis === "kartu" && l.kartu === f.kartu)) && (f.jenis !== "tanya" || (l.jenis === "tanya" && l.q.key === f.key)));
+    window.parent.postMessage({ type: "tally:kilas-fokus", ketemu: ke >= 0 } satisfies BalasanPratinjau, window.location.origin);
+    if (ke < 0) return;
+    batalTimer();
+    setArah(1);
+    setKirim("diam");
+    setI(ke);
+    // Hanya saat admin memilih baris lain, bukan setiap kali layar disusun ulang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fokus]);
+
   return (
     <main className="kb-akar" style={props.gaya} data-tampilan={k.tampilan} data-warna={k.tampilan === "kilas" ? warnaLayar(k.layar, k.i) : undefined}>
       {props.pratinjau !== null ? (

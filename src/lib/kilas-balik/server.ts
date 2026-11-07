@@ -10,6 +10,7 @@ import { namaSapaan } from "@/lib/member/nav";
 import { gabungMeta } from "@/lib/typography";
 import { semuaBaris } from "@/lib/logistik/server";
 import { sorotanAgenda, type Kenangan } from "./alur.ts";
+import type { FaktaPeserta } from "./logika.ts";
 import { rapikanSetelan, statusBuka, type NilaiJawaban, type Pertanyaan, type SetelanKilas } from "./setelan.ts";
 
 /**
@@ -71,12 +72,7 @@ export async function judulAgendaMilik(event: Pick<EventRow, "id" | "registratio
   return new Set([...id, ...en]);
 }
 
-/** Pilihan yang ditampilkan ke peserta ini untuk satu pertanyaan pilihan. */
-export function pilihanPeserta(q: Pertanyaan, semuaJudulAgenda: ReadonlySet<string>, milikPeserta: ReadonlySet<string>): string[] {
-  const opsi = q.options ?? [];
-  if (!q.from_agenda) return opsi;
-  return opsi.filter((o) => !semuaJudulAgenda.has(o) || milikPeserta.has(o));
-}
+export { pilihanPeserta } from "./layar.ts";
 
 /**
  * Kenangan satu peserta. Hanya bagian yang memang sudah tampil di area peserta
@@ -88,7 +84,7 @@ export async function muatKenangan(event: EventRow, member: LandingMemberConfig,
   const [logistik, hadiah, hadir, agenda] = await Promise.all([
     loadMemberLogistics(event.id, participantId, member.show_logistics === true, undefined, false, sembunyi).catch(() => null),
     loadHadiahPeserta(event.id, participantId, member.prize, lang).catch(() => []),
-    sesiHadir(event.id, participantId),
+    sesiHadir(event.id, participantId).then((s) => s.size),
     loadAgendaPreview(event.id, lang, { acara: event, participantId, tampilKamar: false }).catch(() => []),
   ]);
   const sorotan = sorotanAgenda(agenda, event.event_date ?? null, event.end_date ?? event.event_date ?? null);
@@ -146,16 +142,40 @@ export function hariAcara(event: Pick<EventRow, "event_date" | "end_date">): num
   return Number.isFinite(n) && n >= 1 && n < 60 ? n : 1;
 }
 
-/** Berapa sesi check-in berbeda yang mencatat peserta ini. Gagal baca = 0. */
-async function sesiHadir(eventId: string, participantId: string): Promise<number> {
+/** Sesi check-in berbeda yang mencatat peserta ini. Gagal baca = kosong. */
+async function sesiHadir(eventId: string, participantId: string): Promise<Set<number>> {
   const { data, error } = await db()
     .from("attendance_scans")
     .select("session_id")
     .eq("event_id", eventId)
     .eq("participant_id", participantId)
     .limit(1000);
-  if (error || !Array.isArray(data)) return 0;
-  return new Set((data as { session_id: number }[]).map((r) => r.session_id)).size;
+  if (error || !Array.isArray(data)) return new Set();
+  return new Set((data as { session_id: number }[]).map((r) => r.session_id));
+}
+
+/** Ada pertanyaan dengan syarat data acara? Tanpa itu, fakta tidak perlu dibaca. */
+export const perluFakta = (questions: readonly Pertanyaan[]) => questions.some((q) => (q.show_if ?? []).some((s) => s.source !== "answer"));
+
+/**
+ * Data acara peserta untuk Show if (logika.ts). Hadiah dibaca dengan aturan
+ * kartu hadiah area peserta, jadi syarat tidak pernah membaca hadiah yang
+ * panitia sembunyikan. Gagal baca = tidak punya (syarat "ya" tidak cocok).
+ */
+export async function muatFakta(event: Pick<EventRow, "id">, member: LandingMemberConfig, participantId: string, lang: LandingLang): Promise<FaktaPeserta> {
+  const [sesi, hadiah, baris] = await Promise.all([
+    sesiHadir(event.id, participantId),
+    loadHadiahPeserta(event.id, participantId, member.prize, lang).catch(() => []),
+    db().from("participants").select("extra").eq("event_id", event.id).eq("id", participantId).maybeSingle(),
+  ]);
+  const extra = (baris.data as { extra?: unknown } | null)?.extra;
+  return { sesi, hadiah: hadiah.length > 0, kolom: extra && typeof extra === "object" ? (extra as Record<string, unknown>) : null };
+}
+
+/** Sesi check-in acara ini, untuk menu Show if di admin. */
+export async function sesiCheckin(eventId: string): Promise<{ id: number; name: string }[]> {
+  const { data } = await db().from("attendance_sessions").select("id,name").eq("event_id", eventId).order("sort_order").order("id").limit(200);
+  return ((data ?? []) as { id: number; name: string | null }[]).map((r) => ({ id: r.id, name: r.name?.trim() || `Session ${r.id}` }));
 }
 
 /**

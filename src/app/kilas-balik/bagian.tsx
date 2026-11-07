@@ -8,6 +8,7 @@ import type { LandingLang } from "@/lib/landing-i18n";
 import type { Kenangan } from "@/lib/kilas-balik/alur";
 import { KILAS_UI } from "@/lib/kilas-balik/i18n";
 import type { JenisPertanyaan, KunciKartu, NilaiJawaban } from "@/lib/kilas-balik/setelan";
+import type { Syarat } from "@/lib/kilas-balik/logika";
 import { Hitung, KataMuncul, gelar } from "./meriah";
 
 /**
@@ -15,7 +16,7 @@ import { Hitung, KataMuncul, gelar } from "./meriah";
  * ringkas): isian per jenis pertanyaan, isi kartu kenangan, dan penutup.
  */
 
-export type TanyaKlien = { key: string; type: JenisPertanyaan; title: string; required: boolean; max: number; options: string[] };
+export type TanyaKlien = { key: string; type: JenisPertanyaan; title: string; required: boolean; max: number; options: string[]; show_if?: Syarat[]; options_from?: string | null };
 export type LayarKlien = { jenis: "buka" } | { jenis: "kartu"; kartu: KunciKartu } | { jenis: "tanya"; q: TanyaKlien } | { jenis: "tutup" };
 export type Kirim = "diam" | "mengirim" | "terkirim" | "luring" | "gagal";
 
@@ -25,7 +26,7 @@ const IKON_TRIP = { train: Train, flight: AirplaneTilt, ship: Boat, bus: Bus } a
 export const reduksiGerak = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Jawaban sebagai kalimat pendek, untuk gelembung balasan di Percakapan. */
-export function teksJawaban(lang: LandingLang, q: TanyaKlien, v: NilaiJawaban | undefined): string | null {
+export function teksJawaban(lang: LandingLang, q: Pick<TanyaKlien, "type">, v: NilaiJawaban | undefined): string | null {
   const t = KILAS_UI[lang];
   if (v === undefined) return null;
   if (q.type === "faces" && typeof v === "number") return t.faces[v - 1] ?? String(v);

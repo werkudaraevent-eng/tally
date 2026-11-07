@@ -8,9 +8,9 @@ import { landingDefaultLang, landingEnAvailable, landingPath, withQuery, type La
 import { landingFontStyle, landingTokens } from "@/lib/landing-tokens";
 import { getMemberSession, memberConfig, previewMemberSession } from "@/lib/member/account";
 import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
-import { susunAlur } from "@/lib/kilas-balik/alur";
-import { judulAgendaMilik, muatJawaban, muatKenangan, muatSetelan, pesertaContoh, pilihanPeserta, semuaJudulAgenda } from "@/lib/kilas-balik/server";
-import { TAMPILAN, statusBuka, temaSchema, type Pertanyaan, type Tampilan, type TemaKilas } from "@/lib/kilas-balik/setelan";
+import { judulAgendaMilik, muatFakta, muatJawaban, muatKenangan, muatSetelan, perluFakta, pesertaContoh, semuaJudulAgenda } from "@/lib/kilas-balik/server";
+import { bangunLayar } from "@/lib/kilas-balik/layar";
+import { TAMPILAN, statusBuka, temaSchema, type Tampilan, type TemaKilas } from "@/lib/kilas-balik/setelan";
 import { warnaKilas } from "@/lib/kilas-balik/warna";
 import { KILAS_UI } from "@/lib/kilas-balik/i18n";
 import { KilasClient, type LayarKlien } from "./kilas-client";
@@ -132,22 +132,19 @@ export default async function KilasBalikPage({ searchParams }: { searchParams: K
     );
   }
 
-  const [kenangan, jawaban, semua, milik] = await Promise.all([
+  const [kenangan, jawaban, semua, milik, fakta] = await Promise.all([
     muatKenangan(event, member, peserta.id, sesi.name, lang),
     pratinjau ? null : muatJawaban(event.id, peserta.id),
     semuaJudulAgenda(event.id),
     judulAgendaMilik(event, peserta.id),
+    perluFakta(setelan.questions) ? muatFakta(event, member, peserta.id, lang) : null,
   ]);
-  const semuaSet = new Set(semua);
-  const judulDi = (q: Pertanyaan) => (lang !== utama && q.title_alt?.trim() ? q.title_alt.trim() : q.title);
-  // Pertanyaan pilihan yang tidak punya satu pun pilihan untuk peserta ini
-  // (semua dari baris Agenda kelompok lain) dilewati, sama dengan periksaJawaban.
-  const layar: LayarKlien[] = susunAlur(setelan.questions, setelan.cards, kenangan).flatMap((l): LayarKlien[] => {
-    if (l.jenis !== "tanya") return [l];
-    const options = l.q.type === "choice" ? pilihanPeserta(l.q, semuaSet, milik) : [];
-    if (l.q.type === "choice" && options.length === 0) return [];
-    return [{ jenis: "tanya", q: { key: l.q.key, type: l.q.type, title: judulDi(l.q), required: l.q.required, max: l.q.max ?? 1, options } }];
-  });
+  const layar: LayarKlien[] = bangunLayar({ questions: setelan.questions, cards: setelan.cards, kenangan, lang, utama, semua: new Set(semua), milik, fakta });
+  // Pratinjau admin: data yang dibutuhkan untuk menyusun ulang layar dari draf
+  // yang belum disimpan (Admin > Feedback > Build). Hanya untuk admin acara ini.
+  const pratinjauData = pratinjau
+    ? { utama, semua, milik: [...milik], fakta: await muatFakta(event, member, peserta.id, lang).then((f) => ({ sesi: [...f.sesi], hadiah: f.hadiah, kolom: f.kolom })) }
+    : null;
 
   return (
     <KilasClient
@@ -168,6 +165,7 @@ export default async function KilasBalikPage({ searchParams }: { searchParams: K
       portalUrl={portalUrl}
       tutupPada={setelan.closes_at}
       zona={event.time_zone || "Asia/Jakarta"}
+      pratinjauData={pratinjauData}
     />
   );
 }

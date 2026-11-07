@@ -1,12 +1,13 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { landingDefaultLang } from "@/lib/landing-i18n";
+import { landingDefaultLang, landingEnAvailable } from "@/lib/landing-i18n";
 import type { EventLandingConfig } from "@/lib/domain";
 import { memberConfig } from "@/lib/member/account";
 import { normalizeTimeZone, timeZoneAbbr, timeZoneOffset } from "@/lib/timezone";
 import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
-import { labelKolom, muatHasil, muatSetelan, pesertaContoh, semuaJudulAgenda } from "@/lib/kilas-balik/server";
+import { labelKolom, muatHasil, muatSetelan, pesertaContoh, semuaJudulAgenda, sesiCheckin } from "@/lib/kilas-balik/server";
+import { kolomSasaran } from "@/lib/sasaran-bagian";
 import { GATHERING_ACCENT_DEFAULT, landingTokens } from "@/lib/landing-tokens";
 import { KARTU_AWAL, pertanyaanAwal, ringkasHasil, setelanSchema } from "@/lib/kilas-balik/setelan";
 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
   if (!muat.siap) return belumSiap();
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   const lang = landingDefaultLang(landing);
-  const [agenda, hasil, contoh] = await Promise.all([semuaJudulAgenda(event.id), muatHasil(event.id), pesertaContoh(event.id)]);
+  const [agenda, hasil, contoh, sesi] = await Promise.all([semuaJudulAgenda(event.id), muatHasil(event.id), pesertaContoh(event.id), sesiCheckin(event.id)]);
   const tokens = landingTokens(landing);
   const setelan = muat.ada ? muat.setelan : { ...muat.setelan, questions: pertanyaanAwal(lang, agenda), cards: KARTU_AWAL };
   return Response.json({
@@ -44,6 +45,13 @@ export async function GET(request: Request) {
     area_peserta: memberConfig(event) !== null,
     tautan: alamatKilasBalik(event.slug),
     slug: event.slug,
+    bahasa_lain: landingEnAvailable(landing),
+    // Untuk Show if: sesi check-in dan kolom pilihan pendaftaran (sama dengan Agenda > Who sees it).
+    logika: {
+      sesi,
+      kolom: kolomSasaran(event.registration_form_config).map((k) => ({ key: k.key, label: k.label, options: k.options })),
+      hadiah: memberConfig(event)?.prize?.enabled === true,
+    },
     tema_acara: { brand: tokens.brand, accent: tokens.accent ?? GATHERING_ACCENT_DEFAULT },
     contoh,
     zona: { offset: timeZoneOffset(normalizeTimeZone(event.time_zone)), singkat: timeZoneAbbr(normalizeTimeZone(event.time_zone)) },
