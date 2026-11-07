@@ -76,6 +76,8 @@ function shuffle<T>(items: T[]): T[] {
  * kurang dari jumlah pemenang.
  */
 export function arenaFloor(crowd: number, winners: number) {
+  // Kolam kecil tetap kehilangan orang selama mengundi, tidak hanya gertakan.
+  if (crowd <= 24) return Math.min(crowd, Math.max(winners + 2, Math.ceil(crowd * 0.6)));
   return Math.min(crowd, Math.max(winners + 6, 24));
 }
 
@@ -829,6 +831,35 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     }
   };
 
+  // Label nama tidak boleh saling tumpuk: orang yang tersisa berdiri di petak
+  // yang bersebelahan, dan label lebih lebar daripada petak. Tiap frame, kotak
+  // label di layar diperiksa dari yang paling bawah (paling dekat kamera); yang
+  // menabrak label di bawahnya didorong ke atas secukupnya.
+  const projected = new T.Vector3();
+  const declutter = () => {
+    const tanHalf = Math.tan((camera.fov * Math.PI) / 360);
+    const tags = labels
+      .filter((sprite) => sprite.visible)
+      .map((sprite) => {
+        projected.copy(sprite.position).project(camera);
+        return { sprite, x: projected.x, y: projected.y, w: sprite.scale.x / tanHalf / camera.aspect, h: sprite.scale.y / tanHalf };
+      })
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+    const placed: { x: number; y: number; w: number; h: number }[] = [];
+    for (const tag of tags) {
+      let y = tag.y;
+      for (let guard = 0; guard <= placed.length; guard += 1) {
+        const hit = placed.find((other) => Math.abs(other.x - tag.x) < ((other.w + tag.w) / 2) * 1.04 && Math.abs(other.y - y) < ((other.h + tag.h) / 2) * 1.1);
+        if (!hit) break;
+        y = hit.y + ((hit.h + tag.h) / 2) * 1.1;
+      }
+      placed.push({ x: tag.x, y, w: tag.w, h: tag.h });
+      // `center` menggeser sprite dalam satuan ukurannya sendiri: 0,5 = di tempat.
+      const target = 0.5 - (y - tag.y) / tag.h;
+      tag.sprite.center.y += (target - tag.sprite.center.y) * 0.3;
+    }
+  };
+
   const sync = (time: number) => {
     if (!tileMesh || !bodyMesh || !headMesh || !ringMesh) return;
     tiles.forEach((tile, index) => {
@@ -945,7 +976,8 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
         revealStep = 2;
         const chosen = people.filter((person) => person.winner);
         current = startRound(now, chosen.length, {
-          final: true, title: "Babak final", protect: chosen, labelsAfter: true,
+          // Lebih dari 12 pemenang: nama baru tampil di daftar, bukan di atas kepala.
+          final: true, title: "Babak final", protect: chosen, labelsAfter: chosen.length <= LABEL_AT,
           run: ARENA_FINAL_RUN_MS, warn: ARENA_FINAL_WARN_MS, fall: ARENA_FINAL_FALL_MS,
         });
         flash("BABAK FINAL", counts() ? `${people.filter((person) => person.alive).length} orang, ${chosen.length} pemenang` : `${chosen.length} pemenang`, now, 1800);
@@ -1002,6 +1034,7 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     if (bulbs) bulbs.visible = revealStep < 3 && cam.r > arenaR * 0.55;
     tickHud(now);
     sync(now / 1000);
+    declutter();
     placeCamera(dt);
     renderer.render(scene, camera);
     frame = view.requestAnimationFrame(draw);
@@ -1015,5 +1048,8 @@ function buildScene(T: Three, canvas: HTMLCanvasElement, wrap: HTMLElement, live
     for (const mesh of [tileMesh, bodyMesh, headMesh, ringMesh, bulbs]) mesh?.dispose();
     for (const item of disposables) item.dispose();
     renderer.dispose();
+    // Melepas konteks WebGL segera: operator bisa berganti hadiah berkali-kali,
+    // dan browser membatasi jumlah konteks yang hidup (sama dengan Dart).
+    renderer.forceContextLoss();
   };
 }
