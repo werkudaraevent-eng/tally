@@ -7,9 +7,10 @@ import { HEAD } from "@/components/landing/modern/styles";
  * Tampil hanya selama Feedback dibuka, untuk peserta yang boleh membukanya
  * (semua, atau panitia saja saat Testing) dan belum mengirim jawaban, jadi
  * acara tanpa Feedback tidak berubah sama sekali. Teksnya diatur di
- * Feedback > Send > Card on participant Home; kosong = teks bawaan.
+ * Feedback > Build > Home card; kosong = teks bawaan.
+ *
+ * `tumpuk`: selalu bersusun, untuk pratinjau sempit di admin (breakpoint mengikuti layar admin, bukan bingkai ponsel).
  */
-/** `tumpuk`: selalu bersusun, untuk pratinjau sempit di admin (breakpoint mengikuti layar admin, bukan bingkai ponsel). */
 export function KartuKilas({ kartu, tumpuk = false }: { kartu: { href: string; title: string; body: string; button: string } | null; tumpuk?: boolean }) {
   if (!kartu) return null;
   return (

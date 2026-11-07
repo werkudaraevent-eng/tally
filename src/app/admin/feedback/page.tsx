@@ -106,8 +106,12 @@ export default function FeedbackPage() {
   const [pilihNyala, setPilihNyala] = useState<Penonton>("committee");
 
   async function simpan(nyalakan?: boolean, audience?: Penonton) {
-    if (!draf) return;
-    const isi = { ...draf, ...(nyalakan === undefined ? {} : { enabled: nyalakan }), ...(audience ? { audience } : {}) };
+    if (!draf || !data) return;
+    // Turn on, Turn off, Open to everyone: hanya status yang berubah, di atas versi tersimpan.
+    // Suntingan Build yang belum disimpan tetap draf, tidak ikut terbit diam-diam.
+    const ubahStatus = nyalakan !== undefined || audience !== undefined;
+    const dasar = ubahStatus && data.tersimpan ? data.setelan : draf;
+    const isi = { ...dasar, ...(nyalakan === undefined ? {} : { enabled: nyalakan }), ...(audience ? { audience } : {}) };
     setMenyimpan(true);
     setGalat(null);
     const res = await fetch("/api/admin/feedback", {
@@ -123,7 +127,7 @@ export default function FeedbackPage() {
       toast.error("Feedback not saved", pesan);
       return;
     }
-    setDraf(isi);
+    setDraf((d) => (dasar === d || !d ? isi : { ...d, enabled: isi.enabled, audience: isi.audience }));
     setData((d) => (d ? { ...d, setelan: isi, tersimpan: true } : d));
     setDialogNyala(false);
     toast.success(
@@ -200,7 +204,15 @@ export default function FeedbackPage() {
         {tab === "send" ? (
           <div className="flex flex-col gap-5">
             <Kelompok first title="Who can open it" note={adaPanitia ? undefined : "To test first, give a participant Type Committee access in Check-in > Checkpoints > Committee access."}>
-              <PilihPenonton value={draf.audience} onChange={(v) => setDraf({ ...draf, audience: v })} panitia={data.panitia} total={data.hasil?.total_peserta ?? null} name="feedback-penonton" />
+              {data.setelan.enabled ? (
+                <p className="text-body-medium">
+                  {data.setelan.audience === "committee"
+                    ? `Committee only, for testing (${plural(data.panitia.jumlah, "participant")}). Use Open to everyone at the top when you're ready.`
+                    : "All participants. To test with the committee again, turn Feedback off first."}
+                </p>
+              ) : (
+                <PilihPenonton value={draf.audience} onChange={(v) => setDraf({ ...draf, audience: v })} panitia={data.panitia} total={data.hasil?.total_peserta ?? null} name="feedback-penonton" />
+              )}
             </Kelompok>
             <Kelompok title="When it's open" note={`Times are in ${data.zona.singkat}. Leave both empty to keep it open while Feedback is on. Participants can change their answers until it closes. Save to apply.`}>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -226,7 +238,7 @@ export default function FeedbackPage() {
         }
       >
         {data.setelan.enabled ? (
-          <p className="text-body-medium text-on-surface-variant">{teksSemua(draf, data.hasil?.total_peserta ?? null)}</p>
+          <p className="text-body-medium text-on-surface-variant">{teksSemua(data.setelan, data.hasil ? data.hasil.total_peserta - data.hasil.jumlah : null)}</p>
         ) : (
           <PilihPenonton value={pilihNyala} onChange={setPilihNyala} panitia={data.panitia} total={data.hasil?.total_peserta ?? null} name="feedback-nyala" />
         )}
@@ -237,11 +249,12 @@ export default function FeedbackPage() {
 
 /* ----------------------------------------------------------------- Send */
 
-function teksSemua(draf: SetelanKilas, total: number | null): string {
-  const siapa = total === null ? "every participant" : plural(total, "participant");
-  return draf.home.show
-    ? `The card appears on Home for ${siapa} who haven't answered, and the link works for everyone.`
-    : `The link works for ${siapa}. The Home card is off, so invite them from Send.`;
+/** `belum`: peserta yang belum menjawab (null = tidak diketahui). */
+function teksSemua(s: SetelanKilas, belum: number | null): string {
+  const siapa = belum === null ? "every participant who hasn't answered" : belum === 1 ? "1 participant who hasn't answered" : `${belum} participants who haven't answered`;
+  return s.home.show
+    ? `The card appears on Home for ${siapa}, and the link works for everyone.`
+    : `The link works for everyone. The Home card is off, so invite them from Send.`;
 }
 
 /** Semua peserta, atau panitia saja untuk mencoba dulu (kartu Beranda, tautan, dan Send). */

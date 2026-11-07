@@ -452,13 +452,13 @@ function Pratinjau({ draf, setDraf, data, pilih, className }: { draf: SetelanKil
   return (
     <div className={cx("min-w-0 flex-col items-center gap-3 rounded-lg bg-surface-container p-3 xl:sticky xl:top-[calc(var(--workspace-top,58px)+16px)] xl:self-start", className)}>
       <div className="flex w-full flex-wrap items-center justify-center gap-2">
-        <SegmentedButton
+        {pilih.jenis === "beranda" ? null : <SegmentedButton
           label="Display"
           size="md"
           value={draf.display}
           onChange={(v) => setDraf({ ...draf, display: v })}
           options={TAMPILAN_PILIHAN.map((t) => ({ value: t.value, label: t.label }))}
-        />
+        />}
         {data.bahasa_lain ? (
           <SegmentedButton
             label="Language"
@@ -470,7 +470,7 @@ function Pratinjau({ draf, setDraf, data, pilih, className }: { draf: SetelanKil
       </div>
       <div className="flex w-full items-center justify-center gap-1">
         <PilihPeserta peserta={peserta} onPilih={setPeserta} />
-        <ButtonLink native variant="text" size="sm" href={alamat} target="_blank" rel="noopener" icon={<ArrowSquareOut size={16} />}>Open</ButtonLink>
+        {pilih.jenis === "beranda" ? null : <ButtonLink native variant="text" size="sm" href={alamat} target="_blank" rel="noopener" icon={<ArrowSquareOut size={16} />}>Open</ButtonLink>}
       </div>
       {pilih.jenis === "beranda" ? (
         <BerandaPratinjau draf={draf} data={data} lang={lain ? (data.lang === "id" ? "en" : "id") : data.lang} nama={peserta?.name ?? null} />

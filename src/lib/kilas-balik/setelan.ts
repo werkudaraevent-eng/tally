@@ -154,8 +154,9 @@ export const pertanyaanSchema = z
 export const setelanSchema = z
   .object({
     enabled: z.boolean(),
-    audience: z.enum(PENONTON).default("all"),
-    home: berandaSchema.default(BERANDA_AWAL),
+    // Tidak ada = pakai yang tersimpan (tab admin lama tidak mengirimnya), bukan reset ke semua peserta.
+    audience: z.enum(PENONTON).optional(),
+    home: berandaSchema.optional(),
     title: z.string().trim().max(120).nullable(),
     intro: z.string().trim().max(600).nullable(),
     closing: z.string().trim().max(600).nullable(),

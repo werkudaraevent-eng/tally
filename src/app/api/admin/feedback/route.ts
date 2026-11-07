@@ -11,7 +11,7 @@ import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
 import { labelKolom, muatHasil, muatSetelan, pesertaContoh, semuaJudulAgenda, sesiCheckin } from "@/lib/kilas-balik/server";
 import { kolomSasaran } from "@/lib/sasaran-bagian";
 import { GATHERING_ACCENT_DEFAULT, landingTokens } from "@/lib/landing-tokens";
-import { KARTU_AWAL, bolehIkut, masalahLogika, pertanyaanAwal, ringkasHasil, setelanSchema } from "@/lib/kilas-balik/setelan";
+import { BERANDA_AWAL, KARTU_AWAL, bolehIkut, masalahLogika, pertanyaanAwal, ringkasHasil, setelanSchema } from "@/lib/kilas-balik/setelan";
 
 /**
  * Admin > Feedback (migrasi 202611070010).
@@ -95,7 +95,11 @@ export async function PUT(request: Request) {
     const masalah = masalahLogika(s.questions, { sesi: sesi.map((x) => x.id), kolom });
     if (masalah.length) return apiError("VALIDATION_ERROR", 422, { formErrors: [masalah[0].pesan], fieldErrors: {} });
   }
-  if (s.audience === "committee" && !bacaSetelanPanitia(memberConfig(event)?.committee)) {
+  // Tab admin lama tanpa audience/home: pertahankan nilai tersimpan.
+  const lama = s.audience === undefined || s.home === undefined ? await muatSetelan(event.id).catch(() => null) : null;
+  const audience = s.audience ?? (lama?.siap ? lama.setelan.audience : "all");
+  const home = s.home ?? (lama?.siap ? lama.setelan.home : BERANDA_AWAL);
+  if (audience === "committee" && !bacaSetelanPanitia(memberConfig(event)?.committee)) {
     return apiError("VALIDATION_ERROR", 422, { formErrors: ["Testing needs at least one participant Type with Committee access. Pick it in Check-in > Checkpoints > Committee access first."], fieldErrors: {} });
   }
   const baris = {
@@ -109,7 +113,7 @@ export async function PUT(request: Request) {
     theme: s.theme,
     questions: s.questions,
     // Mode uji ikut di jsonb cards (lihat PENONTON di setelan.ts), tanpa kolom baru.
-    cards: { ...s.cards, audience: s.audience, home: s.home },
+    cards: { ...s.cards, audience, home },
     opens_at: s.opens_at,
     closes_at: s.closes_at,
     updated_at: new Date().toISOString(),

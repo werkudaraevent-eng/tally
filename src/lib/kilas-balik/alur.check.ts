@@ -257,8 +257,10 @@ import { bolehIkut, teksBeranda, BERANDA_AWAL } from "./setelan.ts";
   const dasar2 = { enabled: true, title: null, intro: null, closing: null, signed_by: null, display: "kilas", theme: { mode: "event", brand: null, accent: null }, questions: [{ key: "a", type: "faces", title: "A", required: true }], cards: KARTU_AWAL, opens_at: null, closes_at: null };
   const p = setelanSchema.safeParse(dasar2);
   assert.ok(p.success);
-  assert.equal(p.success && p.data.audience, "all");
-  assert.deepEqual(p.success && p.data.home, BERANDA_AWAL);
+  assert.equal(p.success && p.data.audience, undefined, "tidak dikirim = server memakai yang tersimpan");
+  assert.equal(p.success && p.data.home, undefined);
+  const p2 = setelanSchema.safeParse({ ...dasar2, audience: "committee", home: BERANDA_AWAL });
+  assert.equal(p2.success && p2.data.audience, "committee");
   assert.equal(setelanSchema.safeParse({ ...dasar2, home: { ...BERANDA_AWAL, id: { title: "x".repeat(61), body: null, button: null } } }).success, false);
 }
 console.log("kilas-balik/mode-uji ok");
