@@ -1,8 +1,9 @@
 "use client";
 
 import { ImageUploadField } from "@/components/admin/image-upload-field";
-import { useBatasPesan } from "@/components/admin/page-context";
+import { useBatasPesan, useIzinKustom } from "@/components/admin/page-context";
 import Link from "next/link";
+import EventLink from "@/components/event-link";
 import { BellRinging, EnvelopeSimple, Eye, EyeSlash, Info, Megaphone, Plus, PushPin, Trash, Warning, X, XCircle } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -74,6 +75,9 @@ type Muat = {
   items: Item[];
   recipients: { semua: number; disetujui: number };
   email_configured: boolean;
+  email_tracking?: boolean;
+  /** Migrasi 202611070030 sudah dijalankan: sakelarnya bisa dipakai. */
+  email_tracking_ready?: boolean;
   test_mode?: "off" | "list" | "blocked";
   member_enabled?: boolean;
   time_zone?: string;
@@ -173,6 +177,7 @@ export default function PengumumanPage() {
   const toast = useToast();
   // Peran kustom: View hanya membaca; email butuh "Can send emails".
   const batas = useBatasPesan();
+  const kustom = Boolean(useIzinKustom());
   const [data, setData] = useState<Muat | null>(null);
   const [galatMuat, setGalatMuat] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -692,6 +697,15 @@ export default function PengumumanPage() {
                     <p className="text-body-medium text-on-surface-variant">Email sending isn&apos;t set up for this system yet.</p>
                   )}
                   {berubah ? <p className="text-body-small text-on-surface-variant">Save your changes before sending the email.</p> : null}
+                  {/* Sakelarnya di Automated emails (milik panitia): peran kustom tidak diberi tautan. */}
+                  {data?.email_configured && data.email_tracking_ready && !kustom ? (
+                    <p className="text-body-small text-on-surface-variant">
+                      {data.email_tracking ? "Opens and clicks are tracked; results show under Seen by participants. " : "Opens and clicks aren't tracked. "}
+                      <EventLink href="/admin/pengumuman/otomatis#jejak" className="font-medium text-primary hover:underline">
+                        {data.email_tracking ? "Change in Automated emails" : "Turn on in Automated emails"}
+                      </EventLink>
+                    </p>
+                  ) : null}
                 </div>
               </DetailSection>
             ) : null}

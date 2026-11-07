@@ -497,7 +497,8 @@ export default function EmailOtomatisPage() {
         paneWidth={440}
         terkunci
         main={
-          <div className="@container w-full min-w-0 self-start rounded-lg border border-outline-variant bg-surface-container-lowest">
+          <div className="flex w-full min-w-0 flex-col gap-4 self-start">
+          <div className="@container w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest">
             <div className="border-b border-outline-variant px-5 py-5">
               <h2 className="text-title-large font-semibold text-on-surface">Registration confirmation</h2>
               <p className="mt-1 max-w-[40rem] text-body-medium text-on-surface-variant">
@@ -686,6 +687,17 @@ export default function EmailOtomatisPage() {
               </p>
             ) : null}
           </div>
+
+          {/* Pelacakan untuk email pengumuman dan blast: kartu sendiri, bukan
+              bagian email konfirmasi (temuan QA L6). */}
+          <section id="jejak" aria-labelledby="judul-jejak" className="scroll-mt-4 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-5">
+            <h2 id="judul-jejak" className="text-title-large font-semibold text-on-surface">Announcement and blast emails</h2>
+            <p className="mt-1 max-w-[40rem] text-body-medium text-on-surface-variant">Tracking for the emails sent from Announcements and Blasts. Registration confirmations and sign-in links are never tracked.</p>
+            <div className="mt-4 flex flex-col gap-3">
+              <SakelarJejak />
+            </div>
+          </section>
+          </div>
         }
         pane={
           <div className="flex w-full min-w-0 flex-none! flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest lg:sticky lg:top-[calc(var(--workspace-top,58px)+16px)] lg:max-h-[calc(100dvh-var(--workspace-top,58px)-104px)]">
@@ -861,6 +873,66 @@ export default function EmailOtomatisPage() {
       </Dialog>
     </WorkspacePage>
     </div>
+  );
+}
+
+/**
+ * Email tracking acara ini: tersimpan langsung (seperti Pengirim), lepas dari
+ * Simpan templat. Hanya email pengumuman dan blast; konfirmasi pendaftaran
+ * dan tautan masuk tidak pernah dilacak.
+ */
+function SakelarJejak() {
+  const toast = useToast();
+  const [nilai, setNilai] = useState<{ siap: boolean; email_tracking: boolean } | null>(null);
+  const [sibuk, setSibuk] = useState(false);
+
+  useEffect(() => {
+    let batal = false;
+    void fetch("/api/admin/email-jejak", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((body) => {
+        if (!batal && body) setNilai(body as { siap: boolean; email_tracking: boolean });
+      });
+    return () => {
+      batal = true;
+    };
+  }, []);
+
+  async function ubah(baru: boolean) {
+    setSibuk(true);
+    const response = await fetch("/api/admin/email-jejak", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email_tracking: baru }),
+    }).catch(() => null);
+    setSibuk(false);
+    if (!response?.ok) {
+      toast.error("Email tracking not changed", "Try again.");
+      return;
+    }
+    setNilai((await response.json()) as { siap: boolean; email_tracking: boolean });
+    toast.success(baru ? "Email tracking on" : "Email tracking off", "Applies to emails sent from now on.");
+  }
+
+  if (!nilai) return <p className="pt-2 text-body-medium text-on-surface-variant">Loading…</p>;
+  return (
+    <>
+      <Switch
+        label="Record opens and clicks"
+        description={
+          nilai.siap
+            ? "Announcement emails: opens and button clicks. Blasts: opens (their sign-in link already shows who signed in). Clicked is reliable. Opened is an estimate: Apple Mail opens every email by itself (counted separately) and Outlook blocks images. The email footer tells recipients."
+            : "Available after the database update for email tracking has been run."
+        }
+        checked={nilai.email_tracking}
+        simpan
+        kunci={!nilai.siap}
+        disabled={sibuk}
+        onChange={(baru) => void ubah(baru)}
+      />
+      <p className="text-body-small text-on-surface-variant">Saved straight away. Applies to emails sent after you turn it on.</p>
+    </>
   );
 }
 

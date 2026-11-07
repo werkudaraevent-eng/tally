@@ -24,12 +24,13 @@ const nextConfig: NextConfig = {
   // Huruf halaman acara (src/app/fonts/landing.css) disimpan setahun. Isinya
   // tidak pernah berubah di folder yang sama: berkas baru masuk folder v2.
   async headers() {
-    // Lengkapi data membawa token pribadi di `?t=`: jangan bocor lewat Referer.
+    // Lengkapi data dan Baca pengumuman dari email (/peserta/kabar) membawa
+    // token pribadi di `?t=`: jangan bocor lewat Referer.
     // Alamat /e/<slug>/... dan alamat domain klien (/lengkapi, /en/lengkapi).
     const tanpaReferer = [{ key: "Referrer-Policy", value: "no-referrer" }];
     return [
       { source: "/fonts/v1/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
-      ...["/e/:slug/lengkapi", "/e/:slug/:bahasa(en|id)/lengkapi", "/lengkapi", "/:bahasa(en|id)/lengkapi"].map((source) => ({ source, headers: tanpaReferer })),
+      ...["/e/:slug/lengkapi", "/e/:slug/:bahasa(en|id)/lengkapi", "/lengkapi", "/:bahasa(en|id)/lengkapi", "/e/:slug/peserta/kabar", "/peserta/kabar"].map((source) => ({ source, headers: tanpaReferer })),
     ];
   },
 };
