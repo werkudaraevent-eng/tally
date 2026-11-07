@@ -10,6 +10,7 @@ import { MUSIC_OFF, type UndianState } from "@/lib/undian";
 import { CardsAnimation, ConfettiBurst, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealFxDelayMs, revealSettleMs } from "./undian-animations";
 import { AmbientStage, GREEN_SCREEN_COLOR, GreenScreenContext, RevealBurst, ShineText, useStageDim } from "./undian-stage-fx";
 import { WallAnimation } from "./undian-wall";
+import { FullscreenButton } from "./fullscreen-button";
 import { TunnelAnimation } from "./undian-tunnel";
 import { DrumAnimation, preloadDrum } from "./undian-drum";
 import { DartAnimation3D, preloadDart } from "./undian-dart";
@@ -431,6 +432,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
 
     <footer className="shrink-0 px-[4vw] pb-[2.5vh] pt-[1vh]">
       <BrandFooter branding={branding} textColor={text} variant="led" />
+      {!greenScreen && <FullscreenButton />}
     </footer>
     {needsClick ? <MusicClickHint /> : null}
     </GreenScreenContext.Provider>
