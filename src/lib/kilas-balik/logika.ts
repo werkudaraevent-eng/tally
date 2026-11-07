@@ -106,12 +106,13 @@ export function kunciRecall(teks: string): string[] {
 
 /**
  * Ganti `{kunci}` dengan jawaban pertanyaan itu, dibentuk oleh `label`. Bila
- * belum dijawab, token dihapus lalu spasi dan tanda baca dirapikan.
+ * belum dijawab, token dihapus lalu kurung kosong, spasi dan tanda baca dirapikan.
  */
 export function isiRecall(teks: string, label: (kunci: string) => string | null): string {
   if (!teks.includes("{")) return teks;
   return teks
     .replace(TOKEN, (_, kunci: string) => label(kunci) ?? "")
+    .replace(/\(\s*\)|\[\s*\]|"\s*"|“\s*”/g, "")
     .replace(/\s+([,.!?])/g, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();

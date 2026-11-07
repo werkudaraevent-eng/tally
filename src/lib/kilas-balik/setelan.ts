@@ -155,7 +155,19 @@ export function namaPertanyaan(questions: readonly Pertanyaan[], key: string): s
  * (peserta belum menjawabnya), atau yang jenisnya tidak cocok. Admin
  * menampilkan pesannya di pertanyaan itu; Save ditolak sampai dibereskan.
  */
-export function masalahLogika(questions: readonly Pertanyaan[]): { key: string; indeks: number; pesan: string }[] {
+/** Data acara untuk memeriksa syarat: sesi check-in dan kolom pilihan pendaftaran yang masih ada. */
+export type KonteksLogika = { sesi: readonly number[]; kolom: readonly { key: string; options: readonly string[] }[] };
+
+const samaTeks = (a: string, b: string) => a.trim().toLocaleLowerCase("id") === b.trim().toLocaleLowerCase("id");
+
+/** Pilihan dasar sebuah pertanyaan, mengikuti carry forward sampai sumbernya. */
+function pilihanAkar(questions: readonly Pertanyaan[], q: Pertanyaan): string[] {
+  let kini: Pertanyaan | undefined = q;
+  for (let n = 0; kini?.options_from && n < 12; n++) kini = questions.find((x) => x.key === kini?.options_from);
+  return kini?.options ?? [];
+}
+
+export function masalahLogika(questions: readonly Pertanyaan[], konteks?: KonteksLogika): { key: string; indeks: number; pesan: string }[] {
   const urut = urutAlur(questions);
   const posisi = new Map(urut.map((q, n) => [q.key, n]));
   const hasil: { key: string; indeks: number; pesan: string }[] = [];
@@ -164,15 +176,29 @@ export function masalahLogika(questions: readonly Pertanyaan[]): { key: string; 
     const sebelum = (k: string) => (posisi.get(k) ?? Infinity) < saya;
     const tambah = (pesan: string) => hasil.push({ key: q.key, indeks, pesan });
     for (const s of q.show_if ?? []) {
+      if (s.source === "checkin") {
+        if (konteks && !konteks.sesi.includes(s.session)) tambah("Show if uses a check-in session that was deleted. Pick another session.");
+        continue;
+      }
+      if (s.source === "field") {
+        if (!konteks) continue;
+        const k = konteks.kolom.find((x) => x.key === s.field);
+        if (!k) tambah("Show if uses a registration question that no longer exists.");
+        else if (s.values.some((v) => !k.options.some((o) => samaTeks(o, v)))) tambah("Show if uses a registration answer that is no longer an option. Pick the answers again.");
+        continue;
+      }
       if (s.source !== "answer") continue;
       const sumber = questions.find((x) => x.key === s.q);
       if (!sumber) tambah("Show if uses a question that was deleted.");
+      else if (s.q === q.key) tambah("Show if can't use this question's own answer. Pick an earlier question.");
       else if (!sebelum(s.q)) tambah(`Show if uses ${namaPertanyaan(questions, s.q)}, which comes later. Move this question below it.`);
       else if ((s.op === "includes" || s.op === "excludes") && sumber.type !== "choice") tambah("Show if picks an option from a question without options.");
       else if ((s.op === "gte" || s.op === "lte") && sumber.type !== "faces" && sumber.type !== "nps") tambah("Show if compares a score on a question without a score.");
+      else if ((s.op === "includes" || s.op === "excludes") && !pilihanAkar(questions, sumber).some((o) => samaTeks(o, s.value))) tambah(`Show if uses the option "${s.value}", which ${namaPertanyaan(questions, sumber.key)} no longer has. Pick the option again.`);
     }
     for (const k of new Set([...kunciRecall(q.title), ...kunciRecall(q.title_alt ?? "")])) {
       if (!questions.some((x) => x.key === k)) tambah(`The question text recalls {${k}}, which no longer exists.`);
+      else if (k === q.key) tambah("The question text can't insert its own answer.");
       else if (!sebelum(k)) tambah(`The question text recalls ${namaPertanyaan(questions, k)}, which comes later.`);
     }
     if (q.options_from) {

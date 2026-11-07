@@ -9,7 +9,7 @@ import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
 import { labelKolom, muatHasil, muatSetelan, pesertaContoh, semuaJudulAgenda, sesiCheckin } from "@/lib/kilas-balik/server";
 import { kolomSasaran } from "@/lib/sasaran-bagian";
 import { GATHERING_ACCENT_DEFAULT, landingTokens } from "@/lib/landing-tokens";
-import { KARTU_AWAL, pertanyaanAwal, ringkasHasil, setelanSchema } from "@/lib/kilas-balik/setelan";
+import { KARTU_AWAL, masalahLogika, pertanyaanAwal, ringkasHasil, setelanSchema } from "@/lib/kilas-balik/setelan";
 
 /**
  * Admin > Feedback (migrasi 202611070010).
@@ -74,6 +74,13 @@ export async function PUT(request: Request) {
   const parsed = setelanSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   const s = parsed.data;
+  // Syarat pada data acara: sesi atau kolom pendaftaran yang sudah dihapus membuat pertanyaan diam-diam tidak pernah tampil.
+  if (s.questions.some((q) => q.show_if?.some((x) => x.source === "checkin" || x.source === "field"))) {
+    const sesi = await sesiCheckin(event.id);
+    const kolom = kolomSasaran(event.registration_form_config).map((k) => ({ key: k.key, options: k.options }));
+    const masalah = masalahLogika(s.questions, { sesi: sesi.map((x) => x.id), kolom });
+    if (masalah.length) return apiError("VALIDATION_ERROR", 422, { formErrors: [masalah[0].pesan], fieldErrors: {} });
+  }
   const baris = {
     event_id: event.id,
     enabled: s.enabled,

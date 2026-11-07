@@ -101,7 +101,10 @@ export function Builder({ draf, setDraf, data }: { draf: SetelanKilas; setDraf: 
   const [pilih, setPilihState] = useState<Pilih>(() => (urut[0] ? { jenis: "tanya", key: urut[0].key } : { jenis: "buka" }));
   const [panel, setPanel] = useState<"isi" | "desain">("isi");
   const [hpBuka, setHpBuka] = useState(false);
-  const masalah = useMemo(() => masalahLogika(draf.questions), [draf.questions]);
+  const masalah = useMemo(
+    () => masalahLogika(draf.questions, { sesi: data.logika.sesi.map((x) => x.id), kolom: data.logika.kolom }),
+    [draf.questions, data.logika],
+  );
 
   const setPertanyaan = useCallback((qs: Pertanyaan[]) => setDraf({ ...draf, questions: urutAlur(qs) }), [draf, setDraf]);
   const pilihBaris = (p: Pilih) => {
@@ -285,7 +288,7 @@ function DaftarAlur({
         >
           <DotsSixVertical size={16} aria-hidden className="shrink-0 cursor-grab text-on-surface-variant opacity-60 group-hover:opacity-100" />
           <span className={cx("grid size-7 shrink-0 place-items-center rounded-md text-label-medium font-semibold", info.warna)} aria-hidden>{nomor.get(q.key)}</span>
-          <span className="min-w-0 flex-1 truncate">{q.title.trim() || <span className="text-on-surface-variant">Untitled {info.label.split(",")[0].toLowerCase()}</span>}</span>
+          <span className="min-w-0 flex-1 truncate">{judulDaftar(q.title, urut).trim() || <span className="text-on-surface-variant">Untitled {info.label.split(",")[0].toLowerCase()}</span>}</span>
           {masalah.has(q.key) ? <StatusChip tone="warning">Fix</StatusChip> : logika ? <StatusChip tone="neutral">Logic</StatusChip> : null}
           <span className="sr-only">{`, ${info.label}${q.required ? ", needs an answer" : ""}`}</span>
         </button>
@@ -460,11 +463,28 @@ function Pratinjau({ draf, setDraf, data, pilih, className }: { draf: SetelanKil
       <iframe ref={iframe} key={alamat} src={alamat} title="Participant preview" className="h-[640px] w-[340px] max-w-full shrink-0 rounded-[28px] border-[6px] border-on-surface bg-surface" />
       <p className="max-w-[340px] text-center text-body-small text-on-surface-variant" aria-live="polite">
         {tersembunyi
-          ? "This screen is hidden for this participant (Show if, or no options or data for them). Pick another participant to see it."
+          ? pakaiJawaban(draf, pilih)
+            ? "This question depends on an earlier answer. Answer that question in the preview to see it."
+            : "This screen is hidden for this participant (Show if, or no options or data for them). Pick another participant to see it."
           : "Shows your changes before Save. Nothing is sent or saved here."}
       </p>
     </div>
   );
+}
+
+/** Judul di daftar alur: `{kunci}` ditampilkan sebagai [Qn], sama seperti di editor. */
+function judulDaftar(teks: string, urut: readonly Pertanyaan[]): string {
+  return teks.replace(/\{([a-z0-9_]{1,40})\}/g, (_, k: string) => {
+    const n = urut.findIndex((x) => x.key === k);
+    return n >= 0 ? `[Q${n + 1}]` : "[deleted]";
+  });
+}
+
+/** Layar terpilih bergantung pada jawaban sebelumnya (Show if jawaban atau carry forward). */
+function pakaiJawaban(draf: SetelanKilas, pilih: Pilih): boolean {
+  if (pilih.jenis !== "tanya") return false;
+  const q = draf.questions.find((x) => x.key === pilih.key);
+  return !!q && (!!q.options_from || (q.show_if ?? []).some((x) => x.source === "answer"));
 }
 
 /* ================================================================ Panels */

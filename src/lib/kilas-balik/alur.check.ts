@@ -191,6 +191,18 @@ console.log("kilas-balik/pilihan-kosong ok");
   assert.equal(setelanSchema.safeParse({ ...rapikanSetelan({}), questions: qs }).success, true);
   // Carry forward dari pertanyaan yang hanya boleh satu pilihan: ditolak.
   assert.ok(masalahLogika(qs.map((x) => (x.key === "momen" ? { ...x, max: 1 } : x))).some((m) => m.key === "terbaik"));
+  // Opsi sumber diganti teksnya: syarat yang memakai opsi lama ditandai.
+  assert.ok(masalahLogika(qs.map((x) => (x.key === "momen" ? { ...x, options: ["Gala Dinner Malam", "City tour"] } : x))).some((m) => m.key === "saran"));
+  // Opsi dari carry forward diperiksa ke sumber akarnya.
+  const ikut: Q = { key: "lagi", type: "text", title: "Lagi?", required: false, after: null, show_if: [{ source: "answer", q: "terbaik", op: "includes", value: "City tour" }] };
+  assert.deepEqual(masalahLogika([...qs, ikut]), []);
+  // Merujuk dirinya sendiri: pesan khusus.
+  assert.ok(masalahLogika([{ ...ikut, show_if: [{ source: "answer", q: "lagi", op: "answered" }] }]).some((m) => m.pesan.includes("own answer")));
+  // Sesi dan kolom pendaftaran yang sudah dihapus: ditandai hanya bila konteks diberikan.
+  const kolomQ: Q = { key: "div", type: "faces", title: "Div?", required: false, after: null, show_if: [{ source: "field", field: "divisi", values: ["Sales"] }] };
+  assert.ok(masalahLogika([...qs, kolomQ], { sesi: [3], kolom: [] }).some((m) => m.key === "vip"));
+  assert.ok(masalahLogika([...qs, kolomQ], { sesi: [7], kolom: [{ key: "divisi", options: ["Finance"] }] }).some((m) => m.key === "div"));
+  assert.deepEqual(masalahLogika([...qs, kolomQ], { sesi: [7], kolom: [{ key: "divisi", options: ["sales", "Finance"] }] }), []);
 
   const tanpa = { sesi: new Set<number>(), hadiah: false, kolom: { divisi: "Sales" } };
   const hadir = { sesi: new Set([7]), hadiah: true, kolom: null };
@@ -219,5 +231,6 @@ console.log("kilas-balik/pilihan-kosong ok");
   const saran = alurAktif(layar, { momen: ["Gala dinner", "City tour"] }, label).find((l) => l.jenis === "tanya" && l.q.key === "saran") as { q: { title: string } } | undefined;
   assert.equal(saran?.q?.title, "Kenapa Gala dinner dan City tour?");
   assert.equal(isiRecall("Kamu pilih {x}. Kenapa?", () => null), "Kamu pilih. Kenapa?");
+  assert.equal(isiRecall("Seberapa mungkin kamu ajak rekan? ({x})", () => null), "Seberapa mungkin kamu ajak rekan?");
 }
 console.log("kilas-balik/logika ok");
