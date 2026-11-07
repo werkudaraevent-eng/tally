@@ -11,7 +11,7 @@ import { gabungMeta } from "@/lib/typography";
 import { semuaBaris } from "@/lib/logistik/server";
 import { sorotanAgenda, type Kenangan } from "./alur.ts";
 import type { FaktaPeserta } from "./logika.ts";
-import { rapikanSetelan, statusBuka, type NilaiJawaban, type Pertanyaan, type SetelanKilas } from "./setelan.ts";
+import { bolehIkut, rapikanSetelan, statusBuka, teksBeranda, type NilaiJawaban, type Pertanyaan, type SetelanKilas } from "./setelan.ts";
 
 /**
  * Baca dan tulis Kilas balik (migrasi 202611070010). Semua lewat service role:
@@ -183,12 +183,19 @@ export async function sesiCheckin(eventId: string): Promise<{ id: number; name: 
  * modul mati, belum/sudah lewat jendelanya, tabel belum ada, atau peserta ini
  * sudah mengirim jawaban. Gagal baca = tanpa kartu, Beranda tetap terbuka.
  */
-export async function tautanKartuKilas(event: Pick<EventRow, "id">, participantId: string, halamanAcara: string): Promise<string | null> {
+export async function tautanKartuKilas(
+  event: Pick<EventRow, "id">,
+  peserta: { id: string; participant_type?: string | null },
+  committee: unknown,
+  halamanAcara: string,
+  lang: "id" | "en",
+): Promise<{ href: string; title: string; body: string; button: string } | null> {
   try {
     const muat = await muatSetelan(event.id);
-    if (!muat.siap || statusBuka(muat.setelan, new Date()) !== "open") return null;
-    if (await muatJawaban(event.id, participantId)) return null;
-    return `${halamanAcara}/kilas-balik`;
+    if (!muat.siap || !muat.setelan.home.show || statusBuka(muat.setelan, new Date()) !== "open") return null;
+    if (!bolehIkut(muat.setelan.audience, committee, peserta.participant_type)) return null;
+    if (await muatJawaban(event.id, peserta.id)) return null;
+    return { href: `${halamanAcara}/kilas-balik`, ...teksBeranda(muat.setelan.home, lang) };
   } catch {
     return null;
   }

@@ -8,7 +8,7 @@ import {
   Banner, Button, ButtonLink, Dialog, EmptyState, PageLoading, StatusChip, Table, TableBody, TableCard, TableCell,
   TableHead, TableHeaderCell, TableRow, Tabs, TextArea, TextField, WorkspaceHeader, WorkspacePage, FilterChip,
 } from "@/components/m3";
-import { statusBuka, type HasilPertanyaan, type SetelanKilas } from "@/lib/kilas-balik/setelan";
+import { statusBuka, type HasilPertanyaan, type Penonton, type SetelanKilas } from "@/lib/kilas-balik/setelan";
 import { ISI_MAX, JUDUL_MAX } from "@/lib/kilas-balik/undangan";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
@@ -41,6 +41,8 @@ type Data = {
   logika: DataBuilder["logika"];
   contoh: PesertaPratinjau | null;
   zona: { offset: string; singkat: string };
+  /** Tipe dengan Committee access (Check-in > Checkpoints) dan jumlah pesertanya, untuk Testing. */
+  panitia: { types: string[]; jumlah: number };
   hasil: {
     total_peserta: number;
     jumlah: number;
@@ -100,9 +102,12 @@ export default function FeedbackPage() {
 
   const berubah = useMemo(() => Boolean(data && draf && JSON.stringify(draf) !== JSON.stringify(data.setelan)) || Boolean(data && !data.tersimpan), [data, draf]);
 
-  async function simpan(nyalakan?: boolean) {
+  const [dialogNyala, setDialogNyala] = useState(false);
+  const [pilihNyala, setPilihNyala] = useState<Penonton>("committee");
+
+  async function simpan(nyalakan?: boolean, audience?: Penonton) {
     if (!draf) return;
-    const isi = nyalakan === undefined ? draf : { ...draf, enabled: nyalakan };
+    const isi = { ...draf, ...(nyalakan === undefined ? {} : { enabled: nyalakan }), ...(audience ? { audience } : {}) };
     setMenyimpan(true);
     setGalat(null);
     const res = await fetch("/api/admin/feedback", {
@@ -120,7 +125,10 @@ export default function FeedbackPage() {
     }
     setDraf(isi);
     setData((d) => (d ? { ...d, setelan: isi, tersimpan: true } : d));
-    toast.success(nyalakan === true ? "Feedback is open" : nyalakan === false ? "Feedback is off" : "Feedback saved");
+    setDialogNyala(false);
+    toast.success(
+      nyalakan === false ? "Feedback is off" : isi.enabled && isi.audience === "committee" && (nyalakan === true || audience) ? "Feedback is open for the committee" : nyalakan === true || audience ? "Feedback is open to all participants" : "Feedback saved",
+    );
   }
 
   if (belumSiap) {
@@ -141,8 +149,13 @@ export default function FeedbackPage() {
   }
   if (!data || !draf) return <PageLoading />;
 
-  const status = statusBuka(draf, new Date());
-  const chip = { off: { tone: "neutral", label: "Off" }, not_yet: { tone: "primary", label: "Opens later" }, open: { tone: "success", label: "Open" }, closed: { tone: "neutral", label: "Closed" } }[status] as { tone: "neutral" | "primary" | "success"; label: string };
+  const status = statusBuka(data.setelan, new Date());
+  const uji = data.setelan.enabled && data.setelan.audience === "committee";
+  const chip = uji && status !== "closed"
+    ? ({ tone: "warning", label: "Testing" } as const)
+    : ({ off: { tone: "neutral", label: "Off" }, not_yet: { tone: "primary", label: "Opens later" }, open: { tone: "success", label: "Open" }, closed: { tone: "neutral", label: "Closed" } }[status] as { tone: "neutral" | "primary" | "success"; label: string });
+  // Kartu Beranda: Build > Home card.
+  const adaPanitia = data.panitia.types.length > 0;
 
   return (
     <WorkspacePage>
@@ -151,15 +164,18 @@ export default function FeedbackPage() {
         meta={
           <>
             <StatusChip tone={chip.tone}>{chip.label}</StatusChip>
-            <span>A look back at the trip, with a few questions in between.</span>
+            <span>{uji ? `Only the committee can open it (${plural(data.panitia.jumlah, "participant")}).` : "A look back at the trip, with a few questions in between."}</span>
           </>
         }
         actions={
           <>
-            {draf.enabled ? (
-              <Button variant="outlined" onClick={() => void simpan(false)} disabled={menyimpan}>Turn off</Button>
+            {data.setelan.enabled ? (
+              <>
+                {uji ? <Button variant="tonal" onClick={() => { setPilihNyala("all"); setDialogNyala(true); }} disabled={menyimpan}>Open to everyone</Button> : null}
+                <Button variant="outlined" onClick={() => void simpan(false)} disabled={menyimpan}>Turn off</Button>
+              </>
             ) : (
-              <Button variant="tonal" onClick={() => void simpan(true)} disabled={menyimpan || draf.questions.length === 0}>Turn on</Button>
+              <Button variant="tonal" onClick={() => { setPilihNyala(adaPanitia ? "committee" : "all"); setDialogNyala(true); }} disabled={menyimpan || draf.questions.length === 0}>Turn on</Button>
             )}
             <Button onClick={() => void simpan()} loading={menyimpan} disabled={!berubah}>Save</Button>
           </>
@@ -183,7 +199,10 @@ export default function FeedbackPage() {
         {tab === "build" ? <Builder draf={draf} setDraf={setDraf} data={data} /> : null}
         {tab === "send" ? (
           <div className="flex flex-col gap-5">
-            <Kelompok first title="When it's open" note={`Times are in ${data.zona.singkat}. Leave both empty to keep it open while Feedback is on. Participants can change their answers until it closes. Save to apply.`}>
+            <Kelompok first title="Who can open it" note={adaPanitia ? undefined : "To test first, give a participant Type Committee access in Check-in > Checkpoints > Committee access."}>
+              <PilihPenonton value={draf.audience} onChange={(v) => setDraf({ ...draf, audience: v })} panitia={data.panitia} total={data.hasil?.total_peserta ?? null} name="feedback-penonton" />
+            </Kelompok>
+            <Kelompok title="When it's open" note={`Times are in ${data.zona.singkat}. Leave both empty to keep it open while Feedback is on. Participants can change their answers until it closes. Save to apply.`}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <TextField label="Opens" optional type="datetime-local" value={keLokal(draf.opens_at, data.zona.offset)} onChange={(e) => setDraf({ ...draf, opens_at: dariLokal(e.target.value, data.zona.offset) })} />
                 <TextField label="Closes" optional type="datetime-local" value={keLokal(draf.closes_at, data.zona.offset)} onChange={(e) => setDraf({ ...draf, closes_at: dariLokal(e.target.value, data.zona.offset) })} />
@@ -194,15 +213,76 @@ export default function FeedbackPage() {
         ) : null}
         {tab === "results" ? <TabHasil data={data} /> : null}
       </div>
+      <Dialog
+        open={dialogNyala}
+        onClose={() => (menyimpan ? null : setDialogNyala(false))}
+        title={data.setelan.enabled ? "Open Feedback to everyone?" : "Turn on Feedback?"}
+        description={data.setelan.enabled ? undefined : "Choose who can open it. You can open it to everyone later."}
+        actions={
+          <>
+            <Button variant="text" onClick={() => setDialogNyala(false)} disabled={menyimpan}>Cancel</Button>
+            <Button onClick={() => void simpan(true, pilihNyala)} loading={menyimpan}>{data.setelan.enabled ? "Open to everyone" : "Turn on"}</Button>
+          </>
+        }
+      >
+        {data.setelan.enabled ? (
+          <p className="text-body-medium text-on-surface-variant">{teksSemua(draf, data.hasil?.total_peserta ?? null)}</p>
+        ) : (
+          <PilihPenonton value={pilihNyala} onChange={setPilihNyala} panitia={data.panitia} total={data.hasil?.total_peserta ?? null} name="feedback-nyala" />
+        )}
+      </Dialog>
     </WorkspacePage>
   );
 }
 
 /* ----------------------------------------------------------------- Send */
 
+function teksSemua(draf: SetelanKilas, total: number | null): string {
+  const siapa = total === null ? "every participant" : plural(total, "participant");
+  return draf.home.show
+    ? `The card appears on Home for ${siapa} who haven't answered, and the link works for everyone.`
+    : `The link works for ${siapa}. The Home card is off, so invite them from Send.`;
+}
+
+/** Semua peserta, atau panitia saja untuk mencoba dulu (kartu Beranda, tautan, dan Send). */
+function PilihPenonton({ value, onChange, panitia, total, name }: { value: Penonton; onChange: (v: Penonton) => void; panitia: Data["panitia"]; total: number | null; name: string }) {
+  const ada = panitia.types.length > 0;
+  const pilihan = [
+    {
+      v: "committee" as const,
+      label: "Committee only, for testing",
+      detail: ada
+        ? `${plural(panitia.jumlah, "participant")} whose Type is ${panitia.types.join(", ")} (Check-in > Checkpoints > Committee access). The Home card, the link and Send reach only them.`
+        : "No participant Type has Committee access yet. Set it in Check-in > Checkpoints > Committee access.",
+      off: !ada,
+    },
+    {
+      v: "all" as const,
+      label: "All participants",
+      detail: `${total === null ? "Every participant" : plural(total, "participant")}. Everyone who hasn't answered can open it.`,
+      off: false,
+    },
+  ];
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="sr-only">Who can open it</legend>
+      {pilihan.map((o) => (
+        <label key={o.v} className={cx("flex gap-3 rounded-lg p-3 text-body-medium", o.off ? "cursor-not-allowed border border-outline-variant opacity-60" : "cursor-pointer", !o.off && (value === o.v ? "border-2 border-primary bg-primary-soft" : "border border-outline"))}>
+          <input type="radio" name={name} checked={value === o.v} disabled={o.off} onChange={() => onChange(o.v)} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
+          <span>
+            <span className="block font-semibold">{o.label}</span>
+            <span className="block text-on-surface-variant">{o.detail}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 type InfoKirim = {
   siap: true;
   status: "off" | "not_yet" | "open" | "closed";
+  audience: Penonton;
   belum: number;
   tanpa_email: number;
   riwayat: { waktu: string; lonceng: number; terkirim: number; email: boolean }[];
@@ -276,6 +356,7 @@ function TabKirim({ data, berubah }: { data: Data; berubah: boolean }) {
         </Banner>
       ) : null}
       {berubah ? <Banner tone="warning">You have unsaved changes. Participants see the saved version, so save before sending.</Banner> : null}
+      {info.audience === "committee" ? <Banner tone="warning">Testing: this goes only to committee members who haven&apos;t answered, not to all participants.</Banner> : null}
       {info.mode_uji ? <Banner tone="info">Test mode on this server: email only goes to addresses on the test list. The bell reaches everyone.</Banner> : null}
 
       <Kelompok first title={pertama ? "Invite participants" : "Remind who hasn't answered"} note="Goes only to participants who haven't sent their answers, so sending again later reminds the rest and never reaches someone who already answered.">

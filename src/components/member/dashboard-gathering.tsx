@@ -390,7 +390,7 @@ export async function DashboardGathering({
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
   // Kartu Kilas balik: hanya Beranda, hanya selama Feedback dibuka dan peserta belum menjawab.
   // Dimulai sekarang, ditunggu sesudah data Beranda lain, supaya tidak menambah antrean.
-  const janjiKilas = tab === "beranda" && peserta && !pratinjau ? tautanKartuKilas(event, peserta.id, halamanAcara).catch(() => null) : Promise.resolve(null);
+  const janjiKilas = tab === "beranda" && peserta && !pratinjau ? tautanKartuKilas(event, peserta, member.committee, halamanAcara, lang).catch(() => null) : Promise.resolve(null);
   // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
   // dan tidak disembunyikan di Participant home.
   const [logistik, checkpoint, checkpointQr, bagasi, hadiah, nomorBagasi] = peserta
@@ -837,7 +837,7 @@ export async function DashboardGathering({
         <div className="flex min-w-0 flex-col gap-4">
           {pitaEmail}
           <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
-          <KartuKilas lang={lang} href={kilas} />
+          <KartuKilas kartu={kilas} />
           {pantauPanitia("gathering")}
           {kartuHadiah("gathering", "atas", diBeranda("next"))}
           {beranda.order.map((id, index) => {
@@ -2476,7 +2476,7 @@ export async function DashboardGathering({
             {pitaEmail || lengkapi.length > 0 || kilas ? (
               <div className="flex flex-col gap-4">
                 {pitaEmail}
-                <KartuKilas lang={lang} href={kilas} />
+                <KartuKilas kartu={kilas} />
                 <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
               </div>
             ) : null}

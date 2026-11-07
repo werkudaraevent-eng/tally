@@ -4,12 +4,14 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { landingDefaultLang, landingEnAvailable } from "@/lib/landing-i18n";
 import type { EventLandingConfig } from "@/lib/domain";
 import { memberConfig } from "@/lib/member/account";
+import { bacaSetelanPanitia } from "@/lib/member/akses-panitia";
+import { semuaBaris } from "@/lib/logistik/server";
 import { normalizeTimeZone, timeZoneAbbr, timeZoneOffset } from "@/lib/timezone";
 import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
 import { labelKolom, muatHasil, muatSetelan, pesertaContoh, semuaJudulAgenda, sesiCheckin } from "@/lib/kilas-balik/server";
 import { kolomSasaran } from "@/lib/sasaran-bagian";
 import { GATHERING_ACCENT_DEFAULT, landingTokens } from "@/lib/landing-tokens";
-import { KARTU_AWAL, masalahLogika, pertanyaanAwal, ringkasHasil, setelanSchema } from "@/lib/kilas-balik/setelan";
+import { KARTU_AWAL, bolehIkut, masalahLogika, pertanyaanAwal, ringkasHasil, setelanSchema } from "@/lib/kilas-balik/setelan";
 
 /**
  * Admin > Feedback (migrasi 202611070010).
@@ -33,7 +35,8 @@ export async function GET(request: Request) {
   if (!muat.siap) return belumSiap();
   const landing = (event.landing_config ?? {}) as EventLandingConfig;
   const lang = landingDefaultLang(landing);
-  const [agenda, hasil, contoh, sesi] = await Promise.all([semuaJudulAgenda(event.id), muatHasil(event.id), pesertaContoh(event.id), sesiCheckin(event.id)]);
+  const committee = memberConfig(event)?.committee;
+  const [agenda, hasil, contoh, sesi, panitia] = await Promise.all([semuaJudulAgenda(event.id), muatHasil(event.id), pesertaContoh(event.id), sesiCheckin(event.id), hitungPanitia(event.id, committee)]);
   const tokens = landingTokens(landing);
   const setelan = muat.ada ? muat.setelan : { ...muat.setelan, questions: pertanyaanAwal(lang, agenda), cards: KARTU_AWAL };
   return Response.json({
@@ -52,6 +55,8 @@ export async function GET(request: Request) {
       kolom: kolomSasaran(event.registration_form_config).map((k) => ({ key: k.key, label: k.label, options: k.options })),
       hadiah: memberConfig(event)?.prize?.enabled === true,
     },
+    // Mode uji: Tipe dengan Committee access (Check-in > Checkpoints) dan berapa peserta di dalamnya.
+    panitia,
     tema_acara: { brand: tokens.brand, accent: tokens.accent ?? GATHERING_ACCENT_DEFAULT },
     contoh,
     zona: { offset: timeZoneOffset(normalizeTimeZone(event.time_zone)), singkat: timeZoneAbbr(normalizeTimeZone(event.time_zone)) },
@@ -65,6 +70,15 @@ export async function GET(request: Request) {
         }
       : null,
   });
+}
+
+async function hitungPanitia(eventId: string, committee: unknown): Promise<{ types: string[]; jumlah: number }> {
+  const setelan = bacaSetelanPanitia(committee);
+  if (!setelan) return { types: [], jumlah: 0 };
+  const db = getSupabaseServiceClient();
+  const baris = await semuaBaris<{ id: string; participant_type: string | null }>(() =>
+    db.from("participants").select("id,participant_type").eq("event_id", eventId).is("source_removed_at", null).order("id"));
+  return { types: setelan.types, jumlah: (baris ?? []).filter((p) => bolehIkut("committee", committee, p.participant_type)).length };
 }
 
 export async function PUT(request: Request) {
@@ -81,6 +95,9 @@ export async function PUT(request: Request) {
     const masalah = masalahLogika(s.questions, { sesi: sesi.map((x) => x.id), kolom });
     if (masalah.length) return apiError("VALIDATION_ERROR", 422, { formErrors: [masalah[0].pesan], fieldErrors: {} });
   }
+  if (s.audience === "committee" && !bacaSetelanPanitia(memberConfig(event)?.committee)) {
+    return apiError("VALIDATION_ERROR", 422, { formErrors: ["Testing needs at least one participant Type with Committee access. Pick it in Check-in > Checkpoints > Committee access first."], fieldErrors: {} });
+  }
   const baris = {
     event_id: event.id,
     enabled: s.enabled,
@@ -91,7 +108,8 @@ export async function PUT(request: Request) {
     display: s.display,
     theme: s.theme,
     questions: s.questions,
-    cards: s.cards,
+    // Mode uji ikut di jsonb cards (lihat PENONTON di setelan.ts), tanpa kolom baru.
+    cards: { ...s.cards, audience: s.audience, home: s.home },
     opens_at: s.opens_at,
     closes_at: s.closes_at,
     updated_at: new Date().toISOString(),

@@ -3,7 +3,7 @@ import { getMemberSession, memberConfig } from "@/lib/member/account";
 import { lolosFakta } from "@/lib/kilas-balik/logika";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
 import { judulAgendaMilik, muatFakta, muatSetelan, perluFakta, pilihanPeserta, semuaJudulAgenda, simpanJawaban } from "@/lib/kilas-balik/server";
-import { periksaJawaban, statusBuka } from "@/lib/kilas-balik/setelan";
+import { bolehIkut, periksaJawaban, statusBuka } from "@/lib/kilas-balik/setelan";
 
 /**
  * Simpan jawaban Kilas balik (/e/<slug>/kilas-balik). Peserta dikenali dari
@@ -29,12 +29,14 @@ export async function POST(request: Request) {
 
   const muat = await muatSetelan(event.id).catch(() => null);
   if (!muat || !muat.siap) return memberError("NOT_FOUND", 404, en ? "This questionnaire isn't available." : "Kuesioner ini tidak tersedia.");
-  const status = statusBuka(muat.setelan, new Date());
+  const member = memberConfig(event);
+  const bukaAcara = statusBuka(muat.setelan, new Date());
+  // Mode uji: hanya Tipe panitia. Yang lain mendapat jawaban yang sama dengan "belum dibuka".
+  const status = bukaAcara === "open" && !bolehIkut(muat.setelan.audience, member?.committee, sesi?.participant?.participant_type) ? "not_yet" : bukaAcara;
   if (status !== "open") {
     return memberError("CLOSED", 409, status === "closed" ? (en ? "This questionnaire has closed. Thank you!" : "Kuesioner ini sudah ditutup. Terima kasih!") : (en ? "This questionnaire isn't open yet." : "Kuesioner ini belum dibuka."));
   }
 
-  const member = memberConfig(event);
   const [semua, milikSet, fakta] = await Promise.all([
     semuaJudulAgenda(event.id),
     judulAgendaMilik(event, participantId),

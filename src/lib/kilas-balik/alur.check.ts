@@ -234,3 +234,31 @@ console.log("kilas-balik/pilihan-kosong ok");
   assert.equal(isiRecall("Seberapa mungkin kamu ajak rekan? ({x})", () => null), "Seberapa mungkin kamu ajak rekan?");
 }
 console.log("kilas-balik/logika ok");
+
+// Testing (panitia saja) dan kartu Beranda, disimpan di jsonb cards.
+import { bolehIkut, teksBeranda, BERANDA_AWAL } from "./setelan.ts";
+{
+  const lama = rapikanSetelan({ enabled: true, questions: [], cards: { trip: true } });
+  assert.equal(lama.audience, "all");
+  assert.equal(lama.home.show, true);
+  assert.equal(teksBeranda(lama.home, "id").title, "Kilas balikmu sudah siap");
+  const uji = rapikanSetelan({ cards: { audience: "committee", home: { show: false, id: { title: "  Isi yuk ", body: "", button: 5 }, en: null } } });
+  assert.equal(uji.audience, "committee");
+  assert.equal(uji.home.show, false);
+  assert.deepEqual(uji.home.id, { title: "Isi yuk", body: null, button: null });
+  assert.equal(teksBeranda(uji.home, "id").title, "Isi yuk");
+  assert.equal(teksBeranda(uji.home, "id").button, "Buka kilas balik");
+  assert.equal(rapikanSetelan({ cards: { audience: "semua" } }).audience, "all");
+  const panitia = { types: ["Panitia "], hidden: [] };
+  assert.equal(bolehIkut("all", null, null), true);
+  assert.equal(bolehIkut("committee", panitia, "panitia"), true);
+  assert.equal(bolehIkut("committee", panitia, "Peserta"), false);
+  assert.equal(bolehIkut("committee", null, "Panitia"), false, "tanpa Tipe terpilih tidak ada yang boleh");
+  const dasar2 = { enabled: true, title: null, intro: null, closing: null, signed_by: null, display: "kilas", theme: { mode: "event", brand: null, accent: null }, questions: [{ key: "a", type: "faces", title: "A", required: true }], cards: KARTU_AWAL, opens_at: null, closes_at: null };
+  const p = setelanSchema.safeParse(dasar2);
+  assert.ok(p.success);
+  assert.equal(p.success && p.data.audience, "all");
+  assert.deepEqual(p.success && p.data.home, BERANDA_AWAL);
+  assert.equal(setelanSchema.safeParse({ ...dasar2, home: { ...BERANDA_AWAL, id: { title: "x".repeat(61), body: null, button: null } } }).success, false);
+}
+console.log("kilas-balik/mode-uji ok");

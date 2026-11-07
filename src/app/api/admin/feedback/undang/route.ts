@@ -8,7 +8,7 @@ import { BATCH_MAX, sendEmailBatchDetailed } from "@/lib/email/client";
 import { bahasaUtamaAcara } from "@/lib/email/konfirmasi/bahasa";
 import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
 import { muatSetelan } from "@/lib/kilas-balik/server";
-import { statusBuka } from "@/lib/kilas-balik/setelan";
+import { bolehIkut, statusBuka, type Penonton } from "@/lib/kilas-balik/setelan";
 import { ISI_MAX, JUDUL_MAX, UNDANGAN_AWAL, emailUndangan, teksAwal } from "@/lib/kilas-balik/undangan";
 import { warnaKilas } from "@/lib/kilas-balik/warna";
 import { klien, semuaBaris } from "@/lib/logistik/server";
@@ -34,13 +34,14 @@ export const maxDuration = 60;
 
 const AKSI = "feedback_invite";
 
-type Orang = { id: string; name: string; email: string | null };
+type Orang = { id: string; name: string; email: string | null; participant_type: string | null };
 type Calon = { id: string; nama: string; email: string | null };
 
-async function hitung(eventId: string): Promise<Calon[] | null> {
+/** Yang belum menjawab. Mode uji: hanya Tipe dengan Committee access. */
+async function hitung(eventId: string, audience: Penonton, committee: unknown): Promise<Calon[] | null> {
   const db = klien();
   const [peserta, jawab, akun] = await Promise.all([
-    semuaBaris<Orang>(() => db.from("participants").select("id,name,email").eq("event_id", eventId).is("source_removed_at", null).order("id")),
+    semuaBaris<Orang>(() => db.from("participants").select("id,name,email,participant_type").eq("event_id", eventId).is("source_removed_at", null).order("id")),
     semuaBaris<{ participant_id: string }>(() => db.from("feedback_responses" as never).select("participant_id").eq("event_id", eventId).order("participant_id")),
     semuaBaris<{ participant_id: string; email: string | null }>(() =>
       db.from("participant_accounts").select("participant_id,email").eq("event_id", eventId).not("participant_id", "is", null).order("id")),
@@ -50,7 +51,7 @@ async function hitung(eventId: string): Promise<Calon[] | null> {
   const emailAkun = new Map<string, string>();
   for (const a of akun) if (a.email && !emailAkun.has(a.participant_id)) emailAkun.set(a.participant_id, a.email);
   return peserta
-    .filter((p) => !sudah.has(p.id))
+    .filter((p) => !sudah.has(p.id) && bolehIkut(audience, committee, p.participant_type))
     .map((p) => ({ id: p.id, nama: p.name, email: normalizeAddress(p.email) ?? normalizeAddress(emailAkun.get(p.id)) }))
     .sort((a, b) => a.nama.localeCompare(b.nama));
 }
@@ -77,12 +78,13 @@ export async function GET(request: Request) {
   const event = auth.scope.event;
   const muat = await muatSetelan(event.id).catch(() => null);
   if (!muat?.siap) return Response.json({ siap: false });
-  const [calon, lalu] = await Promise.all([hitung(event.id), riwayat(event.id)]);
+  const [calon, lalu] = await Promise.all([hitung(event.id, muat.setelan.audience, memberConfig(event)?.committee), riwayat(event.id)]);
   if (!calon) return apiError("INTERNAL_ERROR", 500);
   const bahasa = bahasaUtamaAcara(event.landing_config as EventLandingConfig | null);
   return Response.json({
     siap: true,
     status: statusBuka(muat.setelan, new Date()),
+    audience: muat.setelan.audience,
     belum: calon.length,
     tanpa_email: calon.filter((c) => !c.email).length,
     riwayat: lalu,
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
   if (terakhir && Date.now() - Date.parse(terakhir.waktu) < 120_000) {
     return apiError("VALIDATION_ERROR", 409, { message: "This was just sent. Wait two minutes before sending a reminder." });
   }
-  const calon = await hitung(event.id);
+  const calon = await hitung(event.id, muat.setelan.audience, memberConfig(event)?.committee);
   if (!calon) return apiError("INTERNAL_ERROR", 500);
   if (calon.length === 0) return Response.json({ lonceng: 0, terkirim: 0, gagal: 0, tanpa_email: 0, galat: null });
 
