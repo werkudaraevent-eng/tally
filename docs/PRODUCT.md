@@ -114,7 +114,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 | --- | --- | --- | --- |
 | Live client view and exports | Yes | | Cvent reports |
 | One end-of-event report for the client (attendance vs registered, by organisation, checkpoints, winners, votes) | No | P1 | Bizzabo analytics, Cvent reports |
-| Post-event survey, NPS, rating per session | Partly | P2 | Cvent surveys |
+| Post-event survey, NPS, rating per session | Yes (Feedback / Kilas balik; per-session rating not built) | P2 | Cvent surveys, Typeform, Spotify Wrapped |
 | E-certificate of attendance | No | P2 | Cvent CE tracking |
 | Photo gallery and materials after the event | Partly | P3 | Whova |
 
