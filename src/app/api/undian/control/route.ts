@@ -6,6 +6,7 @@ import { drawWinners, normalizePrize, initialsOf, shuffle, stageRosterItem, type
 import { buildPool } from "@/lib/undian-pool";
 import { CAHAYA_MIN_MS } from "@/lib/undian-cahaya";
 import { siapkanCahaya, type CahayaPending } from "@/lib/undian-cahaya-server";
+import { PACK_INTRO_MS, packAllPlan, tierNumber, type PackPlan } from "@/lib/undian-kartu";
 import { PRIZE_COLUMNS } from "../../admin/undian/prizes/route";
 
 // Kontrol undian. Admin saja. Layar panggung membaca lewat GET /api/undian/state.
@@ -72,7 +73,11 @@ type PendingDraw = {
     seat: string | null;
     is_backup: boolean;
     slot_order: number;
+    /** Hadiah nama ini. Kosong = `prize_id` undian ini; terisi pada bungkus Mesin Kartu "semua hadiah". */
+    prize_id?: number;
   }>;
+  /** Mesin Kartu saja: hadiah dan jumlah kartu di bungkus, urut seperti dibuka. */
+  pack?: PackPlan;
   /**
    * Cahaya HP saja: jadwal gelombang, kunci per gelombang, dan gelombang padam
    * tiap peserta. Tidak pernah keluar apa adanya: /api/undian/state dan
@@ -265,24 +270,43 @@ export async function POST(request: Request) {
       // 1 kursi tersisa dan dua orang akan dipanggil untuk hadiah yang tidak ada.
       const requested = parsed.data.count;
       const mainCount = Math.min(requested ?? prize.winners_per_draw, prize.winners_per_draw, prize.winner_quota - confirmed);
-      const picked = drawWinners(pool.candidates, mainCount + (requested ? 0 : prize.backup_per_draw));
-
       const round = state.draw_round + 1;
-      const pending: PendingDraw = {
-        prize_id: prizeId,
-        draw_round: round,
-        // Diisi setelah baris pemenang ditulis; idnya belum ada di sini.
-        winner_ids: [],
-        winners: picked.map((candidate, index) => ({
-          ref: candidate.ref,
-          kind: candidate.kind,
-          name: candidate.name,
-          company: candidate.company,
-          seat: candidate.seat,
-          is_backup: index >= mainCount,
-          slot_order: index < mainCount ? index + 1 : index - mainCount + 1,
-        })),
-      };
+
+      // Mesin Kartu "semua hadiah": satu bungkus mengundi setiap hadiah aktif
+      // yang kuotanya masih tersisa di sesi ini, hadiah ini kartu terakhir.
+      // Undian pengganti (`count`) selalu satu hadiah: kursi yang kosong milik
+      // satu hadiah tertentu, bukan seluruh bungkus.
+      const packAll = prize.animation === "pack" && prize.pack_contents === "all" && !requested;
+      let pending: PendingDraw;
+      if (packAll) {
+        const bundle = await drawPackAll(eventId, prize, pool.candidates, mainCount, sessionId, state.rehearsal);
+        if ("error" in bundle) {
+          if (bundle.error === "RULE_BROKEN") return apiError("UNDIAN_RULE_BROKEN", 409, { rules: bundle.rules });
+          return apiError("INTERNAL_ERROR", 500);
+        }
+        pending = { prize_id: prizeId, draw_round: round, winner_ids: [], winners: bundle.winners, pack: bundle.plan };
+      } else {
+        const picked = drawWinners(pool.candidates, mainCount + (requested ? 0 : prize.backup_per_draw));
+        pending = {
+          prize_id: prizeId,
+          draw_round: round,
+          // Diisi setelah baris pemenang ditulis; idnya belum ada di sini.
+          winner_ids: [],
+          winners: picked.map((candidate, index) => ({
+            ref: candidate.ref,
+            kind: candidate.kind,
+            name: candidate.name,
+            company: candidate.company,
+            seat: candidate.seat,
+            is_backup: index >= mainCount,
+            slot_order: index < mainCount ? index + 1 : index - mainCount + 1,
+          })),
+        };
+        if (prize.animation === "pack") {
+          const mains = pending.winners.filter((winner) => !winner.is_backup).length;
+          pending.pack = { mode: "one", groups: [{ prize_id: prizeId, prize: prize.name, tier: tierNumber(prize.card_tier), count: mains }] };
+        }
+      }
 
       // Kolam ikut dibekukan dan disimpan. Layar memakainya sebagai daftar nama
       // yang berputar. Membiarkannya hidup berarti daftar itu berubah di tengah
@@ -306,8 +330,11 @@ export async function POST(request: Request) {
 
       // Cahaya HP butuh waktu untuk menyala, pertunjukan, dan paling tidak dua
       // gelombang: Duration yang lebih pendek dipanjangkan, bukan ditolak.
+      // Mesin Kartu sama: kode slot, spiral, dan bungkus jatuh butuh PACK_INTRO_MS
+      // sebelum bungkus bisa disobek.
       const cahaya = prize.animation === "cahaya";
-      const spinMs = cahaya ? Math.max(CAHAYA_MIN_MS, Math.round(prize.spin_seconds * 1000)) : Math.round(prize.spin_seconds * 1000);
+      const minSpinMs = cahaya ? CAHAYA_MIN_MS : prize.animation === "pack" ? PACK_INTRO_MS : 0;
+      const spinMs = Math.max(minSpinMs, Math.round(prize.spin_seconds * 1000));
       const { data: settings } = await client.from("undian_settings").select("reveal_delay_seconds").eq("event_id", eventId).maybeSingle();
       const delayMs = Math.round(Number((settings as { reveal_delay_seconds?: number } | null)?.reveal_delay_seconds ?? 0) * 1000);
 
@@ -359,7 +386,7 @@ export async function POST(request: Request) {
           .insert(
             pending.winners.map((winner) => ({
               event_id: eventId,
-              prize_id: prizeId,
+              prize_id: winner.prize_id ?? prizeId,
               session_id: sessionId,
               draw_round: round,
               participant_id: winner.kind === "participant" ? winner.ref : null,
@@ -407,7 +434,8 @@ export async function POST(request: Request) {
           rehearsal: state.rehearsal,
           pool_size: pool.candidates.length,
           total_tickets: pool.total_tickets,
-          winners: pending.winners.map((winner) => ({ name: winner.name, is_backup: winner.is_backup })),
+          winners: pending.winners.map((winner) => ({ name: winner.name, is_backup: winner.is_backup, ...(winner.prize_id && winner.prize_id !== prizeId ? { prize_id: winner.prize_id } : {}) })),
+          ...(pending.pack?.mode === "all" ? { pack: pending.pack.groups.map((group) => ({ prize: group.prize, count: group.count })) } : {}),
         },
       });
       break;
@@ -615,6 +643,97 @@ export async function POST(request: Request) {
 
 async function audit(eventId: string, userId: string, action: string, payload: unknown) {
   await getSupabaseServiceClient().from("audit_logs").insert({ event_id: eventId, user_id: userId, action, payload } as never);
+}
+
+type PackWinner = PendingDraw["winners"][number];
+
+/**
+ * Bungkus Mesin Kartu "semua hadiah": pemenang setiap hadiah aktif yang masih
+ * punya sisa kuota di sesi ini, dengan `holder` sebagai kartu terakhir.
+ *
+ * - Tiap hadiah diundi dari KOLAMNYA SENDIRI (syarat, tiket, pengecualian
+ *   pemenang sebelumnya), persis seperti bila diundi satu per satu.
+ * - Diundi dari yang paling langka dulu (packAllPlan.drawOrder). Nama yang sudah
+ *   keluar di bungkus ini ikut dikecualikan dari hadiah berikutnya bila hadiah
+ *   itu "Excluded from all prizes after winning once", aturan yang sama dengan
+ *   undian_blocking_winner_ids untuk pemenang yang sudah tercatat.
+ * - Tanpa cadangan: kursi yang kosong diisi lewat undian pengganti hadiah itu.
+ * - Hadiah lain yang kolamnya kosong dilewati, tidak menggagalkan bungkus.
+ *   Syarat yang rusak tetap menolak, seperti undian biasa.
+ */
+async function drawPackAll(
+  eventId: string,
+  holder: UndianPrize,
+  holderPool: Candidate[],
+  holderCount: number,
+  sessionId: number | null,
+  rehearsal: boolean,
+): Promise<{ winners: PackWinner[]; plan: PackPlan } | { error: "RULE_BROKEN"; rules: string[] } | { error: "POOL_ERROR" }> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("undian_prizes")
+    .select(PRIZE_COLUMNS)
+    .eq("event_id", eventId)
+    .eq("is_active", true)
+    .neq("id", holder.id);
+  if (error) return { error: "POOL_ERROR" };
+  const others = ((data ?? []) as Record<string, unknown>[]).map(normalizePrize);
+  const byId = new Map<number, UndianPrize>([[holder.id, holder], ...others.map((item): [number, UndianPrize] => [item.id, item])]);
+
+  // Sisa kursi per hadiah, sama dengan pemeriksaan kuota undian biasa. Latihan
+  // tidak memakai kuota, jadi tiap hadiah mendapat satu rombongan penuh.
+  const remaining = new Map<number, number>();
+  for (const item of others) {
+    let left = item.winners_per_draw;
+    if (!rehearsal) {
+      const taken = await seatsTaken(eventId, item.id, sessionId);
+      if (taken === null) return { error: "POOL_ERROR" };
+      left = Math.min(left, item.winner_quota - taken);
+    }
+    remaining.set(item.id, Math.max(0, left));
+  }
+
+  // Jumlah per hadiah sudah dipotong ke 30 kartu, dari yang paling umum.
+  const first = packAllPlan(
+    { id: holder.id, name: holder.name, tier: "grand", sort_order: holder.sort_order, count: holderCount },
+    others.map((item) => ({ id: item.id, name: item.name, tier: item.card_tier, sort_order: item.sort_order, count: remaining.get(item.id) ?? 0 })),
+  );
+  const allocated = new Map(first.groups.map((group) => [group.prize_id, group.count]));
+
+  const picked = new Map<number, Candidate[]>();
+  const taken = new Set<string>();
+  const key = (candidate: Candidate) => `${candidate.kind}:${candidate.ref}`;
+  for (const id of first.drawOrder) {
+    const item = byId.get(id)!;
+    let candidates = holderPool;
+    if (id !== holder.id) {
+      const pool = await buildPool(eventId, item);
+      if ("error" in pool && pool.error === "RULE_BROKEN") return { error: "RULE_BROKEN", rules: pool.rules };
+      if ("error" in pool) return { error: "POOL_ERROR" };
+      candidates = pool.candidates;
+    }
+    if (item.exclude_scope === "all_prizes") candidates = candidates.filter((candidate) => !taken.has(key(candidate)));
+    const chosen = drawWinners(candidates, allocated.get(id) ?? 0);
+    for (const candidate of chosen) taken.add(key(candidate));
+    picked.set(id, chosen);
+  }
+
+  // Urutan tampil: rencana dihitung ulang dengan jumlah yang benar-benar
+  // keluar (kolam kecil bisa memberi lebih sedikit dari kuotanya).
+  const final = packAllPlan(
+    { id: holder.id, name: holder.name, tier: "grand", sort_order: holder.sort_order, count: picked.get(holder.id)?.length ?? 0 },
+    others.map((item) => ({ id: item.id, name: item.name, tier: item.card_tier, sort_order: item.sort_order, count: picked.get(item.id)?.length ?? 0 })),
+  );
+  const winners: PackWinner[] = final.groups.flatMap((group) => (picked.get(group.prize_id) ?? []).slice(0, group.count).map((candidate, index) => ({
+    ref: candidate.ref,
+    kind: candidate.kind,
+    name: candidate.name,
+    company: candidate.company,
+    seat: candidate.seat,
+    is_backup: false,
+    slot_order: index + 1,
+    prize_id: group.prize_id,
+  })));
+  return { winners, plan: { mode: "all", groups: final.groups } };
 }
 
 /**

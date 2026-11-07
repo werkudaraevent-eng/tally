@@ -16,6 +16,8 @@ import { DartAnimation3D } from "@/app/undian/undian-dart";
 import { ArenaAnimation } from "@/app/undian/undian-arena";
 import { CahayaAnimation } from "@/app/undian/undian-cahaya";
 import { CAHAYA_MIN_MS } from "@/lib/undian-cahaya";
+import { PackAnimation } from "@/app/undian/undian-kartu";
+import { PACK_INTRO_MS, tierNumber, type CardTier, type PackContents, type PackPlan } from "@/lib/undian-kartu";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
 const CONTOH = ["Andi Pratama", "Siti Rahma", "Budi Santoso", "Dewi Lestari", "Rizky Hidayat", "Nur Aisyah", "Agus Wibowo", "Maya Putri", "Fajar Nugroho", "Intan Sari", "Hendra Saputra", "Lina Marlina"];
@@ -39,17 +41,20 @@ const PANGGUNG = { width: 1280, height: 720 };
  * dengan nama contoh. Tidak ada yang diundi atau disimpan.
  */
 export function AnimationPreview({
-  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick, wallNames = "full", wallTiles = "all", speed = "normal",
+  open, onClose, animation, spinMode, spinSeconds, winnersPerDraw, names, stage, onPick, wallNames = "full", wallTiles = "all", speed = "normal", pack,
 }: {
   open: boolean; onClose: () => void; animation: UndianAnimation; spinMode: SpinMode; spinSeconds: number;
   winnersPerDraw: number; names: string[]; stage: StageLook; onPick: (value: UndianAnimation) => void;
   wallNames?: WallNames;
   wallTiles?: WallTiles;
   speed?: AnimSpeed;
+  pack?: { prize: string; tier: CardTier; contents: PackContents };
 }) {
   const durasi = (value: UndianAnimation) =>
     // Phone lights selalu berjalan dengan waktu, paling pendek 12 detik (sama dengan server).
     value === "cahaya" ? Date.now() + Math.max(spinSeconds, CAHAYA_MIN_MS / 1000) * 1000
+      // Card machine: pembukaan mesin paling pendek PACK_INTRO_MS (sama dengan server).
+      : value === "pack" && spinMode !== "manual" ? Date.now() + Math.max(spinSeconds * 1000, PACK_INTRO_MS)
       : spinMode === "manual" || value === "instant" ? null : Date.now() + spinSeconds * 1000;
   const [round, setRound] = useState(1);
   const [endsAt, setEndsAt] = useState<number | null>(() => durasi(animation));
@@ -58,6 +63,13 @@ export function AnimationPreview({
   // Panggung asli bisa menampilkan sampai 50 nama; pratinjau cukup tiga untuk
   // memperlihatkan tata letak banyak pemenang.
   const jumlah = Math.min(Math.max(winnersPerDraw, 1), 3);
+  // Card machine "semua hadiah": contoh bungkus dua doorprize, satu hadiah besar, lalu hadiah ini.
+  const packAll = animation === "pack" && pack?.contents === "all";
+  const packPlan = useMemo<PackPlan | null>(() => {
+    if (animation !== "pack") return null;
+    if (packAll) return { mode: "all", groups: [{ prize_id: 1, prize: "Doorprize", tier: 1, count: 2 }, { prize_id: 2, prize: "Big prize", tier: 2, count: 1 }, { prize_id: 3, prize: pack?.prize || "Grand prize", tier: 3, count: 1 }] };
+    return { mode: "one", groups: [{ prize_id: 3, prize: pack?.prize || "Prize", tier: tierNumber(pack?.tier ?? "common"), count: jumlah }] };
+  }, [animation, packAll, pack?.prize, pack?.tier, jumlah]);
 
   const fullRoster = useMemo(
     () => (animation === "wall" || animation === "cahaya" ? wallSample(names) : names.length >= 3 ? names : CONTOH)
@@ -70,11 +82,15 @@ export function AnimationPreview({
     [fullRoster, animation, wallNames],
   );
   const winners = useMemo<AnimationProps["winners"]>(
-    () => Array.from({ length: jumlah }, (_, index) => {
-      const row = fullRoster[(round * 5 + index * 3) % fullRoster.length];
-      return { name: row.name, company: null, seat: row.seat, is_backup: false, slot_order: index + 1 };
-    }),
-    [fullRoster, round, jumlah],
+    () => {
+      const groups = packPlan?.groups ?? [{ prize_id: 0, count: jumlah }];
+      const slots = groups.flatMap((group) => Array.from({ length: group.count }, (_, slot) => ({ prize_id: group.prize_id, slot })));
+      return slots.map(({ prize_id, slot }, index) => {
+        const row = fullRoster[(round * 5 + index * 3) % fullRoster.length];
+        return { name: row.name, company: null, seat: row.seat, is_backup: false, slot_order: slot + 1, ...(packPlan ? { prize_id } : {}) };
+      });
+    },
+    [fullRoster, round, jumlah, packPlan],
   );
 
   // Instant tidak punya animasi: pemenang langsung tampil.
@@ -143,6 +159,7 @@ export function AnimationPreview({
             : animation === "tunnel" ? <TunnelAnimation {...props} />
             : animation === "drum" ? <DrumAnimation {...props} />
             : animation === "arena" ? <ArenaAnimation {...props} />
+            : animation === "pack" ? <PackAnimation {...props} pack={packPlan} sound={false} title="Lucky draw" />
             : animation === "cahaya" ? <CahayaAnimation {...props} localClock durationMs={Math.max(spinSeconds * 1000, CAHAYA_MIN_MS)} />
             : <WinnerList winners={props.winners} accent={stage.accent} text={stage.text} fontFamily={stage.fontFamily} />}
         </div>

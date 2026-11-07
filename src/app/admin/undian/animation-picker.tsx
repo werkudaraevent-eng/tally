@@ -6,6 +6,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/m3";
 import { ANIMATIONS, ANIMATION_BEST_WINNERS, bestWinnersLabel, maxWinnersPerDraw, winnerFit, WINNERS_PER_DRAW_MAX, type AnimSpeed, type SpinMode, type UndianAnimation, type WallNames, type WallTiles } from "@/lib/undian";
+import type { CardTier, PackContents } from "@/lib/undian-kartu";
 import { cx } from "@/lib/m3/cx";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
@@ -20,11 +21,13 @@ const AnimationPreview = dynamic(() => import("./animation-preview").then((mod) 
  * panggung yang SAMA (komponen /undian), dengan warna Stage screen.
  */
 export function AnimationPicker({
-  value, onChange, spinMode, spinSeconds, winnersPerDraw, sampleNames, stage, wallNames, wallTiles, speed,
+  value, onChange, spinMode, spinSeconds, winnersPerDraw, sampleNames, stage, wallNames, wallTiles, speed, pack,
 }: {
   value: UndianAnimation; onChange: (value: UndianAnimation) => void;
   spinMode: SpinMode; spinSeconds: number; winnersPerDraw: number;
   sampleNames: string[]; stage: StageLook; wallNames?: WallNames; wallTiles?: WallTiles; speed?: AnimSpeed;
+  /** Card machine: nama hadiah, warna kartu, dan isi bungkus untuk pratinjau. */
+  pack?: { prize: string; tier: CardTier; contents: PackContents };
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   // Kunci baru setiap kali dibuka: pratinjau dipasang ulang dan langsung berputar
@@ -75,7 +78,7 @@ export function AnimationPicker({
           key={previewKey}
           open={previewOpen} onClose={() => setPreviewOpen(false)}
           animation={value} spinMode={spinMode} spinSeconds={spinSeconds} winnersPerDraw={winnersPerDraw}
-          names={sampleNames} stage={stage} wallNames={wallNames} wallTiles={wallTiles} speed={speed}
+          names={sampleNames} stage={stage} wallNames={wallNames} wallTiles={wallTiles} speed={speed} pack={pack}
           onPick={onChange}
         />,
         document.body,

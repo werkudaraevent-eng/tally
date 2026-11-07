@@ -41,7 +41,7 @@ function newPrizeDraft(): Omit<UndianPrize, "id"> {
   return {
     name: "", description: null, image_url: null, sponsor_name: null, claim_note: null, after_win: "none", stage_note: null,
     winners_per_draw: 1, winner_quota: 1, backup_per_draw: 0,
-    animation: "wheel", wall_names: "full", wall_tiles: "all", anim_speed: "normal", spin_mode: "timed", spin_seconds: 6,
+    animation: "wheel", wall_names: "full", wall_tiles: "all", anim_speed: "normal", pack_contents: "one", card_tier: "common", spin_mode: "timed", spin_seconds: 6,
     source: "participants", entry_group_id: null,
     conditions: EMPTY_CONDITIONS, exclude_scope: "all_prizes",
     weight_mode: "equal", weight_var: "total_spend", weight_divisor: 500000, weight_base: 1, weight_max: 10,
@@ -577,6 +577,8 @@ export default function UndianAdminPage() {
       isNew={editingId === "new"}
       // Rumus lama hanya ditawarkan untuk hadiah yang sudah tersimpan dengannya.
       legacyFormula={editingId !== "new" && prizes.find((item) => item.id === editingId)?.weight_mode === "formula"}
+      // Hadiah aktif lain yang membuka bungkus "semua hadiah": warna kartu hadiah ini ikut dipakai di sana.
+      packAllHolder={prizes.find((item) => item.id !== editingId && item.is_active && item.animation === "pack" && item.pack_contents === "all")?.name ?? null}
       groups={groups}
       preview={preview}
       previewFailed={previewFailed}

@@ -17,6 +17,7 @@
 //      sama untuk memperlihatkan pratinjau distribusi tiket sebelum acara.
 
 import type { CahayaJadwal } from "./undian-cahaya";
+import { PACK_MAX_CARDS, normalizeCardTier, normalizePackContents, type CardTier, type PackContents, type PackPlan } from "./undian-kartu.ts";
 
 // ---------------------------------------------------------------------------
 // Syarat kelayakan
@@ -785,7 +786,7 @@ export function shuffle<T>(items: T[]): T[] {
 // Hadiah dan state
 // ---------------------------------------------------------------------------
 
-export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "tunnel" | "drum" | "arena" | "cahaya" | "instant";
+export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "tunnel" | "drum" | "arena" | "cahaya" | "pack" | "instant";
 
 /** Kecepatan gerak Terowongan nama dan Tabung bola selama mengundi. Lama undian tetap diatur Duration. */
 export type AnimSpeed = "slow" | "normal" | "fast";
@@ -802,9 +803,10 @@ export const SPEED_ANIMATIONS: UndianAnimation[] = ["tunnel", "drum"];
  * satu dengan gerakan panjang. Terowongan: tiap nama butuh ~2 detik untuk tiba;
  * tabung: tiap bola butuh ~2,5 detik untuk jatuh ke nampan, dan nampan memuat 6.
  * Arena Gugur: podium memuat 20 pemenang dalam tiga baris.
+ * Mesin Kartu: satu bungkus berisi paling banyak 30 kartu.
  * Di atas batas ini MC menunggu terlalu lama, jadi undi dibagi beberapa putaran.
  */
-export const ANIMATION_MAX_WINNERS: Partial<Record<UndianAnimation, number>> = { tunnel: 10, drum: 6, arena: 20 };
+export const ANIMATION_MAX_WINNERS: Partial<Record<UndianAnimation, number>> = { tunnel: 10, drum: 6, arena: 20, pack: PACK_MAX_CARDS };
 export const WINNERS_PER_DRAW_MAX = 50;
 export function maxWinnersPerDraw(animation: UndianAnimation): number {
   return ANIMATION_MAX_WINNERS[animation] ?? WINNERS_PER_DRAW_MAX;
@@ -827,6 +829,8 @@ export const ANIMATION_BEST_WINNERS: Record<UndianAnimation, { min: number; max:
   arena: { min: 3, max: 10 },
   // Cahaya HP: sedikit HP emas di ruangan yang gelap paling terasa; lebih dari 10 masih jalan, nama makin kecil.
   cahaya: { min: 1, max: 10 },
+  // Mesin Kartu: tiap kartu dibuka sendiri; lebih dari 10 jadi deret kartu yang dibalik cepat.
+  pack: { min: 1, max: 10 },
   instant: { min: 1, max: 30 },
 };
 
@@ -873,6 +877,7 @@ export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }
   { value: "drum", label: "Lottery drum", hint: "A 3D glass drum blows coloured balls around, then the gate at the bottom opens and one ball per winner drops into the tray. Always 44 balls on screen; up to 6 winners per draw. Test it on the stage laptop first." },
   { value: "arena", label: "Elimination arena", hint: "Everyone in the draw stands on a 3D arena floor. Each round the crowd runs to new tiles, some tiles flash red and drop with the people on them, and a Remaining counter falls until only the winners are left on a gold podium. Names appear when about 12 are left. Set Duration to 20 seconds or more so the crowd shrinks over several rounds; the last two rounds take about 13 seconds after the draw stops. Up to 20 winners per draw. Test it on the stage laptop first." },
   { value: "cahaya", label: "Phone lights", hint: "Everyone who has the participant area open on their phone joins in. When you press Draw, every phone in the room lights up and plays the same colour show, then dark waves switch phones off (they read \"Not this time\") until only the winners' phones glow gold and read \"You won\". The stage shows one dot per person in the draw, a Lit counter, then the winners' names. People without the portal open are still in the draw. Needs the participant area; set Duration to 20 seconds or more. Always runs on a timer. In a rehearsal only participants whose Type has Committee access (Check-in > Checkpoints) see it on their phones. Up to 50 winners per draw." },
+  { value: "pack", label: "Card machine", hint: "The MC types a slot code on a 3D vending machine, a foil pack drops and is lifted to the camera. It trembles and leaks light in its card colour (blue, purple or gold), is torn open, and the cards are turned over one by one: one card per winner. A gold card that ends the pack gets its own moment with a blackout, gold cracks and confetti. Pack contents can hold this prize only, or every prize left in the session with this one as the last card. Up to 30 cards per pack. Test it on the stage laptop first." },
   { value: "instant", label: "Instant reveal", hint: "No animation. A fallback when time is short." },
 ];
 
@@ -929,6 +934,10 @@ export type UndianPrize = {
   wall_tiles: WallTiles;
   /** Terowongan nama dan Tabung bola saja: kecepatan gerak selama mengundi. */
   anim_speed: AnimSpeed;
+  /** Mesin Kartu saja: hadiah ini sendiri per bungkus, atau semua hadiah tersisa di sesi (hadiah ini kartu terakhir). */
+  pack_contents: PackContents;
+  /** Warna kartu hadiah ini di Mesin Kartu. Pemegang bungkus "semua hadiah" selalu emas. */
+  card_tier: CardTier;
   /**
    * `manual` membuat animasi berputar sampai operator menekan Berhenti.
    *
@@ -983,6 +992,8 @@ export function normalizePrize(raw: Record<string, unknown>): UndianPrize {
     wall_names: raw.wall_names === "initials" ? "initials" : "full",
     wall_tiles: raw.wall_tiles === "fixed" ? "fixed" : "all",
     anim_speed: normalizeAnimSpeed(raw.anim_speed),
+    pack_contents: normalizePackContents(raw.pack_contents),
+    card_tier: normalizeCardTier(raw.card_tier),
     spin_mode: raw.spin_mode === "manual" ? "manual" : "timed",
     spin_seconds: numeric(raw.spin_seconds, 6),
     source: raw.source === "entries" ? "entries" : "participants",
@@ -1029,6 +1040,12 @@ export type UndianWinner = {
   is_backup: boolean;
   slot_order: number;
   status?: "pending" | "confirmed" | "rejected";
+  /**
+   * Hadiah baris ini. Biasanya sama dengan hadiah aktif; berbeda hanya pada
+   * bungkus Mesin Kartu "semua hadiah", yang mengundi beberapa hadiah sekaligus.
+   */
+  prize_id?: number;
+  prize_name?: string;
 };
 
 /**
@@ -1065,6 +1082,8 @@ export type UndianState = {
     spin_seconds: number;
     winners_per_draw: number;
     winner_quota: number;
+    /** Mesin Kartu: hadiah ini saja atau semua hadiah tersisa per bungkus. */
+    pack_contents?: PackContents;
     /** Kalimat setelah pemenang keluar, sudah jadi (stageMessage). Null = tanpa tulisan. */
     message: string | null;
   } | null;
@@ -1079,6 +1098,12 @@ export type UndianState = {
    * Null untuk animasi lain.
    */
   cahaya?: CahayaJadwal | null;
+  /**
+   * Mesin Kartu: hadiah dan jumlah kartu di bungkus, urut seperti dibuka. Hanya
+   * konfigurasi hadiah, tanpa nama, jadi aman dikirim selama mengundi. Null
+   * untuk animasi lain.
+   */
+  pack?: PackPlan | null;
   winners: UndianWinner[];
   /** Pemenang yang sudah dikonfirmasi untuk hadiah aktif, untuk papan rekap. */
   confirmed: UndianWinner[];

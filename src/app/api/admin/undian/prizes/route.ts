@@ -11,7 +11,7 @@ import { buildPool, listAnswerFields, listAttendanceSessions, unknownAnswerError
 
 export const PRIZE_COLUMNS =
   "id,name,description,image_url,sponsor_name,claim_note,after_win,stage_note,winners_per_draw,winner_quota,backup_per_draw," +
-  "animation,wall_names,wall_tiles,anim_speed,spin_mode,spin_seconds,source,entry_group_id,conditions,exclude_scope," +
+  "animation,wall_names,wall_tiles,anim_speed,pack_contents,card_tier,spin_mode,spin_seconds,source,entry_group_id,conditions,exclude_scope," +
   "weight_mode,weight_var,weight_divisor,weight_base,weight_max,bonus_rules,sort_order,is_active";
 
 // Pohon syarat divalidasi rekursif. Kedalaman dibatasi 4 karena z.lazy tanpa
@@ -85,10 +85,12 @@ const bodySchema = z.object({
   winners_per_draw: z.number().int().min(1).max(50),
   winner_quota: z.number().int().min(1).max(500),
   backup_per_draw: z.number().int().min(0).max(20),
-  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "tunnel", "drum", "arena", "cahaya", "instant"]),
+  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "tunnel", "drum", "arena", "cahaya", "pack", "instant"]),
   wall_names: z.enum(["full", "initials"]).default("full"),
   wall_tiles: z.enum(["all", "fixed"]).default("all"),
   anim_speed: z.enum(["slow", "normal", "fast"]).default("normal"),
+  pack_contents: z.enum(["one", "all"]).default("one"),
+  card_tier: z.enum(["common", "rare", "grand"]).default("common"),
   spin_mode: z.enum(["timed", "manual"]).default("timed"),
   spin_seconds: z.number().min(1).max(60),
   source: z.enum(["participants", "entries"]),
