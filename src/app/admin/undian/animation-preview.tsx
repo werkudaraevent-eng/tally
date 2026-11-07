@@ -14,6 +14,8 @@ import { TunnelAnimation } from "@/app/undian/undian-tunnel";
 import { DrumAnimation } from "@/app/undian/undian-drum";
 import { DartAnimation3D } from "@/app/undian/undian-dart";
 import { ArenaAnimation } from "@/app/undian/undian-arena";
+import { CahayaAnimation } from "@/app/undian/undian-cahaya";
+import { CAHAYA_MIN_MS } from "@/lib/undian-cahaya";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
 const CONTOH = ["Andi Pratama", "Siti Rahma", "Budi Santoso", "Dewi Lestari", "Rizky Hidayat", "Nur Aisyah", "Agus Wibowo", "Maya Putri", "Fajar Nugroho", "Intan Sari", "Hendra Saputra", "Lina Marlina"];
@@ -46,17 +48,19 @@ export function AnimationPreview({
   speed?: AnimSpeed;
 }) {
   const durasi = (value: UndianAnimation) =>
-    spinMode === "manual" || value === "instant" ? null : Date.now() + spinSeconds * 1000;
+    // Phone lights selalu berjalan dengan waktu, paling pendek 12 detik (sama dengan server).
+    value === "cahaya" ? Date.now() + Math.max(spinSeconds, CAHAYA_MIN_MS / 1000) * 1000
+      : spinMode === "manual" || value === "instant" ? null : Date.now() + spinSeconds * 1000;
   const [round, setRound] = useState(1);
   const [endsAt, setEndsAt] = useState<number | null>(() => durasi(animation));
   const [stopped, setStopped] = useState(false);
-  const manual = spinMode === "manual" && animation !== "instant";
+  const manual = spinMode === "manual" && animation !== "instant" && animation !== "cahaya";
   // Panggung asli bisa menampilkan sampai 50 nama; pratinjau cukup tiga untuk
   // memperlihatkan tata letak banyak pemenang.
   const jumlah = Math.min(Math.max(winnersPerDraw, 1), 3);
 
   const fullRoster = useMemo(
-    () => (animation === "wall" ? wallSample(names) : names.length >= 3 ? names : CONTOH)
+    () => (animation === "wall" || animation === "cahaya" ? wallSample(names) : names.length >= 3 ? names : CONTOH)
       .map((name, index) => ({ name, seat: `A${index + 1}`, code: String(1000 + index * 37) })),
     [names, animation],
   );
@@ -139,6 +143,7 @@ export function AnimationPreview({
             : animation === "tunnel" ? <TunnelAnimation {...props} />
             : animation === "drum" ? <DrumAnimation {...props} />
             : animation === "arena" ? <ArenaAnimation {...props} />
+            : animation === "cahaya" ? <CahayaAnimation {...props} localClock durationMs={Math.max(spinSeconds * 1000, CAHAYA_MIN_MS)} />
             : <WinnerList winners={props.winners} accent={stage.accent} text={stage.text} fontFamily={stage.fontFamily} />}
         </div>
       </StageFrame>

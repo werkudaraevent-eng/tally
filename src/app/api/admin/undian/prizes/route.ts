@@ -85,7 +85,7 @@ const bodySchema = z.object({
   winners_per_draw: z.number().int().min(1).max(50),
   winner_quota: z.number().int().min(1).max(500),
   backup_per_draw: z.number().int().min(0).max(20),
-  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "tunnel", "drum", "arena", "instant"]),
+  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "tunnel", "drum", "arena", "cahaya", "instant"]),
   wall_names: z.enum(["full", "initials"]).default("full"),
   wall_tiles: z.enum(["all", "fixed"]).default("all"),
   anim_speed: z.enum(["slow", "normal", "fast"]).default("normal"),

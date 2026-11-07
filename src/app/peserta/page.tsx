@@ -31,7 +31,8 @@ import { PanitiaPortal } from "@/components/member/panitia-portal";
 import { KartuPanitia } from "@/components/member/kartu-panitia";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { KartuHadiah } from "@/components/member/kartu-hadiah";
-import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
+import { adaUndianHp, loadHadiahPeserta } from "@/lib/member/hadiah-server";
+import { UndianHp } from "@/components/member/undian-hp";
 import { panitiaDiPortal } from "@/lib/member/panitia";
 import { POLA_KUNCI_TITIK_HARI } from "@/lib/member/akses-panitia";
 import { PANITIA_UI } from "@/lib/member/panitia-i18n";
@@ -169,7 +170,20 @@ export default async function AreaPesertaPage({
   // kode, nama, dan bus: pengumuman tidak dibaca di sana, jadi tidak ditunggu
   // (U-10). Sama dengan syarat jalur QR di DashboardGathering.
   const hanyaQr = gathering && gatheringHorizon(landing) && kueri.tab === "qr" && tampilKode;
-  const pengumuman = hanyaQr ? { ready: false, items: [], unread: 0, seenAt: null } : await loadMemberAnnouncements(event, sesi);
+  const [pengumuman, undianHp] = await Promise.all([
+    hanyaQr ? Promise.resolve({ ready: false, items: [], unread: 0, seenAt: null }) : loadMemberAnnouncements(event, sesi),
+    // Cahaya HP: hanya untuk peserta (akun tanpa peserta tidak ikut undian).
+    peserta ? adaUndianHp(event.id) : Promise.resolve(false),
+  ]);
+  const layarUndian = undianHp ? (
+    <UndianHp
+      base={`/e/${event.slug}`}
+      lang={lang}
+      name={sesi.name}
+      seat={tampilKursi ? kursi[0]?.label?.trim() || null : null}
+      gladi={panitiaDiPortal(event, member, sesi)}
+    />
+  ) : null;
   if (!gathering && pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
 
   // Preset Gathering: portal bergaya aplikasi dengan tab (rancangan 2026-10-07).
@@ -184,6 +198,7 @@ export default async function AreaPesertaPage({
     return (
       <>
         <SegarkanSesi slug={event.slug} />
+        {layarUndian}
         <DashboardGathering event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} tab={tab} hari={hari} dari={dari} lihat={lihat} />
       </>
     );
@@ -192,6 +207,7 @@ export default async function AreaPesertaPage({
     return (
       <>
         <SegarkanSesi slug={event.slug} />
+        {layarUndian}
         <DashboardModern event={event} lang={lang} member={member} sesi={sesi} pengumuman={pengumuman} konfirmasi={konfirmasi} />
       </>
     );
@@ -203,6 +219,7 @@ export default async function AreaPesertaPage({
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
       <SegarkanSesi slug={event.slug} />
+      {layarUndian}
       <header className="border-b border-[var(--reg-outline-variant)]">
         <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center gap-4 px-5 sm:px-8 lg:min-h-[72px] lg:px-10">
           <Link
