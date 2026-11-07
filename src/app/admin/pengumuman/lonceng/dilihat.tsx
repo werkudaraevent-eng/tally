@@ -190,7 +190,7 @@ export function BagianDilihat({
   const jumlahKelompok = ringkas ? ringkas[kelompok] : 0;
 
   return (
-    <DetailSection title="Seen by participants">
+    <DetailSection title="Seen by participants" className="border-t">
       <div className="flex flex-col gap-3">
         {!ringkas ? (
           galat ? (
@@ -206,7 +206,7 @@ export function BagianDilihat({
         ) : (
           <>
             <p className="text-body-large text-on-surface-variant">
-              <span className="me-2 text-headline-small font-semibold text-on-surface tabular-nums">{ringkas.dilihat}</span>
+              <span className="me-2 text-headline-small font-semibold text-on-surface tabular-nums">{ringkas.dilihat}</span>{" "}
               of <span className="tabular-nums">{ringkas.total}</span> seen <span className="tabular-nums">({persen}%)</span>
             </p>
             <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-container-high" aria-hidden="true">
@@ -244,8 +244,10 @@ export function BagianDilihat({
         </div>
       </div>
 
-      {/* Ke document.body: panel detail sticky membuat stacking context sendiri,
-          sehingga kepala tabel daftar (z-10) menimpa dialog yang dirender di dalamnya. */}
+      {/* Ke .admin-shell (tidak sticky), bukan di dalam panel detail: panel sticky
+          membuat stacking context sendiri, sehingga kepala tabel daftar (z-10)
+          menimpa dialog. Tetap di dalam .admin-shell supaya token admin (36 px,
+          palet netral) berlaku; document.body hanya cadangan. */}
       {buka ? createPortal(
       <Dialog
         open={buka}
@@ -270,7 +272,7 @@ export function BagianDilihat({
                 disabled={jumlahKelompok === 0}
                 onClick={() => void kirimPesan()}
               >
-                {kelompok === "belum_masuk" ? `Send sign-in link to ${jumlahKelompok}` : `Message these ${plural(jumlahKelompok, "person", "people")}`}
+                {kelompok === "belum_masuk" ? `Send sign-in link to ${jumlahKelompok}` : jumlahKelompok === 1 ? "Message this person" : `Message these ${plural(jumlahKelompok, "person", "people")}`}
               </Button>
             ) : (
               <Button variant="outlined" size="sm" disabled={membuatPesan} onClick={() => setBuka(false)}>
@@ -328,7 +330,7 @@ export function BagianDilihat({
           )}
         </div>
       </Dialog>,
-      document.body,
+      document.querySelector(".admin-shell") ?? document.body,
       ) : null}
     </DetailSection>
   );
