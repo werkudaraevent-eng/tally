@@ -76,6 +76,14 @@ assert.equal(pub.waves.at(-1)!.left, 5);
 prev = 240;
 for (const w of pub.waves) { assert.ok(w.left < prev); prev = w.left; }
 assert.equal(jadwalPublik(j500, true), j500);
+// Kolam kecil juga diskalakan: 40 orang tidak terbaca sebagai 40.
+const kecil = jadwalPublik(jadwalCahaya(40, 3, s, s + 12_000), false);
+assert.equal(kecil.total, 240);
+assert.equal(kecil.waves.at(-1)!.left, 3);
+prev = 240;
+for (const w of kecil.waves) { assert.ok(w.left < prev); prev = w.left; }
+const kecil4 = jadwalPublik(j4, false);
+assert.deepEqual(kecil4.waves.map((w) => w.left), [3]);
 
 // Warna sama untuk semua HP pada detik yang sama (fase hanya menggeser saat menyala).
 const t = s + 7_000;

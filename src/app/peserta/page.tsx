@@ -175,7 +175,15 @@ export default async function AreaPesertaPage({
     // Cahaya HP: hanya untuk peserta (akun tanpa peserta tidak ikut undian).
     peserta ? adaUndianHp(event.id) : Promise.resolve(false),
   ]);
-  const layarUndian = undianHp ? <UndianHp base={`/e/${event.slug}`} lang={lang} /> : null;
+  const layarUndian = undianHp ? (
+    <UndianHp
+      base={`/e/${event.slug}`}
+      lang={lang}
+      name={sesi.name}
+      seat={tampilKursi ? kursi[0]?.label?.trim() || null : null}
+      gladi={panitiaDiPortal(event, member, sesi)}
+    />
+  ) : null;
   if (!gathering && pengumuman.unread > 0) await markAnnouncementsSeen(sesi.accountId);
 
   // Preset Gathering: portal bergaya aplikasi dengan tab (rancangan 2026-10-07).

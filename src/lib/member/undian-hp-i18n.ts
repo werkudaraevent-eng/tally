@@ -24,6 +24,7 @@ export type UndianHpText = {
   unknownBody: string;
   rehearsal: string;
   sponsor: (name: string) => string;
+  seat: (label: string) => string;
 };
 
 export const UNDIAN_HP_UI: Record<LandingLang, UndianHpText> = {
@@ -50,6 +51,7 @@ export const UNDIAN_HP_UI: Record<LandingLang, UndianHpText> = {
     unknownBody: "Hasil undian ini belum sampai ke HP kamu. Nama pemenang tampil di layar panggung.",
     rehearsal: "LATIHAN · hasil tidak dicatat",
     sponsor: (name) => `Dari ${name}`,
+    seat: (label) => `Kursi ${label}`,
   },
   en: {
     dialog: "Lucky draw",
@@ -74,5 +76,6 @@ export const UNDIAN_HP_UI: Record<LandingLang, UndianHpText> = {
     unknownBody: "This draw's result didn't reach your phone. The winners' names are on the stage screen.",
     rehearsal: "REHEARSAL · results not recorded",
     sponsor: (name) => `From ${name}`,
+    seat: (label) => `Seat ${label}`,
   },
 };

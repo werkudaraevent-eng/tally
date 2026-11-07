@@ -154,8 +154,11 @@ export function CahayaAnimation({ roster, winners, endsAt, accent, text, fontFam
           rgb = backup ? SILVER : campur(gold, [255, 255, 255], tenang ? 0.1 : 0.1 + 0.15 * ((Math.sin(now / 400 + i) + 1) / 2));
           glow = 1.4;
         } else { rgb = warnaPertunjukan(jadwal, now, dots.phase[i], tenang); glow = 0.6; }
-        const x = ox + (i % cols) * cell;
-        const y = oy + Math.floor(i / cols) * cell;
+        // Baris terakhir yang tidak penuh dipusatkan, supaya tidak ada titik "yatim" di pojok kiri.
+        const row = Math.floor(i / cols);
+        const inRow = row === rows - 1 ? n - row * cols : cols;
+        const x = ox + (i % cols) * cell + ((cols - inRow) * cell) / 2;
+        const y = oy + row * cell;
         if (glow > 0 && cell > 6) {
           ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.18)`;
           ctx.beginPath();

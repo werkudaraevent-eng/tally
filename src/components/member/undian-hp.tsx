@@ -29,6 +29,8 @@ import {
 type HpInfo = {
   now: number;
   live: boolean;
+  /** Mode Live di panggung (hadiah apa pun): HP memakai ember 2 detik supaya Select lalu Undi tidak terlewat. */
+  armed?: boolean;
   rehearsal?: boolean;
   phase?: "idle" | "spinning" | "revealed";
   draw?: string | null;
@@ -84,7 +86,15 @@ function hexToRgb(hex: string | null | undefined, fallback: Rgb): Rgb {
 
 const css = (rgb: Rgb) => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
 
-export function UndianHp({ base, lang }: { base: string; lang: LandingLang }) {
+export function UndianHp({ base, lang, name, seat, gladi }: {
+  base: string;
+  lang: LandingLang;
+  /** Nama dan kursi peserta ini di layar menang, supaya panitia bisa mencocokkan (tangkapan layar teman tidak lolos). */
+  name: string;
+  seat: string | null;
+  /** Peserta dengan Committee access: hanya mereka yang melihat undian saat gladi (latihan). */
+  gladi: boolean;
+}) {
   const t = UNDIAN_HP_UI[lang];
   const offset = useRef(0);
   const [info, setInfo] = useState<HpInfo | null>(null);
@@ -143,16 +153,18 @@ export function UndianHp({ base, lang }: { base: string; lang: LandingLang }) {
     return () => { stop = true; window.clearInterval(timer); };
   }, [base, live]);
 
-  // Polling keadaan: 10 detik saat diam, 2 detik saat hadiah Cahaya HP terpilih.
+  // Polling keadaan: 10 detik saat diam, 2 detik selama panggung di mode Live
+  // (hadiah apa pun), supaya MC yang memilih hadiah lalu langsung menekan Undi
+  // tidak membuat HP terlambat sampai 10 detik.
   useEffect(() => {
     let timer = 0;
     let stop = false;
     const loop = async () => {
       if (stop) return;
-      const width = infoRef.current?.live ? LIVE_MS : IDLE_MS;
+      const width = infoRef.current?.live || infoRef.current?.armed ? LIVE_MS : IDLE_MS;
       if (document.visibilityState === "visible") await ambil(width, emberHp(serverNow(), width));
       if (stop) return;
-      const next = infoRef.current?.live ? LIVE_MS : IDLE_MS;
+      const next = infoRef.current?.live || infoRef.current?.armed ? LIVE_MS : IDLE_MS;
       timer = window.setTimeout(() => { void loop(); }, next - (serverNow() % next) + 30);
     };
     void loop();
@@ -168,7 +180,9 @@ export function UndianHp({ base, lang }: { base: string; lang: LandingLang }) {
   // Kunci gelombang berikutnya: diminta tepat setelah waktunya, pada ember
   // 0,5 detik yang dimulai SESUDAH waktu gelombang, supaya respons CDN-nya
   // pasti sudah memuat kunci itu. Kalau belum (jaringan, cache), coba lagi.
-  const draw = info?.phase !== "idle" ? info?.draw ?? null : null;
+  // Gladi: hanya HP panitia yang ikut, peserta lain tidak diambil alih layarnya.
+  const ikut = info?.live === true && (!info.rehearsal || gladi);
+  const draw = ikut && info?.phase !== "idle" ? info?.draw ?? null : null;
   const keyCount = info?.keys?.length ?? 0;
   const waves = info?.jadwal?.waves;
   const revealAt = info?.reveal_at ? new Date(info.reveal_at).getTime() : null;
@@ -242,7 +256,7 @@ export function UndianHp({ base, lang }: { base: string; lang: LandingLang }) {
   const jitter = useMemo(() => acakTetap(`${draw ?? ""}:${phoneSeed}`) * CAHAYA_SEBAR_MS, [draw, phoneSeed]);
 
   const status: Status | null = (() => {
-    if (!info?.live) return null;
+    if (!info?.live || !ikut) return null;
     if (info.phase === "idle" || !draw || !info.jadwal) return { kind: "ready" };
     const now = nowServer;
     const jadwal = info.jadwal;
@@ -403,7 +417,15 @@ export function UndianHp({ base, lang }: { base: string; lang: LandingLang }) {
                 : status.kind === "notin" ? t.notInTitle
                 : t.unknownTitle}
             </h2>
-            {status.kind === "win" || status.kind === "backup" ? <p className="mt-4 text-title-large font-semibold">{prize.name}</p> : null}
+            {status.kind === "win" || status.kind === "backup" ? (
+              <>
+                <p className="mt-4 text-title-large font-semibold">{prize.name}</p>
+                <p className="mt-6 rounded-xl bg-black/10 px-5 py-3 text-title-medium font-semibold">
+                  {name}
+                  {seat ? <span className="block text-body-medium font-medium opacity-80">{t.seat(seat)}</span> : null}
+                </p>
+              </>
+            ) : null}
             <p className="mt-4 text-body-large opacity-90 text-pretty">
               {status.kind === "out" ? t.outBody
                 : status.kind === "win" ? t.winBody

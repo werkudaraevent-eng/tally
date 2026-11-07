@@ -50,7 +50,9 @@ export async function GET(request: Request) {
     spin_started_at: string | null; reveal_at: string | null; pending: Pending;
   } | null;
   if (stateResult.error) return json({ now, live: false }, false);
-  if (!state || state.mode !== "live" || !state.active_prize_id) return json({ now, live: false }, cacheable);
+  if (!state || state.mode !== "live") return json({ now, live: false }, cacheable);
+  // Panggung sudah Live: HP berpindah ke ember 2 detik walau hadiah Cahaya belum dipilih.
+  if (!state.active_prize_id) return json({ now, live: false, armed: true }, cacheable);
 
   const { data: prizeRow } = await client
     .from("undian_prizes")
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
     .eq("id", state.active_prize_id)
     .maybeSingle();
   const prize = prizeRow as { id: number; name: string; image_url: string | null; sponsor_name: string | null; animation: string } | null;
-  if (!prize || prize.animation !== "cahaya") return json({ now, live: false }, cacheable);
+  if (!prize || prize.animation !== "cahaya") return json({ now, live: false, armed: true }, cacheable);
 
   const settings = (settingsResult.data ?? {}) as { show_pool_size?: boolean; accent_color?: string | null };
   const revealAt = state.reveal_at ? new Date(state.reveal_at).getTime() : null;

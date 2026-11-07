@@ -205,7 +205,8 @@ export function warnaPertunjukan(jadwal: Pick<CahayaJadwal, "start" | "end" | "w
   // Lampu pertama: putih hangat.
   if (t < CAHAYA_NYALA_MS + 600) return campur([10, 11, 16], [236, 240, 255], nyala);
   // Merah (warna padam) dan kuning-emas (warna pemenang) tidak dipakai di pertunjukan: hijau, biru, ungu, magenta saja.
-  const hue = 0.22 + 0.68 * (((t / 3200) % 1 + 1) % 1);
+  // Reduced motion: tanpa denyut, dan rona berputar pelan (satu putaran 16 detik).
+  const hue = 0.22 + 0.68 * (((t / (tenang ? 16000 : 3200)) % 1 + 1) % 1);
   if (tenang) return hsl(hue, 0.8, 0.56);
   // Ketukan 120 bpm: 2 denyut per detik.
   const beat = Math.pow(Math.max(0, Math.sin((Math.PI * t) / 500)), 6);
@@ -222,9 +223,10 @@ export function campur(a: Rgb, b: Rgb, f: number): Rgb {
 /** Jumlah di layar bila "Show the number in the draw" mati: dinding berskala 240 titik, pemenang tetap tepat. */
 export const CAHAYA_SKALA_TERSEMBUNYI = 240;
 
-/** Jadwal untuk publik. Bila jumlah kolam disembunyikan, angka diganti skala 240 titik dengan proporsi yang sama. */
+/** Jadwal untuk publik. Bila jumlah kolam disembunyikan, angka diganti skala 240 titik dengan proporsi yang sama (kolam besar maupun kecil). */
 export function jadwalPublik(jadwal: CahayaJadwal, tampilJumlah: boolean): CahayaJadwal {
-  if (tampilJumlah || jadwal.total <= CAHAYA_SKALA_TERSEMBUNYI) return jadwal;
+  // Kolam kecil juga diskalakan: `total` asli tidak boleh terbaca dari JSON atau dihitung dari titik panggung.
+  if (tampilJumlah || jadwal.total === CAHAYA_SKALA_TERSEMBUNYI) return jadwal;
   const scale = CAHAYA_SKALA_TERSEMBUNYI / jadwal.total;
   const k = jadwal.waves.length;
   let prev = CAHAYA_SKALA_TERSEMBUNYI;
