@@ -134,3 +134,26 @@ assert.equal(teksAwal("en", true).title, "Your recap is still waiting");
   assert.ok(e.text.includes("Buka kilas balik: https://x.test/e/a/kilas-balik"));
 }
 console.log("kilas-balik/undangan ok");
+
+import { sorotanAgenda } from "./alur.ts";
+{
+  const it = (title: string, time: string, end: string | null, jeda = false) => ({ title, time, end, jeda });
+  const bagian = [
+    { tanggal: "2026-11-05", items: [it("Ambil tiket kereta", "19:00", "21:00")] },
+    { tanggal: "2026-11-06", items: [it("Pengambilan Badge ID", "04:00", "04:30"), it("Perjalanan kereta", "05:00", "13:00"), it("Makan", "13:00", "14:00", true)] },
+    { tanggal: "2026-11-07", items: [it("City tour", "09:00", "12:00"), it("Gala dinner", "19:00", "22:00")] },
+    { tanggal: "2026-11-08", items: [it("Sarapan", "07:00", null)] },
+  ];
+  assert.deepEqual(sorotanAgenda(bagian, "2026-11-06", "2026-11-08"), ["Perjalanan kereta", "Gala dinner", "Sarapan"]);
+  assert.deepEqual(sorotanAgenda([{ tanggal: null, items: [it("A", "09:00", "10:00"), it("B", "10:00", "13:00")] }], null, null), ["B"]);
+  assert.deepEqual(sorotanAgenda(bagian, "2026-11-06", null).length, 3);
+}
+console.log("kilas-balik/sorotan ok");
+
+{
+  // QA H1: pilihan Agenda yang semuanya tersembunyi -> pertanyaan dilewati, bukan wajib.
+  const qq = [{ key: "momen", type: "choice" as const, title: "M", options: ["Kumpul Batch 1"], from_agenda: true, max: 1, required: true }];
+  assert.deepEqual(periksaJawaban(qq, {}, () => []), { ok: true, jawaban: {} });
+  assert.deepEqual(periksaJawaban(qq, { momen: ["Kumpul Batch 1"] }, () => []), { ok: true, jawaban: {} });
+}
+console.log("kilas-balik/pilihan-kosong ok");

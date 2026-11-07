@@ -262,7 +262,7 @@ function TabPertanyaan({ draf, setDraf, agenda }: { draf: SetelanKilas; setDraf:
                   <option value="2">Up to two</option>
                   <option value="3">Up to three</option>
                 </SelectField>
-                <Button variant="outlined" size="sm" disabled={agenda.length < 2} onClick={() => ubah(i, { options: agenda.slice(0, 12), from_agenda: true })}>
+                <Button variant="outlined" disabled={agenda.length < 2} onClick={() => ubah(i, { options: agenda.slice(0, 12), from_agenda: true })}>
                   Fill from Agenda
                 </Button>
               </div>

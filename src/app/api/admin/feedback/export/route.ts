@@ -1,6 +1,7 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { labelKolom, muatHasil, muatSetelan } from "@/lib/kilas-balik/server";
+import { normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
 
 /**
  * Admin > Feedback > Results > Download .xlsx: satu baris per peserta yang
@@ -23,11 +24,14 @@ export async function GET(request: Request) {
   const urut = ["name", "email", "company", "title", "participant_type"];
   kolomPeserta.sort((a, b) => (urut.indexOf(a) + 1 || 99) - (urut.indexOf(b) + 1 || 99) || a.localeCompare(b));
   const tanya = muat.setelan.questions;
+  // Waktu kirim di zona acara, sebagai teks: Excel tidak menyimpan zona waktu.
+  const zona = normalizeTimeZone(event.time_zone);
+  const waktu = new Intl.DateTimeFormat("en-CA", { timeZone: zona, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Answers");
-  sheet.addRow([...kolomPeserta.map((k) => label[k] ?? k.replace(/^extra\./, "")), ...tanya.map((q) => q.title), "Submitted at"]);
+  sheet.addRow([...kolomPeserta.map((k) => label[k] ?? k.replace(/^extra\./, "")), ...tanya.map((q) => q.title), `Submitted at (${timeZoneAbbr(zona)})`]);
   sheet.getRow(1).font = { bold: true };
   for (const b of hasil.baris) {
     sheet.addRow([
@@ -36,7 +40,7 @@ export async function GET(request: Request) {
         const v = b.answers[q.key];
         return Array.isArray(v) ? v.join(", ") : v === undefined || v === null ? "" : (v as string | number);
       }),
-      new Date(b.submitted_at),
+      waktu.format(new Date(b.submitted_at)).replace(",", ""),
     ]);
   }
   sheet.columns.forEach((kolom) => {

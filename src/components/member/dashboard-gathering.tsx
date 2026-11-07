@@ -388,7 +388,8 @@ export async function DashboardGathering({
   // Kartu Lengkapi data hanya di Beranda. Pratinjau admin: semua pertanyaannya.
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
   // Kartu Kilas balik: hanya Beranda, hanya selama Feedback dibuka dan peserta belum menjawab.
-  const kilas = tab === "beranda" && peserta && !pratinjau ? await tautanKartuKilas(event, peserta.id, halamanAcara) : null;
+  // Dimulai sekarang, ditunggu sesudah data Beranda lain, supaya tidak menambah antrean.
+  const janjiKilas = tab === "beranda" && peserta && !pratinjau ? tautanKartuKilas(event, peserta.id, halamanAcara).catch(() => null) : Promise.resolve(null);
   // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
   // dan tidak disembunyikan di Participant home.
   const [logistik, checkpoint, checkpointQr, bagasi, hadiah, nomorBagasi] = peserta
@@ -406,6 +407,7 @@ export async function DashboardGathering({
         horizon && tab === "perjalanan" ? nomorBagasiPeserta(event.id, peserta.id, asli.registration_form_config).catch(() => null) : null,
       ])
     : [null, null, null, [], [], null];
+  const kilas = await janjiKilas;
   const setelanCheckpoint = checkpointQr?.setelan ?? null;
   // Kartu Hadiah kamu (lib/member/hadiah.ts): paling atas Beranda, sesudah kartu panitia.
   // Paling atas hanya pada hari dikonfirmasi; sesudahnya di bawah Next up

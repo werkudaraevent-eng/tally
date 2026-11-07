@@ -115,6 +115,12 @@ export async function POST(request: Request) {
     return apiError("VALIDATION_ERROR", 422, { message: "Feedback isn't open for participants. Turn it on and check the open and close times first." });
   }
   if (!memberConfig(event)) return apiError("VALIDATION_ERROR", 422, { message: "The participant area is off, so participants can't open the link." });
+  // Tekan dua kali (atau dua admin bersamaan): kiriman kurang dari 2 menit lalu ditolak,
+  // supaya lonceng tidak muncul dua kali. Email sudah dijaga kunci idempotensi Resend.
+  const terakhir = (await riwayat(event.id))[0];
+  if (terakhir && Date.now() - Date.parse(terakhir.waktu) < 120_000) {
+    return apiError("VALIDATION_ERROR", 409, { message: "This was just sent. Wait two minutes before sending a reminder." });
+  }
   const calon = await hitung(event.id);
   if (!calon) return apiError("INTERNAL_ERROR", 500);
   if (calon.length === 0) return Response.json({ lonceng: 0, terkirim: 0, gagal: 0, tanpa_email: 0, galat: null });

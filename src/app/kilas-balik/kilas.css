@@ -105,6 +105,10 @@
   background: #fff; color: var(--kb-tinta); font: inherit; font-size: 15px; font-weight: 600; padding: 0; cursor: pointer; font-variant-numeric: tabular-nums;
 }
 .kb-nps-tombol[aria-checked="true"] { background: var(--kb-tinta); color: var(--kb-kertas); border-color: var(--kb-tinta); }
+/* Di HP sebelas tombol satu baris terlalu sempit untuk jempol: dua baris, 0-5 dan 6-10. */
+@media (max-width: 479px) {
+  .kb-nps-baris { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+}
 .kb-ujung { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; line-height: 18px; font-weight: 600; opacity: 0.8; }
 
 .kb-chip-baris { display: flex; flex-wrap: wrap; gap: 8px; }

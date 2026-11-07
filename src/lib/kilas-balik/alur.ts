@@ -64,3 +64,43 @@ export function terisi(v: unknown): boolean {
   if (typeof v === "string") return v.trim() !== "";
   return Array.isArray(v) && v.length > 0;
 }
+
+const menitDari = (jam: string | null | undefined): number | null => {
+  const m = jam?.match(/^(\d{1,2})[:.](\d{2})/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+
+/**
+ * Sorotan kartu Agenda: satu baris per hari acara (tanggal mulai..selesai),
+ * yaitu baris bukan jeda yang paling lama di hari itu (seri: yang lebih
+ * malam), supaya yang muncul gala atau sesi utama, bukan "Ambil tiket" atau
+ * "Pengambilan badge" sebelum acara. Bagian tanpa tanggal dipakai hanya bila
+ * tidak ada bagian bertanggal sama sekali.
+ */
+export function sorotanAgenda(
+  bagian: { tanggal: string | null; items: { title: string; time: string; end: string | null; jeda: boolean }[] }[],
+  mulai: string | null,
+  akhir: string | null,
+  max = 3,
+): string[] {
+  const bertanggal = bagian.some((b) => b.tanggal);
+  const dalam = bagian.filter((b) => {
+    if (!bertanggal) return true;
+    if (!b.tanggal) return false;
+    return (!mulai || b.tanggal >= mulai) && (!akhir || b.tanggal <= (akhir >= (mulai ?? "") ? akhir : mulai ?? akhir));
+  });
+  const perHari = new Map<string, { title: string; lama: number; mulai: number }>();
+  dalam.forEach((b, n) => {
+    const kunci = b.tanggal ?? `#${n}`;
+    for (const i of b.items) {
+      const judul = i.title.trim();
+      if (i.jeda || !judul) continue;
+      const a = menitDari(i.time) ?? 0;
+      const z = menitDari(i.end);
+      const lama = z !== null && z > a ? z - a : 0;
+      const lama2 = perHari.get(kunci);
+      if (!lama2 || lama > lama2.lama || (lama === lama2.lama && a > lama2.mulai)) perHari.set(kunci, { title: judul, lama, mulai: a });
+    }
+  });
+  return [...new Set([...perHari.values()].map((v) => v.title))].slice(0, max);
+}

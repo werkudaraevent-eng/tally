@@ -241,6 +241,9 @@ export function periksaJawaban(
   const jawaban: Record<string, NilaiJawaban> = {};
   const kosong: string[] = [];
   for (const q of questions) {
+    // Pilihan dari Agenda yang semuanya tersembunyi bagi peserta ini: pertanyaannya
+    // tidak ditampilkan kepadanya, jadi tidak bisa wajib dan tidak menerima jawaban.
+    if (q.type === "choice" && pilihanSah(q).length === 0) continue;
     const v = mentah[q.key];
     let nilai: NilaiJawaban | null = null;
     if (q.type === "faces" && typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 5) nilai = v;

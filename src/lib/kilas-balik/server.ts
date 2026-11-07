@@ -9,7 +9,7 @@ import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
 import { namaSapaan } from "@/lib/member/nav";
 import { gabungMeta } from "@/lib/typography";
 import { semuaBaris } from "@/lib/logistik/server";
-import type { Kenangan } from "./alur.ts";
+import { sorotanAgenda, type Kenangan } from "./alur.ts";
 import { rapikanSetelan, statusBuka, type NilaiJawaban, type Pertanyaan, type SetelanKilas } from "./setelan.ts";
 
 /**
@@ -89,8 +89,9 @@ export async function muatKenangan(event: EventRow, member: LandingMemberConfig,
     loadMemberLogistics(event.id, participantId, member.show_logistics === true, undefined, false, sembunyi).catch(() => null),
     loadHadiahPeserta(event.id, participantId, member.prize, lang).catch(() => []),
     sesiHadir(event.id, participantId),
-    judulAgenda(event, lang, participantId),
+    loadAgendaPreview(event.id, lang, { acara: event, participantId, tampilKamar: false }).catch(() => []),
   ]);
+  const sorotan = sorotanAgenda(agenda, event.event_date ?? null, event.end_date ?? event.event_date ?? null);
 
   let trip: Kenangan["trip"] = null;
   const tiket = (logistik?.trains ?? []).find((t) => t.direction === "outbound") ?? null;
@@ -128,7 +129,7 @@ export async function muatKenangan(event: EventRow, member: LandingMemberConfig,
     hari: hariAcara(event),
     trip,
     stay,
-    agenda: hadir > 0 || agenda.length ? { hadir, sorotan: agenda.slice(0, 3) } : null,
+    agenda: hadir > 0 || sorotan.length ? { hadir, sorotan } : null,
     prize: hadiah.length ? { hadiah: hadiah.map((h) => h.nama) } : null,
   };
 }
@@ -209,7 +210,7 @@ export async function muatHasil(eventId: string): Promise<{ baris: BarisHasil[];
     db().from("feedback_responses" as never).select("participant_id,answers,submitted_at").eq("event_id", eventId).order("submitted_at", { ascending: false }),
   );
   if (!jawaban) return null;
-  const { count } = await db().from("participants").select("id", { count: "exact", head: true }).eq("event_id", eventId);
+  const { count } = await db().from("participants").select("id", { count: "exact", head: true }).eq("event_id", eventId).is("source_removed_at", null);
   const peta = new Map<string, Record<string, unknown>>();
   const ids = jawaban.map((j) => j.participant_id);
   for (let i = 0; i < ids.length; i += 200) {

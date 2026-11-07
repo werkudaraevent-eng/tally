@@ -139,11 +139,14 @@ export default async function KilasBalikPage({ searchParams }: { searchParams: K
   ]);
   const semuaSet = new Set(semua);
   const judulDi = (q: Pertanyaan) => (lang !== utama && q.title_alt?.trim() ? q.title_alt.trim() : q.title);
-  const layar: LayarKlien[] = susunAlur(setelan.questions, setelan.cards, kenangan).map((l) =>
-    l.jenis === "tanya"
-      ? { jenis: "tanya", q: { key: l.q.key, type: l.q.type, title: judulDi(l.q), required: l.q.required, max: l.q.max ?? 1, options: l.q.type === "choice" ? pilihanPeserta(l.q, semuaSet, milik) : [] } }
-      : l,
-  );
+  // Pertanyaan pilihan yang tidak punya satu pun pilihan untuk peserta ini
+  // (semua dari baris Agenda kelompok lain) dilewati, sama dengan periksaJawaban.
+  const layar: LayarKlien[] = susunAlur(setelan.questions, setelan.cards, kenangan).flatMap((l): LayarKlien[] => {
+    if (l.jenis !== "tanya") return [l];
+    const options = l.q.type === "choice" ? pilihanPeserta(l.q, semuaSet, milik) : [];
+    if (l.q.type === "choice" && options.length === 0) return [];
+    return [{ jenis: "tanya", q: { key: l.q.key, type: l.q.type, title: judulDi(l.q), required: l.q.required, max: l.q.max ?? 1, options } }];
+  });
 
   return (
     <KilasClient
