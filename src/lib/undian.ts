@@ -16,6 +16,8 @@
 //      tapi diletakkan di modul ini supaya CMS dapat memakai fungsi bobot yang
 //      sama untuk memperlihatkan pratinjau distribusi tiket sebelum acara.
 
+import type { CahayaJadwal } from "./undian-cahaya";
+
 // ---------------------------------------------------------------------------
 // Syarat kelayakan
 // ---------------------------------------------------------------------------
@@ -783,7 +785,7 @@ export function shuffle<T>(items: T[]): T[] {
 // Hadiah dan state
 // ---------------------------------------------------------------------------
 
-export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "tunnel" | "drum" | "arena" | "instant";
+export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "tunnel" | "drum" | "arena" | "cahaya" | "instant";
 
 /** Kecepatan gerak Terowongan nama dan Tabung bola selama mengundi. Lama undian tetap diatur Duration. */
 export type AnimSpeed = "slow" | "normal" | "fast";
@@ -868,6 +870,7 @@ export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }
   { value: "tunnel", label: "Name tunnel", hint: "Names fly towards the screen through a tunnel. Each winner's name enters from the far end and stops in front. Any number of names in the draw; up to 10 winners per draw." },
   { value: "drum", label: "Lottery drum", hint: "A 3D glass drum blows coloured balls around, then the gate at the bottom opens and one ball per winner drops into the tray. Always 44 balls on screen; up to 6 winners per draw. Test it on the stage laptop first." },
   { value: "arena", label: "Elimination arena", hint: "Everyone in the draw stands on a 3D arena floor. Each round the crowd runs to new tiles, some tiles flash red and drop with the people on them, and a Remaining counter falls until only the winners are left on a gold podium. Names appear when about 12 are left. Set Duration to 20 seconds or more so the crowd shrinks over several rounds; the last two rounds take about 13 seconds after the draw stops. Up to 20 winners per draw. Test it on the stage laptop first." },
+  { value: "cahaya", label: "Phone lights", hint: "Everyone who has the participant area open on their phone joins in. When you press Draw, every phone in the room lights up and plays the same colour show, then dark waves switch phones off (they read \"Not this time\") until only the winners' phones glow gold and read \"You won\". The stage shows one dot per person in the draw, a Lit counter, then the winners' names. People without the portal open are still in the draw. Needs the participant area; set Duration to 20 seconds or more. Always runs on a timer. Up to 50 winners per draw." },
   { value: "instant", label: "Instant reveal", hint: "No animation. A fallback when time is short." },
 ];
 
@@ -1068,6 +1071,12 @@ export type UndianState = {
   pool_size: number;
   spin_started_at: string | null;
   reveal_at: string | null;
+  /**
+   * Cahaya HP: waktu tiap gelombang dan berapa yang masih menyala sesudahnya.
+   * Tanpa nama atau rujukan siapa pun, jadi aman dikirim selama mengundi.
+   * Null untuk animasi lain.
+   */
+  cahaya?: CahayaJadwal | null;
   winners: UndianWinner[];
   /** Pemenang yang sudah dikonfirmasi untuk hadiah aktif, untuk papan rekap. */
   confirmed: UndianWinner[];

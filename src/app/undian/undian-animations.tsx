@@ -5,6 +5,7 @@ import { animate, AnimatePresence, motion, useMotionValue } from "framer-motion"
 import { easing, expressive } from "@/lib/m3/motion";
 import { mixHex, readableOn } from "@/lib/color";
 import { ShineText } from "./undian-stage-fx";
+import { CAHAYA_LAG_MS, CAHAYA_SEBAR_MS } from "@/lib/undian-cahaya";
 
 // Lapisan animasi layar undian.
 //
@@ -150,6 +151,8 @@ export function revealFxDelayMs(animation: string): number {
     // Dart pertama menancap: saat itulah ruangan tahu nama sudah terpilih.
     case "dart": return DART_LAND_MS;
     case "arena": return ARENA_FINAL_DROP_MS;
+    // Titik pemenang berubah emas: lihat waktuTampil di lib/undian-cahaya.ts.
+    case "cahaya": return CAHAYA_LAG_MS;
     default: return 0;
   }
 }
@@ -1442,6 +1445,8 @@ export function revealSettleMs(animation: string, winners: { is_backup: boolean 
     }
     // Dua babak terakhir dan podium, lalu daftar nama satu per satu.
     case "arena": return ARENA_LIST_MS + Math.min(n * 350, 2000);
+    // Titik emas berdiri sebentar, lalu daftar nama (CAHAYA_LIST_MS di undian-cahaya.tsx).
+    case "cahaya": return CAHAYA_LAG_MS + CAHAYA_SEBAR_MS + 1800 + Math.min(n * 350, 2000);
     case "drum": {
       const shown = Math.min(n, 6);
       return DRUM_FIRST_LAND_MS + (shown - 1) * DRUM_DROP_GAP_MS + LIST_AFTER_MS + Math.min(n * 350, 2000);

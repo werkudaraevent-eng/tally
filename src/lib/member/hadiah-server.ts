@@ -44,3 +44,20 @@ export async function loadHadiahPeserta(eventId: string, participantId: string |
     ];
   });
 }
+
+/**
+ * Acara ini punya hadiah aktif dengan animasi Phone lights (Cahaya HP)? Hanya
+ * bila ya, Area peserta memasang layar undian di HP (components/member/undian-hp.tsx)
+ * dan mulai membaca /api/undian/hp. Acara lain tidak berubah sama sekali.
+ * Gagal baca = tidak dipasang.
+ */
+export async function adaUndianHp(eventId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServiceClient()
+    .from("undian_prizes")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("is_active", true)
+    .eq("animation", "cahaya")
+    .limit(1);
+  return !error && (data ?? []).length > 0;
+}

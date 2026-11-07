@@ -188,21 +188,34 @@ export function PrizeEditor({
             {draft.animation !== "instant" ? (
               <div>
                 <p className="text-body-medium font-medium">Stop</p>
-                <SegmentedButton<SpinMode>
-                  label="When the animation stops"
-                  value={draft.spin_mode}
-                  onChange={(value) => onChange({ spin_mode: value })}
-                  options={SPIN_MODES.map((item) => ({ value: item.value, label: item.value === "timed" ? "Automatic" : "Manual" }))}
-                  className="mt-1.5 w-full"
-                />
-                <p className="mt-1 text-body-medium text-on-surface-variant">{modeBerhenti?.hint}</p>
-                {draft.spin_mode === "timed" ? (
+                {draft.animation === "cahaya" ? (
+                  <p className="mt-1 text-body-medium text-on-surface-variant">
+                    Phone lights always stops on its own: the dark waves on every phone are timed to this duration.
+                  </p>
+                ) : (
+                  <>
+                    <SegmentedButton<SpinMode>
+                      label="When the animation stops"
+                      value={draft.spin_mode}
+                      onChange={(value) => onChange({ spin_mode: value })}
+                      options={SPIN_MODES.map((item) => ({ value: item.value, label: item.value === "timed" ? "Automatic" : "Manual" }))}
+                      className="mt-1.5 w-full"
+                    />
+                    <p className="mt-1 text-body-medium text-on-surface-variant">{modeBerhenti?.hint}</p>
+                  </>
+                )}
+                {draft.spin_mode === "timed" || draft.animation === "cahaya" ? (
                   <div className="mt-3">
                     <label htmlFor="spin-seconds" className="block text-body-medium font-medium">Animation duration: <span className="tabular-nums">{draft.spin_seconds.toFixed(1)}</span> {draft.spin_seconds === 1 ? "second" : "seconds"}</label>
                     <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-[var(--md-sys-color-primary)]" />
                     {draft.animation === "arena" && draft.spin_seconds < 15 ? (
                       <p className="mt-1 text-body-medium text-warning">
                         Elimination arena needs about 20 seconds for the crowd to shrink over several rounds. Shorter than that, most of the crowd drops in a single round.
+                      </p>
+                    ) : null}
+                    {draft.animation === "cahaya" && draft.spin_seconds < 15 ? (
+                      <p className="mt-1 text-body-medium text-warning">
+                        Phone lights needs about 20 seconds for the colour show and several dark waves. A duration under 12 seconds is lengthened to 12 when you draw.
                       </p>
                     ) : null}
                   </div>
