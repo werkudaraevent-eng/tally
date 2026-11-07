@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bacaSetelanPanitia, tipeTermasuk } from "../member/akses-panitia.ts";
 import { CARRY_MIN, SYARAT_MAX, kunciRecall, lolosJawaban, pilihanDari, syaratSchema, type Syarat } from "./logika.ts";
 
 /**
@@ -64,8 +65,53 @@ export const TEMA_AWAL: TemaKilas = { mode: "event", brand: null, accent: null }
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const temaSchema = z.object({ mode: z.enum(["event", "custom"]), brand: hex.nullable(), accent: hex.nullable() });
 
+/**
+ * Siapa yang bisa membuka Feedback saat menyala. "committee" = mode uji: hanya
+ * peserta yang Tipe-nya punya Committee access (Check-in > Checkpoints), jadi
+ * admin bisa mencoba kartu Beranda, tautan, dan Send ke dirinya sendiri dulu.
+ * Disimpan di kolom `cards` (jsonb) dengan kunci "audience", tanpa SQL baru.
+ */
+export const PENONTON = ["all", "committee"] as const;
+export type Penonton = (typeof PENONTON)[number];
+
+/**
+ * Kartu di Beranda portal peserta (Feedback > Send > Card on participant Home).
+ * Teks kosong = teks bawaan di bawah. Disimpan di `cards.home` (jsonb).
+ */
+export type TeksBeranda = { title: string | null; body: string | null; button: string | null };
+export type KartuBeranda = { show: boolean; id: TeksBeranda; en: TeksBeranda };
+export const BERANDA_MAX = { title: 60, body: 200, button: 30 } as const;
+export const BERANDA_BAWAAN: Record<"id" | "en", { title: string; body: string; button: string }> = {
+  id: { title: "Kilas balikmu sudah siap", body: "Lihat lagi perjalananmu, dan bantu kami dengan beberapa pertanyaan singkat. Bisa ditutup dan dilanjutkan kapan saja.", button: "Buka kilas balik" },
+  en: { title: "Your recap is ready", body: "Look back at your trip and help us with a few quick questions. Close it and carry on any time.", button: "Open my recap" },
+};
+const TEKS_KOSONG: TeksBeranda = { title: null, body: null, button: null };
+export const BERANDA_AWAL: KartuBeranda = { show: true, id: TEKS_KOSONG, en: TEKS_KOSONG };
+
+/** Teks kartu Beranda untuk satu bahasa, dengan bawaan untuk yang kosong. */
+export function teksBeranda(k: KartuBeranda, lang: "id" | "en"): { title: string; body: string; button: string } {
+  const t = k[lang];
+  const b = BERANDA_BAWAAN[lang];
+  return { title: t.title || b.title, body: t.body || b.body, button: t.button || b.button };
+}
+
+const teksBerandaSchema = z.object({
+  title: z.string().trim().max(BERANDA_MAX.title).nullable(),
+  body: z.string().trim().max(BERANDA_MAX.body).nullable(),
+  button: z.string().trim().max(BERANDA_MAX.button).nullable(),
+});
+const berandaSchema = z.object({ show: z.boolean(), id: teksBerandaSchema, en: teksBerandaSchema });
+
+function rapikanTeksBeranda(v: unknown): TeksBeranda {
+  const r = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const ambil = (k: keyof typeof BERANDA_MAX) => (typeof r[k] === "string" && (r[k] as string).trim() ? (r[k] as string).trim().slice(0, BERANDA_MAX[k]) : null);
+  return { title: ambil("title"), body: ambil("body"), button: ambil("button") };
+}
+
 export type SetelanKilas = {
   enabled: boolean;
+  audience: Penonton;
+  home: KartuBeranda;
   /** Judul kartu pembuka. Kosong = "Halo, <nama>". */
   title: string | null;
   intro: string | null;
@@ -108,6 +154,9 @@ export const pertanyaanSchema = z
 export const setelanSchema = z
   .object({
     enabled: z.boolean(),
+    // Tidak ada = pakai yang tersimpan (tab admin lama tidak mengirimnya), bukan reset ke semua peserta.
+    audience: z.enum(PENONTON).optional(),
+    home: berandaSchema.optional(),
     title: z.string().trim().max(120).nullable(),
     intro: z.string().trim().max(600).nullable(),
     closing: z.string().trim().max(600).nullable(),
@@ -272,6 +321,11 @@ export function rapikanSetelan(baris: unknown): SetelanKilas {
     : [];
   return {
     enabled: r.enabled === true,
+    audience: cardsMentah.audience === "committee" ? "committee" : "all",
+    home: (() => {
+      const h = (cardsMentah.home && typeof cardsMentah.home === "object" ? cardsMentah.home : {}) as Record<string, unknown>;
+      return { show: h.show !== false, id: rapikanTeksBeranda(h.id), en: rapikanTeksBeranda(h.en) };
+    })(),
     title: typeof r.title === "string" && r.title.trim() ? r.title.trim() : null,
     intro: typeof r.intro === "string" && r.intro.trim() ? r.intro.trim() : null,
     closing: typeof r.closing === "string" && r.closing.trim() ? r.closing.trim() : null,
@@ -290,6 +344,17 @@ export function rapikanSetelan(baris: unknown): SetelanKilas {
 }
 
 export type StatusBuka = "off" | "not_yet" | "open" | "closed";
+
+/**
+ * Apakah peserta ini termasuk yang boleh membuka Feedback. Mode uji
+ * ("committee"): hanya Tipe dengan Committee access; tanpa Tipe terpilih,
+ * tidak ada yang boleh (bukan semua orang).
+ */
+export function bolehIkut(audience: Penonton, committee: unknown, tipe: string | null | undefined): boolean {
+  if (audience === "all") return true;
+  const panitia = bacaSetelanPanitia(committee);
+  return panitia !== null && tipeTermasuk(panitia, tipe);
+}
 
 /** Apakah kilas balik bisa diisi sekarang. */
 export function statusBuka(s: Pick<SetelanKilas, "enabled" | "opens_at" | "closes_at" | "questions">, now: Date): StatusBuka {

@@ -10,7 +10,7 @@ import { getMemberSession, memberConfig, previewMemberSession } from "@/lib/memb
 import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
 import { judulAgendaMilik, muatFakta, muatJawaban, muatKenangan, muatSetelan, perluFakta, pesertaContoh, semuaJudulAgenda } from "@/lib/kilas-balik/server";
 import { bangunLayar } from "@/lib/kilas-balik/layar";
-import { TAMPILAN, statusBuka, temaSchema, type Tampilan, type TemaKilas } from "@/lib/kilas-balik/setelan";
+import { TAMPILAN, bolehIkut, statusBuka, temaSchema, type Tampilan, type TemaKilas } from "@/lib/kilas-balik/setelan";
 import { warnaKilas } from "@/lib/kilas-balik/warna";
 import { KILAS_UI } from "@/lib/kilas-balik/i18n";
 import { KilasClient, type LayarKlien } from "./kilas-client";
@@ -75,8 +75,8 @@ export default async function KilasBalikPage({ searchParams }: { searchParams: K
     if (admin.response) notFound();
     pratinjau = true;
   }
-  const status = pratinjau ? "open" : statusBuka(setelan, new Date());
-  if (status === "off") notFound();
+  const statusAcara = pratinjau ? "open" : statusBuka(setelan, new Date());
+  if (statusAcara === "off") notFound();
 
   let sesi;
   if (pratinjau) {
@@ -88,6 +88,8 @@ export default async function KilasBalikPage({ searchParams }: { searchParams: K
     if (!sesi) redirect(withQuery(`${dasar}/masuk`, { lanjut: alamatKilasBalik(event.slug, lang === utama ? null : lang) }));
   }
   const peserta = sesi.participant;
+  // Mode uji: peserta di luar Tipe panitia melihat "belum dibuka", sama seperti sebelum jam buka.
+  const status = statusAcara === "open" && !pratinjau && !bolehIkut(setelan.audience, member?.committee, peserta?.participant_type) ? "not_yet" : statusAcara;
 
   const tampilan: Tampilan = pratinjau && (TAMPILAN as readonly string[]).includes(kueri.tampilan as string) ? (kueri.tampilan as Tampilan) : setelan.display;
   let tema: TemaKilas = setelan.theme;

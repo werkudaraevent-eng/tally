@@ -2,7 +2,7 @@
 
 import {
   AirplaneTilt, ArrowDown, ArrowLeft, ArrowSquareOut, ArrowUp, Bed, CalendarCheck, Cards, ChatsCircle, Confetti, Copy, DotsSixVertical, FlagCheckered, Gauge,
-  Gift, HandWaving, ListChecks, Plus, Smiley, TextAa, Trash, X,
+  Eye, Gift, HandWaving, House, ListChecks, Plus, Smiley, TextAa, Trash, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Kelompok } from "@/components/admin/compact-form";
@@ -13,17 +13,18 @@ import type { BalasanPratinjau, PesanDraf } from "@/app/kilas-balik/kilas-client
 import { alamatKilasBalik } from "@/lib/kilas-balik/alamat";
 import { SYARAT_MAX, kunciRecall, type Syarat } from "@/lib/kilas-balik/logika";
 import {
-  KARTU, PERTANYAAN_MAX, PILIHAN_MAX, kunciBaru, masalahLogika, urutAlur, type JenisPertanyaan, type KunciKartu, type Pertanyaan, type SetelanKilas, type Tampilan,
+  BERANDA_BAWAAN, BERANDA_MAX, KARTU, PERTANYAAN_MAX, PILIHAN_MAX, kunciBaru, teksBeranda, masalahLogika, urutAlur, type JenisPertanyaan, type KunciKartu, type Pertanyaan, type SetelanKilas, type Tampilan,
 } from "@/lib/kilas-balik/setelan";
 import { cx } from "@/lib/m3/cx";
 import { PilihPeserta, type PesertaPratinjau } from "../area-peserta/pratinjau-peserta";
+import { KartuKilas } from "@/components/member/kartu-kilas";
 
 /**
  * Admin > Feedback > Build. Satu layar untuk menyusun kuesioner, pola builder
  * Typeform (juga Maze dan Sprig): daftar alur di kiri, layar peserta di tengah,
  * isian baris terpilih di kanan.
  *
- * - Kiri: urutan yang dialami peserta. Pembuka, empat kartu kenangan dengan
+ * - Kiri: urutan yang dialami peserta. Kartu di Beranda portal, pembuka, empat kartu kenangan dengan
  *   pertanyaan di bawahnya, pertanyaan sesudah kartu, penutup. Seret pertanyaan
  *   ke bawah kartu lain untuk memindahkannya (sama dengan "Show after").
  * - Tengah: halaman peserta sungguhan (iframe ?pratinjau) yang menerima draf
@@ -45,7 +46,7 @@ export type DataBuilder = {
   logika: { sesi: { id: number; name: string }[]; kolom: { key: string; label: string; options: string[] }[]; hadiah: boolean };
 };
 
-type Pilih = { jenis: "buka" } | { jenis: "kartu"; kartu: KunciKartu } | { jenis: "tanya"; key: string } | { jenis: "tutup" };
+type Pilih = { jenis: "beranda" } | { jenis: "buka" } | { jenis: "kartu"; kartu: KunciKartu } | { jenis: "tanya"; key: string } | { jenis: "tutup" };
 
 const KARTU_INFO: Record<KunciKartu, { judul: string; isi: string; Ikon: typeof Bed }> = {
   trip: { judul: "Travel card", isi: "First outbound ticket from Logistics > Tickets, or the first vehicle trip. Only when Tickets or Vehicles are shown in the Participant area.", Ikon: AirplaneTilt },
@@ -101,6 +102,14 @@ export function Builder({ draf, setDraf, data }: { draf: SetelanKilas; setDraf: 
   const [pilih, setPilihState] = useState<Pilih>(() => (urut[0] ? { jenis: "tanya", key: urut[0].key } : { jenis: "buka" }));
   const [panel, setPanel] = useState<"isi" | "desain">("isi");
   const [hpBuka, setHpBuka] = useState(false);
+  // Di bawah xl pratinjau tidak muat di samping: dibuka layar penuh, tetap memakai draf (belum perlu Save).
+  const [lihat, setLihat] = useState(false);
+  useEffect(() => {
+    if (!lihat) return;
+    const tutup = (e: KeyboardEvent) => e.key === "Escape" && setLihat(false);
+    window.addEventListener("keydown", tutup);
+    return () => window.removeEventListener("keydown", tutup);
+  }, [lihat]);
   const masalah = useMemo(
     () => masalahLogika(draf.questions, { sesi: data.logika.sesi.map((x) => x.id), kolom: data.logika.kolom }),
     [draf.questions, data.logika],
@@ -149,6 +158,15 @@ export function Builder({ draf, setDraf, data }: { draf: SetelanKilas; setDraf: 
         className={cx(hpBuka && "max-lg:hidden")}
       />
       <Pratinjau draf={draf} setDraf={setDraf} data={data} pilih={pilihSah} className="hidden xl:flex" />
+      {lihat ? (
+        <div role="dialog" aria-modal="true" aria-label="Preview" className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-surface-container xl:hidden">
+          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-outline-variant bg-surface px-2 py-1">
+            <IconButton label="Close preview" onClick={() => setLihat(false)}><X size={20} /></IconButton>
+            <p className="text-title-small font-semibold">Preview</p>
+          </div>
+          <Pratinjau draf={draf} setDraf={setDraf} data={data} pilih={pilihSah} className="flex rounded-none" />
+        </div>
+      ) : null}
       <section className={cx("flex min-w-0 flex-col rounded-lg border border-outline-variant bg-surface-container-lowest", !hpBuka && "max-lg:hidden")} aria-label="Edit">
         <div className="flex items-center gap-1 border-b border-outline-variant px-2">
           <IconButton label="Back to the list" className="lg:hidden" onClick={() => setHpBuka(false)}><ArrowLeft size={20} /></IconButton>
@@ -166,22 +184,15 @@ export function Builder({ draf, setDraf, data }: { draf: SetelanKilas; setDraf: 
               </button>
             ))}
           </div>
-          <ButtonLink
-            native
-            variant="text"
-            size="sm"
-            className="ml-auto xl:hidden"
-            href={alamatPratinjau(data, draf, data.contoh, false)}
-            target="_blank"
-            rel="noopener"
-            icon={<ArrowSquareOut size={16} />}
-          >
+          <Button variant="text" size="sm" className="ml-auto xl:hidden" onClick={() => setLihat(true)} icon={<Eye size={16} />}>
             Preview
-          </ButtonLink>
+          </Button>
         </div>
         <div className="flex flex-col gap-5 p-4">
           {panel === "desain" ? (
             <PanelDesain draf={draf} setDraf={setDraf} data={data} />
+          ) : pilihSah.jenis === "beranda" ? (
+            <PanelBeranda draf={draf} setDraf={setDraf} data={data} />
           ) : pilihSah.jenis === "buka" ? (
             <PanelBuka draf={draf} setDraf={setDraf} />
           ) : pilihSah.jenis === "tutup" ? (
@@ -326,6 +337,7 @@ function DaftarAlur({
         <TambahPertanyaan onTambah={onTambah} disabled={penuh} />
       </div>
       <div className="flex-1 overflow-y-auto p-2">
+        {barisTetap({ jenis: "beranda" }, "Home card", House, <span className="text-label-medium text-on-surface-variant">{draf.home.show ? "On" : "Off"}</span>, !draf.home.show)}
         {barisTetap({ jenis: "buka" }, "Opening", HandWaving)}
         <p className="px-2 pb-1 pt-3 text-label-small font-semibold uppercase tracking-wide text-on-surface-variant">Memory cards and questions, in order</p>
         <ul className="flex flex-col gap-0.5">
@@ -416,7 +428,7 @@ function Pratinjau({ draf, setDraf, data, pilih, className }: { draf: SetelanKil
     const pesan: PesanDraf = {
       type: "tally:kilas-draf",
       setelan: { ...draf, questions: draf.questions.map((q) => ({ ...q, title: q.title.trim() || "…", options: q.options?.filter((o) => o.trim()) })) },
-      fokus: fokusBaru ? pilih : null,
+      fokus: fokusBaru && pilih.jenis !== "beranda" ? pilih : null,
     };
     w.postMessage(pesan, window.location.origin);
   }, [draf, pilih]);
@@ -440,13 +452,13 @@ function Pratinjau({ draf, setDraf, data, pilih, className }: { draf: SetelanKil
   return (
     <div className={cx("min-w-0 flex-col items-center gap-3 rounded-lg bg-surface-container p-3 xl:sticky xl:top-[calc(var(--workspace-top,58px)+16px)] xl:self-start", className)}>
       <div className="flex w-full flex-wrap items-center justify-center gap-2">
-        <SegmentedButton
+        {pilih.jenis === "beranda" ? null : <SegmentedButton
           label="Display"
           size="md"
           value={draf.display}
           onChange={(v) => setDraf({ ...draf, display: v })}
           options={TAMPILAN_PILIHAN.map((t) => ({ value: t.value, label: t.label }))}
-        />
+        />}
         {data.bahasa_lain ? (
           <SegmentedButton
             label="Language"
@@ -458,11 +470,19 @@ function Pratinjau({ draf, setDraf, data, pilih, className }: { draf: SetelanKil
       </div>
       <div className="flex w-full items-center justify-center gap-1">
         <PilihPeserta peserta={peserta} onPilih={setPeserta} />
-        <ButtonLink native variant="text" size="sm" href={alamat} target="_blank" rel="noopener" icon={<ArrowSquareOut size={16} />}>Open</ButtonLink>
+        {pilih.jenis === "beranda" ? null : <ButtonLink native variant="text" size="sm" href={alamat} target="_blank" rel="noopener" icon={<ArrowSquareOut size={16} />}>Open</ButtonLink>}
       </div>
-      <iframe ref={iframe} key={alamat} src={alamat} title="Participant preview" className="h-[640px] w-[340px] max-w-full shrink-0 rounded-[28px] border-[6px] border-on-surface bg-surface" />
+      {pilih.jenis === "beranda" ? (
+        <BerandaPratinjau draf={draf} data={data} lang={lain ? (data.lang === "id" ? "en" : "id") : data.lang} nama={peserta?.name ?? null} />
+      ) : (
+        <iframe ref={iframe} key={alamat} src={alamat} title="Participant preview" className="h-[640px] w-[340px] max-w-full shrink-0 rounded-[28px] border-[6px] border-on-surface bg-surface" />
+      )}
       <p className="max-w-[340px] text-center text-body-small text-on-surface-variant" aria-live="polite">
-        {tersembunyi
+        {pilih.jenis === "beranda"
+          ? draf.home.show
+            ? "The top of the participant's Home while Feedback is open and they haven't answered. The rest of Home is shown faded."
+            : "The Home card is off. Participants find Feedback only through Send or your own link."
+          : tersembunyi
           ? pakaiJawaban(draf, pilih)
             ? "This question depends on an earlier answer. Answer that question in the preview to see it."
             : "This screen is hidden for this participant (Show if, or no options or data for them). Pick another participant to see it."
@@ -495,6 +515,74 @@ function JudulPanel({ children, aksi }: { children: ReactNode; aksi?: ReactNode 
       <h3 className="whitespace-nowrap text-title-medium font-semibold">{children}</h3>
       {aksi ? <div className="-mr-2 flex items-center">{aksi}</div> : null}
     </div>
+  );
+}
+
+/** Teks putih atau gelap di atas warna aksen, sama dengan tombol kartu di portal. */
+function tintaDi(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "#ffffff";
+  const n = parseInt(m[1], 16);
+  const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.6 ? "#1b1f2a" : "#ffffff";
+}
+
+/** Pratinjau Beranda di bingkai ponsel: kartu Kilas balik di atas, sisa Beranda samar. */
+function BerandaPratinjau({ draf, data, lang, nama }: { draf: SetelanKilas; data: DataBuilder; lang: "id" | "en"; nama: string | null }) {
+  const teks = teksBeranda(draf.home, lang);
+  const depan = (nama ?? "").trim().split(/\s+/)[0] || (lang === "en" ? "there" : "kamu");
+  return (
+    <div
+      className="flex h-[640px] w-[340px] max-w-full shrink-0 flex-col overflow-hidden rounded-[28px] border-[6px] border-on-surface bg-[#eef1f6]"
+      style={{ "--aksi": data.tema_acara.accent, "--on-aksi": tintaDi(data.tema_acara.accent) } as React.CSSProperties}
+      aria-label="Home preview"
+    >
+      <div className="px-4 pb-4 pt-5 text-white" style={{ background: data.tema_acara.brand }}>
+        <p className="text-[18px] font-semibold leading-tight">{lang === "en" ? `Hi, ${depan}` : `Halo, ${depan}`}</p>
+      </div>
+      <div className="pointer-events-none flex flex-col gap-3 p-3">
+        {draf.home.show ? <KartuKilas kartu={{ href: "#", ...teks }} tumpuk /> : null}
+        {[3, 2, 3].map((n, i) => (
+          <div key={i} className="flex flex-col gap-2 rounded-[16px] bg-white p-4 opacity-50" aria-hidden>
+            {Array.from({ length: n }, (_, j) => <span key={j} className={cx("block h-2.5 rounded-full bg-[#d7dce5]", j === 0 ? "w-2/5" : "w-full")} />)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Build > Home card: saklar dan teks kartu di Beranda portal peserta. */
+function PanelBeranda({ draf, setDraf, data }: { draf: SetelanKilas; setDraf: (s: SetelanKilas) => void; data: DataBuilder }) {
+  const bahasa: ("id" | "en")[] = data.bahasa_lain ? [data.lang, data.lang === "id" ? "en" : "id"] : [data.lang];
+  const ubah = (lang: "id" | "en", k: "title" | "body" | "button", v: string) =>
+    setDraf({ ...draf, home: { ...draf.home, [lang]: { ...draf.home[lang], [k]: v || null } } });
+  return (
+    <>
+      <JudulPanel>Home card</JudulPanel>
+      <Switch
+        checked={draf.home.show}
+        onChange={(v) => setDraf({ ...draf, home: { ...draf.home, show: v } })}
+        label="Show a card on Home"
+        description="At the top of the participant area Home while Feedback is open, only for people who can open it and haven't answered. It disappears once they send their answers."
+      />
+      {draf.home.show
+        ? bahasa.map((lang) => {
+            const t = draf.home[lang];
+            const b = BERANDA_BAWAAN[lang];
+            const nama = lang === "id" ? "Bahasa Indonesia" : "English";
+            return (
+              <fieldset key={lang} className="flex flex-col gap-3">
+                {bahasa.length > 1 ? <legend className="mb-1 text-label-large font-semibold">{nama}</legend> : <legend className="sr-only">{nama}</legend>}
+                <TextField label="Title" optional maxLength={BERANDA_MAX.title} value={t.title ?? ""} placeholder={b.title} onChange={(e) => ubah(lang, "title", e.target.value)} />
+                <TextArea label="Text" optional rows={3} maxLength={BERANDA_MAX.body} counter value={t.body ?? ""} placeholder={b.body} onChange={(e) => ubah(lang, "body", e.target.value)} />
+                <TextField label="Button" optional maxLength={BERANDA_MAX.button} value={t.button ?? ""} placeholder={b.button} onChange={(e) => ubah(lang, "button", e.target.value)} />
+              </fieldset>
+            );
+          })
+        : null}
+      {draf.home.show ? <p className="text-body-small text-on-surface-variant">Empty fields use the text shown in grey.</p> : null}
+    </>
   );
 }
 
