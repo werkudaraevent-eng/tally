@@ -61,6 +61,8 @@ export type AnimationProps = {
 export const WALL_WAVE_MS = 1300;
 /** Saat kartu pemenang Spotlight wall mulai terbang, dihitung dari nama tiba. */
 export const WALL_CARDS_AT_MS = 250 + 3 * WALL_WAVE_MS;
+/** Lama kartu pemenang terbang dari ubinnya ke tengah (Spotlight wall). */
+export const WALL_FLIGHT_MS = 800;
 
 /** Terowongan nama: lama nama pemenang terbang dari ujung sampai berhenti di depan. */
 export const TUNNEL_ARRIVE_MS = 2400;
@@ -145,7 +147,9 @@ export const LIST_AFTER_MS = 800;
  */
 export function revealFxDelayMs(animation: string): number {
   switch (animation) {
-    case "wall": return WALL_CARDS_AT_MS;
+    // Kartu pertama mendarat: kilat menyambut kartu, bukan menutupi ubin yang
+    // sedang berubah menjadi kartu (Hanung, 7 Nov: transisinya terasa putus).
+    case "wall": return WALL_CARDS_AT_MS + WALL_FLIGHT_MS;
     case "tunnel": return TUNNEL_ARRIVE_MS;
     case "drum": return DRUM_FIRST_LAND_MS;
     // Dart pertama menancap: saat itulah ruangan tahu nama sudah terpilih.
@@ -1436,8 +1440,8 @@ export function revealSettleMs(animation: string, winners: { is_backup: boolean 
     case "digits": return 3200;
     // Dart 3D: satu dart per pemenang, kamera maju, lalu kertas dicabut.
     case "dart": return dartDoneMs(n);
-    // Mulai 250 ms, tiga langkah gelombang, lalu kartu terbang (~900 ms) satu per satu.
-    case "wall": return WALL_CARDS_AT_MS + 900 + Math.min((n - 1) * 220, 1200);
+    // Mulai 250 ms, tiga langkah gelombang, lalu kartu terbang satu per satu.
+    case "wall": return WALL_CARDS_AT_MS + WALL_FLIGHT_MS + 100 + Math.min((n - 1) * 220, 1200);
     // Pemenang tiba satu per satu, lalu daftar nama tampil dengan jeda per nama (WinnerList).
     case "tunnel": {
       const shown = Math.min(n, 10);

@@ -114,7 +114,7 @@ function PilihWaktu({ mulai, selesai, jamMulai, waktu, onPilih }: { mulai: strin
   );
 }
 
-function PilihPeserta({ peserta, onPilih }: { peserta: PesertaPratinjau | null; onPilih: (peserta: PesertaPratinjau) => void }) {
+export function PilihPeserta({ peserta, onPilih }: { peserta: PesertaPratinjau | null; onPilih: (peserta: PesertaPratinjau) => void }) {
   const [pemicu, setPemicu] = useState<HTMLButtonElement | null>(null);
   const anchor = usePopoverAnchor(pemicu);
   const id = useId();
