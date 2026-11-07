@@ -825,6 +825,8 @@ export const ANIMATION_BEST_WINNERS: Record<UndianAnimation, { min: number; max:
   tunnel: { min: 1, max: 5 },
   drum: { min: 1, max: 3 },
   arena: { min: 3, max: 10 },
+  // Cahaya HP: sedikit HP emas di ruangan yang gelap paling terasa; lebih dari 10 masih jalan, nama makin kecil.
+  cahaya: { min: 1, max: 10 },
   instant: { min: 1, max: 30 },
 };
 
