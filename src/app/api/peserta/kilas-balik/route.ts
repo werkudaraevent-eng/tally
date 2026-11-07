@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { getMemberSession } from "@/lib/member/account";
+import { getMemberSession, memberConfig } from "@/lib/member/account";
+import { lolosFakta } from "@/lib/kilas-balik/logika";
 import { memberError, requireMemberEvent } from "@/lib/member/api";
-import { judulAgendaMilik, muatSetelan, pilihanPeserta, semuaJudulAgenda, simpanJawaban } from "@/lib/kilas-balik/server";
+import { judulAgendaMilik, muatFakta, muatSetelan, perluFakta, pilihanPeserta, semuaJudulAgenda, simpanJawaban } from "@/lib/kilas-balik/server";
 import { periksaJawaban, statusBuka } from "@/lib/kilas-balik/setelan";
 
 /**
@@ -33,9 +34,19 @@ export async function POST(request: Request) {
     return memberError("CLOSED", 409, status === "closed" ? (en ? "This questionnaire has closed. Thank you!" : "Kuesioner ini sudah ditutup. Terima kasih!") : (en ? "This questionnaire isn't open yet." : "Kuesioner ini belum dibuka."));
   }
 
-  const [semua, milikSet] = await Promise.all([semuaJudulAgenda(event.id), judulAgendaMilik(event, participantId)]);
+  const member = memberConfig(event);
+  const [semua, milikSet, fakta] = await Promise.all([
+    semuaJudulAgenda(event.id),
+    judulAgendaMilik(event, participantId),
+    !perluFakta(muat.setelan.questions) ? null : member ? muatFakta(event, member, participantId, lang) : { sesi: new Set<number>(), hadiah: false, kolom: null },
+  ]);
   const semuaSet = new Set(semua);
-  const hasil = periksaJawaban(muat.setelan.questions, parsed.data.answers, (q) => pilihanPeserta(q, semuaSet, milikSet));
+  const hasil = periksaJawaban(
+    muat.setelan.questions,
+    parsed.data.answers,
+    (q) => pilihanPeserta(q, semuaSet, milikSet),
+    (q) => !fakta || lolosFakta(q.show_if, fakta),
+  );
   if (!hasil.ok) {
     return memberError("VALIDATION_ERROR", 422, en ? "A few questions still need an answer." : "Masih ada pertanyaan yang perlu dijawab.", { missing: hasil.kosong });
   }

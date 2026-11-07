@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CARRY_MIN, SYARAT_MAX, kunciRecall, lolosJawaban, pilihanDari, syaratSchema, type Syarat } from "./logika.ts";
 
 /**
  * Kilas balik: kuesioner akhir acara (Admin > Feedback, /e/<slug>/kilas-balik).
@@ -41,6 +42,10 @@ export type Pertanyaan = {
   required: boolean;
   /** Ditampilkan sesudah kartu kenangan ini. Null = sesudah kartu terakhir. */
   after?: KunciKartu | null;
+  /** Logic > Show if: semua syarat harus cocok. Kosong = selalu tampil. Lihat logika.ts. */
+  show_if?: Syarat[] | null;
+  /** `choice`: pilihan diambil dari yang dicentang di pertanyaan pilihan ini (carry forward). */
+  options_from?: string | null;
 };
 
 /**
@@ -91,9 +96,11 @@ export const pertanyaanSchema = z
     max: z.number().int().min(1).max(3).optional(),
     required: z.boolean(),
     after: z.enum(KARTU).nullable().optional(),
+    show_if: z.array(syaratSchema).max(SYARAT_MAX).nullable().optional(),
+    options_from: kunci.nullable().optional(),
   })
   .superRefine((q, ctx) => {
-    if (q.type === "choice" && (q.options?.length ?? 0) < 2) {
+    if (q.type === "choice" && !q.options_from && (q.options?.length ?? 0) < 2) {
       ctx.addIssue({ code: "custom", path: ["options"], message: "Add at least two options." });
     }
   });
@@ -118,12 +125,92 @@ export const setelanSchema = z
       if (ada.has(q.key)) ctx.addIssue({ code: "custom", path: ["questions", i, "key"], message: "Two questions share the same key." });
       ada.add(q.key);
     });
+    const masalah = masalahLogika(s.questions as Pertanyaan[]);
+    for (const m of masalah) ctx.addIssue({ code: "custom", path: ["questions", m.indeks], message: m.pesan });
     if (s.enabled && s.questions.length === 0) ctx.addIssue({ code: "custom", path: ["questions"], message: "Add at least one question before turning Feedback on." });
     if (s.theme.mode === "custom" && !s.theme.brand) ctx.addIssue({ code: "custom", path: ["theme", "brand"], message: "Pick a background colour for your own theme." });
     if (s.opens_at && s.closes_at && Date.parse(s.opens_at) >= Date.parse(s.closes_at)) {
       ctx.addIssue({ code: "custom", path: ["closes_at"], message: "Closing time must be after opening time." });
     }
   });
+
+/** Urutan pertanyaan seperti yang dialami peserta: per kartu kenangan, lalu yang di akhir. Stabil. */
+export function urutAlur<T extends Pick<Pertanyaan, "after">>(questions: readonly T[]): T[] {
+  const posisi = (q: T) => (q.after && KARTU.includes(q.after) ? KARTU.indexOf(q.after) : KARTU.length);
+  return questions.map((q, n) => ({ q, n })).sort((a, b) => posisi(a.q) - posisi(b.q) || a.n - b.n).map((x) => x.q);
+}
+
+/** Judul pendek untuk pesan dan menu admin: "Q2 · Momen mana yang…". */
+export function namaPertanyaan(questions: readonly Pertanyaan[], key: string): string {
+  const urut = urutAlur(questions);
+  const n = urut.findIndex((q) => q.key === key);
+  if (n < 0) return "a deleted question";
+  const judul = urut[n].title.trim();
+  return `Q${n + 1}${judul ? ` (${judul.length > 40 ? `${judul.slice(0, 39)}…` : judul})` : ""}`;
+}
+
+/**
+ * Logic yang tidak bisa jalan: syarat, recall, atau carry forward yang
+ * merujuk pertanyaan yang sudah dihapus, yang datang SESUDAH pertanyaan ini
+ * (peserta belum menjawabnya), atau yang jenisnya tidak cocok. Admin
+ * menampilkan pesannya di pertanyaan itu; Save ditolak sampai dibereskan.
+ */
+/** Data acara untuk memeriksa syarat: sesi check-in dan kolom pilihan pendaftaran yang masih ada. */
+export type KonteksLogika = { sesi: readonly number[]; kolom: readonly { key: string; options: readonly string[] }[] };
+
+const samaTeks = (a: string, b: string) => a.trim().toLocaleLowerCase("id") === b.trim().toLocaleLowerCase("id");
+
+/** Pilihan dasar sebuah pertanyaan, mengikuti carry forward sampai sumbernya. */
+function pilihanAkar(questions: readonly Pertanyaan[], q: Pertanyaan): string[] {
+  let kini: Pertanyaan | undefined = q;
+  for (let n = 0; kini?.options_from && n < 12; n++) kini = questions.find((x) => x.key === kini?.options_from);
+  return kini?.options ?? [];
+}
+
+export function masalahLogika(questions: readonly Pertanyaan[], konteks?: KonteksLogika): { key: string; indeks: number; pesan: string }[] {
+  const urut = urutAlur(questions);
+  const posisi = new Map(urut.map((q, n) => [q.key, n]));
+  const hasil: { key: string; indeks: number; pesan: string }[] = [];
+  questions.forEach((q, indeks) => {
+    const saya = posisi.get(q.key) ?? 0;
+    const sebelum = (k: string) => (posisi.get(k) ?? Infinity) < saya;
+    const tambah = (pesan: string) => hasil.push({ key: q.key, indeks, pesan });
+    for (const s of q.show_if ?? []) {
+      if (s.source === "checkin") {
+        if (konteks && !konteks.sesi.includes(s.session)) tambah("Show if uses a check-in session that was deleted. Pick another session.");
+        continue;
+      }
+      if (s.source === "field") {
+        if (!konteks) continue;
+        const k = konteks.kolom.find((x) => x.key === s.field);
+        if (!k) tambah("Show if uses a registration question that no longer exists.");
+        else if (s.values.some((v) => !k.options.some((o) => samaTeks(o, v)))) tambah("Show if uses a registration answer that is no longer an option. Pick the answers again.");
+        continue;
+      }
+      if (s.source !== "answer") continue;
+      const sumber = questions.find((x) => x.key === s.q);
+      if (!sumber) tambah("Show if uses a question that was deleted.");
+      else if (s.q === q.key) tambah("Show if can't use this question's own answer. Pick an earlier question.");
+      else if (!sebelum(s.q)) tambah(`Show if uses ${namaPertanyaan(questions, s.q)}, which comes later. Move this question below it.`);
+      else if ((s.op === "includes" || s.op === "excludes") && sumber.type !== "choice") tambah("Show if picks an option from a question without options.");
+      else if ((s.op === "gte" || s.op === "lte") && sumber.type !== "faces" && sumber.type !== "nps") tambah("Show if compares a score on a question without a score.");
+      else if ((s.op === "includes" || s.op === "excludes") && !pilihanAkar(questions, sumber).some((o) => samaTeks(o, s.value))) tambah(`Show if uses the option "${s.value}", which ${namaPertanyaan(questions, sumber.key)} no longer has. Pick the option again.`);
+    }
+    for (const k of new Set([...kunciRecall(q.title), ...kunciRecall(q.title_alt ?? "")])) {
+      if (!questions.some((x) => x.key === k)) tambah(`The question text recalls {${k}}, which no longer exists.`);
+      else if (k === q.key) tambah("The question text can't insert its own answer.");
+      else if (!sebelum(k)) tambah(`The question text recalls ${namaPertanyaan(questions, k)}, which comes later.`);
+    }
+    if (q.options_from) {
+      const sumber = questions.find((x) => x.key === q.options_from);
+      if (q.type !== "choice") tambah("Only Choice questions can take options from another question.");
+      else if (!sumber) tambah("Options come from a question that was deleted.");
+      else if (sumber.type !== "choice" || (sumber.max ?? 1) < 2) tambah(`Options come from ${namaPertanyaan(questions, sumber.key)}, which must be a Choice question where participants pick two or more.`);
+      else if (!sebelum(sumber.key)) tambah(`Options come from ${namaPertanyaan(questions, sumber.key)}, which comes later.`);
+    }
+  });
+  return hasil;
+}
 
 /** Pertanyaan awal yang diisi saat panitia pertama kali membuka Feedback. Bisa diubah semuanya. */
 export function pertanyaanAwal(lang: "id" | "en", judulAgenda: string[] = []): Pertanyaan[] {
@@ -228,29 +315,45 @@ export function kunciBaru(judul: string, dipakai: Iterable<string>): string {
 export type NilaiJawaban = number | string | string[];
 
 /**
- * Jawaban yang aman disimpan: hanya kunci pertanyaan yang ada, nilai yang
- * cocok dengan jenisnya. `pilihanSah` = pilihan yang benar-benar ditampilkan ke
- * peserta ini (Agenda miliknya, atau pilihan tetap). Galat per kunci untuk
- * pertanyaan wajib yang kosong.
+ * Pilihan yang tampil untuk satu pertanyaan pilihan, dengan jawaban sejauh
+ * ini. Carry forward: yang dicentang di pertanyaan sumber (kurang dari dua =
+ * tidak ditanyakan). Selain itu `dasar` (pilihan tetap, atau Agenda miliknya).
+ */
+export function pilihanTampil(q: Pick<Pertanyaan, "options_from">, dasar: readonly string[], jawaban: Record<string, unknown>): string[] {
+  if (!q.options_from) return [...dasar];
+  const dari = pilihanDari(jawaban, q.options_from);
+  return dari.length >= CARRY_MIN ? dari : [];
+}
+
+/**
+ * Jawaban yang aman disimpan: hanya pertanyaan yang memang tampil bagi peserta
+ * ini, nilai yang cocok dengan jenisnya. Dinilai urut seperti alurnya, jadi
+ * Show if dan carry forward membaca jawaban sebelumnya yang sudah diperiksa.
+ * `pilihanDasar` = pilihan tetap atau Agenda miliknya; `tampil` = syarat data
+ * acara (logika.ts lolosFakta). Galat per kunci untuk pertanyaan wajib kosong.
  */
 export function periksaJawaban(
   questions: Pertanyaan[],
   mentah: Record<string, unknown>,
-  pilihanSah: (q: Pertanyaan) => string[],
+  pilihanDasar: (q: Pertanyaan) => string[],
+  tampil: (q: Pertanyaan) => boolean = () => true,
 ): { ok: true; jawaban: Record<string, NilaiJawaban> } | { ok: false; kosong: string[] } {
   const jawaban: Record<string, NilaiJawaban> = {};
   const kosong: string[] = [];
-  for (const q of questions) {
-    // Pilihan dari Agenda yang semuanya tersembunyi bagi peserta ini: pertanyaannya
-    // tidak ditampilkan kepadanya, jadi tidak bisa wajib dan tidak menerima jawaban.
-    if (q.type === "choice" && pilihanSah(q).length === 0) continue;
+  for (const q of urutAlur(questions)) {
+    if (!tampil(q) || !lolosJawaban(q.show_if, jawaban)) continue;
+    const sahDaftar = q.type === "choice" ? pilihanTampil(q, pilihanDasar(q), jawaban) : [];
+    // Pilihan yang semuanya tersembunyi bagi peserta ini (Agenda kelompok lain,
+    // atau carry forward dengan kurang dari dua centang): pertanyaannya tidak
+    // ditampilkan kepadanya, jadi tidak bisa wajib dan tidak menerima jawaban.
+    if (q.type === "choice" && sahDaftar.length === 0) continue;
     const v = mentah[q.key];
     let nilai: NilaiJawaban | null = null;
     if (q.type === "faces" && typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 5) nilai = v;
     if (q.type === "nps" && typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 10) nilai = v;
     if (q.type === "text" && typeof v === "string" && v.trim()) nilai = v.trim().slice(0, 1000);
     if (q.type === "choice" && Array.isArray(v)) {
-      const sah = new Set(pilihanSah(q));
+      const sah = new Set(sahDaftar);
       const pilih = [...new Set(v.filter((x): x is string => typeof x === "string" && sah.has(x)))].slice(0, q.max ?? 1);
       if (pilih.length) nilai = pilih;
     }

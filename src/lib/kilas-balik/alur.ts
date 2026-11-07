@@ -1,4 +1,5 @@
-import { KARTU, type KunciKartu, type Pertanyaan } from "./setelan.ts";
+import { CARRY_MIN, isiRecall, lolosJawaban, pilihanDari, type Syarat } from "./logika.ts";
+import { KARTU, type KunciKartu, type NilaiJawaban, type Pertanyaan } from "./setelan.ts";
 
 /**
  * Urutan layar Kilas balik untuk satu peserta. Fungsi murni (alur.check.ts).
@@ -103,4 +104,61 @@ export function sorotanAgenda(
     }
   });
   return [...new Set([...perHari.values()].map((v) => v.title))].slice(0, max);
+}
+
+/** Pertanyaan seperti yang dikirim ke HP: syarat jawaban saja, pilihan dasar, judul dengan `{kunci}`. */
+export type TanyaAlur = {
+  key: string;
+  type: Pertanyaan["type"];
+  title: string;
+  options: string[];
+  max: number;
+  show_if?: Syarat[];
+  options_from?: string | null;
+};
+
+/**
+ * Layar yang benar-benar dilihat peserta dengan jawaban sejauh ini: pertanyaan
+ * yang Show if-nya tidak cocok dilewati, `{kunci}` di judul diganti jawabannya
+ * (`label`), dan pilihan carry forward diambil dari centang di pertanyaan
+ * sumbernya. Jawaban pertanyaan yang sedang tersembunyi tidak dihitung untuk
+ * syarat berikutnya, sama dengan periksaJawaban di server.
+ */
+export function alurAktif<L extends { jenis: string; q?: TanyaAlur }>(
+  layar: readonly L[],
+  jawaban: Record<string, NilaiJawaban>,
+  label: (q: TanyaAlur, v: NilaiJawaban) => string | null,
+): L[] {
+  const terlihat: Record<string, NilaiJawaban> = {};
+  const dilihat = new Map<string, TanyaAlur>();
+  const hasil: L[] = [];
+  for (const l of layar) {
+    const q = l.jenis === "tanya" ? l.q : undefined;
+    if (!q) {
+      hasil.push(l);
+      continue;
+    }
+    if (!lolosJawaban(q.show_if, terlihat)) continue;
+    let options = q.options;
+    if (q.type === "choice" && q.options_from) {
+      const dari = pilihanDari(terlihat, q.options_from);
+      options = dari.length >= CARRY_MIN ? dari : [];
+    }
+    if (q.type === "choice" && options.length === 0) continue;
+    const title = isiRecall(q.title, (kunci) => {
+      const sumber = dilihat.get(kunci);
+      const v = terlihat[kunci];
+      return sumber && v !== undefined ? label(sumber, v) : null;
+    });
+    const v = jawaban[q.key];
+    if (v !== undefined) {
+      if (q.type === "choice" && Array.isArray(v)) {
+        const sah = v.filter((x) => options.includes(x));
+        if (sah.length) terlihat[q.key] = sah;
+      } else terlihat[q.key] = v;
+    }
+    dilihat.set(q.key, q);
+    hasil.push({ ...l, q: { ...q, title, options } });
+  }
+  return hasil;
 }
