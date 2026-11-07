@@ -80,8 +80,8 @@ export function PrizeEditor({
                   <p className="text-body-medium tabular-nums text-on-surface-variant">{order.position} of {order.total} prizes{draft.is_active ? "" : ", hidden while inactive"}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button simpan variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>
-                  <Button simpan variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={saving || order.moving || order.position >= order.total} onClick={() => order.onMove("down")}>Move down</Button>
+                  <Button simpan type="button" variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>
+                  <Button simpan type="button" variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={saving || order.moving || order.position >= order.total} onClick={() => order.onMove("down")}>Move down</Button>
                 </div>
               </div>
             ) : null}
@@ -230,11 +230,6 @@ export function PrizeEditor({
                   ? `Elimination arena ends on a podium that fits ${maxWinnersPerDraw(draft.animation)} winners per draw.`
                   : `${ANIMATIONS.find((item) => item.value === draft.animation)?.label ?? "This animation"} reveals winners one at a time, so it takes up to ${maxWinnersPerDraw(draft.animation)} winners per draw.`}
                 {" "}For more winners, raise the quota and draw again.
-              </p>
-            ) : null}
-            {draft.winners_per_draw > 30 ? (
-              <p className="text-body-medium text-warning">
-                More than 30 winners per draw: the names get small on the stage screen. For a large room, draw in rounds of 30 or fewer.
               </p>
             ) : null}
           </DetailSection>
