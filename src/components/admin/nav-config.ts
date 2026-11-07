@@ -1,5 +1,5 @@
 import {
-  ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, GearSix, Gift, HandWaving, IdentificationCard,
+  ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, ChatCircleText, GearSix, Gift, HandWaving, IdentificationCard,
   ListChecks, Megaphone, MicrophoneStage, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, SuitcaseRolling, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
@@ -143,6 +143,9 @@ export const navigation: NavGroup[] = [
         ],
       },
       { href: "/admin/vote", label: "Live voting", icon: ChartBarHorizontal, description: "Live voting questions and their results on the stage screen.", alias: ["voting langsung", "voting"] },
+      // Sesudah Live voting: dibuka di hari terakhir, dikirim saat peserta di
+      // perjalanan pulang. Bukan di Peserta, supaya Pesan peserta tetap di atas lipatan.
+      { href: "/admin/feedback", label: "Feedback", icon: ChatCircleText, description: "A look back at each participant's trip with a few questions, and the answers.", alias: ["kuesioner", "kilas balik", "survei", "survey", "questionnaire", "nps"] },
       {
         // Dulu "Live Display". Namanya menjanjikan seluruh layar acara, isinya
         // papan peringkat transaksi, dan panitia yang mencari "di mana atur

@@ -68,6 +68,8 @@ import { normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timez
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
 import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
+import { KartuKilas } from "@/components/member/kartu-kilas";
+import { tautanKartuKilas } from "@/lib/kilas-balik/server";
 import { kartuLengkapi, updatableFields } from "@/lib/member/lengkapi";
 import { FokusPemicuQr, PemicuQr, TutupQrEscape } from "@/components/member/qr-fokus";
 import { QrMini } from "@/components/member/qr-mini";
@@ -385,6 +387,8 @@ export async function DashboardGathering({
     (!horizon && tabDiminta === "perjalanan") || (tabDiminta === "outfit" && !adaOutfit) ? "beranda" : tabDiminta;
   // Kartu Lengkapi data hanya di Beranda. Pratinjau admin: semua pertanyaannya.
   const lengkapi = tab !== "beranda" && tab !== "qr" ? [] : pratinjau ? updatableFields(asli) : await kartuLengkapi(asli, peserta?.id);
+  // Kartu Kilas balik: hanya Beranda, hanya selama Feedback dibuka dan peserta belum menjawab.
+  const kilas = tab === "beranda" && peserta && !pratinjau ? await tautanKartuKilas(event, peserta.id, halamanAcara) : null;
   // Checkpoint (Check-in > Checkpoints): hanya Beranda, hanya bila dinyalakan
   // dan tidak disembunyikan di Participant home.
   const [logistik, checkpoint, checkpointQr, bagasi, hadiah, nomorBagasi] = peserta
@@ -828,6 +832,7 @@ export async function DashboardGathering({
         <div className="flex min-w-0 flex-col gap-4">
           {pitaEmail}
           <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
+          <KartuKilas lang={lang} href={kilas} />
           {pantauPanitia("gathering")}
           {kartuHadiah("gathering", "atas", diBeranda("next"))}
           {beranda.order.map((id, index) => {
@@ -2461,9 +2466,10 @@ export async function DashboardGathering({
             catatanPonsel
           />
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-6 pb-10 pt-6 md:px-16 md:pt-3">
-            {pitaEmail || lengkapi.length > 0 ? (
+            {pitaEmail || lengkapi.length > 0 || kilas ? (
               <div className="flex flex-col gap-4">
                 {pitaEmail}
+                <KartuKilas lang={lang} href={kilas} />
                 <KartuLengkapi lang={lang} href={`${halamanAcara}/lengkapi`} fields={lengkapi} gaya="gathering" />
               </div>
             ) : null}
