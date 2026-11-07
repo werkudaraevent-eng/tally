@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowsIn, ArrowsOut } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 /**
  * Tombol layar penuh di layar panggung (Mas 6 Nov, KSO: di Mac, tombol hijau
@@ -27,9 +27,17 @@ function rootDocument() {
   }
 }
 
+const noSubscribe = () => () => {};
+
 export function FullscreenButton() {
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(false);
+  // iPhone Safari tidak punya Fullscreen API untuk elemen: jangan tampilkan.
+  const supported = useSyncExternalStore(
+    noSubscribe,
+    () => Boolean(rootDocument().fullscreenEnabled),
+    () => false,
+  );
 
   useEffect(() => {
     const root = rootDocument();
@@ -57,19 +65,19 @@ export function FullscreenButton() {
     else void root.documentElement.requestFullscreen?.().catch(() => {});
   };
 
+  if (!supported) return null;
+
+  // Pojok kanan atas: header panggung di tengah, sedangkan bawah dipakai
+  // baris Cadangan dan Pemenang sebelumnya (QA #430). Di bawah 640 px cukup ikon.
   return <button
     type="button"
     onClick={toggle}
     aria-label={active ? "Keluar dari layar penuh" : "Layar penuh"}
-    className="fixed bottom-4 right-4 z-50 inline-flex min-h-12 items-center gap-2 rounded-full px-5 text-[16px] font-medium transition-opacity duration-300 focus-visible:opacity-100"
-    style={{
-      background: "rgba(0, 0, 0, 0.72)",
-      color: "#FFFFFF",
-      opacity: visible ? 1 : 0,
-      pointerEvents: visible ? "auto" : "none",
-    }}
+    title={active ? "Keluar dari layar penuh (Esc)" : "Layar penuh"}
+    className={`fixed right-4 top-4 z-50 inline-flex min-h-12 min-w-12 items-center justify-center gap-2 rounded-full text-[16px] font-medium transition-opacity duration-300 focus-visible:pointer-events-auto focus-visible:opacity-100 sm:px-5 ${visible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
+    style={{ background: "rgba(0, 0, 0, 0.72)", color: "#FFFFFF" }}
   >
     {active ? <ArrowsIn size={20} aria-hidden /> : <ArrowsOut size={20} aria-hidden />}
-    {active ? "Keluar (Esc)" : "Layar penuh"}
+    <span className="hidden sm:inline">{active ? "Keluar (Esc)" : "Layar penuh"}</span>
   </button>;
 }
