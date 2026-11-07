@@ -3,6 +3,7 @@
 import { ArrowClockwise, DownloadSimple, EnvelopeSimple, MagnifyingGlass, PaperPlaneTilt, UsersThree } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Button,
   DetailSection,
@@ -243,6 +244,9 @@ export function BagianDilihat({
         </div>
       </div>
 
+      {/* Ke document.body: panel detail sticky membuat stacking context sendiri,
+          sehingga kepala tabel daftar (z-10) menimpa dialog yang dirender di dalamnya. */}
+      {buka ? createPortal(
       <Dialog
         open={buka}
         onClose={() => setBuka(false)}
@@ -323,7 +327,9 @@ export function BagianDilihat({
             </TableCard>
           )}
         </div>
-      </Dialog>
+      </Dialog>,
+      document.body,
+      ) : null}
     </DetailSection>
   );
 }

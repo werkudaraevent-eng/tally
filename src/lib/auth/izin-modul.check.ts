@@ -71,6 +71,8 @@ assert.equal(boleh("/api/admin/pengumuman", "POST"), true);
 assert.equal(boleh("/api/admin/pengumuman/sasaran", "GET"), true);
 assert.equal(boleh("/api/admin/pengumuman/sasaran", "POST"), true);
 assert.equal(boleh("/api/admin/pengumuman/sasaran", "PATCH"), false);
+assert.equal(boleh("/api/admin/pengumuman/dilihat", "GET"), true);
+assert.equal(boleh("/api/admin/pengumuman/dilihat", "POST"), false);
 assert.equal(boleh("/api/settings", "PATCH"), false);
 const kirim = rapikanIzin({ modules: { messages: "manage" }, messages_send_email: true });
 assert.equal(izinApi(kirim, "/api/admin/pesan/12/kirim", "POST").boleh, true);
