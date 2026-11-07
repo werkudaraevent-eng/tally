@@ -783,7 +783,7 @@ export function shuffle<T>(items: T[]): T[] {
 // Hadiah dan state
 // ---------------------------------------------------------------------------
 
-export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "tunnel" | "drum" | "instant";
+export type UndianAnimation = "wheel" | "slot" | "cards" | "digits" | "dart" | "wall" | "tunnel" | "drum" | "arena" | "instant";
 
 /** Kecepatan gerak Terowongan nama dan Tabung bola selama mengundi. Lama undian tetap diatur Duration. */
 export type AnimSpeed = "slow" | "normal" | "fast";
@@ -799,12 +799,46 @@ export const SPEED_ANIMATIONS: UndianAnimation[] = ["tunnel", "drum"];
  * Batas pemenang utama per undi untuk animasi yang mengungkap pemenang satu per
  * satu dengan gerakan panjang. Terowongan: tiap nama butuh ~2 detik untuk tiba;
  * tabung: tiap bola butuh ~2,5 detik untuk jatuh ke nampan, dan nampan memuat 6.
+ * Arena Gugur: podium memuat 20 pemenang dalam tiga baris.
  * Di atas batas ini MC menunggu terlalu lama, jadi undi dibagi beberapa putaran.
  */
-export const ANIMATION_MAX_WINNERS: Partial<Record<UndianAnimation, number>> = { tunnel: 10, drum: 6 };
+export const ANIMATION_MAX_WINNERS: Partial<Record<UndianAnimation, number>> = { tunnel: 10, drum: 6, arena: 20 };
 export const WINNERS_PER_DRAW_MAX = 50;
 export function maxWinnersPerDraw(animation: UndianAnimation): number {
   return ANIMATION_MAX_WINNERS[animation] ?? WINNERS_PER_DRAW_MAX;
+}
+
+/**
+ * Rentang jumlah pemenang per undian yang paling enak dilihat di panggung,
+ * per animasi. Hanya panduan di CMS (pilihan animasi + petunjuk di bawah
+ * "Per draw"); batas kerasnya tetap `maxWinnersPerDraw`.
+ */
+export const ANIMATION_BEST_WINNERS: Record<UndianAnimation, { min: number; max: number }> = {
+  wheel: { min: 1, max: 1 },
+  slot: { min: 1, max: 10 },
+  cards: { min: 3, max: 20 },
+  digits: { min: 1, max: 5 },
+  dart: { min: 1, max: 6 },
+  wall: { min: 5, max: 30 },
+  tunnel: { min: 1, max: 5 },
+  drum: { min: 1, max: 3 },
+  arena: { min: 3, max: 10 },
+  instant: { min: 1, max: 30 },
+};
+
+/** "1", "3–10": rentang terbaik sebagai teks pendek. */
+export function bestWinnersLabel(animation: UndianAnimation): string {
+  const best = ANIMATION_BEST_WINNERS[animation];
+  return best.min === best.max ? String(best.min) : `${best.min}–${best.max}`;
+}
+
+/** Posisi jumlah pemenang terhadap rentang terbaik animasi. */
+export function winnerFit(animation: UndianAnimation, perDraw: number): "best" | "few" | "many" | "over" {
+  if (perDraw > maxWinnersPerDraw(animation)) return "over";
+  const best = ANIMATION_BEST_WINNERS[animation];
+  if (perDraw < best.min) return "few";
+  if (perDraw > best.max) return "many";
+  return "best";
 }
 
 /** Nama di Spotlight wall selama undian: lengkap atau inisial. */
@@ -833,6 +867,7 @@ export const ANIMATIONS: { value: UndianAnimation; label: string; hint: string }
   { value: "wall", label: "Spotlight wall", hint: "Every name in the pool fills one wall, a spotlight sweeps across it, then the wall goes dark in waves until only the winners are lit. Made for a gala screen; shows up to 500 names." },
   { value: "tunnel", label: "Name tunnel", hint: "Names fly towards the screen through a tunnel. Each winner's name enters from the far end and stops in front. Any number of names in the draw; up to 10 winners per draw." },
   { value: "drum", label: "Lottery drum", hint: "A 3D glass drum blows coloured balls around, then the gate at the bottom opens and one ball per winner drops into the tray. Always 44 balls on screen; up to 6 winners per draw. Test it on the stage laptop first." },
+  { value: "arena", label: "Elimination arena", hint: "Everyone in the draw stands on a 3D arena floor. Each round the crowd runs to new tiles, some tiles flash red and drop with the people on them, and a Remaining counter falls until only the winners are left on a gold podium. Names appear when about 12 are left. Set Duration to 20 seconds or more so the crowd shrinks over several rounds; the last two rounds take about 13 seconds after the draw stops. Up to 20 winners per draw. Test it on the stage laptop first." },
   { value: "instant", label: "Instant reveal", hint: "No animation. A fallback when time is short." },
 ];
 

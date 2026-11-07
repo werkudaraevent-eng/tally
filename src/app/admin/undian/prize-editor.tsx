@@ -6,7 +6,7 @@ import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
 import {
-  AFTER_WIN_TEXT, ANIM_SPEEDS, EXCLUDE_SCOPE_LABEL, SPEED_ANIMATIONS, SPIN_MODES, maxWinnersPerDraw, STAGE_NOTE_MAX, WEIGHT_VAR_LABEL, ruleBrokenMessage,
+  AFTER_WIN_TEXT, ANIM_SPEEDS, ANIMATIONS, EXCLUDE_SCOPE_LABEL, SPEED_ANIMATIONS, SPIN_MODES, maxWinnersPerDraw, STAGE_NOTE_MAX, WEIGHT_VAR_LABEL, ruleBrokenMessage,
   type AfterWin, type AnimSpeed, type BonusRule, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WallTiles, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
@@ -80,8 +80,8 @@ export function PrizeEditor({
                   <p className="text-body-medium tabular-nums text-on-surface-variant">{order.position} of {order.total} prizes{draft.is_active ? "" : ", hidden while inactive"}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button simpan variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>
-                  <Button simpan variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={saving || order.moving || order.position >= order.total} onClick={() => order.onMove("down")}>Move down</Button>
+                  <Button simpan type="button" variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>
+                  <Button simpan type="button" variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={saving || order.moving || order.position >= order.total} onClick={() => order.onMove("down")}>Move down</Button>
                 </div>
               </div>
             ) : null}
@@ -200,6 +200,11 @@ export function PrizeEditor({
                   <div className="mt-3">
                     <label htmlFor="spin-seconds" className="block text-body-medium font-medium">Animation duration: <span className="tabular-nums">{draft.spin_seconds.toFixed(1)}</span> {draft.spin_seconds === 1 ? "second" : "seconds"}</label>
                     <input id="spin-seconds" type="range" min={1} max={30} step={0.5} value={draft.spin_seconds} onChange={(event) => onChange({ spin_seconds: Number.parseFloat(event.target.value) })} className="mt-2 w-full accent-[var(--md-sys-color-primary)]" />
+                    {draft.animation === "arena" && draft.spin_seconds < 15 ? (
+                      <p className="mt-1 text-body-medium text-warning">
+                        Elimination arena needs about 20 seconds for the crowd to shrink over several rounds. Shorter than that, most of the crowd drops in a single round.
+                      </p>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="mt-3 flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
@@ -221,12 +226,10 @@ export function PrizeEditor({
             </p>
             {maxWinnersPerDraw(draft.animation) < 50 ? (
               <p className="text-body-medium text-on-surface-variant">
-                {draft.animation === "drum" ? "Lottery drum" : "Name tunnel"} reveals winners one at a time, so it takes up to {maxWinnersPerDraw(draft.animation)} winners per draw. For more winners, raise the quota and draw again.
-              </p>
-            ) : null}
-            {draft.winners_per_draw > 30 ? (
-              <p className="text-body-medium text-warning">
-                More than 30 winners per draw: the names get small on the stage screen. For a large room, draw in rounds of 30 or fewer.
+                {draft.animation === "arena"
+                  ? `Elimination arena ends on a podium that fits ${maxWinnersPerDraw(draft.animation)} winners per draw.`
+                  : `${ANIMATIONS.find((item) => item.value === draft.animation)?.label ?? "This animation"} reveals winners one at a time, so it takes up to ${maxWinnersPerDraw(draft.animation)} winners per draw.`}
+                {" "}For more winners, raise the quota and draw again.
               </p>
             ) : null}
           </DetailSection>

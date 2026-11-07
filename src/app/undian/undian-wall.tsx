@@ -1,11 +1,11 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { expressive } from "@/lib/m3/motion";
 import { readableOn } from "@/lib/color";
 import { initialsOf } from "@/lib/undian";
-import { WALL_WAVE_MS, type AnimationProps } from "./undian-animations";
+import { WALL_FLIGHT_MS, WALL_WAVE_MS, type AnimationProps } from "./undian-animations";
 import { GreenScreenContext } from "./undian-stage-fx";
 
 // ===========================================================================
@@ -241,18 +241,51 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
   const litNow = lit[Math.min(step, lit.length - 1)];
   const showCards = !drawing && step >= WAVES.length + 2;
 
-  // Berapa kartu yang sudah mulai terbang; jadwalnya sama dengan `delay` kartu.
-  const [launch, setLaunch] = useState({ round, count: 0 });
-  const launched = showCards && launch.round === round ? launch.count : 0;
+  // Ubin pemenang menjadi kartu (FLIP): kartu dirender di posisi akhirnya,
+  // lalu Web Animations menariknya dari kotak ubin (termasuk skala 1,18) ke
+  // tempatnya. Animasi berjalan di luar React, jadi render ulang di tengah
+  // jalan tidak bisa membuatnya melompat (Hanung, 7 Nov: dengan layoutId
+  // framer, kartu sempat meloncat dan ubin mengecil tepat saat serah terima).
+  const tileRefs = useRef(new Map<number, HTMLDivElement>());
+  const cardRefs = useRef(new Map<number, HTMLDivElement>());
   const cardTotal = main.length;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!showCards) return;
-    const timers = Array.from({ length: cardTotal }, (_, index) => window.setTimeout(
-      () => setLaunch((current) => ({ round, count: current.round === round ? Math.max(current.count, index + 1) : index + 1 })),
-      cardDelay(index) * 1000,
-    ));
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [showCards, cardTotal, round]);
+    const animations: Animation[] = [];
+    const timers: number[] = [];
+    for (let index = 0; index < cardTotal; index += 1) {
+      const card = cardRefs.current.get(index);
+      if (!card) continue;
+      const delay = reduceMotion ? 0 : cardDelay(index) * 1000;
+      // Kartu yang menunggu jeda terbang ada di bawah; yang sudah berangkat di
+      // atasnya, yang terakhir berangkat paling atas. Nama yang sudah tampil
+      // tidak tertutup ubin kecil (Hanung, 5 Nov).
+      card.style.zIndex = String(cardTotal - index);
+      timers.push(window.setTimeout(() => { card.style.zIndex = String(100 + index); }, delay));
+      const tile = tileRefs.current.get(index);
+      if (!tile || reduceMotion || typeof card.animate !== "function") continue;
+      const from = tile.getBoundingClientRect();
+      const to = card.getBoundingClientRect();
+      if (from.width === 0 || to.width === 0) continue;
+      const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+      const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+      const sx = from.width / to.width;
+      const sy = from.height / to.height;
+      animations.push(card.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+          { transform: "translate(0px, 0px) scale(1, 1)" },
+        ],
+        // Emphasized (M3): lepas landas pelan dari ubin, mendarat pelan. Kurva
+        // decelerate membuat ubin seperti meletup di frame pertama.
+        { duration: WALL_FLIGHT_MS, delay, easing: "cubic-bezier(0.3, 0, 0, 1)", fill: "backwards" },
+      ));
+    }
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      animations.forEach((animation) => animation.cancel());
+    };
+  }, [showCards, cardTotal, round, reduceMotion]);
 
   // Lampu sorot: posisi ditulis langsung ke CSS variable, tanpa render React.
   const spotRef = useRef<HTMLDivElement | null>(null);
@@ -313,8 +346,14 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
           const on = litNow.has(index);
           const hot = !drawing && step > 0 && on;
           const winnerAt = winnerTiles.indexOf(index);
-          const final = !drawing && step === WAVES.length + 1 && winnerAt >= 0;
+          // Ubin pemenang tetap besar sampai kartunya berangkat: kotak inilah
+          // titik awal kartu.
+          const final = !drawing && step >= WAVES.length + 1 && winnerAt >= 0;
           const tile = <div
+            ref={winnerAt >= 0 ? (element) => {
+              if (element) tileRefs.current.set(winnerAt, element);
+              else tileRefs.current.delete(winnerAt);
+            } : undefined}
             className={tileBase}
             style={{
               ...tileText,
@@ -335,7 +374,8 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
                 color: final || hot ? onAccent : mix(text, on ? 70 : 30),
                 opacity: showCards && winnerAt >= 0 ? 0 : 1,
               } : {}),
-              transition: reduceMotion ? "none" : `opacity 520ms ease ${(scatter(index, round) * 600).toFixed(0)}ms, transform 520ms ease, background 400ms ease, box-shadow 400ms ease`,
+              // Ubin pemenang hilang seketika: kartunya berangkat dari kotak yang sama.
+              transition: reduceMotion || (showCards && winnerAt >= 0) ? "none" : `opacity 520ms ease ${(scatter(index, round) * 600).toFixed(0)}ms, transform 520ms ease, background 400ms ease, box-shadow 400ms ease`,
             }}
           >
             {drawing && index % 6 === 0 ? <span
@@ -348,11 +388,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
             /> : null}
             <span className="relative line-clamp-2">{name}</span>
           </div>;
-          // Ubin pemenang berbagi layoutId dengan kartunya: framer menerbangkan
-          // kartu dari posisi ubin ini ke tengah.
-          return winnerAt >= 0 && !showCards
-            ? <motion.div key={index} layoutId={`wall-${round}-${winnerAt}`} className="min-w-0">{tile}</motion.div>
-            : <div key={index} className="min-w-0">{tile}</div>;
+          return <div key={index} className="min-w-0">{tile}</div>;
         })}
       </div>
 
@@ -394,17 +430,16 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
           const fromTile = winnerTiles[index] >= 0;
           return <motion.div
             key={`${winner.name}-${winner.slot_order}`}
-            layoutId={fromTile ? `wall-${round}-${index}` : undefined}
-            initial={fromTile ? undefined : { opacity: 0, scale: 0.6 }}
+            ref={(element: HTMLDivElement | null) => {
+              if (element) cardRefs.current.set(index, element);
+              else cardRefs.current.delete(index);
+            }}
+            initial={fromTile ? false : { opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ ...expressive.spatial.slow, delay: cardDelay(index) }}
             className="relative flex min-w-0 flex-col items-center justify-center overflow-hidden text-center"
             style={{
-              // Kartu yang masih menunggu jeda terbang di posisi ubinnya selalu
-              // di bawah; kartu yang sudah berangkat di atasnya, yang terakhir
-              // berangkat paling atas. Nama yang sudah tampil tidak tertutup
-              // ubin kecil (Hanung, 5 Nov).
-              zIndex: index < launched ? 100 + index : main.length - index,
+              // zIndex diatur langsung oleh efek terbang di atas.
               width: fit.cardW,
               borderRadius: Math.max(8, fit.font * 0.5),
               padding: `${fit.font * 0.45}px ${fit.font * 0.7}px`,
@@ -434,7 +469,7 @@ export function WallAnimation({ roster, winners, endsAt, accent, text, fontFamil
         : fixed
           // Dinding penuh: ubin bukan orang, jadi tidak ada angka ubin di sini.
           ? (poolSize ? `${poolSize} nama ikut diundi` : "Semua nama ikut diundi")
-        : !drawing && step > 0 && step <= WAVES.length
+        : !drawing && step > 0 && step <= WAVES.length + 1
           ? `${litNow.size} nama tersisa`
           : !poolSize
             // Jumlah disembunyikan (Stage display): tanpa angka sama sekali.
