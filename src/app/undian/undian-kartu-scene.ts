@@ -17,7 +17,7 @@
 
 import type * as THREE_NS from "three";
 import {
-  PACK_TIMING, isBigCard, isLegendCard, type TierNumber,
+  PACK_TIMING, TIER_HEX, isBigCard, isLegendCard, type TierNumber,
 } from "@/lib/undian-kartu";
 
 type Three = typeof THREE_NS;
@@ -54,7 +54,6 @@ export type PackHud = {
 
 const GOLD = "#E8C968";
 const RARITY: Record<TierNumber, string> = { 1: "DOORPRIZE", 2: "HADIAH BESAR", 3: "GRAND PRIZE" };
-const TIER_HEX: Record<TierNumber, string> = { 1: "#5aa9ff", 2: "#c27bff", 3: "#ffc94a" };
 const TEXT_HEX: Record<TierNumber, string> = { 1: "#8fb4ff", 2: "#c9a2ff", 3: GOLD };
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -519,7 +518,17 @@ export function buildPackScene(T: Three, X: Extras, canvas: HTMLCanvasElement, w
   const goalLook = camLook.clone();
   let camK = 2.2;
   let handheld = 0;
-  const setShot = (p: V3, l: V3, k = 2.2) => { goalPos.copy(p); goalLook.copy(l); camK = k; };
+  // Layar tegak (HP): bidang pandang mendatar menyempit, jadi kamera mundur
+  // menjauhi titik pandangnya supaya mesin dan bungkus tidak terpotong. Grid
+  // akhir menghitung jaraknya sendiri dari ukuran layar (fit = false).
+  let shotFit = true;
+  const setShot = (p: V3, l: V3, k = 2.2, fit = true) => { goalPos.copy(p); goalLook.copy(l); camK = k; shotFit = fit; };
+  const fitTarget = (out: V3) => {
+    const a = W / H;
+    const f = shotFit && a < 1.2 ? Math.pow(1.2 / a, 0.75) : 1;
+    return out.copy(goalPos).sub(goalLook).multiplyScalar(f).add(goalLook);
+  };
+  const camTarget = new T.Vector3();
   const led = () => W / H > 2.2;
   const shotMachine = (): [V3, V3] => (led() ? [new T.Vector3(1.1, 1.05, 3.6), new T.Vector3(0.75, 0.95, 0)] : [new T.Vector3(1.3, 1.15, 3.7), new T.Vector3(0.05, 0.95, 0)]);
   const R0 = new T.Vector3(0, 1.12, 0.85);
@@ -572,7 +581,7 @@ export function buildPackScene(T: Three, X: Extras, canvas: HTMLCanvasElement, w
     const sp = stackPos(k);
     if (k === 1) { setShot(new T.Vector3(sp.x, sp.y + 0.005, sp.z + 0.3), sp.clone(), 1.8); return; }
     const { cx, cy, d } = gridLayout(k);
-    setShot(new T.Vector3(cx, cy + 0.004, R0.z - 0.01 + d), new T.Vector3(cx, cy, R0.z - 0.01), 1.8);
+    setShot(new T.Vector3(cx, cy + 0.004, R0.z - 0.01 + d), new T.Vector3(cx, cy, R0.z - 0.01), 1.8, false);
   };
 
   // ---------- jam ----------
@@ -836,7 +845,7 @@ export function buildPackScene(T: Three, X: Extras, canvas: HTMLCanvasElement, w
       revealG.add(c);
     });
     gridShot(k);
-    camPos.copy(goalPos);
+    fitTarget(camPos);
     camLook.copy(goalLook);
     setText(hud.count, k > 1 ? `${k} / ${k}` : "");
     status("Selesai");
@@ -1177,7 +1186,7 @@ export function buildPackScene(T: Three, X: Extras, canvas: HTMLCanvasElement, w
     floor.visible = !gs();
     wall.visible = !gs();
     const kk = 1 - Math.exp(-dt * camK);
-    camPos.lerp(goalPos, kk);
+    camPos.lerp(fitTarget(camTarget), kk);
     camLook.lerp(goalLook, kk);
     cam.position.copy(camPos);
     cam.position.x += handheld * Math.sin(t * 1.3) * 0.0025;

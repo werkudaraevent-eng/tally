@@ -20,6 +20,9 @@ export type TierNumber = 1 | 2 | 3;
 
 export const PACK_MAX_CARDS = 30;
 
+/** Warna tiap tingkat kartu: adegan 3D dan Card reveal (cadangan tanpa WebGL) memakai yang sama. */
+export const TIER_HEX: Record<TierNumber, string> = { 1: "#5aa9ff", 2: "#c27bff", 3: "#ffc94a" };
+
 export const CARD_TIERS: { value: CardTier; label: string; hint: string }[] = [
   { value: "common", label: "Blue", hint: "Doorprize" },
   { value: "rare", label: "Purple", hint: "Big prize" },

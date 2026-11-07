@@ -111,6 +111,13 @@ const postSchema = z.object({
    * bersama rombongan awal).
    */
   count: z.number().int().min(1).max(60).optional(),
+  /**
+   * Untuk aksi `draw` pada Mesin Kartu "semua hadiah": bungkus PENGGANTI.
+   * Kursi kosong dari bungkus sebelumnya (pemenang yang tidak hadir, di
+   * beberapa hadiah sekaligus) diundi lagi dalam satu bungkus, hadiah pemegang
+   * tetap kartu terakhir. Jumlahnya dijepit ke sisa kuota tiap hadiah di server.
+   */
+  refill: z.array(z.object({ prize_id: z.number().int().positive(), count: z.number().int().min(1).max(30) })).min(1).max(30).optional(),
 });
 
 async function loadState(eventId: string): Promise<StateRow | null> {
@@ -252,38 +259,49 @@ export async function POST(request: Request) {
       // menulis pemenang, jadi tidak ada kuota yang terpakai; menolaknya hanya
       // membuat gladi bersih mustahil dilakukan untuk hadiah yang kuotanya
       // kebetulan sudah penuh — justru hadiah yang paling perlu diuji ulang.
+      // Bungkus pengganti Mesin Kartu: hanya hadiah dengan kursi kosong, dan
+      // pemegang boleh tidak ikut (kuotanya penuh bukan alasan menolak).
+      const refill = parsed.data.refill;
+      const isPackAll = prize.animation === "pack" && prize.pack_contents === "all";
+      if (refill && !isPackAll) return apiError("VALIDATION_ERROR", 422);
+      const refillCounts = refill ? new Map(refill.map((item) => [item.prize_id, item.count])) : null;
+      const holderWanted = refillCounts ? refillCounts.get(prizeId) ?? 0 : null;
+
       let confirmed = 0;
       if (!state.rehearsal) {
         const taken = await seatsTaken(eventId, prizeId, sessionId);
         if (taken === null) return apiError("INTERNAL_ERROR", 500);
         confirmed = taken;
-        if (confirmed >= prize.winner_quota) return apiError("UNDIAN_QUOTA_REACHED", 409);
+        if (confirmed >= prize.winner_quota && holderWanted !== 0) return apiError("UNDIAN_QUOTA_REACHED", 409);
       }
 
       const pool = await buildPool(eventId, prize);
       if ("error" in pool && pool.error === "RULE_BROKEN") return apiError("UNDIAN_RULE_BROKEN", 409, { rules: pool.rules });
       if ("error" in pool) return apiError("INTERNAL_ERROR", 500);
-      if (pool.candidates.length === 0) return apiError("UNDIAN_POOL_EMPTY", 409);
+      if (pool.candidates.length === 0 && holderWanted !== 0) return apiError("UNDIAN_POOL_EMPTY", 409);
 
       // Jumlah pemenang dijepit ke sisa kuota. Hadiah dengan kuota 10 dan 3 orang
       // per undi tidak boleh mengeluarkan 3 nama pada undian keempat, karena hanya
       // 1 kursi tersisa dan dua orang akan dipanggil untuk hadiah yang tidak ada.
       const requested = parsed.data.count;
-      const mainCount = Math.min(requested ?? prize.winners_per_draw, prize.winners_per_draw, prize.winner_quota - confirmed);
+      const mainCount = holderWanted !== null
+        ? Math.max(0, Math.min(holderWanted, state.rehearsal ? holderWanted : prize.winner_quota - confirmed))
+        : Math.min(requested ?? prize.winners_per_draw, prize.winners_per_draw, prize.winner_quota - confirmed);
       const round = state.draw_round + 1;
 
       // Mesin Kartu "semua hadiah": satu bungkus mengundi setiap hadiah aktif
       // yang kuotanya masih tersisa di sesi ini, hadiah ini kartu terakhir.
       // Undian pengganti (`count`) selalu satu hadiah: kursi yang kosong milik
       // satu hadiah tertentu, bukan seluruh bungkus.
-      const packAll = prize.animation === "pack" && prize.pack_contents === "all" && !requested;
+      const packAll = isPackAll && !requested;
       let pending: PendingDraw;
       if (packAll) {
-        const bundle = await drawPackAll(eventId, prize, pool.candidates, mainCount, sessionId, state.rehearsal);
+        const bundle = await drawPackAll(eventId, prize, pool.candidates, mainCount, sessionId, state.rehearsal, refillCounts);
         if ("error" in bundle) {
           if (bundle.error === "RULE_BROKEN") return apiError("UNDIAN_RULE_BROKEN", 409, { rules: bundle.rules });
           return apiError("INTERNAL_ERROR", 500);
         }
+        if (bundle.winners.length === 0) return apiError(refill ? "UNDIAN_POOL_EMPTY" : "UNDIAN_QUOTA_REACHED", 409);
         pending = { prize_id: prizeId, draw_round: round, winner_ids: [], winners: bundle.winners, pack: bundle.plan };
       } else {
         const picked = drawWinners(pool.candidates, mainCount + (requested ? 0 : prize.backup_per_draw));
@@ -304,7 +322,9 @@ export async function POST(request: Request) {
         };
         if (prize.animation === "pack") {
           const mains = pending.winners.filter((winner) => !winner.is_backup).length;
-          pending.pack = { mode: "one", groups: [{ prize_id: prizeId, prize: prize.name, tier: tierNumber(prize.card_tier), count: mains }] };
+          // Pengganti pemegang "semua hadiah" tetap kartu emas, sama seperti di bungkusnya.
+          const tier = prize.pack_contents === "all" ? 3 : tierNumber(prize.card_tier);
+          pending.pack = { mode: "one", groups: [{ prize_id: prizeId, prize: prize.name, tier, count: mains }] };
         }
       }
 
@@ -595,15 +615,24 @@ export async function POST(request: Request) {
       // hadiahnya. Membatalkan itu lewat satu tombol akan membuat dua orang
       // memegang klaim atas hadiah yang sama, dan tidak ada satu pun keadaan di
       // mana operator memaksudkan hal tersebut saat menekan "undi ulang".
+      //
+      // Bungkus Mesin Kartu "semua hadiah": nama-namanya milik banyak hadiah.
+      // Undi ulang membatalkan SELURUH isi bungkus itu (id barisnya ada di
+      // pending), bukan hanya kartu hadiah pemegang; kalau tidak, kartu lain
+      // tetap memegang kursi di belasan hadiah sementara layar sudah kosong.
+      const packIds = state.pending?.pack?.mode === "all" && state.pending.prize_id === prizeId ? state.pending.winner_ids : [];
       let targetQuery = client
         .from("undian_winners")
         .select("id,display_name")
         .eq("event_id", eventId)
-        .eq("prize_id", prizeId)
         .eq("status", "pending");
-      targetQuery = sessionId === null
-        ? targetQuery.is("session_id", null)
-        : targetQuery.eq("session_id", sessionId);
+      if (packIds.length > 0) targetQuery = targetQuery.in("id", packIds);
+      else {
+        targetQuery = targetQuery.eq("prize_id", prizeId);
+        targetQuery = sessionId === null
+          ? targetQuery.is("session_id", null)
+          : targetQuery.eq("session_id", sessionId);
+      }
       const { data: targets, error: targetError } = await targetQuery;
       if (targetError) return apiError("INTERNAL_ERROR", 500);
 
@@ -668,6 +697,8 @@ async function drawPackAll(
   holderCount: number,
   sessionId: number | null,
   rehearsal: boolean,
+  /** Bungkus pengganti: hanya hadiah ini, dengan jumlah kursi kosongnya. */
+  only: Map<number, number> | null = null,
 ): Promise<{ winners: PackWinner[]; plan: PackPlan } | { error: "RULE_BROKEN"; rules: string[] } | { error: "POOL_ERROR" }> {
   const { data, error } = await getSupabaseServiceClient()
     .from("undian_prizes")
@@ -676,20 +707,20 @@ async function drawPackAll(
     .eq("is_active", true)
     .neq("id", holder.id);
   if (error) return { error: "POOL_ERROR" };
-  const others = ((data ?? []) as Record<string, unknown>[]).map(normalizePrize);
+  const others = ((data ?? []) as Record<string, unknown>[]).map(normalizePrize).filter((item) => !only || only.has(item.id));
   const byId = new Map<number, UndianPrize>([[holder.id, holder], ...others.map((item): [number, UndianPrize] => [item.id, item])]);
 
   // Sisa kursi per hadiah, sama dengan pemeriksaan kuota undian biasa. Latihan
   // tidak memakai kuota, jadi tiap hadiah mendapat satu rombongan penuh.
+  // Semua hadiah dihitung bersamaan: satu per satu terasa lambat di atas
+  // panggung saat bungkus berisi belasan hadiah.
   const remaining = new Map<number, number>();
-  for (const item of others) {
-    let left = item.winners_per_draw;
-    if (!rehearsal) {
-      const taken = await seatsTaken(eventId, item.id, sessionId);
-      if (taken === null) return { error: "POOL_ERROR" };
-      left = Math.min(left, item.winner_quota - taken);
-    }
-    remaining.set(item.id, Math.max(0, left));
+  const takenList = rehearsal ? others.map(() => 0) : await Promise.all(others.map((item) => seatsTaken(eventId, item.id, sessionId)));
+  for (const [index, item] of others.entries()) {
+    const taken = takenList[index];
+    if (taken === null) return { error: "POOL_ERROR" };
+    const want = only ? only.get(item.id) ?? 0 : item.winners_per_draw;
+    remaining.set(item.id, Math.max(0, rehearsal ? want : Math.min(want, item.winner_quota - taken)));
   }
 
   // Jumlah per hadiah sudah dipotong ke 30 kartu, dari yang paling umum.
@@ -699,18 +730,22 @@ async function drawPackAll(
   );
   const allocated = new Map(first.groups.map((group) => [group.prize_id, group.count]));
 
+  // Kolam tiap hadiah juga dibangun bersamaan; hanya penyaringan "sudah
+  // menang di bungkus ini" yang harus berurutan.
+  const poolIds = first.drawOrder.filter((id) => id !== holder.id);
+  const pools = await Promise.all(poolIds.map((id) => buildPool(eventId, byId.get(id)!)));
+  const poolOf = new Map<number, Candidate[]>();
+  for (const [index, pool] of pools.entries()) {
+    if ("error" in pool && pool.error === "RULE_BROKEN") return { error: "RULE_BROKEN", rules: pool.rules };
+    if ("error" in pool) return { error: "POOL_ERROR" };
+    poolOf.set(poolIds[index], pool.candidates);
+  }
   const picked = new Map<number, Candidate[]>();
   const taken = new Set<string>();
   const key = (candidate: Candidate) => `${candidate.kind}:${candidate.ref}`;
   for (const id of first.drawOrder) {
     const item = byId.get(id)!;
-    let candidates = holderPool;
-    if (id !== holder.id) {
-      const pool = await buildPool(eventId, item);
-      if ("error" in pool && pool.error === "RULE_BROKEN") return { error: "RULE_BROKEN", rules: pool.rules };
-      if ("error" in pool) return { error: "POOL_ERROR" };
-      candidates = pool.candidates;
-    }
+    let candidates = id === holder.id ? holderPool : poolOf.get(id) ?? [];
     if (item.exclude_scope === "all_prizes") candidates = candidates.filter((candidate) => !taken.has(key(candidate)));
     const chosen = drawWinners(candidates, allocated.get(id) ?? 0);
     for (const candidate of chosen) taken.add(key(candidate));

@@ -3,7 +3,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { expressive } from "@/lib/m3/motion";
-import { PACK_MAX_CARDS, type PackPlan, type TierNumber } from "@/lib/undian-kartu";
+import { PACK_MAX_CARDS, TIER_HEX, type PackPlan, type TierNumber } from "@/lib/undian-kartu";
 import { CardsAnimation, type AnimationProps } from "./undian-animations";
 import { GreenScreenContext } from "./undian-stage-fx";
 import type { PackCard, PackHud, PackLive } from "./undian-kartu-scene";
@@ -67,15 +67,13 @@ export type PackAnimationProps = AnimationProps & {
   title?: string;
 };
 
-/** Kartu dari pemenang utama, urut sesuai rencana bungkus. */
-export function packCards(
-  winners: AnimationProps["winners"],
-  plan: PackPlan | null | undefined,
-  fallback: { prize: string; tier: TierNumber },
-): PackCard[] {
+type Winner = AnimationProps["winners"][number];
+
+/** Pemenang utama dengan hadiah dan warna kartunya, urut sesuai rencana bungkus. */
+function packOrder(winners: AnimationProps["winners"], plan: PackPlan | null | undefined, fallback: { prize: string; tier: TierNumber }) {
   const mains = winners.filter((winner) => !winner.is_backup);
-  if (!plan || plan.groups.length === 0) return mains.slice(0, PACK_MAX_CARDS).map((winner) => ({ name: winner.name, prize: fallback.prize, tier: fallback.tier }));
-  const out: PackCard[] = [];
+  if (!plan || plan.groups.length === 0) return mains.slice(0, PACK_MAX_CARDS).map((winner) => ({ winner, prize: fallback.prize, tier: fallback.tier }));
+  const out: { winner: Winner; prize: string; tier: TierNumber }[] = [];
   const used = new Set<number>();
   for (const group of plan.groups) {
     const own = mains
@@ -84,10 +82,19 @@ export function packCards(
       .sort((a, b) => a.winner.slot_order - b.winner.slot_order);
     for (const { winner, index } of own) {
       used.add(index);
-      out.push({ name: winner.name, prize: group.prize, tier: group.tier });
+      out.push({ winner, prize: group.prize, tier: group.tier });
     }
   }
   return out.slice(0, PACK_MAX_CARDS);
+}
+
+/** Kartu dari pemenang utama, urut sesuai rencana bungkus. */
+export function packCards(
+  winners: AnimationProps["winners"],
+  plan: PackPlan | null | undefined,
+  fallback: { prize: string; tier: TierNumber },
+): PackCard[] {
+  return packOrder(winners, plan, fallback).map(({ winner, prize, tier }) => ({ name: winner.name, prize, tier }));
 }
 
 export function PackAnimation(props: PackAnimationProps) {
@@ -140,7 +147,16 @@ export function PackAnimation(props: PackAnimationProps) {
     };
   }, [reduceMotion, live]);
 
-  if (failed || reduceMotion) return <CardsAnimation {...props} />;
+  if (failed || reduceMotion) {
+    // Card reveal 2D, tetapi tiap kartu tetap membawa hadiah dan warnanya:
+    // pada bungkus "semua hadiah" penonton harus bisa membedakan doorprize dari
+    // Grand Prize tanpa adegan 3D. Urutannya sama, Grand Prize terakhir.
+    const flat = [
+      ...packOrder(winners, pack, fallback).map(({ winner, prize, tier }, index) => ({ ...winner, label: prize, tint: TIER_HEX[tier], slot_order: index + 1 })),
+      ...backups,
+    ];
+    return <CardsAnimation {...props} winners={winners.length === 0 ? winners : flat} pendingCount={plan.length} />;
+  }
 
   const hudFont = { fontFamily };
   const showBackups = backups.length > 0 && doneRound === round;
@@ -160,7 +176,7 @@ export function PackAnimation(props: PackAnimationProps) {
         />
         <div
           ref={(element) => { hudRef.current.prize = element; }}
-          className="absolute inset-x-0 top-[3%] text-center font-bold"
+          className="absolute inset-x-0 top-[3%] text-center font-bold @max-[640px]:top-[calc(3%+3em)]"
           style={{ ...hudFont, fontSize: "clamp(12px, 3.4cqh, 40px)", color: "#E8C968", textShadow: "0 2px 8px rgba(0, 0, 0, 0.6)" }}
         />
         <div
@@ -181,7 +197,7 @@ export function PackAnimation(props: PackAnimationProps) {
     <AnimatePresence>
       {showBackups && <motion.p
         key={`cadangan-${round}`}
-        className="gs-plate absolute inset-x-[18%] top-[3%] rounded-full px-[1.2em] py-[0.4em] text-center"
+        className="gs-plate absolute inset-x-[18%] top-[3%] rounded-full px-[1.2em] py-[0.4em] text-center @max-[640px]:inset-x-[4%] @max-[640px]:top-[calc(3%+3.2em)]"
         style={{ ...hudFont, fontSize: "clamp(11px, 2.6cqh, 26px)", color: "#FFFFFF", background: "rgba(5, 8, 16, 0.72)" }}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

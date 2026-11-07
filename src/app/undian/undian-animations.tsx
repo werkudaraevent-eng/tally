@@ -25,7 +25,11 @@ import { packRevealMs, type TierNumber } from "@/lib/undian-kartu";
 export type AnimationProps = {
   roster: { name: string; seat: string | null; code: string | null }[];
   /** `prize_id`: hanya pada bungkus Mesin Kartu "semua hadiah", hadiah tiap nama. */
-  winners: { name: string; company: string | null; seat: string | null; is_backup: boolean; slot_order: number; prize_id?: number }[];
+  winners: {
+    name: string; company: string | null; seat: string | null; is_backup: boolean; slot_order: number; prize_id?: number;
+    /** Card reveal saja: baris hadiah di kartu dan warnanya (cadangan 2D Mesin Kartu). */
+    label?: string; tint?: string;
+  }[];
   endsAt: number | null;
   accent: string;
   text: string;
@@ -815,10 +819,11 @@ export function CardsAnimation({ roster, winners, endsAt, accent, text, fontFami
             {spinning ? current : "..."}
           </span>
         </div>
-        <div className={face} style={{ borderColor: accent, background: accent, backfaceVisibility: "hidden", transform: "rotateY(180deg)", boxShadow: open ? `0 0 5vh ${accent}99` : undefined }}>
+        <div className={face} style={{ borderColor: winner?.tint ?? accent, background: winner?.tint ?? accent, backfaceVisibility: "hidden", transform: "rotateY(180deg)", boxShadow: open ? `0 0 5vh ${winner?.tint ?? accent}99` : undefined }}>
           {winner ? <div className="min-w-0">
-            <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: nameSize, color: onAccent }}>{winner.name}</p>
-            {winner.company && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: onAccent, opacity: 0.75 }}>{winner.company}</p>}
+            {winner.label && <p className="truncate font-semibold uppercase tracking-wide" style={{ fontFamily, fontSize: subSize, color: winner.tint ? readableOn(winner.tint) : onAccent, opacity: 0.85 }}>{winner.label}</p>}
+            <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: nameSize, color: winner.tint ? readableOn(winner.tint) : onAccent }}>{winner.name}</p>
+            {winner.company && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: winner.tint ? readableOn(winner.tint) : onAccent, opacity: 0.75 }}>{winner.company}</p>}
           </div> : null}
         </div>
       </motion.div>;
