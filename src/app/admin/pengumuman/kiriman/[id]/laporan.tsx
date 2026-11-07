@@ -35,6 +35,8 @@ import { BLAST_STATUS_LABEL, BLAST_STATUS_TONE, audienceLabel, waktu, type Blast
  * Laporan satu kiriman (gambar 4-log). Angka utama "Sudah masuk ke acara",
  * bukan "dibuka": buka email tidak bisa dipercaya karena Apple Mail memuat
  * gambar pelacak sendiri, sedangkan masuk berarti tautannya benar-benar dipakai.
+ * Bila Email tracking menyala, Opened tampil sebagai perkiraan di bawah angka
+ * email, dengan buka otomatis Apple dipisah.
  */
 
 type Status = "antre" | "ditahan" | "mengirim" | "terkirim" | "diterima" | "dibaca" | "tidak_pasti" | "gagal_sementara" | "gagal_tetap" | "dilewati";
@@ -98,9 +100,15 @@ type Baris = {
   signed_in_at: string | null;
   /** Update details link: semua pertanyaannya sudah terisi. */
   answered?: boolean;
+  opened_at?: string | null;
+  opened_auto_at?: string | null;
+  clicked_at?: string | null;
 };
 
-type Halaman = { rows: Baris[]; total: number; page: number; page_size: number };
+/** Email tracking (migrasi 202611070030): null sebelum migrasinya. */
+type Jejak = { opened: number; apple: number };
+
+type Halaman = { rows: Baris[]; total: number; page: number; page_size: number; tracking?: Jejak | null };
 
 export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload: () => void }) {
   // Peran kustom: View tanpa tombol; Lanjutkan dan Ulangi mengirim email.
@@ -123,6 +131,8 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
   const orang = (n: number) => plural(n, tamu ? "invited guest" : "participant");
   const undangan = (n: number) => plural(n, "invitation");
   const persen = total > 0 ? Math.round((detail.signed_in / total) * 100) : 0;
+  // Kolom Opened hanya untuk kiriman yang dikirim dengan gambar 1x1.
+  const jejak = data?.tracking ?? null;
 
   const muatBaris = useCallback(async () => {
     const response = await fetch(`/api/admin/pesan/${blast.id}/penerima?kelompok=${kelompok}&halaman=${halaman}`, { cache: "no-store" }).catch(() => null);
@@ -310,6 +320,11 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
             {counts.terkirim > 0 ? <> · {counts.terkirim} sent</> : null}
             {gagal > 0 ? <span className="text-error"> · {gagal} failed</span> : null}
           </p>
+          {jejak ? (
+            <p className="text-body-medium tabular-nums text-on-surface-variant">
+              {jejak.opened} opened, estimate · {jejak.apple} Apple auto-open
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -330,13 +345,14 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
       ) : (
         <>
           <TableCard>
-            <Table minWidth="720px">
+            <Table minWidth={jejak ? "840px" : "720px"}>
               <TableHead>
                 <TableRow>
                   <TableHeaderCell>{tamu ? "Invited guest" : "Participant"}</TableHeaderCell>
                   <TableHeaderCell>Email</TableHeaderCell>
                   <TableHeaderCell>Status</TableHeaderCell>
                   <TableHeaderCell>{tamu ? "Registered" : blast.kind === "data" ? "Answered" : "Signed in"}</TableHeaderCell>
+                  {jejak ? <TableHeaderCell>Opened</TableHeaderCell> : null}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -358,6 +374,11 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
                       </span>
                     </TableCell>
                     <TableCell numeric>{blast.kind === "data" ? (r.answered ? "Yes" : "–") : r.signed_in_at ? waktu(r.signed_in_at, detail.time_zone) : "–"}</TableCell>
+                    {jejak ? (
+                      <TableCell numeric className="text-on-surface-variant">
+                        {r.opened_at ?? r.clicked_at ? waktu((r.opened_at ?? r.clicked_at)!, detail.time_zone) : r.opened_auto_at ? "Apple auto-open" : "–"}
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
               </TableBody>

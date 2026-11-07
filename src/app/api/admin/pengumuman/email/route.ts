@@ -11,6 +11,8 @@ import { akunPenerima } from "@/lib/pengumuman-penerima-server";
 import { bacaSyaratPengumuman } from "@/lib/sasaran-pengumuman";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { linkOrigin } from "@/lib/domain-klien/asal";
+import { jejakMenyala } from "@/lib/email/jejak-server";
+import { kirimPengumumanBerjejak } from "@/lib/pengumuman-email-jejak";
 
 /**
  * Kirim salinan email satu pengumuman ke akun area peserta sesuai penerimanya.
@@ -38,15 +40,15 @@ export async function POST(request: Request) {
   // semua kolom penerima: baca ulang tanpa kolom itu.
   const belumAda = (galat: { code?: string } | null) => galat?.code === "42703" || galat?.code === "PGRST204";
   // Foto (202611060001) dibaca terpisah: sebelum migrasinya cukup tanpa foto.
-  let { data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any,image_url,image_alt");
-  if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any"));
-  if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience,audience_rules,audience_ids"));
-  if (belumAda(error)) ({ data: baris, error } = await baca("id,title,body,link_url,link_label,audience"));
+  let { data: baris, error } = await baca("id,published_at,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any,image_url,image_alt");
+  if (belumAda(error)) ({ data: baris, error } = await baca("id,published_at,title,body,link_url,link_label,audience,audience_rules,audience_ids,audience_any"));
+  if (belumAda(error)) ({ data: baris, error } = await baca("id,published_at,title,body,link_url,link_label,audience,audience_rules,audience_ids"));
+  if (belumAda(error)) ({ data: baris, error } = await baca("id,published_at,title,body,link_url,link_label,audience"));
   if (tabelBelumAda(error)) return apiError("ANNOUNCEMENTS_NOT_READY", 409);
   if (error) return apiError("INTERNAL_ERROR", 500);
   if (!baris) return apiError("ANNOUNCEMENT_NOT_FOUND", 404);
   const item = baris as unknown as {
-    id: string; title: string; body: string; link_url: string | null; link_label: string | null; audience: string; audience_rules?: unknown; audience_ids?: unknown; audience_any?: unknown;
+    id: string; published_at: string; title: string; body: string; link_url: string | null; link_label: string | null; audience: string; audience_rules?: unknown; audience_ids?: unknown; audience_any?: unknown;
     image_url?: string | null; image_alt?: string | null;
   };
 
@@ -76,19 +78,38 @@ export async function POST(request: Request) {
   ];
 
   const origin = await linkOrigin(request, event.id);
-  const isi = emailPengumuman({
-    eventName: publicEventName(event),
-    title: item.title,
-    body: item.body,
-    linkUrl: item.link_url,
-    linkLabel: item.link_label,
-    foto: item.image_url ? { src: item.image_url, alt: altFotoPengumuman(item) } : null,
-    // Langsung ke tab Pengumuman: di sana pengumuman ditandai dilihat, jadi
-    // yang datang dari email ikut terhitung di laporan Seen. Portal lama
-    // (bukan gathering) mengabaikan ?tab= dan menandainya saat dibuka.
-    dashboardUrl: `${origin}/e/${encodeURIComponent(event.slug)}/peserta?tab=info`,
-  });
-  const hasil = await sendEmailBatch(penerima.map((to) => ({ to, ...isi })), event.id);
+  const buatIsi = (jejak: { pixelUrl: string; bacaUrl: string } | null) =>
+    emailPengumuman({
+      eventName: publicEventName(event),
+      title: item.title,
+      body: item.body,
+      linkUrl: item.link_url,
+      linkLabel: item.link_label,
+      foto: item.image_url ? { src: item.image_url, alt: altFotoPengumuman(item) } : null,
+      // Langsung ke tab Pengumuman: di sana pengumuman ditandai dilihat, jadi
+      // yang datang dari email ikut terhitung di laporan Seen. Portal lama
+      // (bukan gathering) mengabaikan ?tab= dan menandainya saat dibuka.
+      dashboardUrl: `${origin}/e/${encodeURIComponent(event.slug)}/peserta?tab=info`,
+      jejak,
+    });
+
+  // Email tracking (Messages > Automatic emails > Email tracking, migrasi
+  // 202611070030): gambar 1x1 dan tautan baca per penerima. Bila barisnya
+  // tidak bisa dibuat, kirim tanpa jejak seperti sebelumnya.
+  const pesertaAlamat = new Map(akun.map((baris) => [baris.email?.trim().toLowerCase() ?? "", baris.participant_id]));
+  const berjejak = (await jejakMenyala(event.id))
+    ? await kirimPengumumanBerjejak({
+        eventId: event.id,
+        slug: event.slug,
+        origin,
+        announcementId: item.id,
+        publishedAt: item.published_at,
+        penerima: penerima.map((address) => ({ address, participant_id: pesertaAlamat.get(address) ?? null })),
+        isi: buatIsi,
+      })
+    : null;
+  const isi = buatIsi(null);
+  const hasil = berjejak ?? (await sendEmailBatch(penerima.map((to) => ({ to, ...isi })), event.id));
   if ("notConfigured" in hasil) return apiError("EMAIL_NOT_CONFIGURED", 503);
 
   const ringkasan = { terkirim: hasil.sent, gagal: hasil.failed, galat: hasil.error, waktu: new Date().toISOString() };
