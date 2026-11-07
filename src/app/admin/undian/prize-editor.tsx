@@ -232,11 +232,6 @@ export function PrizeEditor({
                 {" "}For more winners, raise the quota and draw again.
               </p>
             ) : null}
-            {draft.winners_per_draw > 30 ? (
-              <p className="text-body-medium text-warning">
-                More than 30 winners per draw: the names get small on the stage screen. For a large room, draw in rounds of 30 or fewer.
-              </p>
-            ) : null}
           </DetailSection>
 
           {/* Tulisan layar panggung setelah nama keluar (stageMessage di

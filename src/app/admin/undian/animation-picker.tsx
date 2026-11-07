@@ -1,11 +1,11 @@
 "use client";
 
-import { Play } from "@phosphor-icons/react";
+import { CheckCircle, Info, Play, Warning } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/m3";
-import { ANIMATIONS, type AnimSpeed, type SpinMode, type UndianAnimation, type WallNames, type WallTiles } from "@/lib/undian";
+import { ANIMATIONS, ANIMATION_BEST_WINNERS, bestWinnersLabel, maxWinnersPerDraw, winnerFit, WINNERS_PER_DRAW_MAX, type AnimSpeed, type SpinMode, type UndianAnimation, type WallNames, type WallTiles } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
@@ -57,11 +57,15 @@ export function AnimationPicker({
               )}
             >
               <span aria-hidden className={aktif ? "text-primary" : "text-on-surface-variant"}>{ANIMATION_ICON[item.value]}</span>
-              <span className="min-w-0 truncate font-medium">{item.label}</span>
+              <span className="min-w-0">
+                <span className="block font-medium [overflow-wrap:anywhere]">{item.label}</span>
+                <WinnerRange animation={item.value} perDraw={winnersPerDraw} />
+              </span>
             </button>
           );
         })}
       </div>
+      <WinnerFitNote animation={value} perDraw={winnersPerDraw} label={pilihan?.label ?? "This animation"} />
       <p className="mt-1 text-body-medium text-on-surface-variant">{pilihan?.hint}</p>
 
       {/* Ke document.body: panel hadiah berada di dalam <form> dan pane yang
@@ -77,5 +81,55 @@ export function AnimationPicker({
         document.body,
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Baris kecil di tiap kartu animasi: jumlah pemenang terbaik per undian, plus
+ * batasnya bila animasi itu punya batas. Bila "Per draw" saat ini melebihi
+ * batas, batasnya diwarnai peringatan: memilih kartu ini menurunkan Per draw.
+ */
+function WinnerRange({ animation, perDraw }: { animation: UndianAnimation; perDraw: number }) {
+  const max = maxWinnersPerDraw(animation);
+  const over = winnerFit(animation, perDraw) === "over";
+  return (
+    <span className="block text-label-medium font-normal tabular-nums text-on-surface-variant">
+      Best {bestWinnersLabel(animation)}{" "}
+      {max < WINNERS_PER_DRAW_MAX ? <span className={cx("whitespace-nowrap", over && "font-medium text-warning")}>· max {max}</span> : null}
+    </span>
+  );
+}
+
+/** Seberapa cocok "Per draw" sekarang dengan animasi yang dipilih. */
+function WinnerFitNote({ animation, perDraw, label }: { animation: UndianAnimation; perDraw: number; label: string }) {
+  const fit = winnerFit(animation, perDraw);
+  const range = bestWinnersLabel(animation);
+  const winners = (n: number) => `${n} ${n === 1 ? "winner" : "winners"}`;
+  const best = ANIMATION_BEST_WINNERS[animation];
+  const bestText = best.min === best.max ? winners(best.min) : `${range} winners`;
+  if (fit === "best") {
+    return (
+      <p className="mt-2 flex items-start gap-2 text-body-medium text-on-surface">
+        <CheckCircle size={16} weight="fill" className="mt-0.5 shrink-0 text-success" aria-hidden />
+        <span>{winners(perDraw)} per draw suits {label} well (best with {bestText}).</span>
+      </p>
+    );
+  }
+  if (fit === "few") {
+    return (
+      <p className="mt-2 flex items-start gap-2 text-body-medium text-on-surface">
+        <Info size={16} className="mt-0.5 shrink-0 text-on-surface-variant" aria-hidden />
+        <span>{label} looks best with {bestText} per draw. {winners(perDraw)} works, but the reveal is short.</span>
+      </p>
+    );
+  }
+  return (
+    <p className="mt-2 flex items-start gap-2 rounded-md bg-warning-soft p-2 text-body-medium text-on-surface">
+      <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+      <span>
+        {label} looks best with {bestText} per draw. {winners(perDraw)} still works, but the reveal takes longer.
+        {" "}To give more winners, raise Total quota and draw again.
+      </span>
+    </p>
   );
 }
