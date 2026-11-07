@@ -130,17 +130,30 @@ export async function periksaPenerima(
   return { penerima: { audience, audience_rules: bacaSyaratPengumuman(syarat), audience_ids: null, audience_any: syarat.length > 1 && masuk.audience_any === true } };
 }
 
-type BarisPeserta = { id: string; name: string; company: string | null; extra: Record<string, unknown> | null };
+export type BarisPeserta = { id: string; name: string; company: string | null; extra: Record<string, unknown> | null };
+
+/** Peserta aktif acara (tidak dihapus dari sumber sync). Null bila gagal dibaca. */
+export async function muatPesertaAktif(eventId: string): Promise<BarisPeserta[] | null> {
+  const db = getSupabaseServiceClient();
+  return semuaBaris<BarisPeserta>(() =>
+    db.from("participants").select("id,name,company,extra").eq("event_id", eventId).is("source_removed_at", null).order("id"));
+}
 
 /**
  * Peserta aktif (tidak dihapus dari sumber sync) yang melihat pengumuman ini,
  * dari seluruh peserta acara. Null bila gagal dibaca. Untuk semua dan
  * disetujui: semua peserta aktif.
  */
-export async function pesertaCocok(event: AcaraPenerima, penerima: Penerima): Promise<{ cocok: BarisPeserta[]; total: number } | null> {
-  const db = getSupabaseServiceClient();
-  const peserta = await semuaBaris<BarisPeserta>(() =>
-    db.from("participants").select("id,name,company,extra").eq("event_id", event.id).is("source_removed_at", null).order("id"));
+export async function pesertaCocok(
+  event: AcaraPenerima,
+  penerima: Penerima,
+  /**
+   * Peserta aktif yang sudah dibaca, dan tempat menyimpan stay hotel, untuk
+   * pemanggil yang mencocokkan banyak pengumuman sekaligus (laporan Seen).
+   */
+  muatan?: { peserta: BarisPeserta[]; stays?: StayPeserta },
+): Promise<{ cocok: BarisPeserta[]; total: number } | null> {
+  const peserta = muatan?.peserta ?? await muatPesertaAktif(event.id);
   if (!peserta) return null;
   if (penerima.audience === "semua" || penerima.audience === "disetujui") return { cocok: peserta, total: peserta.length };
   if (penerima.audience === "pilih") {
@@ -152,8 +165,9 @@ export async function pesertaCocok(event: AcaraPenerima, penerima: Penerima): Pr
   let stays: StayPeserta = new Map();
   // Hotel hanya dihitung bila kamar ditampilkan ke peserta, seperti di portal.
   if (bagianTampil(memberConfig(event), "rooms") && syarat.some((isi) => isi.field === KOLOM_HOTEL)) {
-    const dimuat = await muatStayPeserta(event.id);
+    const dimuat = muatan?.stays ?? await muatStayPeserta(event.id);
     if (!dimuat) return null;
+    if (muatan) muatan.stays = dimuat;
     stays = dimuat;
   }
   const offset = timeZoneOffset(normalizeTimeZone(event.time_zone));
