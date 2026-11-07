@@ -86,6 +86,7 @@ export const KILAS_UI = {
     prizeUnit: () => "hadiah undian",
     daysTogether: (n: number) => `${n} hari bersama`,
     reactText: "Dicatat, terima kasih!",
+    questionsCount: (n: number) => `${n} pertanyaan ringan`,
   },
   en: {
     metaTitle: "Your recap",
@@ -169,6 +170,7 @@ export const KILAS_UI = {
     prizeUnit: (n: number) => (n === 1 ? "lucky draw prize" : "lucky draw prizes"),
     daysTogether: (n: number) => (n === 1 ? "1 day together" : `${n} days together`),
     reactText: "Noted, thank you!",
+    questionsCount: (n: number) => (n === 1 ? "1 quick question" : `${n} quick questions`),
   },
 } as const;
 

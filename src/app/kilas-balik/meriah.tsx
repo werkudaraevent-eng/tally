@@ -120,20 +120,26 @@ const BENTUK: Record<string, ReactNode> = {
 };
 
 type Letak = { b: keyof typeof BENTUK; x: string; y: string; s: number; r: number; w?: 0 | 1 };
-/* Tata letak di tepi layar, supaya tidak menutupi tulisan. Satu pola per layar, bergiliran. */
+/*
+ * Ornamen hanya di dua zona yang tidak pernah berisi tulisan: pojok kanan atas
+ * (sejajar label kecil di kiri) dan pita bawah di atas tombol. Judul, paragraf,
+ * stiker, dan isian ada di tengah. Pita bawah disembunyikan di layar pendek
+ * (lihat .kb-orn[data-zona="bawah"] di kilas.css), karena di sana isi bisa turun.
+ */
 const POLA: Letak[][] = [
-  [{ b: "bintang", x: "82%", y: "6%", s: 34, r: 0 }, { b: "cincin", x: "-8%", y: "64%", s: 64, r: 0, w: 1 }, { b: "coretan", x: "76%", y: "46%", s: 60, r: -12 }, { b: "bintang", x: "8%", y: "84%", s: 18, r: 0, w: 1 }],
-  [{ b: "tiket", x: "78%", y: "10%", s: 52, r: 18 }, { b: "titik", x: "4%", y: "6%", s: 46, r: 0, w: 1 }, { b: "bintang", x: "86%", y: "70%", s: 26, r: 0 }, { b: "bulat", x: "-6%", y: "86%", s: 90, r: 20, w: 1 }],
-  [{ b: "coretan", x: "62%", y: "4%", s: 80, r: 8, w: 1 }, { b: "bintang", x: "6%", y: "12%", s: 28, r: 0 }, { b: "cincin", x: "84%", y: "60%", s: 48, r: 0 }, { b: "titik", x: "6%", y: "90%", s: 40, r: 0, w: 1 }],
-  [{ b: "bulat", x: "80%", y: "2%", s: 76, r: 200 }, { b: "bintang", x: "4%", y: "30%", s: 22, r: 0, w: 1 }, { b: "tiket", x: "76%", y: "84%", s: 46, r: -20 }, { b: "bintang", x: "90%", y: "46%", s: 16, r: 0, w: 1 }],
+  [{ b: "bintang", x: "88%", y: "0%", s: 24, r: 0 }, { b: "cincin", x: "-8%", y: "70%", s: 52, r: 0, w: 1 }, { b: "coretan", x: "78%", y: "76%", s: 52, r: -12, w: 1 }, { b: "bintang", x: "40%", y: "82%", s: 14, r: 0 }],
+  [{ b: "tiket", x: "84%", y: "-1%", s: 38, r: 18 }, { b: "bintang", x: "4%", y: "74%", s: 20, r: 0, w: 1 }, { b: "bulat", x: "80%", y: "78%", s: 60, r: 200, w: 1 }],
+  [{ b: "bintang", x: "88%", y: "1%", s: 22, r: 0 }, { b: "titik", x: "78%", y: "70%", s: 40, r: 0, w: 1 }, { b: "cincin", x: "-6%", y: "78%", s: 44, r: 0 }],
+  [{ b: "bulat", x: "84%", y: "-3%", s: 52, r: 200 }, { b: "bintang", x: "6%", y: "76%", s: 18, r: 0, w: 1 }, { b: "tiket", x: "76%", y: "80%", s: 40, r: -20 }],
   [{ b: "bintang", x: "86%", y: "26%", s: 22, r: 0 }, { b: "coretan", x: "74%", y: "90%", s: 56, r: -8, w: 1 }, { b: "bulat", x: "-6%", y: "92%", s: 70, r: 20, w: 1 }],
 ];
 /** Pola tepi untuk kepala halaman yang pendek (Ringkas): tidak menyentuh baris atas. */
-export const POLA_KEPALA = 4;
+const POLA_KEPALA = 4;
 
 /** Ornamen melayang di belakang isi. Warna ikut tema lewat --kb-orn-*. */
-export function Ornamen({ pola, ikon }: { pola: number; ikon?: ReactNode }) {
-  const daftar = POLA[((pola % POLA.length) + POLA.length) % POLA.length];
+export function Ornamen({ pola = 0, kepala = false, ikon }: { pola?: number; kepala?: boolean; ikon?: ReactNode }) {
+  // Pola kepala hanya untuk Ringkas; layar Kilas bergiliran di empat pola pertama.
+  const daftar = POLA[kepala ? POLA_KEPALA : ((pola % POLA_KEPALA) + POLA_KEPALA) % POLA_KEPALA];
   return (
     <div className="kb-ornamen" aria-hidden>
       {daftar.map((o, n) => (
@@ -141,6 +147,7 @@ export function Ornamen({ pola, ikon }: { pola: number; ikon?: ReactNode }) {
           key={n}
           className="kb-orn"
           data-warna={o.w ?? 0}
+          data-zona={parseFloat(o.y) >= 50 ? "bawah" : "atas"}
           style={{ left: o.x, top: o.y, width: o.s, height: o.s, "--rr": `${o.r}deg`, "--d": `${120 + n * 90}ms`, "--t": `${3.2 + n * 0.7}s` } as Gaya}
         >
           <svg viewBox="0 0 24 24" width={o.s} height={o.s}>
@@ -202,7 +209,7 @@ export function kenanganMeriah(lang: LandingLang, kartu: KunciKartu, k: Kenangan
   const t = KILAS_UI[lang];
   const kecil = { size: 18, weight: "bold" as const, "aria-hidden": true };
   const besar = { size: 120, weight: "fill" as const, "aria-hidden": true };
-  const tipis = { size: 260, weight: "thin" as const };
+  const tipis = { size: 190, weight: "thin" as const };
   if (kartu === "trip" && k.trip) {
     const Ikon = IKON_TRIP[k.trip.mode];
     return {

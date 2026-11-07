@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { terisi } from "@/lib/kilas-balik/alur";
 import { IsianTanya, Penutup, reduksiGerak, ubinRekap } from "./bagian";
 import type { Kilas } from "./kilas-client";
-import { KataMuncul, Ornamen, POLA_KEPALA } from "./meriah";
+import { KataMuncul, Ornamen } from "./meriah";
 
 /**
  * Ringkas: satu halaman, semua pertanyaan sekaligus, satu tombol kirim. Untuk
@@ -40,7 +40,7 @@ export function TampilanRingkas({ k }: { k: Kilas }) {
   return (
     <div className="kb-ringkas">
       <header className="kb-r-kepala">
-        <Ornamen pola={POLA_KEPALA} />
+        <Ornamen kepala />
         <div className="kb-r-baris">
           <p className="kb-fakta">{props.namaAcara}</p>
           <a href={props.portalUrl} className="kb-ikon" aria-label={t.close} title={t.close}>

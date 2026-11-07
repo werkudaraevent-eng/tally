@@ -107,6 +107,7 @@ export default async function KilasBalikPage({ searchParams }: { searchParams: K
     ...landingFontStyle(tokens),
     "--kb-latar": warna.latar,
     "--kb-latar-2": warna.latar2,
+    "--kb-latar-teks": warna.latarTeks,
     "--kb-aksen": warna.aksen,
     "--kb-aksen-teks": warna.aksenTeks,
     "--kb-kertas": warna.kertas,

@@ -109,16 +109,27 @@ import { warnaKilas } from "./warna.ts";
 import { kontras } from "../landing-hitung-mundur.ts";
 for (const seed of ["#0F1B3D", "#FFD400", "#2649D0", "#ffffff", "#000000"]) {
   const w = warnaKilas({ theme: { seed }, layout: "modern", gathering: true, accent: "#E8C968" } as never);
-  assert.ok(kontras(w.latar, "#ffffff") >= 7, `latar ${seed}`);
+  assert.ok(kontras(w.latar, w.latarTeks) >= 7, `latar ${seed}`);
+  assert.ok(kontras(w.latar2, w.latarTeks) >= 7, `latar2 ${seed}`);
   assert.ok(kontras(w.aksen, w.latar) >= 3, `aksen ${seed}`);
   assert.ok(kontras(w.aksenTeks, w.aksen) >= 4.5, `aksenTeks ${seed}`);
   assert.ok(kontras(w.tinta, w.kertas) >= 7, `tinta ${seed}`);
 }
 for (const brand of ["#FFE600", "#123456", "#ffffff"]) {
   const w = warnaKilas(null, { mode: "custom", brand, accent: "#FF00AA" });
-  assert.ok(kontras(w.latar, "#ffffff") >= 7, `custom latar ${brand}`);
+  assert.ok(kontras(w.latar, w.latarTeks) >= 7, `custom latar ${brand}`);
   assert.ok(kontras(w.aksen, w.latar) >= 3, `custom aksen ${brand}`);
+  assert.ok(kontras(w.tinta, w.kertas) >= 7, `custom tinta ${brand}`);
 }
+// Merek terang tetap jadi latar (tidak digelapkan jadi zaitun), dengan tulisan gelap.
+assert.equal(warnaKilas(null, { mode: "custom", brand: "#FFD400", accent: "#2649D0" }).latar, "#FFD400");
+assert.equal(warnaKilas(null, { mode: "custom", brand: "#FFD400", accent: "#2649D0" }).latarTeks, "#141414");
+// Aksen merah di latar gelap tetap berwarna, bukan putih.
+assert.notEqual(warnaKilas(null, { mode: "custom", brand: "#123456", accent: "#FF3B30" }).aksen, "#ffffff");
+// Aksen putih di merek krem: aksen diambil dari merek, bukan abu-abu.
+assert.notEqual(warnaKilas(null, { mode: "custom", brand: "#FFF4D6", accent: "#FFFFFF" }).aksen, "#141414");
+// KSO (navy + emas) tidak berubah.
+assert.equal(warnaKilas(null, { mode: "custom", brand: "#0F1B3D", accent: "#E8C968" }).aksen, "#E8C968");
 // Mode acara mengabaikan warna sendiri yang tersimpan.
 assert.deepEqual(warnaKilas(null, { mode: "event", brand: "#FF0000", accent: null }), warnaKilas(null));
 console.log("kilas-balik/warna ok");

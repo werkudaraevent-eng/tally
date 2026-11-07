@@ -151,7 +151,9 @@ export async function POST(request: Request) {
 
   // 2. Email pribadi (bila dipilih). Di luar produksi hanya alamat di daftar uji.
   const keEmail = denganEmail ? calon.filter((c): c is Calon & { email: string } => c.email !== null && allowedByList(c.email, daftarUji)) : [];
-  const warna = warnaKilas(landing, muat.setelan.theme).latar;
+  // Tombol email bertulisan putih: pakai latar bila gelap, tinta bila merek terang.
+  const tema = warnaKilas(landing, muat.setelan.theme);
+  const warna = tema.latarTeks === "#ffffff" ? tema.latar : tema.tinta;
   let terkirim = 0;
   let gagal = 0;
   let galat: string | null = null;

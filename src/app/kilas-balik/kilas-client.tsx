@@ -311,7 +311,7 @@ function TampilanKilas({ k }: { k: Kilas }) {
       </header>
 
       <section key={i} className={`kb-kartu kb-kartu-polos ${k.arah === 1 ? "kb-masuk" : "kb-masuk-balik"}`} aria-labelledby="kb-judul">
-        {sekarang.jenis !== "tutup" ? <Ornamen pola={i} ikon={kartu?.coretan ?? (sekarang.jenis === "buka" ? <Confetti size={260} weight="thin" /> : null)} /> : null}
+        {sekarang.jenis !== "tutup" ? <Ornamen pola={i} ikon={kartu?.coretan ?? (sekarang.jenis === "buka" ? <Confetti size={190} weight="thin" /> : null)} /> : null}
         <Reaksi teks={reaksi.teks} kunci={reaksi.kunci} />
 
         {sekarang.jenis === "buka" ? (
@@ -324,7 +324,7 @@ function TampilanKilas({ k }: { k: Kilas }) {
               <KataMuncul teks={sapa} mulai={150} jeda={110} />
             </h1>
             <p className="kb-teks kb-pelan">{props.intro?.trim() || t.introDefault}</p>
-            <Stiker label={[{ teks: t.daysTogether(kenangan.hari) }, { teks: t.duration(menit) }]} mulai={900} />
+            <Stiker label={[{ teks: t.daysTogether(kenangan.hari) }, { teks: t.questionsCount(k.tanyaSemua.length) }]} mulai={900} />
             <div className="kb-isi-bawah">
               {k.lanjutDari !== null && k.lanjutDari > 0 ? (
                 <>
