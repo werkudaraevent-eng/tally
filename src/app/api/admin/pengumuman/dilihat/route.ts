@@ -10,7 +10,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * GET tanpa `id`: ringkasan semua pengumuman acara, untuk chip "312 of 446
  * seen" di daftar. GET dengan `id`: ringkasan dan daftar peserta penerimanya
  * dengan status Seen / Not seen yet / Never signed in, untuk panel detail
- * dan dialog follow-up. Hanya membaca; tanpa migrasi baru.
+ * dan dialog follow-up, ditambah ringkasan Email tracking bila ada
+ * (migrasi 202611070030; tanpa itu email: null). Hanya membaca.
  */
 
 export const maxDuration = 30;
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
   if (id) {
     const isi = laporan.get(id);
     if (!isi) return apiError("INTERNAL_ERROR", 500);
-    return Response.json({ id, published_at: items[0].published_at, summary: isi.ringkas, people: isi.baris });
+    return Response.json({ id, published_at: items[0].published_at, summary: isi.ringkas, email: isi.email, people: isi.baris });
   }
   return Response.json({ items: Object.fromEntries([...laporan].map(([kunci, isi]) => [kunci, isi.ringkas])) });
 }

@@ -64,6 +64,8 @@ export function renderEmail(input: {
   test?: boolean;
   /** Satu kalimat dari sistem tepat di atas tombol, mis. untuk peserta yang sudah punya akun. */
   note?: string | null;
+  /** Gambar 1x1 Email tracking (Opened) untuk penerima ini; null bila sakelarnya mati. */
+  pixelUrl?: string | null;
 }): RenderedEmail {
   const subjek = `${input.test ? "[TEST] " : ""}${fillFields(input.subject, input.values).trim() || input.eventName}`;
   const isi = fillFields(input.body, input.values).trim();
@@ -83,9 +85,10 @@ export function renderEmail(input: {
   const catatanUji = input.test
     ? `<p lang="en" style="margin:0 0 16px;padding:10px 12px;background:#FDF5E1;color:#8A5A00;font-size:13px;line-height:1.5;border-radius:6px;">Test email. The links below are samples and can't be used.</p>`
     : "";
+  const kalimatJejak = input.pixelUrl ? " Panitia melihat apakah email ini sudah dibuka." : "";
   const kaki = input.unsubscribeUrl
-    ? `${escapeHtml(alasan)} <a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#66736C;">Berhenti menerima email untuk acara ini</a>.`
-    : escapeHtml(alasan);
+    ? `${escapeHtml(alasan + kalimatJejak)} <a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#66736C;">Berhenti menerima email untuk acara ini</a>.`
+    : escapeHtml(alasan + kalimatJejak);
 
   const html = `<!doctype html>
 <html lang="id"><body style="margin:0;padding:24px;background:#F5F4F0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#17211D;">
@@ -97,7 +100,7 @@ export function renderEmail(input: {
     <p style="margin:28px 0 0;"><a href="${escapeHtml(input.actionUrl)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">${tombol}</a></p>
     <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#66736C;">Tombol tidak bisa diklik? Salin alamat ini ke peramban:<br><span style="word-break:break-all;">${escapeHtml(input.actionUrl)}</span></p>
     <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">${kaki}</p>
-  </div>
+  </div>${input.pixelUrl ? `\n  <img src="${escapeHtml(input.pixelUrl)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;">` : ""}
 </body></html>`;
 
   const text = [
@@ -109,7 +112,7 @@ export function renderEmail(input: {
     "",
     `${tombol}: ${input.actionUrl}`,
     "",
-    alasan,
+    alasan + kalimatJejak,
     ...(input.unsubscribeUrl ? [`Berhenti menerima email untuk acara ini: ${input.unsubscribeUrl}`] : []),
   ].join("\n");
 

@@ -3,6 +3,7 @@ import { muatPesertaAktif, pesertaCocok, type BarisPeserta, type Penerima } from
 import { ringkasDilihat, statusDilihat, type AkunDilihat, type RingkasDilihat, type StatusDilihat } from "@/lib/pengumuman-dilihat";
 import { bacaSyaratPengumuman } from "@/lib/sasaran-pengumuman";
 import type { EventRow } from "@/lib/domain";
+import { ringkasEmail, statusEmail, statusTerkuat, type RingkasEmail, type StatusEmail } from "@/lib/email/jejak-status";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Laporan Seen per pengumuman (lihat pengumuman-dilihat.ts). Peserta, akun
@@ -27,7 +28,48 @@ export type BarisDilihat = {
   status: StatusDilihat;
   /** Terakhir membuka portal (masuk atau sesi), null bila belum pernah masuk. */
   last_opened: string | null;
+  /** Email tracking untuk kiriman ini (published_at yang sama); null = tidak ada email terlacak. */
+  email: StatusEmail | null;
 };
+
+type BarisEmail = { announcement_id: string; participant_id: string | null; published_at: string; clicked_at: string | null; opened_at: string | null; opened_auto_at: string | null };
+
+/**
+ * Email terlacak (migrasi 202611070030) untuk pengumuman yang diminta, per
+ * pengumuman lalu per peserta, hanya untuk kiriman yang berlaku sekarang
+ * (published_at sama; Notify again memulai hitungan baru). Kosong bila
+ * tabelnya belum ada atau tidak terbaca: laporan Seen tetap jalan tanpanya.
+ */
+async function muatEmail(eventId: string, items: PengumumanDilihat[]) {
+  const hasil = new Map<string, { ringkas: RingkasEmail; per: Map<string, StatusEmail> }>();
+  if (items.length === 0) return hasil;
+  const db = getSupabaseServiceClient();
+  const terbit = new Map(items.map((item) => [item.id, Date.parse(item.published_at)]));
+  const baris: BarisEmail[] = [];
+  for (let i = 0; i < items.length; i += 100) {
+    const potongan = items.slice(i, i + 100).map((item) => item.id);
+    const isi = await semuaBaris<BarisEmail>(() =>
+      db
+        .from("announcement_email_recipients")
+        .select("announcement_id,participant_id,published_at,clicked_at,opened_at,opened_auto_at")
+        .eq("event_id", eventId)
+        .in("announcement_id", potongan)
+        .order("id"));
+    if (!isi) return hasil;
+    baris.push(...isi);
+  }
+  const status = new Map<string, StatusEmail[]>();
+  for (const b of baris) {
+    if (Date.parse(b.published_at) !== terbit.get(b.announcement_id)) continue;
+    const s = statusEmail(b);
+    status.set(b.announcement_id, [...(status.get(b.announcement_id) ?? []), s]);
+    const entri = hasil.get(b.announcement_id) ?? { ringkas: ringkasEmail([]), per: new Map<string, StatusEmail>() };
+    if (b.participant_id) entri.per.set(b.participant_id, statusTerkuat(entri.per.get(b.participant_id) ?? null, s));
+    hasil.set(b.announcement_id, entri);
+  }
+  for (const [id, daftar] of status) hasil.get(id)!.ringkas = ringkasEmail(daftar);
+  return hasil;
+}
 
 type BarisAkun = AkunDilihat & { participant_id: string; participant_sessions: Array<{ last_seen_at: string | null }> | null };
 type Akun = AkunDilihat & { last_opened: string | null };
@@ -84,19 +126,24 @@ export async function laporanDilihat(
   event: AcaraDilihat,
   items: PengumumanDilihat[],
   denganBaris: boolean,
-): Promise<Map<string, { ringkas: RingkasDilihat; baris: BarisDilihat[] }> | null> {
-  const [peserta, akun] = await Promise.all([muatPesertaAktif(event.id), muatAkun(event.id)]);
+): Promise<Map<string, { ringkas: RingkasDilihat; email: RingkasEmail | null; baris: BarisDilihat[] }> | null> {
+  const [peserta, akun, email] = await Promise.all([muatPesertaAktif(event.id), muatAkun(event.id), muatEmail(event.id, items)]);
   if (!peserta || !akun) return null;
   const muatan: { peserta: BarisPeserta[] } = { peserta };
-  const hasil = new Map<string, { ringkas: RingkasDilihat; baris: BarisDilihat[] }>();
+  const hasil = new Map<string, { ringkas: RingkasDilihat; email: RingkasEmail | null; baris: BarisDilihat[] }>();
   for (const item of items) {
     const penerima = penerimaDari(item);
     if (!penerima) continue;
     const cocok = await pesertaCocok(event, penerima, muatan);
     if (!cocok) return null;
-    const status = cocok.cocok.map((orang) => statusDilihat(item.published_at, akun.get(orang.id)));
+    const lewatEmail = email.get(item.id);
+    // Menekan tombol di email membuka pengumuman itu: ikut terhitung Seen.
+    const status = cocok.cocok.map((orang) =>
+      lewatEmail?.per.get(orang.id) === "diklik" ? "dilihat" : statusDilihat(item.published_at, akun.get(orang.id)),
+    );
     hasil.set(item.id, {
       ringkas: ringkasDilihat(status),
+      email: lewatEmail?.ringkas ?? null,
       baris: denganBaris
         ? cocok.cocok.map((orang, i) => ({
             participant_id: orang.id,
@@ -104,6 +151,7 @@ export async function laporanDilihat(
             company: orang.company,
             status: status[i],
             last_opened: akun.get(orang.id)?.last_opened ?? null,
+            email: lewatEmail?.per.get(orang.id) ?? null,
           }))
         : [],
     });

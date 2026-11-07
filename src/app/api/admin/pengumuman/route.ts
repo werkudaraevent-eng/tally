@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { jejakMenyala } from "@/lib/email/jejak-server";
 import { apiError } from "@/lib/api";
 import { messagingAllowlist } from "@/lib/pesan/alamat";
 import { requireRequestEvent } from "@/lib/auth/request-event";
@@ -149,6 +150,8 @@ export async function GET(request: Request) {
     items: daftar.data ?? [],
     recipients: { semua: semua.count ?? 0, disetujui: disetujui.count ?? 0 },
     email_configured: isEmailConfigured(),
+    // Messages > Automated emails > Tracking; false sebelum migrasi 202611070030.
+    email_tracking: await jejakMenyala(eventId),
     test_mode: messagingAllowlist().mode,
     member_enabled: Boolean(landing.member?.enabled),
     time_zone: auth.scope.event.time_zone,

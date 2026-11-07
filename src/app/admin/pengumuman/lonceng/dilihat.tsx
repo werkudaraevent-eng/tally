@@ -23,6 +23,7 @@ import {
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
 import { keCsv } from "@/lib/logistik/tabel";
+import type { RingkasEmail, StatusEmail } from "@/lib/email/jejak-status";
 import { persenDilihat, type RingkasDilihat, type StatusDilihat } from "@/lib/pengumuman-dilihat";
 import { plural } from "@/lib/plural";
 
@@ -36,8 +37,11 @@ import { plural } from "@/lib/plural";
  * "Seen by". Labelnya "Seen", bukan "Read", karena hanya itu yang terbukti.
  */
 
-type Orang = { participant_id: string; name: string; company: string | null; status: StatusDilihat; last_opened: string | null };
-type Laporan = { id: string; published_at: string; summary: RingkasDilihat; people: Orang[] };
+type Orang = { participant_id: string; name: string; company: string | null; status: StatusDilihat; last_opened: string | null; email?: StatusEmail | null };
+type Laporan = { id: string; published_at: string; summary: RingkasDilihat; email?: RingkasEmail | null; people: Orang[] };
+
+/** Email tracking per orang. Apple: proxy Mail Privacy Protection memuat gambarnya sendiri. */
+const LABEL_EMAIL: Record<StatusEmail, string> = { diklik: "Clicked", dibuka: "Opened", dibuka_otomatis: "Apple auto-open", terkirim: "Sent" };
 
 const LABEL: Record<StatusDilihat, string> = { dilihat: "Seen", belum: "Not seen yet", belum_masuk: "Never signed in" };
 const NADA: Record<StatusDilihat, "success" | "warning" | "neutral"> = { dilihat: "success", belum: "warning", belum_masuk: "neutral" };
@@ -148,8 +152,14 @@ export function BagianDilihat({
     if (!data) return;
     const urut = [...data.people].sort((a, b) => URUTAN.indexOf(a.status) - URUTAN.indexOf(b.status) || a.name.localeCompare(b.name));
     const csv = keCsv(
-      ["Name", "Company", "Status", "Last opened portal"],
-      urut.map((orang) => [[orang.name], [orang.company ?? ""], [LABEL[orang.status]], [orang.last_opened ? waktu(orang.last_opened, timeZone) : ""]]),
+      ["Name", "Company", "Status", "Last opened portal", ...(data.email ? ["Email"] : [])],
+      urut.map((orang) => [
+        [orang.name],
+        [orang.company ?? ""],
+        [LABEL[orang.status]],
+        [orang.last_opened ? waktu(orang.last_opened, timeZone) : ""],
+        ...(data.email ? [[orang.email ? LABEL_EMAIL[orang.email] : ""]] : []),
+      ]),
     );
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
@@ -188,6 +198,7 @@ export function BagianDilihat({
   }
 
   const jumlahKelompok = ringkas ? ringkas[kelompok] : 0;
+  const email = data?.id === id ? (data.email ?? null) : null;
 
   return (
     <DetailSection title="Seen by participants" className="border-t">
@@ -229,8 +240,9 @@ export function BagianDilihat({
             </dl>
           </>
         )}
+        {email && email.terkirim > 0 ? <RingkasanEmail email={email} /> : null}
         <p className="text-body-small text-on-surface-variant">
-          Counted since it was {sentAgain ? "sent again" : "posted"} {waktu(publishedAt, timeZone)}. Seen means the person opened the bell or the Announcements tab after that, including from the email button. Email opens and closing a pop-up aren&apos;t counted.
+          Counted since it was {sentAgain ? "sent again" : "posted"} {waktu(publishedAt, timeZone)}. Seen means the person opened the bell or the Announcements tab after that, or pressed the email button. Email opens and closing a pop-up aren&apos;t counted as Seen.
         </p>
         <div className="flex flex-wrap gap-2">
           {ringkas && ringkas.total > 0 ? (
@@ -304,13 +316,14 @@ export function BagianDilihat({
             />
           ) : (
             <TableCard>
-              <Table minWidth="520px" density="compact">
+              <Table minWidth={email ? "640px" : "520px"} density="compact">
                 <TableHead>
                   <TableRow>
                     <TableHeaderCell>Participant</TableHeaderCell>
                     <TableHeaderCell>Company</TableHeaderCell>
                     <TableHeaderCell>Status</TableHeaderCell>
                     <TableHeaderCell>Last opened portal</TableHeaderCell>
+                    {email ? <TableHeaderCell>Email</TableHeaderCell> : null}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -322,6 +335,7 @@ export function BagianDilihat({
                         <StatusChip tone={NADA[orang.status]}>{LABEL[orang.status]}</StatusChip>
                       </TableCell>
                       <TableCell numeric>{orang.last_opened ? waktu(orang.last_opened, timeZone) : "–"}</TableCell>
+                      {email ? <TableCell className={orang.email === "diklik" ? "text-on-surface" : "text-on-surface-variant"}>{orang.email ? LABEL_EMAIL[orang.email] : "–"}</TableCell> : null}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -333,5 +347,40 @@ export function BagianDilihat({
       document.querySelector(".admin-shell") ?? document.body,
       ) : null}
     </DetailSection>
+  );
+}
+
+/**
+ * Email tracking kiriman ini. Clicked paling depan karena paling bisa
+ * dipercaya; Opened ditulis sebagai perkiraan, dan buka otomatis Apple Mail
+ * dipisah (rujukan: Mailchimp dan Klaviyo memisahkan "Apple MPP opens").
+ */
+export function RingkasanEmail({ email }: { email: RingkasEmail }) {
+  const persen = (n: number) => (email.terkirim > 0 ? Math.round((n / email.terkirim) * 100) : 0);
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-outline-variant px-3 py-2">
+      <p className="text-body-small text-on-surface-variant">
+        Email copy · <span className="tabular-nums">{email.terkirim}</span> tracked {email.terkirim === 1 ? "email" : "emails"}
+      </p>
+      <dl className="grid grid-cols-3 gap-2">
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-body-small text-on-surface-variant">Clicked</dt>
+          <dd className="text-title-medium font-semibold tabular-nums">
+            {email.diklik} <span className="text-body-small font-normal text-on-surface-variant">({persen(email.diklik)}%)</span>
+          </dd>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-body-small text-on-surface-variant">Opened, estimate</dt>
+          <dd className="text-title-medium font-semibold tabular-nums">
+            {email.dibuka} <span className="text-body-small font-normal text-on-surface-variant">({persen(email.dibuka)}%)</span>
+          </dd>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-body-small text-on-surface-variant">Apple auto-open</dt>
+          <dd className="text-title-medium font-semibold tabular-nums">{email.dibuka_otomatis}</dd>
+        </div>
+      </dl>
+      <p className="text-body-small text-on-surface-variant">Apple Mail opens every email by itself, so those aren&apos;t counted as Opened. Outlook blocks images until the reader allows them.</p>
+    </div>
   );
 }

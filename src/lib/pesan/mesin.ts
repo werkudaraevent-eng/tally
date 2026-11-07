@@ -12,6 +12,7 @@ import { emailFailure } from "./status";
 import { inviteToken, inviteTokenHash, unsubscribeSignature } from "./tautan";
 import { INVITATION_COLUMNS, invitationUrl, undanganBelumAda, type InvitationRow } from "@/lib/undangan/data";
 import { emailHash, inviteUnsubscribeSignature } from "@/lib/undangan/tanda";
+import { jejakMenyala, tokenJejak, urlBuka } from "@/lib/email/jejak-server";
 
 /**
  * Mesin kirim Pesan peserta.
@@ -465,6 +466,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
   const hasil: DrainOutcome = { ran: true, chunks: 0, sent: 0, failed: 0, stoppedBy: "empty" };
   const kiriman = new Map<string, BlastRow>();
   const acara = new Map<string, EventForMail>();
+  const lacak = new Map<string, boolean>();
   // Kiriman yang dilewati di putaran ini (Invitation tanpa pengirim undangan),
   // supaya satu kiriman yang tertahan tidak menghentikan kiriman lain.
   const ditunda = new Set<string>();
@@ -497,6 +499,14 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
         acara.set(blast.event_id, e as unknown as EventForMail);
       }
       const event = acara.get(blast.event_id)!;
+      // Email tracking (migrasi 202611070030): gambar 1x1 per penerima.
+      // Mati, belum dimigrasi, atau tidak terbaca = tanpa gambar.
+      if (!lacak.has(blast.event_id)) lacak.set(blast.event_id, await jejakMenyala(blast.event_id));
+      const pixel = (id: number) => {
+        if (!lacak.get(blast.event_id)) return null;
+        const token = tokenJejak("b", id);
+        return token ? urlBuka(blast.link_origin ?? blast.site_origin ?? "", event.slug, token) : null;
+      };
 
       // Keadaan peserta SAAT INI, bukan saat Kirim ditekan.
       const peserta = new Map<string, PesertaKini>();
@@ -571,6 +581,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
             values: fieldValues(event, { name: r.name, company: u.company }),
             actionUrl: invitationUrl(origin, event.slug, u),
             unsubscribeUrl: berhentiTamu,
+            pixelUrl: pixel(r.id),
           });
           return {
             to: r.address ?? "",
@@ -598,6 +609,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
           actionUrl,
           unsubscribeUrl: berhenti,
           note: blast.kind === "undangan" && akun ? CATATAN_SUDAH_PUNYA_AKUN : null,
+          pixelUrl: pixel(r.id),
         });
         return {
           to: r.address ?? "",

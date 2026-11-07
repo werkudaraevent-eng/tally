@@ -512,6 +512,10 @@ export default function EmailOtomatisPage() {
               </Button>
             </Baris>
 
+            <Baris judul="Tracking" id="jejak">
+              <SakelarJejak />
+            </Baris>
+
             <Baris judul="Email language" id="bahasa-kirim">
               <div role="radiogroup" aria-labelledby="bahasa-kirim" className="flex flex-col gap-2">
                 {(
@@ -861,6 +865,66 @@ export default function EmailOtomatisPage() {
       </Dialog>
     </WorkspacePage>
     </div>
+  );
+}
+
+/**
+ * Email tracking acara ini: tersimpan langsung (seperti Pengirim), lepas dari
+ * Simpan templat. Hanya email pengumuman dan blast; konfirmasi pendaftaran
+ * dan tautan masuk tidak pernah dilacak.
+ */
+function SakelarJejak() {
+  const toast = useToast();
+  const [nilai, setNilai] = useState<{ siap: boolean; email_tracking: boolean } | null>(null);
+  const [sibuk, setSibuk] = useState(false);
+
+  useEffect(() => {
+    let batal = false;
+    void fetch("/api/admin/email-jejak", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((body) => {
+        if (!batal && body) setNilai(body as { siap: boolean; email_tracking: boolean });
+      });
+    return () => {
+      batal = true;
+    };
+  }, []);
+
+  async function ubah(baru: boolean) {
+    setSibuk(true);
+    const response = await fetch("/api/admin/email-jejak", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email_tracking: baru }),
+    }).catch(() => null);
+    setSibuk(false);
+    if (!response?.ok) {
+      toast.error("Email tracking not changed", "Try again.");
+      return;
+    }
+    setNilai((await response.json()) as { siap: boolean; email_tracking: boolean });
+    toast.success(baru ? "Email tracking on" : "Email tracking off", "Applies to emails sent from now on.");
+  }
+
+  if (!nilai) return <p className="pt-2 text-body-medium text-on-surface-variant">Loading…</p>;
+  return (
+    <>
+      <Switch
+        label="Record opens and clicks for announcement emails and blasts"
+        description={
+          nilai.siap
+            ? "Clicked is reliable. Opened is an estimate: Apple Mail opens every email by itself (counted separately) and Outlook blocks images. The email footer tells recipients. Registration confirmations and sign-in links are never tracked."
+            : "Available after the database update for email tracking has been run."
+        }
+        checked={nilai.email_tracking}
+        simpan
+        kunci={!nilai.siap}
+        disabled={sibuk}
+        onChange={(baru) => void ubah(baru)}
+      />
+      <p className="text-body-small text-on-surface-variant">Saved straight away. Applies to emails sent after you turn it on.</p>
+    </>
   );
 }
 

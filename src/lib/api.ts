@@ -97,6 +97,7 @@ const messages: Record<ApiErrorCode, string> = {
   ANNOUNCEMENT_NOT_FOUND: "Announcement not found. Another staff member may have deleted it; reload the page.",
   // Tabel pengumuman dibuat migrasi 202610030002. Sebelum dijalankan, fitur
   // ini mati dengan pesan yang menyebut langkahnya, bukan galat 500.
+  TRACKING_NOT_READY: "Email tracking is not available yet: database migration 202611070030 has not been run.",
   ANNOUNCEMENTS_NOT_READY: "Announcements are not active yet: database migration 202610030002 has not been run.",
   ROOM_NOTICES_NOT_READY: "Room number emails are not active yet: database migration 202611040003 has not been run.",
   ANNOUNCEMENT_AUDIENCE_NOT_READY: "Sending to some participants needs a database update first (migration 202610300004). All accounts and Approved still work.",
