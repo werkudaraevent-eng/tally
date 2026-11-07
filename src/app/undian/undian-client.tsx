@@ -15,6 +15,8 @@ import { TunnelAnimation } from "./undian-tunnel";
 import { DrumAnimation, preloadDrum } from "./undian-drum";
 import { DartAnimation3D, preloadDart } from "./undian-dart";
 import { ArenaAnimation, preloadArena } from "./undian-arena";
+import { PackAnimation, preloadPack } from "./undian-kartu";
+import { packFirstNameMs, packTiers } from "@/lib/undian-kartu";
 import { CahayaAnimation } from "./undian-cahaya";
 import { MusicClickHint, useStageMusic } from "./undian-musik";
 
@@ -84,7 +86,12 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   // Spotlight wall, Terowongan nama, dan Tabung bola butuh beberapa detik
   // sebelum nama pertama tampil; confetti, ledakan, dan fanfare menunggu nama
   // itu, bukan mendahuluinya.
-  const fxDelay = revealFxDelayMs(state.prize?.animation ?? "");
+  // Mesin Kartu: nama pertama terbaca saat kartu pertama terbalik. Confetti,
+  // kilatan, dan fanfare dibuat adegannya sendiri (kartu emas), jadi layar
+  // hanya mengganti lagu pemenang pada saat itu.
+  const tiersNow = useMemo(() => (state.pack ? packTiers(state.pack) : []), [state.pack]);
+  const packStage = state.prize?.animation === "pack";
+  const fxDelay = packStage ? Math.max(1, packFirstNameMs(tiersNow)) : revealFxDelayMs(state.prize?.animation ?? "");
   const delayedReveal = fxDelay > 0;
   const confettiOn = state.settings.confetti_enabled;
   // Dibaca lewat ref supaya mengubah Confetti tidak memutar ulang fanfare
@@ -112,6 +119,10 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
       setBurst((value) => value + 1);
     }
   }
+  const packStageRef = useRef(packStage);
+  useEffect(() => {
+    packStageRef.current = packStage;
+  }, [packStage]);
 
   useEffect(() => {
     if (revealKey === "") return;
@@ -120,9 +131,10 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
       return;
     }
     const timer = window.setTimeout(() => {
+      setShownKey(revealKey);
+      if (packStageRef.current) return;
       if (confettiRef.current) setConfettiTrigger((value) => value + 1);
       setBurst((value) => value + 1);
-      setShownKey(revealKey);
       if (chimeOn) playFanfare();
     }, fxDelay);
     return () => window.clearTimeout(timer);
@@ -139,6 +151,10 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   useEffect(() => {
     if (dartNext) preloadDart();
   }, [dartNext]);
+  const packNext = state.prize?.animation === "pack";
+  useEffect(() => {
+    if (packNext) preloadPack();
+  }, [packNext]);
   const arenaNext = state.prize?.animation === "arena";
   useEffect(() => {
     if (arenaNext) preloadArena();
@@ -197,7 +213,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
     // memenangkan hadiah yang sama.
     winners: revealed ? state.winners.filter((winner) => winner.status !== "rejected").map((winner) => ({
       name: winner.name, company: winner.company, seat: winner.seat,
-      is_backup: winner.is_backup, slot_order: winner.slot_order,
+      is_backup: winner.is_backup, slot_order: winner.slot_order, prize_id: winner.prize_id,
     })) : [],
     endsAt,
     accent,
@@ -362,7 +378,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
             style={{ fontFamily: headingFont, fontSize: "clamp(14px, 2.2vw, 36px)", lineHeight: 1.2, color: text, border: `2px solid ${accent}`, background: greenScreen ? `color-mix(in srgb, ${accent} 13%, ${settings.background_color ?? "#0B1020"})` : `${accent}22` }}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={revealed
-              ? { opacity: 1, scale: 1, transition: { ...expressive.spatial.default, delay: revealSettleMs(state.prize.animation, animationProps.winners) / 1000 + 0.4 } }
+              ? { opacity: 1, scale: 1, transition: { ...expressive.spatial.default, delay: revealSettleMs(state.prize.animation, animationProps.winners, tiersNow) / 1000 + 0.4 } }
               : { opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
           >
             {state.prize.message}
@@ -404,6 +420,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
                   : state.prize.animation === "drum" ? <DrumAnimation {...animationProps} />
                   : state.prize.animation === "arena" ? <ArenaAnimation {...animationProps} />
                   : state.prize.animation === "cahaya" ? <CahayaAnimation {...animationProps} jadwal={state.cahaya ?? null} />
+                  : state.prize.animation === "pack" ? <PackAnimation {...animationProps} pack={state.pack ?? null} prizeName={state.prize.name} sound={state.settings.sound_enabled && !greenScreen} fanfare={chimeOn && !greenScreen} title={state.settings.page_title} />
                   : spinning
                     ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: dim(0.5) }}>Mengundi...</p>
                     : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}

@@ -6,6 +6,7 @@ import { easing, expressive } from "@/lib/m3/motion";
 import { mixHex, readableOn } from "@/lib/color";
 import { ShineText } from "./undian-stage-fx";
 import { CAHAYA_LAG_MS, CAHAYA_SEBAR_MS } from "@/lib/undian-cahaya";
+import { packRevealMs, type TierNumber } from "@/lib/undian-kartu";
 
 // Lapisan animasi layar undian.
 //
@@ -23,7 +24,12 @@ import { CAHAYA_LAG_MS, CAHAYA_SEBAR_MS } from "@/lib/undian-cahaya";
 
 export type AnimationProps = {
   roster: { name: string; seat: string | null; code: string | null }[];
-  winners: { name: string; company: string | null; seat: string | null; is_backup: boolean; slot_order: number }[];
+  /** `prize_id`: hanya pada bungkus Mesin Kartu "semua hadiah", hadiah tiap nama. */
+  winners: {
+    name: string; company: string | null; seat: string | null; is_backup: boolean; slot_order: number; prize_id?: number;
+    /** Card reveal saja: baris hadiah di kartu dan warnanya (cadangan 2D Mesin Kartu). */
+    label?: string; tint?: string;
+  }[];
   endsAt: number | null;
   accent: string;
   text: string;
@@ -813,10 +819,11 @@ export function CardsAnimation({ roster, winners, endsAt, accent, text, fontFami
             {spinning ? current : "..."}
           </span>
         </div>
-        <div className={face} style={{ borderColor: accent, background: accent, backfaceVisibility: "hidden", transform: "rotateY(180deg)", boxShadow: open ? `0 0 5vh ${accent}99` : undefined }}>
+        <div className={face} style={{ borderColor: winner?.tint ?? accent, background: winner?.tint ?? accent, backfaceVisibility: "hidden", transform: "rotateY(180deg)", boxShadow: open ? `0 0 5vh ${winner?.tint ?? accent}99` : undefined }}>
           {winner ? <div className="min-w-0">
-            <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: nameSize, color: onAccent }}>{winner.name}</p>
-            {winner.company && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: onAccent, opacity: 0.75 }}>{winner.company}</p>}
+            {winner.label && <p className="truncate font-semibold uppercase tracking-wide" style={{ fontFamily, fontSize: subSize, color: winner.tint ? readableOn(winner.tint) : onAccent, opacity: 0.85 }}>{winner.label}</p>}
+            <p className="truncate font-bold uppercase" style={{ fontFamily, fontSize: nameSize, color: winner.tint ? readableOn(winner.tint) : onAccent }}>{winner.name}</p>
+            {winner.company && <p className="truncate" style={{ fontFamily, fontSize: subSize, color: winner.tint ? readableOn(winner.tint) : onAccent, opacity: 0.75 }}>{winner.company}</p>}
           </div> : null}
         </div>
       </motion.div>;
@@ -1425,7 +1432,7 @@ export function ConfettiBurst({ trigger, accent, text }: { trigger: number; acce
  * ubah juga di sini. Dibulatkan ke atas, karena terlambat sedikit lebih baik
  * daripada mendahului nama.
  */
-export function revealSettleMs(animation: string, winners: { is_backup: boolean }[]): number {
+export function revealSettleMs(animation: string, winners: { is_backup: boolean }[], packTiers?: TierNumber[]): number {
   // Roda, gulungan, dan panah mengungkap pemenang UTAMA satu per satu; kartu
   // membuka semua kotak termasuk cadangan.
   const n = Math.max(1, animation === "cards" ? winners.length : winners.filter((winner) => !winner.is_backup).length);
@@ -1449,6 +1456,8 @@ export function revealSettleMs(animation: string, winners: { is_backup: boolean 
     }
     // Dua babak terakhir dan podium, lalu daftar nama satu per satu.
     case "arena": return ARENA_LIST_MS + Math.min(n * 350, 2000);
+    // Bungkus disobek, lalu tiap kartu dibuka (lib/undian-kartu PACK_TIMING).
+    case "pack": return packRevealMs(packTiers && packTiers.length > 0 ? packTiers : Array.from({ length: Math.max(1, n) }, () => 1 as TierNumber));
     // Titik emas berdiri sebentar, lalu daftar nama (CAHAYA_LIST_MS di undian-cahaya.tsx).
     case "cahaya": return CAHAYA_LAG_MS + CAHAYA_SEBAR_MS + 1800 + Math.min(n * 350, 2000);
     case "drum": {

@@ -10,6 +10,7 @@ import {
   type AfterWin, type AnimSpeed, type BonusRule, type ExcludeScope, type SpinMode, type UndianPrize, type WallNames, type WallTiles, type WeightMode, type WeightVar,
 } from "@/lib/undian";
 import { cx } from "@/lib/m3/cx";
+import { CARD_TIERS, PACK_INTRO_MS, type CardTier, type PackContents } from "@/lib/undian-kartu";
 import { AnimationPicker, type StageLook } from "./animation-picker";
 import { BonusRules } from "./bonus-rules";
 import { Field, INPUT, NumberField, PaneError, UploadButton } from "./form";
@@ -30,7 +31,7 @@ const digitsOnly = (value: string) => value.replace(/\D/g, "");
  */
 export function PrizeEditor({
   draft, isNew, legacyFormula, groups, preview, previewFailed, saving, uploading, error,
-  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, onPreviewRules, onNewEntryList, stage, order,
+  onChange, onSave, onClose, onUpload, onDelete, onRetrySessions, onPreviewRules, onNewEntryList, stage, order, packAllHolder = null,
 }: {
   draft: Draft; isNew: boolean; legacyFormula: boolean; groups: EntryGroup[]; preview: Preview | null; previewFailed: boolean;
   saving: boolean; uploading: boolean; error: string;
@@ -49,6 +50,8 @@ export function PrizeEditor({
    * masuk di urutan terakhir, dan memindahkannya baru masuk akal setelah ada.
    */
   order?: { position: number; total: number; moving: boolean; onMove: (direction: "up" | "down") => void };
+  /** Nama hadiah aktif lain yang memakai Card machine dengan "All prizes in one pack", atau null. */
+  packAllHolder?: string | null;
 }) {
   const modeBerhenti = SPIN_MODES.find((item) => item.value === draft.spin_mode);
 
@@ -127,6 +130,7 @@ export function PrizeEditor({
               spinMode={draft.spin_mode} spinSeconds={draft.spin_seconds} winnersPerDraw={draft.winners_per_draw}
               sampleNames={(preview?.sample ?? []).map((row) => row.name)} stage={stage}
               wallNames={draft.wall_names} wallTiles={draft.wall_tiles} speed={draft.anim_speed}
+              pack={{ prize: draft.name, tier: draft.card_tier, contents: draft.pack_contents }}
             />
 
             {/* Spotlight wall saja: nama di dinding selama undian. Inisial
@@ -159,6 +163,43 @@ export function PrizeEditor({
                   {draft.wall_tiles === "fixed"
                     ? "The wall is always full, whatever the number in the draw, and names keep changing on the tiles. Guests cannot count the tiles to work out how many are in the draw."
                     : "Each person in the draw has one tile, so the number of tiles is the number in the draw."}
+                </p>
+              </div>
+            ) : null}
+
+            {/* Mesin Kartu: isi bungkus dan warna kartu. Warna juga tampil di
+                hadiah lain bila ada bungkus "semua hadiah", karena kartunya
+                ikut dibuka di bungkus itu. */}
+            {draft.animation === "pack" ? (
+              <div>
+                <p className="text-body-medium font-medium">Pack contents</p>
+                <SegmentedButton<PackContents>
+                  label="What one pack holds"
+                  value={draft.pack_contents}
+                  onChange={(value) => onChange({ pack_contents: value })}
+                  options={[{ value: "one", label: "This prize only" }, { value: "all", label: "All prizes" }]}
+                  className="mt-1.5 w-full"
+                />
+                <p className="mt-1 text-body-medium text-on-surface-variant">
+                  {draft.pack_contents === "all"
+                    ? "One draw opens a pack with every active prize that still has quota in this session, from blue to purple, and this prize as the last card in gold. Each prize uses its own Per draw, rules and tickets. Up to 30 cards; if there are more, the earliest blue prizes in the draw order get fewer cards and can be drawn again afterwards. Backups are not drawn in this pack: if a winner is absent, draw a replacement for that prize."
+                    : "Every card in the pack wins this prize: one card per winner, turned over one by one."}
+                </p>
+              </div>
+            ) : null}
+            {(draft.animation === "pack" && draft.pack_contents === "one") || (packAllHolder && !(draft.animation === "pack" && draft.pack_contents === "all")) ? (
+              <div>
+                <p className="text-body-medium font-medium">Card colour</p>
+                <SegmentedButton<CardTier>
+                  label="Card colour in the Card machine"
+                  value={draft.card_tier}
+                  onChange={(value) => onChange({ card_tier: value })}
+                  options={CARD_TIERS.map((item) => ({ value: item.value, label: item.label }))}
+                  className="mt-1.5 w-full"
+                />
+                <p className="mt-1 text-body-medium text-on-surface-variant">
+                  {CARD_TIERS.find((item) => item.value === draft.card_tier)?.hint}. The pack leaks light in this colour before it is torn, so the room can guess the prize.
+                  {packAllHolder ? ` The pack for ${packAllHolder} also opens this prize, ordered from blue to purple.` : ""}
                 </p>
               </div>
             ) : null}
@@ -213,6 +254,11 @@ export function PrizeEditor({
                         Elimination arena needs about 20 seconds for the crowd to shrink over several rounds. Shorter than that, most of the crowd drops in a single round.
                       </p>
                     ) : null}
+                    {draft.animation === "pack" && draft.spin_seconds * 1000 < PACK_INTRO_MS ? (
+                      <p className="mt-1 text-body-medium text-warning">
+                        Card machine needs {PACK_INTRO_MS / 1000} seconds to type the code and drop the pack. A shorter duration is lengthened to {PACK_INTRO_MS / 1000} when you draw. Opening the cards takes longer after that: about 14 seconds for one gold card, about 40 for 30 cards.
+                      </p>
+                    ) : null}
                     {draft.animation === "cahaya" && draft.spin_seconds < 15 ? (
                       <p className="mt-1 text-body-medium text-warning">
                         Phone lights needs about 20 seconds for the colour show and several dark waves. A duration under 12 seconds is lengthened to 12 when you draw.
@@ -241,6 +287,8 @@ export function PrizeEditor({
               <p className="text-body-medium text-on-surface-variant">
                 {draft.animation === "arena"
                   ? `Elimination arena ends on a podium that fits ${maxWinnersPerDraw(draft.animation)} winners per draw.`
+                  : draft.animation === "pack"
+                  ? `One Card machine pack holds up to ${maxWinnersPerDraw(draft.animation)} cards.`
                   : `${ANIMATIONS.find((item) => item.value === draft.animation)?.label ?? "This animation"} reveals winners one at a time, so it takes up to ${maxWinnersPerDraw(draft.animation)} winners per draw.`}
                 {" "}For more winners, raise the quota and draw again.
               </p>

@@ -43,6 +43,8 @@ type Winner = {
   // key React; ia selalu ada, baik pada latihan maupun undian sungguhan.
   id?: number; ref: string; name: string; company: string | null; seat: string | null;
   is_backup: boolean; slot_order: number; status?: "pending" | "confirmed" | "rejected";
+  /** Terisi pada bungkus Card machine "semua hadiah": satu undian, beberapa hadiah. */
+  prize_id?: number; prize_name?: string;
 };
 
 type State = {
@@ -56,6 +58,8 @@ type State = {
   reveal_at: string | null;
   winners: Winner[];
   confirmed: Winner[];
+  /** Mesin Kartu: isi bungkus undian ini ("all" = beberapa hadiah sekaligus). */
+  pack?: { mode: "one" | "all"; groups: { prize_id: number; prize: string; count: number }[] } | null;
 };
 
 export default function UndianControlPage() {
@@ -196,8 +200,6 @@ export default function UndianControlPage() {
   };
   const tombolAkhiri = labelAkhiri[animasi?.value ?? ""] ?? "Stop & reveal";
   const kalimatManual = `${gerakManual[animasi?.value ?? ""] ?? "The animation runs"} on the stage screen until you press ${tombolAkhiri}. Winners are selected and saved when Draw is pressed, so closing this page will not lose them.`;
-  // Berapa nama yang akan dibatalkan bila "Undi ulang" ditekan.
-  const pendingHere = activePrize ? pendingCounts[activePrize.id] ?? 0 : 0;
   // Pada mode latihan kuota tidak berlaku: tidak ada pemenang yang dicatat, jadi
   // tidak ada kuota yang terpakai. Tombol undi harus tetap hidup, termasuk untuk
   // hadiah yang kuotanya kebetulan sudah penuh; justru hadiah itulah yang paling
@@ -225,6 +227,27 @@ export default function UndianControlPage() {
     ronde.filter((winner) => !winner.is_backup && winner.status === "rejected").length
       - ronde.filter((winner) => winner.is_backup && winner.status === "confirmed").length,
   );
+  // Bungkus Card machine "semua hadiah": nama-nama undian ini milik beberapa
+  // hadiah dan bungkusnya tanpa cadangan. SEMUA kursi kosong, di hadiah mana
+  // pun, diisi lewat SATU bungkus pengganti; hadiah pemegang tetap kartu
+  // terakhir. Satu langkah per hadiah dulu membuat kursi hadiah lain (sering
+  // justru Grand Prize, yang paling akhir) hilang dari alur setelah langkah
+  // pertama.
+  const paketSemua = state?.pack?.mode === "all";
+  const banyakHadiah = paketSemua || new Set(ronde.map((winner) => winner.prize_id).filter((id) => id !== undefined)).size > 1;
+  const kosongPaket = paketSemua
+    ? ronde.filter((winner) => !winner.is_backup && winner.status === "rejected" && winner.prize_id !== undefined)
+    : [];
+  const isiPengganti = [...new Set(kosongPaket.map((winner) => winner.prize_id!))].map((id) => {
+    const rows = kosongPaket.filter((winner) => winner.prize_id === id);
+    return { prize_id: id, name: rows[0].prize_name ?? "this prize", count: rows.length };
+  });
+  const totalPengganti = kosongPaket.length;
+  // Berapa nama yang akan dibatalkan bila "Undi ulang" ditekan. Pada bungkus
+  // "semua hadiah" itu seluruh kartu bungkus yang belum disahkan.
+  const pendingHere = paketSemua
+    ? ronde.filter((winner) => winner.status === "pending").length
+    : activePrize ? pendingCounts[activePrize.id] ?? 0 : 0;
 
   // Langkah keputusan sesudah nama keluar, berurutan. Semua pemenang undian ini
   // diputuskan dulu, baru undian pengganti; mengundi pengganti di tengah jalan
@@ -254,6 +277,16 @@ export default function UndianControlPage() {
       label: cadanganMenunggu.length === 1 ? "Release the backup" : `Release ${cadanganMenunggu.length} backups`,
       hint: <>Every winner is decided, so the {cadanganMenunggu.length === 1 ? "backup is" : "backups are"} not needed. Releasing returns them to the pool for the next prizes.</>,
       run: () => void lepaskan(cadanganMenunggu),
+    };
+  } else if (totalPengganti > 0 && state?.prize) {
+    // Kuota tiap hadiah dicek server; pemegang tetap kartu emas terakhir.
+    const holderId = state.prize.id;
+    const isi = isiPengganti;
+    langkah = {
+      key: "draw",
+      label: totalPengganti === 1 ? `Draw 1 replacement for ${isi[0].name}` : `Draw ${totalPengganti} replacements in one pack`,
+      hint: <>Absent: {isi.map((item, index) => <span key={item.prize_id}>{index > 0 ? ", " : ""}<span className="font-medium text-on-surface">{item.name}</span>{item.count > 1 ? ` ×${item.count}` : ""}</span>)}. One new pack fills only {totalPengganti === 1 ? "that place" : "those places"}, without backups.</>,
+      run: () => void send({ action: "draw", prize_id: holderId, refill: isi.map((item) => ({ prize_id: item.prize_id, count: item.count })) }, "draw"),
     };
   } else if (kursiKosong > 0 && !(quotaFull && !rehearsal)) {
     langkah = {
@@ -653,6 +686,7 @@ export default function UndianControlPage() {
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="text-title-medium font-semibold">{winner.name}</span>
                     {winner.is_backup ? <StatusChip>Backup {winner.slot_order}</StatusChip> : null}
+                    {banyakHadiah && winner.prize_name ? <StatusChip>{winner.prize_name}</StatusChip> : null}
                   </p>
                   <p className="text-body-medium text-on-surface-variant">
                     {[winner.company, winner.seat && `Seat ${winner.seat}`].filter(Boolean).join(" · ") || "No company or seat"}

@@ -3,6 +3,7 @@ import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-e
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
 import { jadwalPublik, type CahayaJadwal } from "@/lib/undian-cahaya";
+import { normalizePackContents, type PackPlan } from "@/lib/undian-kartu";
 import { MUSIC_COLUMNS, MUSIC_OFF, musicFromRow, normalizeAfterWin, normalizeAnimSpeed, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
 
 // State undian untuk layar panggung. PUBLIK — proyektor berjalan tanpa login.
@@ -30,7 +31,7 @@ const STATE_ROW = "mode,rehearsal,active_prize_id,phase,draw_round,spin_started_
 const SETTINGS_ROW =
   `page_title,page_subtitle,name_display,show_company,show_seat,show_lineup,show_pool_size,sound_enabled,confetti_enabled,` +
   `reveal_delay_seconds,background_color,text_color,accent_color,background_image_url,${BRANDING_COLUMNS}`;
-const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,wall_tiles,anim_speed,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
+const PRIZE_ROW = "id,name,description,image_url,sponsor_name,animation,wall_tiles,anim_speed,pack_contents,spin_seconds,winners_per_draw,winner_quota,after_win,stage_note";
 
 type PendingWinner = {
   ref: string;
@@ -40,6 +41,7 @@ type PendingWinner = {
   seat: string | null;
   is_backup: boolean;
   slot_order: number;
+  prize_id?: number;
 };
 
 type StateRow = {
@@ -50,7 +52,7 @@ type StateRow = {
   draw_round: number;
   spin_started_at: string | null;
   reveal_at: string | null;
-  pending: { prize_id: number; draw_round: number; winner_ids?: number[]; winners: PendingWinner[]; cahaya?: { jadwal: CahayaJadwal } } | null;
+  pending: { prize_id: number; draw_round: number; winner_ids?: number[]; winners: PendingWinner[]; cahaya?: { jadwal: CahayaJadwal }; pack?: PackPlan } | null;
   pool: { name: string; seat: string | null; code: string | null }[] | null;
   pool_size: number;
   updated_at: string;
@@ -114,14 +116,18 @@ export async function GET(request: Request) {
   if (!state || state.mode === "off") {
     return Response.json({
       mode: "off", rehearsal: false, phase: "idle", draw_round: 0, prize: null, roster: [], pool_size: 0,
-      spin_started_at: null, reveal_at: null, cahaya: null, winners: [], confirmed: [], lineup: [],
+      spin_started_at: null, reveal_at: null, cahaya: null, pack: null, winners: [], confirmed: [], lineup: [],
       settings, branding, updated_at: new Date().toISOString(),
     } satisfies UndianState & { branding: unknown });
   }
 
   let prize: UndianState["prize"] = null;
   if (state.active_prize_id) {
-    const { data } = await client.from("undian_prizes").select(PRIZE_ROW).eq("event_id", eventId).eq("id", state.active_prize_id).maybeSingle();
+    const full = await client.from("undian_prizes").select(PRIZE_ROW).eq("event_id", eventId).eq("id", state.active_prize_id).maybeSingle();
+    // Sebelum migrasi Mesin Kartu (kolom pack_contents belum ada): layar panggung tetap jalan.
+    const { data } = full.error?.code === "42703"
+      ? await client.from("undian_prizes").select(PRIZE_ROW.replace(",pack_contents", "")).eq("event_id", eventId).eq("id", state.active_prize_id).maybeSingle()
+      : full;
     if (data) {
       const row = data as Record<string, unknown>;
       prize = {
@@ -136,6 +142,7 @@ export async function GET(request: Request) {
         spin_seconds: Number(row.spin_seconds),
         winners_per_draw: Number(row.winners_per_draw),
         winner_quota: Number(row.winner_quota),
+        pack_contents: normalizePackContents(row.pack_contents),
         message: stageMessage({ after_win: normalizeAfterWin(row.after_win), stage_note: (row.stage_note as string | null) ?? null }),
       };
     }
@@ -182,6 +189,7 @@ export async function GET(request: Request) {
       is_backup: winner.is_backup,
       slot_order: winner.slot_order,
       status: "pending" as const,
+      ...packPrize(state.pending!, winner.prize_id ?? state.pending!.prize_id),
     }));
   } else if (phase === "revealed" && state.pending) {
     // Baris pemenang diambil lewat ID, bukan lewat (prize_id, draw_round).
@@ -199,7 +207,7 @@ export async function GET(request: Request) {
     const ids = state.pending.winner_ids ?? [];
     let query = client
       .from("undian_winners")
-      .select("id,participant_id,entry_id,display_name,company,seat_label,is_backup,slot_order,status")
+      .select("id,prize_id,participant_id,entry_id,display_name,company,seat_label,is_backup,slot_order,status")
       .eq("event_id", eventId);
     query = ids.length > 0
       ? query.in("id", ids)
@@ -215,7 +223,7 @@ export async function GET(request: Request) {
     const { data: rows } = await query;
 
     type WinnerRow = {
-      id: number; participant_id: string | null; entry_id: number | null;
+      id: number; prize_id: number; participant_id: string | null; entry_id: number | null;
       display_name: string; company: string | null; seat_label: string | null;
       is_backup: boolean; slot_order: number; status: "pending" | "confirmed" | "rejected";
     };
@@ -234,6 +242,7 @@ export async function GET(request: Request) {
         is_backup: row.is_backup,
         slot_order: row.slot_order,
         status: row.status,
+        ...packPrize(state.pending!, Number(row.prize_id)),
       }));
   }
 
@@ -290,6 +299,7 @@ export async function GET(request: Request) {
     cahaya: state.phase !== "idle" && prize?.animation === "cahaya" && state.pending?.cahaya?.jadwal
       ? jadwalPublik(state.pending.cahaya.jadwal, settings.show_pool_size)
       : null,
+    pack: state.phase !== "idle" && prize?.animation === "pack" && state.pending?.pack ? state.pending.pack : null,
     winners,
     confirmed,
     lineup: settings.show_lineup ? await lineupFor(eventId) : [],
@@ -297,6 +307,15 @@ export async function GET(request: Request) {
     branding,
     updated_at: new Date().toISOString(),
   });
+}
+
+/**
+ * Hadiah tiap nama pada bungkus Mesin Kartu, supaya layar tahu kartu mana milik
+ * hadiah apa. Undian lain tidak membawa apa pun (layar memakai hadiah aktif).
+ */
+function packPrize(pending: NonNullable<StateRow["pending"]>, prizeId: number): { prize_id?: number; prize_name?: string } {
+  const group = pending.pack?.groups.find((item) => item.prize_id === prizeId);
+  return group ? { prize_id: prizeId, prize_name: group.prize } : {};
 }
 
 /**
