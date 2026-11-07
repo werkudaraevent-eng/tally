@@ -77,6 +77,7 @@ import { bagianModern, gayaModern } from "@/components/landing/modern/kerangka";
 import { HEAD, SHELL } from "@/components/landing/modern/styles";
 import { LandingNavModern } from "@/components/landing/modern/landing-nav-modern";
 import { PopupPengumuman } from "@/components/member/popup-pengumuman";
+import { AjakanNotifikasi, BarisNotifikasi } from "@/components/member/ajakan-notifikasi";
 import { LatarKv, inisialNama as inisialAcara } from "@/components/landing/modern/gathering-app";
 import { TeksKaya } from "@/components/landing/teks-kaya";
 import { teksPolos } from "@/lib/landing-teks-kaya";
@@ -477,6 +478,8 @@ export async function DashboardGathering({
     return sesudah < 0 ? [...navSections, tautan] : [...navSections.slice(0, sesudah), tautan, ...navSections.slice(sesudah)];
   })();
   const navPeserta = await muatNavPeserta(event, sesi, lang, { data: pengumuman });
+  // Pratinjau di Participant area: tanpa ajakan notifikasi dan tanpa service worker.
+  if (pratinjau) navPeserta.notifikasi = null;
   const subNama = event.name.trim() && event.name.trim() !== nama ? event.name.trim() : null;
   const alis = config.hero_eyebrow?.trim() || nama;
   const logo = config.nav?.logo_url ?? null;
@@ -1708,6 +1711,8 @@ export async function DashboardGathering({
       <div className={horizon ? "flex w-full max-w-[790px] flex-col gap-4" : "mx-auto flex w-full max-w-[720px] flex-col gap-3"}>
         {/* Tab ini yang menandai pengumuman terbaca, bukan setiap render portal (U-03). */}
         {!pratinjau && pengumuman.unread > 0 ? <TandaiPengumumanDibaca slug={event.slug} /> : null}
+        {/* Pintu ke notifikasi HP di tempat orang mencari kabar (pola Inbox Airbnb). */}
+        {!pratinjau && navPeserta.notifikasi ? <BarisNotifikasi lang={lang} className={`${KARTU} ${horizon ? GARIS_KARTU : ""}`} /> : null}
         {trip ? (
           <PengumumanTrip
             teks={{ baru: t.isNew, disematkan: tH.trip.pinned, kosongJudul: tH.trip.noNewsTitle, kosongIsi: tH.trip.noNewsBody }}
@@ -2571,6 +2576,7 @@ export async function DashboardGathering({
         {!pratinjau ? <KerangkaPortal kepala={kepalaTab} garisLabel={tH.loading} /> : null}
         {/* Bilah atas Horizon bukan LandingNavModern, jadi pop-up dipasang di sini. */}
         {!pratinjau && navPeserta.lonceng?.popup.length ? <PopupPengumuman items={navPeserta.lonceng.popup} lang={lang} /> : null}
+        {!pratinjau && navPeserta.notifikasi ? <AjakanNotifikasi data={navPeserta.notifikasi} lang={lang} /> : null}
       </>
     );
     return (

@@ -120,7 +120,7 @@ export async function GET(request: Request) {
     return Response.json({ peserta: (data ?? []) as PesertaPratinjau[] });
   }
 
-  const [peserta, berEmail, disetujui, akun] = await Promise.all([
+  const [peserta, berEmail, disetujui, akun, push] = await Promise.all([
     client.from("participants").select("id", { count: "exact", head: true }).eq("event_id", eventId).is("source_removed_at", null),
     client
       .from("participants")
@@ -131,6 +131,8 @@ export async function GET(request: Request) {
       .neq("email", ""),
     client.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "approved"),
     client.from("participant_accounts").select("id", { count: "exact", head: true }).eq("event_id", eventId),
+    // Perangkat yang mengizinkan notifikasi HP. Galat = tabel belum ada (migrasi 202611070002).
+    client.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("event_id", eventId),
   ]);
   const layout = landing.layout === "modern" ? (landing.gathering === true ? "gathering" : "modern") : null;
   const horizon = gatheringHorizon(landing);
@@ -194,6 +196,8 @@ export async function GET(request: Request) {
     // apakah email bisa terkirim (Email code membutuhkannya).
     sign_in_options: pilihanKolomMasuk(formFields(auth.scope.event)),
     email_ready: isEmailConfigured(),
+    // Notifikasi HP: null = migrasi belum dijalankan, saklarnya belum bisa dipakai.
+    push_devices: push.error ? null : push.count ?? 0,
     // null bila hitungan gagal: layar menyembunyikan angkanya, bukan menampilkan 0.
     counts: {
       participants: peserta.error ? null : peserta.count ?? 0,

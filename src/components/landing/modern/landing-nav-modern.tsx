@@ -8,6 +8,7 @@ import { LANDING_LANG_LABELS, LANDING_UI, type LandingLang } from "@/lib/landing
 import { HtmlLang } from "@/components/html-lang";
 import { LoncengPengumuman } from "@/components/member/lonceng-pengumuman";
 import { PopupPengumuman } from "@/components/member/popup-pengumuman";
+import { AjakanNotifikasi } from "@/components/member/ajakan-notifikasi";
 import type { NavPeserta } from "@/lib/member/nav";
 
 /**
@@ -494,9 +495,12 @@ export function LandingNavModern({
                   dashboardHref={dashboardAktif ? null : peserta.dashboardHref}
                   buka={loncengBuka}
                   onBukaChange={ubahLonceng}
+                  notifikasi={dashboardAktif && Boolean(peserta.notifikasi)}
                 />
               ) : null}
               {peserta.lonceng?.popup.length ? <PopupPengumuman items={peserta.lonceng.popup} lang={lang} /> : null}
+              {/* Ajakan notifikasi HP hanya di portal: manifest Layar Utama milik portal, bukan halaman acara. */}
+              {dashboardAktif && peserta.notifikasi ? <AjakanNotifikasi data={peserta.notifikasi} lang={lang} /> : null}
               <Link
                 href={peserta.dashboardHref}
                 aria-current={dashboardAktif ? "page" : undefined}

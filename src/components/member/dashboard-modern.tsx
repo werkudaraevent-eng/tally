@@ -25,6 +25,7 @@ import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, resolv
 import { PESERTA_UI } from "@/lib/member/peserta-i18n";
 import type { MemberSession } from "@/lib/member/account";
 import { muatNavPeserta, namaSapaan, waktuPengumuman } from "@/lib/member/nav";
+import { BarisNotifikasi } from "@/components/member/ajakan-notifikasi";
 import { isUnread, type MemberAnnouncements } from "@/lib/member/pengumuman";
 import { RegistrationCodeCard } from "@/components/registration-code-card";
 import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi";
@@ -157,6 +158,8 @@ export async function DashboardModern({
   // Lonceng di halaman ini tanpa angka: semua pengumumannya sedang ditampilkan
   // di bawah, dan membuka halaman ini menandainya terbaca.
   const nav = await muatNavPeserta(event, sesi, lang, { data: pengumuman, unread: 0 });
+  // Pratinjau di Participant area: tanpa ajakan notifikasi dan tanpa service worker.
+  if (pratinjau) nav.notifikasi = null;
 
   const peserta = sesi.participant;
   // Logistik gathering (kamar, bus, barang). null di acara tanpa logistik:
@@ -441,6 +444,7 @@ export async function DashboardModern({
                     <h2 id="pengumuman-judul" className={`${JUDUL_DASBOR} mt-1.5`}>
                       {t.announcements}
                     </h2>
+                    {!pratinjau && nav.notifikasi ? <BarisNotifikasi lang={lang} className="mt-5 rounded-lg border border-[var(--reg-outline-variant)] px-6 py-2" /> : null}
                     {pengumuman.items.length === 0 ? (
                       <p className={`mt-5 rounded-lg border border-[var(--reg-outline-variant)] px-6 py-5 text-body-large ${MUTED}`}>
                         {p.noAnnouncements}

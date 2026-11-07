@@ -10,6 +10,12 @@
  * sinyal yang terlalu lambat (lebih dari 4 detik) juga jatuh ke salinan itu,
  * karena QR dibutuhkan di gerbang, saat itu juga.
  *
+ * Tugas kedua: notifikasi HP (Participant area > Phone notifications). Pesan
+ * push berbentuk Declarative Web Push (lib/push/pesan.ts): Safari iOS 18.4+
+ * menampilkannya tanpa skrip ini, peramban lain lewat handler `push` di bawah.
+ * Ketukan membuka alamat `navigate` (portal acara), memakai jendela portal
+ * yang sudah terbuka bila ada.
+ *
  * Sengaja kecil dan tanpa versi aset: kode yang salah di service worker
  * menempel di perangkat peserta. Mematikannya: ganti isinya dengan
  * `self.registration.unregister()`.
@@ -52,6 +58,37 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || req.mode !== "navigate") return;
   event.respondWith(layani(event));
+});
+self.addEventListener("push", (event) => {
+  let isi = null;
+  try { isi = event.data ? event.data.json() : null; } catch (e) {}
+  const n = isi && isi.notification;
+  if (!n || typeof n.title !== "string") return;
+  event.waitUntil(self.registration.showNotification(n.title, {
+    body: typeof n.body === "string" ? n.body : "",
+    lang: n.lang,
+    tag: n.tag,
+    data: { navigate: n.navigate },
+  }));
+});
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const tujuan = event.notification.data && event.notification.data.navigate;
+  if (typeof tujuan !== "string") return;
+  event.waitUntil((async () => {
+    // Selalu di origin service worker ini: notifikasi tidak pernah membuka situs lain.
+    const asal = new URL(tujuan, self.location.origin);
+    const url = new URL(asal.pathname + asal.search, self.location.origin);
+    const jendela = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const satu of jendela) {
+      if (new URL(satu.url).pathname.startsWith(url.pathname) && "focus" in satu) {
+        await satu.focus();
+        if ("navigate" in satu) { try { await satu.navigate(url.href); } catch (e) {} }
+        return;
+      }
+    }
+    await self.clients.openWindow(url.href);
+  })());
 });
 `;
 

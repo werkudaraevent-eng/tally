@@ -19,7 +19,8 @@ import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
 import { kartuLengkapi } from "@/lib/member/lengkapi";
 import { DashboardGathering, type PortalTab } from "@/components/member/dashboard-gathering";
 import { isUnread, loadMemberAnnouncements, markAnnouncementsSeen } from "@/lib/member/pengumuman";
-import { namaSapaan, waktuPengumuman } from "@/lib/member/nav";
+import { dataNotifikasi, namaSapaan, waktuPengumuman } from "@/lib/member/nav";
+import { AjakanNotifikasi, BarisNotifikasi } from "@/components/member/ajakan-notifikasi";
 import { gatheringHorizon, publicEventName, type EventLandingConfig, type EventRow } from "@/lib/domain";
 import { PORTAL_UI } from "@/lib/member/portal-i18n";
 import { labelOutfit } from "@/lib/outfit";
@@ -27,6 +28,8 @@ import { loadOutfitBagian } from "@/lib/outfit-server";
 import { bacaOutfitSetiapHari } from "@/lib/outfit-setiap-hari";
 import { LANDING_UI, landingDefaultLang, landingEnAvailable, landingPath, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { warnaBilahPeramban } from "@/lib/landing-tokens";
+import { alamatIkon, alamatManifest } from "@/lib/push/manifest";
+import { namaPendek } from "@/lib/push/ikon";
 import { PanitiaPortal } from "@/components/member/panitia-portal";
 import { KartuPanitia } from "@/components/member/kartu-panitia";
 import { normalizeTimeZone } from "@/lib/timezone";
@@ -84,7 +87,16 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const landing = (event?.landing_config ?? {}) as EventLandingConfig;
   const lang: LandingLang = kueri.bahasa === "en" || kueri.bahasa === "id" ? kueri.bahasa : landingDefaultLang(landing);
   if (!event) return { title: LANDING_UI[lang].myDashboard, robots };
-  return { title: `${await judulTabPortal(event, lang, kueri.tab, kueri.lihat)} · ${publicEventName(event)}`, robots };
+  // Manifest dan ikon per acara: portal yang dipasang di Layar Utama terbuka
+  // di portal acara ini, bernama dan berikon acara (lib/push/manifest.ts).
+  const utama = landingDefaultLang(landing);
+  return {
+    title: `${await judulTabPortal(event, lang, kueri.tab, kueri.lihat)} · ${publicEventName(event)}`,
+    robots,
+    manifest: alamatManifest(event.slug, utama, lang),
+    appleWebApp: { capable: true, title: namaPendek(publicEventName(event)), statusBarStyle: "default" },
+    icons: { apple: [{ url: alamatIkon(event.slug, utama, 180), sizes: "180x180" }] },
+  };
 }
 
 /**
@@ -215,10 +227,12 @@ export default async function AreaPesertaPage({
   const agenda = tampilSusunan ? await loadAgendaPreview(event.id, "id", { acara: event, participantId: peserta?.id ?? null, tampilKamar: bagianTampil(member, "rooms") }) : [];
   const lengkapi = await kartuLengkapi(event, peserta?.id);
   const hadiah = peserta ? await loadHadiahPeserta(event.id, peserta.id, member.prize, "id").catch(() => []) : [];
+  const notifikasi = dataNotifikasi(event, "id");
 
   return (
     <main className="min-h-dvh bg-[var(--reg-surface)] text-[var(--reg-on-surface)]" style={memberPageStyle(event)}>
       <SegarkanSesi slug={event.slug} />
+      {notifikasi ? <AjakanNotifikasi data={notifikasi} lang="id" /> : null}
       {layarUndian}
       <header className="border-b border-[var(--reg-outline-variant)]">
         <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center gap-4 px-5 sm:px-8 lg:min-h-[72px] lg:px-10">
@@ -349,6 +363,7 @@ export default async function AreaPesertaPage({
                 <h2 id="pengumuman-judul" className={`text-[28px] font-semibold leading-tight sm:text-[32px] ${HEAD}`}>
                   Pengumuman
                 </h2>
+                {notifikasi ? <BarisNotifikasi lang="id" className="mt-4 rounded-md border border-[var(--reg-outline-variant)] px-5 py-2" /> : null}
                 <ul className="mt-4 divide-y divide-[var(--reg-outline-variant)] rounded-md border border-[var(--reg-outline-variant)]">
                   {pengumuman.items.map((item) => (
                     <li key={item.id} className="px-5 py-4">
