@@ -1,14 +1,15 @@
 "use client";
 
 import "./kilas.css";
-import { CaretLeft, X } from "@phosphor-icons/react";
+import { CaretLeft, Confetti, HandWaving, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { eventApiPath } from "@/lib/event-url";
 import type { LandingLang } from "@/lib/landing-i18n";
 import { layarLanjut, terisi, type Kenangan } from "@/lib/kilas-balik/alur";
 import { KILAS_UI } from "@/lib/kilas-balik/i18n";
 import type { NilaiJawaban, Tampilan } from "@/lib/kilas-balik/setelan";
-import { IsianTanya, Penutup, isiKenangan, reduksiGerak, type Kirim, type LayarKlien } from "./bagian";
+import { IsianTanya, Penutup, reduksiGerak, type Kirim, type LayarKlien } from "./bagian";
+import { Hitung, KataMuncul, Ornamen, Reaksi, Stiker, kenanganMeriah, labelTanya, warnaLayar } from "./meriah";
 import { TampilanPercakapan } from "./tampilan-percakapan";
 import { TampilanRingkas } from "./tampilan-ringkas";
 
@@ -236,7 +237,7 @@ export type Kilas = ReturnType<typeof useKilas>;
 export function KilasClient(props: PropsKilas) {
   const k = useKilas(props);
   return (
-    <main className="kb-akar" style={props.gaya} data-tampilan={k.tampilan}>
+    <main className="kb-akar" style={props.gaya} data-tampilan={k.tampilan} data-warna={k.tampilan === "kilas" ? warnaLayar(k.layar, k.i) : undefined}>
       {props.pratinjau !== null ? (
         <p className="kb-pratinjau" role="note">
           {k.t.preview(props.pratinjau)}
@@ -247,11 +248,11 @@ export function KilasClient(props: PropsKilas) {
   );
 }
 
-/** Kilas: satu layar per kartu, garis progres seperti Stories. */
+/** Kilas: satu layar per kartu, garis progres seperti Stories, latar berganti warna tiap layar. */
 function TampilanKilas({ k }: { k: Kilas }) {
   const { t, layar, i, iTutup, lang, jawaban, props } = k;
   const kenangan = props.kenangan;
-  const [stiker, setStiker] = useState<string | null>(null);
+  const [reaksi, setReaksi] = useState<{ teks: string | null; kunci: number }>({ teks: null, kunci: 0 });
   const judulRef = useRef<HTMLHeadingElement>(null);
   const pertamaRef = useRef(true);
 
@@ -262,16 +263,18 @@ function TampilanKilas({ k }: { k: Kilas }) {
       return;
     }
     judulRef.current?.focus({ preventScroll: true });
-    setStiker(null);
+    setReaksi((r) => ({ teks: null, kunci: r.kunci }));
   }, [i]);
 
   const sisa = layar.slice(i).filter((l) => l.jenis === "tanya").length;
   const menit = Math.max(1, Math.round(k.tanyaSemua.length * 0.3 + layar.filter((l) => l.jenis === "kartu").length * 0.1));
   const sekarang = layar[i];
   const tanya = sekarang.jenis === "tanya" ? sekarang.q : null;
+  const urutanTanya = tanya ? layar.slice(0, i).filter((l) => l.jenis === "tanya").length : 0;
   const nilai = tanya ? jawaban[tanya.key] : undefined;
   const bolehLanjut = !tanya || !tanya.required || terisi(nilai);
-  const kartu = sekarang.jenis === "kartu" ? isiKenangan(lang, sekarang.kartu, kenangan) : null;
+  const kartu = sekarang.jenis === "kartu" ? kenanganMeriah(lang, sekarang.kartu, kenangan) : null;
+  const sapa = props.judul?.trim() || t.hello(kenangan.nama);
 
   const ubah = () => {
     k.setKirim("diam");
@@ -307,20 +310,21 @@ function TampilanKilas({ k }: { k: Kilas }) {
         </div>
       </header>
 
-      <section key={i} className={`kb-kartu ${tanya ? "kb-kartu-terang" : "kb-kartu-gelap"} ${k.arah === 1 ? "kb-masuk" : "kb-masuk-balik"}`} aria-labelledby="kb-judul">
-        {stiker ? (
-          <p className="kb-stiker" role="status">
-            {stiker}
-          </p>
-        ) : null}
+      <section key={i} className={`kb-kartu kb-kartu-polos ${k.arah === 1 ? "kb-masuk" : "kb-masuk-balik"}`} aria-labelledby="kb-judul">
+        {sekarang.jenis !== "tutup" ? <Ornamen pola={i} ikon={kartu?.coretan ?? (sekarang.jenis === "buka" ? <Confetti size={260} weight="thin" /> : null)} /> : null}
+        <Reaksi teks={reaksi.teks} kunci={reaksi.kunci} />
 
         {sekarang.jenis === "buka" ? (
           <>
-            <p className="kb-fakta">{props.namaAcara}</p>
-            <h1 id="kb-judul" ref={judulRef} tabIndex={-1} className="kb-judul">
-              {props.judul?.trim() || t.hello(kenangan.nama)}
+            <p className="kb-sudut">{props.namaAcara}</p>
+            <span className="kb-lambai" aria-hidden>
+              <HandWaving size={72} weight="fill" />
+            </span>
+            <h1 id="kb-judul" ref={judulRef} tabIndex={-1} className="kb-judul kb-judul-raksasa">
+              <KataMuncul teks={sapa} mulai={150} jeda={110} />
             </h1>
-            <p className="kb-teks">{props.intro?.trim() || t.introDefault}</p>
+            <p className="kb-teks kb-pelan">{props.intro?.trim() || t.introDefault}</p>
+            <Stiker label={[{ teks: t.daysTogether(kenangan.hari) }, { teks: t.duration(menit) }]} mulai={900} />
             <div className="kb-isi-bawah">
               {k.lanjutDari !== null && k.lanjutDari > 0 ? (
                 <>
@@ -343,13 +347,24 @@ function TampilanKilas({ k }: { k: Kilas }) {
           </>
         ) : null}
 
-        {sekarang.jenis === "kartu" ? (
+        {sekarang.jenis === "kartu" && kartu ? (
           <>
-            {kartu?.fakta ? <p className="kb-fakta">{kartu.fakta}</p> : null}
+            {"angka" in kartu.besar ? (
+              <p className="kb-besar">
+                <b>
+                  <Hitung ke={kartu.besar.angka} />
+                </b>
+                <span>{kartu.besar.satuan}</span>
+              </p>
+            ) : (
+              <p className="kb-besar kb-besar-ikon" data-gerak={kartu.besar.gerak} aria-hidden>
+                {kartu.besar.ikon}
+              </p>
+            )}
             <h1 id="kb-judul" ref={judulRef} tabIndex={-1} className="kb-judul">
-              {kartu?.judul}
+              <KataMuncul teks={kartu.judul} mulai={350} />
             </h1>
-            {kartu?.isi}
+            <Stiker label={kartu.label} mulai={750} />
             <div className="kb-isi-bawah">
               <button type="button" className="kb-tombol" onClick={() => k.maju()}>
                 {t.next}
@@ -360,18 +375,21 @@ function TampilanKilas({ k }: { k: Kilas }) {
 
         {tanya ? (
           <>
+            <p className="kb-sudut kb-sudut-miring">{labelTanya(lang, urutanTanya, sisa)}</p>
             <h1 id="kb-judul" ref={judulRef} tabIndex={-1} className="kb-judul kb-judul-tanya">
-              {tanya.title}
+              <KataMuncul teks={tanya.title} mulai={120} jeda={55} />
             </h1>
-            <IsianTanya
-              lang={lang}
-              tanya={tanya}
-              nilai={nilai}
-              idJudul="kb-judul"
-              onNilai={(v) => k.setNilai(tanya.key, v)}
-              onReaksi={setStiker}
-              onWajah={() => k.majuNanti()}
-            />
+            <div className="kb-isian-wadah">
+              <IsianTanya
+                lang={lang}
+                tanya={tanya}
+                nilai={nilai}
+                idJudul="kb-judul"
+                onNilai={(v) => k.setNilai(tanya.key, v)}
+                onReaksi={(teks) => setReaksi((r) => ({ teks, kunci: r.kunci + 1 }))}
+                onWajah={() => k.majuNanti()}
+              />
+            </div>
             {k.galat ? (
               <p className="kb-galat" role="alert">
                 {k.galat}
@@ -403,6 +421,7 @@ function TampilanKilas({ k }: { k: Kilas }) {
             tanya={k.tanyaSemua}
             penutup={props.penutup}
             penanda={props.penanda}
+            namaAcara={props.namaAcara}
             kirim={k.kirim}
             galat={k.galat}
             tutupTanggal={k.tutupTanggal}
@@ -416,4 +435,3 @@ function TampilanKilas({ k }: { k: Kilas }) {
     </div>
   );
 }
-

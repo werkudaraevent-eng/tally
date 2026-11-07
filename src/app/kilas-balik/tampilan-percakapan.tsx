@@ -120,6 +120,7 @@ export function TampilanPercakapan({ k }: { k: Kilas }) {
             tanya={k.tanyaSemua}
             penutup={props.penutup}
             penanda={props.penanda}
+            namaAcara={props.namaAcara}
             kirim={k.kirim}
             galat={k.galat}
             tutupTanggal={k.tutupTanggal}

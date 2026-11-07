@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { terisi } from "@/lib/kilas-balik/alur";
 import { IsianTanya, Penutup, reduksiGerak, ubinRekap } from "./bagian";
 import type { Kilas } from "./kilas-client";
+import { KataMuncul, Ornamen, POLA_KEPALA } from "./meriah";
 
 /**
  * Ringkas: satu halaman, semua pertanyaan sekaligus, satu tombol kirim. Untuk
@@ -39,6 +40,7 @@ export function TampilanRingkas({ k }: { k: Kilas }) {
   return (
     <div className="kb-ringkas">
       <header className="kb-r-kepala">
+        <Ornamen pola={POLA_KEPALA} />
         <div className="kb-r-baris">
           <p className="kb-fakta">{props.namaAcara}</p>
           <a href={props.portalUrl} className="kb-ikon" aria-label={t.close} title={t.close}>
@@ -47,7 +49,9 @@ export function TampilanRingkas({ k }: { k: Kilas }) {
         </div>
         {!selesai ? (
           <>
-            <h1 className="kb-judul">{props.judul?.trim() || t.hello(props.kenangan.nama)}</h1>
+            <h1 className="kb-judul">
+              <KataMuncul teks={props.judul?.trim() || t.hello(props.kenangan.nama)} mulai={100} jeda={90} />
+            </h1>
             <p className="kb-teks">{props.intro?.trim() || t.introDefault}</p>
             {ubin.length ? (
               <dl className="kb-ubin kb-ubin-kecil">
@@ -72,6 +76,7 @@ export function TampilanRingkas({ k }: { k: Kilas }) {
             tanya={k.tanyaSemua}
             penutup={props.penutup}
             penanda={props.penanda}
+            namaAcara={props.namaAcara}
             kirim={kirim}
             galat={k.galat}
             tutupTanggal={k.tutupTanggal}
