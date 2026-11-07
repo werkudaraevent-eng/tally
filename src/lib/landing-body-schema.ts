@@ -351,7 +351,8 @@ export const memberSchema = z.object({
       en: z.object({ note: z.string().trim().max(CATATAN_HADIAH_MAX).nullish() }).nullish(),
     })
     .nullable()
-    .optional(),
+    .optional(),  /** Notifikasi HP peserta (lib/push). Bawaan mati. */
+  push: z.object({ enabled: z.boolean() }).nullable().optional(),
 });
 
 /** Panjang profil pembicara. */

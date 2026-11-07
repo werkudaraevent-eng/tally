@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ArrowSquareOut, Bell, PushPin, X } from "@phosphor-icons/react";
 import { LANDING_UI, type LandingLang } from "@/lib/landing-i18n";
 import { CINCIN_PUTIH } from "@/components/landing/modern/cincin-horizon";
+import { BarisNotifikasi } from "@/components/member/ajakan-notifikasi";
 
 /**
  * Lonceng pengumuman di bilah atas halaman acara, untuk peserta yang sudah masuk.
@@ -47,6 +48,7 @@ export function LoncengPengumuman({
   buka,
   onBukaChange,
   besar = false,
+  notifikasi = false,
 }: {
   slug: string;
   lang: LandingLang;
@@ -59,6 +61,8 @@ export function LoncengPengumuman({
   onBukaChange: (buka: boolean) => void;
   /** Horizon: 48px dengan ikon 24px, sama dengan tombol Menu di sebelahnya. */
   besar?: boolean;
+  /** Baris "Notifikasi HP" di bawah judul panel (Participant area > Phone notifications). */
+  notifikasi?: boolean;
 }) {
   const t = LANDING_UI[lang];
   const setBuka = onBukaChange;
@@ -183,6 +187,7 @@ export function LoncengPengumuman({
               <X size={20} aria-hidden />
             </button>
           </div>
+          {notifikasi ? <BarisNotifikasi lang={lang} onBuka={() => setBuka(false)} className="border-t border-[#e9eaeb] px-5 py-2" /> : null}
           {items.length === 0 ? (
             <p className="border-t border-[#e9eaeb] px-5 py-6 text-[15px] leading-[22px] text-[#414651]">{t.noAnnouncements}</p>
           ) : (

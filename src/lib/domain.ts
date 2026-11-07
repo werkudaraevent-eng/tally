@@ -1325,6 +1325,13 @@ export type LandingMemberConfig = {
    * bawaan untuk hadiah yang catatannya sendiri kosong; `en.note` untuk /en.
    */
   prize?: { enabled: boolean; note?: string | null; en?: { note?: string | null } | null } | null;
+  /**
+   * Notifikasi HP (Web Push), Participant area > Phone notifications. Bawaan
+   * MATI. Menyala: peserta diajak mengaktifkan notifikasi (ajakan sekali
+   * setelah masuk + baris di panel lonceng), dan portal memakai manifest per
+   * acara supaya bisa dipasang di Layar Utama iPhone.
+   */
+  push?: { enabled: boolean } | null;
 };
 
 /** `outfit` dan `help`: hanya Gathering Horizon (Beranda "Hari ini"). */

@@ -5,6 +5,10 @@ import { isUnread, loadMemberAnnouncements, type MemberAnnouncements } from "@/l
 import type { LoncengItem } from "@/components/member/lonceng-pengumuman";
 import type { PopupItem } from "@/components/member/popup-pengumuman";
 import { altFotoPengumuman } from "@/lib/pengumuman-foto";
+import type { DataNotifikasi } from "@/components/member/ajakan-notifikasi";
+import { publicEventName } from "@/lib/domain";
+import { namaPendek } from "@/lib/push/ikon";
+import { alamatIkon } from "@/lib/push/manifest";
 
 /**
  * Isi bilah atas untuk peserta yang sudah masuk: lonceng pengumuman dan tombol
@@ -18,7 +22,39 @@ export type NavPeserta = {
   inisial: string;
   /** null: fitur pengumuman belum siap (migrasi belum jalan), lonceng disembunyikan. */
   lonceng: { items: LoncengItem[]; unread: number; popup: PopupItem[] } | null;
+  /** Participant area > Phone notifications menyala: ajakan dan baris Notifikasi HP. */
+  notifikasi: DataNotifikasi | null;
 };
+
+/** Notifikasi HP berlaku sampai akhir hari sesudah tanggal terakhir acara (UTC, longgar ke arah aman). */
+export function pushMasihBerlaku(event: Pick<EventRow, "event_date" | "end_date">, sekarang = Date.now()): boolean {
+  const akhir = event.end_date ?? event.event_date;
+  if (!akhir) return true;
+  return sekarang < new Date(`${akhir}T00:00:00Z`).getTime() + 2 * 24 * 60 * 60 * 1000;
+}
+
+/** Data ajakan notifikasi HP, atau null bila saklarnya mati (bawaan). */
+export function dataNotifikasi(event: Pick<EventRow, "slug" | "name" | "landing_config" | "event_date" | "end_date">, lang: LandingLang): DataNotifikasi | null {
+  const landing = (event.landing_config ?? {}) as EventLandingConfig;
+  if (landing.member?.enabled !== true || landing.member.push?.enabled !== true) return null;
+  // Lembar ajakan menjanjikan "berhenti setelah acara selesai": sehari setelah
+  // tanggal terakhir acara, ajakan dan baris Notifikasi HP tidak tampil lagi.
+  if (!pushMasihBerlaku(event)) return null;
+  const utama = landingDefaultLang(landing);
+  const nama = publicEventName(event);
+  const portal = `${landingPath(event.slug, lang, utama)}/peserta`;
+  return {
+    slug: event.slug,
+    // Sama persis dengan QR luring (DashboardGathering), supaya satu registrasi.
+    sw: `${landingPath(event.slug, utama, utama)}/peserta-sw.js`,
+    lingkup: portal,
+    portal,
+    ikon: alamatIkon(event.slug, utama, 180),
+    namaAcara: nama,
+    namaPendek: namaPendek(nama),
+    logistik: landing.member.show_logistics === true,
+  };
+}
 
 /** Paling banyak lima di lonceng; sisanya di Dashboard saya. */
 const DI_LONCENG = 5;
@@ -98,7 +134,7 @@ export function itemPopup(data: MemberAnnouncements, event: Pick<EventRow, "time
  * yang sedang menampilkan semua pengumuman.
  */
 export async function muatNavPeserta(
-  event: Pick<EventRow, "id" | "slug" | "time_zone" | "landing_config" | "registration_form_config">,
+  event: Pick<EventRow, "id" | "slug" | "name" | "event_date" | "end_date" | "time_zone" | "landing_config" | "registration_form_config">,
   sesi: MemberSession,
   lang: LandingLang,
   opsi: { data?: MemberAnnouncements; unread?: number } = {},
@@ -114,5 +150,6 @@ export async function muatNavPeserta(
     keluarAction: `/e/${slug}/api/peserta/keluar`,
     inisial: inisialNama(sesi.name),
     lonceng: data.ready ? { items: itemLonceng(data, event, lang), unread: opsi.unread ?? data.unread, popup: itemPopup(data, event, lang) } : null,
+    notifikasi: dataNotifikasi(event, lang),
   };
 }

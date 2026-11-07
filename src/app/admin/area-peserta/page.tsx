@@ -61,6 +61,8 @@ type Muat = {
   sign_in_options?: PilihanKolomMasuk[];
   /** Pengiriman email aktif (Email code membutuhkannya). */
   email_ready?: boolean;
+  /** Perangkat yang mengizinkan notifikasi HP; null = migrasi 202611070001 belum jalan. */
+  push_devices?: number | null;
 };
 
 /** Ringkasan dua kolom terpilih: yang punya keduanya, dan yang kembar. */
@@ -546,6 +548,13 @@ export default function AreaPesertaPage() {
                     ) : null}
                   </div>
                 </SettingRow>
+                <SettingRow
+                  stacked={berpratinjau}
+                  title="Phone notifications"
+                  description="Participants are asked once after signing in, with an example of what they will get. iPhone users are shown how to add the page to their Home Screen first."
+                >
+                  <NotifikasiHp anggota={anggota} set={set} perangkat={data.push_devices} />
+                </SettingRow>
                 <SettingRow stacked={berpratinjau} title="How participants sign in" description="One way for every participant of this event.">
                   <CaraMasuk anggota={anggota} set={set} data={data} />
                 </SettingRow>
@@ -579,6 +588,33 @@ export default function AreaPesertaPage() {
         </div>
       )}
     </WorkspacePage>
+    </div>
+  );
+}
+
+/** Participant area > Phone notifications (Web Push). Bawaan mati. */
+function NotifikasiHp({ anggota, set, perangkat }: { anggota: LandingMemberConfig; set: (patch: Partial<LandingMemberConfig>) => void; perangkat: number | null | undefined }) {
+  const nyala = anggota.push?.enabled === true;
+  if (perangkat === null || perangkat === undefined) {
+    return (
+      <Banner tone="info" icon={<Info size={18} />}>
+        Phone notifications need a one-time database update before they can be turned on.
+      </Banner>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <Switch
+        checked={nyala}
+        onChange={(value) => set({ push: { enabled: value } })}
+        label="Ask participants to turn on phone notifications"
+        description="Works on Android, laptops and iPhones (iOS 16.4 or later, from the Home Screen). Announcements still show in the Participant area for everyone."
+      />
+      {nyala || perangkat > 0 ? (
+        <p className="text-body-medium text-on-surface-variant">
+          {perangkat === 0 ? "No devices have notifications on yet." : `${perangkat.toLocaleString("en-GB")} ${perangkat === 1 ? "device has" : "devices have"} notifications on.`}
+        </p>
+      ) : null}
     </div>
   );
 }
