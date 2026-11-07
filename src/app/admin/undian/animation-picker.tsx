@@ -115,20 +115,22 @@ function WinnerFitNote({ animation, perDraw, label }: { animation: UndianAnimati
       </p>
     );
   }
-  if (fit === "few") {
+  if (fit === "over") {
     return (
-      <p className="mt-2 flex items-start gap-2 text-body-medium text-on-surface">
-        <Info size={16} className="mt-0.5 shrink-0 text-on-surface-variant" aria-hidden />
-        <span>{label} looks best with {bestText} per draw. {winners(perDraw)} works, but the reveal is short.</span>
+      <p className="mt-2 flex items-start gap-2 rounded-md bg-warning-soft p-2 text-body-medium text-on-surface">
+        <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+        <span>{label} takes up to {winners(maxWinnersPerDraw(animation))} per draw. Lower Per draw before saving; for more winners, raise Total quota and draw again.</span>
       </p>
     );
   }
+  const small = perDraw > 30 ? " The names also get small on the stage screen." : "";
   return (
-    <p className="mt-2 flex items-start gap-2 rounded-md bg-warning-soft p-2 text-body-medium text-on-surface">
-      <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+    <p className="mt-2 flex items-start gap-2 text-body-medium text-on-surface">
+      <Info size={16} className={cx("mt-0.5 shrink-0", fit === "many" ? "text-warning" : "text-on-surface-variant")} aria-hidden />
       <span>
-        {label} looks best with {bestText} per draw. {winners(perDraw)} still works, but the reveal takes longer.
-        {" "}To give more winners, raise Total quota and draw again.
+        {fit === "few"
+          ? `${label} looks best with ${bestText} per draw. ${winners(perDraw)} works, but the reveal is short.`
+          : `${label} looks best with ${bestText} per draw. ${winners(perDraw)} works, but the reveal takes longer.${small} For a shorter reveal, draw fewer per draw and raise Total quota.`}
       </span>
     </p>
   );

@@ -80,8 +80,8 @@ export function PrizeEditor({
                   <p className="text-body-medium tabular-nums text-on-surface-variant">{order.position} of {order.total} prizes{draft.is_active ? "" : ", hidden while inactive"}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button simpan variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>
-                  <Button simpan variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={saving || order.moving || order.position >= order.total} onClick={() => order.onMove("down")}>Move down</Button>
+                  <Button simpan type="button" variant="outlined" size="sm" icon={<ArrowUp size={16} />} disabled={saving || order.moving || order.position <= 1} onClick={() => order.onMove("up")}>Move up</Button>
+                  <Button simpan type="button" variant="outlined" size="sm" icon={<ArrowDown size={16} />} disabled={saving || order.moving || order.position >= order.total} onClick={() => order.onMove("down")}>Move down</Button>
                 </div>
               </div>
             ) : null}
