@@ -70,7 +70,7 @@ const patchSchema = z.object({
   winners_per_draw: z.number().int().min(1).max(50).optional(),
   winner_quota: z.number().int().min(1).max(500).optional(),
   backup_per_draw: z.number().int().min(0).max(20).optional(),
-  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "tunnel", "drum", "instant"]).optional(),
+  animation: z.enum(["wheel", "slot", "cards", "digits", "dart", "wall", "tunnel", "drum", "arena", "instant"]).optional(),
   wall_names: z.enum(["full", "initials"]).optional(),
   wall_tiles: z.enum(["all", "fixed"]).optional(),
   anim_speed: z.enum(["slow", "normal", "fast"]).optional(),
