@@ -77,24 +77,40 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     for (const a of (akun ?? []) as { participant_id: string; last_login_at: string }[]) masuk.set(a.participant_id, a.last_login_at);
   }
 
-  let kueri = client
-    .from("message_blast_recipients")
-    .select(`id,participant_id,${tamu ? "invitation_id," : ""}channel,address,name,status,reason_code,reason,sent_at,delivered_at,read_at,failed_at`, { count: "exact" })
-    .eq("blast_id", id)
-    .order("name")
-    .order("id");
-  const status = KELOMPOK[kelompok];
-  if (status) kueri = kueri.in("status", status);
-  if (kelompok === "belum_masuk") {
-    kueri = kueri.neq("status", "dilewati");
-    if (masuk.size) kueri = kueri.not(tamu ? "invitation_id" : "participant_id", "in", `(${[...masuk.keys()].join(",")})`);
-  }
-  const { data, count, error } = await kueri.range(halaman * UKURAN, halaman * UKURAN + UKURAN - 1);
+  const kolomDasar = `id,participant_id,${tamu ? "invitation_id," : ""}channel,address,name,status,reason_code,reason,sent_at,delivered_at,read_at,failed_at`;
+  const bacaBaris = (kolom: string) => {
+    let kueri = client.from("message_blast_recipients").select(kolom, { count: "exact" }).eq("blast_id", id).order("name").order("id");
+    const status = KELOMPOK[kelompok];
+    if (status) kueri = kueri.in("status", status);
+    if (kelompok === "belum_masuk") {
+      kueri = kueri.neq("status", "dilewati");
+      if (masuk.size) kueri = kueri.not(tamu ? "invitation_id" : "participant_id", "in", `(${[...masuk.keys()].join(",")})`);
+    }
+    return kueri.range(halaman * UKURAN, halaman * UKURAN + UKURAN - 1);
+  };
+  // Kolom Email tracking (migrasi 202611070030): sebelum migrasinya dibaca tanpa kolom itu.
+  let { data, count, error } = await bacaBaris(`${kolomDasar},opened_at,opened_auto_at,clicked_at`);
+  const adaJejak = !(error?.code === "42703" || error?.code === "PGRST204");
+  if (!adaJejak) ({ data, count, error } = await bacaBaris(kolomDasar));
   if (error) return apiError("INTERNAL_ERROR", 500);
+
+  // Ringkasan Opened untuk seluruh kiriman (bukan hanya halaman ini), hanya
+  // bila kiriman ini memang dikirim dengan gambar 1x1 (temuan QA M1).
+  let tracking: { opened: number; apple: number } | null = null;
+  const { data: tanda } = adaJejak ? await client.from("message_blasts").select("email_tracked").eq("id", id).maybeSingle() : { data: null };
+  if (adaJejak && (tanda as { email_tracked?: boolean } | null)?.email_tracked === true) {
+    const dasarHitung = () => client.from("message_blast_recipients").select("id", { count: "exact", head: true }).eq("blast_id", id);
+    const hitung = (isi: (q: ReturnType<typeof dasarHitung>) => ReturnType<typeof dasarHitung>) => isi(dasarHitung()).then((h) => h.count ?? 0);
+    const [opened, apple] = await Promise.all([
+      hitung((q) => q.not("opened_at", "is", null)),
+      hitung((q) => q.is("opened_at", null).not("opened_auto_at", "is", null)),
+    ]);
+    tracking = { opened, apple };
+  }
 
   const rows = ((data ?? []) as { participant_id: string | null; invitation_id: string | null }[]).map((r) => {
     const kunci = tamu ? r.invitation_id : r.participant_id;
     return { ...r, signed_in_at: kunci ? masuk.get(kunci) ?? null : null, answered: kunci ? masuk.has(kunci) : false };
   });
-  return Response.json({ rows, total: count ?? 0, page: halaman, page_size: UKURAN, signed_in_total: masuk.size });
+  return Response.json({ rows, total: count ?? 0, page: halaman, page_size: UKURAN, signed_in_total: masuk.size, tracking });
 }

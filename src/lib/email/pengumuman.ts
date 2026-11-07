@@ -14,7 +14,13 @@ export function emailPengumuman(input: {
   /** Foto pengumuman (migrasi 202611060001), URL publik; alt sudah jatuh ke judul bila kosong. */
   foto?: { src: string; alt: string } | null;
   dashboardUrl: string;
+  /**
+   * Email tracking menyala (migrasi 202611070030): gambar 1x1 penerima ini,
+   * dan tombolnya ke halaman baca pengumuman, bukan langsung ke Dashboard saya.
+   */
+  jejak?: { pixelUrl: string; bacaUrl: string } | null;
 }) {
+  const tombolUrl = input.jejak?.bacaUrl ?? input.dashboardUrl;
   const subject = `${input.title} — ${input.eventName}`;
   const paragraf = input.body
     .split(/\n{2,}/)
@@ -39,9 +45,9 @@ export function emailPengumuman(input: {
     ${paragraf}
     ${foto}
     ${tautan}
-    <p style="margin:28px 0 0;"><a href="${escapeHtml(input.dashboardUrl)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">Buka Dashboard saya</a></p>
-    <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">Email ini dikirim ke peserta terdaftar acara ini. Pengumuman yang sama ada di Dashboard saya.</p>
-  </div>
+    <p style="margin:28px 0 0;"><a href="${escapeHtml(tombolUrl)}" style="display:inline-block;padding:14px 28px;background:#2649D0;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">${input.jejak ? "Buka pengumuman" : "Buka Dashboard saya"}</a></p>
+    <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid #D9DDD7;font-size:13px;line-height:1.6;color:#66736C;">Email ini dikirim ke peserta terdaftar acara ini. Pengumuman yang sama ada di Dashboard saya.${input.jejak ? " Panitia melihat apakah email ini sudah dibuka dan tombolnya ditekan." : ""}</p>
+  </div>${input.jejak ? `\n  <img src="${escapeHtml(input.jejak.pixelUrl)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;">` : ""}
 </body></html>`;
 
   const text = [
@@ -53,7 +59,7 @@ export function emailPengumuman(input: {
     ...(input.foto ? ["", `Foto: ${input.foto.src}`] : []),
     ...(input.linkUrl ? ["", `${input.linkLabel?.trim() || "Tautan"}: ${input.linkUrl}`] : []),
     "",
-    `Buka Dashboard saya: ${input.dashboardUrl}`,
+    `${input.jejak ? "Buka pengumuman" : "Buka Dashboard saya"}: ${tombolUrl}`,
   ].join("\n");
 
   return { subject, html, text };

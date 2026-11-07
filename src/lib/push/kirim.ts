@@ -4,7 +4,7 @@ import type { PesanPush } from "@/lib/push/pesan";
 
 /**
  * Pengiriman Web Push dari server. Kunci VAPID situs disimpan di tabel
- * web_push_keys (migrasi 202611070001) dan dibuat sendiri saat pertama dipakai:
+ * web_push_keys (migrasi 202611070002) dan dibuat sendiri saat pertama dipakai:
  * tidak ada env var yang perlu diisi panitia atau developer.
  *
  * Subjek VAPID (kontak bagi layanan push peramban bila ada masalah) memakai

@@ -131,7 +131,7 @@ export async function GET(request: Request) {
       .neq("email", ""),
     client.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "approved"),
     client.from("participant_accounts").select("id", { count: "exact", head: true }).eq("event_id", eventId),
-    // Perangkat yang mengizinkan notifikasi HP. Galat = tabel belum ada (migrasi 202611070001).
+    // Perangkat yang mengizinkan notifikasi HP. Galat = tabel belum ada (migrasi 202611070002).
     client.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("event_id", eventId),
   ]);
   const layout = landing.layout === "modern" ? (landing.gathering === true ? "gathering" : "modern") : null;

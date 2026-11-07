@@ -61,7 +61,7 @@ type Muat = {
   sign_in_options?: PilihanKolomMasuk[];
   /** Pengiriman email aktif (Email code membutuhkannya). */
   email_ready?: boolean;
-  /** Perangkat yang mengizinkan notifikasi HP; null = migrasi 202611070001 belum jalan. */
+  /** Perangkat yang mengizinkan notifikasi HP; null = migrasi 202611070002 belum jalan. */
   push_devices?: number | null;
 };
 
