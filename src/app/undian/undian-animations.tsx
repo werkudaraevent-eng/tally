@@ -114,6 +114,26 @@ export function dartDoneMs(n: number) {
   if (n <= 0) return 0;
   return dartLandMs(n - 1, n) + DART_CARDS_AFTER_MS + (n - 1) * dartCardStaggerMs(n) + DART_CARD_MS;
 }
+/**
+ * Arena Gugur (undian-arena.tsx): jadwal sejak pemenang datang. Satu babak
+ * biasa = lari ke petak baru, lantai merah berkedip, lalu runtuh. Sesudah
+ * pemenang datang selalu ada dua babak (babak antara, lalu babak final yang
+ * lebih lama), podium meluncur, lalu daftar nama. Jadwalnya tetap, berapa pun
+ * yang tersisa, supaya revealSettleMs dan revealFxDelayMs bisa menghitungnya.
+ */
+export const ARENA_RUN_MS = 1600;
+export const ARENA_WARN_MS = 1200;
+export const ARENA_FALL_MS = 1000;
+export const ARENA_CYCLE_MS = ARENA_RUN_MS + ARENA_WARN_MS + ARENA_FALL_MS;
+export const ARENA_FINAL_RUN_MS = 2000;
+export const ARENA_FINAL_WARN_MS = 2400;
+export const ARENA_FINAL_FALL_MS = 1400;
+/** Lantai babak final runtuh: saat itulah ruangan tahu siapa pemenangnya. */
+export const ARENA_FINAL_DROP_MS = ARENA_CYCLE_MS + ARENA_FINAL_RUN_MS + ARENA_FINAL_WARN_MS;
+export const ARENA_PODIUM_MS = ARENA_FINAL_DROP_MS + ARENA_FINAL_FALL_MS;
+/** Podium meluncur 1,6 detik, berdiri sebentar, lalu daftar nama (dengan cadangan). */
+export const ARENA_LIST_MS = ARENA_PODIUM_MS + 1600 + 1800;
+
 /** Terowongan dan tabung: jeda dari pemenang terakhir tiba sampai daftar nama tampil. */
 export const LIST_AFTER_MS = 800;
 
@@ -129,6 +149,7 @@ export function revealFxDelayMs(animation: string): number {
     case "drum": return DRUM_FIRST_LAND_MS;
     // Dart pertama menancap: saat itulah ruangan tahu nama sudah terpilih.
     case "dart": return DART_LAND_MS;
+    case "arena": return ARENA_FINAL_DROP_MS;
     default: return 0;
   }
 }
@@ -1419,6 +1440,8 @@ export function revealSettleMs(animation: string, winners: { is_backup: boolean 
       const shown = Math.min(n, 10);
       return TUNNEL_ARRIVE_MS + (shown - 1) * tunnelGapMs(shown) + LIST_AFTER_MS + Math.min(n * 350, 2000);
     }
+    // Dua babak terakhir dan podium, lalu daftar nama satu per satu.
+    case "arena": return ARENA_LIST_MS + Math.min(n * 350, 2000);
     case "drum": {
       const shown = Math.min(n, 6);
       return DRUM_FIRST_LAND_MS + (shown - 1) * DRUM_DROP_GAP_MS + LIST_AFTER_MS + Math.min(n * 350, 2000);

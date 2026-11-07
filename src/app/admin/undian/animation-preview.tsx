@@ -13,6 +13,7 @@ import { WallAnimation } from "@/app/undian/undian-wall";
 import { TunnelAnimation } from "@/app/undian/undian-tunnel";
 import { DrumAnimation } from "@/app/undian/undian-drum";
 import { DartAnimation3D } from "@/app/undian/undian-dart";
+import { ArenaAnimation } from "@/app/undian/undian-arena";
 import { ANIMATION_ICON, onAnimationArrow, type StageLook } from "./animation-choice";
 
 const CONTOH = ["Andi Pratama", "Siti Rahma", "Budi Santoso", "Dewi Lestari", "Rizky Hidayat", "Nur Aisyah", "Agus Wibowo", "Maya Putri", "Fajar Nugroho", "Intan Sari", "Hendra Saputra", "Lina Marlina"];
@@ -137,6 +138,7 @@ export function AnimationPreview({
             : animation === "wall" ? <WallAnimation {...props} />
             : animation === "tunnel" ? <TunnelAnimation {...props} />
             : animation === "drum" ? <DrumAnimation {...props} />
+            : animation === "arena" ? <ArenaAnimation {...props} />
             : <WinnerList winners={props.winners} accent={stage.accent} text={stage.text} fontFamily={stage.fontFamily} />}
         </div>
       </StageFrame>
