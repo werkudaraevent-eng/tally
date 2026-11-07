@@ -467,6 +467,7 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
   const kiriman = new Map<string, BlastRow>();
   const acara = new Map<string, EventForMail>();
   const lacak = new Map<string, boolean>();
+  const blastDilacak = new Set<string>();
   // Kiriman yang dilewati di putaran ini (Invitation tanpa pengirim undangan),
   // supaya satu kiriman yang tertahan tidak menghentikan kiriman lain.
   const ditunda = new Set<string>();
@@ -661,6 +662,11 @@ export async function drainQueue(budgetMs = 45_000, options: { origin: string; o
             });
       const { error: galatCatat } = await client.rpc("record_message_results" as never, { p_rows: catatan } as never);
       if (galatCatat) throw new Error(galatCatat.message);
+      // Kiriman ini membawa gambar 1x1: laporan boleh menampilkan Opened.
+      if (kirim.kind === "ok" && items.some((item) => item.html.includes("/api/jejak/buka/")) && !blastDilacak.has(blast.id)) {
+        blastDilacak.add(blast.id);
+        await client.from("message_blasts").update({ email_tracked: true } as never).eq("id", blast.id).eq("email_tracked", false);
+      }
       if (blast.kind === "undangan" || blast.kind === "data") {
         const sampai = kirimKe.filter((r, i) => catatan[i].status === "terkirim" && r.participant_id).map((r) => r.participant_id!);
         await cabutTautanLama(blast, sampai);

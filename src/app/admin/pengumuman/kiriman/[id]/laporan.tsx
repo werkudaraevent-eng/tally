@@ -106,7 +106,7 @@ type Baris = {
 };
 
 /** Email tracking (migrasi 202611070030): null sebelum migrasinya. */
-type Jejak = { on: boolean; opened: number; apple: number };
+type Jejak = { opened: number; apple: number };
 
 type Halaman = { rows: Baris[]; total: number; page: number; page_size: number; tracking?: Jejak | null };
 
@@ -131,8 +131,8 @@ export function Laporan({ detail, onReload }: { detail: DetailTerkirim; onReload
   const orang = (n: number) => plural(n, tamu ? "invited guest" : "participant");
   const undangan = (n: number) => plural(n, "invitation");
   const persen = total > 0 ? Math.round((detail.signed_in / total) * 100) : 0;
-  // Kolom Opened tampil bila sakelarnya menyala atau kiriman ini sempat dilacak.
-  const jejak = data?.tracking && (data.tracking.on || data.tracking.opened + data.tracking.apple > 0) ? data.tracking : null;
+  // Kolom Opened hanya untuk kiriman yang dikirim dengan gambar 1x1.
+  const jejak = data?.tracking ?? null;
 
   const muatBaris = useCallback(async () => {
     const response = await fetch(`/api/admin/pesan/${blast.id}/penerima?kelompok=${kelompok}&halaman=${halaman}`, { cache: "no-store" }).catch(() => null);

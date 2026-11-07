@@ -2,7 +2,6 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { answeredIds, idSchema, pesanBelumAda } from "@/lib/pesan/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { jejakMenyala } from "@/lib/email/jejak-server";
 
 /**
  * Baris penerima untuk tabel laporan, disaring per kelompok chip:
@@ -95,17 +94,18 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!adaJejak) ({ data, count, error } = await bacaBaris(kolomDasar));
   if (error) return apiError("INTERNAL_ERROR", 500);
 
-  // Ringkasan Opened untuk seluruh kiriman (bukan hanya halaman ini).
-  let tracking: { on: boolean; opened: number; apple: number } | null = null;
-  if (adaJejak) {
+  // Ringkasan Opened untuk seluruh kiriman (bukan hanya halaman ini), hanya
+  // bila kiriman ini memang dikirim dengan gambar 1x1 (temuan QA M1).
+  let tracking: { opened: number; apple: number } | null = null;
+  const { data: tanda } = adaJejak ? await client.from("message_blasts").select("email_tracked").eq("id", id).maybeSingle() : { data: null };
+  if (adaJejak && (tanda as { email_tracked?: boolean } | null)?.email_tracked === true) {
     const dasarHitung = () => client.from("message_blast_recipients").select("id", { count: "exact", head: true }).eq("blast_id", id);
     const hitung = (isi: (q: ReturnType<typeof dasarHitung>) => ReturnType<typeof dasarHitung>) => isi(dasarHitung()).then((h) => h.count ?? 0);
-    const [on, opened, apple] = await Promise.all([
-      jejakMenyala(auth.scope.event.id),
+    const [opened, apple] = await Promise.all([
       hitung((q) => q.not("opened_at", "is", null)),
       hitung((q) => q.is("opened_at", null).not("opened_auto_at", "is", null)),
     ]);
-    tracking = { on, opened, apple };
+    tracking = { opened, apple };
   }
 
   const rows = ((data ?? []) as { participant_id: string | null; invitation_id: string | null }[]).map((r) => {

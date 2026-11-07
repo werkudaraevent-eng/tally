@@ -497,7 +497,8 @@ export default function EmailOtomatisPage() {
         paneWidth={440}
         terkunci
         main={
-          <div className="@container w-full min-w-0 self-start rounded-lg border border-outline-variant bg-surface-container-lowest">
+          <div className="flex w-full min-w-0 flex-col gap-4 self-start">
+          <div className="@container w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest">
             <div className="border-b border-outline-variant px-5 py-5">
               <h2 className="text-title-large font-semibold text-on-surface">Registration confirmation</h2>
               <p className="mt-1 max-w-[40rem] text-body-medium text-on-surface-variant">
@@ -510,10 +511,6 @@ export default function EmailOtomatisPage() {
               <Button variant="outlined" size="sm" className="self-start" onClick={() => setDialog("pengirim")} disabled={!pengirim}>
                 Change…
               </Button>
-            </Baris>
-
-            <Baris judul="Tracking" id="jejak">
-              <SakelarJejak />
             </Baris>
 
             <Baris judul="Email language" id="bahasa-kirim">
@@ -689,6 +686,17 @@ export default function EmailOtomatisPage() {
                 Unknown fields: {asing.map((key) => `{${key}}`).join(", ")}. Use the Insert buttons so the spelling is exact.
               </p>
             ) : null}
+          </div>
+
+          {/* Pelacakan untuk email pengumuman dan blast: kartu sendiri, bukan
+              bagian email konfirmasi (temuan QA L6). */}
+          <section id="jejak" aria-labelledby="judul-jejak" className="scroll-mt-4 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-5">
+            <h2 id="judul-jejak" className="text-title-large font-semibold text-on-surface">Announcement and blast emails</h2>
+            <p className="mt-1 max-w-[40rem] text-body-medium text-on-surface-variant">Tracking for the emails sent from Announcements and Blasts. Registration confirmations and sign-in links are never tracked.</p>
+            <div className="mt-4 flex flex-col gap-3">
+              <SakelarJejak />
+            </div>
+          </section>
           </div>
         }
         pane={
@@ -911,10 +919,10 @@ function SakelarJejak() {
   return (
     <>
       <Switch
-        label="Record opens and clicks for announcement emails and blasts"
+        label="Record opens and clicks"
         description={
           nilai.siap
-            ? "Clicked is reliable. Opened is an estimate: Apple Mail opens every email by itself (counted separately) and Outlook blocks images. The email footer tells recipients. Registration confirmations and sign-in links are never tracked."
+            ? "Announcement emails: opens and button clicks. Blasts: opens (their sign-in link already shows who signed in). Clicked is reliable. Opened is an estimate: Apple Mail opens every email by itself (counted separately) and Outlook blocks images. The email footer tells recipients."
             : "Available after the database update for email tracking has been run."
         }
         checked={nilai.email_tracking}

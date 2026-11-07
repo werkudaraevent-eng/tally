@@ -30,6 +30,14 @@ alter table public.message_blast_recipients
   add column if not exists opened_auto_at timestamptz,
   add column if not exists clicked_at     timestamptz;
 
+-- Kiriman yang benar-benar membawa gambar 1x1: laporan blast menampilkan
+-- Opened hanya untuk kiriman ini, bukan untuk kiriman sebelum sakelar menyala.
+alter table public.message_blasts
+  add column if not exists email_tracked boolean not null default false;
+
+comment on column public.message_blasts.email_tracked is
+  'Messages: kiriman ini dikirim dengan gambar 1x1 Email tracking. Laporan menampilkan Opened hanya bila true.';
+
 comment on column public.message_blast_recipients.opened_at is
   'Pertama dibuka (gambar 1x1 dimuat), bukan oleh proxy Apple Mail.';
 comment on column public.message_blast_recipients.opened_auto_at is

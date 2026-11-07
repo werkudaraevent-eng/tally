@@ -45,9 +45,11 @@ const TEKS: Record<LandingLang, { eyebrow: string; open: string; gone: string; g
   },
 };
 
-export async function generateMetadata() {
+export async function generateMetadata({ searchParams }: { searchParams: Kueri }) {
+  const event = await getPublicPageEvent(searchParams).catch(() => null);
+  const lang = event ? landingDefaultLang((event.landing_config ?? {}) as EventLandingConfig) : "id";
   return {
-    title: TEKS.id.title,
+    title: TEKS[lang].title,
     // Tautan pribadi: jangan diindeks, dan jangan bocorkan tokennya lewat Referer.
     robots: { index: false, follow: false },
     referrer: "no-referrer" as const,
@@ -73,6 +75,12 @@ async function muatPengumuman(eventId: string, token: string | null): Promise<Pe
   return item && !item.hidden_at ? item : null;
 }
 
+/** Tautan email berhenti 30 hari setelah tanggal terakhir acara (WIB, longgar). */
+function tautanKedaluwarsa(tanggal: string | null | undefined): boolean {
+  const akhir = Date.parse(`${tanggal ?? ""}T23:59:59+07:00`);
+  return Number.isFinite(akhir) && Date.now() > akhir + 30 * 86_400_000;
+}
+
 export default async function KabarPage({ searchParams }: { searchParams: Kueri }) {
   const kueri = await searchParams;
   const event = await getPublicPageEvent(Promise.resolve(kueri));
@@ -81,7 +89,9 @@ export default async function KabarPage({ searchParams }: { searchParams: Kueri 
   const lang = landingDefaultLang(landing);
   const t = TEKS[lang];
   const token = typeof kueri.t === "string" ? kueri.t : null;
-  const item = await muatPengumuman(event.id, token).catch(() => null);
+  // Tautan email berhenti 30 hari setelah acara selesai (temuan QA L1):
+  // email yang diteruskan tidak membaca pengumuman itu selamanya.
+  const item = tautanKedaluwarsa(event.end_date ?? event.event_date) ? null : await muatPengumuman(event.id, token).catch(() => null);
   const dashboard = `${landingPath(event.slug, lang, lang)}/peserta?tab=info`;
 
   const tombol = (

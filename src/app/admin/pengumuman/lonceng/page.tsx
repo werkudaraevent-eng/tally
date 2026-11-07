@@ -76,6 +76,8 @@ type Muat = {
   recipients: { semua: number; disetujui: number };
   email_configured: boolean;
   email_tracking?: boolean;
+  /** Migrasi 202611070030 sudah dijalankan: sakelarnya bisa dipakai. */
+  email_tracking_ready?: boolean;
   test_mode?: "off" | "list" | "blocked";
   member_enabled?: boolean;
   time_zone?: string;
@@ -696,11 +698,11 @@ export default function PengumumanPage() {
                   )}
                   {berubah ? <p className="text-body-small text-on-surface-variant">Save your changes before sending the email.</p> : null}
                   {/* Sakelarnya di Automated emails (milik panitia): peran kustom tidak diberi tautan. */}
-                  {data?.email_configured && !kustom ? (
+                  {data?.email_configured && data.email_tracking_ready && !kustom ? (
                     <p className="text-body-small text-on-surface-variant">
                       {data.email_tracking ? "Opens and clicks are tracked; results show under Seen by participants. " : "Opens and clicks aren't tracked. "}
                       <EventLink href="/admin/pengumuman/otomatis#jejak" className="font-medium text-primary hover:underline">
-                        {data.email_tracking ? "Change in Automated emails ↗" : "Turn on in Automated emails ↗"}
+                        {data.email_tracking ? "Change in Automated emails" : "Turn on in Automated emails"}
                       </EventLink>
                     </p>
                   ) : null}
