@@ -10,9 +10,11 @@ import { MUSIC_OFF, type UndianState } from "@/lib/undian";
 import { CardsAnimation, ConfettiBurst, DigitsAnimation, SlotAnimation, WheelAnimation, WinnerList, revealFxDelayMs, revealSettleMs } from "./undian-animations";
 import { AmbientStage, GREEN_SCREEN_COLOR, GreenScreenContext, RevealBurst, ShineText, useStageDim } from "./undian-stage-fx";
 import { WallAnimation } from "./undian-wall";
+import { FullscreenButton } from "./fullscreen-button";
 import { TunnelAnimation } from "./undian-tunnel";
 import { DrumAnimation, preloadDrum } from "./undian-drum";
 import { DartAnimation3D, preloadDart } from "./undian-dart";
+import { ArenaAnimation, preloadArena } from "./undian-arena";
 import { MusicClickHint, useStageMusic } from "./undian-musik";
 
 /**
@@ -136,6 +138,10 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
   useEffect(() => {
     if (dartNext) preloadDart();
   }, [dartNext]);
+  const arenaNext = state.prize?.animation === "arena";
+  useEffect(() => {
+    if (arenaNext) preloadArena();
+  }, [arenaNext]);
 
   // Fullscreen dibaca di inisialisasi state, bukan di effect, supaya render
   // pertama sudah benar. Permintaan fullscreen sendiri butuh gestur pengguna,
@@ -395,6 +401,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
                   : state.prize.animation === "wall" ? <WallAnimation {...animationProps} />
                   : state.prize.animation === "tunnel" ? <TunnelAnimation {...animationProps} />
                   : state.prize.animation === "drum" ? <DrumAnimation {...animationProps} />
+                  : state.prize.animation === "arena" ? <ArenaAnimation {...animationProps} />
                   : spinning
                     ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: dim(0.5) }}>Mengundi...</p>
                     : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}
@@ -425,6 +432,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
 
     <footer className="shrink-0 px-[4vw] pb-[2.5vh] pt-[1vh]">
       <BrandFooter branding={branding} textColor={text} variant="led" />
+      {!greenScreen && <FullscreenButton />}
     </footer>
     {needsClick ? <MusicClickHint /> : null}
     </GreenScreenContext.Provider>
