@@ -4,6 +4,8 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { drawWinners, normalizePrize, initialsOf, shuffle, stageRosterItem, type Candidate, type UndianPrize } from "@/lib/undian";
 import { buildPool } from "@/lib/undian-pool";
+import { CAHAYA_MIN_MS } from "@/lib/undian-cahaya";
+import { siapkanCahaya, type CahayaPending } from "@/lib/undian-cahaya-server";
 import { PRIZE_COLUMNS } from "../../admin/undian/prizes/route";
 
 // Kontrol undian. Admin saja. Layar panggung membaca lewat GET /api/undian/state.
@@ -71,6 +73,13 @@ type PendingDraw = {
     is_backup: boolean;
     slot_order: number;
   }>;
+  /**
+   * Cahaya HP saja: jadwal gelombang, kunci per gelombang, dan gelombang padam
+   * tiap peserta. Tidak pernah keluar apa adanya: /api/undian/state dan
+   * /api/undian/hp hanya mengirim jadwal dan kunci yang waktunya sudah lewat,
+   * /api/peserta/undian-hp hanya hasil terkunci milik peserta yang bertanya.
+   */
+  cahaya?: CahayaPending;
 };
 
 const postSchema = z.object({
@@ -295,7 +304,10 @@ export async function POST(request: Request) {
         wallInitials ? { name: initialsOf(candidate.name), seat: null, code: null } : candidate,
       ));
 
-      const spinMs = Math.round(prize.spin_seconds * 1000);
+      // Cahaya HP butuh waktu untuk menyala, pertunjukan, dan paling tidak dua
+      // gelombang: Duration yang lebih pendek dipanjangkan, bukan ditolak.
+      const cahaya = prize.animation === "cahaya";
+      const spinMs = cahaya ? Math.max(CAHAYA_MIN_MS, Math.round(prize.spin_seconds * 1000)) : Math.round(prize.spin_seconds * 1000);
       const { data: settings } = await client.from("undian_settings").select("reveal_delay_seconds").eq("event_id", eventId).maybeSingle();
       const delayMs = Math.round(Number((settings as { reveal_delay_seconds?: number } | null)?.reveal_delay_seconds ?? 0) * 1000);
 
@@ -308,7 +320,12 @@ export async function POST(request: Request) {
       // `reveal_delay_seconds` ikut tidak berlaku di sini: jeda itu ada untuk
       // menahan nama sesaat setelah animasi berhenti sendiri, sedangkan pada
       // mode manual penekanan tombol operator ADALAH momen berhentinya.
-      const manual = prize.spin_mode === "manual";
+      //
+      // Cahaya HP selalu berjalan dengan waktu: gelombang di semua HP dijadwalkan
+      // terhadap reveal_at, dan tanpa waktu berhenti tidak ada jadwal.
+      const manual = prize.spin_mode === "manual" && !cahaya;
+      const revealAt = manual ? null : new Date(now.getTime() + spinMs + delayMs);
+      if (cahaya && revealAt) pending.cahaya = siapkanCahaya(pool.candidates, pending.winners, now.getTime(), revealAt.getTime());
 
       // Pemenang dicatat SEKARANG, sebelum state diperbarui.
       //
@@ -368,7 +385,7 @@ export async function POST(request: Request) {
           phase: "spinning",
           draw_round: round,
           spin_started_at: now.toISOString(),
-          reveal_at: manual ? null : new Date(now.getTime() + spinMs + delayMs).toISOString(),
+          reveal_at: revealAt ? revealAt.toISOString() : null,
           pending,
           pool: roster,
           pool_frozen_at: now.toISOString(),

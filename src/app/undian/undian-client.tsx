@@ -15,6 +15,7 @@ import { TunnelAnimation } from "./undian-tunnel";
 import { DrumAnimation, preloadDrum } from "./undian-drum";
 import { DartAnimation3D, preloadDart } from "./undian-dart";
 import { ArenaAnimation, preloadArena } from "./undian-arena";
+import { CahayaAnimation } from "./undian-cahaya";
 import { MusicClickHint, useStageMusic } from "./undian-musik";
 
 /**
@@ -402,6 +403,7 @@ export default function UndianClient({ initial, greenScreen = false }: Props) {
                   : state.prize.animation === "tunnel" ? <TunnelAnimation {...animationProps} />
                   : state.prize.animation === "drum" ? <DrumAnimation {...animationProps} />
                   : state.prize.animation === "arena" ? <ArenaAnimation {...animationProps} />
+                  : state.prize.animation === "cahaya" ? <CahayaAnimation {...animationProps} jadwal={state.cahaya ?? null} />
                   : spinning
                     ? <p style={{ fontFamily: headingFont, fontSize: "clamp(16px, 3vw, 44px)", opacity: dim(0.5) }}>Mengundi...</p>
                     : <WinnerList winners={animationProps.winners} accent={accent} text={text} fontFamily={headingFont} />}

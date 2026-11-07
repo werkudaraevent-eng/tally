@@ -2,6 +2,7 @@ import { apiErrorPeserta } from "@/lib/api";
 import { getPublicRequestEvent, requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { BRANDING_COLUMNS, normalizeBranding } from "@/lib/branding";
+import { jadwalPublik, type CahayaJadwal } from "@/lib/undian-cahaya";
 import { MUSIC_COLUMNS, MUSIC_OFF, musicFromRow, normalizeAfterWin, normalizeAnimSpeed, stageMessage, stageRosterItem, type UndianState, type UndianWinner } from "@/lib/undian";
 
 // State undian untuk layar panggung. PUBLIK — proyektor berjalan tanpa login.
@@ -49,7 +50,7 @@ type StateRow = {
   draw_round: number;
   spin_started_at: string | null;
   reveal_at: string | null;
-  pending: { prize_id: number; draw_round: number; winner_ids?: number[]; winners: PendingWinner[] } | null;
+  pending: { prize_id: number; draw_round: number; winner_ids?: number[]; winners: PendingWinner[]; cahaya?: { jadwal: CahayaJadwal } } | null;
   pool: { name: string; seat: string | null; code: string | null }[] | null;
   pool_size: number;
   updated_at: string;
@@ -113,7 +114,7 @@ export async function GET(request: Request) {
   if (!state || state.mode === "off") {
     return Response.json({
       mode: "off", rehearsal: false, phase: "idle", draw_round: 0, prize: null, roster: [], pool_size: 0,
-      spin_started_at: null, reveal_at: null, winners: [], confirmed: [], lineup: [],
+      spin_started_at: null, reveal_at: null, cahaya: null, winners: [], confirmed: [], lineup: [],
       settings, branding, updated_at: new Date().toISOString(),
     } satisfies UndianState & { branding: unknown });
   }
@@ -284,6 +285,11 @@ export async function GET(request: Request) {
     pool_size: poolSize,
     spin_started_at: state.spin_started_at,
     reveal_at: state.reveal_at,
+    // Cahaya HP: hanya jadwal (waktu dan jumlah sisa). Kunci dan gelombang per
+    // peserta di `pending.cahaya` tidak ikut.
+    cahaya: state.phase !== "idle" && prize?.animation === "cahaya" && state.pending?.cahaya?.jadwal
+      ? jadwalPublik(state.pending.cahaya.jadwal, settings.show_pool_size)
+      : null,
     winners,
     confirmed,
     lineup: settings.show_lineup ? await lineupFor(eventId) : [],
