@@ -12,6 +12,7 @@ import { renderLanding } from "@/components/landing/render-landing";
 import { asalSitus } from "@/app/e/[slug]/landing-metadata";
 import { peekPasswordToken } from "@/lib/member/links";
 import { lanjutPindai } from "@/lib/checkpoint/qr-alamat";
+import { lanjutKilasBalik } from "@/lib/kilas-balik/alamat";
 import { bingkaiFormulir } from "@/app/daftar/isi-daftar";
 import { BingkaiModern } from "@/app/daftar/daftar-client";
 import { MasukClient, type MasukMode, type MasukSandi } from "./masuk-client";
@@ -73,7 +74,8 @@ export default async function MasukPage({
   const sudahMasuk = Boolean(await getMemberSession(event));
   // Dari QR checkpoint yang dibuka kamera bawaan (`/e/<slug>/pindai`): sesudah
   // masuk kembali ke checkpoint itu, bukan ke area peserta.
-  const lanjut = lanjutPindai(event.slug, params.lanjut);
+  // Dari tautan Kilas balik di Pengumuman atau email: kembali ke kuesionernya.
+  const lanjut = lanjutPindai(event.slug, params.lanjut) ?? lanjutKilasBalik(event.slug, params.lanjut);
   if (!tokenSandi && sudahMasuk) redirect(lanjut ?? `${halamanUrl}/peserta`);
 
   // `?mode=aktifkan` adalah alamat lama (buat kata sandi dengan kode); kini

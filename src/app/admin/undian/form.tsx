@@ -1,7 +1,7 @@
 "use client";
 
 import { Warning } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
 import { Field, INPUT } from "@/components/admin/compact-form";
 
@@ -11,18 +11,43 @@ export { Field, INPUT };
 // dan `INPUT` berasal dari formulir padat admin; sisanya khusus Undian.
 
 export function NumberField({ id, label, value, min, max, onChange }: { id: string; label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
+  // Teks yang sedang diketik disimpan sendiri, jadi kolom boleh kosong atau
+  // sementara di luar batas. Dulu nilai di-clamp tiap ketukan: kolom tak bisa
+  // dikosongkan (langsung jadi `min`) dan angka baru tidak bisa diketik.
+  // Angka yang sah langsung dikirim; batasnya ditegakkan saat fokus lepas/Enter.
+  const [text, setText] = useState<string | null>(null);
+  const clamp = (next: number) => Math.max(min, Math.min(max, Math.round(next)));
+  const commit = () => {
+    if (text === null) return;
+    const next = Number(text);
+    onChange(text.trim() !== "" && Number.isFinite(next) ? clamp(next) : clamp(value));
+    setText(null);
+  };
   return (
     <Field label={label} htmlFor={id}>
       <input
         id={id}
         type="number"
+        inputMode="numeric"
         min={min}
         max={max}
-        value={value}
+        value={text ?? String(value)}
         onChange={(event) => {
-          const next = Number(event.target.value);
-          onChange(Number.isFinite(next) ? Math.max(min, Math.min(max, next)) : min);
+          const raw = event.target.value;
+          setText(raw);
+          const next = Number(raw);
+          if (raw.trim() !== "" && Number.isFinite(next) && next >= min && next <= max) onChange(Math.round(next));
         }}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || text === null) return;
+          // Angka di luar batas: tahan kirim formulir supaya angka yang
+          // disesuaikan terlihat dulu sebelum disimpan.
+          const next = Number(text);
+          if (text.trim() === "" || !(next >= min && next <= max)) event.preventDefault();
+          commit();
+        }}
+        aria-invalid={text !== null && (text.trim() === "" || !(Number(text) >= min && Number(text) <= max)) ? true : undefined}
         className={cx(INPUT, "tabular-nums")}
       />
     </Field>

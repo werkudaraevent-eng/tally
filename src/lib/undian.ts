@@ -808,6 +808,39 @@ export function maxWinnersPerDraw(animation: UndianAnimation): number {
   return ANIMATION_MAX_WINNERS[animation] ?? WINNERS_PER_DRAW_MAX;
 }
 
+/**
+ * Rentang jumlah pemenang per undian yang paling enak dilihat di panggung,
+ * per animasi. Hanya panduan di CMS (pilihan animasi + petunjuk di bawah
+ * "Per draw"); batas kerasnya tetap `maxWinnersPerDraw`.
+ */
+export const ANIMATION_BEST_WINNERS: Record<UndianAnimation, { min: number; max: number }> = {
+  wheel: { min: 1, max: 1 },
+  slot: { min: 1, max: 10 },
+  cards: { min: 3, max: 20 },
+  digits: { min: 1, max: 5 },
+  dart: { min: 1, max: 6 },
+  wall: { min: 5, max: 30 },
+  tunnel: { min: 1, max: 5 },
+  drum: { min: 1, max: 3 },
+  arena: { min: 3, max: 10 },
+  instant: { min: 1, max: 30 },
+};
+
+/** "1", "3–10": rentang terbaik sebagai teks pendek. */
+export function bestWinnersLabel(animation: UndianAnimation): string {
+  const best = ANIMATION_BEST_WINNERS[animation];
+  return best.min === best.max ? String(best.min) : `${best.min}–${best.max}`;
+}
+
+/** Posisi jumlah pemenang terhadap rentang terbaik animasi. */
+export function winnerFit(animation: UndianAnimation, perDraw: number): "best" | "few" | "many" | "over" {
+  if (perDraw > maxWinnersPerDraw(animation)) return "over";
+  const best = ANIMATION_BEST_WINNERS[animation];
+  if (perDraw < best.min) return "few";
+  if (perDraw > best.max) return "many";
+  return "best";
+}
+
 /** Nama di Spotlight wall selama undian: lengkap atau inisial. */
 export type WallNames = "full" | "initials";
 

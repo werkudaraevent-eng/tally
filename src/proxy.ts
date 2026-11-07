@@ -57,8 +57,9 @@ function eventRewrite(request: NextRequest) {
     // bahasa itu berlaku untuk acara ini.
     // Area peserta juga: `/e/<slug>/en/peserta` -> `/peserta?...&bahasa=en`,
     // `/e/<slug>/en/kode/<token>` -> `/kode/<token>?...&bahasa=en`, dan
-    // Lengkapi data `/e/<slug>/en/lengkapi` -> `/lengkapi?...&bahasa=en`.
-    const bahasa = rest.match(/^\/(en|id)(\/(?:daftar|masuk|peserta|lengkapi|kode\/[^/]+))\/?$/);
+    // Lengkapi data `/e/<slug>/en/lengkapi` -> `/lengkapi?...&bahasa=en`, dan
+    // Kilas balik `/e/<slug>/en/kilas-balik` -> `/kilas-balik?...&bahasa=en`.
+    const bahasa = rest.match(/^\/(en|id)(\/(?:daftar|masuk|peserta|lengkapi|kilas-balik|kode\/[^/]+))\/?$/);
     destination.pathname = bahasa ? bahasa[2] : rest;
     destination.searchParams.set("eventSlug", slug);
     if (bahasa) destination.searchParams.set("bahasa", bahasa[1]);
