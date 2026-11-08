@@ -15,6 +15,8 @@ import type { SetelanHari } from "./config.ts";
 import { RINGKASAN, type HalamanAbsen, type HalamanHarian, type HariHighlight, type KunciHalaman } from "./jenis.ts";
 
 /** Tanggal acara yang punya sesi Agenda, urut. */
+/** Titik yang dikeluarkan dari highlight hari sesudah `tgl`. */
+export const tanpaBesok = (harian: Partial<Record<string, { tanpa: string[] }>>, hari: readonly string[], tgl: string) => harian[hari[hari.indexOf(tgl) + 1] ?? ""]?.tanpa ?? [];
 export const hariAcara = (b: BahanLaporan) => [...new Set(b.sesi.map((s) => s.tanggal).filter((t): t is string => !!t))].sort();
 
 const jamAgenda = (s: SesiBahan, bh: Bahasa) => (s.jam ? (bh === "id" ? s.jam.slice(0, 5).replace(":", ".") : s.jam.slice(0, 5)) : "");
@@ -88,14 +90,15 @@ export function sibukHari(waktu: number[], offset: string) {
 }
 
 /** `ada` = halaman yang punya data hari itu, termasuk yang disembunyikan panitia. */
-export function susunHari(b: BahanLaporan, tgl: string, setelan: SetelanHari, huruf: HariHighlight["huruf"]): { hari: HariHighlight; absen: HalamanAbsen[]; ada: KunciHalaman[] } {
+/** `tanpaBesok` = titik yang dikeluarkan dari highlight hari berikutnya (untuk kalimat "Besok, ..."). */
+export function susunHari(b: BahanLaporan, tgl: string, setelan: SetelanHari, huruf: HariHighlight["huruf"], tanpaBesok: readonly string[] = []): { hari: HariHighlight; absen: HalamanAbsen[]; ada: KunciHalaman[] } {
   const bh = b.acara.bahasa;
   const semua = hariAcara(b);
   const ke = semua.indexOf(tgl) + 1;
   const total = semua.length;
   const sesi = b.sesi.filter((s) => s.tanggal === tgl && !setelan.tanpa.includes(s.kunci)).sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""));
   const besok = semua[semua.indexOf(tgl) + 1];
-  const sesiBesok = besok ? b.sesi.filter((s) => s.tanggal === besok).sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""))[0] : undefined;
+  const sesiBesok = besok ? b.sesi.filter((s) => s.tanggal === besok && !tanpaBesok.includes(s.kunci)).sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""))[0] : undefined;
   const peserta = b.peserta.length;
   const datang = unik(sesi);
   const [f0, f1, f2] = setelan.foto;
@@ -237,8 +240,13 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
     });
   } else absen.push({ kunci: "hadir", alasan: "No one was scanned at a check-in point yet." });
 
-  if (peserta > 0) {
-    const perHari = semua.map((t, i) => ({ i, n: unik(b.sesi.filter((s) => s.tanggal === t && !setelan.tanpa.includes(s.kunci))), t }));
+  // Hari yang semua titiknya dikeluarkan tidak ikut (bukan "0 dari ...").
+  const perHari = semua
+    .map((t, i) => ({ i, t, sesi: b.sesi.filter((s) => s.tanggal === t && !setelan.tanpa.includes(s.kunci)) }))
+    .filter((d) => d.sesi.length)
+    .map((d) => ({ i: d.i, n: unik(d.sesi), t: d.t }));
+  if (peserta > 0 && !perHari.length) absen.push({ kunci: "rekap", alasan: "Every check-in point is turned off." });
+  if (peserta > 0 && perHari.length) {
     const ramai = perHari.reduce((a, c) => (c.n > a.n ? c : a), perHari[0]);
     halaman.push({
       kunci: "rekap", permukaan: "gelap", foto: null,

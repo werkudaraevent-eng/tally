@@ -4,7 +4,7 @@ import { bacaSetelanHari, BATAS_HARIAN, hariSah, SETELAN_KOSONG } from "@/lib/la
 import { fotoLaporanSah } from "@/lib/laporan/harian/foto";
 import { hurufAcara, muatHarian } from "@/lib/laporan/harian/server";
 import { muatBahanLaporan } from "@/lib/laporan/bahan-server";
-import { hariAcara, susunHari, susunRingkasan } from "@/lib/laporan/harian/hitung";
+import { hariAcara, susunHari, susunRingkasan, tanpaBesok } from "@/lib/laporan/harian/hitung";
 import { RINGKASAN } from "@/lib/laporan/harian/jenis";
 import { muatLaporan, simpanConfig } from "@/lib/laporan/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -82,10 +82,12 @@ export async function POST(request: Request) {
     if (body.tanggal === RINGKASAN) {
       // Seluruh acara hanya untuk acara lebih dari satu hari.
       if (hariAcara(bahan).length < 2) return apiError("VALIDATION_ERROR", 422);
+      // Semua titik dikeluarkan: tidak ada yang bisa dikunci.
+      if (!bahan.sesi.some((s) => !lama.tanpa.includes(s.kunci))) return apiError("VALIDATION_ERROR", 422);
       kunci = { at: new Date().toISOString(), hari: susunRingkasan(bahan, lama, hurufAcara(event)).hari };
     } else {
-      if (!bahan.sesi.some((s) => s.tanggal === body.tanggal)) return apiError("VALIDATION_ERROR", 422);
-      kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event)).hari };
+      if (!bahan.sesi.some((s) => s.tanggal === body.tanggal && !lama.tanpa.includes(s.kunci))) return apiError("VALIDATION_ERROR", 422);
+      kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event), tanpaBesok(laporan.config.harian, hariAcara(bahan), body.tanggal)).hari };
     }
   }
   const config = { ...laporan.config, harian: { ...laporan.config.harian, [body.tanggal]: { ...lama, kunci } } };

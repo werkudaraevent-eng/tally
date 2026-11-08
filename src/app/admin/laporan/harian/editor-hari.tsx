@@ -66,7 +66,7 @@ export function EditorHari({ setelan, absen, ada, titik, kunci, terkunci, semua 
         </DetailSection>
         {titik.length ? (
           <DetailSection title="Check-in points">
-            <p className="pb-2 text-body-small text-on-surface-variant">Turn one off to leave it out of {semua ? "the whole event story" : "this day's images"}: its name and its scans.</p>
+            <p className="pb-2 text-body-small text-on-surface-variant">{semua ? "Turn one off to leave it out of the whole event story: its agenda row, Each day and the busiest hour. Who came still counts every scan." : "Turn one off to leave it out of this day's images: its name and its scans."}</p>
             <div className="flex flex-col">
               {titik.map((t) => (
                 <Switch

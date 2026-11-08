@@ -10,7 +10,7 @@ import { muatBahanLaporan } from "../bahan-server";
 import type { ConfigLaporan } from "../config";
 import { tanggalLokal } from "../teks";
 import { SETELAN_KOSONG, type SetelanHari } from "./config";
-import { hariAcara, susunHari, susunRingkasan } from "./hitung";
+import { hariAcara, susunHari, susunRingkasan, tanpaBesok } from "./hitung";
 import { RINGKASAN, type HalamanAbsen, type HariHighlight, type KunciHalaman } from "./jenis";
 
 export type StatusHari = "terkunci" | "siap" | "hari_ini" | "nanti";
@@ -41,7 +41,7 @@ export async function muatHarian(event: EventRow, config: ConfigLaporan, pilih: 
   const tanggal = hari.find((h) => h.tanggal === pilih)?.tanggal ?? [...hari].reverse().find((h) => h.tanggal !== RINGKASAN && h.status !== "nanti")?.tanggal ?? hari[0]?.tanggal ?? null;
   if (!tanggal) return { hari, tanggal: null, setelan: { ...SETELAN_KOSONG }, highlight: null, absen: [], ada: [], titik: [] };
   const setelan = config.harian[tanggal] ?? { ...SETELAN_KOSONG };
-  const hidup = tanggal === RINGKASAN ? susunRingkasan(bahan, setelan, hurufAcara(event)) : susunHari(bahan, tanggal, setelan, hurufAcara(event));
+  const hidup = tanggal === RINGKASAN ? susunRingkasan(bahan, setelan, hurufAcara(event)) : susunHari(bahan, tanggal, setelan, hurufAcara(event), tanpaBesok(config.harian, semua, tanggal));
   const titik = bahan.sesi
     .filter((s) => tanggal === RINGKASAN || s.tanggal === tanggal)
     .sort((x, y) => `${x.tanggal ?? ""} ${x.jam ?? ""}`.localeCompare(`${y.tanggal ?? ""} ${y.jam ?? ""}`))

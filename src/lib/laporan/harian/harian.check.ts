@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { bahanContoh } from "../contoh.ts";
 import { bacaHarian, bacaSetelanHari, SETELAN_KOSONG } from "./config.ts";
-import { hariAcara, kedatanganHari, sibukHari, susunHari, susunRingkasan } from "./hitung.ts";
+import { hariAcara, kedatanganHari, sibukHari, susunHari, susunRingkasan, tanpaBesok } from "./hitung.ts";
 import { RINGKASAN } from "./jenis.ts";
 import { warnaHalaman, warnaMuda } from "./warna.ts";
 import { kontras } from "../../landing-hitung-mundur.ts";
@@ -98,6 +98,18 @@ assert.equal(bacaSetelanHari({ tanpa: Array.from({ length: 150 }, (_, i) => `cp-
   assert.ok(kosong.absen.some((x) => x.kunci === "hadir"));
   const rkT = susunRingkasan(b, { ...SETELAN_KOSONG, tanpa: [k1[0]] }, huruf).hari.halaman.find((p) => p.kunci === "agenda");
   assert.ok(rkT?.kunci === "agenda" && !rkT.baris.some((r) => r.nama === nama0));
+  // Each day: hari yang semua titiknya dikeluarkan tidak ikut; semua dikeluarkan = halaman absen.
+  const rkH = susunRingkasan(b, { ...SETELAN_KOSONG, tanpa: k1 }, huruf);
+  const rekapT = rkH.hari.halaman.find((p) => p.kunci === "rekap");
+  assert.ok(rekapT?.kunci === "rekap" && rekapT.hari.length === 2 && !rekapT.hari.some((d) => d.label.startsWith("Hari 1")), JSON.stringify(rekapT));
+  const nol = susunRingkasan(b, { ...SETELAN_KOSONG, tanpa: b.sesi.map((s) => s.kunci) }, huruf);
+  assert.ok(!nol.hari.halaman.some((p) => p.kunci === "rekap") && nol.absen.some((x) => x.kunci === "rekap"));
+  // "Besok, ..." mengikuti titik yang dikeluarkan di hari berikutnya.
+  const k2 = b.sesi.filter((s) => s.tanggal === "2026-11-07").sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""));
+  assert.deepEqual(tanpaBesok({ "2026-11-07": { tanpa: ["x"] } }, hariAcara(b), "2026-11-06"), ["x"]);
+  assert.deepEqual(tanpaBesok({}, hariAcara(b), "2026-11-08"), []);
+  const tb = susunHari(b, "2026-11-06", SETELAN_KOSONG, huruf, [k2[0].kunci]).hari.halaman.at(-1)!;
+  assert.ok(tb.kunci === "penutup" && !tb.judul.includes(`${k2[0].nama} mulai`), tb.judul);
 }
 assert.deepEqual(bacaSetelanHari({ foto: ["", "u", ""] }).foto, ["", "u"]);
 const banyak = bacaHarian(Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`2026-12-${String(i + 1).padStart(2, "0")}`, {}])));
