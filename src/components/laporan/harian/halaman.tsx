@@ -145,7 +145,7 @@ export function HalamanHarianView({ hari, p, nomor, total, huruf }: { hari: Hari
   const penuh = p.kunci === "sampul" && p.foto;
   const atas = !penuh && p.foto && (p.kunci === "jam" || p.kunci === "penutup") ? p.foto : null;
   return (
-    <div style={{ position: "relative", width: LEBAR, height: TINGGI, display: "flex", flexDirection: "column", overflow: "hidden", backgroundColor: w.bg, fontFamily: h.isi }}>
+    <div style={{ position: "relative", width: LEBAR, height: TINGGI, display: "flex", flexDirection: "column", overflow: "hidden", backgroundColor: w.bg, fontFamily: h.isi, lineHeight: 1.2 }}>
       {penuh ? <Foto src={p.foto!} tinggi="penuh" /> : null}
       {penuh ? <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 1150, backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.86))" }} /> : null}
       {atas ? <Foto src={atas} tinggi={p.kunci === "jam" ? 720 : 860} /> : null}
