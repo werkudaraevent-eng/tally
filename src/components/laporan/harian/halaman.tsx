@@ -88,16 +88,18 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
           <p style={isi(h, w)}>{p.teks}</p>
         </div>
       );
-    case "agenda":
+    case "agenda": {
+      // Lima baris atau lebih (nama sesi panjang, Seluruh acara): lebih rapat, supaya muat di 1920.
+      const padat = p.baris.length > 4;
       return (
-        <div style={kolom({ margin: "auto 0", padding: `0 ${TEPI}px`, gap: 80 })}>
-          <p style={judul(h, w)}>{p.judul}</p>
-          <div style={kolom({ gap: 56 })}>
+        <div style={kolom({ flex: 1, justifyContent: "center", padding: `170px ${TEPI}px`, gap: padat ? 48 : 80 })}>
+          <p style={judul(h, w, padat ? 84 : 104)}>{p.judul}</p>
+          <div style={kolom({ gap: padat ? 32 : 56 })}>
             {p.baris.map((r, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 28 }}>
-                <span style={{ fontFamily: h.isi, fontSize: 34, color: w.teks2, width: 120, flexShrink: 0 }}>{r.jam}</span>
-                <div style={kolom({ flex: 1, gap: 16 })}>
-                  <span style={{ fontFamily: h.isi, fontSize: 42, fontWeight: 700, color: w.teks, lineHeight: 1.1 }}>{r.nama}</span>
+                <span style={{ fontFamily: h.isi, fontSize: padat ? 30 : 34, color: w.teks2, width: padat ? 96 : 120, flexShrink: 0 }}>{r.jam}</span>
+                <div style={kolom({ flex: 1, gap: padat ? 10 : 16 })}>
+                  <span style={{ fontFamily: h.isi, fontSize: padat ? 34 : 42, fontWeight: 700, color: w.teks, lineHeight: 1.1 }}>{r.nama}</span>
                   {r.ket ? <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks2 }}>{r.ket}</span> : null}
                   {r.persen !== null ? (
                     <div style={{ display: "flex", height: 22, borderRadius: 11, backgroundColor: w.redup }}>
@@ -105,19 +107,24 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
                     </div>
                   ) : null}
                 </div>
-                <span style={{ fontFamily: h.judul, fontSize: 64, fontWeight: 800, color: w.teks, width: 170, textAlign: "right", flexShrink: 0 }}>{r.teks}</span>
+                <span style={{ fontFamily: h.judul, fontSize: padat ? 54 : 64, fontWeight: 800, color: w.teks, width: padat ? 150 : 170, textAlign: "right", flexShrink: 0 }}>{r.teks}</span>
               </div>
             ))}
           </div>
         </div>
       );
-    case "rekap":
+    }
+    case "rekap": {
+      // Sampai 3 hari satu baris; 4 hari 2×2; lebih dari itu 3 per baris.
+      const n = p.hari.length;
+      const per = n <= 3 ? n : n === 4 ? 2 : 3;
+      const lebar = Math.floor((LEBAR - 2 * TEPI - 20 * (per - 1)) / per);
       return (
-        <div style={kolom({ margin: "auto 0", padding: `0 ${TEPI}px`, gap: 72 })}>
+        <div style={kolom({ flex: 1, justifyContent: "center", padding: `170px ${TEPI}px`, gap: 72 })}>
           <p style={judul(h, w)}>{p.judul}</p>
-          <div style={{ display: "flex", gap: 20 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
             {p.hari.map((d) => (
-              <div key={d.label} style={kolom({ flex: 1, gap: 8, padding: 28, borderRadius: 24, backgroundColor: w.redup })}>
+              <div key={d.label} style={kolom({ width: lebar, gap: 8, padding: 28, borderRadius: 24, backgroundColor: w.redup })}>
                 <span data-gerak="angka" style={{ fontFamily: h.judul, fontSize: 76, fontWeight: 800, color: w.angka }}>{`${d.persen}%`}</span>
                 <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks }}>{d.label}</span>
                 {d.ket ? <span style={{ fontFamily: h.isi, fontSize: 28, color: w.teks2 }}>{d.ket}</span> : null}
@@ -127,6 +134,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
           <p style={isi(h, w)}>{p.teks}</p>
         </div>
       );
+    }
     case "puas": {
       const warna = [w.isi, w.redup, w.teks2];
       return (
