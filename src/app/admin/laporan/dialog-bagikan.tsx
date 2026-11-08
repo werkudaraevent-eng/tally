@@ -72,7 +72,7 @@ export function DialogBagikan({ data, open, sibuk, onClose, onKirim }: {
           ) : (
             <p className="m-0 rounded-md bg-warning-soft px-3 py-2 text-body-medium text-on-surface">No client account for this event yet, so nobody sees the report.</p>
           )}
-          <a href="/users" target="_blank" rel="noopener" className="inline-flex items-center gap-1 self-start text-label-large text-primary">
+          <a href="/users" target="_blank" rel="noopener" className="inline-flex min-h-9 items-center gap-1 self-start text-label-large text-primary">
             {data.klien.length ? "Manage client accounts in Users & roles" : "Add one in Users & roles"}
             <ArrowSquareOut size={16} aria-hidden />
           </a>
@@ -84,7 +84,7 @@ export function DialogBagikan({ data, open, sibuk, onClose, onKirim }: {
             <Button variant="outlined" icon={<Copy size={18} aria-hidden />} onClick={() => void salin()}>{tersalin ? "Copied" : "Copy link"}</Button>
           </div>
           <p className="m-0 text-body-small text-on-surface-variant" aria-live="polite">
-            They sign in with their username and PIN, then open the Report tab. Tally sends nothing: give them this link yourself.
+            They sign in with their username and PIN, then open the Report tab. Locked Daily highlights show there too, even before you share the deck. Tally sends nothing: give them this link yourself.
           </p>
         </section>
       </div>

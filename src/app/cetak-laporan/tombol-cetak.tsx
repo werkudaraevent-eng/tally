@@ -9,9 +9,10 @@ import { pdfDariJpeg, ukuranJpeg } from "@/lib/laporan/pdf";
 type Teks = { unduh: string; sibuk: string; cetak: string; gagal: string };
 
 /**
- * Atribut SVG `fill="var(--lp-trek)"` (warna dari color-mix) jadi hitam di
- * gambar html-to-image. Ganti sementara dengan warna yang sudah dihitung
- * peramban; kembalikan setelah gambar jadi.
+ * Di gambar html-to-image, SVG kehilangan warna dari CSS: atribut
+ * `fill="var(--lp-trek)"` jadi hitam, dan teks grafik (`.lp-svg text`, warna
+ * dan tebal dari gaya.ts) jadi hitam biasa. Tulis sementara nilai yang sudah
+ * dihitung peramban langsung di elemennya; kembalikan setelah gambar jadi.
  */
 function bekukanWarnaSvg(akar: HTMLElement): () => void {
   const kembali: Array<() => void> = [];
@@ -23,7 +24,16 @@ function bekukanWarnaSvg(akar: HTMLElement): () => void {
       kembali.push(() => el.setAttribute(atr, lama));
     }
   }
-  return () => kembali.forEach((f) => f());
+  for (const el of akar.querySelectorAll<SVGTextElement>("svg text, svg tspan")) {
+    const lama = el.getAttribute("style");
+    const g = getComputedStyle(el);
+    el.style.setProperty("fill", g.fill);
+    el.style.setProperty("font-weight", g.fontWeight);
+    el.style.setProperty("font-size", g.fontSize);
+    el.style.setProperty("font-family", g.fontFamily);
+    kembali.push(() => (lama === null ? el.removeAttribute("style") : el.setAttribute("style", lama)));
+  }
+  return () => kembali.reverse().forEach((f) => f());
 }
 
 const dataUrlKeByte = (u: string) => Uint8Array.from(atob(u.slice(u.indexOf(",") + 1)), (c) => c.charCodeAt(0));
