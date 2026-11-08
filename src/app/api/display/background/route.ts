@@ -28,7 +28,8 @@ const ALLOWED = new Map<string, string>([
 // `badge`: latar depan dan belakang badge kertas yang dirancang di luar Tally.
 // `pengumuman`: satu foto per pengumuman peserta (src/lib/pengumuman-foto.ts
 // hanya menerima URL dari folder ini).
-const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote", "landing", "email", "badge", "pengumuman"]);
+// `laporan`: foto panitia untuk Highlight harian (src/lib/laporan/harian/foto.ts).
+const FOLDERS = new Set(["backgrounds", "logos", "footers", "undian", "vote", "landing", "email", "badge", "pengumuman", "laporan"]);
 
 /**
  * Lebar dan tinggi dari kepala berkas (PNG IHDR, JPEG SOFn, WebP VP8/VP8L/VP8X),

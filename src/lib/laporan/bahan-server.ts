@@ -61,7 +61,7 @@ export async function muatBahanLaporan(event: EventRow, config: ConfigLaporan, s
     .map((r) => {
       const sudah = rincianPantau(bahan, r.key)?.sudah ?? [];
       if (r.tanggal) for (const x of sudah) sesiDiikuti.set(x.id, (sesiDiikuti.get(x.id) ?? 0) + 1);
-      return { kunci: r.key, nama: r.nama, tanggal: r.tanggal, jam: r.jam, diharapkan: r.diharapkan, sudah: r.sudah, datang: sudah.map((x) => x.at) };
+      return { kunci: r.key, nama: r.nama, tanggal: r.tanggal, jam: r.jam, diharapkan: r.diharapkan, sudah: r.sudah, datang: sudah.map((x) => x.at), orang: sudah.map((x) => x.id) };
     });
   const sesi = semuaSesi.filter((s) => s.tanggal !== null);
 

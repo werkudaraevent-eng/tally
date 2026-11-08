@@ -15,6 +15,7 @@ import { geser, type ConfigLaporan } from "@/lib/laporan/config";
 import { cx } from "@/lib/m3/cx";
 import { DaftarSlide } from "./daftar-slide";
 import { EditorSlide } from "./editor-slide";
+import { LaporanTabs } from "./laporan-tabs";
 import type { DataLaporan, Draf } from "./jenis";
 
 /**
@@ -149,6 +150,7 @@ export default function HalamanLaporan() {
           </>
         }
       />
+      <LaporanTabs />
 
       {/* Tiga kolom hanya di layar lebar (≥ 1536). Di 1024–1535 pratinjau di atas editor,
           supaya slide tidak menyusut ke 20–240 px di samping sidebar. */}
