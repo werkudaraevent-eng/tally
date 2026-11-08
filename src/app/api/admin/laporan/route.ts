@@ -23,8 +23,8 @@ export async function GET(request: Request) {
   if (!laporan) return apiError("INTERNAL_ERROR", 500);
   if (!laporan.siap) return Response.json({ siap: false });
 
-  const hasil = await hitungLaporan(event, laporan.config).catch(() => null);
-  if (!hasil) return apiError("INTERNAL_ERROR", 500);
+  const [hasil, klien] = await Promise.all([hitungLaporan(event, laporan.config).catch(() => null), akunKlien(event.id)]);
+  if (!hasil || !klien) return apiError("INTERNAL_ERROR", 500);
   return Response.json({
     siap: true,
     config: laporan.config,
@@ -36,7 +36,23 @@ export async function GET(request: Request) {
     semua: hasil.semua,
     pilihan: hasil.pilihan,
     slug: event.slug,
+    klien,
   });
+}
+
+/**
+ * Akun klien (peran Viewer untuk acara ini) yang melihat tab Report, untuk
+ * dialog Share. Hanya nama pengguna dan status aktif. Null bila gagal dibaca.
+ */
+async function akunKlien(eventId: string): Promise<Array<{ username: string; aktif: boolean }> | null> {
+  const client = getSupabaseServiceClient();
+  const akses = await client.from("user_event_access").select("user_id").eq("event_id", eventId).eq("role", "viewer").limit(200);
+  if (akses.error) return null;
+  const ids = ((akses.data ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  if (!ids.length) return [];
+  const akun = await client.from("users").select("username,is_active").in("id", ids).order("username");
+  if (akun.error) return null;
+  return ((akun.data ?? []) as { username: string; is_active: boolean }[]).map((u) => ({ username: u.username, aktif: u.is_active }));
 }
 
 export async function PUT(request: Request) {
