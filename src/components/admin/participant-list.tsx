@@ -1562,10 +1562,13 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           {editingLocked
             ? field("RSVP", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{LABEL_RSVP[editingRow?.rsvp_status ?? ""] ?? "Not set"}</p>)
             : field("RSVP", (
+              // Tetap dropdown: tiga label dua kata, ditambah "Declined" dari
+              // impor, terpotong sebagai segmen di panel 390px (QA #451 M2).
               <select value={draft.rsvp_status} onChange={(event) => setDraft({ ...draft, rsvp_status: event.target.value })} className={inputClass}>
                 <option value="">Not set</option>
                 <option value="invited">Awaiting reply</option>
                 <option value="confirmed">Confirmed</option>
+                {draft.rsvp_status === "declined" ? <option value="declined">Declined</option> : null}
               </select>
             ))}
           {textField("Email", "email", { placeholder: "email@example.com", type: "email" })}

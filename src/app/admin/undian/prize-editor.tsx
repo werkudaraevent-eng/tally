@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, FloppyDisk, Trash, UploadSimple, Warning, X } from "@phosphor-icons/react";
-import { Button, DetailSection, IconButton, Pane, PaneBody, PaneFooter, PaneHeader, SegmentedButton, Switch, TextArea } from "@/components/m3";
+import { Button, DetailSection, IconButton, Pane, PaneBody, PaneFooter, PaneHeader, SegmentedButton, SegmentedField, Switch, TextArea } from "@/components/m3";
 import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { ImagePreview } from "@/components/admin/image-preview";
 import { UndianConditionBuilder } from "@/components/admin/undian-condition-builder";
@@ -410,11 +410,12 @@ export function PrizeEditor({
               ) : null}
               {draft.weight_mode === "formula" ? (
                 <>
-                  <Field label="Weight basis" htmlFor="weight-var">
-                    <select id="weight-var" value={draft.weight_var} onChange={(event) => onChange({ weight_var: event.target.value as WeightVar })} className={INPUT}>
-                      {Object.entries(WEIGHT_VAR_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                    </select>
-                  </Field>
+                  <SegmentedField<WeightVar>
+                    label="Weight basis"
+                    value={draft.weight_var}
+                    onChange={(weight_var) => onChange({ weight_var })}
+                    options={(Object.keys(WEIGHT_VAR_LABEL) as WeightVar[]).map((key) => ({ value: key, label: WEIGHT_VAR_LABEL[key] }))}
+                  />
                   <Field label="Amount for each bonus ticket" htmlFor="weight-divisor">
                     <input
                       id="weight-divisor"

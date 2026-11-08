@@ -3,7 +3,7 @@
 import { Airplane, Boat, Ticket, Train, Warning } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import {
-  Banner, Button, ChipMenu, DetailSection, Dialog, EmptyState, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, SelectField, TextField, EMPTY_VALUE,
+  Banner, Button, ChipMenu, DetailSection, Dialog, EmptyState, KeyValue, ListDetail, Pane, PaneBody, PaneFooter, SegmentedField, TextField, EMPTY_VALUE,
 } from "@/components/m3";
 import { LABEL_ARAH } from "@/lib/logistik/impor";
 import { LABEL_MODA, MODA_TIKET, type ArahKereta, type ModaTiket, type TiketKereta } from "@/lib/logistik/types";
@@ -223,10 +223,13 @@ export function TabKereta({ data, kirim, busy, baru, tutupBaru }: TabProps) {
           return true;
         }}
       >
-        <SelectField label="Direction" value={arahBaru} onChange={(event) => setArahBaru(event.target.value as ArahKereta)}>
-          <option value="outbound">{LABEL_ARAH.outbound}</option>
-          <option value="return">{LABEL_ARAH.return}</option>
-        </SelectField>
+        <SegmentedField
+          label="Direction"
+          className="mt-3"
+          value={arahBaru}
+          onChange={setArahBaru}
+          options={(["outbound", "return"] as const).map((arah) => ({ value: arah, label: LABEL_ARAH[arah] }))}
+        />
       </PilihPeserta>
 
       <FormKereta
@@ -323,16 +326,20 @@ function FormKereta({ tiket, baru, nama, busy, onClose, simpan }: {
         </>
       }
     >
-      <form id="form-kereta" className="grid grid-cols-2 gap-4" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
-        <SelectField label="Mode" value={moda} onChange={(event) => setDraf({ ...nilai, mode: event.target.value as ModaTiket })}>
-          {MODA_TIKET.map((m) => <option key={m} value={m}>{LABEL_MODA[m]}</option>)}
-        </SelectField>
-        <TextField label="Segment" type="number" min={1} max={SEGMEN_MAKS} inputMode="numeric" {...isi("segment")} hint="2 or more for a transit" />
+      <form id="form-kereta" className="mt-3 grid grid-cols-2 gap-4" onSubmit={(event) => { event.preventDefault(); void kirimForm(); }}>
+        <SegmentedField
+          label="Mode"
+          className="col-span-2"
+          value={moda}
+          onChange={(mode) => setDraf({ ...nilai, mode })}
+          options={MODA_TIKET.map((m) => { const Ikon = IKON_MODA[m]; return { value: m, label: LABEL_MODA[m], icon: <Ikon size={16} aria-hidden /> }; })}
+        />
         <TextField label={LABEL_MODA[moda]} placeholder={CONTOH[moda].nama} autoFocus maxLength={80} {...isi("train_name")} className="max-sm:col-span-2" />
         <TextField label="Class" optional placeholder={moda === "flight" ? "e.g. Economy" : "e.g. Executive"} maxLength={40} {...isi("travel_class")} className="max-sm:col-span-2" />
         <TextField label="From" optional placeholder={CONTOH[moda].dari} maxLength={80} {...isi("origin")} className="max-sm:col-span-2" />
         <TextField label="To" optional placeholder={CONTOH[moda].ke} maxLength={80} {...isi("destination")} className="max-sm:col-span-2" />
-        <TextField label="Date" optional type="date" {...isi("depart_date")} className="col-span-2" />
+        <TextField label="Date" optional type="date" {...isi("depart_date")} className="max-sm:col-span-2" />
+        <TextField label="Segment" type="number" min={1} max={SEGMEN_MAKS} inputMode="numeric" {...isi("segment")} hint="2 or more for a transit" className="max-sm:col-span-2" />
         <TextField label="Departs" optional type="time" {...isi("depart_time")} />
         <TextField label="Arrives" optional type="time" {...isi("arrive_time")} />
         {moda === "train" ? <TextField label="Carriage" optional placeholder="e.g. EKS 3" maxLength={20} {...isi("carriage")} /> : null}
