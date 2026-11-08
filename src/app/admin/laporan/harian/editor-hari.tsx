@@ -12,17 +12,23 @@ export const NAMA_HALAMAN: Record<KunciHalaman, string> = {
   jam: "Busiest hour",
   menit: "Busiest minute",
   agenda: "Today's agenda",
-  rekap: "Whole event",
+  rekap: "Each day",
+  puas: "Satisfaction (NPS)",
+  layar: "Behind the scenes",
   penutup: "Note and tomorrow",
 };
+/** Nama halaman di Seluruh acara, bila berbeda dari hari biasa. */
+const NAMA_SEMUA: Partial<Record<KunciHalaman, string>> = { hadir: "Who came", menit: "Busiest hour", agenda: "Every session", penutup: "Thank you" };
 const FOTO = ["Cover photo", "Busiest hour photo", "Closing photo"] as const;
 const KET_FOTO = ["Without one, the event page hero is used.", "Shown above the chart.", "Shown above the note."] as const;
 
 export type UbahHari = Omit<SetelanHari, "kunci">;
 
 /** Pengaturan satu hari: foto, gambar yang ikut, catatan panitia. Terkunci = hanya baca. */
-export function EditorHari({ setelan, absen, ada, kunci, terkunci, onUbah }: {
+export function EditorHari({ setelan, absen, ada, kunci, terkunci, semua = false, onUbah }: {
   setelan: SetelanHari;
+  /** Story Seluruh acara: nama halaman lain, tanpa foto halaman jam. */
+  semua?: boolean;
   absen: HalamanAbsen[];
   /** Halaman yang punya data hari ini (tampil atau disembunyikan). */
   ada: KunciHalaman[];
@@ -45,8 +51,8 @@ export function EditorHari({ setelan, absen, ada, kunci, terkunci, onUbah }: {
             {daftar.map((k) => (
               <Switch
                 key={k}
-                label={NAMA_HALAMAN[k]}
-                description={alasan.get(k) ?? (k === "rekap" ? "Last day only." : undefined)}
+                label={(semua && NAMA_SEMUA[k]) || NAMA_HALAMAN[k]}
+                description={alasan.get(k)}
                 checked={!alasan.has(k) && !setelan.sembunyi.includes(k)}
                 disabled={mati || alasan.has(k)}
                 onChange={(v) => ubah({ sembunyi: v ? setelan.sembunyi.filter((x) => x !== k) : [...setelan.sembunyi, k] })}
@@ -68,7 +74,7 @@ export function EditorHari({ setelan, absen, ada, kunci, terkunci, onUbah }: {
         </DetailSection>
         <DetailSection title="Photos">
           <div className="flex flex-col gap-3">
-            {FOTO.map((label, i) => (
+            {FOTO.map((label, i) => semua && i === 1 ? null : (
               <ImageUploadField
                 key={label}
                 label={label}

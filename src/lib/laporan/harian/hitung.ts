@@ -7,10 +7,12 @@
  */
 import type { BahanLaporan, SesiBahan } from "../bahan.ts";
 import { aksenTerbaca } from "../warna.ts";
+import { skorNps } from "../../kilas-balik/setelan.ts";
+import { nilaiNps } from "../slide/kepuasan.ts";
 import { MIN_ORANG } from "../slide/titik.ts";
-import { angka, jam, namaHari, persen, pilih, tanggal as teksTanggal, type Bahasa } from "../teks.ts";
+import { angka, dari, jam, namaHari, persen, pilih, rentang, SAMPEL_KECIL, tanggal as teksTanggal, type Bahasa } from "../teks.ts";
 import type { SetelanHari } from "./config.ts";
-import type { HalamanAbsen, HalamanHarian, HariHighlight, KunciHalaman } from "./jenis.ts";
+import { RINGKASAN, type HalamanAbsen, type HalamanHarian, type HariHighlight, type KunciHalaman } from "./jenis.ts";
 
 /** Tanggal acara yang punya sesi Agenda, urut. */
 export const hariAcara = (b: BahanLaporan) => [...new Set(b.sesi.map((s) => s.tanggal).filter((t): t is string => !!t))].sort();
@@ -172,6 +174,7 @@ export function susunHari(b: BahanLaporan, tgl: string, setelan: SetelanHari, hu
     jam: jamAgenda(s, bh), nama: s.nama,
     persen: s.diharapkan > 0 ? persen(s.sudah, s.diharapkan) : null,
     teks: s.diharapkan > 0 ? `${persen(s.sudah, s.diharapkan)}%` : angka(s.sudah, bh),
+    ...(s.diharapkan > 0 ? { ket: dari(s.sudah, s.diharapkan, bh) } : {}),
   }));
   if (baris.length) {
     // Dari angka mentah, bukan yang dibulatkan: 79,9% bukan "80% ke atas".
@@ -186,15 +189,6 @@ export function susunHari(b: BahanLaporan, tgl: string, setelan: SetelanHari, hu
     });
   } else absen.push({ kunci: "agenda", alasan: "No agenda items linked to a check-in point on this day." });
 
-  if (total > 1 && ke === total) {
-    const hari = semua.map((t, i) => ({ label: pilih(bh, { id: `Hari ${i + 1}`, en: `Day ${i + 1}` }), persen: persenBawah(unik(b.sesi.filter((s) => s.tanggal === t)), peserta) }));
-    halaman.push({
-      kunci: "rekap", permukaan: aksen === "aksen" ? "gelap" : "kertas", foto: null, hari,
-      judul: pilih(bh, { id: `${angka(b.hadir.size, bh)} peserta datang selama ${total} hari.`, en: `${angka(b.hadir.size, bh)} guests came over ${total} days.` }),
-      teks: pilih(bh, { id: `Dari ${angka(peserta, bh)} peserta terdaftar.`, en: `Out of ${angka(peserta, bh)} registered guests.` }),
-    });
-  }
-
   const tutup = sesiBesok
     ? pilih(bh, { id: `Besok, ${sesiBesok.nama} mulai ${jamAgenda(sesiBesok, bh)}.`, en: `Tomorrow, ${sesiBesok.nama} starts at ${jamAgenda(sesiBesok, bh)}.` })
     : pilih(bh, { id: "Terima kasih sudah bersama kami.", en: "Thank you for being with us." });
@@ -202,4 +196,148 @@ export function susunHari(b: BahanLaporan, tgl: string, setelan: SetelanHari, hu
 
   const tampil = halaman.filter((p) => p.kunci === "sampul" || !setelan.sembunyi.includes(p.kunci));
   return { hari: { tanggal: tgl, hariKe: ke, totalHari: total, nama: b.acara.nama, bahasa: bh, tema: b.acara.tema, huruf, halaman: tampil, dibuat: b.sekarang }, absen, ada: halaman.map((p) => p.kunci) };
+}
+
+const tanda = (n: number) => (n > 0 ? `+${n}` : String(n));
+
+/**
+ * Story Seluruh acara: satu set 9:16 dari bahan yang sama dengan deck, untuk
+ * acara lebih dari satu hari. Setiap persen disertai jumlahnya ("x dari y").
+ */
+export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: HariHighlight["huruf"]): { hari: HariHighlight; absen: HalamanAbsen[]; ada: KunciHalaman[] } {
+  const bh = b.acara.bahasa;
+  const semua = hariAcara(b);
+  const total = semua.length;
+  const peserta = b.peserta.length;
+  const datang = b.hadir.size;
+  const [f0, , f2] = setelan.foto;
+  const bisaAksen = aksenTerbaca(b.acara.tema);
+  const halaman: HalamanHarian[] = [];
+  const absen: HalamanAbsen[] = [];
+  const tgl = rentang(semua[0] ?? null, semua[total - 1] ?? null, bh) ?? "";
+  const orang = pilih(bh, { id: "orang", en: "people" });
+
+  halaman.push({
+    kunci: "sampul", permukaan: "foto", foto: f0 || b.acara.tema.foto,
+    kecil: `${pilih(bh, { id: "Ringkasan acara", en: "Event recap" })} · ${tgl}`,
+    judul: pilih(bh, { id: `${angka(datang, bh)} peserta datang dalam ${total} hari.`, en: `${angka(datang, bh)} guests came over ${total} days.` }),
+  });
+
+  if (peserta > 0 && datang > 0) {
+    const isi = datang >= peserta ? 10 : Math.min(9, Math.max(1, Math.floor((datang / peserta) * 10)));
+    halaman.push({
+      kunci: "hadir", permukaan: bisaAksen ? "aksen" : "kertas", foto: null, isi,
+      judul: datang >= peserta
+        ? pilih(bh, { id: "Semua peserta terdaftar datang.", en: "Every registered guest came." })
+        : datang / peserta >= 0.95
+          ? pilih(bh, { id: "Hampir semua peserta terdaftar datang.", en: "Almost every registered guest came." })
+          : pilih(bh, { id: `${isi} dari 10 peserta terdaftar datang.`, en: `${isi} in 10 registered guests came.` }),
+      teks: pilih(bh, {
+        id: `${dari(datang, peserta, bh)} peserta terdaftar pernah di-scan di salah satu titik check-in.`,
+        en: `${dari(datang, peserta, bh)} registered guests were scanned at a check-in point at least once.`,
+      }),
+    });
+  } else absen.push({ kunci: "hadir", alasan: "No one was scanned at a check-in point yet." });
+
+  if (peserta > 0) {
+    const perHari = semua.map((t, i) => ({ i, n: unik(b.sesi.filter((s) => s.tanggal === t)), t }));
+    const ramai = perHari.reduce((a, c) => (c.n > a.n ? c : a), perHari[0]);
+    halaman.push({
+      kunci: "rekap", permukaan: "gelap", foto: null,
+      hari: perHari.map((d) => ({ label: `${pilih(bh, { id: `Hari ${d.i + 1}`, en: `Day ${d.i + 1}` })}, ${namaHari(d.t, bh)}`, persen: d.n < peserta ? Math.min(99, persen(d.n, peserta)) : 100, ket: dari(d.n, peserta, bh) })),
+      judul: pilih(bh, { id: `Hari ${ramai.i + 1} paling ramai, ${angka(ramai.n, bh)} peserta.`, en: `Day ${ramai.i + 1} was the busiest, ${angka(ramai.n, bh)} guests.` }),
+      teks: pilih(bh, { id: `Persen dari ${angka(peserta, bh)} peserta terdaftar.`, en: `Share of ${angka(peserta, bh)} registered guests.` }),
+    });
+  }
+
+  const sesi = [...b.sesi].sort((x, y) => `${x.tanggal ?? ""} ${x.jam ?? ""}`.localeCompare(`${y.tanggal ?? ""} ${y.jam ?? ""}`));
+  if (sesi.length) {
+    halaman.push({
+      kunci: "agenda", permukaan: "muda", foto: null,
+      baris: sesi.slice(0, 6).map((s) => ({
+        jam: s.tanggal ? namaHari(s.tanggal, bh).slice(0, 3) : "",
+        nama: s.nama,
+        persen: s.diharapkan > 0 ? persen(s.sudah, s.diharapkan) : null,
+        teks: s.diharapkan > 0 ? `${persen(s.sudah, s.diharapkan)}%` : angka(s.sudah, bh),
+        ...(s.diharapkan > 0 ? { ket: dari(s.sudah, s.diharapkan, bh) } : {}),
+      })),
+      judul: sesi.length > 6
+        ? pilih(bh, { id: `${sesi.length} sesi selama acara, 6 yang pertama.`, en: `${sesi.length} sessions, the first 6.` })
+        : pilih(bh, { id: `${sesi.length} sesi selama acara.`, en: `${sesi.length} session${sesi.length > 1 ? "s" : ""} over the event.` }),
+    });
+  }
+
+  // Jam tersibuk di satu titik selama acara: kedatangan pertama per orang di titik itu.
+  const puncak = sesi
+    .map((s) => ({ s, k: sibukHari(kedatanganHari([s]), b.acara.offset) }))
+    .filter((x) => x.k.n >= MIN_ORANG)
+    .reduce<{ s: SesiBahan; k: ReturnType<typeof sibukHari> } | null>((a, c) => (!a || c.k.nPuncak > a.k.nPuncak ? c : a), null);
+  if (puncak) {
+    const jamP = labelJam(puncak.k.jamPuncak, bh);
+    const jamS = labelJam((puncak.k.jamPuncak + 1) % 24, bh);
+    const hariP = puncak.s.tanggal ? namaHari(puncak.s.tanggal, bh) : "";
+    halaman.push({
+      kunci: "menit", permukaan: "putih", foto: null,
+      besar: angka(puncak.k.nPuncak, bh),
+      judul: pilih(bh, { id: `orang datang ke ${puncak.s.nama} pukul ${jamP}, jam tersibuk selama acara.`, en: `people arrived at ${puncak.s.nama} at ${jamP}, the busiest hour of the event.` }),
+      teks: pilih(bh, {
+        id: `${dari(puncak.k.nPuncak, puncak.k.n, bh)} kedatangan di ${puncak.s.nama} ${hariP} terjadi antara ${jamP} dan ${jamS}.`,
+        en: `${dari(puncak.k.nPuncak, puncak.k.n, bh)} arrivals at ${puncak.s.nama} on ${hariP} came between ${jamP} and ${jamS}.`,
+      }),
+    });
+  } else absen.push({ kunci: "menit", alasan: `Needs a check-in point with ${MIN_ORANG} or more arrivals.` });
+
+  const nps = nilaiNps(b);
+  if (nps && nps.size >= SAMPEL_KECIL) {
+    const v = [...nps.values()];
+    const n = v.length;
+    const pro = v.filter((x) => x >= 9).length;
+    const net = v.filter((x) => x === 7 || x === 8).length;
+    const kur = n - pro - net;
+    const sepuluh = Math.round((pro / n) * 10);
+    halaman.push({
+      kunci: "puas", permukaan: "gelap", foto: null,
+      besar: tanda(skorNps(v) ?? 0),
+      judul: pilih(bh, { id: `${sepuluh} dari 10 pasti merekomendasikan acara ini.`, en: `${sepuluh} in 10 would definitely recommend this event.` }),
+      segmen: [
+        { label: pilih(bh, { id: "Pasti merekomendasikan, nilai 9 atau 10", en: "Would recommend, score 9 or 10" }), persen: persen(pro, n), ket: `${angka(pro, bh)} ${orang}` },
+        { label: pilih(bh, { id: "Netral, nilai 7 atau 8", en: "Neutral, score 7 or 8" }), persen: persen(net, n), ket: `${angka(net, bh)} ${orang}` },
+        { label: pilih(bh, { id: "Kurang puas, nilai 0 sampai 6", en: "Less happy, score 0 to 6" }), persen: persen(kur, n), ket: `${angka(kur, bh)} ${orang}` },
+      ],
+      teks: pilih(bh, { id: `NPS dari ${angka(n, bh)} jawaban kuesioner.`, en: `NPS from ${angka(n, bh)} questionnaire answers.` }),
+    });
+  } else absen.push({ kunci: "puas", alasan: nps ? `Needs ${SAMPEL_KECIL} or more answers to the recommend (NPS) question.` : "Feedback has no recommend (NPS) question." });
+
+  const layar: Array<{ besar: string; teks: string }> = [];
+  const menang = b.undian?.pemenang ?? [];
+  if (menang.length) {
+    const serah = menang.filter((w) => w.dikonfirmasi).length;
+    layar.push({ besar: `${angka(serah, bh)} / ${angka(menang.length, bh)}`, teks: pilih(bh, { id: "hadiah undian sudah diterima pemenangnya", en: "lucky draw prizes handed to their winners" }) });
+  }
+  if (b.voting?.pemilih) layar.push({ besar: angka(b.voting.pemilih, bh), teks: pilih(bh, { id: `orang ikut live voting, ${b.voting.pertanyaan} pertanyaan`, en: `people took part in live voting, ${b.voting.pertanyaan} questions` }) });
+  const l = b.logistik;
+  if (l?.kamar) layar.push({ besar: angka(l.kamar, bh), teks: pilih(bh, { id: `kamar di ${l.hotel} hotel`, en: `rooms in ${l.hotel} hotel${l.hotel === 1 ? "" : "s"}` }) });
+  if (l?.kendaraan) layar.push({ besar: angka(l.kendaraan, bh), teks: pilih(bh, { id: `kendaraan untuk ${l.trip} perjalanan`, en: `vehicles for ${l.trip} trips` }) });
+  if (l?.tas) {
+    layar.push(l.tasKembali !== null
+      ? { besar: angka(l.tasKembali, bh), teks: pilih(bh, { id: `dari ${angka(l.tas, bh)} tas bagasi kembali ke pemiliknya`, en: `of ${angka(l.tas, bh)} luggage bags returned to their owners` }) }
+      : { besar: angka(l.tas, bh), teks: pilih(bh, { id: "tas bagasi dicatat", en: "luggage bags logged" }) });
+  }
+  if (layar.length) {
+    halaman.push({ kunci: "layar", permukaan: "kertas", foto: null, baris: layar.slice(0, 4), judul: pilih(bh, { id: "Di balik layar, panitia mengurus semuanya.", en: "Behind the scenes, the committee handled it all." }) });
+  } else absen.push({ kunci: "layar", alasan: "No lucky draw, voting or logistics data." });
+
+  halaman.push({
+    kunci: "penutup", permukaan: bisaAksen ? "aksen" : "muda", foto: f2 || null,
+    judul: pilih(bh, { id: "Terima kasih sudah bersama kami.", en: "Thank you for being with us." }),
+    teks: setelan.catatan || null,
+    ttd: pilih(bh, { id: `Panitia ${b.acara.nama}`, en: `${b.acara.nama} committee` }),
+  });
+
+  const tampil = halaman.filter((p) => p.kunci === "sampul" || !setelan.sembunyi.includes(p.kunci));
+  return {
+    hari: { tanggal: RINGKASAN, hariKe: 0, totalHari: total, nama: b.acara.nama, bahasa: bh, tema: b.acara.tema, huruf, halaman: tampil, dibuat: b.sekarang, rentang: tgl },
+    absen,
+    ada: halaman.map((p) => p.kunci),
+  };
 }

@@ -98,6 +98,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
                 <span style={{ fontFamily: h.isi, fontSize: 34, color: w.teks2, width: 120, flexShrink: 0 }}>{r.jam}</span>
                 <div style={kolom({ flex: 1, gap: 16 })}>
                   <span style={{ fontFamily: h.isi, fontSize: 42, fontWeight: 700, color: w.teks, lineHeight: 1.1 }}>{r.nama}</span>
+                  {r.ket ? <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks2 }}>{r.ket}</span> : null}
                   {r.persen !== null ? (
                     <div style={{ display: "flex", height: 22, borderRadius: 11, backgroundColor: w.redup }}>
                       <div data-gerak="isi" style={{ width: `${Math.min(100, r.persen)}%`, height: 22, borderRadius: 11, backgroundColor: w.isi }} />
@@ -119,10 +120,50 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
               <div key={d.label} style={kolom({ flex: 1, gap: 8, padding: 28, borderRadius: 24, backgroundColor: w.redup })}>
                 <span data-gerak="angka" style={{ fontFamily: h.judul, fontSize: 76, fontWeight: 800, color: w.angka }}>{`${d.persen}%`}</span>
                 <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks }}>{d.label}</span>
+                {d.ket ? <span style={{ fontFamily: h.isi, fontSize: 28, color: w.teks2 }}>{d.ket}</span> : null}
               </div>
             ))}
           </div>
           <p style={isi(h, w)}>{p.teks}</p>
+        </div>
+      );
+    case "puas": {
+      const warna = [w.isi, w.redup, w.teks2];
+      return (
+        <div style={kolom({ margin: "auto 0", padding: `0 ${TEPI}px`, gap: 56 })}>
+          <p data-gerak="angka" style={{ ...judul(h, w, 260), color: w.angka, letterSpacing: -10, lineHeight: 0.9 }}>{p.besar}</p>
+          <p style={judul(h, w, 88)}>{p.judul}</p>
+          <div style={kolom({ gap: 28, marginTop: 16 })}>
+            <div style={{ display: "flex", height: 56, borderRadius: 28, overflow: "hidden", backgroundColor: w.redup }}>
+              {p.segmen.map((g, i) => <div key={i} data-gerak="isi" style={{ width: `${g.persen}%`, height: 56, backgroundColor: warna[i] }} />)}
+            </div>
+            {p.segmen.map((g, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 14, flexShrink: 0, backgroundColor: warna[i] }} />
+                <div style={kolom({ flex: 1 })}>
+                  <span style={{ fontFamily: h.isi, fontSize: 36, color: w.teks }}>{g.label}</span>
+                  <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks2 }}>{g.ket}</span>
+                </div>
+                <span style={{ fontFamily: h.judul, fontSize: 52, fontWeight: 800, color: w.teks }}>{`${g.persen}%`}</span>
+              </div>
+            ))}
+          </div>
+          <p style={isi(h, w)}>{p.teks}</p>
+        </div>
+      );
+    }
+    case "layar":
+      return (
+        <div style={kolom({ margin: "auto 0", padding: `0 ${TEPI}px`, gap: 64 })}>
+          <p style={judul(h, w)}>{p.judul}</p>
+          <div style={kolom({})}>
+            {p.baris.map((r, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 36, padding: "36px 0", borderTop: `3px solid ${w.redup}` }}>
+                <span data-gerak="angka" style={{ fontFamily: h.judul, fontSize: 96, fontWeight: 800, letterSpacing: -2, color: w.isi, width: 380, flexShrink: 0 }}>{r.besar}</span>
+                <span style={{ fontFamily: h.isi, fontSize: 40, lineHeight: 1.25, color: w.teks }}>{r.teks}</span>
+              </div>
+            ))}
+          </div>
         </div>
       );
     case "penutup":
