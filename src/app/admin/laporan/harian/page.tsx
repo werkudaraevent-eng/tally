@@ -11,6 +11,7 @@ import type { DataHarian, StatusHari } from "@/lib/laporan/harian/server";
 import { cx } from "@/lib/m3/cx";
 import { LaporanTabs } from "../laporan-tabs";
 import { EditorHari, type UbahHari } from "./editor-hari";
+import { KartuTautan, type Tautan } from "./kartu-tautan";
 import { bagikanGambar } from "./bagikan";
 
 /**
@@ -20,7 +21,7 @@ import { bagikanGambar } from "./bagikan";
  * berubah oleh scan yang masuk belakangan.
  */
 
-type Data = DataHarian & { siap: true; updated_at: string | null };
+type Data = DataHarian & { siap: true; updated_at: string | null; tautan: Tautan; slug: string };
 
 const waktu = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const hariLabel = (t: string) => new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
@@ -36,7 +37,7 @@ export default function HalamanHarian() {
   const terkunci = useTerkunci(true);
   const [data, setData] = useState<Data | null>(null);
   const [status, setStatus] = useState<"muat" | "siap" | "belum" | "gagal">("muat");
-  const [sibuk, setSibuk] = useState<"kunci" | "bagikan" | null>(null);
+  const [sibuk, setSibuk] = useState<"kunci" | "bagikan" | "tautan" | null>(null);
   const versi = useRef<string | null>(null);
   const antre = useRef<Promise<unknown>>(Promise.resolve());
 
@@ -80,6 +81,19 @@ export default function HalamanHarian() {
     const ok = await kirim("POST", { aksi });
     setSibuk(null);
     if (ok) { toast.success(aksi === "kunci" ? "Figures locked" : "Unlocked. Figures update again."); await muat(data?.tanggal); }
+  };
+
+  const ubahTautan = async (aksi: "buat" | "matikan") => {
+    setSibuk("tautan");
+    await antre.current;
+    const res = await fetch("/api/admin/laporan/tautan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ aksi, updated_at: versi.current }) }).catch(() => null);
+    setSibuk(null);
+    if (res?.status === 409) { toast.warning("This report was changed in another tab", "The latest version is loaded. Try again."); return muat(data?.tanggal); }
+    const json = res?.ok ? ((await res.json()) as { updated_at?: string; tautan?: Tautan }) : null;
+    if (!json?.updated_at) return toast.error("Couldn't update the link", "Check the connection and try again.");
+    versi.current = json.updated_at;
+    setData((d) => (d ? { ...d, updated_at: json.updated_at!, tautan: json.tautan ?? null } : d));
+    toast.success(aksi === "buat" ? "Highlight link created" : "Highlight link turned off. The old link no longer opens.");
   };
 
   const bagikan = async () => {
@@ -153,7 +167,8 @@ export default function HalamanHarian() {
             </p>
             {data.highlight ? <CarouselHarian hari={data.highlight} /> : null}
           </section>
-          <div className="min-w-0">
+          <div className="flex min-w-0 flex-col gap-4">
+            <KartuTautan tautan={data.tautan} slug={data.slug} jumlahKunci={data.hari.filter((h) => h.status === "terkunci").length} terkunci={terkunci} sibuk={sibuk === "tautan"} onAksi={(a) => void ubahTautan(a)} />
             <EditorHari
               key={`${data.tanggal}:${dikunci?.at ?? ""}`}
               setelan={data.setelan as SetelanHari}

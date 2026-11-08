@@ -29,31 +29,40 @@ ${Array.from({ length: 12 }, (_, i) => `.cr-hal [data-gerak="orang"]:nth-child($
 @media (prefers-reduced-motion:reduce){.cr-hal,.cr-hal [data-gerak]{animation:none!important}}
 `;
 
-const tanggalPendek = (t: string) => new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+/** Teks pemutar. Tampilan klien (`/live`) berbahasa Inggris; link highlight mengikuti bahasa acara. */
+const TEKS = {
+  en: { judul: "Daily highlights", petunjuk: "Tap a day to play it. Figures were locked by the committee at the end of each day.", hari: (n: number) => `Day ${n}`, satuHari: "Event day", putar: (l: string, n: number) => `Play ${l}, ${n} images`, dari: "of", tutup: "Close", mundur: "Previous image", maju: "Next image", lokal: "en-GB" },
+  id: { judul: "Highlight harian", petunjuk: "Ketuk satu hari untuk memutarnya. Angkanya dikunci panitia di akhir tiap hari.", hari: (n: number) => `Hari ${n}`, satuHari: "Hari acara", putar: (l: string, n: number) => `Putar ${l}, ${n} gambar`, dari: "dari", tutup: "Tutup", mundur: "Gambar sebelumnya", maju: "Gambar berikutnya", lokal: "id-ID" },
+} as const;
+type Bahasa = keyof typeof TEKS;
+
+const tanggalPendek = (t: string, b: Bahasa) => new Date(`${t}T00:00:00Z`).toLocaleDateString(TEKS[b].lokal, { day: "numeric", month: "short", timeZone: "UTC" });
+const namaHari = (h: HariHighlight, b: Bahasa) => (h.totalHari > 1 ? TEKS[b].hari(h.hariKe) : TEKS[b].satuHari);
 
 /** Deret sampul hari, seperti lingkaran stories; ketuk untuk memutar. */
-export function CeritaHarian({ hari }: { hari: HariHighlight[] }) {
+/** `grid`: sampul besar dua-tiga kolom (halaman link highlight), bukan deret geser. */
+export function CeritaHarian({ hari, bahasa = "en", judul = true, grid = false }: { hari: HariHighlight[]; bahasa?: Bahasa; judul?: boolean; grid?: boolean }) {
+  const t = TEKS[bahasa];
   const [buka, setBuka] = useState<number | null>(null);
   const asal = useRef<HTMLButtonElement | null>(null);
   if (!hari.length) return null;
   return (
     <section aria-labelledby="cr-judul" className="flex flex-col gap-3">
-      <style>{GAYA}</style>
-      <div className="flex flex-col gap-1">
-        <h2 id="cr-judul" className="m-0 text-title-medium text-on-surface">Daily highlights</h2>
-        <p className="m-0 text-body-medium text-on-surface-variant">Tap a day to play it. Figures were locked by the committee at the end of each day.</p>
+      <div className={judul ? "flex flex-col gap-1" : "sr-only"}>
+        <h2 id="cr-judul" className="m-0 text-title-medium text-on-surface">{t.judul}</h2>
+        <p className="m-0 text-body-medium text-on-surface-variant">{t.petunjuk}</p>
       </div>
-      <ul className="m-0 flex list-none gap-3 overflow-x-auto p-0 pb-2">
+      <ul className={grid ? "m-0 grid list-none grid-cols-2 gap-x-3 gap-y-5 p-0 sm:grid-cols-3" : "m-0 flex list-none gap-3 overflow-x-auto p-0 pb-2"}>
         {hari.map((h, i) => (
-          <li key={h.tanggal} className="shrink-0">
+          <li key={h.tanggal} className={grid ? "min-w-0" : "shrink-0"}>
             <button
               type="button"
-              className="flex w-[104px] cursor-pointer flex-col gap-2 rounded-xl border-0 bg-transparent p-0 text-left text-on-surface outline-offset-4"
+              className={`${grid ? "w-full" : "w-[104px]"} flex cursor-pointer flex-col gap-2 rounded-xl border-0 bg-transparent p-0 text-left text-on-surface outline-offset-4`}
               onClick={(e) => {
                 asal.current = e.currentTarget;
                 setBuka(i);
               }}
-              aria-label={`Play day ${h.hariKe}, ${tanggalPendek(h.tanggal)}, ${h.halaman.length} images`}
+              aria-label={t.putar(`${namaHari(h, bahasa)}, ${tanggalPendek(h.tanggal, bahasa)}`, h.halaman.length)}
             >
               <span className="block w-full rounded-xl p-[3px]" style={{ background: h.tema.aksen }}>
                 <span className="block overflow-hidden rounded-[9px] bg-surface p-[2px]">
@@ -63,16 +72,17 @@ export function CeritaHarian({ hari }: { hari: HariHighlight[] }) {
                 </span>
               </span>
               <span className="flex flex-col">
-                <span className="text-label-large">{h.totalHari > 1 ? `Day ${h.hariKe}` : "Event day"}</span>
-                <span className="text-body-small text-on-surface-variant">{tanggalPendek(h.tanggal)}</span>
+                <span className="text-label-large">{namaHari(h, bahasa)}</span>
+                <span className="text-body-small text-on-surface-variant">{tanggalPendek(h.tanggal, bahasa)}</span>
               </span>
             </button>
           </li>
         ))}
       </ul>
       {buka !== null ? (
-        <Pemutar
+        <PemutarCerita
           hari={hari}
+          bahasa={bahasa}
           mulai={buka}
           tutup={() => {
             setBuka(null);
@@ -85,7 +95,9 @@ export function CeritaHarian({ hari }: { hari: HariHighlight[] }) {
   );
 }
 
-function Pemutar({ hari, mulai, tutup }: { hari: HariHighlight[]; mulai: number; tutup: () => void }) {
+/** Pemutar layar penuh. Juga dipakai Preview di Admin > Daily highlights. */
+export function PemutarCerita({ hari, mulai = 0, bahasa = "en", tutup }: { hari: HariHighlight[]; mulai?: number; bahasa?: Bahasa; tutup: () => void }) {
+  const t = TEKS[bahasa];
   const [pos, setPos] = useState({ d: mulai, p: 0 });
   const h = hari[pos.d];
   const total = h.halaman.length;
@@ -129,10 +141,11 @@ function Pemutar({ hari, mulai, tutup }: { hari: HariHighlight[]; mulai: number;
     };
   }, [maju, mundur, tutup]);
 
-  const label = `${h.totalHari > 1 ? `Day ${h.hariKe}` : "Event day"}, ${tanggalPendek(h.tanggal)}`;
+  const label = `${namaHari(h, bahasa)}, ${tanggalPendek(h.tanggal, bahasa)}`;
   // Di body, supaya tidak terkurung wadah halaman (transform, overflow).
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={`Daily highlights, ${label}`} className="fixed left-0 top-0 z-50 flex h-dvh w-screen flex-col items-center bg-[#0b0b0f] text-white">
+    <div role="dialog" aria-modal="true" aria-label={`${t.judul}, ${label}`} className="fixed left-0 top-0 z-50 flex h-dvh w-screen flex-col items-center bg-[#0b0b0f] text-white">
+      <style>{GAYA}</style>
       <div className="flex w-full flex-col gap-2 px-3 pt-2" style={{ maxWidth: lebar || undefined }}>
         <div className="flex gap-1" aria-hidden>
           {h.halaman.map((p, i) => (
@@ -140,8 +153,8 @@ function Pemutar({ hari, mulai, tutup }: { hari: HariHighlight[]; mulai: number;
           ))}
         </div>
         <div className="flex h-12 items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-label-large" aria-live="polite">{`${label} · ${pos.p + 1} of ${total}`}</span>
-          <button ref={tombolTutup} type="button" onClick={tutup} aria-label="Close" className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-white">
+          <span className="min-w-0 truncate text-label-large" aria-live="polite">{`${label} · ${pos.p + 1} ${t.dari} ${total}`}</span>
+          <button ref={tombolTutup} type="button" onClick={tutup} aria-label={t.tutup} className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-white">
             <X size={24} weight="bold" aria-hidden />
           </button>
         </div>
@@ -155,8 +168,8 @@ function Pemutar({ hari, mulai, tutup }: { hari: HariHighlight[]; mulai: number;
             </div>
           </Bingkai>
         ) : null}
-        <button type="button" onClick={mundur} aria-label="Previous image" className="absolute inset-y-0 left-0 w-[30%] cursor-pointer border-0 bg-transparent" />
-        <button type="button" onClick={akhir ? tutup : maju} aria-label={akhir ? "Close" : "Next image"} className="absolute inset-y-0 right-0 w-[70%] cursor-pointer border-0 bg-transparent" />
+        <button type="button" onClick={mundur} aria-label={t.mundur} className="absolute inset-y-0 left-0 w-[30%] cursor-pointer border-0 bg-transparent" />
+        <button type="button" onClick={akhir ? tutup : maju} aria-label={akhir ? t.tutup : t.maju} className="absolute inset-y-0 right-0 w-[70%] cursor-pointer border-0 bg-transparent" />
       </div>
       </div>
     </div>,
