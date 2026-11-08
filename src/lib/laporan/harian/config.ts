@@ -20,6 +20,11 @@ export type ConfigHarian = Record<string, SetelanHari>;
 export const SETELAN_KOSONG: SetelanHari = { sembunyi: [], catatan: "", foto: [], kunci: null };
 
 const TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
+/** Tanggal yang benar-benar ada ("2026-13-45" ditolak). */
+export const tanggalSah = (t: string) => {
+  const d = TANGGAL.test(t) ? new Date(`${t}T00:00:00Z`) : null;
+  return !!d && Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === t;
+};
 const kunciSah = new Set<string>(KUNCI_HALAMAN);
 
 /** Salinan terkunci dipercaya dari server sendiri; cukup diperiksa bentuk luarnya. */
@@ -47,7 +52,7 @@ export function bacaSetelanHari(nilai: unknown, fotoSah: (url: string) => boolea
 export function bacaHarian(nilai: unknown): ConfigHarian {
   if (!nilai || typeof nilai !== "object" || Array.isArray(nilai)) return {};
   const hasil: ConfigHarian = {};
-  for (const [tgl, isi] of Object.entries(nilai).filter(([t]) => TANGGAL.test(t)).sort(([a], [b]) => a.localeCompare(b)).slice(-BATAS_HARIAN.hari)) {
+  for (const [tgl, isi] of Object.entries(nilai).filter(([t]) => tanggalSah(t)).sort(([a], [b]) => a.localeCompare(b)).slice(-BATAS_HARIAN.hari)) {
     hasil[tgl] = bacaSetelanHari(isi);
   }
   return hasil;

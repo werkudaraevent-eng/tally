@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { bacaSetelanHari, BATAS_HARIAN } from "@/lib/laporan/harian/config";
+import { bacaSetelanHari, BATAS_HARIAN, tanggalSah } from "@/lib/laporan/harian/config";
 import { fotoLaporanSah } from "@/lib/laporan/harian/foto";
 import { hurufAcara, muatHarian } from "@/lib/laporan/harian/server";
 import { muatBahanLaporan } from "@/lib/laporan/bahan-server";
@@ -18,7 +18,6 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * updated_at = yang DIMUAT (compare-and-swap); 409 bila diubah di tab lain.
  */
 
-const TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
 const fotoSah = (u: string) => fotoLaporanSah(u, process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 export async function GET(request: Request) {
@@ -28,7 +27,7 @@ export async function GET(request: Request) {
   if (!laporan) return apiError("INTERNAL_ERROR", 500);
   if (!laporan.siap) return Response.json({ siap: false });
   const tanggal = new URL(request.url).searchParams.get("tanggal");
-  const data = await muatHarian(auth.scope.event, laporan.config, tanggal && TANGGAL.test(tanggal) ? tanggal : null).catch(() => null);
+  const data = await muatHarian(auth.scope.event, laporan.config, tanggal && tanggalSah(tanggal) ? tanggal : null).catch(() => null);
   if (!data) return apiError("INTERNAL_ERROR", 500);
   return Response.json({ siap: true, updated_at: laporan.updated_at, ...data });
 }
@@ -37,7 +36,7 @@ type Body = { tanggal?: unknown; setelan?: unknown; aksi?: unknown; updated_at?:
 
 async function baca(request: Request) {
   const body = (await request.json().catch(() => null)) as Body | null;
-  if (!body || typeof body.tanggal !== "string" || !TANGGAL.test(body.tanggal) || !(body.updated_at === null || typeof body.updated_at === "string")) return null;
+  if (!body || typeof body.tanggal !== "string" || !tanggalSah(body.tanggal) || !(body.updated_at === null || typeof body.updated_at === "string")) return null;
   return body as Body & { tanggal: string; updated_at: string | null };
 }
 

@@ -2,7 +2,9 @@ import { ImageResponse } from "next/og";
 import { HalamanHarianView, LEBAR, TINGGI } from "@/components/laporan/harian/halaman";
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
+import { fotoLaporanSah } from "@/lib/laporan/harian/foto";
 import { hurufGambar } from "@/lib/laporan/harian/huruf";
+import { temaAcara } from "@/lib/laporan/warna";
 import { muatLaporan } from "@/lib/laporan/server";
 
 /**
@@ -21,8 +23,13 @@ export async function GET(request: Request) {
   if (!laporan) return apiError("INTERNAL_ERROR", 500);
   const hari = laporan.siap ? laporan.config.harian[tanggal]?.kunci?.hari : null;
   if (!hari) return new Response(null, { status: 404 });
-  const p = Number.isInteger(n) ? hari.halaman[n - 1] : undefined;
-  if (!p) return new Response(null, { status: 404 });
+  const asli = Number.isInteger(n) ? hari.halaman[n - 1] : undefined;
+  if (!asli) return new Response(null, { status: 404 });
+  // Server mengambil foto ini sendiri: hanya foto laporan acara ini atau foto hero acara saat ini.
+  const hero = temaAcara(auth.scope.event.landing_config).foto;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const fotoBoleh = (u: string | null) => (u && (u === hero || fotoLaporanSah(u, supabaseUrl)) ? u : null);
+  const p = { ...asli, foto: fotoBoleh(asli.foto) };
 
   const fonts = await hurufGambar(hari.huruf.judul, hari.huruf.isi);
   const ada = new Set(fonts.map((f) => f.name));

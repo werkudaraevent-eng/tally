@@ -29,8 +29,8 @@ export function hurufGambar(judul: string, isi: string): Promise<Font[]> {
   if (!janji) {
     const semua = judul === isi ? [ambil(judul, [500, 700, 800])] : [ambil(judul, [800]), ambil(isi, [500, 700, 800])];
     janji = Promise.all(semua).then((f) => f.flat()).catch(() => []);
-    // Gagal tidak disimpan, supaya permintaan berikutnya mencoba lagi.
-    void janji.then((f) => { if (!f.length) simpanan.delete(kunci); });
+    // Gagal disimpan 5 menit (tiap gambar tidak menunggu Google lagi), lalu dicoba ulang.
+    void janji.then((f) => { if (!f.length) setTimeout(() => simpanan.delete(kunci), 5 * 60_000).unref?.(); });
     simpanan.set(kunci, janji);
   }
   return janji;

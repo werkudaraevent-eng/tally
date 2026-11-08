@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { bahanContoh } from "../contoh.ts";
 import { bacaHarian, bacaSetelanHari, SETELAN_KOSONG } from "./config.ts";
-import { hariAcara, susunHari } from "./hitung.ts";
+import { hariAcara, kedatanganHari, sibukHari, susunHari } from "./hitung.ts";
 import { warnaHalaman, warnaMuda } from "./warna.ts";
 import { kontras } from "../../landing-hitung-mundur.ts";
 
@@ -78,10 +78,59 @@ for (const merek of ["#1F5FAD", "#FFD400", "#777777", "#0B182D", "#E11D48"]) {
     const w = warnaHalaman(t, p);
     assert.ok(kontras(w.teks, w.bg) >= 4.5, `${merek} ${p} ${w.teks} on ${w.bg}`);
     if (p !== "putih" && p !== "muda") assert.ok(kontras(w.angka, w.bg) >= 3, `${merek} ${p} angka ${w.angka} on ${w.bg}`);
+    // Teks redup juga >= 4,5:1 di tiap permukaan (QA #444 M3), batang puncak >= 3:1.
+    assert.ok(kontras(w.teks2, w.bg) >= 4.5, `${merek} ${p} teks2 ${w.teks2} on ${w.bg}`);
+    assert.ok(kontras(w.isi, w.bg) >= 3 || w.isi === w.teks, `${merek} ${p} isi ${w.isi} on ${w.bg}`);
+  }
+}
+for (const merek of ["#0E7C66", "#F97316", "#FFFFFF", "#F9C6D3", "#FFE14D"]) {
+  const t = (await import("../warna.ts")).temaDariWarna(merek);
+  for (const p of ["gelap", "aksen", "kertas", "putih", "muda"] as const) {
+    if (p === "aksen" && kontras(t.aksen, t.aksenTeks) < 4.5) continue;
+    const w = warnaHalaman(t, p);
+    assert.ok(kontras(w.teks2, w.bg) >= 4.5, `${merek} ${p} teks2 ${w.teks2} on ${w.bg}`);
+    assert.ok(kontras(w.isi, w.bg) >= 3, `${merek} ${p} isi ${w.isi} on ${w.bg}`);
   }
 }
 assert.match(warnaMuda("#E9C46A"), /^#[0-9A-F]{6}$/);
 assert.equal(warnaMuda("#808080"), "#DCEBFA");
+
+// QA #444 M1: jam tersibuk dari pindaian pertama tiap orang di SEMUA titik hari itu.
+const T = (jamMenit: string) => `2026-11-06T${jamMenit}:00Z`;
+const banyakTitik = bahanContoh();
+const pagi = Array.from({ length: 40 }, (_, i) => ({ id: `p${i}`, at: T(`01:${String(i % 60).padStart(2, "0")}`) }));
+const kecil = Array.from({ length: 31 }, (_, i) => ({ id: `q${i}`, at: T(`05:${String(i).padStart(2, "0")}`) }));
+banyakTitik.sesi = [
+  // Titik terbesar (Lari) datang tersebar; titik lain (Registrasi) jam 01 UTC berisi 40 orang berbeda.
+  { kunci: "a", nama: "Registrasi", tanggal: "2026-11-06", jam: "08:00", diharapkan: 100, sudah: 40, datang: pagi.map((x) => x.at), orang: pagi.map((x) => x.id) },
+  { kunci: "b", nama: "Lari", tanggal: "2026-11-06", jam: "12:00", diharapkan: 100, sudah: 31, datang: kecil.map((x) => x.at), orang: kecil.map((x) => x.id) },
+];
+const bt = susunHari(banyakTitik, "2026-11-06", SETELAN_KOSONG, huruf).hari.halaman.find((p) => p.kunci === "jam");
+assert.ok(bt && bt.kunci === "jam" && bt.judul === `Pukul ${String(1 + 7).padStart(2, "0")}.00 paling ramai.`, bt?.judul);
+assert.ok(bt.kunci === "jam" && bt.teks.startsWith("40 orang tiba antara 08.00 dan 09.00, 56%"), bt.teks);
+// Orang yang sama di dua titik dihitung sekali, di pindaian pertamanya.
+assert.equal(kedatanganHari([{ ...banyakTitik.sesi[0], datang: [T("03:00")], orang: ["z"] }, { ...banyakTitik.sesi[1], datang: [T("02:00")], orang: ["z"] }]).length, 1);
+// Lewat tengah malam: garis waktu 22, 23, 00, bukan 00..23 dan bukan "24.00".
+const malam = sibukHari([...Array(5).fill(Date.parse("2026-11-05T15:10:00Z")), ...Array(9).fill(Date.parse("2026-11-05T16:10:00Z")), ...Array(3).fill(Date.parse("2026-11-05T17:10:00Z"))], "+07:00");
+assert.deepEqual(malam.jam.map((j) => j.jam), [22, 23, 0]);
+assert.equal(malam.jamPuncak, 23);
+
+// QA #444 L1: 1.236 dari 1.251 bukan "10 dari 10"; L2: 79,9% bukan "80% ke atas".
+const hampir = bahanContoh();
+hampir.peserta = Array.from({ length: 1000 }, (_, i) => ({ ...bahanContoh().peserta[0], id: `x${i}` }));
+hampir.sesi = [
+  { kunci: "a", nama: "A", tanggal: "2026-11-06", jam: "08:00", diharapkan: 1000, sudah: 799, datang: [], orang: Array.from({ length: 990 }, (_, i) => `x${i}`) },
+  { kunci: "b", nama: "B", tanggal: "2026-11-06", jam: "10:00", diharapkan: 1000, sudah: 990, datang: [], orang: [] },
+];
+const hh = susunHari(hampir, "2026-11-06", SETELAN_KOSONG, huruf).hari.halaman;
+const hd2 = hh.find((p) => p.kunci === "hadir");
+assert.ok(hd2 && hd2.kunci === "hadir" && hd2.isi === 9 && hd2.judul === "Hampir semua peserta datang ke acara.", hd2?.judul);
+const ag = hh.find((p) => p.kunci === "agenda");
+assert.ok(ag && ag.judul === "2 agenda hari ini, semuanya terisi 75% ke atas.", ag?.judul);
+
+const { tanggalSah } = await import("./config.ts");
+assert.ok(tanggalSah("2026-11-06") && !tanggalSah("2026-13-45") && !tanggalSah("2026-02-30"));
+assert.deepEqual(Object.keys(bacaHarian({ "2026-13-45": {}, "2026-11-06": {} })), ["2026-11-06"]);
 console.log("harian.check ok");
 
 const { fotoLaporanSah } = await import("./foto.ts");

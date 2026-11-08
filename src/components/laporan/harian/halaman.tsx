@@ -24,8 +24,8 @@ function Kepala({ hari, nomor, total, w, di }: { hari: HariHighlight; nomor: num
   );
 }
 
-const judul = (h: Huruf, w: WarnaHalaman, ukuran = 104): CSSProperties => ({ fontFamily: h.judul, fontSize: ukuran, lineHeight: 1.04, fontWeight: 800, letterSpacing: -3, color: w.teks, margin: 0 });
-const isi = (h: Huruf, w: WarnaHalaman): CSSProperties => ({ fontFamily: h.isi, fontSize: 44, lineHeight: 1.32, fontWeight: 500, color: w.teks2, margin: 0 });
+const judul = (h: Huruf, w: WarnaHalaman, ukuran = 104): CSSProperties => ({ fontFamily: h.judul, fontSize: ukuran, lineHeight: 1.04, fontWeight: 800, letterSpacing: -3, color: w.teks, margin: 0, wordBreak: "break-word" });
+const isi = (h: Huruf, w: WarnaHalaman): CSSProperties => ({ fontFamily: h.isi, fontSize: 44, lineHeight: 1.32, fontWeight: 500, color: w.teks2, margin: 0, wordBreak: "break-word" });
 
 function Foto({ src, tinggi }: { src: string; tinggi: number | "penuh" }) {
   // eslint-disable-next-line @next/next/no-img-element
