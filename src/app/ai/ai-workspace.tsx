@@ -42,6 +42,7 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
   const [keluar, setKeluar] = useState(false);
   const [kunciBaru, setKunciBaru] = useState("");
   const [gantiKunci, setGantiKunci] = useState(false);
+  const [galatKunci, setGalatKunci] = useState("");
   const [batas, setBatas] = useState("");
   const [sibuk, setSibuk] = useState<string | null>(null);
   const [periode, setPeriode] = useState<"ini" | "lalu">("ini");
@@ -56,12 +57,17 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
   }, []);
   useEffect(() => { const timer = window.setTimeout(() => { void muat(); }, 0); return () => window.clearTimeout(timer); }, [muat]);
 
-  const kirim = async (method: "PATCH" | "POST" | "DELETE", body: unknown, kunci: string, berhasil: string) => {
+  /** `onGalat`: galat ditaruh di bawah isian (lewat `onGalat`), bukan toast yang hilang. */
+  const kirim = async (method: "PATCH" | "POST" | "DELETE", body: unknown, kunci: string, berhasil: string, onGalat?: (pesan: string) => void) => {
     setSibuk(kunci);
     const response = await fetch("/api/admin/ai", { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null);
     const json = response ? await response.json().catch(() => null) : null;
     setSibuk(null);
-    if (!response?.ok) { toast.error(pesanGalatApi(json) ?? "Not saved. Try again."); return false; }
+    if (!response?.ok) {
+      const pesan = pesanGalatApi(json) ?? (response ? "Not saved. Try again." : "No connection to Tally. Check the internet, then try again.");
+      if (onGalat) onGalat(pesan); else toast.error(pesan);
+      return false;
+    }
     toast.success(berhasil);
     await muat();
     return true;
@@ -167,7 +173,8 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
                     className="flex flex-col gap-2"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      void kirim("POST", { api_key: kunciBaru }, "kunci", "API key checked and saved").then((ok) => { if (ok) { setKunciBaru(""); setGantiKunci(false); } });
+                      setGalatKunci("");
+                      void kirim("POST", { api_key: kunciBaru }, "kunci", "API key checked and saved", setGalatKunci).then((ok) => { if (ok) { setKunciBaru(""); setGantiKunci(false); } });
                     }}
                   >
                     <TextField
@@ -175,14 +182,15 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
                       type="password"
                       autoComplete="off"
                       value={kunciBaru}
-                      onChange={(event) => setKunciBaru(event.target.value)}
+                      onChange={(event) => { setKunciBaru(event.target.value); setGalatKunci(""); }}
+                      error={galatKunci || undefined}
                       placeholder="sk-ant-…"
                       leading={<Key size={16} />}
                       hint="From console.anthropic.com > API keys. It is checked, then stored encrypted. Only the last 4 characters are shown again."
                     />
                     <div className="flex gap-2">
                       <Button type="submit" loading={sibuk === "kunci"} disabled={kunciBaru.trim().length < 20}>Check and save</Button>
-                      {gantiKunci ? <Button variant="text" onClick={() => { setGantiKunci(false); setKunciBaru(""); }}>Cancel</Button> : null}
+                      {gantiKunci ? <Button variant="text" onClick={() => { setGantiKunci(false); setKunciBaru(""); setGalatKunci(""); }}>Cancel</Button> : null}
                     </div>
                   </form>
                 )}
@@ -308,7 +316,8 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
                   {ringkas.runs === 0 ? <p className="text-body-medium text-on-surface-variant">No AI runs yet.</p> : (
                     <>
                       <Batang label="Saved after preview" nilai={ringkas.hasil.saved} total={ringkas.runs} teks={`${ringkas.hasil.saved} of ${ringkas.runs}`} warna="bg-success" />
-                      <Batang label="Closed without saving" nilai={ringkas.hasil.closed + ringkas.hasil.preview} total={ringkas.runs} teks={`${ringkas.hasil.closed + ringkas.hasil.preview} of ${ringkas.runs}`} warna="bg-outline" />
+                      <Batang label="Closed without saving" nilai={ringkas.hasil.closed} total={ringkas.runs} teks={`${ringkas.hasil.closed} of ${ringkas.runs}`} warna="bg-outline" />
+                      {ringkas.hasil.preview > 0 ? <Batang label="In preview now" nilai={ringkas.hasil.preview} total={ringkas.runs} teks={`${ringkas.hasil.preview} of ${ringkas.runs}`} warna="bg-primary" /> : null}
                       <Batang label="Failed" nilai={ringkas.hasil.failed} total={ringkas.runs} teks={`${ringkas.hasil.failed} of ${ringkas.runs}`} warna="bg-error" />
                       <span className="text-body-small text-on-surface-variant">Many closed or failed runs for one kind of file mean the AI reads it badly: try another model for that feature.</span>
                     </>
@@ -324,7 +333,23 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
                   <Sparkle size={16} className="mr-1 inline" aria-hidden />No AI runs yet. They appear here after someone uses &ldquo;Read with AI&rdquo; in an event.
                 </p>
               ) : (
-                <TableCard>
+                <>
+                <ul className="flex flex-col divide-y divide-outline-variant rounded-[10px] border border-outline-variant bg-surface-container-lowest md:hidden">
+                  {data.terakhir.map((r) => (
+                    <li key={r.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-body-medium text-on-surface">{waktu(r.waktu)} · {r.acara ?? "—"}</span>
+                        <span className="truncate text-body-small text-on-surface-variant" title={r.berkas.join(", ")}>{r.berkas.length > 1 ? `${r.berkas[0]} +${r.berkas.length - 1}` : r.berkas[0] ?? "—"} · {r.model} · {r.oleh ?? "—"}</span>
+                        <span className="text-body-small text-on-surface-variant tabular-nums">{angka(r.token_masuk)} in / {angka(r.token_keluar)} out</span>
+                      </span>
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="text-body-medium tabular-nums text-on-surface">{usd(r.usd)}</span>
+                        <StatusChip tone={STATUS_RUN[r.status]?.tone ?? "neutral"}>{STATUS_RUN[r.status]?.label ?? r.status}</StatusChip>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <TableCard className="hidden md:block">
                   <Table minWidth="980px" density="compact">
                     <TableHead>
                       <tr><TableHeaderCell>When</TableHeaderCell><TableHeaderCell>Who</TableHeaderCell><TableHeaderCell>Event</TableHeaderCell><TableHeaderCell>Feature</TableHeaderCell><TableHeaderCell>Files</TableHeaderCell><TableHeaderCell align="end">Tokens in / out</TableHeaderCell><TableHeaderCell align="end">Cost</TableHeaderCell><TableHeaderCell>Result</TableHeaderCell></tr>
@@ -345,6 +370,7 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
                     </TableBody>
                   </Table>
                 </TableCard>
+                </>
               )}
             </section>
           </>

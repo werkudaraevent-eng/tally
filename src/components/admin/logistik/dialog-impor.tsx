@@ -548,7 +548,15 @@ function satuPerKamar(kamar: KamarUbah[]): KamarUbah[] {
 /** Kamar yang sudah ada dan isiannya diubah berkas, satu isian per kolom. */
 function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
   const kolom = ISIAN_KAMAR.filter(([isian]) => kamar.some((k) => k[isian] !== undefined));
+  const diganti = kamar.filter((k) => k.nomor_lama && k.room_number).length;
   return (
+    <div className="flex flex-col gap-2">
+    {diganti > 0 ? (
+      <p className="flex items-start gap-2 text-body-medium text-on-surface">
+        <span className="mt-2 flex"><StatusDot tone="warning" /></span>
+        <span>{diganti} of {kamar.length} rooms get a different number. Everyone staying in those rooms, roommates included, sees the new number.</span>
+      </p>
+    ) : null}
     <div className="max-h-[24dvh] overflow-auto rounded-md border border-outline-variant bg-surface-container-lowest">
       <table className="w-full border-collapse text-left text-body-medium">
         <caption className="sr-only">Rooms that will be updated</caption>
@@ -562,11 +570,16 @@ function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
           {kamar.slice(0, BATAS_TAMPIL).map((k) => (
             <tr key={k.id} className="h-9 border-b border-outline-variant last:border-b-0">
               <td className="px-4 text-on-surface">{k.nama}</td>
-              {kolom.map(([isian]) => <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] === null ? "To follow" : k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
+              {kolom.map(([isian]) => isian === "room_number" && k.nomor_lama && k.room_number ? (
+                <td key={isian} className="px-4 text-on-surface">
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><StatusDot tone="warning" /><s className="text-on-surface-variant">{k.nomor_lama}</s><span aria-hidden>→</span><strong className="font-medium">{k.room_number}</strong><span className="sr-only">(changed)</span></span>
+                </td>
+              ) : <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] === null ? "To follow" : k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

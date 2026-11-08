@@ -1,11 +1,12 @@
 "use client";
 
-import { DownloadSimple, Sparkle, Warning } from "@phosphor-icons/react";
+import { DownloadSimple, Sparkle, UploadSimple, Warning } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { Banner, Button, StatusDot } from "@/components/m3";
 import { pesanGalatApi } from "@/lib/api-message";
 import { LABEL_STATUS, type HasilTemuan, type StatusTemuan } from "@/lib/ai/logistik-kamar-hasil";
 import { eventApiPath } from "@/lib/event-url";
+import { siapkanBerkas } from "./kecilkan-berkas";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
 
@@ -75,12 +76,16 @@ export function BacaAi({ open, disabled, onMulai, onBerkas }: {
     setGalat("");
     setProses(files.length);
     onMulai();
+    const siapKirim = await siapkanBerkas(files);
+    if ("galat" in siapKirim) { setProses(null); setGalat(siapKirim.galat); return; }
     const form = new FormData();
-    for (const f of files) form.append("file", f);
+    for (const f of siapKirim.files) form.append("file", f);
     const response = await fetch(eventApiPath("/api/admin/logistik/impor/ai"), { method: "POST", body: form }).catch(() => null);
     const json = response ? await response.json().catch(() => null) : null;
     setProses(null);
-    if (!response?.ok || !json) { setGalat(pesanGalatApi(json) ?? "The AI could not read these files. Try again."); return; }
+    // 413 datang dari Vercel sebelum route berjalan, jadi bukan JSON.
+    if (response?.status === 413) { setGalat("These files are too large to send at once. Choose fewer files, or send a screenshot of the page instead of the whole PDF."); return; }
+    if (!response?.ok || !json) { setGalat(pesanGalatApi(json) ?? (response ? "The AI could not read these files. Try again." : "No connection to Tally. Check the internet, then try again.")); return; }
     const jawaban = json as JawabanAi;
     onBerkas(jawaban.berkas ? new File([jawaban.berkas], "Room numbers read by AI.tsv", { type: "text/tab-separated-values" }) : null, jawaban);
   };
@@ -93,15 +98,15 @@ export function BacaAi({ open, disabled, onMulai, onBerkas }: {
           <div className="min-w-0">
             <p className="text-body-medium font-medium text-on-surface">File does not match the template?</p>
             <p className="text-body-small text-on-surface-variant">
-              Choose the hotel&apos;s rooming list, PDF, photos of room keys or chat screenshots, up to 10 at once. AI fills only the room numbers of people already in Stays, so nobody moves rooms. You see the preview before anything is saved.
+              Choose the hotel&apos;s rooming list, PDF, photos of room keys or chat screenshots, up to 10 at once (4 MB together; photos are made smaller first). AI fills only the room numbers of people already in Stays, so nobody moves rooms. You see the preview before anything is saved.
             </p>
           </div>
         </div>
         <label className={cx(
-          "inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-primary px-4 text-label-large text-on-primary focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
+          "inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-outline px-4 text-label-large text-primary hover:bg-primary/[0.08] focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
           (disabled || proses !== null) && "pointer-events-none opacity-60",
         )}>
-          <Sparkle size={16} aria-hidden />
+          <UploadSimple size={16} aria-hidden />
           Read with AI
           <input
             type="file"
@@ -135,7 +140,9 @@ export function RingkasanAi({ jawaban }: { jawaban: JawabanAi }) {
 
   const unduh = () => {
     const baris = [["Name in file", "Name in Tally", "Hotel", "Room number", "Saved now", "Result"], ...jawaban.hasil.map((h) => [h.namaBerkas, h.namaTally ?? "", h.hotel, h.nomor, h.lama ?? "", LABEL_STATUS[h.status]])];
-    const csv = "﻿" + baris.map((b) => b.map((isi) => `"${isi.replace(/"/g, '""')}"`).join(",")).join("\r\n");
+    // Teks dari berkas atau AI yang diawali = + - @ bisa dijalankan Excel sebagai rumus.
+    const aman = (isi: string) => (/^[=+\-@\t\r]/.test(isi) ? `'${isi}` : isi);
+    const csv = "﻿" + baris.map((b) => b.map((isi) => `"${aman(isi).replace(/"/g, '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
@@ -154,7 +161,7 @@ export function RingkasanAi({ jawaban }: { jawaban: JawabanAi }) {
         {urutan.map((s) => hitung(s) > 0 ? (
           <span key={s} className="inline-flex items-center gap-1.5 tabular-nums">
             <StatusDot tone={NADA[s]} />
-            {LABEL_STATUS[s]}: <span className="text-on-surface">{hitung(s)} of {total}</span>
+            {LABEL_STATUS[s]}: <span className="whitespace-nowrap text-on-surface">{hitung(s)} of {total}</span>
           </span>
         ) : null)}
       </div>

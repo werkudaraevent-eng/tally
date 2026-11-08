@@ -32,9 +32,9 @@ import { textToCells, xlsxToCells } from "@/lib/undian-import";
 export const maxDuration = 300;
 
 const FITUR = "logistik_kamar";
-const BATAS_BERKAS = 10 * 1024 * 1024;
-const BATAS_GAMBAR = 5 * 1024 * 1024;
-const BATAS_TOTAL = 20 * 1024 * 1024;
+// Vercel menolak badan permintaan di atas 4,5 MB sebelum route ini berjalan;
+// browser sudah mengecilkan foto dan menahan di 4 MB (kecilkan-berkas.ts).
+const BATAS_TOTAL = 4.5 * 1024 * 1024;
 const BATAS_JUMLAH = 10;
 const BATAS_BARIS_TEKS = 3000;
 
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const berkas = (form?.getAll("file") ?? []).filter((f): f is File => f instanceof File && f.size > 0);
   if (berkas.length === 0) return apiError("VALIDATION_ERROR", 422, { message: "Choose at least one file." });
   if (berkas.length > BATAS_JUMLAH) return apiError("VALIDATION_ERROR", 422, { message: `Choose at most ${BATAS_JUMLAH} files at a time.` });
-  if (berkas.reduce((n, f) => n + f.size, 0) > BATAS_TOTAL) return apiError("VALIDATION_ERROR", 422, { message: "These files are more than 20 MB together. Send fewer at a time." });
+  if (berkas.reduce((n, f) => n + f.size, 0) > BATAS_TOTAL) return apiError("VALIDATION_ERROR", 422, { message: "These files are more than 4 MB together. Send fewer at a time." });
 
   const siap = await siapkanFitur(FITUR);
   if (!siap.siap) return apiError("VALIDATION_ERROR", 422, { message: siap.pesan });
@@ -76,12 +76,10 @@ export async function POST(request: Request) {
   for (const file of berkas) {
     const nama = file.name.slice(0, 200);
     const ext = nama.toLowerCase().split(".").pop() ?? "";
-    if (file.size > BATAS_BERKAS) return apiError("VALIDATION_ERROR", 422, { message: `${nama} is larger than 10 MB.` });
     if (ext === "pdf") {
       isi.push({ type: "text", text: `File: ${nama}` });
       isi.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: Buffer.from(await file.arrayBuffer()).toString("base64") } });
     } else if (GAMBAR[ext]) {
-      if (file.size > BATAS_GAMBAR) return apiError("VALIDATION_ERROR", 422, { message: `${nama} is larger than 5 MB. Send a smaller photo or a screenshot.` });
       isi.push({ type: "text", text: `File: ${nama}` });
       isi.push({ type: "image", source: { type: "base64", media_type: GAMBAR[ext], data: Buffer.from(await file.arrayBuffer()).toString("base64") } });
     } else if (ext === "heic" || ext === "heif") {

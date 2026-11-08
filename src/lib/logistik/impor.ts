@@ -42,7 +42,11 @@ export type Malam = { masuk: string; keluar: string };
 export type KamarBaru = { kunci: string; hotel: string; nomor: string | null; label: string | null; tipe: string | null; kasur: string | null; kapasitas: number };
 
 /** Kamar yang sudah ada dan isiannya diubah berkas (nomor yang datang belakangan, label, kasur, jenis kamar). */
-export type KamarUbah = { id: number; nama: string; hotel: string; room_number?: string | null; label?: string; room_type?: string; bed_type?: string };
+export type KamarUbah = {
+  id: number; nama: string; hotel: string; room_number?: string | null; label?: string; room_type?: string; bed_type?: string;
+  /** Nomor yang tersimpan sekarang, bila berkas MENGGANTINYA (bukan mengisi yang kosong): pratinjau menandainya. */
+  nomor_lama?: string;
+};
 
 /** Kamar tujuan sebuah stay: yang sudah ada (id), atau yang dibuat impor ini (`KamarBaru.kunci`). */
 export type RefKamar = { id: number } | { baru: string };
@@ -973,11 +977,12 @@ export function rencanaKamar(selBerkas: string[][], acara: KeadaanAcara, opsi: O
     const ubah: KamarUbah = { id: ada.id, nama: namaUbah(ada), hotel: grup.hotel };
     const dilepas = [...kelompok.values()].some((g) => !g.galat && g.ambilDari?.id === ada.id);
     if (grup.nomor !== null && (grup.nomor !== ada.room_number || dilepas)) ubah.room_number = grup.nomor;
+    if (ubah.room_number && ada.room_number && ada.room_number !== ubah.room_number && !dilepas) ubah.nomor_lama = ada.room_number;
     if (grup.label && grup.label !== ada.label) ubah.label = grup.label;
     // Beda huruf besar saja (TWIN dan Twin) bukan perubahan.
     if (grup.tipe && kunci(grup.tipe) !== kunci(ada.room_type)) ubah.room_type = grup.tipe;
     if (grup.kasur && kunci(grup.kasur) !== kunci(ada.bed_type)) ubah.bed_type = grup.kasur;
-    if (Object.keys(ubah).length > 3) kamarUbah.push(ubah);
+    if (Object.keys(ubah).filter((k) => k !== "nomor_lama").length > 3) kamarUbah.push(ubah);
   }
 
   baris.sort((a, b) => a.baris - b.baris);
