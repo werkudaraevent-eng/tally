@@ -5,7 +5,9 @@
  */
 import type { EventLandingConfig } from "../domain.ts";
 import { LANDING_HEADING_FONTS } from "../domain.ts";
+import { mixHex } from "../color.ts";
 import { warnaKilas } from "../kilas-balik/warna.ts";
+import { kontras } from "../landing-hitung-mundur.ts";
 import { landingTokens } from "../landing-tokens.ts";
 import type { Deck, Latar, TemaDeck } from "./jenis.ts";
 
@@ -31,19 +33,32 @@ export function temaDeck(deck: Pick<Deck, "tema" | "warna">): TemaDeck {
 /** Merah untuk "masalah" yang terbaca di tiap permukaan. */
 export const MERAH = { gelap: "#FFB4AB", terang: "#B3261E" } as const;
 
+/** Geser `warna` ke `ke` sampai kontrasnya dengan `bg` >= 4,5:1 (teks kecil, AA). */
+function cukup(warna: string, ke: string, bg: string): string {
+  let w = warna;
+  for (let i = 0; i < 20 && kontras(w, bg) < 4.5; i++) w = mixHex(w, ke, 0.1);
+  return w;
+}
+
 /**
- * Variabel CSS satu permukaan: teks, teks redup, garis, batang biasa,
- * batang utama, merah, angka besar. Satu tempat, dipakai semua blok.
+ * Variabel CSS satu permukaan: teks, teks redup, batang utama, merah, angka
+ * besar. Teks redup dan merah dijaga >= 4,5:1 di permukaannya. Satu tempat,
+ * dipakai semua blok.
  */
 export function warnaPermukaan(t: TemaDeck, latar: Latar): Record<string, string> {
-  if (latar === "gelap") {
-    const putih = t.latarTeks.toLowerCase() === "#ffffff";
-    return { bg: t.latar, teks: t.latarTeks, isi: t.aksen, merah: putih ? MERAH.gelap : MERAH.terang, angka: t.aksen };
-  }
-  if (latar === "aksen") {
-    const putih = t.aksenTeks.toLowerCase() === "#ffffff";
-    return { bg: t.aksen, teks: t.aksenTeks, isi: t.aksenTeks, merah: putih ? MERAH.gelap : MERAH.terang, angka: t.aksenTeks };
-  }
-  // Tinta = merek gelap bila kontrasnya >= 7:1 di kertas, hitam bila tidak.
-  return { bg: t.kertas, teks: t.tinta, isi: t.tinta, merah: MERAH.terang, angka: t.tinta };
+  const [bg, teks, isi, angka] =
+    latar === "gelap" ? [t.latar, t.latarTeks, t.aksen, t.aksen]
+      : latar === "aksen" ? [t.aksen, t.aksenTeks, t.aksenTeks, t.aksenTeks]
+        // Tinta = merek gelap bila kontrasnya >= 7:1 di kertas, hitam bila tidak.
+        : [t.kertas, t.tinta, t.tinta, t.tinta];
+  const terangTeks = kontras(teks, "#000000") > kontras(teks, "#ffffff");
+  const merah = terangTeks ? cukup(MERAH.gelap, "#ffffff", bg) : cukup(MERAH.terang, "#000000", bg);
+  return { bg, teks, teks2: cukup(mixHex(teks, bg, 0.28), teks, bg), isi, merah, angka };
 }
+
+/**
+ * Permukaan aksen dipakai hanya bila tulisannya terbaca (>= 4,5:1). Merek
+ * terang membuat aksen yang digeser jadi zaitun pudar: deck itu cukup gelap
+ * dan kertas saja.
+ */
+export const aksenTerbaca = (t: TemaDeck) => kontras(t.aksen, t.aksenTeks) >= 4.5;

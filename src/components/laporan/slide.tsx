@@ -120,7 +120,8 @@ function BatangTegak({ b, lebar: W }: { b: BlokBatang; lebar: number }) {
   const H = TINGGI[b.tinggi ?? "besar"];
   const adaSub = b.seri.some((s) => s.sub);
   const bawah = H - (adaSub ? 60 : 38);
-  const ruang = bawah - (kecil ? 28 : 40);
+  // Garis mulai: labelnya di jalur atas sendiri, di atas angka batang tertinggi.
+  const ruang = bawah - (kecil ? 28 : 40) - (b.penanda ? 30 : 0);
   const n = b.seri.length;
   const langkah = W / Math.max(n, 1);
   const lebar = Math.min(W >= LEBAR_PENUH ? 96 : 64, langkah * 0.66);
@@ -146,8 +147,8 @@ function BatangTegak({ b, lebar: W }: { b: BlokBatang; lebar: number }) {
         })}
         {b.penanda ? (
           <g>
-            <line x1={(b.penanda.setelah + 1) * langkah} x2={(b.penanda.setelah + 1) * langkah} y1={8} y2={bawah} stroke="var(--lp-teks)" strokeWidth={3} />
-            <text className="lp-pn" x={(b.penanda.setelah + 1) * langkah + 10} y={26} textAnchor={b.penanda.setelah + 1 > n * 0.7 ? "end" : "start"} dx={b.penanda.setelah + 1 > n * 0.7 ? -20 : 0}>{b.penanda.label}</text>
+            <line x1={(b.penanda.setelah + 1) * langkah} x2={(b.penanda.setelah + 1) * langkah} y1={2} y2={bawah} stroke="var(--lp-teks)" strokeWidth={3} />
+            <text className="lp-pn" x={(b.penanda.setelah + 1) * langkah + 10} y={18} textAnchor={b.penanda.setelah + 1 > n * 0.7 ? "end" : "start"} dx={b.penanda.setelah + 1 > n * 0.7 ? -20 : 0}>{b.penanda.label}</text>
           </g>
         ) : null}
       </svg>
@@ -239,10 +240,10 @@ function Teks({ b }: { b: BlokTeks }) {
 /** Peta panas: makin pekat makin ramai; angka hanya di sel yang cukup ramai. */
 function Panas({ b }: { b: BlokPanas }) {
   const rapat = b.baris.length > 5;
-  const tinggi = rapat ? 40 : 56;
+  const tinggi = rapat ? 38 : 52;
   return (
     <div className="lp-sisi" style={{ gap: 14 }}>
-      <div className="lp-panas" style={{ gridTemplateColumns: `220px repeat(${b.kolom.length}, minmax(0,1fr)) 112px`, gridAutoRows: "auto" }}>
+      <div className="lp-panas" style={{ gridTemplateColumns: `200px repeat(${b.kolom.length}, minmax(0,1fr)) 150px`, gridAutoRows: "auto" }}>
         <span />
         {b.kolom.map((k) => <span key={k} className="lp-jk">{k}</span>)}
         <span className="lp-jk lp-kanan">{b.labelTotal}</span>
@@ -296,6 +297,7 @@ export function gayaSlide(tema: TemaDeck, latar: Latar): CSSProperties {
   const v: Record<string, string> = {
     "--lp-bg": p.bg,
     "--lp-teks": p.teks,
+    "--lp-teks2": p.teks2,
     "--lp-isi": p.isi,
     "--lp-merah": p.merah,
     "--lp-angka": p.angka,
@@ -350,6 +352,7 @@ export function SlideLaporan({ slide, deck, nomor, total, catatanLabel, petunjuk
           {stiker}
           <h2 className="lp-h">{slide.judul}</h2>
           {slide.blok.map((b, i) => <SatuBlok key={i} b={b} />)}
+          {slide.catatan ? <p className="lp-catatan"><b>{catatanLabel ?? (deck.bahasa === "en" ? "Committee note." : "Catatan panitia.")}</b> {slide.catatan}</p> : null}
         </div>
         {kaki}
       </div>

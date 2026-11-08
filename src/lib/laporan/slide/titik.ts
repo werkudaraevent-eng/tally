@@ -204,24 +204,34 @@ export function slideTitik(b: BahanLaporan, h: HitungTitik): HasilSlide & { ada:
     tata = "penuh";
     kakiSatuan = pilih(bh, { id: "per 15 menit", en: "per 15 minutes" });
   } else {
-    // Per jam di zona acara, dari jam inti pertama sampai terakhir; hari-hari digabung.
-    const jamAwal = Math.min(jamLokal(h.rendah, geser), h.jamPuncak);
-    const jamAkhir = Math.max(jamLokal(h.tinggi, geser), h.jamPuncak);
-    const dariJam = jamAwal <= jamAkhir ? jamAwal : 0;
-    const sampaiJam = jamAwal <= jamAkhir ? jamAkhir : 23;
-    const jamDipakai = Array.from({ length: sampaiJam - dariJam + 1 }, (_, i) => dariJam + i);
-    const nilai = jamDipakai.map((j) => h.perJam[j]);
-    // Yang di luar rentang masuk jam pertama atau terakhir, supaya totalnya tetap n.
-    h.perJam.forEach((v, j) => {
-      if (j < dariJam) nilai[0] += v;
-      else if (j > sampaiJam) nilai[nilai.length - 1] += v;
-    });
-    const pendek = jamDipakai.length > 10;
-    const seri = jamDipakai.map((j, i) => ({
-      label: pendek ? dua(j) : labelJam(j, bh),
-      nilai: nilai[i],
-      teks: nilai[i] && (!pendek || nilai[i] >= Math.max(...nilai) * 0.2) ? angka(nilai[i], bh) : "",
-      sorot: (j === h.jamPuncak ? "utama" : null) as Sorot,
+    // Per jam di zona acara. Dalam 24 jam: garis waktu sungguhan (bisa lewat
+    // tengah malam), yang di luar rentang inti masuk jam pertama atau terakhir
+    // dan diberi tanda ≤ atau ≥. Lebih dari 24 jam (titik tanpa pemisahan
+    // hari): jam dalam sehari, hari-hari digabung, tanpa lipatan.
+    let ember: Array<{ jam: number; n: number; tanda: "" | "≤" | "≥" }>;
+    if (h.tinggi - h.rendah <= 24 * JAM) {
+      const awal = Math.floor((h.rendah + geser) / JAM) * JAM - geser;
+      const jumlah = Math.floor((h.tinggi - awal) / JAM) + 1;
+      ember = Array.from({ length: jumlah }, (_, i) => ({ jam: jamLokal(awal + i * JAM, geser), n: 0, tanda: "" as const }));
+      for (const x of s.datang) {
+        const i = Math.floor((Date.parse(x) - awal) / JAM);
+        if (i < 0) { ember[0].n += 1; ember[0].tanda = "≤"; }
+        else if (i >= jumlah) { ember[jumlah - 1].n += 1; ember[jumlah - 1].tanda = "≥"; }
+        else ember[i].n += 1;
+      }
+    } else {
+      const ada = h.perJam.map((v, j) => (v > 0 ? j : -1)).filter((j) => j >= 0);
+      const dari = Math.min(...ada);
+      ember = Array.from({ length: Math.max(...ada) - dari + 1 }, (_, i) => ({ jam: dari + i, n: h.perJam[dari + i], tanda: "" as const }));
+    }
+    const nilai = ember.map((e) => e.n);
+    const puncakBar = nilai.indexOf(Math.max(...nilai));
+    const pendek = ember.length > 10;
+    const seri = ember.map((e, i) => ({
+      label: `${e.tanda}${pendek ? dua(e.jam) : labelJam(e.jam, bh)}`,
+      nilai: e.n,
+      teks: e.n && (!pendek || e.n >= nilai[puncakBar] * 0.2) ? angka(e.n, bh) : "",
+      sorot: (i === puncakBar ? "utama" : null) as Sorot,
     }));
     const jp = labelJam(h.jamPuncak, bh);
     const jpAkhir = labelJam((h.jamPuncak + 1) % 24, bh);
@@ -246,7 +256,7 @@ export function slideTitik(b: BahanLaporan, h: HitungTitik): HasilSlide & { ada:
     const zp = zoom.indexOf(Math.max(...zoom));
     blok = [
       { jenis: "batang", arah: "tegak", maks: Math.max(...nilai, 1), seri },
-      { jenis: "angka", tumpuk: true, isi: [angkaHadir, angkaMenit ?? angkaTelat ?? { label: pilih(bh, { id: "Jam tersibuk", en: "Busiest hour" }), nilai: jp, ket: pilih(bh, { id: `${angka(h.perJam[h.jamPuncak], bh)} orang, ${h.pJamPuncak}% dari semua`, en: `${angka(h.perJam[h.jamPuncak], bh)} people, ${h.pJamPuncak}% of all` }) }] },
+      { jenis: "angka", tumpuk: true, isi: [angkaHadir, (angkaTelat?.masalah ? angkaTelat : null) ?? angkaMenit ?? angkaTelat ?? { label: pilih(bh, { id: "Jam tersibuk", en: "Busiest hour" }), nilai: jp, ket: pilih(bh, { id: `${angka(h.perJam[h.jamPuncak], bh)} orang, ${h.pJamPuncak}% dari semua`, en: `${angka(h.perJam[h.jamPuncak], bh)} people, ${h.pJamPuncak}% of all` }) }] },
       {
         jenis: "batang",
         arah: "tegak",
@@ -308,7 +318,7 @@ export function slidePembatas(b: BahanLaporan, titik: HitungTitik[]): HasilSlide
       jenis: "isi",
       saran: pilih(bh, { id: "Hari H, titik demi titik", en: "Event day, point by point" }),
       tata: "pembatas",
-      stiker: { teks: pilih(bh, { id: `${titik.length} titik check-in`, en: `${titik.length} check-in points` }) },
+      stiker: { teks: pilih(bh, { id: `${titik.length} titik check-in`, en: titik.length === 1 ? "1 check-in point" : `${titik.length} check-in points` }) },
       blok: [{ jenis: "chip", isi: titik.slice(0, 10).map((h) => ({ label: potong(h.s.nama, 28), nilai: labelHadir(h, bh) })) }],
       kaki: pilih(bh, {
         id: `Titik check-in yang tertaut ke Agenda dengan ${MIN_ORANG} orang atau lebih.`,
@@ -334,6 +344,8 @@ export function slidePanas(b: BahanLaporan, titik: HitungTitik[]): HasilSlide {
     .slice(0, MAKS_KOLOM_PANAS)
     .map((x) => x.j)
     .sort((a, c) => a - c);
+  const dibuang = totalJam.filter((v, j) => v > 0 && !kolom.includes(j));
+  const orangDibuang = dibuang.reduce((a, v) => a + v, 0);
   const maks = Math.max(...baris.flatMap((h) => kolom.map((j) => h.perJam[j])), 1);
   const ambang = Math.max(1, Math.ceil(maks * 0.2));
   let puncak = { h: baris[0], j: kolom[0], v: -1 };
@@ -362,7 +374,12 @@ export function slidePanas(b: BahanLaporan, titik: HitungTitik[]): HasilSlide {
           keterangan: pilih(bh, {
             id: `Angka di sel = orang yang di-scan pertama kali di jam itu. Sel tanpa angka di bawah ${angka(ambang, bh)} orang.`,
             en: `Cell figure = people scanned for the first time in that hour. Cells without a figure are under ${angka(ambang, bh)} people.`,
-          }),
+          }) + (dibuang.length
+            ? pilih(bh, {
+              id: ` ${dibuang.length} jam paling sepi tidak ditampilkan (${angka(orangDibuang, bh)} orang).`,
+              en: ` The ${dibuang.length} quietest hours are left out (${angka(orangDibuang, bh)} people).`,
+            })
+            : ""),
         },
       ],
       kaki: [

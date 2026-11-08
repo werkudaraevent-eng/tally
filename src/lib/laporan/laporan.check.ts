@@ -207,7 +207,7 @@ const teksSlide = (s: Slide): string[] => {
   assert.equal(s.slide.tata, "dua");
   const [jam, angkaSisi, zoom] = s.slide.blok;
   assert.ok(jam.jenis === "batang" && jam.seri[0].label === "07.00" && jam.seri.reduce((a, x) => a + x.nilai, 0) === 90);
-  assert.ok(angkaSisi.jenis === "angka" && angkaSisi.tumpuk && angkaSisi.isi[1].nilai === "13 / menit");
+  assert.ok(angkaSisi.jenis === "angka" && angkaSisi.tumpuk && angkaSisi.isi[1].nilai === ((h.pTelat ?? 0) >= 20 ? `${h.pTelat}%` : "13 / menit"));
   assert.ok(zoom.jenis === "batang" && zoom.seri.length === 4 && zoom.seri.reduce((a, x) => a + x.nilai, 0) === 60);
   assert.ok(!s.slide.saran.includes(":"));
   if ((h.pTelat ?? 0) >= 20) assert.ok(s.slide.stiker?.merah && s.temuan);
@@ -230,6 +230,42 @@ const teksSlide = (s: Slide): string[] => {
   // Deck lama yang hanya menyimpan satu warna tetap punya tema.
   const lama = temaDeck({ warna: "#1F5FAD" });
   assert.ok(lama.aksen && lama.kertas && lama.judul.startsWith("var("));
+}
+
+// 13. Titik yang melewati tengah malam: garis waktu sungguhan, ujung yang dilipat diberi tanda.
+{
+  const b = bahan();
+  const datang: string[] = [];
+  for (let i = 0; i < 40; i++) datang.push(`2026-11-07T23:${String(i).padStart(2, "0")}:00+07:00`);
+  for (let i = 0; i < 50; i++) datang.push(`2026-11-08T0${Math.floor(i / 20)}:${String(i % 20).padStart(2, "0")}:00+07:00`);
+  datang.push("2026-11-08T09:00:00+07:00");
+  const sesi = { kunci: "cp-8", nama: "Fun run", tanggal: "2026-11-07", jam: null, diharapkan: 0, sudah: 91, datang: datang.map((x) => new Date(x).toISOString()) };
+  const s = slideTitik(b, hitungTitik(sesi, "+07:00"));
+  const g = s.slide.blok[0];
+  assert.ok(g.jenis === "batang");
+  assert.deepEqual(g.seri.map((x) => x.label), ["23.00", "00.00", "01.00", "≥02.00"]);
+  assert.deepEqual(g.seri.map((x) => x.nilai), [40, 20, 20, 11]);
+}
+
+// 14. Kontras: teks redup dan merah >= 4,5:1 di tiap permukaan; merek terang tidak memakai permukaan aksen.
+{
+  const { kontras } = await import("../landing-hitung-mundur.ts");
+  const { temaAcara, warnaPermukaan, aksenTerbaca } = await import("./warna.ts");
+  for (const lc of [{}, { theme: { seed: "#0E5A3A" } }, { theme: { seed: "#F6E27A" } }, { layout: "modern", gathering: true, theme: { seed: "#1B2A6B" }, accent: "#F2B33D" }]) {
+    const t = temaAcara(lc as never);
+    for (const l of ["gelap", "aksen", "kertas"] as const) {
+      if (l === "aksen" && !aksenTerbaca(t)) continue;
+      const w = warnaPermukaan(t, l);
+      assert.ok(kontras(w.teks2, w.bg) >= 4.5, `teks2 ${l} ${JSON.stringify(lc)}`);
+      assert.ok(kontras(w.merah, w.bg) >= 4.5, `merah ${l} ${JSON.stringify(lc)}`);
+    }
+  }
+  const terang = temaAcara({ theme: { seed: "#F6E27A" } } as never);
+  if (!aksenTerbaca(terang)) {
+    const b = bahan();
+    b.acara.tema = terang;
+    assert.ok(susunDeck(b, CONFIG_KOSONG).deck.slide.every((x) => x.jenis === "sampul" || x.latar !== "aksen"));
+  }
 }
 
 console.log("laporan.check: ok");

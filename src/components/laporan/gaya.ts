@@ -10,7 +10,7 @@
  */
 export const GAYA_LAPORAN = `
 .lp-stage{box-sizing:border-box;position:relative;width:1280px;height:720px;overflow:hidden;background:var(--lp-bg,#fff);color:var(--lp-teks,#16181d);font-family:var(--font-sans),Inter,system-ui,sans-serif;
-  --lp-teks2:color-mix(in srgb,var(--lp-teks) 72%,var(--lp-bg));--lp-garis:color-mix(in srgb,var(--lp-teks) 20%,var(--lp-bg));--lp-trek:color-mix(in srgb,var(--lp-teks) 22%,var(--lp-bg));--lp-kartu:color-mix(in srgb,var(--lp-teks) 9%,var(--lp-bg));
+  --lp-teks2:color-mix(in srgb,var(--lp-teks) 85%,var(--lp-bg));--lp-garis:color-mix(in srgb,var(--lp-teks) 20%,var(--lp-bg));--lp-trek:color-mix(in srgb,var(--lp-teks) 22%,var(--lp-bg));--lp-kartu:color-mix(in srgb,var(--lp-teks) 9%,var(--lp-bg));
   padding:56px 64px 32px;display:grid;grid-template-rows:auto 1fr auto;gap:24px;font-size:22px;line-height:1.4;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .lp-stage *{box-sizing:border-box}
 .lp-kepala{display:grid;gap:10px;justify-items:start;min-width:0}
@@ -83,7 +83,7 @@ export const GAYA_LAPORAN = `
 .lp-panas .lp-nm span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lp-panas .lp-nm small{display:block;font-size:14px;font-weight:400;color:var(--lp-teks2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lp-panas .lp-c{border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:17px;min-width:0;overflow:hidden}
-.lp-panas .lp-tot{text-align:right;font-family:var(--lp-judul);font-weight:700;font-size:26px;line-height:1.05;align-self:center;color:var(--lp-angka)}
+.lp-panas .lp-tot{white-space:nowrap;text-align:right;font-family:var(--lp-judul);font-weight:700;font-size:26px;line-height:1.05;align-self:center;color:var(--lp-angka)}
 .lp-panas .lp-tot small{display:block;font-family:var(--font-sans),Inter,sans-serif;font-size:14px;font-weight:400;color:var(--lp-teks2)}
 .lp-chip{display:flex;flex-wrap:wrap;gap:12px;max-width:1000px}
 .lp-chip span{background:color-mix(in srgb,var(--lp-teks) 12%,transparent);border:1px solid color-mix(in srgb,var(--lp-teks) 30%,transparent);border-radius:999px;padding:9px 18px;font-size:20px;white-space:nowrap}
@@ -91,9 +91,9 @@ export const GAYA_LAPORAN = `
 .lp-sampul,.lp-pembatas{grid-template-rows:1fr auto}
 .lp-foto{position:absolute;inset:0 0 0 46%;overflow:hidden;background:repeating-linear-gradient(135deg,rgb(255 255 255 / .07) 0 18px,transparent 18px 36px),linear-gradient(160deg,var(--lp-aksen),var(--lp-latar2))}
 .lp-foto img{width:100%;height:100%;object-fit:cover;display:block}
-.lp-foto::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--lp-bg) 0,color-mix(in srgb,var(--lp-bg) 0%,transparent) 45%)}
+.lp-sampul .lp-foto{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 45%);mask-image:linear-gradient(90deg,transparent 0,#000 45%)}
 .lp-pembatas .lp-foto{inset:0}
-.lp-pembatas .lp-foto::after{background:color-mix(in srgb,var(--lp-bg) 80%,transparent)}
+.lp-pembatas .lp-foto::after{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--lp-bg) 80%,transparent)}
 .lp-lead{position:relative;display:grid;gap:24px;align-content:center;justify-items:start;max-width:660px;min-width:0}
 .lp-pembatas .lp-lead{max-width:1100px}
 .lp-sampul .lp-h{font-size:76px;line-height:1.02;-webkit-line-clamp:4}
