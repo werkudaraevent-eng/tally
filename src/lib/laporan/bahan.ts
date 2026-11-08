@@ -18,6 +18,8 @@ export type SesiBahan = {
   sudah: number;
   /** Pindaian pertama tiap orang di sesi ini, ISO. */
   datang: string[];
+  /** Id peserta yang dipindai (untuk hadir unik per hari di Highlight harian). */
+  orang?: string[];
 };
 
 export type PengumumanBahan = { judul: string; terbit: string; total: number; dilihat: number; emailTerkirim: number; emailKlik: number };

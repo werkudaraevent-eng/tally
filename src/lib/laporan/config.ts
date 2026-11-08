@@ -3,6 +3,7 @@
  * Dibaca dengan aman: nilai yang rusak atau dari versi lama dibuang, bukan
  * menggagalkan halaman. Batas panjang di sini sama dengan editor.
  */
+import { bacaHarian, type ConfigHarian } from "./harian/config.ts";
 
 export const SLIDE_BAWAAN = [
   "sampul",
@@ -42,9 +43,11 @@ export type ConfigLaporan = {
   kelompok: string | null;
   tambahan: SlideTambahan[];
   usulan: BarisUsulan[];
+  /** Highlight harian per tanggal (lib/laporan/harian/config.ts). Disimpan apa adanya oleh editor deck. */
+  harian: ConfigHarian;
 };
 
-export const CONFIG_KOSONG: ConfigLaporan = { sembunyi: [], urutan: [], judul: {}, catatan: {}, kelompok: null, tambahan: [], usulan: [] };
+export const CONFIG_KOSONG: ConfigLaporan = { sembunyi: [], urutan: [], judul: {}, catatan: {}, kelompok: null, tambahan: [], usulan: [], harian: {} };
 
 const KUNCI = /^[a-z0-9_.-]{1,80}$/;
 const teks = (nilai: unknown, maks: number): string | null => {
@@ -108,6 +111,7 @@ export function bacaConfig(nilai: unknown): ConfigLaporan {
     kelompok,
     tambahan: bacaTambahan(isi.tambahan),
     usulan: bacaUsulan(isi.usulan),
+    harian: bacaHarian(isi.harian),
   };
 }
 
