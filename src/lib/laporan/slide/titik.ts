@@ -225,7 +225,9 @@ export function slideTitik(b: BahanLaporan, h: HitungTitik): HasilSlide & { ada:
       ember = Array.from({ length: Math.max(...ada) - dari + 1 }, (_, i) => ({ jam: dari + i, n: h.perJam[dari + i], tanda: "" as const }));
     }
     const nilai = ember.map((e) => e.n);
-    const puncakBar = nilai.indexOf(Math.max(...nilai));
+    // Sorot jam yang disebut judul (jam tersibuk), bukan batang ujung yang berisi lipatan.
+    const diJudul = ember.findIndex((e) => e.jam === h.jamPuncak && e.tanda === "");
+    const puncakBar = diJudul >= 0 ? diJudul : nilai.indexOf(Math.max(...nilai));
     const pendek = ember.length > 10;
     const seri = ember.map((e, i) => ({
       label: `${e.tanda}${pendek ? dua(e.jam) : labelJam(e.jam, bh)}`,

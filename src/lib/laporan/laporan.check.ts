@@ -245,6 +245,7 @@ const teksSlide = (s: Slide): string[] => {
   assert.ok(g.jenis === "batang");
   assert.deepEqual(g.seri.map((x) => x.label), ["23.00", "00.00", "01.00", "≥02.00"]);
   assert.deepEqual(g.seri.map((x) => x.nilai), [40, 20, 20, 11]);
+  assert.equal(g.seri.findIndex((x) => x.sorot === "utama"), 0, "sorot jam di judul");
 }
 
 // 14. Kontras: teks redup dan merah >= 4,5:1 di tiap permukaan; merek terang tidak memakai permukaan aksen.

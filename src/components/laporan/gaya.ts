@@ -33,9 +33,9 @@ export const GAYA_LAPORAN = `
 .lp-poin li{border-bottom:1px solid var(--lp-garis);padding-bottom:14px}
 .lp-kartu{margin:0;padding:0;list-style:none;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:20px;counter-reset:lp}
 .lp-kartu li{counter-increment:lp;background:var(--lp-kartu);border-radius:14px;padding:16px 18px;display:grid;gap:6px;align-content:start;font-size:18px;line-height:1.35}
-.lp-kartu li::before{content:counter(lp);font-family:var(--lp-judul);font-weight:700;font-size:26px;line-height:1;color:var(--lp-angka)}
+.lp-kartu li::before{content:counter(lp);font-variant-numeric:lining-nums;font-family:var(--lp-judul);font-weight:700;font-size:26px;line-height:1;color:var(--lp-angka)}
 .lp-kartu span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
-.lp-fig{font-family:var(--lp-judul);font-size:64px;font-weight:700;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--lp-angka)}
+.lp-fig{font-family:var(--lp-judul);font-size:64px;font-weight:700;line-height:1;letter-spacing:-.02em;font-variant-numeric:lining-nums tabular-nums;white-space:nowrap;color:var(--lp-angka)}
 .lp-fig.lp-m{color:var(--lp-merah)}
 .lp-lbl{font-size:18px;font-weight:600}
 .lp-angka{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:24px}
@@ -48,7 +48,7 @@ export const GAYA_LAPORAN = `
 .lp-tumpuk .lp-fig{font-size:46px}
 .lp-raksasa{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center}
 .lp-raksasa .lp-utama{display:grid;gap:8px;min-width:0}
-.lp-raksasa .lp-utama .lp-fig{font-size:168px;line-height:.9;letter-spacing:-.05em}
+.lp-raksasa .lp-utama .lp-fig{font-size:168px;line-height:1;letter-spacing:-.05em;padding-bottom:8px}
 .lp-raksasa .lp-utama .lp-ket{font-size:24px;font-weight:500}
 .lp-kpi{margin:0;padding:0;list-style:none;display:grid;gap:12px}
 .lp-kpi li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:baseline;border-top:2px solid var(--lp-garis);padding-top:10px}
@@ -83,7 +83,7 @@ export const GAYA_LAPORAN = `
 .lp-panas .lp-nm span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lp-panas .lp-nm small{display:block;font-size:14px;font-weight:400;color:var(--lp-teks2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lp-panas .lp-c{border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:17px;min-width:0;overflow:hidden}
-.lp-panas .lp-tot{white-space:nowrap;text-align:right;font-family:var(--lp-judul);font-weight:700;font-size:26px;line-height:1.05;align-self:center;color:var(--lp-angka)}
+.lp-panas .lp-tot{white-space:nowrap;font-variant-numeric:lining-nums tabular-nums;text-align:right;font-family:var(--lp-judul);font-weight:700;font-size:26px;line-height:1.05;align-self:center;color:var(--lp-angka)}
 .lp-panas .lp-tot small{display:block;font-family:var(--font-sans),Inter,sans-serif;font-size:14px;font-weight:400;color:var(--lp-teks2)}
 .lp-chip{display:flex;flex-wrap:wrap;gap:12px;max-width:1000px}
 .lp-chip span{background:color-mix(in srgb,var(--lp-teks) 12%,transparent);border:1px solid color-mix(in srgb,var(--lp-teks) 30%,transparent);border-radius:999px;padding:9px 18px;font-size:20px;white-space:nowrap}
