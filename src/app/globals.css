@@ -1917,24 +1917,18 @@ html:hover {
 .press .m3-segmented { min-block-size: 2.25rem; }
 /* SegmentedField: grupnya setinggi kolom isian (36px) supaya sejajar dengan
  * TextField di sebelahnya; segmennya mengisi tinggi itu. */
-.press .m3-segment-group[data-field] {
-	block-size: 2.25rem;
-	/* Bertepi seperti kolom isian. Tanpa tepi, alas abunya hilang di permukaan
-	 * dialog yang juga abu, dan opsi yang tidak terpilih terbaca teks lepas. */
-	border: 1px solid var(--md-sys-color-outline-variant);
-}
+.press .m3-segment-group[data-field] { block-size: 2.25rem; }
 .press .m3-segment-group[data-field] .m3-segmented { min-block-size: 0; block-size: 100%; }
 /* Di layar sentuh tingginya TETAP 36px, supaya sejajar dengan kolom isian di
  * baris yang sama (admin 36px juga di ponsel, lihat "Kepadatan kontrol"). Yang
- * diperbesar hanya bidang tekannya, 10px ke atas dan ke bawah, jadi segmen
- * 28px menerima ketukan setinggi 48px (target sentuh M3). Inset 11px karena
- * dihitung dari tepi dalam, di balik border 1px. `::before`, karena `::after`
- * sudah dipakai lapisan keadaan `.m3-state`. */
+ * diperbesar hanya bidang tekannya, 7px ke atas dan ke bawah, jadi segmen 34px
+ * (36px dikurangi garis wadah) menerima ketukan setinggi 48px (target sentuh
+ * M3). `::before`, karena `::after` sudah dipakai lapisan keadaan `.m3-state`. */
 @media (pointer: coarse) {
 	.press .m3-segment-group[data-field] .m3-segmented::before {
 		content: "";
 		position: absolute;
-		inset: -11px 0;
+		inset: -7px 0;
 		/* Di atas petunjuk dan label yang ditulis sesudahnya di DOM. */
 		z-index: 1;
 	}

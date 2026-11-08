@@ -26,6 +26,7 @@ const PENGECUALIAN: Pengecualian[] = [
   { berkas: "src/app/admin/feedback/builder.tsx", cocok: 'label="Participant"', alasan: "Operator syarat; labelnya kalimat (\"Didn't win a prize\")." },
   { berkas: "src/components/admin/condition-builder.tsx", cocok: 'value="not_in"', alasan: "Operator syarat penawaran booth, di dalam satu baris aturan." },
   { berkas: "src/components/admin/undian-condition-builder.tsx", cocok: 'value="not_in"', alasan: "Operator syarat undian, di dalam satu baris aturan." },
+  { berkas: "src/components/admin/participant-list.tsx", cocok: 'value="confirmed"', alasan: "RSVP: tiga label dua kata (+ Declined dari impor) terpotong sebagai segmen di panel 390px (QA #451 M2)." },
   { berkas: "src/components/badge/badge-editor.tsx", cocok: 'label="Isi kode"', alasan: "Labelnya kalimat panjang; dua kalimat berjajar pecah di panel editor." },
 ];
 

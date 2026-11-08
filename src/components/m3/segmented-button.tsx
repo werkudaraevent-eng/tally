@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "@phosphor-icons/react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { cx } from "@/lib/m3/cx";
 
@@ -97,7 +98,13 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 	}
 
 	return (
-		<div role={panel ? "tablist" : "radiogroup"} aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy} aria-describedby={describedBy} data-field={field ? "" : undefined} onKeyDown={tekan} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
+		<div role={panel ? "tablist" : "radiogroup"} aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy} aria-describedby={describedBy} data-field={field ? "" : undefined} onKeyDown={tekan} className={cx(
+			"m3-segment-group inline-flex items-center",
+			// Kolom formulir memakai segmented button M3 apa adanya: wadah bergaris
+			// setebal tepi kolom isian, ujung pil, pemisah antar segmen.
+			field ? "rounded-full border border-outline" : "gap-0.5 rounded-lg bg-primary-soft p-[3px]",
+			className,
+		)}>
 			{options.map((option) => {
 				const selected = option.value === value;
 				return (
@@ -119,7 +126,13 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 							// "Audit trail". Tanpa ini flexbox menyusutkan tombolnya sampai
 							// selebar kata terpanjang lalu memecah labelnya jadi dua baris —
 							// grup tombol setinggi dua baris di tengah ruang yang masih lapang.
-							"m3-segmented m3-state flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-label-large",
+							"m3-segmented m3-state flex items-center justify-center whitespace-nowrap text-label-large",
+							// Kolom: lebar segmen mengikuti isinya (flex-auto), jadi "WITA" dengan
+							// centang tidak terpotong di kolom 224px; sisa ruang dibagi rata.
+							field ? "flex-auto gap-1.5 px-2.5" : "flex-1 gap-2 px-3",
+							// Sudut pil di segmen ujung, bukan overflow-hidden di wadah: overflow
+							// memotong bidang tekan 48px (::before) di layar sentuh.
+							field ? "min-w-0 border-l border-outline first:rounded-l-full first:border-l-0 last:rounded-r-full" : "rounded-md",
 							padat && "max-sm:px-2",
 							size === "lg" ? "min-h-12" : "min-h-11",
 							"transition-[background-color,color,box-shadow] duration-150 ease-standard",
@@ -128,13 +141,22 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 							// bukan bidang biru. Biru di sini bersaing dengan satu-satunya
 							// tombol biru yang boleh ada per layar, dan tab bukan aksi — ia
 							// penanda tempat.
-							selected
-								? "border border-outline-variant bg-surface-container-lowest font-medium text-on-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-								: "border border-transparent text-on-surface-variant hover:text-on-surface",
+							// M3: terpilih = isian tonal + centang + tebal. Isiannya biru muda
+							// dengan teks primary, sama dengan chip terpilih di Saring kolom;
+							// `secondary-container` di ruang kerja abu #ededed dan nyaris tak
+							// terlihat di atas putih. Centang dan tebal membuat keadaan
+							// terpilih tidak bergantung pada warna saja (WCAG 1.4.1, 1.4.11).
+							field
+								? selected
+									? "bg-accent-soft font-semibold text-primary"
+									: "bg-surface-container-lowest text-on-surface"
+								: selected
+									? "border border-outline-variant bg-surface-container-lowest font-medium text-on-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+									: "border border-transparent text-on-surface-variant hover:text-on-surface",
 						)}
 					>
-						{option.icon}
-						<span className={cx(compact && "sr-only sm:not-sr-only")}>{option.label}</span>
+						{field && selected ? <Check size={16} weight="bold" aria-hidden className="shrink-0" /> : option.icon}
+						<span className={cx(compact && "sr-only sm:not-sr-only", field && "truncate")}>{option.label}</span>
 						{option.badge != null ? (
 							<span className={cx("tabular-nums", selected ? "text-on-surface-variant" : "text-outline")}>{option.badge}</span>
 						) : null}
