@@ -1919,6 +1919,9 @@ html:hover {
  * TextField di sebelahnya; segmennya mengisi tinggi itu. */
 .press .m3-segment-group[data-field] { block-size: 2.25rem; }
 .press .m3-segment-group[data-field] .m3-segmented { min-block-size: 0; block-size: 100%; }
+/* Cincin fokus di DALAM segmen, mengikuti sudut pil di segmen ujung. Di luar
+ * (offset global 2px) ia jadi kotak yang menimpa garis wadah dan tetangganya. */
+.press .m3-segment-group[data-field] .m3-segmented:focus-visible { outline-offset: -3px; }
 /* Di layar sentuh tingginya TETAP 36px, supaya sejajar dengan kolom isian di
  * baris yang sama (admin 36px juga di ponsel, lihat "Kepadatan kontrol"). Yang
  * diperbesar hanya bidang tekannya, 7px ke atas dan ke bawah, jadi segmen 34px

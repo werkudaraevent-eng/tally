@@ -382,7 +382,7 @@ export default function RevealControlPage() {
                   Label tahap {index + 1}
                   <input value={item.label} onChange={(event) => ubahTahap(index, { label: event.target.value })} className={INPUT} />
                 </label>
-                <div className="mt-3 grid grid-cols-[1fr_1fr_1.4fr] gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-2">
                   <label className="block text-body-medium font-medium text-on-surface">
                     Dari
                     <input type="number" min={1} max={50} value={item.from} onChange={(event) => ubahTahap(index, { from: Math.max(1, Math.min(50, Number(event.target.value) || 1)) })} className={cx(INPUT, "tabular-nums")} />
@@ -393,6 +393,7 @@ export default function RevealControlPage() {
                   </label>
                   <SegmentedField
                     label="Tampilan"
+                    className="col-span-2"
                     value={item.layout === "spotlight" ? "spotlight" : "list"}
                     onChange={(layout) => ubahTahap(index, { layout })}
                     options={[{ value: "spotlight", label: "Besar" }, { value: "list", label: "Daftar" }]}

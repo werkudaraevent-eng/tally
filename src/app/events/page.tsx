@@ -816,7 +816,7 @@ export default function EventsPage() {
             layarnya masing-masing, tempat semuanya memang diatur dan bisa
             diubah kapan saja. */}
         <TextField className="mt-5" label="Event name" name="name" required minLength={3} maxLength={120} autoFocus error={galatBuat.name} />
-        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_14rem]">
+        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_15rem]">
           <TextField label="Date" name="event_date" type="date" optional error={galatBuat.event_date} />
           <SegmentedField label="Time zone" name="time_zone" value={zonaBaru} onChange={setZonaBaru} options={TIME_ZONE_OPTIONS} hint={timeZoneHint(zonaBaru)} error={galatBuat.time_zone} />
         </div>

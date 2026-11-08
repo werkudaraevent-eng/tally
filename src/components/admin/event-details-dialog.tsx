@@ -144,7 +144,7 @@ function Formulir({ event, onSubmit, error, galat }: { event: EventDetails; onSu
         error={galat.name}
         hint={info?.public_name ? `The event page and emails show the public name “${info.public_name}”. Change it in Event page.` : undefined}
       />
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_14rem]">
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_15rem]">
         <TextField label="Date" name="event_date" type="date" optional value={tanggal} onChange={(e) => setTanggal(e.target.value)} error={galat.event_date} />
         <SegmentedField label="Time zone" name="time_zone" value={zona} onChange={setZona} options={TIME_ZONE_OPTIONS} hint={timeZoneHint(zona)} error={galat.time_zone} />
       </div>

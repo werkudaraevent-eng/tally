@@ -127,9 +127,9 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 							// selebar kata terpanjang lalu memecah labelnya jadi dua baris —
 							// grup tombol setinggi dua baris di tengah ruang yang masih lapang.
 							"m3-segmented m3-state flex items-center justify-center whitespace-nowrap text-label-large",
-							// Kolom: lebar segmen mengikuti isinya (flex-auto), jadi "WITA" dengan
-							// centang tidak terpotong di kolom 224px; sisa ruang dibagi rata.
-							field ? "flex-auto gap-1.5 px-2.5" : "flex-1 gap-2 px-3",
+							// Kolom: lebar segmen sama rata dan TETAP (flex-1 = basis 0), supaya
+							// pemisah tidak bergeser setiap kali centang pindah. Padding 8px.
+							field ? "min-w-0 flex-1 gap-1.5 px-2" : "flex-1 gap-2 px-3",
 							// Sudut pil di segmen ujung, bukan overflow-hidden di wadah: overflow
 							// memotong bidang tekan 48px (::before) di layar sentuh.
 							field ? "min-w-0 border-l border-outline first:rounded-l-full first:border-l-0 last:rounded-r-full" : "rounded-md",
@@ -148,7 +148,10 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 							// terpilih tidak bergantung pada warna saja (WCAG 1.4.1, 1.4.11).
 							field
 								? selected
-									? "bg-accent-soft font-semibold text-primary"
+									// `!`: `.press .text-label-large` mengunci bobot 400 dan menang atas
+									// utilitas biasa. Lapisan keadaan diberi warna primary supaya fokus
+									// dan hover tidak mengabukan isian biru mudanya.
+									? "bg-accent-soft !font-semibold text-primary [--m3-state-color:var(--md-sys-color-primary)]"
 									: "bg-surface-container-lowest text-on-surface"
 								: selected
 									? "border border-outline-variant bg-surface-container-lowest font-medium text-on-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
