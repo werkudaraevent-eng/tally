@@ -10,6 +10,8 @@ import { TombolCetak } from "./tombol-cetak";
  *
  * Di luar AdminShell dengan sengaja, seperti cetak badge: dialog cetak
  * mencetak seluruh dokumen. Satu slide = satu halaman 16:9 (@page 1280×720).
+ * Unduh PDF merangkai PDF 16:9 di peramban (tombol-cetak.tsx): Chrome Android
+ * mengabaikan @page dan mencetak di Letter tegak dengan sisa putih.
  * Admin mencetak deck dari data terbaru; Viewer (atau admin dengan
  * `?salinan=1`) mencetak salinan yang dibagikan, tidak pernah data terbaru.
  */
@@ -54,8 +56,17 @@ export default async function CetakLaporan({ searchParams }: { searchParams: Pro
       <style dangerouslySetInnerHTML={{ __html: CETAK }} />
       <DeckBerurutan
         deck={deck}
-        catatan={en ? "One slide per page. In the print dialog, choose Save as PDF." : "Satu slide per halaman. Di dialog cetak, pilih Simpan sebagai PDF."}
-        aksi={<TombolCetak label={en ? "Print or save as PDF" : "Cetak atau simpan PDF"} />}
+        catatan={en ? "Download PDF makes one full 16:9 page per slide, on a phone too." : "Unduh PDF membuat satu halaman 16:9 penuh per slide, di HP juga."}
+        aksi={
+          <TombolCetak
+            nama={`${event.slug}-${en ? "report" : "laporan"}`}
+            teks={
+              en
+                ? { unduh: "Download PDF", sibuk: "Making PDF {n}/{total}", cetak: "Print", gagal: "Couldn't make the PDF. Try Print instead." }
+                : { unduh: "Unduh PDF", sibuk: "Membuat PDF {n}/{total}", cetak: "Cetak", gagal: "PDF gagal dibuat. Coba Cetak." }
+            }
+          />
+        }
       />
     </main>
   );
