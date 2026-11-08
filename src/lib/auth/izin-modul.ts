@@ -61,7 +61,7 @@ export const MODUL: Modul[] = [
   { key: "voting", label: "Live voting", description: "", levels: [], pages: ["/admin/vote"] },
   { key: "orders", label: "Orders", description: "", levels: [], pages: ["/admin/orders"] },
   { key: "booths", label: "Booths & items", description: "", levels: [], pages: ["/admin/booths"] },
-  { key: "reports", label: "Reports", description: "", levels: [], pages: ["/admin/reports"] },
+  { key: "reports", label: "Sales report", description: "", levels: [], pages: ["/admin/reports"] },
 ];
 
 const KUNCI = new Set<string>(MODUL.map((modul) => modul.key));

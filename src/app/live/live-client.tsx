@@ -1,11 +1,11 @@
 "use client";
 
 import { ArrowClockwise, CaretDown, CaretUp, Columns, Eye, MagnifyingGlass, UsersThree, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ExportMenu } from "@/components/admin/export-menu";
 import { UserMenu } from "@/components/admin/user-menu";
-import { Banner, Button, CONTAINER_PADDING, EmptyState, IconButton, Pagination, Pane, PaneHeader, Skeleton, StatusChip, TopAppBar } from "@/components/m3";
+import { Banner, Button, CONTAINER_PADDING, EmptyState, IconButton, Pagination, Pane, PaneHeader, Skeleton, StatusChip, Tabs, TopAppBar } from "@/components/m3";
 import { cx } from "@/lib/m3/cx";
 import type { BarisKlien } from "@/lib/live/data";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
@@ -46,7 +46,7 @@ const LEBAR_KOLOM = [10.5, 9.125, 7.875, 12.5, 11.5, 5.25, 7.75, 8];
 const LEBAR_INTI = LEBAR_KOLOM.reduce((a, b) => a + b, 0);
 const LEBAR_JAWABAN = 11.5;
 
-export function LiveClient({ slug, eventName, username, role, preview, pertanyaanKlien }: {
+export function LiveClient({ slug, eventName, username, role, preview, pertanyaanKlien, laporan }: {
   slug: string;
   eventName: string;
   username: string;
@@ -55,8 +55,11 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   preview: boolean;
   /** Hanya untuk admin: pertanyaan yang bisa dibagikan, dengan status persetujuannya. */
   pertanyaanKlien?: StatusPertanyaan[];
+  /** Event report yang dibagikan panitia (Share with client). Null = tanpa tab Report. */
+  laporan?: ReactNode;
 }) {
   const router = useRouter();
+  const [tab, setTab] = useState<"daftar" | "laporan">("daftar");
   const [data, setData] = useState<Data | null>(null);
   const [gagal, setGagal] = useState(false);
   const [memuat, setMemuat] = useState(false);
@@ -295,6 +298,19 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
           />
         ) : null}
 
+        {laporan ? (
+          <Tabs
+            label="Client view"
+            idPrefix="klien"
+            value={tab}
+            onChange={setTab}
+            options={[{ value: "daftar", label: "Registrations" }, { value: "laporan", label: "Report" }]}
+          />
+        ) : null}
+        {laporan && tab === "laporan" ? (
+          <div role="tabpanel" id="klien-panel-laporan" aria-labelledby="klien-tab-laporan">{laporan}</div>
+        ) : (
+        <>
         <section aria-label="Summary" className="grid grid-cols-3 gap-2 sm:gap-3">
           {tile.map((t) => (
             <div key={t.label} className="flex h-[88px] flex-col justify-center gap-0.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 sm:px-5">
@@ -420,6 +436,8 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
         <p className="text-body-small text-on-surface-variant">
           Times are in {timeZoneAbbr(zona)}. This page refreshes every 30 seconds while it is open.
         </p>
+        </>
+        )}
         </div>
       </main>
     </div>

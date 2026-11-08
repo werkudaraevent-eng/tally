@@ -1,6 +1,6 @@
 import {
   ArmchairIcon, Browsers, CalendarDots, ChartBar, ChartBarHorizontal, ChatCircleText, GearSix, Gift, HandWaving, IdentificationCard,
-  ListChecks, Megaphone, MicrophoneStage, MonitorPlay, Printer, QrCode, Receipt, ShieldCheck, Storefront, SuitcaseRolling, UserPlus, UsersThree,
+  ListChecks, Megaphone, MicrophoneStage, MonitorPlay, PresentationChart, Printer, QrCode, Receipt, ShieldCheck, Storefront, SuitcaseRolling, UserPlus, UsersThree,
 } from "@phosphor-icons/react";
 import type { ComponentType } from "react";
 
@@ -80,7 +80,11 @@ export const HREF_BOOTH: ReadonlySet<string> = new Set(["/admin/display", "/admi
 export const navigation: NavGroup[] = [
   {
     section: null,
-    items: [{ href: "/admin", label: "Dashboard", icon: ChartBar, description: "Event summary and shortcuts to the event-day screens.", alias: ["ringkasan"] }],
+    items: [
+      { href: "/admin", label: "Dashboard", icon: ChartBar, description: "Event summary and shortcuts to the event-day screens.", alias: ["ringkasan"] },
+      // Di bawah Dashboard: dibuka sesudah acara, dan isinya dihitung dari semua modul.
+      { href: "/admin/laporan", label: "Event report", icon: PresentationChart, description: "A 16:9 report deck for management, built from the event's own data.", alias: ["laporan", "laporan acara", "report", "presentasi", "ppt", "pptx"] },
+    ],
   },
   {
     section: "Setup",
@@ -177,7 +181,8 @@ export const navigation: NavGroup[] = [
       // di tempat yang salah lebih dulu. Sekarang tab di dalam Booth & item.
       // Metode pembayaran tidak di sini: ia tab Pembayaran di Pengaturan.
       { href: "/admin/booths", label: "Booths & items", icon: Storefront, description: "Booths and the special items each booth sells.", alias: ["booth & item", "booth"] },
-      { href: "/admin/reports", label: "Reports", icon: Receipt, description: "Event reconciliation figures to check against the cashiers.", alias: ["laporan", "rekonsiliasi"] },
+      // "Sales report", bukan "Reports": Event report di atas adalah laporan acaranya.
+      { href: "/admin/reports", label: "Sales report", icon: Receipt, description: "Event reconciliation figures to check against the cashiers.", alias: ["reports", "laporan penjualan", "rekonsiliasi"] },
     ],
   },
 ];

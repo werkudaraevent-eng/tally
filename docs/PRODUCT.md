@@ -113,7 +113,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 | Feature | Today | Priority | Reference |
 | --- | --- | --- | --- |
 | Live client view and exports | Yes | | Cvent reports |
-| One end-of-event report for the client (attendance vs registered, by organisation, checkpoints, winners, votes) | No | P1 | Bizzabo analytics, Cvent reports |
+| One end-of-event report for the client (attendance vs registered, by organisation, checkpoints, winners, votes) | Yes (Event report: 16:9 deck, PowerPoint, PDF, shared to the client view) | | Bizzabo analytics, Cvent reports |
 | Post-event survey, NPS, rating per session | Yes (Feedback / Kilas balik; per-session rating not built) | P2 | Cvent surveys, Typeform, Spotify Wrapped |
 | E-certificate of attendance | No | P2 | Cvent CE tracking |
 | Photo gallery and materials after the event | Partly | P3 | Whova |
@@ -152,6 +152,13 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **Checkpoints:** grouped by day (past days fold to one summary line), with Time, Checkpoint, For (Who sees it of the linked Agenda row, or All participants), Checked in of expected with % ("<1%" when above zero) and Status (Upcoming, Open, Scanning, Complete, Closed, No scans yet). Upcoming rows show "N expected" without an empty bar. Refreshes every 30 seconds.
 - **Setup (organisers only):** one line when everything required is done (View lists all items); To do lines for required items not set up, registrations waiting for review, participants without the group answer, unpaid booth orders. **Required:** date and time, venue, event description, agenda, participant-code email sending. **Optional:** banner or link-preview image, seating plan, active booth, registration open, lucky-draw prizes, voting questions, organiser phone (when the participant area is on), agenda sections dated outside the event.
 - **Client accounts** see the same numbers, group panel and checkpoints, without Setup, the counting note and event-day screen links.
+
+### Event report
+- **For:** the committee's report to management after the event, and the client. A 16:9 deck built from the event's own data each time the page opens; no AI-written text, every title is computed from the figures and can be reworded.
+- **Slides (only when the module has data, otherwise listed under "Not in this report" with the reason):** Cover; Summary (headline figures and the three largest gaps from the other slides, with slide numbers); Invited to attended (invited, registered, approved, opened participant page, attended, answered Feedback); Attendance by group; Attendance by session (Check-in points linked to Agenda, line or table, axis note when it doesn't start at 0); Participant area and attendance; Satisfaction (NPS by sessions attended and by group, from the first recommend question in Feedback); Arrivals per 15 minutes before the busiest session, with the scheduled start; Announcements (read %, night vs day, email clicks); Lucky draw and voting (winner share vs attendee share per group, winners confirmed, voters); Operations (rooms, vehicles, bags returned); What to change next time (rows the committee writes).
+- **Cross-data rules:** groups under 10 people join "Other"; under 30 answers is marked "small sample"; titles say "more often", never "because".
+- **CMS (Event report, under Dashboard):** per slide show/hide switch, Move up/down, Title (suggested from the figures, "Use suggested title"), Committee note (200 characters). Group participants by: Organisation or any choice question on the registration form (one setting for the group and satisfaction slides). Add slide: Chart from a question (a choice question from Registration or Feedback, counts only) or Text slide (title and up to 5 points), at most 10. Export: PowerPoint (.pptx, native editable charts) or Print / save as PDF (one slide per page). Share with client locks the current deck as a copy; Update shared copy or Stop sharing. Stored in `event_reports` (one row per event, compare-and-swap on `updated_at`).
+- **Shows at:** admin `/admin/laporan`, print `/e/<slug>/cetak-laporan`, client view Report tab (only after Share with client). No participant names or contacts are in the deck.
 
 ### Event page
 - **For:** public visitors; participants see blocks set to show in the participant area.
@@ -337,12 +344,12 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 - **CMS:**
   - Booths & items: booth code and name, with or without transactions (hand-over only), active; each booth gets a Rp 1 discount item, one per participant. Special items: price, stock, max per participant, which booths, conditions (total spend, booths visited, participant type), counts toward top spend or not.
   - Event settings: hand-over after payment or at the booth; through the cashier or without; auto-void pending orders after N minutes. Payment methods with optional reference numbers.
-  - Orders: filter, detail, admin void with a reason. Reports: revenue, paid orders, pending, discount claims, per-booth reconciliation, export (Excel or CSV).
+  - Orders: filter, detail, admin void with a reason. Sales report: revenue, paid orders, pending, discount claims, per-booth reconciliation, export (Excel or CSV).
 - **Shows at:** `/e/<slug>/booth`, `/e/<slug>/cashier`.
 
 ### Client view
 - **For:** Viewer accounts (the client).
-- **Shows at:** `/e/<slug>/live`: counts (registered, awaiting approval, checked in), the list with fixed columns plus the form answers the admin chose to share, search, filters, download. Refreshes every 30 s.
+- **Shows at:** `/e/<slug>/live`: counts (registered, awaiting approval, checked in), the list with fixed columns plus the form answers the admin chose to share, search, filters, download. Refreshes every 30 s. A Report tab appears once the committee shares the Event report: the locked copy, with Save as PDF.
 - **CMS:** on that page, admins choose which form answers the client sees (none by default; file uploads never).
 
 ### Event settings
