@@ -526,7 +526,7 @@ export default function EventsPage() {
         <Storefront size={18} className="shrink-0 text-on-surface-variant" />
         <span className="text-body-medium font-medium">Tally</span>
         {role === "admin" || role === "super_admin" ? (
-          <WorkspaceTabs current="events" />
+          <WorkspaceTabs current="events" owner={role === "super_admin"} />
         ) : null}
         <div className="ml-auto flex items-center gap-1">
           <IconButton label="Search events (Ctrl K)" size="sm" onClick={() => kolomCari.current?.focus()}>

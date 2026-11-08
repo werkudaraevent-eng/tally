@@ -8,6 +8,7 @@ import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
 import type { BarisRencana, JenisImpor, KamarUbah, LabelDipecah, NomorBentrok, Rencana, StatusBaris } from "@/lib/logistik/impor";
 import { cx } from "@/lib/m3/cx";
+import { BacaAi, RingkasanAi, type JawabanAi } from "./baca-ai";
 import { plural } from "@/lib/plural";
 
 /**
@@ -64,6 +65,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   const [labelSatu, setLabelSatu] = useState(false);
   // "Use the numbers in this file": nomor yang dipegang label lain pindah ke label di berkas.
   const [nomorBerkas, setNomorBerkas] = useState(false);
+  // Bacaan "Read with AI" terakhir: ringkasannya tampil di atas pratinjau, dan
+  // hasil akhirnya (disimpan atau ditutup) dicatat untuk halaman AI.
+  const [ai, setAi] = useState<JawabanAi | null>(null);
 
   // Keadaan dikosongkan setiap kali dialog dibuka, dengan jenis dari tab yang
   // sedang tampil. Disetel saat render, bukan di efek, supaya tidak ada satu
@@ -78,6 +82,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     setHanyaTolak(false);
     setLabelSatu(false);
     setNomorBerkas(false);
+    setAi(null);
   }
   if (!open && bukaUntuk !== null) setBukaUntuk(null);
 
@@ -109,6 +114,15 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     else setRencana(jawaban.rencana);
   };
 
+  const akhiriAi = (status: "saved" | "closed") => {
+    if (!ai?.run_id) return;
+    void fetch(eventApiPath("/api/admin/logistik/impor/ai"), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: ai.run_id, status }) }).catch(() => null);
+  };
+  const tutup = () => {
+    if (ai && !hasil) akhiriAi("closed");
+    onClose();
+  };
+
   const simpan = async () => {
     if (!berkas) return;
     setProses("simpan");
@@ -118,6 +132,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       setGalat(jawaban.galat);
       return;
     }
+    if (ai && berkas.name === "Room numbers read by AI.tsv") akhiriAi("saved");
+    else if (ai) akhiriAi("closed");
+    setAi(null);
     await onSelesai();
     setProses(null);
     const selesai = jawaban.hasil!;
@@ -158,17 +175,17 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={tutup}
       dismissible={!sibuk}
       size="xl"
       icon={<FileXls size={20} />}
       title={JUDUL[jenis]}
       description={hasil ? undefined : URAIAN[jenis]}
       actions={hasil ? (
-        <Button onClick={onClose}>Done</Button>
+        <Button onClick={tutup}>Done</Button>
       ) : (
         <>
-          <Button variant="outlined" disabled={sibuk} onClick={onClose}>Cancel</Button>
+          <Button variant="outlined" disabled={sibuk} onClick={tutup}>Cancel</Button>
           <Button
             simpan
             loading={proses === "simpan"}
@@ -226,6 +243,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                   event.target.value = "";
                   // Berkas baru mulai lagi dari pilihan yang disarankan.
                   setLabelSatu(false);
+                  if (ai) { akhiriAi("closed"); setAi(null); }
                   void baca(file, jenis, false);
                 }}
               />
@@ -262,7 +280,22 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             <p className="-mt-2 text-body-small text-on-surface-variant">
               To change many people at once: Download current stays, edit it in Excel, then choose the file here. You see every change before anything is saved.
             </p>
-          ) : (
+          ) : null}
+          {jenis === "kamar" ? (
+            <BacaAi
+              open={open}
+              disabled={sibuk}
+              onMulai={() => { if (ai) akhiriAi("closed"); setAi(null); setBerkas(null); setRencana(null); setGalat(""); }}
+              onBerkas={(file, jawaban) => {
+                setAi(jawaban);
+                setLabelSatu(false);
+                setNomorBerkas(false);
+                if (file) void baca(file, "kamar", false, false);
+              }}
+            />
+          ) : null}
+          {ai && jenis === "kamar" ? <RingkasanAi jawaban={ai} /> : null}
+          {jenis === "kamar" ? null : (
             <p className="-mt-2 text-body-small text-on-surface-variant">
               {jenis === "kereta"
                 ? "Download participant list gives every participant an Outbound and a Return row (one per saved segment), with tickets already saved. Fill the ticket columns, leave the rest empty, then choose the file here."
