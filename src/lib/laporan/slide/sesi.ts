@@ -40,7 +40,7 @@ export function slideSesi(b: BahanLaporan): HasilSlide {
             jenis: "tabel",
             kolom: [{ label: pilih(bh, { id: "Sesi", en: "Session" }) }, { label: pilih(bh, { id: "Hari", en: "Day" }) }, { label: pilih(bh, { id: "Diharapkan", en: "Expected" }), kanan: true }, { label: pilih(bh, { id: "Hadir", en: "Attended" }), kanan: true }, { label: "%", kanan: true }],
             batangSetelah: 3,
-            baris: sesi.slice(0, 12).map((s, i) => ({
+            baris: sesi.slice(0, 10).map((s, i) => ({
               sel: [s.nama, sub(s.tanggal) ?? "", angka(s.diharapkan, bh), angka(s.sudah, bh), `${nilai[i]}%`],
               batang: nilai[i],
               sorot: !stabil && i === terendah ? ("masalah" as const) : null,

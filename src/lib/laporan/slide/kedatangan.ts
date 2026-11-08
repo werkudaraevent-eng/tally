@@ -37,6 +37,7 @@ export function slideKedatangan(b: BahanLaporan): HasilSlide {
   }
   const sebelum = ember.slice(0, 6);
   const puncak = sebelum.reduce((a, c) => (c.n > a.n ? c : a));
+  if (puncak.n === 0) return { ada: false, nama, alasan: "Nobody checked in before the session started" };
   const terakhir30 = ember[4].n + ember[5].n;
   const pTerakhir = persen(terakhir30, s.datang.length);
   const hari = s.tanggal ? namaHari(s.tanggal, bh) : "";

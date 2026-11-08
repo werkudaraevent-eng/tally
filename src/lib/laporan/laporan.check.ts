@@ -3,6 +3,7 @@ import { bahanContoh as bahan } from "./contoh.ts";
 import { bacaConfig, CONFIG_KOSONG, geser, urutkan } from "./config.ts";
 import type { Slide } from "./jenis.ts";
 import { susunDeck } from "./susun.ts";
+import { LEBAR_KIRI, lebarKolom, potong, ujung, ukuranAngka, ukuranJudul } from "./ukuran.ts";
 
 const teksSlide = (s: Slide): string[] => {
   if (s.jenis === "sampul") return [s.judul, ...s.baris, s.kaki];
@@ -120,6 +121,37 @@ const teksSlide = (s: Slide): string[] => {
   const { deck } = susunDeck(b, CONFIG_KOSONG);
   const sampul = deck.slide[0];
   assert.ok(sampul.jenis === "sampul" && sampul.baris.some((x) => x === "Committee report for management"));
+}
+
+// 8. Ukuran: teks panjang mengecil atau dipotong, tidak menumbuhkan slide.
+{
+  assert.equal(ukuranJudul("Pendek"), 40);
+  assert.ok(ukuranJudul("x".repeat(140)) < 34);
+  const tiga = { jenis: "angka" as const, isi: ["26 / 30", "46%", "520"].map((nilai) => ({ label: "L", nilai, ket: "" })) };
+  const u = ukuranAngka(tiga, LEBAR_KIRI);
+  assert.ok(u < 64 && u >= 32 && u * 0.6 * 7 <= LEBAR_KIRI / 3 - 36, `angka ${u}px`);
+  assert.equal(potong("abcdef", 4), "abc…");
+  assert.equal(potong("abc", 4), "abc");
+  assert.deepEqual(ujung([1, 2, 3, 4, 5, 6], 3, 2).tengah, []);
+  assert.deepEqual(ujung([1, 2, 3, 4, 5, 6, 7, 8], 3, 2).tengah, [4, 5, 6]);
+  const tbl = { jenis: "tabel" as const, kolom: [{ label: "Nama" }, { label: "Hadir", kanan: true }, { label: "%", kanan: true }], baris: [{ sel: ["x".repeat(63), "1.126", "90%"], batang: 90 }], batangSetelah: 2 };
+  const lebar = lebarKolom(tbl, LEBAR_KIRI);
+  assert.equal(lebar.length, 4);
+  assert.ok(Math.abs(lebar.reduce((a, x) => a + x, 0) - LEBAR_KIRI) < 1);
+}
+
+// 9. Banyak kelompok: tiga teratas, dua terbawah, sisanya satu baris "di tengah".
+{
+  const b = bahan();
+  b.peserta = b.peserta.map((p, i) => ({ ...p, kelompok: `Unit ${i % 10}` }));
+  const { deck } = susunDeck(b, CONFIG_KOSONG);
+  const s = deck.slide.find((x) => x.kunci === "kelompok");
+  assert.ok(s && s.jenis === "isi");
+  const t = s.blok.find((x) => x.jenis === "tabel");
+  assert.ok(t && t.jenis === "tabel");
+  assert.equal(t.baris.length, 7, t.baris.map((r) => r.sel[0]).join("|"));
+  assert.ok(t.baris.some((r) => r.sel[0] === "5 divisi lain"));
+  assert.equal(t.baris.at(-1)?.sel[1], "200");
 }
 
 console.log("laporan.check: ok");

@@ -5,6 +5,7 @@
  */
 import PptxGenJS from "pptxgenjs";
 import type { Blok, BlokAngka, BlokBatang, BlokGaris, BlokTabel, BlokTeks, Deck, SlideIsi, SlideSampul } from "./jenis";
+import { BARIS_SEL, lebarKolom, muatSatuBaris, potong, ukuranAngka, ukuranCatatan, ukuranJudul } from "./ukuran";
 import { WARNA_TETAP, warnaDeck } from "./warna";
 
 const IN = (px: number) => px / 96;
@@ -39,12 +40,15 @@ function angka(s: PptxGenJS.Slide, b: BlokAngka, k: Kotak) {
   const lebar = k.w / n;
   s.addShape("line", { x: IN(k.x), y: IN(k.y), w: IN(k.w), h: 0, line: { color: h(WARNA_TETAP.garis), width: 0.75 } });
   s.addShape("line", { x: IN(k.x), y: IN(k.y + k.h), w: IN(k.w), h: 0, line: { color: h(WARNA_TETAP.garis), width: 0.75 } });
+  const besar = Math.min(60, ukuranAngka(b, k.w));
   b.isi.forEach((x, i) => {
     const kiri = k.x + i * lebar + (i ? 24 : 0);
     const w = lebar - (i ? 48 : 24);
+    // Label satu baris: kecilkan bila tidak muat, supaya tidak turun ke angka.
+    const lbl = x.label.length > muatSatuBaris(w + 20, 18) ? 15 : 18;
     if (i) s.addShape("line", { x: IN(k.x + i * lebar), y: IN(k.y), w: 0, h: IN(k.h), line: { color: h(WARNA_TETAP.garis), width: 0.75 } });
-    s.addText(x.label, { x: IN(kiri), y: IN(k.y + 20), w: IN(w), h: IN(26), fontFace: FONT, fontSize: PT(18), color: h(WARNA_TETAP.tinta), margin: 0 });
-    s.addText(x.nilai, { x: IN(kiri), y: IN(k.y + 52), w: IN(w), h: IN(68), fontFace: FONT, fontSize: PT(60), bold: true, color: h(x.masalah ? WARNA_TETAP.masalah : WARNA_TETAP.tinta), margin: 0 });
+    s.addText(x.label, { x: IN(kiri), y: IN(k.y + 20), w: IN(w), h: IN(26), fontFace: FONT, fontSize: PT(lbl), color: h(WARNA_TETAP.tinta), margin: 0, fit: "shrink" });
+    s.addText(x.nilai, { x: IN(kiri), y: IN(k.y + 52), w: IN(w), h: IN(68), fontFace: FONT, fontSize: PT(besar), wrap: false, bold: true, color: h(x.masalah ? WARNA_TETAP.masalah : WARNA_TETAP.tinta), margin: 0 });
     if (x.ket) s.addText(x.ket, { x: IN(kiri), y: IN(k.y + 124), w: IN(w), h: IN(k.h - 130), fontFace: FONT, fontSize: PT(16), color: h(WARNA_TETAP.tinta2), margin: 0, valign: "top" });
   });
 }
@@ -52,7 +56,13 @@ function angka(s: PptxGenJS.Slide, b: BlokAngka, k: Kotak) {
 function tabel(s: PptxGenJS.Slide, b: BlokTabel, k: Kotak, w: Warna) {
   const setelah = b.batangSetelah ?? -1;
   const adaBatang = setelah >= 0 && b.baris.some((r) => typeof r.batang === "number");
-  const tinggi = Math.min(42, (k.h - 40) / Math.max(b.baris.length, 1));
+  const lebar = lebarKolom(b, k.w);
+  // Lebar tiap kolom data (tanpa kolom batang), untuk memotong teks supaya baris tidak tumbuh.
+  const lebarData = lebar.filter((_, i) => !(adaBatang && i === setelah + 1));
+  const font = b.bungkus ? 15 : b.baris.length > 7 ? 16 : 18;
+  const muat = (t: string, i: number) => (b.kolom[i]?.kanan ? t : potong(t, muatSatuBaris(lebarData[i], font) * (b.bungkus ? BARIS_SEL : 1)));
+  const perlu = b.bungkus ? BARIS_SEL * font * 1.25 + 12 : 42;
+  const tinggi = Math.min(perlu, (k.h - 40) / Math.max(b.baris.length, 1));
   const batas = { type: "solid" as const, pt: 0.75, color: h(WARNA_TETAP.garis) };
   const tanpa: PptxGenJS.BorderProps = { type: "none" };
   const sel = (teks: string, kanan: boolean | undefined, opsi: Partial<PptxGenJS.TableCellProps> = {}): PptxGenJS.TableCell => ({
@@ -65,21 +75,20 @@ function tabel(s: PptxGenJS.Slide, b: BlokTabel, k: Kotak, w: Warna) {
   });
   const baris = b.baris.map((r) =>
     r.sel.flatMap((t, i) => {
-      const isi = sel(t, b.kolom[i]?.kanan, { bold: r.total === true, color: h(r.sorot === "masalah" && i === 0 ? WARNA_TETAP.masalah : WARNA_TETAP.tinta) });
+      const isi = sel(muat(t, i), b.kolom[i]?.kanan, { bold: r.total === true, color: h(r.sorot === "masalah" && i === 0 ? WARNA_TETAP.masalah : WARNA_TETAP.tinta), valign: b.bungkus ? "top" : "middle" });
       return adaBatang && i === setelah ? [isi, sel("", false)] : [isi];
     }),
   );
-  const lebarBatang = adaBatang ? 196 : 0;
-  const lebarLain = (k.w - lebarBatang) / b.kolom.length;
-  const lebarKolom = b.kolom.flatMap((_, i) => (adaBatang && i === setelah ? [lebarLain, lebarBatang] : [lebarLain])).map(IN);
-  s.addTable([kolom, ...baris], { x: IN(k.x), y: IN(k.y), w: IN(k.w), colW: lebarKolom, rowH: IN(tinggi), fontFace: FONT, fontSize: PT(18), color: h(WARNA_TETAP.tinta), margin: [0, 0.06, 0, 0.06], valign: "middle" });
+  const tinggiBaris = [40, ...b.baris.map(() => tinggi)].map(IN);
+  s.addTable([kolom, ...baris], { x: IN(k.x), y: IN(k.y), w: IN(k.w), colW: lebar.map(IN), rowH: tinggiBaris, fontFace: FONT, fontSize: PT(font), color: h(WARNA_TETAP.tinta), margin: [0.04, 0.06, 0.04, 0.06], valign: "middle" });
   if (!adaBatang) return;
-  const xBatang = k.x + lebarLain * (setelah + 1) + 8;
+  const lebarBatang = lebar[setelah + 1] - 16;
+  const xBatang = k.x + lebar.slice(0, setelah + 1).reduce((a, x) => a + x, 0) + 8;
   b.baris.forEach((r, i) => {
     if (typeof r.batang !== "number" || r.total) return;
-    const y = k.y + tinggi * (i + 1) + tinggi / 2 - 6;
-    s.addShape("rect", { x: IN(xBatang), y: IN(y), w: IN(180), h: IN(12), fill: { color: h(WARNA_TETAP.garis) }, line: { type: "none" } });
-    const isi = Math.max(0, Math.min(100, r.batang)) * 1.8;
+    const y = k.y + 40 + tinggi * i + tinggi / 2 - 6;
+    s.addShape("rect", { x: IN(xBatang), y: IN(y), w: IN(lebarBatang), h: IN(12), fill: { color: h(WARNA_TETAP.garis) }, line: { type: "none" } });
+    const isi = (Math.max(0, Math.min(100, r.batang)) / 100) * lebarBatang;
     if (isi > 0) s.addShape("rect", { x: IN(xBatang), y: IN(y), w: IN(isi), h: IN(12), fill: { color: h(r.sorot === "masalah" ? WARNA_TETAP.masalah : w.aksen) }, line: { type: "none" } });
   });
 }
@@ -125,6 +134,8 @@ function batang(p: PptxGenJS, s: PptxGenJS.Slide, b: BlokBatang, k: Kotak, w: Wa
     dataLabelPosition: "outEnd",
     dataLabelFormatCode: formatAngka(b.seri.map((x) => x.teks)),
     catAxisLabelFontSize: PT(15),
+    // Label kategori di tepi bawah/kiri, bukan di garis nol: batang negatif tidak menutupinya.
+    catAxisLabelPos: "low",
     valAxisHidden: true,
     // NPS bisa negatif: sumbu ikut turun, batang negatif merah.
     valAxisMinVal: Math.min(0, ...b.seri.map((x) => x.nilai * 1.25)),
@@ -181,7 +192,7 @@ function teks(s: PptxGenJS.Slide, b: BlokTeks, k: Kotak) {
 /** Tinggi yang diminta tiap blok di tata penuh; grafik mengambil sisa ruang. */
 function tinggiBlok(b: Blok): number | null {
   if (b.jenis === "angka") return 172;
-  if (b.jenis === "tabel") return 42 * (b.baris.length + 1) + 4;
+  if (b.jenis === "tabel") return 40 + (b.bungkus ? BARIS_SEL * 20 + 12 : 42) * b.baris.length + 4;
   if (b.jenis === "teks") return 48 * (b.paragraf.length + (b.poin?.length ?? 0)) + 30 * (b.kecil?.length ?? 0);
   if (b.jenis === "batang" && b.arah === "datar") return Math.min(320, 52 * b.seri.length + (b.pasangan ? 40 : 0));
   return null;
@@ -198,8 +209,8 @@ function blok(p: PptxGenJS, s: PptxGenJS.Slide, b: Blok, k: Kotak, w: Warna) {
 function isi(p: PptxGenJS, sl: SlideIsi, w: Warna, nomor: string, labelCatatan: string) {
   const s = p.addSlide();
   s.background = { color: "FFFFFF" };
-  s.addText(sl.judul, { x: IN(KIRI), y: IN(48), w: IN(1080), h: IN(124), fontFace: FONT, fontSize: PT(40), bold: true, color: h(WARNA_TETAP.tinta), margin: 0, valign: "top", fit: "shrink" });
-  const bawah = sl.catatan ? BAWAH_ISI - 56 : BAWAH_ISI;
+  s.addText(sl.judul, { x: IN(KIRI), y: IN(48), w: IN(1080), h: IN(124), fontFace: FONT, fontSize: PT(ukuranJudul(sl.judul)), bold: true, color: h(WARNA_TETAP.tinta), margin: 0, valign: "top", fit: "shrink" });
+  const bawah = sl.catatan ? BAWAH_ISI - 72 : BAWAH_ISI;
   if (sl.tata === "dua" && sl.blok.length > 1) {
     const kiriW = Math.round(((LEBAR - 56) * 1.4) / 2.4);
     blok(p, s, sl.blok[0], { x: KIRI, y: ATAS_ISI, w: kiriW, h: bawah - ATAS_ISI }, w);
@@ -223,7 +234,7 @@ function isi(p: PptxGenJS, sl: SlideIsi, w: Warna, nomor: string, labelCatatan: 
     });
   }
   if (sl.catatan) {
-    s.addText([{ text: `${labelCatatan} `, options: { bold: true } }, { text: sl.catatan }], { x: IN(KIRI), y: IN(BAWAH_ISI - 44), w: IN(LEBAR), h: IN(44), fontFace: FONT, fontSize: PT(18), color: h(WARNA_TETAP.tinta), margin: 0, valign: "bottom" });
+    s.addText([{ text: `${labelCatatan} `, options: { bold: true } }, { text: sl.catatan }], { x: IN(KIRI), y: IN(BAWAH_ISI - 56), w: IN(LEBAR), h: IN(56), fontFace: FONT, fontSize: PT(ukuranCatatan(sl.catatan)), fit: "shrink", color: h(WARNA_TETAP.tinta), margin: 0, valign: "bottom" });
   }
   kaki(s, sl.kaki, nomor, false);
 }

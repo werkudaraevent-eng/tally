@@ -165,21 +165,24 @@ export default function HalamanLaporan() {
         </Popover>
       ) : null}
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)_360px]">
-        <div className={cx("flex min-h-0 flex-col *:flex-1", terbuka && "max-lg:hidden")}>
+      {/* Tiga kolom hanya di layar lebar (≥ 1536). Di 1024–1535 pratinjau di atas editor,
+          supaya slide tidak menyusut ke 20–240 px di samping sidebar. */}
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+        <div className={cx("flex min-h-0 min-w-0 flex-col *:flex-1", terbuka && "max-lg:hidden")}>
           <DaftarSlide data={data} pilih={kunci} onPilih={pilihSlide} onTampil={(k, v) => simpan((c) => ({ ...c, sembunyi: v ? c.sembunyi.filter((x) => x !== k) : [...c.sembunyi, k] }))} onTambah={tambah} terkunci={terkunci} />
         </div>
-        <section aria-label="Preview" className={cx("flex min-h-0 flex-col gap-3 overflow-auto rounded-lg bg-surface-container p-4", !terbuka && "max-lg:hidden")}>
+        <div className={cx("flex min-h-0 min-w-0 flex-col gap-4 max-2xl:overflow-y-auto 2xl:contents", !terbuka && "max-lg:hidden")}>
+        <section aria-label="Preview" className="flex min-w-0 shrink-0 flex-col gap-3 rounded-lg bg-surface-container p-4 2xl:min-h-0 2xl:shrink 2xl:overflow-auto">
           <div className="flex items-center justify-between text-body-small text-on-surface-variant">
             <span>{nomor ? `Slide ${nomor} of ${total}` : "Hidden from the report"}</span>
             <span>16:9</span>
           </div>
           <Panggung>
-            <SlideLaporan slide={slide} deck={data.deck} nomor={nomor ?? 0} total={total} petunjuk={kunci === "usulan" ? "Add rows in the panel on the right. This slide stays out of exports until it has one." : "Add points in the panel on the right."} />
+            <SlideLaporan slide={slide} deck={data.deck} nomor={nomor ?? 0} total={total} petunjuk={kunci === "usulan" ? "Add rows in the slide editor. This slide stays out of exports until it has one." : "Add points in the slide editor."} />
           </Panggung>
           <p className="text-body-small text-on-surface-variant">Hidden and empty slides stay out of every export and the client view.</p>
         </section>
-        <div className={cx("flex min-h-0 flex-col *:flex-1", !terbuka && "max-lg:hidden")}>
+        <div className="flex min-w-0 shrink-0 flex-col *:flex-1 2xl:min-h-0 2xl:shrink">
           <EditorSlide
             key={`${kunci}:${muatKe}`}
             data={data}
@@ -191,6 +194,7 @@ export default function HalamanLaporan() {
             onGeser={(arah) => simpan((c) => geser(c, kunci, arah))}
             onTutup={() => setTerbuka(false)}
           />
+        </div>
         </div>
       </div>
 

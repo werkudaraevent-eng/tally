@@ -23,6 +23,7 @@ const CETAK = `
   .lp-alat { display: none !important; }
   .lp-deck { max-width: none !important; gap: 0 !important; }
   .lp-bingkai { width: 1280px !important; height: 720px !important; aspect-ratio: auto !important; border-radius: 0 !important; box-shadow: none !important; break-after: page; }
+  .lp-bingkai:last-child { break-after: auto; }
   .lp-bingkai > div { transform: none !important; visibility: visible !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }`;

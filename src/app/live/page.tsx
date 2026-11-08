@@ -48,7 +48,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
       role={resolved.scope.role}
       preview={resolved.scope.role !== "viewer"}
       pertanyaanKlien={admin ? statusPertanyaanKlien(config) : undefined}
-      laporan={laporan ? <LaporanKlien slug={resolved.scope.event.slug} deck={laporan.deck} dibagikan={laporan.shared_at} /> : null}
+      laporan={laporan ? <LaporanKlien slug={resolved.scope.event.slug} deck={laporan.deck} dibagikan={laporan.shared_at} zona={resolved.scope.event.time_zone} /> : null}
     />
   );
 }

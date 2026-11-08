@@ -59,13 +59,13 @@ export function DaftarSlide({ data, pilih, onPilih, onTampil, onTambah, terkunci
         </div>
         {menu.open ? (
           <Popover anchor={menu} id={menuId} label="Add slide" width={300} align="start">
-            <button type="button" role="menuitem" disabled={data.pilihan.pertanyaan.length === 0} className={cx(POPOVER_ITEM, "flex-col !items-start gap-0.5 disabled:text-on-surface-variant")} onClick={() => { menu.tutup(); onTambah("pertanyaan"); }}>
+            <button type="button" role="menuitem" disabled={data.pilihan.pertanyaan.length === 0} className={cx(POPOVER_ITEM, "!h-auto min-h-12 flex-col !items-start gap-0.5 py-2 text-left disabled:text-on-surface-variant")} onClick={() => { menu.tutup(); onTambah("pertanyaan"); }}>
               <span className="text-body-medium">Chart from a question</span>
               <span className="text-body-small text-on-surface-variant">
                 {data.pilihan.pertanyaan.length ? "Pick a choice question from Registration or Feedback" : "No choice questions in Registration or Feedback yet"}
               </span>
             </button>
-            <button type="button" role="menuitem" className={cx(POPOVER_ITEM, "flex-col !items-start gap-0.5")} onClick={() => { menu.tutup(); onTambah("teks"); }}>
+            <button type="button" role="menuitem" className={cx(POPOVER_ITEM, "!h-auto min-h-12 flex-col !items-start gap-0.5 py-2 text-left")} onClick={() => { menu.tutup(); onTambah("teks"); }}>
               <span className="text-body-medium">Text slide</span>
               <span className="text-body-small text-on-surface-variant">A title and up to {BATAS.poin} points</span>
             </button>

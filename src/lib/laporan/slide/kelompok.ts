@@ -1,5 +1,6 @@
 import type { BahanLaporan } from "../bahan.ts";
 import { angka, MIN_KELOMPOK, persen, pilih, type Bahasa, type HasilSlide } from "../teks.ts";
+import { ujung } from "../ukuran.ts";
 
 export type BarisKelompok = { nama: string; terdaftar: number; hadir: number; lainnya: boolean };
 
@@ -54,6 +55,18 @@ export function slideKelompok(b: BahanLaporan): HasilSlide {
       })
     : pilih(bh, { id: `Kehadiran merata di semua ${label}`, en: `Attendance is even across every ${label}` });
 
+  // Banyak kelompok: tiga teratas dan dua terbawah, sisanya satu baris supaya slide tetap muat.
+  const potongan = ujung(nyata, 3, 2);
+  const tengah = potongan.tengah.length
+    ? [{
+        nama: pilih(bh, { id: `${potongan.tengah.length} ${label} lain`, en: `${potongan.tengah.length} more` }),
+        terdaftar: potongan.tengah.reduce((a, r) => a + r.terdaftar, 0),
+        hadir: potongan.tengah.reduce((a, r) => a + r.hadir, 0),
+        lainnya: true,
+      }]
+    : [];
+  const tampil = [...potongan.atas, ...tengah, ...potongan.bawah, ...baris.filter((r) => r.lainnya)];
+
   const porsiPeserta = persen(bawah.terdaftar, total.terdaftar);
   const porsiAbsen = persen(absenBawah, absen);
   const sisi = tertinggal
@@ -84,7 +97,7 @@ export function slideKelompok(b: BahanLaporan): HasilSlide {
           ],
           batangSetelah: 3,
           baris: [
-            ...baris.map((r) => ({
+            ...tampil.map((r) => ({
               sel: [r.nama, angka(r.terdaftar, bh), angka(r.hadir, bh), angka(r.terdaftar - r.hadir, bh), `${persen(r.hadir, r.terdaftar)}%`],
               batang: persen(r.hadir, r.terdaftar),
               sorot: tertinggal && r === bawah ? ("masalah" as const) : null,

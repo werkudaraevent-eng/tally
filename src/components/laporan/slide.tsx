@@ -6,16 +6,20 @@
 import type { CSSProperties } from "react";
 import type { Blok, BlokAngka, BlokBatang, BlokGaris, BlokTabel, BlokTeks, Deck, Slide, Sorot } from "@/lib/laporan/jenis";
 import { warnaDeck } from "@/lib/laporan/warna";
+import { LEBAR_KANAN, LEBAR_KIRI, LEBAR_PENUH, lebarKolom, ukuranAngka, ukuranCatatan, ukuranJudul } from "@/lib/laporan/ukuran";
+
+const cxs = (...k: Array<string | false | undefined>) => k.filter(Boolean).join(" ");
 
 const isiBatang = (s: Sorot | undefined) => (s === "masalah" ? "#B3261E" : s === "kedua" ? "var(--lp-aksen2)" : s === "utama" ? "var(--lp-aksen)" : "#CDD2DB");
 
-function Angka({ b }: { b: BlokAngka }) {
+function Angka({ b, lebar }: { b: BlokAngka; lebar: number }) {
+  const ukuran = ukuranAngka(b, lebar);
   return (
     <div className="lp-angka">
       {b.isi.map((x) => (
         <div key={x.label}>
           <span className="lp-lbl">{x.label}</span>
-          <span className={x.masalah ? "lp-fig lp-m" : "lp-fig"}>{x.nilai}</span>
+          <span className={x.masalah ? "lp-fig lp-m" : "lp-fig"} style={ukuran < 64 ? { fontSize: ukuran } : undefined}>{x.nilai}</span>
           {x.ket ? <span className="lp-kecil">{x.ket}</span> : null}
         </div>
       ))}
@@ -23,11 +27,14 @@ function Angka({ b }: { b: BlokAngka }) {
   );
 }
 
-function Tabel({ b }: { b: BlokTabel }) {
+function Tabel({ b, lebarBlok }: { b: BlokTabel; lebarBlok: number }) {
   const setelah = b.batangSetelah ?? -1;
-  const adaBatang = b.baris.some((r) => typeof r.batang === "number");
+  const adaBatang = setelah >= 0 && b.baris.some((r) => typeof r.batang === "number");
+  const lebar = lebarKolom(b, lebarBlok);
+  const rapat = b.baris.length > 7;
   return (
-    <table className="lp-tbl">
+    <table className={cxs("lp-tbl", b.bungkus && "lp-tbl-b", rapat && "lp-tbl-r")}>
+      <colgroup>{lebar.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
       <thead>
         <tr>
           {b.kolom.map((k, i) => (
@@ -42,7 +49,7 @@ function Tabel({ b }: { b: BlokTabel }) {
           <tr key={ri} className={r.total ? "lp-total" : r.sorot === "masalah" ? "lp-mr" : undefined}>
             {r.sel.map((sel, i) => (
               <FragmenKolom key={i} tampilBatang={adaBatang && i === setelah} batang={r.total ? undefined : r.batang} sorot={r.sorot}>
-                <td className={b.kolom[i]?.kanan ? "lp-n" : i === 0 ? "lp-w" : undefined}>{sel}</td>
+                <td className={b.kolom[i]?.kanan ? "lp-n" : undefined} title={b.kolom[i]?.kanan ? undefined : sel}>{b.bungkus ? <span className="lp-sel">{sel}</span> : sel}</td>
               </FragmenKolom>
             ))}
           </tr>
@@ -58,9 +65,9 @@ function FragmenKolom({ children, tampilBatang, batang, sorot }: { children: Rea
   return (
     <>
       {children}
-      <td aria-hidden style={{ width: 196 }}>
+      <td aria-hidden>
         {typeof batang === "number" ? (
-          <div className="lp-bar">
+          <div className="lp-bar" style={{ width: "100%" }}>
             <i className={sorot === "masalah" ? "lp-m" : undefined} style={{ width: `${Math.max(0, Math.min(100, batang))}%` }} />
           </div>
         ) : null}
@@ -69,9 +76,9 @@ function FragmenKolom({ children, tampilBatang, batang, sorot }: { children: Rea
   );
 }
 
-function BatangTegak({ b, penuh }: { b: BlokBatang; penuh: boolean }) {
+function BatangTegak({ b, lebar: W }: { b: BlokBatang; lebar: number }) {
   // Lebar viewBox sama dengan lebar kolomnya (px kanvas), jadi teks tidak membesar.
-  const W = penuh ? 1152 : 640;
+  const penuh = W >= LEBAR_PENUH;
   const H = 360;
   const bawah = 300;
   const n = b.seri.length;
@@ -139,14 +146,16 @@ function BatangDatar({ b }: { b: BlokBatang }) {
   );
 }
 
-function Garis({ b, penuh }: { b: BlokGaris; penuh: boolean }) {
-  const W = penuh ? 1152 : 640;
+function Garis({ b, lebar }: { b: BlokGaris; lebar: number }) {
+  const W = lebar;
   const H = 360;
-  const kiri = 48;
+  // Sumbu di kiri, lalu jarak 56 px supaya label titik pertama tidak menimpa label sumbu.
+  const kiri = 64;
+  const tepi = 56;
   const atas = 40;
   const bawah = 280;
   const n = b.titik.length;
-  const x = (i: number) => kiri + (n <= 1 ? (W - kiri) / 2 : (i * (W - kiri - 40)) / (n - 1));
+  const x = (i: number) => kiri + tepi + (n <= 1 ? (W - kiri - 2 * tepi) / 2 : (i * (W - kiri - 2 * tepi)) / (n - 1));
   const y = (v: number) => bawah - ((v - b.min) / Math.max(b.maks - b.min, 1)) * (bawah - atas);
   const garisBantu = [b.min, Math.round((b.min + b.maks) / 2), b.maks];
   return (
@@ -180,11 +189,12 @@ function Teks({ b }: { b: BlokTeks }) {
   );
 }
 
-function SatuBlok({ b, penuh = true }: { b: Blok; penuh?: boolean }) {
-  if (b.jenis === "angka") return <Angka b={b} />;
-  if (b.jenis === "tabel") return <Tabel b={b} />;
-  if (b.jenis === "batang") return b.arah === "tegak" ? <BatangTegak b={b} penuh={penuh} /> : <BatangDatar b={b} />;
-  if (b.jenis === "garis") return <Garis b={b} penuh={penuh} />;
+/** `lebar`: lebar kolom tempat blok digambar (px kanvas), sama dengan kotak di PPTX. */
+function SatuBlok({ b, lebar = LEBAR_PENUH }: { b: Blok; lebar?: number }) {
+  if (b.jenis === "angka") return <Angka b={b} lebar={lebar} />;
+  if (b.jenis === "tabel") return <Tabel b={b} lebarBlok={lebar} />;
+  if (b.jenis === "batang") return b.arah === "tegak" ? <BatangTegak b={b} lebar={lebar} /> : <BatangDatar b={b} />;
+  if (b.jenis === "garis") return <Garis b={b} lebar={lebar} />;
   return <Teks b={b} />;
 }
 
@@ -216,20 +226,22 @@ export function SlideLaporan({ slide, deck, nomor, total, catatanLabel, petunjuk
   const label = catatanLabel ?? (deck.bahasa === "en" ? "Committee note." : "Catatan panitia.");
   return (
     <div className="lp-stage" style={aksen}>
-      <h2 className="lp-h">{slide.judul}</h2>
+      <h2 className="lp-h" style={{ fontSize: ukuranJudul(slide.judul) }}>{slide.judul}</h2>
       <div className="lp-body">
         {slide.blok.length === 0 && petunjuk ? <div className="lp-petunjuk">{petunjuk}</div> : null}
         {slide.tata === "dua" && kiri ? (
           <div className="lp-dua">
-            <SatuBlok b={kiri} penuh={false} />
-            <div className="lp-sisi">{kanan.map((b, i) => <SatuBlok key={i} b={b} penuh={false} />)}</div>
+            <SatuBlok b={kiri} lebar={LEBAR_KIRI} />
+            <div className="lp-sisi">{kanan.map((b, i) => <SatuBlok key={i} b={b} lebar={LEBAR_KANAN} />)}</div>
           </div>
         ) : (
           slide.blok.map((b, i) => <SatuBlok key={i} b={b} />)
         )}
-        {slide.catatan ? <p className="lp-catatan"><b>{label}</b> {slide.catatan}</p> : null}
       </div>
-      <div className="lp-foot"><span>{slide.kaki}</span><span>{nomor} / {total}</span></div>
+      <div className="lp-bawah">
+        {slide.catatan ? <p className="lp-catatan" style={{ fontSize: ukuranCatatan(slide.catatan) }}><b>{label}</b> {slide.catatan}</p> : null}
+        <div className="lp-foot"><span>{slide.kaki}</span><span>{nomor} / {total}</span></div>
+      </div>
     </div>
   );
 }

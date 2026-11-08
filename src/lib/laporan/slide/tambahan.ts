@@ -23,6 +23,7 @@ export function slideUsulan(b: BahanLaporan, usulan: BarisUsulan[]): HasilSlide 
               jenis: "tabel",
               kolom: [{ label: pilih(bh, { id: "Yang terjadi", en: "What happened" }) }, { label: pilih(bh, { id: "Datanya", en: "The data" }) }, { label: pilih(bh, { id: "Usulan panitia", en: "Committee proposal" }) }],
               baris: usulan.map((u) => ({ sel: [u.terjadi, u.data, u.usulan] })),
+              bungkus: true,
             },
           ]
         : [],

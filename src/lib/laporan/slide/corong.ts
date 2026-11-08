@@ -8,6 +8,7 @@ export function slideCorong(b: BahanLaporan): HasilSlide {
   const tahap: Array<{ label: string; nilai: number; utama?: boolean; akhir?: boolean }> = [];
   if (b.diundang !== null) tahap.push({ label: pilih(bh, { id: "Diundang", en: "Invited" }), nilai: b.diundang });
   if (b.mendaftar !== null) tahap.push({ label: pilih(bh, { id: "Mendaftar", en: "Registered" }), nilai: b.mendaftar });
+  if (b.disetujui !== null && b.mendaftar !== null && b.disetujui < b.mendaftar) tahap.push({ label: pilih(bh, { id: "Disetujui", en: "Approved" }), nilai: b.disetujui });
   tahap.push({ label: pilih(bh, { id: "Terdaftar", en: "On the list" }), nilai: b.peserta.length });
   if (b.portal) {
     const portal = b.portal;

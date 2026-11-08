@@ -19,6 +19,8 @@ export type BlokTabel = {
   /** `batang` 0..100 digambar setelah kolom `batangSetelah` (indeks). */
   baris: Array<{ sel: string[]; batang?: number; sorot?: Sorot; total?: boolean }>;
   batangSetelah?: number;
+  /** Sel teks membungkus (paling banyak 3 baris), untuk tabel yang ditulis panitia. */
+  bungkus?: boolean;
 };
 
 export type BlokBatang = {

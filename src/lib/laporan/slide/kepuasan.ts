@@ -2,6 +2,7 @@ import { skorNps } from "../../kilas-balik/setelan.ts";
 import type { BahanLaporan } from "../bahan.ts";
 import type { Blok } from "../jenis.ts";
 import { angka, MIN_KELOMPOK, persen, pilih, SAMPEL_KECIL, type HasilSlide } from "../teks.ts";
+import { ujung } from "../ukuran.ts";
 
 const tanda = (n: number) => (n > 0 ? `+${n}` : String(n));
 
@@ -38,7 +39,7 @@ export function slideKepuasan(b: BahanLaporan): HasilSlide {
     const label = [
       pilih(bh, { id: "Semua sesi", en: "Every session" }),
       pilih(bh, { id: `${totalSesi - 1} sesi`, en: `${totalSesi - 1} sessions` }),
-      pilih(bh, { id: `${totalSesi - 2} sesi atau kurang`, en: `${totalSesi - 2} or fewer` }),
+      totalSesi === 2 ? pilih(bh, { id: "Tanpa sesi", en: "No sessions" }) : pilih(bh, { id: `${totalSesi - 2} sesi atau kurang`, en: `${totalSesi - 2} or fewer` }),
     ];
     isi.forEach((nilai, i) => nilai.length >= MIN_KELOMPOK && ember.push({ label: label[i], nilai }));
   }
@@ -83,10 +84,12 @@ export function slideKepuasan(b: BahanLaporan): HasilSlide {
     }
     const baris = [...per].filter(([, v]) => v.length >= MIN_KELOMPOK).map(([g, v]) => ({ g, n: v.length, s: skorNps(v) ?? 0 })).sort((a, c) => c.s - a.s);
     if (baris.length >= 2) {
+      const { atas, bawah } = ujung(baris, 3, 3);
+      const tampil = [...atas, ...bawah];
       blok.push({
         jenis: "tabel",
         kolom: [{ label: b.kelompokLabel }, { label: "NPS", kanan: true }, { label: pilih(bh, { id: "Jawaban", en: "Answers" }), kanan: true }],
-        baris: baris.map((r, i) => ({ sel: [r.g, tanda(r.s), angka(r.n, bh)], sorot: i === baris.length - 1 && baris[0].s - r.s >= 15 ? ("masalah" as const) : null })),
+        baris: tampil.map((r, i) => ({ sel: [r.g, tanda(r.s), angka(r.n, bh)], sorot: i === tampil.length - 1 && baris[0].s - r.s >= 15 ? ("masalah" as const) : null })),
       });
     }
   }
