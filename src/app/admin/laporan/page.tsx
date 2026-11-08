@@ -7,13 +7,14 @@ import { useTerkunci } from "@/components/admin/page-context";
 import { GayaLaporan, Panggung } from "@/components/laporan/panggung";
 import { SlideLaporan } from "@/components/laporan/slide";
 import {
-  Banner, Button, ButtonLink, Dialog, PageLoading, StatusChip, WorkspaceHeader, WorkspacePage,
+  Banner, Button, ButtonLink, PageLoading, StatusChip, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
 import { geser, type ConfigLaporan } from "@/lib/laporan/config";
 import { cx } from "@/lib/m3/cx";
 import { DaftarSlide } from "./daftar-slide";
+import { DialogBagikan } from "./dialog-bagikan";
 import { EditorSlide } from "./editor-slide";
 import { LaporanTabs } from "./laporan-tabs";
 import type { DataLaporan, Draf } from "./jenis";
@@ -185,29 +186,7 @@ export default function HalamanLaporan() {
         </div>
       </div>
 
-      <Dialog
-        open={bagikan}
-        onClose={() => setBagikan(false)}
-        title={data.shared_at ? "Shared with the client" : "Share with the client?"}
-        description={
-          data.shared_at
-            ? `The client has seen the figures as of ${waktu(data.shared_at)} since then. Update it to show today's figures and edits, or stop sharing.`
-            : "The client's view gets a Report tab with these slides. The figures are locked as of now and don't move until you share again."
-        }
-        actions={
-          data.shared_at ? (
-            <>
-              <Button variant="text" disabled={sibuk} onClick={() => void kirimBagikan("tarik")}>Stop sharing</Button>
-              <Button loading={sibuk} onClick={() => void kirimBagikan("bagikan")}>Update shared copy</Button>
-            </>
-          ) : (
-            <>
-              <Button variant="text" onClick={() => setBagikan(false)}>Cancel</Button>
-              <Button loading={sibuk} onClick={() => void kirimBagikan("bagikan")}>Share</Button>
-            </>
-          )
-        }
-      />
+      <DialogBagikan data={data} open={bagikan} sibuk={sibuk} onClose={() => setBagikan(false)} onKirim={(aksi) => void kirimBagikan(aksi)} />
     </WorkspacePage>
   );
 }

@@ -15,6 +15,8 @@ export type DataLaporan = {
   semua: Record<string, Slide>;
   pilihan: PilihanEditor;
   slug: string;
+  /** Akun Viewer acara ini: yang melihat salinan di tab Report. */
+  klien: Array<{ username: string; aktif: boolean }>;
 };
 
 /** Judul dan catatan yang sedang diketik, supaya pratinjau ikut berubah sebelum disimpan. */
