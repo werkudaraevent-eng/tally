@@ -175,6 +175,7 @@ export default function HalamanHarian() {
               setelan={data.setelan as SetelanHari}
               absen={data.absen}
               ada={data.ada}
+              titik={data.titik ?? []}
               kunci={!!dikunci}
               terkunci={terkunci}
               semua={data.tanggal === RINGKASAN}

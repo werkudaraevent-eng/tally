@@ -82,7 +82,23 @@ assert.equal(en.halaman[1].kunci === "hadir" && en.halaman[1].judul, "9 in 10 gu
 // Config: tanggal tidak sah dibuang, batas 14 hari, kunci halaman dan foto disaring.
 const c = bacaHarian({ "bukan": {}, "2026-11-06": { sembunyi: ["menit", "x", "menit"], catatan: "  a   b ", foto: ["u1", 3, "u2", "u3", "u4"] } });
 assert.deepEqual(Object.keys(c), ["2026-11-06"]);
-assert.deepEqual(c["2026-11-06"], { sembunyi: ["menit"], catatan: "a b", foto: ["u1", "", "u2"], kunci: null });
+assert.deepEqual(c["2026-11-06"], { sembunyi: ["menit"], catatan: "a b", foto: ["u1", "", "u2"], tanpa: [], kunci: null });
+// Titik check-in yang dikeluarkan: kunci disaring, unik, dibatasi.
+assert.deepEqual(bacaSetelanHari({ tanpa: ["cp-1", "cp-1", "Bad Key", 3, "sesi-2"] }).tanpa, ["cp-1", "sesi-2"]);
+assert.equal(bacaSetelanHari({ tanpa: Array.from({ length: 150 }, (_, i) => `cp-${i}`) }).tanpa.length, 100);
+// Dikeluarkan: hilang dari agenda hari itu dan dari Seluruh acara, beserta pindaiannya.
+{
+  const k1 = b.sesi.filter((s) => s.tanggal === "2026-11-06").map((s) => s.kunci);
+  const tanpa1 = susunHari(b, "2026-11-06", { ...SETELAN_KOSONG, tanpa: [k1[0]] }, huruf);
+  const ag = tanpa1.hari.halaman.find((p) => p.kunci === "agenda");
+  const nama0 = b.sesi.find((s) => s.kunci === k1[0])!.nama;
+  assert.ok(!ag || (ag.kunci === "agenda" && !ag.baris.some((r) => r.nama === nama0)));
+  // Semua titik hari itu dikeluarkan: tidak ada yang datang, halaman hadir absen.
+  const kosong = susunHari(b, "2026-11-06", { ...SETELAN_KOSONG, tanpa: k1 }, huruf);
+  assert.ok(kosong.absen.some((x) => x.kunci === "hadir"));
+  const rkT = susunRingkasan(b, { ...SETELAN_KOSONG, tanpa: [k1[0]] }, huruf).hari.halaman.find((p) => p.kunci === "agenda");
+  assert.ok(rkT?.kunci === "agenda" && !rkT.baris.some((r) => r.nama === nama0));
+}
 assert.deepEqual(bacaSetelanHari({ foto: ["", "u", ""] }).foto, ["", "u"]);
 const banyak = bacaHarian(Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`2026-12-${String(i + 1).padStart(2, "0")}`, {}])));
 assert.equal(Object.keys(banyak).length, 14);

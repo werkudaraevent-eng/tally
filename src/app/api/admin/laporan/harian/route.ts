@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { bacaSetelanHari, BATAS_HARIAN, hariSah } from "@/lib/laporan/harian/config";
+import { bacaSetelanHari, BATAS_HARIAN, hariSah, SETELAN_KOSONG } from "@/lib/laporan/harian/config";
 import { fotoLaporanSah } from "@/lib/laporan/harian/foto";
 import { hurufAcara, muatHarian } from "@/lib/laporan/harian/server";
 import { muatBahanLaporan } from "@/lib/laporan/bahan-server";
@@ -15,7 +15,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  *
  * GET  ?tanggal=YYYY-MM-DD  daftar hari, setelan dan highlight hari itu.
  *      `tanggal` juga bisa "semua": story Seluruh acara (acara lebih dari satu hari).
- * PUT  { tanggal, setelan: { sembunyi, catatan, foto }, updated_at }  simpan setelan.
+ * PUT  { tanggal, setelan: { sembunyi, catatan, foto, tanpa }, updated_at }  simpan setelan.
  * POST { tanggal, aksi: "kunci" | "buka", updated_at }  kunci angka saat ini, atau buka lagi.
  * updated_at = yang DIMUAT (compare-and-swap); 409 bila diubah di tab lain.
  */
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
   const laporan = await muatLaporan(event.id).catch(() => null);
   if (!laporan) return apiError("INTERNAL_ERROR", 500);
   if (!laporan.siap) return Response.json({ siap: false });
-  const lama = laporan.config.harian[body.tanggal] ?? { sembunyi: [], catatan: "", foto: [], kunci: null };
+  const lama = laporan.config.harian[body.tanggal] ?? { ...SETELAN_KOSONG };
   let kunci = null;
   if (body.aksi === "kunci") {
     const bahan = await muatBahanLaporan(event, laporan.config).catch(() => null);

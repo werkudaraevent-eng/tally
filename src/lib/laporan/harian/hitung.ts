@@ -93,7 +93,7 @@ export function susunHari(b: BahanLaporan, tgl: string, setelan: SetelanHari, hu
   const semua = hariAcara(b);
   const ke = semua.indexOf(tgl) + 1;
   const total = semua.length;
-  const sesi = b.sesi.filter((s) => s.tanggal === tgl).sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""));
+  const sesi = b.sesi.filter((s) => s.tanggal === tgl && !setelan.tanpa.includes(s.kunci)).sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""));
   const besok = semua[semua.indexOf(tgl) + 1];
   const sesiBesok = besok ? b.sesi.filter((s) => s.tanggal === besok).sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""))[0] : undefined;
   const peserta = b.peserta.length;
@@ -238,7 +238,7 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
   } else absen.push({ kunci: "hadir", alasan: "No one was scanned at a check-in point yet." });
 
   if (peserta > 0) {
-    const perHari = semua.map((t, i) => ({ i, n: unik(b.sesi.filter((s) => s.tanggal === t)), t }));
+    const perHari = semua.map((t, i) => ({ i, n: unik(b.sesi.filter((s) => s.tanggal === t && !setelan.tanpa.includes(s.kunci))), t }));
     const ramai = perHari.reduce((a, c) => (c.n > a.n ? c : a), perHari[0]);
     halaman.push({
       kunci: "rekap", permukaan: "gelap", foto: null,
@@ -248,7 +248,7 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
     });
   }
 
-  const sesi = [...b.sesi].sort((x, y) => `${x.tanggal ?? ""} ${x.jam ?? ""}`.localeCompare(`${y.tanggal ?? ""} ${y.jam ?? ""}`));
+  const sesi = b.sesi.filter((s) => !setelan.tanpa.includes(s.kunci)).sort((x, y) => `${x.tanggal ?? ""} ${x.jam ?? ""}`.localeCompare(`${y.tanggal ?? ""} ${y.jam ?? ""}`));
   if (sesi.length) {
     halaman.push({
       kunci: "agenda", permukaan: "muda", foto: null,

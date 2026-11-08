@@ -6,18 +6,20 @@
  */
 import { KUNCI_HALAMAN, RINGKASAN, type HariHighlight, type KunciHalaman } from "./jenis.ts";
 
-export const BATAS_HARIAN = { hari: 14, catatan: 160, foto: 3, url: 1000 } as const;
+export const BATAS_HARIAN = { hari: 14, catatan: 160, foto: 3, url: 1000, tanpa: 100 } as const;
 
 export type SetelanHari = {
   sembunyi: KunciHalaman[];
   catatan: string;
   /** Foto panitia: [0] sampul, [1] halaman jam, [2] penutup; "" = tidak ada. Sampul tanpa foto memakai foto hero acara. */
   foto: string[];
+  /** Kunci titik check-in (SesiBahan.kunci) yang tidak ikut highlight ini: tidak tampil dan tidak dihitung. */
+  tanpa: string[];
   kunci: { at: string; hari: HariHighlight } | null;
 };
 export type ConfigHarian = Record<string, SetelanHari>;
 
-export const SETELAN_KOSONG: SetelanHari = { sembunyi: [], catatan: "", foto: [], kunci: null };
+export const SETELAN_KOSONG: SetelanHari = { sembunyi: [], catatan: "", foto: [], tanpa: [], kunci: null };
 
 const TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
 /** Tanggal yang benar-benar ada ("2026-13-45" ditolak). */
@@ -28,6 +30,7 @@ export const tanggalSah = (t: string) => {
 /** Kunci baris config.harian: tanggal acara, atau RINGKASAN (Seluruh acara). */
 export const hariSah = (t: string) => t === RINGKASAN || tanggalSah(t);
 const kunciSah = new Set<string>(KUNCI_HALAMAN);
+const KUNCI_TITIK = /^[a-z0-9_.-]{1,80}$/;
 
 /** Salinan terkunci dipercaya dari server sendiri; cukup diperiksa bentuk luarnya. */
 function bacaKunci(nilai: unknown): SetelanHari["kunci"] {
@@ -48,7 +51,8 @@ export function bacaSetelanHari(nilai: unknown, fotoSah: (url: string) => boolea
     ? s.foto.slice(0, BATAS_HARIAN.foto).map((u) => (typeof u === "string" && u && u.length <= BATAS_HARIAN.url && fotoSah(u) ? u : ""))
     : [];
   while (foto.length && !foto[foto.length - 1]) foto.pop();
-  return { sembunyi, catatan, foto, kunci: bacaKunci(s.kunci) };
+  const tanpa = Array.isArray(s.tanpa) ? [...new Set(s.tanpa.filter((k): k is string => typeof k === "string" && KUNCI_TITIK.test(k)))].slice(0, BATAS_HARIAN.tanpa) : [];
+  return { sembunyi, catatan, foto, tanpa, kunci: bacaKunci(s.kunci) };
 }
 
 export function bacaHarian(nilai: unknown): ConfigHarian {
