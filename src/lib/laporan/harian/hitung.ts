@@ -20,8 +20,6 @@ export const hariAcara = (b: BahanLaporan) => [...new Set(b.sesi.map((s) => s.ta
 const jamAgenda = (s: SesiBahan, bh: Bahasa) => (s.jam ? (bh === "id" ? s.jam.slice(0, 5).replace(":", ".") : s.jam.slice(0, 5)) : "");
 const labelJam = (h: number, bh: Bahasa) => `${String(h).padStart(2, "0")}${bh === "id" ? "." : ":"}00`;
 
-/** Persen dibulatkan ke bawah, supaya 99,7% tidak tertulis 100%. */
-const persenBawah = (a: number, b: number) => (b > 0 ? Math.floor((a / b) * 100) : 0);
 
 /** Peserta unik yang dipindai di sesi-sesi ini (sesi lama tanpa id: jumlah terbesar). */
 function unik(sesi: SesiBahan[]): number {
