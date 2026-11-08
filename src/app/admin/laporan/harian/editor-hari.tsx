@@ -39,7 +39,7 @@ export function EditorHari({ setelan, absen, ada, kunci, terkunci, onUbah }: {
   return (
     <Pane aria-label="Day settings">
       <PaneBody className="flex flex-col gap-6 p-4">
-        {kunci ? <p className="text-body-small text-on-surface-variant">Figures are locked. Unlock to change photos, images or the note.</p> : null}
+        {kunci ? <p className="text-body-small text-on-surface-variant">Figures are locked and this day plays on the client view. Unlock to change photos, images or the note (it leaves the client view until you lock again).</p> : null}
         <DetailSection title="Images">
           <div className="flex flex-col">
             {daftar.map((k) => (
