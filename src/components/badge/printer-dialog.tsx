@@ -2,7 +2,7 @@
 
 import { Info, Printer, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
-import { Button, Dialog, SelectField, TextField } from "@/components/m3";
+import { Button, Dialog, SegmentedField, TextField } from "@/components/m3";
 import { GESER_MAKS, printerBaru, type ProfilPrinter } from "@/lib/badge/printer";
 
 /**
@@ -65,10 +65,12 @@ export function PrinterDialog({
 					<TextField label="Merek dan model" placeholder="Brother HL-L2370" value={p.model} maxLength={60} onChange={(e) => ubah({ model: e.target.value })} />
 				</div>
 				<div className="grid gap-3 sm:grid-cols-3">
-					<SelectField label="Jenis" value={p.jenis} onChange={(e) => ubah({ jenis: e.target.value === "inkjet" ? "inkjet" : "laser" })}>
-						<option value="laser">Laser</option>
-						<option value="inkjet">Inkjet</option>
-					</SelectField>
+					<SegmentedField
+						label="Jenis"
+						value={p.jenis === "inkjet" ? "inkjet" : "laser"}
+						onChange={(jenis) => ubah({ jenis })}
+						options={[{ value: "laser", label: "Laser" }, { value: "inkjet", label: "Inkjet" }]}
+					/>
 					<TextField
 						label="Gramatur maksimum (g)"
 						type="number"
@@ -77,10 +79,12 @@ export function PrinterDialog({
 						value={p.gsm_maks}
 						onChange={(e) => ubah({ gsm_maks: Math.min(350, Math.max(60, Number(e.target.value) || 60)) })}
 					/>
-					<SelectField label="Kertas yang dimasukkan" value={p.kertas} onChange={(e) => ubah({ kertas: e.target.value === "A5" ? "A5" : "A4" })}>
-						<option value="A4">A4</option>
-						<option value="A5">A5</option>
-					</SelectField>
+					<SegmentedField
+						label="Kertas yang dimasukkan"
+						value={p.kertas === "A5" ? "A5" : "A4"}
+						onChange={(kertas) => ubah({ kertas })}
+						options={[{ value: "A4", label: "A4" }, { value: "A5", label: "A5" }]}
+					/>
 				</div>
 				<p className="-mt-2 text-body-medium text-on-surface-variant">Cek gramatur maksimum di manual printer. Ukuran kertas harus sama dengan format badge.</p>
 

@@ -29,6 +29,13 @@ export type SegmentedButtonProps<T extends string> = {
 	 * (aria-labelledby), bukan `label`, supaya namanya tidak dibacakan dua kali.
 	 */
 	labelledBy?: string;
+	/** Id petunjuk di bawah grup (aria-describedby), dipakai `SegmentedField`. */
+	describedBy?: string;
+	/**
+	 * Tinggi grup = tinggi kolom isian (36px di ruang kerja, 48px di ponsel),
+	 * supaya grup sejajar dengan TextField di sebelahnya. Dipakai `SegmentedField`.
+	 */
+	field?: boolean;
 	/**
 	 * Id panel yang isinya diganti oleh pilihan ini. Bila ada, grup menjadi
 	 * `tablist` (pola tabs WAI-ARIA) alih-alih `radiogroup`: tiap opsi `tab`
@@ -68,7 +75,7 @@ export function segmentTabId(panel: string, value: string) {
 	return `${panel}-tab-${value}`;
 }
 
-export function SegmentedButton<T extends string>({ options, value, onChange, label, labelledBy, panel, compact, size = "md", padat, className }: SegmentedButtonProps<T>) {
+export function SegmentedButton<T extends string>({ options, value, onChange, label, labelledBy, describedBy, field, panel, compact, size = "md", padat, className }: SegmentedButtonProps<T>) {
 	const aktif = options.filter((option) => !option.disabled);
 	// Perhentian Tab: opsi terpilih, atau opsi aktif pertama bila tidak ada yang terpilih.
 	const perhentian = aktif.some((option) => option.value === value) ? value : aktif[0]?.value;
@@ -90,7 +97,7 @@ export function SegmentedButton<T extends string>({ options, value, onChange, la
 	}
 
 	return (
-		<div role={panel ? "tablist" : "radiogroup"} aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy} onKeyDown={tekan} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
+		<div role={panel ? "tablist" : "radiogroup"} aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy} aria-describedby={describedBy} data-field={field ? "" : undefined} onKeyDown={tekan} className={cx("m3-segment-group inline-flex items-center gap-0.5 rounded-lg bg-primary-soft p-[3px]", className)}>
 			{options.map((option) => {
 				const selected = option.value === value;
 				return (

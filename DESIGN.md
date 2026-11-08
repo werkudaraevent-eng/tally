@@ -175,6 +175,7 @@ akibatnya token bisa berubah tanpa perubahan itu sampai ke layar.
 | `TextField`, `TextArea`, `SelectField` | Label di atas kolom, bukan mengambang — lihat catatan di berkasnya |
 | `StatusChip`, `FilterChip` | Chip penyaring menandai terpilih tiga kali: warna, centang, bentuk |
 | `SegmentedButton` | `radiogroup`, jadi panah kiri/kanan bekerja. Untuk MEMILIH di dalam tampilan yang sedang dilihat |
+| `SegmentedField` | `SegmentedButton` sebagai kolom formulir: label di atas, petunjuk/galat di bawah, `name` untuk FormData. 36px seperti kolom lain; di layar sentuh bidang tekan tiap segmen 48px. Lihat "Dropdown, segmented, atau switch" |
 | `Tabs` | `tablist` + indikator 3px, roving tabindex. Untuk MENGGANTI tampilan. Kalau isinya berubah, ia tab — bukan segmented button |
 | `Switch` | Ikon di dalam kenop; kenop membesar saat menyala |
 | `LinearProgress`, `CircularProgress`, `LoadingIndicator` | Yang terakhir hanya untuk layar panggung |
@@ -504,6 +505,30 @@ terang yang lebih mencolok daripada isinya.
 - Satu aksi utama yang jelas per layar operasional — satu `variant="filled"`.
 - Ikon memakai `@phosphor-icons/react`, bobot goresan konsisten. Tanpa emoji.
 - Tampilan uang memakai `tabular-nums`.
+
+### Dropdown, segmented, atau switch
+
+Satu kolom pilihan tunggal memakai bentuk yang ditentukan oleh pilihannya,
+bukan oleh komponen yang paling gampang ditulis (M3 "Segmented buttons":
+2 sampai 5 pilihan yang semuanya perlu terlihat; Google Flights dan Booking.com
+memakai pola yang sama untuk "Pulang-pergi / Sekali jalan").
+
+| Pilihannya | Pakai |
+| --- | --- |
+| Nyala atau mati | `Switch` |
+| 2 sampai 4 pilihan TETAP, label pendek (satu atau dua kata) | `SegmentedField` |
+| 5 pilihan atau lebih, atau labelnya kalimat | `SelectField` |
+| Daftar yang datang dari data organiser (hotel, sesi, peran, pertanyaan) | `SelectField`, atau `SelectMenu` untuk penyaring |
+| Operator di dalam satu baris aturan ("is one of / is not one of") | dropdown kecil di baris itu, seperti penyaring Airtable dan Notion |
+
+Alasannya: dropdown menyembunyikan pilihan di balik satu ketukan tambahan, dan
+di Android `<select>` membuka daftar gelap milik sistem yang bukan gaya Tally.
+Dua sampai empat pilihan pendek muat di layar 360px sebagai segmen.
+
+**Dijaga otomatis.** `src/lib/m3/pilihan-pendek.check.ts` (bagian dari
+`npm run check`) gagal bila ada `SelectField` atau `<select>` dengan 2 sampai 4
+`<option>` yang ditulis langsung. Pengecualian disebut satu per satu di berkas
+itu, beserta alasannya; pengecualian yang tidak lagi cocok juga membuatnya gagal.
 
 ## Status migrasi
 

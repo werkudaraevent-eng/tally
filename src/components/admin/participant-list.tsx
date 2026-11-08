@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, ChipMenu, ColumnMenu, DetailSection, Dialog, EmptyCell, EmptyState, IconButton, KeyValue,
-  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, SelectMenu, StatusChip, useColumnPrefs, usePageSizePref, usePopoverAnchor, type ColumnOption,
+  ListDetail, Pane, PaneBody, PaneFooter, PaneHeader, Popover, SegmentedField, SelectMenu, StatusChip, useColumnPrefs, usePageSizePref, usePopoverAnchor, type ColumnOption,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { ResetCheckInDialog, type TargetReset } from "@/components/admin/reset-check-in-dialog";
@@ -1561,13 +1561,24 @@ export function ParticipantList({ reloadKey = 0, timeZone = DEFAULT_TIME_ZONE, o
           {opsiKursi?.sessions.map((sesi) => <div key={`kursi-${sesi.id}`}>{kursiField(sesi)}</div>)}
           {editingLocked
             ? field("RSVP", <p className={lockedClass}><LockSimple size={14} className="mr-2 shrink-0" />{LABEL_RSVP[editingRow?.rsvp_status ?? ""] ?? "Not set"}</p>)
-            : field("RSVP", (
-              <select value={draft.rsvp_status} onChange={(event) => setDraft({ ...draft, rsvp_status: event.target.value })} className={inputClass}>
-                <option value="">Not set</option>
-                <option value="invited">Awaiting reply</option>
-                <option value="confirmed">Confirmed</option>
-              </select>
-            ))}
+            : (
+              // Bukan lewat field(): field() membungkus isinya dengan <label>, dan
+              // label yang membungkus grup tombol ikut menekan tombol pertama
+              // saat teks labelnya diklik.
+              <SegmentedField
+                label="RSVP"
+                value={draft.rsvp_status}
+                onChange={(rsvp_status) => setDraft({ ...draft, rsvp_status })}
+                options={[
+                  { value: "", label: "Not set" },
+                  { value: "invited", label: "Awaiting reply" },
+                  { value: "confirmed", label: "Confirmed" },
+                  // "Declined" hanya datang dari impor; ditampilkan bila nilainya
+                  // memang itu, supaya pilihan yang tersimpan tetap terlihat.
+                  ...(draft.rsvp_status === "declined" ? [{ value: "declined", label: "Declined" }] : []),
+                ]}
+              />
+            )}
           {textField("Email", "email", { placeholder: "email@example.com", type: "email" })}
           {textField("Phone", "phone", { placeholder: "08xx or +62xx" })}
           {bagianJawaban("formulir", "Registration form answers", null, jawaban.formulir)}

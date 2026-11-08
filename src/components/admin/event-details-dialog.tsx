@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Button, Dialog, SelectField, TextField } from "@/components/m3";
+import { Button, Dialog, SegmentedField, TextField } from "@/components/m3";
+import { normalizeTimeZone, timeZoneAbbr, timeZoneHint, TIME_ZONE_OPTIONS, type EventTimeZone } from "@/lib/timezone";
 import { EVENT_VENUE_MAX, type EventRow } from "@/lib/domain";
 
 /**
@@ -115,7 +116,7 @@ export function EventDetailsDialog({
 function Formulir({ event, onSubmit, error, galat }: { event: EventDetails; onSubmit: (e: FormEvent<HTMLFormElement>) => void; error: string; galat: GalatKolom }) {
   const [info, setInfo] = useState<Info | null>(null);
   const [tanggal, setTanggal] = useState(event.event_date ?? "");
-  const [zona, setZona] = useState<string>(event.time_zone ?? "Asia/Jakarta");
+  const [zona, setZona] = useState<EventTimeZone>(normalizeTimeZone(event.time_zone));
 
   useEffect(() => {
     let batal = false;
@@ -143,13 +144,9 @@ function Formulir({ event, onSubmit, error, galat }: { event: EventDetails; onSu
         error={galat.name}
         hint={info?.public_name ? `The event page and emails show the public name “${info.public_name}”. Change it in Event page.` : undefined}
       />
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_14rem]">
         <TextField label="Date" name="event_date" type="date" optional value={tanggal} onChange={(e) => setTanggal(e.target.value)} error={galat.event_date} />
-        <SelectField label="Time zone" name="time_zone" error={galat.time_zone} value={zona} onChange={(e) => setZona(e.target.value)}>
-          <option value="Asia/Jakarta">WIB</option>
-          <option value="Asia/Makassar">WITA</option>
-          <option value="Asia/Jayapura">WIT</option>
-        </SelectField>
+        <SegmentedField label="Time zone" name="time_zone" value={zona} onChange={setZona} options={TIME_ZONE_OPTIONS} hint={timeZoneHint(zona)} error={galat.time_zone} />
       </div>
       {/* Hari agenda menyimpan tanggalnya sendiri (strip agenda, badge,
           rundown publik). Tanpa digeser, acara pindah tanggal sementara
@@ -161,7 +158,7 @@ function Formulir({ event, onSubmit, error, galat }: { event: EventDetails; onSu
         </label>
       ) : null}
       {zonaBerubah ? (
-        <p className="mt-3 text-body-small text-on-surface-variant">Times stay as written: 09:00 stays 09:00, now in {zona === "Asia/Makassar" ? "WITA" : zona === "Asia/Jayapura" ? "WIT" : "WIB"}.</p>
+        <p className="mt-3 text-body-small text-on-surface-variant">Times stay as written: 09:00 stays 09:00, now in {timeZoneAbbr(zona)}.</p>
       ) : null}
       <TextField className="mt-4" label="Venue" name="venue_name" optional maxLength={EVENT_VENUE_MAX} defaultValue={event.venue_name ?? ""} error={galat.venue_name} />
       {error ? <p role="alert" className="mt-3 rounded-lg border border-error-soft-outline bg-error-soft p-3 text-body-small text-on-error-soft">{error}</p> : null}

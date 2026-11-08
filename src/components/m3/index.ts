@@ -38,6 +38,8 @@ export type { SelectMenuProps, SelectOption } from "./select-menu";
 
 export { SegmentedButton, segmentTabId } from "./segmented-button";
 export type { SegmentedButtonProps, SegmentedOption } from "./segmented-button";
+export { SegmentedField } from "./segmented-field";
+export type { SegmentedFieldProps } from "./segmented-field";
 
 export { Switch } from "./switch";
 export type { SwitchProps } from "./switch";

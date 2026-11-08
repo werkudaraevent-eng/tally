@@ -21,7 +21,7 @@ import { DEFAULT_REVEAL_STAGES, normalizeStages, type RevealAction, type RevealM
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 import {
   Banner, Button, ButtonLink, DetailSection, Dialog, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
-  SegmentedButton, StatusChip, SupportingPane, WorkspaceHeader, WorkspacePage,
+  SegmentedButton, SegmentedField, StatusChip, SupportingPane, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { DisplayTabs } from "../display-tabs";
 import { INPUT } from "@/components/admin/compact-form";
@@ -391,13 +391,12 @@ export default function RevealControlPage() {
                     Sampai
                     <input type="number" min={1} max={50} value={item.to} onChange={(event) => ubahTahap(index, { to: Math.max(1, Math.min(50, Number(event.target.value) || 1)) })} className={cx(INPUT, "tabular-nums")} />
                   </label>
-                  <label className="block text-body-medium font-medium text-on-surface">
-                    Tampilan
-                    <select value={item.layout} onChange={(event) => ubahTahap(index, { layout: event.target.value === "spotlight" ? "spotlight" : "list" })} className={INPUT}>
-                      <option value="spotlight">Besar</option>
-                      <option value="list">Daftar</option>
-                    </select>
-                  </label>
+                  <SegmentedField
+                    label="Tampilan"
+                    value={item.layout === "spotlight" ? "spotlight" : "list"}
+                    onChange={(layout) => ubahTahap(index, { layout })}
+                    options={[{ value: "spotlight", label: "Besar" }, { value: "list", label: "Daftar" }]}
+                  />
                 </div>
               </fieldset>
             ))}

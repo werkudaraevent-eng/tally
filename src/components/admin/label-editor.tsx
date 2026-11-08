@@ -4,7 +4,7 @@ import { ArrowCounterClockwise, Plus, Trash, Warning } from "@phosphor-icons/rea
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Banner, Button, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter, PaneHeader,
-  SegmentedButton, SelectField, SupportingPane, Switch, TextField, WorkspaceHeader, WorkspacePage,
+  SegmentedButton, SegmentedField, SupportingPane, Switch, TextField, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { eventApiPath } from "@/lib/event-url";
@@ -678,15 +678,13 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
         />
       </Kelompok>
       <Kelompok title="Model printer">
-        <SelectField
+        <SegmentedField
           label="Urutan perintah"
           hint="b1 untuk B21, B1, D11, D110. v4 untuk B21 Pro dan B1 Pro."
-          value={settings.task}
-          onChange={(event) => ubah("task", event.target.value === "v4" ? "v4" : "b1")}
-        >
-          <option value="b1">b1 (B21, B1, D11, D110)</option>
-          <option value="v4">v4 (B21 Pro, B1 Pro)</option>
-        </SelectField>
+          value={settings.task === "v4" ? "v4" : "b1"}
+          onChange={(task) => ubah("task", task)}
+          options={[{ value: "b1", label: "b1" }, { value: "v4", label: "v4" }]}
+        />
         <TextField
           label="DPI"
           type="number"
