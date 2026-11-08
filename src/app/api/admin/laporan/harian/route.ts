@@ -1,10 +1,11 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { bacaSetelanHari, BATAS_HARIAN, tanggalSah } from "@/lib/laporan/harian/config";
+import { bacaSetelanHari, BATAS_HARIAN, hariSah } from "@/lib/laporan/harian/config";
 import { fotoLaporanSah } from "@/lib/laporan/harian/foto";
 import { hurufAcara, muatHarian } from "@/lib/laporan/harian/server";
 import { muatBahanLaporan } from "@/lib/laporan/bahan-server";
-import { susunHari } from "@/lib/laporan/harian/hitung";
+import { hariAcara, susunHari, susunRingkasan } from "@/lib/laporan/harian/hitung";
+import { RINGKASAN } from "@/lib/laporan/harian/jenis";
 import { muatLaporan, simpanConfig } from "@/lib/laporan/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -13,6 +14,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * (migrasi 202611080060, tanpa migrasi baru).
  *
  * GET  ?tanggal=YYYY-MM-DD  daftar hari, setelan dan highlight hari itu.
+ *      `tanggal` juga bisa "semua": story Seluruh acara (acara lebih dari satu hari).
  * PUT  { tanggal, setelan: { sembunyi, catatan, foto }, updated_at }  simpan setelan.
  * POST { tanggal, aksi: "kunci" | "buka", updated_at }  kunci angka saat ini, atau buka lagi.
  * updated_at = yang DIMUAT (compare-and-swap); 409 bila diubah di tab lain.
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
   if (!laporan) return apiError("INTERNAL_ERROR", 500);
   if (!laporan.siap) return Response.json({ siap: false });
   const tanggal = new URL(request.url).searchParams.get("tanggal");
-  const data = await muatHarian(auth.scope.event, laporan.config, tanggal && tanggalSah(tanggal) ? tanggal : null).catch(() => null);
+  const data = await muatHarian(auth.scope.event, laporan.config, tanggal && hariSah(tanggal) ? tanggal : null).catch(() => null);
   if (!data) return apiError("INTERNAL_ERROR", 500);
   return Response.json({ siap: true, updated_at: laporan.updated_at, tautan: laporan.config.tautan, slug: auth.scope.event.slug, ...data });
 }
@@ -36,7 +38,7 @@ type Body = { tanggal?: unknown; setelan?: unknown; aksi?: unknown; updated_at?:
 
 async function baca(request: Request) {
   const body = (await request.json().catch(() => null)) as Body | null;
-  if (!body || typeof body.tanggal !== "string" || !tanggalSah(body.tanggal) || !(body.updated_at === null || typeof body.updated_at === "string")) return null;
+  if (!body || typeof body.tanggal !== "string" || !hariSah(body.tanggal) || !(body.updated_at === null || typeof body.updated_at === "string")) return null;
   return body as Body & { tanggal: string; updated_at: string | null };
 }
 
@@ -56,7 +58,7 @@ export async function PUT(request: Request) {
   if (!laporan) return apiError("INTERNAL_ERROR", 500);
   if (!laporan.siap) return Response.json({ siap: false });
   const lama = laporan.config.harian[body.tanggal];
-  if (!lama && Object.keys(laporan.config.harian).length >= BATAS_HARIAN.hari) return apiError("VALIDATION_ERROR", 422);
+  if (!lama && body.tanggal !== RINGKASAN && Object.keys(laporan.config.harian).filter((t) => t !== RINGKASAN).length >= BATAS_HARIAN.hari) return apiError("VALIDATION_ERROR", 422);
   // Salinan terkunci tidak bisa dikirim dari klien: selalu yang sudah tersimpan.
   const setelan = { ...bacaSetelanHari(body.setelan, fotoSah), kunci: lama?.kunci ?? null };
   const config = { ...laporan.config, harian: { ...laporan.config.harian, [body.tanggal]: setelan } };
@@ -77,8 +79,14 @@ export async function POST(request: Request) {
   if (body.aksi === "kunci") {
     const bahan = await muatBahanLaporan(event, laporan.config).catch(() => null);
     if (!bahan) return apiError("INTERNAL_ERROR", 500);
-    if (!bahan.sesi.some((s) => s.tanggal === body.tanggal)) return apiError("VALIDATION_ERROR", 422);
-    kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event)).hari };
+    if (body.tanggal === RINGKASAN) {
+      // Seluruh acara hanya untuk acara lebih dari satu hari.
+      if (hariAcara(bahan).length < 2) return apiError("VALIDATION_ERROR", 422);
+      kunci = { at: new Date().toISOString(), hari: susunRingkasan(bahan, lama, hurufAcara(event)).hari };
+    } else {
+      if (!bahan.sesi.some((s) => s.tanggal === body.tanggal)) return apiError("VALIDATION_ERROR", 422);
+      kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event)).hari };
+    }
   }
   const config = { ...laporan.config, harian: { ...laporan.config.harian, [body.tanggal]: { ...lama, kunci } } };
   const hasil = await simpanConfig(event.id, config, body.updated_at, auth.user.id);

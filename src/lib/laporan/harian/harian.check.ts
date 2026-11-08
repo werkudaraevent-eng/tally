@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { bahanContoh } from "../contoh.ts";
 import { bacaHarian, bacaSetelanHari, SETELAN_KOSONG } from "./config.ts";
-import { hariAcara, kedatanganHari, sibukHari, susunHari } from "./hitung.ts";
+import { hariAcara, kedatanganHari, sibukHari, susunHari, susunRingkasan } from "./hitung.ts";
+import { RINGKASAN } from "./jenis.ts";
 import { warnaHalaman, warnaMuda } from "./warna.ts";
 import { kontras } from "../../landing-hitung-mundur.ts";
 
@@ -22,10 +23,29 @@ assert.ok(tutup.kunci === "penutup" && tutup.judul === "Besok, Sesi 2 mulai 08.0
 const jam = h1.halaman[2];
 assert.ok(jam.kunci === "jam" && jam.batang.filter((x) => x.puncak).length === 1 && jam.batang.length <= 8);
 
-// Hari terakhir: ada rekap, penutup terima kasih.
+// Hari terakhir: rekap pindah ke Seluruh acara; penutup terima kasih.
 const h3 = susunHari(b, "2026-11-08", SETELAN_KOSONG, huruf).hari;
-assert.ok(h3.halaman.some((p) => p.kunci === "rekap"));
+assert.ok(!h3.halaman.some((p) => p.kunci === "rekap"));
 assert.equal(h3.halaman.at(-1)!.judul, "Terima kasih sudah bersama kami.");
+// Persen agenda disertai jumlahnya.
+const agH1 = h1.halaman.find((p) => p.kunci === "agenda");
+assert.ok(agH1?.kunci === "agenda" && agH1.baris.every((r) => r.persen === null || /^\d[\d.]* dari \d[\d.]*$/.test(r.ket ?? "")), JSON.stringify(agH1));
+
+// Seluruh acara: kunci RINGKASAN, hari 0, tiap persen ada "x dari y".
+const rk = susunRingkasan(b, SETELAN_KOSONG, huruf);
+assert.equal(rk.hari.tanggal, RINGKASAN);
+assert.equal(rk.hari.hariKe, 0);
+assert.equal(rk.hari.halaman[0].kunci, "sampul");
+assert.equal(rk.hari.halaman.at(-1)!.kunci, "penutup");
+const rekap = rk.hari.halaman.find((p) => p.kunci === "rekap");
+assert.ok(rekap?.kunci === "rekap" && rekap.hari.length === 3 && rekap.hari.every((d) => / dari /.test(d.ket ?? "")), JSON.stringify(rekap));
+for (const p of rk.hari.halaman) if (p.kunci === "puas") assert.ok(p.segmen.every((g) => /orang$/.test(g.ket)));
+// Halaman tanpa data absen dengan alasan, bukan hilang diam-diam.
+assert.ok(rk.ada.length + rk.absen.length >= 8, JSON.stringify([rk.ada, rk.absen]));
+// Sembunyi berlaku juga di Seluruh acara.
+assert.ok(!susunRingkasan(b, { ...SETELAN_KOSONG, sembunyi: ["rekap"] }, huruf).hari.halaman.some((p) => p.kunci === "rekap"));
+// Kunci "semua" dibaca dari config, tanggal ngawur tetap dibuang.
+assert.deepEqual(Object.keys(bacaHarian({ semua: {}, "2026-13-45": {}, "2026-11-06": {} })), ["2026-11-06", RINGKASAN]);
 
 // Hadir unik per hari memakai id bila ada, bukan jumlah terbesar.
 const dobel = bahanContoh();

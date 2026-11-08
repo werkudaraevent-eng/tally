@@ -4,7 +4,7 @@
  * (sekitar 3 KB per hari) dan dibatasi 14 hari, jauh di bawah batas 100 KB
  * kolom config.
  */
-import { KUNCI_HALAMAN, type HariHighlight, type KunciHalaman } from "./jenis.ts";
+import { KUNCI_HALAMAN, RINGKASAN, type HariHighlight, type KunciHalaman } from "./jenis.ts";
 
 export const BATAS_HARIAN = { hari: 14, catatan: 160, foto: 3, url: 1000 } as const;
 
@@ -25,6 +25,8 @@ export const tanggalSah = (t: string) => {
   const d = TANGGAL.test(t) ? new Date(`${t}T00:00:00Z`) : null;
   return !!d && Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === t;
 };
+/** Kunci baris config.harian: tanggal acara, atau RINGKASAN (Seluruh acara). */
+export const hariSah = (t: string) => t === RINGKASAN || tanggalSah(t);
 const kunciSah = new Set<string>(KUNCI_HALAMAN);
 
 /** Salinan terkunci dipercaya dari server sendiri; cukup diperiksa bentuk luarnya. */
@@ -55,5 +57,7 @@ export function bacaHarian(nilai: unknown): ConfigHarian {
   for (const [tgl, isi] of Object.entries(nilai).filter(([t]) => tanggalSah(t)).sort(([a], [b]) => a.localeCompare(b)).slice(-BATAS_HARIAN.hari)) {
     hasil[tgl] = bacaSetelanHari(isi);
   }
+  const semua = (nilai as Record<string, unknown>)[RINGKASAN];
+  if (semua) hasil[RINGKASAN] = bacaSetelanHari(semua);
   return hasil;
 }

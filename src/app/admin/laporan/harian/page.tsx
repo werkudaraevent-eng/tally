@@ -7,6 +7,7 @@ import { CarouselHarian } from "@/components/laporan/harian/carousel";
 import { Banner, Button, PageLoading, StatusChip, WorkspaceHeader, WorkspacePage } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import type { SetelanHari } from "@/lib/laporan/harian/config";
+import { RINGKASAN } from "@/lib/laporan/harian/jenis";
 import type { DataHarian, StatusHari } from "@/lib/laporan/harian/server";
 import { cx } from "@/lib/m3/cx";
 import { LaporanTabs } from "../laporan-tabs";
@@ -24,7 +25,7 @@ import { bagikanGambar } from "./bagikan";
 type Data = DataHarian & { siap: true; updated_at: string | null; tautan: Tautan; slug: string };
 
 const waktu = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-const hariLabel = (t: string) => new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+const hariLabel = (t: string) => (t === RINGKASAN ? "Whole event" : new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }));
 const CHIP: Record<StatusHari, { tone: "success" | "warning" | "primary" | "neutral"; teks: string }> = {
   terkunci: { tone: "success", teks: "Locked" },
   siap: { tone: "warning", teks: "Ready to review" },
@@ -129,7 +130,7 @@ export default function HalamanHarian() {
     <WorkspacePage>
       <WorkspaceHeader
         title="Event report"
-        meta={<span>A 9:16 image set for the client after each event day. Lock the figures, then share. Locked days also play on the client view, in the Report tab.</span>}
+        meta={<span>A 9:16 image set for the client after each event day, and a Whole event recap when the event runs more than one day. Lock the figures, then share. Locked days also play on the client view, in the Report tab.</span>}
         actions={
           dikunci ? (
             <>
@@ -168,7 +169,7 @@ export default function HalamanHarian() {
             {data.highlight ? <CarouselHarian hari={data.highlight} /> : null}
           </section>
           <div className="flex min-w-0 flex-col gap-4">
-            <KartuTautan tautan={data.tautan} slug={data.slug} jumlahKunci={data.hari.filter((h) => h.status === "terkunci").length} terkunci={terkunci} sibuk={sibuk === "tautan"} onAksi={(a) => void ubahTautan(a)} />
+            <KartuTautan tautan={data.tautan} slug={data.slug} jumlahKunci={data.hari.filter((h) => h.tanggal !== RINGKASAN && h.status === "terkunci").length} semuaKunci={data.hari.some((h) => h.tanggal === RINGKASAN && h.status === "terkunci")} terkunci={terkunci} sibuk={sibuk === "tautan"} onAksi={(a) => void ubahTautan(a)} />
             <EditorHari
               key={`${data.tanggal}:${dikunci?.at ?? ""}`}
               setelan={data.setelan as SetelanHari}
@@ -176,6 +177,7 @@ export default function HalamanHarian() {
               ada={data.ada}
               kunci={!!dikunci}
               terkunci={terkunci}
+              semua={data.tanggal === RINGKASAN}
               onUbah={ubah}
             />
           </div>

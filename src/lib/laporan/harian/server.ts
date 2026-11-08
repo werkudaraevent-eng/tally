@@ -10,8 +10,8 @@ import { muatBahanLaporan } from "../bahan-server";
 import type { ConfigLaporan } from "../config";
 import { tanggalLokal } from "../teks";
 import { SETELAN_KOSONG, type SetelanHari } from "./config";
-import { hariAcara, susunHari } from "./hitung";
-import type { HalamanAbsen, HariHighlight, KunciHalaman } from "./jenis";
+import { hariAcara, susunHari, susunRingkasan } from "./hitung";
+import { RINGKASAN, type HalamanAbsen, type HariHighlight, type KunciHalaman } from "./jenis";
 
 export type StatusHari = "terkunci" | "siap" | "hari_ini" | "nanti";
 export type BarisHari = { tanggal: string; status: StatusHari; kunci_at: string | null };
@@ -27,14 +27,18 @@ export async function muatHarian(event: EventRow, config: ConfigLaporan, pilih: 
   const bahan = await muatBahanLaporan(event, config);
   if (!bahan) return null;
   const hariIni = tanggalLokal(bahan.sekarang, bahan.acara.offset);
-  const hari: BarisHari[] = hariAcara(bahan).map((t) => {
+  const semua = hariAcara(bahan);
+  const status = (t: string, akhir: string): BarisHari => {
     const kunci = config.harian[t]?.kunci ?? null;
-    return { tanggal: t, kunci_at: kunci?.at ?? null, status: kunci ? "terkunci" : t < hariIni ? "siap" : t === hariIni ? "hari_ini" : "nanti" };
-  });
-  // Bawaan: hari terakhir yang sudah berjalan, atau hari pertama.
-  const tanggal = hari.find((h) => h.tanggal === pilih)?.tanggal ?? [...hari].reverse().find((h) => h.status !== "nanti")?.tanggal ?? hari[0]?.tanggal ?? null;
+    return { tanggal: t, kunci_at: kunci?.at ?? null, status: kunci ? "terkunci" : akhir < hariIni ? "siap" : akhir === hariIni ? "hari_ini" : "nanti" };
+  };
+  const hari: BarisHari[] = semua.map((t) => status(t, t));
+  // Seluruh acara di ujung daftar, hanya untuk acara lebih dari satu hari; siap setelah hari terakhir.
+  if (semua.length > 1) hari.push(status(RINGKASAN, semua[semua.length - 1]));
+  // Bawaan: hari terakhir yang sudah berjalan, atau hari pertama (Seluruh acara hanya bila dipilih).
+  const tanggal = hari.find((h) => h.tanggal === pilih)?.tanggal ?? [...hari].reverse().find((h) => h.tanggal !== RINGKASAN && h.status !== "nanti")?.tanggal ?? hari[0]?.tanggal ?? null;
   if (!tanggal) return { hari, tanggal: null, setelan: { ...SETELAN_KOSONG }, highlight: null, absen: [], ada: [] };
   const setelan = config.harian[tanggal] ?? { ...SETELAN_KOSONG };
-  const hidup = susunHari(bahan, tanggal, setelan, hurufAcara(event));
+  const hidup = tanggal === RINGKASAN ? susunRingkasan(bahan, setelan, hurufAcara(event)) : susunHari(bahan, tanggal, setelan, hurufAcara(event));
   return { hari, tanggal, setelan, highlight: setelan.kunci?.hari ?? hidup.hari, absen: hidup.absen, ada: hidup.ada };
 }

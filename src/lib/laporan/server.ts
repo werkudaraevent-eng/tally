@@ -8,7 +8,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { muatBahanLaporan } from "./bahan-server";
 import { timingSafeEqual } from "node:crypto";
 import { bacaConfig, TOKEN_TAUTAN, type ConfigLaporan } from "./config";
-import type { HariHighlight } from "./harian/jenis";
+import { RINGKASAN, type HariHighlight } from "./harian/jenis";
 import type { Deck } from "./jenis";
 import { susunDeck, type HasilSusun } from "./susun";
 
@@ -75,6 +75,14 @@ export const simpanConfig = (eventId: string, config: ConfigLaporan, dimuat: str
 export const simpanBagikan = (eventId: string, deck: Deck | null, dimuat: string | null, userId: string) =>
   tulis(eventId, { shared_snapshot: deck, shared_at: deck ? new Date().toISOString() : null, shared_by: deck ? userId : null }, dimuat, userId);
 
+/** Salinan yang dikunci: Seluruh acara paling depan, lalu urut tanggal. */
+function terkunci(harian: ConfigLaporan["harian"]): HariHighlight[] {
+  return Object.values(harian)
+    .map((s) => s.kunci?.hari)
+    .filter((h): h is HariHighlight => !!h && h.halaman.length > 0)
+    .sort((x, y) => (x.tanggal === RINGKASAN ? -1 : y.tanggal === RINGKASAN ? 1 : x.tanggal.localeCompare(y.tanggal)));
+}
+
 /**
  * Yang dilihat klien di tab Report: deck yang dibagikan (Share with client) dan
  * highlight harian yang sudah dikunci panitia, urut tanggal. Hanya salinan
@@ -86,9 +94,7 @@ export async function snapshotKlien(eventId: string): Promise<{ deck: Deck | nul
   if (error || !data) return null;
   const baris = data as { shared_snapshot: Deck | null; shared_at: string | null; config: unknown };
   const deck = baris.shared_snapshot && baris.shared_at ? baris.shared_snapshot : null;
-  const harian = Object.values(bacaConfig(baris.config).harian)
-    .map((s) => s.kunci?.hari)
-    .filter((h): h is HariHighlight => !!h && h.halaman.length > 0);
+  const harian = terkunci(bacaConfig(baris.config).harian);
   return deck || harian.length ? { deck, shared_at: deck ? baris.shared_at : null, harian } : null;
 }
 
@@ -104,8 +110,5 @@ export async function highlightLewatTautan(eventId: string, token: string): Prom
   const config = bacaConfig((data as { config: unknown }).config);
   const simpan = config.tautan?.token;
   if (!simpan || simpan.length !== token.length || !timingSafeEqual(Buffer.from(simpan), Buffer.from(token))) return null;
-  return Object.values(config.harian)
-    .map((s) => s.kunci?.hari)
-    .filter((h): h is HariHighlight => !!h && h.halaman.length > 0)
-    .sort((x, y) => x.tanggal.localeCompare(y.tanggal));
+  return terkunci(config.harian);
 }

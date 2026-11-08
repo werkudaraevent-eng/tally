@@ -3,7 +3,7 @@
 import { X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { HariHighlight } from "@/lib/laporan/harian/jenis";
+import { RINGKASAN, type HariHighlight } from "@/lib/laporan/harian/jenis";
 import { Bingkai, hurufCss } from "./carousel";
 import { HalamanHarianView, LEBAR, TINGGI } from "./halaman";
 
@@ -31,13 +31,15 @@ ${Array.from({ length: 12 }, (_, i) => `.cr-hal [data-gerak="orang"]:nth-child($
 
 /** Teks pemutar. Tampilan klien (`/live`) berbahasa Inggris; link highlight mengikuti bahasa acara. */
 const TEKS = {
-  en: { judul: "Daily highlights", petunjuk: "Tap a day to play it. Figures were locked by the committee at the end of each day.", hari: (n: number) => `Day ${n}`, satuHari: "Event day", putar: (l: string, n: number) => `Play ${l}, ${n} images`, dari: "of", tutup: "Close", mundur: "Previous image", maju: "Next image", lokal: "en-GB" },
-  id: { judul: "Highlight harian", petunjuk: "Ketuk satu hari untuk memutarnya. Angkanya dikunci panitia di akhir tiap hari.", hari: (n: number) => `Hari ${n}`, satuHari: "Hari acara", putar: (l: string, n: number) => `Putar ${l}, ${n} gambar`, dari: "dari", tutup: "Tutup", mundur: "Gambar sebelumnya", maju: "Gambar berikutnya", lokal: "id-ID" },
+  en: { judul: "Daily highlights", petunjuk: "Tap a day to play it. Figures were locked by the committee at the end of each day.", hari: (n: number) => `Day ${n}`, satuHari: "Event day", semua: "Whole event", putar: (l: string, n: number) => `Play ${l}, ${n} images`, dari: "of", tutup: "Close", mundur: "Previous image", maju: "Next image", lokal: "en-GB" },
+  id: { judul: "Highlight harian", petunjuk: "Ketuk satu hari untuk memutarnya. Angkanya dikunci panitia di akhir tiap hari.", hari: (n: number) => `Hari ${n}`, satuHari: "Hari acara", semua: "Seluruh acara", putar: (l: string, n: number) => `Putar ${l}, ${n} gambar`, dari: "dari", tutup: "Tutup", mundur: "Gambar sebelumnya", maju: "Gambar berikutnya", lokal: "id-ID" },
 } as const;
 type Bahasa = keyof typeof TEKS;
 
-const tanggalPendek = (t: string, b: Bahasa) => new Date(`${t}T00:00:00Z`).toLocaleDateString(TEKS[b].lokal, { day: "numeric", month: "short", timeZone: "UTC" });
-const namaHari = (h: HariHighlight, b: Bahasa) => (h.totalHari > 1 ? TEKS[b].hari(h.hariKe) : TEKS[b].satuHari);
+const tanggalPendek = (h: HariHighlight, b: Bahasa) =>
+  // Rentang Seluruh acara ditulis dalam bahasa acara: jangan dicampur dengan bahasa pemutar.
+  h.tanggal === RINGKASAN ? (h.bahasa === b ? (h.rentang ?? "") : "") : new Date(`${h.tanggal}T00:00:00Z`).toLocaleDateString(TEKS[b].lokal, { day: "numeric", month: "short", timeZone: "UTC" });
+const namaHari = (h: HariHighlight, b: Bahasa) => (h.tanggal === RINGKASAN ? TEKS[b].semua : h.totalHari > 1 ? TEKS[b].hari(h.hariKe) : TEKS[b].satuHari);
 
 /** Deret sampul hari, seperti lingkaran stories; ketuk untuk memutar. */
 /** `grid`: sampul besar dua-tiga kolom (halaman link highlight), bukan deret geser. */
@@ -62,7 +64,7 @@ export function CeritaHarian({ hari, bahasa = "en", judul = true, grid = false }
                 asal.current = e.currentTarget;
                 setBuka(i);
               }}
-              aria-label={t.putar(`${namaHari(h, bahasa)}, ${tanggalPendek(h.tanggal, bahasa)}`, h.halaman.length)}
+              aria-label={t.putar([namaHari(h, bahasa), tanggalPendek(h, bahasa)].filter(Boolean).join(", "), h.halaman.length)}
             >
               <span className="block w-full rounded-xl p-[3px]" style={{ background: h.tema.aksen }}>
                 <span className="block overflow-hidden rounded-[9px] bg-surface p-[2px]">
@@ -73,7 +75,7 @@ export function CeritaHarian({ hari, bahasa = "en", judul = true, grid = false }
               </span>
               <span className="flex flex-col">
                 <span className="text-label-large">{namaHari(h, bahasa)}</span>
-                <span className="text-body-small text-on-surface-variant">{tanggalPendek(h.tanggal, bahasa)}</span>
+                <span className="text-body-small text-on-surface-variant">{tanggalPendek(h, bahasa)}</span>
               </span>
             </button>
           </li>
@@ -141,7 +143,7 @@ export function PemutarCerita({ hari, mulai = 0, bahasa = "en", tutup }: { hari:
     };
   }, [maju, mundur, tutup]);
 
-  const label = `${namaHari(h, bahasa)}, ${tanggalPendek(h.tanggal, bahasa)}`;
+  const label = [namaHari(h, bahasa), tanggalPendek(h, bahasa)].filter(Boolean).join(", ");
   // Di body, supaya tidak terkurung wadah halaman (transform, overflow).
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={`${t.judul}, ${label}`} className="fixed left-0 top-0 z-50 flex h-dvh w-screen flex-col items-center bg-[#0b0b0f] text-white">

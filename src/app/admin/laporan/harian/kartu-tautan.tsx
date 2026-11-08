@@ -11,10 +11,12 @@ export type Tautan = { token: string; dibuat: string } | null;
  * sebagai cerita, tanpa login. Seperti link formulir: panitia membuat,
  * menyalin, dan bisa mematikannya. Membuat ulang = link lama mati.
  */
-export function KartuTautan({ tautan, slug, jumlahKunci, terkunci, sibuk, onAksi }: {
+export function KartuTautan({ tautan, slug, jumlahKunci, semuaKunci = false, terkunci, sibuk, onAksi }: {
   tautan: Tautan;
   slug: string;
   jumlahKunci: number;
+  /** Story Seluruh acara sudah dikunci. */
+  semuaKunci?: boolean;
   terkunci: boolean;
   sibuk: boolean;
   onAksi: (aksi: "buat" | "matikan") => void;
@@ -31,7 +33,7 @@ export function KartuTautan({ tautan, slug, jumlahKunci, terkunci, sibuk, onAksi
       setTersalin(false);
     }
   };
-  const hari = jumlahKunci === 1 ? "1 locked day" : `${jumlahKunci} locked days`;
+  const hari = `${jumlahKunci === 1 ? "1 locked day" : `${jumlahKunci} locked days`}${semuaKunci ? " and the Whole event recap" : ""}`;
   return (
     <section aria-labelledby="kt-judul" className="flex flex-col gap-3 rounded-lg border border-outline-variant p-4">
       <div className="flex items-start gap-3">
