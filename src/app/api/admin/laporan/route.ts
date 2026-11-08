@@ -62,11 +62,12 @@ export async function PUT(request: Request) {
   const body = (await request.json().catch(() => null)) as { config?: unknown; updated_at?: unknown } | null;
   if (!body || typeof body.config !== "object" || !(body.updated_at === null || typeof body.updated_at === "string")) return apiError("VALIDATION_ERROR", 422);
   // Highlight harian (termasuk salinan yang dikunci) hanya ditulis lewat
-  // /api/admin/laporan/harian: deck selalu menyimpan ulang yang sudah tersimpan.
+  // /api/admin/laporan/harian, link highlight lewat /api/admin/laporan/tautan:
+  // deck selalu menyimpan ulang yang sudah tersimpan.
   const tersimpan = await muatLaporan(event.id).catch(() => null);
   if (!tersimpan) return apiError("INTERNAL_ERROR", 500);
   if (!tersimpan.siap) return Response.json({ siap: false });
-  const config = { ...bacaConfig(body.config), harian: tersimpan.config.harian };
+  const config = { ...bacaConfig(body.config), harian: tersimpan.config.harian, tautan: tersimpan.config.tautan };
   const hasil = await simpanConfig(event.id, config, body.updated_at, auth.user.id);
   if (!hasil.ok) {
     if (hasil.alasan === "belum_siap") return Response.json({ siap: false });
@@ -75,7 +76,7 @@ export async function PUT(request: Request) {
   }
   await getSupabaseServiceClient()
     .from("audit_logs")
-    .insert({ event_id: event.id, user_id: auth.user.id, action: "event_report_save", payload: { new: { ...config, harian: undefined } } } as never);
+    .insert({ event_id: event.id, user_id: auth.user.id, action: "event_report_save", payload: { new: { ...config, harian: undefined, tautan: undefined } } } as never);
 
   // Deck baru ikut dikirim supaya pratinjau langsung sama dengan yang tersimpan.
   const susun = await hitungLaporan(event, config).catch(() => null);

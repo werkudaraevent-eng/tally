@@ -6,7 +6,8 @@
 import type { EventRow } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { muatBahanLaporan } from "./bahan-server";
-import { bacaConfig, type ConfigLaporan } from "./config";
+import { timingSafeEqual } from "node:crypto";
+import { bacaConfig, TOKEN_TAUTAN, type ConfigLaporan } from "./config";
 import type { HariHighlight } from "./harian/jenis";
 import type { Deck } from "./jenis";
 import { susunDeck, type HasilSusun } from "./susun";
@@ -89,4 +90,22 @@ export async function snapshotKlien(eventId: string): Promise<{ deck: Deck | nul
     .map((s) => s.kunci?.hari)
     .filter((h): h is HariHighlight => !!h && h.halaman.length > 0);
   return deck || harian.length ? { deck, shared_at: deck ? baris.shared_at : null, harian } : null;
+}
+
+/**
+ * Hari yang dikunci untuk link highlight tanpa login. Null bila token salah,
+ * link dimatikan, atau tabel belum ada; daftar kosong bila belum ada hari yang
+ * dikunci. Token dibandingkan dengan waktu tetap.
+ */
+export async function highlightLewatTautan(eventId: string, token: string): Promise<HariHighlight[] | null> {
+  if (!TOKEN_TAUTAN.test(token)) return null;
+  const { data, error } = await tabel().select("config").eq("event_id", eventId).maybeSingle();
+  if (error || !data) return null;
+  const config = bacaConfig((data as { config: unknown }).config);
+  const simpan = config.tautan?.token;
+  if (!simpan || simpan.length !== token.length || !timingSafeEqual(Buffer.from(simpan), Buffer.from(token))) return null;
+  return Object.values(config.harian)
+    .map((s) => s.kunci?.hari)
+    .filter((h): h is HariHighlight => !!h && h.halaman.length > 0)
+    .sort((x, y) => x.tanggal.localeCompare(y.tanggal));
 }

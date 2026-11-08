@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const tanggal = new URL(request.url).searchParams.get("tanggal");
   const data = await muatHarian(auth.scope.event, laporan.config, tanggal && tanggalSah(tanggal) ? tanggal : null).catch(() => null);
   if (!data) return apiError("INTERNAL_ERROR", 500);
-  return Response.json({ siap: true, updated_at: laporan.updated_at, ...data });
+  return Response.json({ siap: true, updated_at: laporan.updated_at, tautan: laporan.config.tautan, slug: auth.scope.event.slug, ...data });
 }
 
 type Body = { tanggal?: unknown; setelan?: unknown; aksi?: unknown; updated_at?: unknown };

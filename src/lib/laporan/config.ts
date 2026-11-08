@@ -45,9 +45,14 @@ export type ConfigLaporan = {
   usulan: BarisUsulan[];
   /** Highlight harian per tanggal (lib/laporan/harian/config.ts). Disimpan apa adanya oleh editor deck. */
   harian: ConfigHarian;
+  /**
+   * Link highlight tanpa login (`/e/<slug>/highlight/<token>`): memutar hari
+   * yang dikunci. Null = mati. Hanya ditulis lewat /api/admin/laporan/tautan.
+   */
+  tautan: { token: string; dibuat: string } | null;
 };
 
-export const CONFIG_KOSONG: ConfigLaporan = { sembunyi: [], urutan: [], judul: {}, catatan: {}, kelompok: null, tambahan: [], usulan: [], harian: {} };
+export const CONFIG_KOSONG: ConfigLaporan = { sembunyi: [], urutan: [], judul: {}, catatan: {}, kelompok: null, tambahan: [], usulan: [], harian: {}, tautan: null };
 
 const KUNCI = /^[a-z0-9_.-]{1,80}$/;
 const teks = (nilai: unknown, maks: number): string | null => {
@@ -99,6 +104,14 @@ function bacaUsulan(nilai: unknown): BarisUsulan[] {
     .slice(0, BATAS.usulan);
 }
 
+/** Token acak base64url (24 karakter dari 18 byte); bentuk lain dianggap mati. */
+export const TOKEN_TAUTAN = /^[A-Za-z0-9_-]{24,64}$/;
+function bacaTautan(nilai: unknown): ConfigLaporan["tautan"] {
+  if (!nilai || typeof nilai !== "object") return null;
+  const t = nilai as { token?: unknown; dibuat?: unknown };
+  return typeof t.token === "string" && TOKEN_TAUTAN.test(t.token) && typeof t.dibuat === "string" ? { token: t.token, dibuat: t.dibuat } : null;
+}
+
 export function bacaConfig(nilai: unknown): ConfigLaporan {
   if (!nilai || typeof nilai !== "object" || Array.isArray(nilai)) return { ...CONFIG_KOSONG };
   const isi = nilai as Record<string, unknown>;
@@ -112,6 +125,7 @@ export function bacaConfig(nilai: unknown): ConfigLaporan {
     tambahan: bacaTambahan(isi.tambahan),
     usulan: bacaUsulan(isi.usulan),
     harian: bacaHarian(isi.harian),
+    tautan: bacaTautan(isi.tautan),
   };
 }
 
