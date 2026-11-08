@@ -17,10 +17,12 @@ const GAYA = `
 .cr-hal [data-gerak="angka"]{animation:cr-naik .56s cubic-bezier(.2,0,0,1) .12s both}
 .cr-hal [data-gerak="orang"]{animation:cr-pop .36s cubic-bezier(.3,1.4,.5,1) both}
 .cr-hal [data-gerak="batang"]{transform-origin:50% 100%;animation:cr-tumbuh .6s cubic-bezier(.2,0,0,1) both}
+.cr-hal [data-gerak="nilai"]{animation:cr-muncul .3s ease-out both}
 .cr-hal [data-gerak="isi"]{transform-origin:0 50%;animation:cr-lebar .7s cubic-bezier(.2,0,0,1) .1s both}
-${Array.from({ length: 12 }, (_, i) => `.cr-hal [data-gerak="orang"]:nth-child(${i + 1}),.cr-hal div:nth-child(${i + 1})>[data-gerak="batang"]{animation-delay:${120 + i * 50}ms}`).join("")}
+${Array.from({ length: 12 }, (_, i) => `.cr-hal [data-gerak="orang"]:nth-child(${i + 1}),.cr-hal div:nth-child(${i + 1})>[data-gerak="batang"]{animation-delay:${120 + i * 50}ms}.cr-hal div:nth-child(${i + 1})>[data-gerak="nilai"]{animation-delay:${520 + i * 50}ms}`).join("")}
 @keyframes cr-masuk{from{opacity:0;transform:translateY(12px) scale(.985)}}
 @keyframes cr-naik{from{opacity:0;transform:translateY(48px)}}
+@keyframes cr-muncul{from{opacity:0}}
 @keyframes cr-pop{from{opacity:0;transform:scale(.4)}}
 @keyframes cr-tumbuh{from{transform:scaleY(0)}}
 @keyframes cr-lebar{from{transform:scaleX(0)}}
@@ -74,7 +76,8 @@ export function CeritaHarian({ hari }: { hari: HariHighlight[] }) {
           mulai={buka}
           tutup={() => {
             setBuka(null);
-            asal.current?.focus();
+            // Setelah pemutar lepas dan halaman tidak lagi inert.
+            requestAnimationFrame(() => asal.current?.focus());
           }}
         />
       ) : null}
@@ -108,17 +111,20 @@ function Pemutar({ hari, mulai, tutup }: { hari: HariHighlight[]; mulai: number;
   useEffect(() => {
     const sebelum = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Halaman di belakang tidak bisa difokus atau diklik selama pemutar terbuka.
+    const dialog = tombolTutup.current?.closest("[role=dialog]");
+    const belakang = [...document.body.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el !== dialog && !el.inert);
+    belakang.forEach((el) => (el.inert = true));
     tombolTutup.current?.focus();
     const tekan = (e: KeyboardEvent) => {
       if (e.key === "Escape") tutup();
-      else if (e.key === "ArrowRight" || e.key === " ") {
-        e.preventDefault();
-        maju();
-      } else if (e.key === "ArrowLeft") mundur();
+      else if (e.key === "ArrowRight") maju();
+      else if (e.key === "ArrowLeft") mundur();
     };
     window.addEventListener("keydown", tekan);
     return () => {
       document.body.style.overflow = sebelum;
+      belakang.forEach((el) => (el.inert = false));
       window.removeEventListener("keydown", tekan);
     };
   }, [maju, mundur, tutup]);
@@ -135,7 +141,7 @@ function Pemutar({ hari, mulai, tutup }: { hari: HariHighlight[]; mulai: number;
         </div>
         <div className="flex h-12 items-center justify-between gap-3">
           <span className="min-w-0 truncate text-label-large" aria-live="polite">{`${label} · ${pos.p + 1} of ${total}`}</span>
-          <button ref={tombolTutup} type="button" onClick={tutup} aria-label="Close" className="-mr-2 grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-white">
+          <button ref={tombolTutup} type="button" onClick={tutup} aria-label="Close" className="grid size-12 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-white">
             <X size={24} weight="bold" aria-hidden />
           </button>
         </div>

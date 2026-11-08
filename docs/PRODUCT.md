@@ -351,7 +351,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 
 ### Client view
 - **For:** Viewer accounts (the client).
-- **Shows at:** `/e/<slug>/live`: counts (registered, awaiting approval, checked in), the list with fixed columns plus the form answers the admin chose to share, search, filters, download. Refreshes every 30 s. A Report tab appears once the committee shares the Event report or locks a Daily highlights day. On top, Daily highlights: one cover per locked day; tap plays that day full screen like stories (tap right for next, left for back, then straight into the next day; arrow keys and Esc on a computer; no timer, so figures can be read; the key figure, people icons and bars animate, off with reduced motion). Below, the shared deck with Save as PDF.
+- **Shows at:** `/e/<slug>/live`: counts (registered, awaiting approval, checked in), the list with fixed columns plus the form answers the admin chose to share, search, filters, download. Refreshes every 30 s. A Report tab appears once the committee shares the Event report or locks a Daily highlights day. On top, Daily highlights: one cover per locked day; tap plays that day full screen like stories (tap right for next, left for back, then straight into the next day; arrow keys and Esc on a computer, the page behind cannot be reached while it plays; no timer, so figures can be read; the key figure, people icons and bars animate, off with reduced motion). Below, the shared deck with Save as PDF.
 - **CMS:** on that page, admins choose which form answers the client sees (none by default; file uploads never).
 
 ### Event settings

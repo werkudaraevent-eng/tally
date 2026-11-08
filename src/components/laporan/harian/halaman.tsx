@@ -70,7 +70,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
           <div style={{ display: "flex", alignItems: "flex-end", gap: 20, height: 520, marginTop: 40 }}>
             {p.batang.map((b) => (
               <div key={b.label} style={kolom({ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%", gap: 14 })}>
-                <span style={{ fontFamily: h.isi, fontSize: 36, fontWeight: 800, color: w.teks }}>{b.nilai > 0 ? String(b.nilai) : ""}</span>
+                <span data-gerak="nilai" style={{ fontFamily: h.isi, fontSize: 36, fontWeight: 800, color: w.teks }}>{b.nilai > 0 ? String(b.nilai) : ""}</span>
                 <div data-gerak="batang" style={{ width: "100%", height: Math.max(4, Math.round((b.nilai / maks) * 400)), borderRadius: 12, backgroundColor: b.puncak ? w.isi : w.redup }} />
                 <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks2 }}>{b.label}</span>
               </div>
