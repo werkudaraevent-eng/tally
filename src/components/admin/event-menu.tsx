@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretUpDown, Check, ListDashes, MagnifyingGlass, Plus, ShieldCheck } from "@phosphor-icons/react";
+import { CaretUpDown, Check, ListDashes, MagnifyingGlass, Plus, ShieldCheck, Sparkle } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -269,6 +269,12 @@ export function EventMenu({
                 <Link href="/users" className={POPOVER_ITEM}>
                   <ShieldCheck size={16} className="shrink-0 text-on-surface-variant" />
                   Users &amp; roles
+                </Link>
+              ) : null}
+              {isOwner ? (
+                <Link href="/ai" className={POPOVER_ITEM}>
+                  <Sparkle size={16} className="shrink-0 text-on-surface-variant" />
+                  AI settings
                 </Link>
               ) : null}
               {isOwner ? (

@@ -1,4 +1,5 @@
 import { apiError } from "@/lib/api";
+import { barisStaySekarang } from "@/lib/logistik/impor";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { TiketKereta } from "@/lib/logistik/types";
 import { labelStay, type BentukLogistik, type LogistikRingkas } from "@/lib/logistik/ringkas";
@@ -356,4 +357,21 @@ async function susunLogistik(
     hasil.set(pid, { ...lama, bus: teksKendaraan(baca(pid), (id) => kodeBus.get(id) ?? "Vehicle") });
   }
   return hasil;
+}
+
+/** Stay tersimpan dalam bentuk "Download current stays" (dipakai juga oleh baca berkas hotel dengan AI). */
+export async function muatStaySekarang(eventId: string, offset: string): Promise<string[][] | null> {
+  const db = klien();
+  const [peserta, hotels, rooms, lodging] = await Promise.all([
+    semuaBaris<{ id: string; name: string; qr_code: string }>(() =>
+      db.from("participants").select("id,name,qr_code").eq("event_id", eventId).is("source_removed_at", null).order("id")),
+    semuaBaris<{ id: number; name: string; sort_order: number; check_in_at: string | null; check_out_at: string | null }>(() =>
+      db.from("lodging_hotels").select("id,name,sort_order,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
+    semuaBaris<{ id: number; room_number: string | null; label?: string | null; room_type: string | null; capacity: number }>(() =>
+      db.from("lodging_rooms").select("*").eq("event_id", eventId).order("id")),
+    semuaBaris<{ id: number; participant_id: string; hotel_id: number; room_id: number | null; check_in_at: string | null; check_out_at: string | null }>(() =>
+      db.from("lodging_assignments").select("id,participant_id,hotel_id,room_id,check_in_at,check_out_at").eq("event_id", eventId).order("id")),
+  ]);
+  if (!peserta || !hotels || !rooms || !lodging) return null;
+  return barisStaySekarang({ peserta, hotels, rooms, lodging, offset });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDots, ShieldCheck } from "@phosphor-icons/react";
+import { CalendarDots, ShieldCheck, Sparkle } from "@phosphor-icons/react";
 import Link from "next/link";
 
 // Ikon tab disembunyikan di bawah 640px: di 390px label "Users & roles" patah
@@ -16,9 +16,11 @@ const DIAM = "text-on-surface-variant hover:bg-[var(--press-hover)]";
  * tim dikelola di tingkat akun, bukan per toko atau per produk).
  *
  * Hanya untuk admin dan super admin. Peran lain tidak bisa membuka /users, dan
- * tab yang mengantar ke penolakan lebih buruk daripada tidak ada tab.
+ * tab yang mengantar ke penolakan lebih buruk daripada tidak ada tab. Tab AI
+ * (kunci, model, dan biaya AI untuk seluruh Tally) hanya untuk pemilik, dengan
+ * alasan yang sama.
  */
-export function WorkspaceTabs({ current }: { current: "events" | "users" }) {
+export function WorkspaceTabs({ current, owner = false }: { current: "events" | "users" | "ai"; owner?: boolean }) {
   return (
     <nav aria-label="Workspace" className="ml-2 flex items-center gap-1 sm:ml-4">
       <Link href="/events" aria-current={current === "events" ? "page" : undefined} className={`${TAB} ${current === "events" ? AKTIF : DIAM}`}>
@@ -27,6 +29,11 @@ export function WorkspaceTabs({ current }: { current: "events" | "users" }) {
       <Link href="/users" aria-current={current === "users" ? "page" : undefined} className={`${TAB} ${current === "users" ? AKTIF : DIAM}`}>
         <ShieldCheck size={16} className="max-sm:hidden" /> Users &amp; roles
       </Link>
+      {owner ? (
+        <Link href="/ai" aria-current={current === "ai" ? "page" : undefined} className={`${TAB} ${current === "ai" ? AKTIF : DIAM}`}>
+          <Sparkle size={16} className="max-sm:hidden" /> AI
+        </Link>
+      ) : null}
     </nav>
   );
 }
