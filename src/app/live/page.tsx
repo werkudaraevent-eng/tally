@@ -38,7 +38,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
   // pernah menerima label pertanyaan yang tidak dibagikan kepadanya.
   const admin = resolved.scope.role === "admin" || resolved.scope.role === "super_admin";
   const config = resolved.scope.event.registration_form_config as RegistrationFormConfig | null;
-  // Event report yang dibagikan panitia: salinan terkunci, bukan data terbaru.
+  // Event report yang dibagikan panitia dan highlight harian yang dikunci: salinan, bukan data terbaru.
   const laporan = await snapshotKlien(resolved.scope.event.id).catch(() => null);
   return (
     <LiveClient
@@ -48,7 +48,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
       role={resolved.scope.role}
       preview={resolved.scope.role !== "viewer"}
       pertanyaanKlien={admin ? statusPertanyaanKlien(config) : undefined}
-      laporan={laporan ? <LaporanKlien slug={resolved.scope.event.slug} deck={laporan.deck} dibagikan={laporan.shared_at} zona={resolved.scope.event.time_zone} /> : null}
+      laporan={laporan ? <LaporanKlien slug={resolved.scope.event.slug} deck={laporan.deck} dibagikan={laporan.shared_at} harian={laporan.harian} zona={resolved.scope.event.time_zone} /> : null}
     />
   );
 }

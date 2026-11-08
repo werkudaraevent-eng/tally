@@ -6,10 +6,13 @@ import type { HariHighlight } from "@/lib/laporan/harian/jenis";
 import { HalamanHarianView, LEBAR, TINGGI } from "./halaman";
 
 /** Nama huruf ("Plus Jakarta Sans") ke variabel CSS halaman acara, untuk pratinjau di peramban. */
-const cssHuruf = (nama: string) => Object.values(LANDING_HEADING_FONTS).find((f) => f.label === nama)?.cssVar ?? "var(--font-sans)";
+export const cssHuruf = (nama: string) => Object.values(LANDING_HEADING_FONTS).find((f) => f.label === nama)?.cssVar ?? "var(--font-sans)";
+
+/** Huruf halaman acara sebagai variabel CSS (pratinjau dan Mode cerita). */
+export const hurufCss = (hari: HariHighlight) => ({ judul: cssHuruf(hari.huruf.judul), isi: cssHuruf(hari.huruf.isi) });
 
 /** Satu halaman 1080×1920 dikecilkan ke lebar bingkainya, seperti gambar. */
-function Bingkai({ children }: { children: React.ReactNode }) {
+export function Bingkai({ children, className = "rounded-lg shadow-[0_1px_2px_rgb(0_0_0/0.08),0_8px_24px_rgb(20_30_60/0.10)]" }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [skala, setSkala] = useState(0);
   useLayoutEffect(() => {
@@ -22,7 +25,7 @@ function Bingkai({ children }: { children: React.ReactNode }) {
     return () => ro.disconnect();
   }, []);
   return (
-    <div ref={ref} className="relative w-full overflow-hidden rounded-lg shadow-[0_1px_2px_rgb(0_0_0/0.08),0_8px_24px_rgb(20_30_60/0.10)]" style={{ aspectRatio: `${LEBAR} / ${TINGGI}` }}>
+    <div ref={ref} className={`relative w-full overflow-hidden ${className}`} style={{ aspectRatio: `${LEBAR} / ${TINGGI}` }}>
       <div style={{ position: "absolute", left: 0, top: 0, transformOrigin: "0 0", transform: `scale(${skala})`, visibility: skala ? "visible" : "hidden" }}>{children}</div>
     </div>
   );
@@ -30,7 +33,7 @@ function Bingkai({ children }: { children: React.ReactNode }) {
 
 /** Carousel geser seperti di ponsel: tiap halaman selebar 220-260 px. */
 export function CarouselHarian({ hari }: { hari: HariHighlight }) {
-  const huruf = { judul: cssHuruf(hari.huruf.judul), isi: cssHuruf(hari.huruf.isi) };
+  const huruf = hurufCss(hari);
   const total = hari.halaman.length;
   return (
     <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-3" tabIndex={0} aria-label={`${total} images, scroll sideways`}>

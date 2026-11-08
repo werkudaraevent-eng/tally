@@ -7,6 +7,7 @@ import type { EventRow } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { muatBahanLaporan } from "./bahan-server";
 import { bacaConfig, type ConfigLaporan } from "./config";
+import type { HariHighlight } from "./harian/jenis";
 import type { Deck } from "./jenis";
 import { susunDeck, type HasilSusun } from "./susun";
 
@@ -73,10 +74,19 @@ export const simpanConfig = (eventId: string, config: ConfigLaporan, dimuat: str
 export const simpanBagikan = (eventId: string, deck: Deck | null, dimuat: string | null, userId: string) =>
   tulis(eventId, { shared_snapshot: deck, shared_at: deck ? new Date().toISOString() : null, shared_by: deck ? userId : null }, dimuat, userId);
 
-/** Snapshot yang dibagikan, untuk tampilan klien. Null bila belum dibagikan atau tabel belum ada. */
-export async function snapshotKlien(eventId: string): Promise<{ deck: Deck; shared_at: string } | null> {
-  const { data, error } = await tabel().select("shared_snapshot,shared_at").eq("event_id", eventId).maybeSingle();
+/**
+ * Yang dilihat klien di tab Report: deck yang dibagikan (Share with client) dan
+ * highlight harian yang sudah dikunci panitia, urut tanggal. Hanya salinan
+ * terkunci yang keluar; setelan dan catatan editor lain tetap di server.
+ * Null bila keduanya kosong atau tabel belum ada.
+ */
+export async function snapshotKlien(eventId: string): Promise<{ deck: Deck | null; shared_at: string | null; harian: HariHighlight[] } | null> {
+  const { data, error } = await tabel().select("shared_snapshot,shared_at,config").eq("event_id", eventId).maybeSingle();
   if (error || !data) return null;
-  const baris = data as { shared_snapshot: Deck | null; shared_at: string | null };
-  return baris.shared_snapshot && baris.shared_at ? { deck: baris.shared_snapshot, shared_at: baris.shared_at } : null;
+  const baris = data as { shared_snapshot: Deck | null; shared_at: string | null; config: unknown };
+  const deck = baris.shared_snapshot && baris.shared_at ? baris.shared_snapshot : null;
+  const harian = Object.values(bacaConfig(baris.config).harian)
+    .map((s) => s.kunci?.hari)
+    .filter((h): h is HariHighlight => !!h && h.halaman.length > 0);
+  return deck || harian.length ? { deck, shared_at: deck ? baris.shared_at : null, harian } : null;
 }

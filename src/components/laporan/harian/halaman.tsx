@@ -3,6 +3,10 @@
  * gaya inline, supaya komponen yang sama dipakai pratinjau admin (React di
  * peramban) dan gambar PNG (next/og di server). Jangan pakai grid, kelas CSS,
  * atau hook di sini: next/og tidak mengenalnya.
+ *
+ * Gerak (Mode cerita di tab Report klien) hanya lewat atribut `data-gerak`
+ * yang dianimasikan CSS pemutar (cerita.tsx). next/og mengabaikan atribut
+ * itu, jadi PNG tidak berubah.
  */
 import type { CSSProperties, ReactNode } from "react";
 import type { HalamanHarian, HariHighlight } from "@/lib/laporan/harian/jenis";
@@ -47,14 +51,14 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
       return (
         <div style={kolom({ marginTop: "auto", padding: `0 ${TEPI}px ${TEPI}px`, gap: 28 })}>
           <p style={{ ...isi(h, w), fontSize: 38, color: w.teks }}>{p.kecil}</p>
-          <p style={{ ...judul(h, w, 112) }}>{p.judul}</p>
+          <p data-gerak="angka" style={{ ...judul(h, w, 112) }}>{p.judul}</p>
         </div>
       );
     case "hadir":
       return (
         <div style={kolom({ margin: "auto 0", padding: `0 ${TEPI}px`, gap: 72 })}>
           <p style={judul(h, w)}>{p.judul}</p>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>{Array.from({ length: 10 }, (_, i) => <Orang key={i} isi={i < p.isi} w={w} />)}</div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>{Array.from({ length: 10 }, (_, i) => <div key={i} data-gerak="orang" style={{ display: "flex" }}><Orang isi={i < p.isi} w={w} /></div>)}</div>
           <p style={isi(h, w)}>{p.teks}</p>
         </div>
       );
@@ -67,7 +71,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
             {p.batang.map((b) => (
               <div key={b.label} style={kolom({ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%", gap: 14 })}>
                 <span style={{ fontFamily: h.isi, fontSize: 36, fontWeight: 800, color: w.teks }}>{b.nilai > 0 ? String(b.nilai) : ""}</span>
-                <div style={{ width: "100%", height: Math.max(4, Math.round((b.nilai / maks) * 400)), borderRadius: 12, backgroundColor: b.puncak ? w.isi : w.redup }} />
+                <div data-gerak="batang" style={{ width: "100%", height: Math.max(4, Math.round((b.nilai / maks) * 400)), borderRadius: 12, backgroundColor: b.puncak ? w.isi : w.redup }} />
                 <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks2 }}>{b.label}</span>
               </div>
             ))}
@@ -79,7 +83,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
     case "menit":
       return (
         <div style={kolom({ margin: "auto 0", padding: `0 ${TEPI}px`, gap: 56 })}>
-          <p style={{ ...judul(h, w, 230), color: w.angka, letterSpacing: -8, lineHeight: 0.9, whiteSpace: "nowrap" }}>{p.besar}</p>
+          <p data-gerak="angka" style={{ ...judul(h, w, 230), color: w.angka, letterSpacing: -8, lineHeight: 0.9, whiteSpace: "nowrap" }}>{p.besar}</p>
           <p style={judul(h, w, 80)}>{p.judul}</p>
           <p style={isi(h, w)}>{p.teks}</p>
         </div>
@@ -96,7 +100,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
                   <span style={{ fontFamily: h.isi, fontSize: 42, fontWeight: 700, color: w.teks, lineHeight: 1.1 }}>{r.nama}</span>
                   {r.persen !== null ? (
                     <div style={{ display: "flex", height: 22, borderRadius: 11, backgroundColor: w.redup }}>
-                      <div style={{ width: `${Math.min(100, r.persen)}%`, height: 22, borderRadius: 11, backgroundColor: w.isi }} />
+                      <div data-gerak="isi" style={{ width: `${Math.min(100, r.persen)}%`, height: 22, borderRadius: 11, backgroundColor: w.isi }} />
                     </div>
                   ) : null}
                 </div>
@@ -113,7 +117,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
           <div style={{ display: "flex", gap: 20 }}>
             {p.hari.map((d) => (
               <div key={d.label} style={kolom({ flex: 1, gap: 8, padding: 28, borderRadius: 24, backgroundColor: w.redup })}>
-                <span style={{ fontFamily: h.judul, fontSize: 76, fontWeight: 800, color: w.angka }}>{`${d.persen}%`}</span>
+                <span data-gerak="angka" style={{ fontFamily: h.judul, fontSize: 76, fontWeight: 800, color: w.angka }}>{`${d.persen}%`}</span>
                 <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks }}>{d.label}</span>
               </div>
             ))}

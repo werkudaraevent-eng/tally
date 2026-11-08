@@ -115,7 +115,7 @@ export default function HalamanHarian() {
     <WorkspacePage>
       <WorkspaceHeader
         title="Event report"
-        meta={<span>A 9:16 image set for the client after each event day. Lock the figures, then share.</span>}
+        meta={<span>A 9:16 image set for the client after each event day. Lock the figures, then share. Locked days also play on the client view, in the Report tab.</span>}
         actions={
           dikunci ? (
             <>
