@@ -1,6 +1,6 @@
 /**
- * Ukuran yang dipakai sama oleh slide HTML dan PPTX, supaya teks panjang
- * mengecil atau dipotong dengan cara yang sama di kedua ekspor dan tidak
+ * Ukuran slide HTML (pratinjau, tab klien, cetak PDF), supaya teks panjang
+ * mengecil atau dipotong dengan cara yang sama di semua tampilan dan tidak
  * pernah menimpa kaki slide. Semua dalam px kanvas 1280×720.
  */
 import type { BlokAngka, BlokTabel } from "./jenis.ts";

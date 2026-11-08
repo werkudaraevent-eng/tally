@@ -1,25 +1,61 @@
 /**
  * Menggambar satu slide Event report di kanvas 1280×720. Tanpa state, jadi
  * dipakai sama oleh pratinjau admin, tab Laporan klien dan halaman cetak PDF.
- * Lima bentuk blok saja (lib/laporan/jenis.ts).
+ * Bentuk blok ada di lib/laporan/jenis.ts; warna dari tema acara per permukaan.
  */
-import type { CSSProperties } from "react";
-import type { Blok, BlokAngka, BlokBatang, BlokGaris, BlokTabel, BlokTeks, Deck, Slide, Sorot } from "@/lib/laporan/jenis";
-import { warnaDeck } from "@/lib/laporan/warna";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
+import type { Blok, BlokAngka, BlokBatang, BlokChip, BlokGaris, BlokPanas, BlokTabel, BlokTeks, Deck, Latar, Slide, Sorot, TemaDeck } from "@/lib/laporan/jenis";
+import { temaDeck, warnaPermukaan } from "@/lib/laporan/warna";
 import { LEBAR_KANAN, LEBAR_KIRI, LEBAR_PENUH, lebarKolom, ukuranAngka, ukuranCatatan, ukuranJudul } from "@/lib/laporan/ukuran";
 
 const cxs = (...k: Array<string | false | undefined>) => k.filter(Boolean).join(" ");
 
-const isiBatang = (s: Sorot | undefined) => (s === "masalah" ? "#B3261E" : s === "kedua" ? "var(--lp-aksen2)" : s === "utama" ? "var(--lp-aksen)" : "#CDD2DB");
+const isiBatang = (s: Sorot | undefined) =>
+  s === "masalah" ? "var(--lp-merah)" : s === "kedua" ? "color-mix(in srgb,var(--lp-isi) 45%,var(--lp-bg))" : s === "utama" ? "var(--lp-isi)" : "var(--lp-trek)";
 
 function Angka({ b, lebar }: { b: BlokAngka; lebar: number }) {
+  if (b.raksasa && b.isi.length > 0) {
+    const [utama, ...lain] = b.isi;
+    return (
+      <div className="lp-raksasa">
+        <div className="lp-utama">
+          <span className="lp-lbl">{utama.label}</span>
+          <span className={cxs("lp-fig", utama.masalah && "lp-m")}>{utama.nilai}</span>
+          {utama.ket ? <span className="lp-ket">{utama.ket}</span> : null}
+        </div>
+        {lain.length ? (
+          <ul className="lp-kpi">
+            {lain.map((x) => (
+              <li key={x.label}>
+                <b className={cxs("lp-fig", x.masalah && "lp-m")}>{x.nilai}</b>
+                <span>{x.ket ? `${x.label}, ${x.ket}` : x.label}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    );
+  }
+  if (b.tumpuk) {
+    return (
+      <div className="lp-tumpuk">
+        {b.isi.map((x) => (
+          <div key={x.label}>
+            <span className="lp-lbl">{x.label}</span>
+            <span className={cxs("lp-fig", x.masalah && "lp-m")}>{x.nilai}</span>
+            {x.ket ? <span className="lp-kecil">{x.ket}</span> : null}
+          </div>
+        ))}
+      </div>
+    );
+  }
   const ukuran = ukuranAngka(b, lebar);
   return (
     <div className="lp-angka">
       {b.isi.map((x) => (
         <div key={x.label}>
           <span className="lp-lbl">{x.label}</span>
-          <span className={x.masalah ? "lp-fig lp-m" : "lp-fig"} style={ukuran < 64 ? { fontSize: ukuran } : undefined}>{x.nilai}</span>
+          <span className={cxs("lp-fig", x.masalah && "lp-m")} style={ukuran < 64 ? { fontSize: ukuran } : undefined}>{x.nilai}</span>
           {x.ket ? <span className="lp-kecil">{x.ket}</span> : null}
         </div>
       ))}
@@ -60,7 +96,7 @@ function Tabel({ b, lebarBlok }: { b: BlokTabel; lebarBlok: number }) {
 }
 
 /** Sel biasa, ditambah sel batang tepat sesudahnya bila ini kolom `batangSetelah`. */
-function FragmenKolom({ children, tampilBatang, batang, sorot }: { children: React.ReactNode; tampilBatang: boolean; batang?: number; sorot?: Sorot }) {
+function FragmenKolom({ children, tampilBatang, batang, sorot }: { children: ReactNode; tampilBatang: boolean; batang?: number; sorot?: Sorot }) {
   if (!tampilBatang) return <>{children}</>;
   return (
     <>
@@ -76,38 +112,46 @@ function FragmenKolom({ children, tampilBatang, batang, sorot }: { children: Rea
   );
 }
 
+const TINGGI = { besar: 360, sedang: 236, kecil: 130 } as const;
+
 function BatangTegak({ b, lebar: W }: { b: BlokBatang; lebar: number }) {
   // Lebar viewBox sama dengan lebar kolomnya (px kanvas), jadi teks tidak membesar.
-  const penuh = W >= LEBAR_PENUH;
-  const H = 360;
-  const bawah = 300;
+  const kecil = b.tinggi === "kecil";
+  const H = TINGGI[b.tinggi ?? "besar"];
+  const adaSub = b.seri.some((s) => s.sub);
+  const bawah = H - (adaSub ? 60 : 38);
+  const ruang = bawah - (kecil ? 28 : 40);
   const n = b.seri.length;
-  const lebar = Math.min(penuh ? 96 : 56, (W / Math.max(n, 1)) * 0.6);
   const langkah = W / Math.max(n, 1);
+  const lebar = Math.min(W >= LEBAR_PENUH ? 96 : 64, langkah * 0.66);
   const maks = b.maks ?? Math.max(...b.seri.map((s) => s.nilai), 1);
-  const tinggi = (v: number) => (v / maks) * 250;
+  const tinggi = (v: number) => Math.max(v > 0 ? 3 : 0, (v / maks) * ruang);
+  const huruf = kecil ? 15 : n > 14 ? 15 : 17;
   return (
-    <svg className="lp-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={b.judul ?? b.seri.map((s) => `${s.label} ${s.teks}`).join(", ")}>
-      <line x1={0} x2={W} y1={bawah} y2={bawah} stroke="#E3E6EB" />
-      {b.seri.map((s, i) => {
-        const x = i * langkah + (langkah - lebar) / 2;
-        const t = tinggi(s.nilai);
-        return (
-          <g key={i}>
-            <rect x={x} y={bawah - t} width={lebar} height={t} fill={isiBatang(s.sorot)} />
-            {s.teks ? <text className="lp-v" x={x + lebar / 2} y={bawah - t - 10} textAnchor="middle">{s.teks}</text> : null}
-            <text x={x + lebar / 2} y={bawah + 26} textAnchor="middle">{s.label}</text>
-            {s.sub ? <text x={x + lebar / 2} y={bawah + 48} textAnchor="middle">{s.sub}</text> : null}
+    <div className="lp-sisi" style={{ gap: 8 }}>
+      {b.judul ? <p className="lp-judul-kecil">{b.judul}</p> : null}
+      <svg className="lp-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={b.judul ?? b.seri.map((s) => `${s.label} ${s.teks}`).join(", ")}>
+        <line x1={0} x2={W} y1={bawah} y2={bawah} stroke="var(--lp-garis)" />
+        {b.seri.map((s, i) => {
+          const x = i * langkah + (langkah - lebar) / 2;
+          const t = tinggi(s.nilai);
+          return (
+            <g key={i}>
+              <rect x={x} y={bawah - t} width={lebar} height={t} rx={Math.min(6, lebar / 4)} fill={isiBatang(s.sorot)} />
+              {s.teks ? <text className="lp-v" x={x + lebar / 2} y={bawah - t - 8} textAnchor="middle" style={kecil ? { fontSize: 16 } : undefined}>{s.teks}</text> : null}
+              <text x={x + lebar / 2} y={bawah + (kecil ? 22 : 26)} textAnchor="middle" style={{ fontSize: huruf }}>{s.label}</text>
+              {s.sub ? <text x={x + lebar / 2} y={bawah + 48} textAnchor="middle">{s.sub}</text> : null}
+            </g>
+          );
+        })}
+        {b.penanda ? (
+          <g>
+            <line x1={(b.penanda.setelah + 1) * langkah} x2={(b.penanda.setelah + 1) * langkah} y1={8} y2={bawah} stroke="var(--lp-teks)" strokeWidth={3} />
+            <text className="lp-pn" x={(b.penanda.setelah + 1) * langkah + 10} y={26} textAnchor={b.penanda.setelah + 1 > n * 0.7 ? "end" : "start"} dx={b.penanda.setelah + 1 > n * 0.7 ? -20 : 0}>{b.penanda.label}</text>
           </g>
-        );
-      })}
-      {b.penanda ? (
-        <g>
-          <line x1={(b.penanda.setelah + 1) * langkah} x2={(b.penanda.setelah + 1) * langkah} y1={20} y2={bawah} stroke="#B3261E" strokeWidth={2} />
-          <text x={(b.penanda.setelah + 1) * langkah + 8} y={34} style={{ fill: "#B3261E" }}>{b.penanda.label}</text>
-        </g>
-      ) : null}
-    </svg>
+        ) : null}
+      </svg>
+    </div>
   );
 }
 
@@ -119,8 +163,8 @@ function BatangDatar({ b }: { b: BlokBatang }) {
       {b.judul ? <p className="lp-kecil">{b.judul}</p> : null}
       {b.legenda ? (
         <div className="lp-key">
-          <span><i style={{ background: "var(--lp-aksen)" }} />{b.legenda[0]}</span>
-          <span><i style={{ background: "#CDD2DB" }} />{b.legenda[1]}</span>
+          <span><i style={{ background: "var(--lp-isi)" }} />{b.legenda[0]}</span>
+          <span><i style={{ background: "var(--lp-trek)" }} />{b.legenda[1]}</span>
         </div>
       ) : null}
       {b.seri.map((s, i) => {
@@ -132,12 +176,12 @@ function BatangDatar({ b }: { b: BlokBatang }) {
               {s.sub ? <span className="lp-kecil" style={{ display: "block", fontSize: 15 }}>{s.sub}</span> : null}
             </span>
             <span style={{ display: "grid", gap: 4 }}>
-              <span style={{ display: "block", height: 22, width: lebar(Math.abs(s.nilai)), background: isiBatang(s.nilai < 0 ? "masalah" : s.sorot ?? "utama") }} />
-              {p ? <span style={{ display: "block", height: 12, width: lebar(p.nilai), background: "#CDD2DB" }} /> : null}
+              <span style={{ display: "block", height: 22, borderRadius: 6, width: lebar(Math.abs(s.nilai)), background: isiBatang(s.nilai < 0 ? "masalah" : s.sorot ?? "utama") }} />
+              {p ? <span style={{ display: "block", height: 12, borderRadius: 6, width: lebar(p.nilai), background: "var(--lp-trek)" }} /> : null}
             </span>
-            <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 19 }}>
+            <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 19, fontWeight: 600 }}>
               {s.teks}
-              {p ? <span className="lp-kecil" style={{ display: "block", fontSize: 15 }}>{p.teks}</span> : null}
+              {p ? <span className="lp-kecil" style={{ display: "block", fontSize: 15, fontWeight: 400 }}>{p.teks}</span> : null}
             </span>
           </div>
         );
@@ -162,14 +206,14 @@ function Garis({ b, lebar }: { b: BlokGaris; lebar: number }) {
     <svg className="lp-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={b.titik.map((t) => `${t.label} ${t.teks}`).join(", ")}>
       {garisBantu.map((v) => (
         <g key={v}>
-          <line x1={kiri} x2={W} y1={y(v)} y2={y(v)} stroke="#E3E6EB" />
+          <line x1={kiri} x2={W} y1={y(v)} y2={y(v)} stroke="var(--lp-garis)" />
           <text x={0} y={y(v) + 6}>{`${v}${b.satuan}`}</text>
         </g>
       ))}
-      <polyline points={b.titik.map((t, i) => `${x(i)},${y(t.nilai)}`).join(" ")} fill="none" stroke="var(--lp-aksen)" strokeWidth={3} />
+      <polyline points={b.titik.map((t, i) => `${x(i)},${y(t.nilai)}`).join(" ")} fill="none" stroke="var(--lp-isi)" strokeWidth={4} strokeLinejoin="round" />
       {b.titik.map((t, i) => (
         <g key={i}>
-          <circle cx={x(i)} cy={y(t.nilai)} r={6} fill={t.masalah ? "#B3261E" : "var(--lp-aksen)"} />
+          <circle cx={x(i)} cy={y(t.nilai)} r={7} fill={t.masalah ? "var(--lp-merah)" : "var(--lp-isi)"} />
           <text className="lp-v" x={x(i)} y={y(t.nilai) - 14} textAnchor="middle">{t.teks}</text>
           <text x={x(i)} y={bawah + 32} textAnchor="middle">{t.label.length > 22 ? `${t.label.slice(0, 21)}…` : t.label}</text>
           {t.sub ? <text x={x(i)} y={bawah + 54} textAnchor="middle">{t.sub}</text> : null}
@@ -180,6 +224,9 @@ function Garis({ b, lebar }: { b: BlokGaris; lebar: number }) {
 }
 
 function Teks({ b }: { b: BlokTeks }) {
+  if (b.kartu && b.poin?.length) {
+    return <ol className="lp-kartu">{b.poin.map((p, i) => <li key={i}><span>{p}</span></li>)}</ol>;
+  }
   return (
     <div className="lp-sisi">
       {b.paragraf.map((p, i) => <p key={i} className="lp-p">{p}</p>)}
@@ -189,32 +236,102 @@ function Teks({ b }: { b: BlokTeks }) {
   );
 }
 
-/** `lebar`: lebar kolom tempat blok digambar (px kanvas), sama dengan kotak di PPTX. */
+/** Peta panas: makin pekat makin ramai; angka hanya di sel yang cukup ramai. */
+function Panas({ b }: { b: BlokPanas }) {
+  const rapat = b.baris.length > 5;
+  const tinggi = rapat ? 40 : 56;
+  return (
+    <div className="lp-sisi" style={{ gap: 14 }}>
+      <div className="lp-panas" style={{ gridTemplateColumns: `220px repeat(${b.kolom.length}, minmax(0,1fr)) 112px`, gridAutoRows: "auto" }}>
+        <span />
+        {b.kolom.map((k) => <span key={k} className="lp-jk">{k}</span>)}
+        <span className="lp-jk lp-kanan">{b.labelTotal}</span>
+        {b.baris.map((r, ri) => (
+          <Fragment key={ri}>
+            <span className="lp-nm"><span>{r.label}</span>{r.sub ? <small>{r.sub}</small> : null}</span>
+            {r.nilai.map((v, i) => {
+              const a = b.maks > 0 ? v / b.maks : 0;
+              return (
+                <span
+                  key={i}
+                  className="lp-c"
+                  style={{
+                    height: tinggi,
+                    background: v ? `color-mix(in srgb,var(--lp-isi) ${Math.round(18 + a * 82)}%,var(--lp-kartu))` : "var(--lp-kartu)",
+                    color: a > 0.5 ? "var(--lp-bg)" : "var(--lp-teks)",
+                    fontSize: b.kolom.length > 12 ? 15 : 17,
+                  }}
+                >
+                  {v >= b.ambang ? v : ""}
+                </span>
+              );
+            })}
+            <span className="lp-tot">{r.total}{r.ket ? <small>{r.ket}</small> : null}</span>
+          </Fragment>
+        ))}
+      </div>
+      <p className="lp-kecil" style={{ fontSize: 15 }}>{b.keterangan}</p>
+    </div>
+  );
+}
+
+function Chip({ b }: { b: BlokChip }) {
+  return <div className="lp-chip">{b.isi.map((x, i) => <span key={i}>{x.label}<b>{x.nilai}</b></span>)}</div>;
+}
+
+/** `lebar`: lebar kolom tempat blok digambar (px kanvas). */
 function SatuBlok({ b, lebar = LEBAR_PENUH }: { b: Blok; lebar?: number }) {
   if (b.jenis === "angka") return <Angka b={b} lebar={lebar} />;
   if (b.jenis === "tabel") return <Tabel b={b} lebarBlok={lebar} />;
   if (b.jenis === "batang") return b.arah === "tegak" ? <BatangTegak b={b} lebar={lebar} /> : <BatangDatar b={b} />;
   if (b.jenis === "garis") return <Garis b={b} lebar={lebar} />;
+  if (b.jenis === "panas") return <Panas b={b} />;
+  if (b.jenis === "chip") return <Chip b={b} />;
   return <Teks b={b} />;
 }
 
-export function gayaAksen(deck: Pick<Deck, "warna">): CSSProperties {
-  const w = warnaDeck(deck.warna);
-  return { ["--lp-aksen" as string]: w.aksen, ["--lp-aksen2" as string]: w.aksen2 } as CSSProperties;
+/** Variabel CSS satu slide: permukaan, huruf judul, dan warna tema mentah untuk stiker dan foto. */
+export function gayaSlide(tema: TemaDeck, latar: Latar): CSSProperties {
+  const p = warnaPermukaan(tema, latar);
+  const v: Record<string, string> = {
+    "--lp-bg": p.bg,
+    "--lp-teks": p.teks,
+    "--lp-isi": p.isi,
+    "--lp-merah": p.merah,
+    "--lp-angka": p.angka,
+    "--lp-judul": `${tema.judul},var(--font-sans),Inter,system-ui,sans-serif`,
+    "--lp-aksen": tema.aksen,
+    "--lp-aksen-teks": tema.aksenTeks,
+    "--lp-latar": tema.latar,
+    "--lp-latar2": tema.latar2,
+    "--lp-latar-teks": tema.latarTeks,
+  };
+  return v as CSSProperties;
+}
+
+function Foto({ src }: { src: string | null }) {
+  return (
+    <div className="lp-foto" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element -- kanvas cetak dan pratinjau, ukurannya tetap */}
+      {src ? <img src={src} alt="" /> : null}
+    </div>
+  );
 }
 
 /**
  * Satu slide. `nomor`/`total` untuk kaki kanan. `petunjuk`: teks pengganti
  * bila slide belum punya isi (mis. Usulan tanpa baris), hanya di admin.
  */
-export function SlideLaporan({ slide, deck, nomor, total, catatanLabel, petunjuk }: { slide: Slide; deck: Pick<Deck, "warna" | "bahasa">; nomor: number; total: number; catatanLabel?: string; petunjuk?: string }) {
-  const aksen = gayaAksen(deck);
+export function SlideLaporan({ slide, deck, nomor, total, catatanLabel, petunjuk }: { slide: Slide; deck: Pick<Deck, "tema" | "warna" | "bahasa">; nomor: number; total: number; catatanLabel?: string; petunjuk?: string }) {
+  const tema = temaDeck(deck);
   if (slide.jenis === "sampul") {
     return (
-      <div className="lp-stage lp-sampul" style={aksen}>
+      <div className="lp-stage lp-sampul lp-gelap" style={gayaSlide(tema, "gelap")}>
+        <Foto src={tema.foto} />
         <div className="lp-lead">
           {/* eslint-disable-next-line @next/next/no-img-element -- kanvas cetak dan pratinjau, ukurannya tetap */}
           {slide.logo ? <img className="lp-logo" src={slide.logo} alt="" /> : null}
+          {slide.stiker ? <span className="lp-stiker">{slide.stiker}</span> : null}
           <h2 className="lp-h">{slide.judul}</h2>
           <div className="lp-meta">{slide.baris.map((x) => <span key={x}>{x}</span>)}</div>
         </div>
@@ -222,11 +339,30 @@ export function SlideLaporan({ slide, deck, nomor, total, catatanLabel, petunjuk
       </div>
     );
   }
+  const latar: Latar = slide.tata === "pembatas" ? "gelap" : slide.latar ?? "kertas";
+  const stiker = slide.stiker ? <span className={cxs("lp-stiker", slide.stiker.merah && "lp-merah")}>{slide.stiker.teks}</span> : null;
+  const kaki = <div className="lp-foot"><span>{slide.kaki}</span><span>{nomor} / {total}</span></div>;
+  if (slide.tata === "pembatas") {
+    return (
+      <div className="lp-stage lp-pembatas lp-gelap" style={gayaSlide(tema, "gelap")}>
+        <Foto src={tema.foto} />
+        <div className="lp-lead">
+          {stiker}
+          <h2 className="lp-h">{slide.judul}</h2>
+          {slide.blok.map((b, i) => <SatuBlok key={i} b={b} />)}
+        </div>
+        {kaki}
+      </div>
+    );
+  }
   const [kiri, ...kanan] = slide.blok;
   const label = catatanLabel ?? (deck.bahasa === "en" ? "Committee note." : "Catatan panitia.");
   return (
-    <div className="lp-stage" style={aksen}>
-      <h2 className="lp-h" style={{ fontSize: ukuranJudul(slide.judul) }}>{slide.judul}</h2>
+    <div className={cxs("lp-stage", `lp-${latar}`)} style={gayaSlide(tema, latar)}>
+      <div className="lp-kepala">
+        <h2 className="lp-h" style={{ fontSize: ukuranJudul(slide.judul) }}>{slide.judul}</h2>
+        {stiker}
+      </div>
       <div className="lp-body">
         {slide.blok.length === 0 && petunjuk ? <div className="lp-petunjuk">{petunjuk}</div> : null}
         {slide.tata === "dua" && kiri ? (
@@ -240,7 +376,7 @@ export function SlideLaporan({ slide, deck, nomor, total, catatanLabel, petunjuk
       </div>
       <div className="lp-bawah">
         {slide.catatan ? <p className="lp-catatan" style={{ fontSize: ukuranCatatan(slide.catatan) }}><b>{label}</b> {slide.catatan}</p> : null}
-        <div className="lp-foot"><span>{slide.kaki}</span><span>{nomor} / {total}</span></div>
+        {kaki}
       </div>
     </div>
   );

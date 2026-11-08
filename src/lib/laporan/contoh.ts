@@ -3,6 +3,7 @@
  * Feedback NPS, pengumuman, undian dan logistik. Tanpa data asli siapa pun.
  */
 import type { BahanLaporan, SesiBahan } from "./bahan.ts";
+import { temaDariWarna } from "./warna.ts";
 
 let benih = 7;
 const acak = () => ((benih = (benih * 48271) % 2147483647) / 2147483647);
@@ -22,11 +23,11 @@ export function bahanContoh(ubah: Partial<BahanLaporan> = {}): BahanLaporan {
       // Datang 0 sampai 80 menit sebelum jam 08.00 WIB.
       datang.push(new Date(Date.parse(`${tanggal}T08:00:00+07:00`) - Math.floor(acak() * 80) * 60000).toISOString());
     }
-    return { nama: `Sesi ${k + 1}`, tanggal, jam: "08:00", diharapkan: 200, sudah: datang.length, datang };
+    return { kunci: `cp-${k + 1}`, nama: `Sesi ${k + 1}`, tanggal, jam: "08:00", diharapkan: 200, sudah: datang.length, datang };
   });
   const jawaban = [...hadir].slice(0, 120).map((p, i) => ({ participant_id: p, answers: { rekomen: (sesiDiikuti.get(p) ?? 0) >= 3 ? 9 + (i % 2) : 5 + (i % 4), suka: i % 3 ? "Makanan" : "Pembicara" } }));
   return {
-    acara: { nama: "Acara Contoh", tempat: "Gedung Contoh", mulai: "2026-11-06", selesai: "2026-11-08", bahasa: "id", offset: "+07:00", zona: "WIB", warna: "#1F5FAD", logo: null },
+    acara: { nama: "Acara Contoh", tempat: "Gedung Contoh", mulai: "2026-11-06", selesai: "2026-11-08", bahasa: "id", offset: "+07:00", zona: "WIB", tema: temaDariWarna("#1F5FAD"), logo: null },
     sekarang: "2026-11-09T03:00:00.000Z",
     diundang: 260,
     mendaftar: 214,
