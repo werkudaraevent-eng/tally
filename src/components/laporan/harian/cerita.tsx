@@ -37,7 +37,8 @@ const TEKS = {
 type Bahasa = keyof typeof TEKS;
 
 const tanggalPendek = (h: HariHighlight, b: Bahasa) =>
-  h.tanggal === RINGKASAN ? (h.rentang ?? "") : new Date(`${h.tanggal}T00:00:00Z`).toLocaleDateString(TEKS[b].lokal, { day: "numeric", month: "short", timeZone: "UTC" });
+  // Rentang Seluruh acara ditulis dalam bahasa acara: jangan dicampur dengan bahasa pemutar.
+  h.tanggal === RINGKASAN ? (h.bahasa === b ? (h.rentang ?? "") : "") : new Date(`${h.tanggal}T00:00:00Z`).toLocaleDateString(TEKS[b].lokal, { day: "numeric", month: "short", timeZone: "UTC" });
 const namaHari = (h: HariHighlight, b: Bahasa) => (h.tanggal === RINGKASAN ? TEKS[b].semua : h.totalHari > 1 ? TEKS[b].hari(h.hariKe) : TEKS[b].satuHari);
 
 /** Deret sampul hari, seperti lingkaran stories; ketuk untuk memutar. */
@@ -63,7 +64,7 @@ export function CeritaHarian({ hari, bahasa = "en", judul = true, grid = false }
                 asal.current = e.currentTarget;
                 setBuka(i);
               }}
-              aria-label={t.putar(`${namaHari(h, bahasa)}, ${tanggalPendek(h, bahasa)}`, h.halaman.length)}
+              aria-label={t.putar([namaHari(h, bahasa), tanggalPendek(h, bahasa)].filter(Boolean).join(", "), h.halaman.length)}
             >
               <span className="block w-full rounded-xl p-[3px]" style={{ background: h.tema.aksen }}>
                 <span className="block overflow-hidden rounded-[9px] bg-surface p-[2px]">
@@ -142,7 +143,7 @@ export function PemutarCerita({ hari, mulai = 0, bahasa = "en", tutup }: { hari:
     };
   }, [maju, mundur, tutup]);
 
-  const label = `${namaHari(h, bahasa)}, ${tanggalPendek(h, bahasa)}`;
+  const label = [namaHari(h, bahasa), tanggalPendek(h, bahasa)].filter(Boolean).join(", ");
   // Di body, supaya tidak terkurung wadah halaman (transform, overflow).
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={`${t.judul}, ${label}`} className="fixed left-0 top-0 z-50 flex h-dvh w-screen flex-col items-center bg-[#0b0b0f] text-white">

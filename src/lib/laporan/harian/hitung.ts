@@ -292,7 +292,7 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
     const pro = v.filter((x) => x >= 9).length;
     const net = v.filter((x) => x === 7 || x === 8).length;
     const kur = n - pro - net;
-    const sepuluh = Math.round((pro / n) * 10);
+    const sepuluh = Math.floor((pro / n) * 10);
     halaman.push({
       kunci: "puas", permukaan: "gelap", foto: null,
       besar: tanda(skorNps(v) ?? 0),
@@ -310,7 +310,7 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
   const menang = b.undian?.pemenang ?? [];
   if (menang.length) {
     const serah = menang.filter((w) => w.dikonfirmasi).length;
-    layar.push({ besar: `${angka(serah, bh)} / ${angka(menang.length, bh)}`, teks: pilih(bh, { id: "hadiah undian sudah diterima pemenangnya", en: "lucky draw prizes handed to their winners" }) });
+    layar.push({ besar: `${angka(serah, bh)} / ${angka(menang.length, bh)}`, teks: pilih(bh, { id: "pemenang undian dikonfirmasi", en: "lucky draw winners confirmed" }) });
   }
   if (b.voting?.pemilih) layar.push({ besar: angka(b.voting.pemilih, bh), teks: pilih(bh, { id: `orang ikut live voting, ${b.voting.pertanyaan} pertanyaan`, en: `people took part in live voting, ${b.voting.pertanyaan} questions` }) });
   const l = b.logistik;
@@ -322,7 +322,7 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
       : { besar: angka(l.tas, bh), teks: pilih(bh, { id: "tas bagasi dicatat", en: "luggage bags logged" }) });
   }
   if (layar.length) {
-    halaman.push({ kunci: "layar", permukaan: "kertas", foto: null, baris: layar.slice(0, 4), judul: pilih(bh, { id: "Di balik layar, panitia mengurus semuanya.", en: "Behind the scenes, the committee handled it all." }) });
+    halaman.push({ kunci: "layar", permukaan: "kertas", foto: null, baris: layar, judul: pilih(bh, { id: "Di balik layar, panitia mengurus semuanya.", en: "Behind the scenes, the committee handled it all." }) });
   } else absen.push({ kunci: "layar", alasan: "No lucky draw, voting or logistics data." });
 
   halaman.push({
