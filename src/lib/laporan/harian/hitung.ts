@@ -260,7 +260,7 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
         ...(s.diharapkan > 0 ? { ket: dari(s.sudah, s.diharapkan, bh) } : {}),
       })),
       judul: sesi.length > 6
-        ? pilih(bh, { id: `${sesi.length} sesi selama acara, 6 yang pertama.`, en: `${sesi.length} sessions, the first 6.` })
+        ? pilih(bh, { id: `${sesi.length} sesi, 6 yang pertama.`, en: `${sesi.length} sessions, the first 6.` })
         : pilih(bh, { id: `${sesi.length} sesi selama acara.`, en: `${sesi.length} session${sesi.length > 1 ? "s" : ""} over the event.` }),
     });
   }
