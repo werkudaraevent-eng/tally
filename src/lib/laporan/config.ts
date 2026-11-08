@@ -8,16 +8,20 @@ export const SLIDE_BAWAAN = [
   "sampul",
   "ringkas",
   "corong",
-  "kelompok",
+  "harih",
+  "panas",
   "sesi",
+  "kelompok",
   "portal",
   "kepuasan",
-  "kedatangan",
   "pengumuman",
   "undian",
   "operasional",
   "usulan",
+  "lampiran",
 ] as const;
+/** Slide per titik check-in ("titik.<kunci Dashboard>") masuk tepat sesudah slide ini. */
+const SESUDAH_DINAMIS = "panas";
 export type KunciBawaan = (typeof SLIDE_BAWAAN)[number];
 
 export const BATAS = { judul: 140, catatan: 200, poin: 5, teksPoin: 160, tambahan: 10, usulan: 5, teksUsulan: 120 } as const;
@@ -30,7 +34,7 @@ export type BarisUsulan = { terjadi: string; data: string; usulan: string };
 
 export type ConfigLaporan = {
   sembunyi: string[];
-  /** Urutan kunci slide; kunci yang tidak disebut ikut urutan bawaan di belakang. */
+  /** Urutan kunci slide; kunci yang tidak disebut ikut urutan bawaan di belakang. Termasuk slide titik. */
   urutan: string[];
   judul: Record<string, string>;
   catatan: Record<string, string>;
@@ -49,11 +53,11 @@ const teks = (nilai: unknown, maks: number): string | null => {
   return bersih ? bersih.slice(0, maks) : null;
 };
 const daftarKunci = (nilai: unknown): string[] =>
-  Array.isArray(nilai) ? [...new Set(nilai.filter((isi): isi is string => typeof isi === "string" && KUNCI.test(isi)))].slice(0, 40) : [];
+  Array.isArray(nilai) ? [...new Set(nilai.filter((isi): isi is string => typeof isi === "string" && KUNCI.test(isi)))].slice(0, 120) : [];
 const peta = (nilai: unknown, maks: number): Record<string, string> => {
   if (!nilai || typeof nilai !== "object" || Array.isArray(nilai)) return {};
   const hasil: Record<string, string> = {};
-  for (const [kunci, isi] of Object.entries(nilai).slice(0, 40)) {
+  for (const [kunci, isi] of Object.entries(nilai).slice(0, 120)) {
     const bersih = teks(isi, maks);
     if (KUNCI.test(kunci) && bersih) hasil[kunci] = bersih;
   }
@@ -107,9 +111,14 @@ export function bacaConfig(nilai: unknown): ConfigLaporan {
   };
 }
 
-/** Urutan akhir: yang disebut panitia dulu, sisanya bawaan lalu tambahan, tanpa kunci yang tidak ada. */
-export function urutkan(config: Pick<ConfigLaporan, "urutan" | "tambahan">): string[] {
-  const ada = [...SLIDE_BAWAAN, ...config.tambahan.map((t) => t.id)] as string[];
+/**
+ * Urutan akhir: yang disebut panitia dulu, sisanya bawaan lalu tambahan, tanpa
+ * kunci yang tidak ada. `dinamis` = kunci slide titik acara ini, urut waktu.
+ */
+export function urutkan(config: Pick<ConfigLaporan, "urutan" | "tambahan">, dinamis: readonly string[] = []): string[] {
+  const bawaan = SLIDE_BAWAAN as readonly string[];
+  const i = bawaan.indexOf(SESUDAH_DINAMIS) + 1;
+  const ada = [...bawaan.slice(0, i), ...dinamis, ...bawaan.slice(i), ...config.tambahan.map((t) => t.id)];
   const tersedia = new Set(ada);
   const depan = config.urutan.filter((kunci) => tersedia.has(kunci));
   const sudah = new Set(depan);
@@ -118,8 +127,8 @@ export function urutkan(config: Pick<ConfigLaporan, "urutan" | "tambahan">): str
 }
 
 /** Geser satu slide naik (-1) atau turun (+1) dalam urutan akhir. Sampul tidak bergeser. */
-export function geser(config: ConfigLaporan, kunci: string, arah: -1 | 1): ConfigLaporan {
-  const urutan = urutkan(config);
+export function geser(config: ConfigLaporan, kunci: string, arah: -1 | 1, dinamis: readonly string[] = []): ConfigLaporan {
+  const urutan = urutkan(config, dinamis);
   const i = urutan.indexOf(kunci);
   const j = i + arah;
   if (i <= 0 || j <= 0 || j >= urutan.length) return config;

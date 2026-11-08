@@ -21,6 +21,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneAbbr, timeZoneOffset } from "@/lib/timezone";
 import type { BahanLaporan, PengumumanBahan, SesiBahan } from "./bahan";
 import type { ConfigLaporan } from "./config";
+import { temaAcara } from "./warna";
 
 type Hitungan = { count: number | null; error: unknown };
 const jumlah = (h: Hitungan) => (h.error ? 0 : h.count ?? 0);
@@ -60,7 +61,7 @@ export async function muatBahanLaporan(event: EventRow, config: ConfigLaporan, s
     .map((r) => {
       const sudah = rincianPantau(bahan, r.key)?.sudah ?? [];
       if (r.tanggal) for (const x of sudah) sesiDiikuti.set(x.id, (sesiDiikuti.get(x.id) ?? 0) + 1);
-      return { nama: r.nama, tanggal: r.tanggal, jam: r.jam, diharapkan: r.diharapkan, sudah: r.sudah, datang: sudah.map((x) => x.at) };
+      return { kunci: r.key, nama: r.nama, tanggal: r.tanggal, jam: r.jam, diharapkan: r.diharapkan, sudah: r.sudah, datang: sudah.map((x) => x.at) };
     });
   const sesi = semuaSesi.filter((s) => s.tanggal !== null);
 
@@ -87,7 +88,7 @@ export async function muatBahanLaporan(event: EventRow, config: ConfigLaporan, s
       bahasa: landingDefaultLang(lc),
       offset,
       zona: timeZoneAbbr(zona),
-      warna: landingTokens(lc).brand,
+      tema: temaAcara(lc),
       logo: (lc as { nav?: { logo_url?: string | null } } | null)?.nav?.logo_url ?? null,
     },
     sekarang: sekarang.toISOString(),

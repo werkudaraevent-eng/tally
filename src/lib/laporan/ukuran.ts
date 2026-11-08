@@ -1,6 +1,6 @@
 /**
- * Ukuran yang dipakai sama oleh slide HTML dan PPTX, supaya teks panjang
- * mengecil atau dipotong dengan cara yang sama di kedua ekspor dan tidak
+ * Ukuran slide HTML (pratinjau, tab klien, cetak PDF), supaya teks panjang
+ * mengecil atau dipotong dengan cara yang sama di semua tampilan dan tidak
  * pernah menimpa kaki slide. Semua dalam px kanvas 1280×720.
  */
 import type { BlokAngka, BlokTabel } from "./jenis.ts";
@@ -60,7 +60,7 @@ export function lebarKolom(b: BlokTabel, lebarBlok: number): number[] {
   const angka = b.kolom.map((k, i) => {
     if (!k.kanan) return 0;
     const isi = Math.max(...b.baris.map((r) => (r.sel[i] ?? "").length), 1);
-    return Math.min(160, Math.max(56, Math.ceil(Math.max(k.label.length * 9.5, isi * 13)) + 28));
+    return Math.min(240, Math.max(56, Math.ceil(Math.max(k.label.length * 9.5, isi * 13)) + 28));
   });
   const teks = b.kolom.filter((k) => !k.kanan).length;
   const sisa = Math.max(lebarBlok - batang - angka.reduce((a, x) => a + x, 0), 120 * teks);

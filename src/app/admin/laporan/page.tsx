@@ -1,13 +1,13 @@
 "use client";
 
-import { CaretDown, DownloadSimple, Printer, ShareNetwork } from "@phosphor-icons/react";
+import { Printer, ShareNetwork } from "@phosphor-icons/react";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTerkunci } from "@/components/admin/page-context";
 import { GayaLaporan, Panggung } from "@/components/laporan/panggung";
 import { SlideLaporan } from "@/components/laporan/slide";
 import {
-  Banner, Button, Dialog, PageLoading, Popover, POPOVER_ITEM, StatusChip, usePopoverAnchor, WorkspaceHeader, WorkspacePage,
+  Banner, Button, ButtonLink, Dialog, PageLoading, StatusChip, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import { withEventPrefix } from "@/lib/event-path";
@@ -20,7 +20,7 @@ import type { DataLaporan, Draf } from "./jenis";
 /**
  * Admin > Event report: deck 16:9 untuk manajemen, dihitung ulang dari data
  * setiap kali halaman dibuka. Kiri daftar slide, tengah pratinjau, kanan
- * pengaturan slide terpilih. Export: PowerPoint (grafik asli) atau cetak PDF.
+ * pengaturan slide terpilih. Ekspor: cetak atau simpan sebagai PDF.
  * Share with client mengunci angka saat itu ke tab Laporan di tampilan klien.
  */
 
@@ -42,9 +42,6 @@ export default function HalamanLaporan() {
   const versi = useRef<string | null>(null);
   const configRef = useRef<ConfigLaporan | null>(null);
   const antre = useRef<Promise<unknown>>(Promise.resolve());
-  const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
-  const menu = usePopoverAnchor(pemicu);
-  const menuId = useId();
 
   const muat = useCallback(async () => {
     const res = await fetch("/api/admin/laporan", { cache: "no-store" }).catch(() => null);
@@ -147,23 +144,11 @@ export default function HalamanLaporan() {
         }
         actions={
           <>
-            <span ref={setPemicu} className="inline-flex">
-              <Button variant="outlined" trailingIcon={<CaretDown size={16} aria-hidden />} aria-haspopup="menu" aria-expanded={menu.open} aria-controls={menu.open ? menuId : undefined} onClick={menu.toggle}>Export</Button>
-            </span>
+            <ButtonLink variant="outlined" native icon={<Printer size={18} aria-hidden />} href={withEventPrefix("/cetak-laporan", pathname)} target="_blank" rel="noopener">Save as PDF</ButtonLink>
             <Button icon={<ShareNetwork size={18} aria-hidden />} disabled={terkunci} onClick={() => setBagikan(true)}>{data.shared_at ? "Sharing" : "Share with client"}</Button>
           </>
         }
       />
-      {menu.open ? (
-        <Popover anchor={menu} id={menuId} label="Export" width={260}>
-          <a role="menuitem" className={POPOVER_ITEM} href="/api/admin/laporan/pptx" download onClick={() => menu.tutup()}>
-            <DownloadSimple size={18} aria-hidden /> PowerPoint (.pptx)
-          </a>
-          <a role="menuitem" className={POPOVER_ITEM} href={withEventPrefix("/cetak-laporan", pathname)} target="_blank" rel="noopener" onClick={() => menu.tutup()}>
-            <Printer size={18} aria-hidden /> Print or save as PDF
-          </a>
-        </Popover>
-      ) : null}
 
       {/* Tiga kolom hanya di layar lebar (≥ 1536). Di 1024–1535 pratinjau di atas editor,
           supaya slide tidak menyusut ke 20–240 px di samping sidebar. */}
@@ -191,7 +176,7 @@ export default function HalamanLaporan() {
             terkunci={terkunci}
             onSimpan={simpan}
             onDraf={(d) => setDraf((x) => ({ ...x, ...d }))}
-            onGeser={(arah) => simpan((c) => geser(c, kunci, arah))}
+            onGeser={(arah) => simpan((c) => geser(c, kunci, arah, data.daftar.map((d) => d.kunci).filter((k) => k.startsWith("titik."))))}
             onTutup={() => setTerbuka(false)}
           />
         </div>

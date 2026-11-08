@@ -4,11 +4,11 @@
  * lalu Ringkasan memilih tiga temuan terbesar dari slide yang tampil.
  */
 import type { BahanLaporan } from "./bahan.ts";
+import { aksenTerbaca } from "./warna.ts";
 import { urutkan, type ConfigLaporan, type KunciBawaan } from "./config.ts";
-import type { Deck, Slide, SlideAbsen, SlideIsi } from "./jenis.ts";
+import type { Blok, Deck, Latar, Slide, SlideAbsen, SlideIsi } from "./jenis.ts";
 import type { HasilSlide, SlideHitung } from "./teks.ts";
 import { slideCorong } from "./slide/corong.ts";
-import { slideKedatangan } from "./slide/kedatangan.ts";
 import { slideKelompok } from "./slide/kelompok.ts";
 import { slideKepuasan } from "./slide/kepuasan.ts";
 import { slideOperasional } from "./slide/operasional.ts";
@@ -17,6 +17,7 @@ import { slidePortal } from "./slide/portal.ts";
 import { slideRingkas, slideSampul } from "./slide/ringkas.ts";
 import { slideSesi } from "./slide/sesi.ts";
 import { slideTambahan, slideUsulan } from "./slide/tambahan.ts";
+import { kunciTitik, slideLampiran, slidePanas, slidePembatas, slideTitik, titikSlide } from "./slide/titik.ts";
 import { slideUndian } from "./slide/undian.ts";
 
 /** Nama slide di daftar admin (en-GB, seperti layar admin lain). */
@@ -24,16 +25,70 @@ export const NAMA_ADMIN: Record<KunciBawaan, string> = {
   sampul: "Cover",
   ringkas: "Summary",
   corong: "Invited to attended",
-  kelompok: "Attendance by group",
+  harih: "Event day divider",
+  panas: "Arrivals by hour, all points",
   sesi: "Attendance by session",
+  kelompok: "Attendance by group",
   portal: "Participant area and attendance",
   kepuasan: "Satisfaction",
-  kedatangan: "Arrivals",
   pengumuman: "Announcements",
   undian: "Lucky draw and voting",
   operasional: "Operations",
   usulan: "What to change next time",
+  lampiran: "Appendix, all check-in points",
 };
+
+/** Ada tanda merah di slide ini: jangan di permukaan aksen, merahnya tidak terjamin terbaca di sana. */
+const adaMasalah = (s: SlideIsi) =>
+  !!s.stiker?.merah ||
+  s.blok.some((b: Blok) =>
+    (b.jenis === "angka" && b.isi.some((x) => x.masalah)) ||
+    (b.jenis === "tabel" && b.baris.some((r) => r.sorot === "masalah")) ||
+    (b.jenis === "batang" && b.seri.some((x) => x.sorot === "masalah" || x.nilai < 0)) ||
+    (b.jenis === "garis" && b.titik.some((x) => x.masalah)));
+
+/**
+ * Permukaan bergantian aksen, kertas, gelap supaya deck tidak hitam putih,
+ * tanpa dua slide bersebelahan berwarna sama. Pembatas selalu gelap (berfoto),
+ * slide bertanda merah tidak di aksen, tabel panjang dan peta panas di kertas.
+ */
+export function pasangLatar(slide: Slide[], bolehAksen = true): Slide[] {
+  const putaran: Latar[] = bolehAksen ? ["aksen", "kertas", "gelap"] : ["kertas", "gelap"];
+  const p = putaran.length;
+  let i = 0;
+  let sebelum: Latar = "gelap"; // sampul
+  const hasil = slide.map((s) => {
+    if (s.jenis === "sampul") {
+      sebelum = "gelap";
+      return s;
+    }
+    // Tabel panjang dan peta panas paling terbaca di kertas.
+    const tabelPanjang = s.blok.some((b) => (b.jenis === "tabel" && b.baris.length > 7) || b.jenis === "panas");
+    const boleh = (l: Latar) => l !== sebelum && !(l === "aksen" && adaMasalah(s)) && !(tabelPanjang && l !== "kertas");
+    let latar: Latar;
+    if (s.tata === "pembatas") latar = "gelap";
+    else if (tabelPanjang) latar = "kertas";
+    else {
+      let k = 0;
+      while (k < p && !boleh(putaran[(i + k) % p])) k += 1;
+      latar = k < p ? putaran[(i + k) % p] : "kertas";
+      i = (putaran.indexOf(latar) + 1) % p;
+    }
+    sebelum = latar;
+    return { ...s, latar };
+  });
+  // Slide wajib (pembatas gelap, tabel panjang di kertas) bisa jatuh sama dengan
+  // tetangga sebelumnya: ganti tetangga itu bila ada permukaan lain yang boleh.
+  const wajib = (s: Slide) => s.jenis === "isi" && (s.tata === "pembatas" || s.blok.some((b) => (b.jenis === "tabel" && b.baris.length > 7) || b.jenis === "panas"));
+  const latarDi = (j: number): Latar | null => { const s = hasil[j]; return !s ? null : s.jenis === "sampul" ? "gelap" : s.latar ?? null; };
+  for (let j = 1; j < hasil.length; j++) {
+    const a = hasil[j - 1];
+    if (a.jenis !== "isi" || wajib(a) || latarDi(j) !== a.latar) continue;
+    const ganti = putaran.find((l) => l !== latarDi(j) && l !== latarDi(j - 2) && !(l === "aksen" && adaMasalah(a)));
+    if (ganti) hasil[j - 1] = { ...a, latar: ganti };
+  }
+  return hasil;
+}
 
 export type BarisDaftar = {
   kunci: string;
@@ -57,17 +112,25 @@ export function susunDeck(b: BahanLaporan, config: ConfigLaporan): HasilSusun {
     sesi: slideSesi(b),
     portal: slidePortal(b),
     kepuasan: slideKepuasan(b),
-    kedatangan: slideKedatangan(b),
     pengumuman: slidePengumuman(b),
     undian: slideUndian(b),
     operasional: slideOperasional(b),
     usulan: slideUsulan(b, config.usulan),
+    lampiran: slideLampiran(b),
   };
+  const titik = titikSlide(b);
+  hitung.harih = slidePembatas(b, titik);
+  hitung.panas = slidePanas(b, titik);
+  const namaTitik = new Map(titik.map((h) => [kunciTitik(h.s), `Check-in point: ${h.s.nama}`]));
   const absen: SlideAbsen[] = [];
   const isi = new Map<string, { slide: SlideHitung; bobot: number; temuan: string | null; tambahan: BarisDaftar["tambahan"] }>();
   for (const [kunci, hasil] of Object.entries(hitung) as Array<[KunciBawaan, HasilSlide]>) {
     if (hasil.ada) isi.set(kunci, { slide: hasil.slide, bobot: hasil.bobot, temuan: hasil.temuan, tambahan: null });
     else absen.push({ kunci, nama: hasil.nama, alasan: hasil.alasan });
+  }
+  for (const h of titik) {
+    const hasil = slideTitik(b, h);
+    isi.set(hasil.slide.kunci, { slide: hasil.slide, bobot: hasil.bobot, temuan: hasil.temuan, tambahan: null });
   }
   for (const t of config.tambahan) {
     const slide = slideTambahan(b, t);
@@ -76,7 +139,7 @@ export function susunDeck(b: BahanLaporan, config: ConfigLaporan): HasilSusun {
   }
 
   const sembunyi = new Set(config.sembunyi);
-  const urutan = urutkan(config);
+  const urutan = urutkan(config, [...namaTitik.keys()]);
   const kosong = (s: SlideHitung) => s.blok.length === 0;
   const tampil = (kunci: string) => kunci === "sampul" || kunci === "ringkas" || (isi.has(kunci) && !sembunyi.has(kunci) && !kosong(isi.get(kunci)!.slide));
 
@@ -101,7 +164,7 @@ export function susunDeck(b: BahanLaporan, config: ConfigLaporan): HasilSusun {
     .map((k) => {
       const s = semua[k];
       const v = isi.get(k);
-      const nama = (NAMA_ADMIN as Record<string, string>)[k] ?? (v?.tambahan === "teks" ? "Text slide" : "Chart from a question");
+      const nama = (NAMA_ADMIN as Record<string, string>)[k] ?? namaTitik.get(k) ?? (v?.tambahan === "teks" ? "Text slide" : "Chart from a question");
       return {
         kunci: k,
         nama,
@@ -114,8 +177,12 @@ export function susunDeck(b: BahanLaporan, config: ConfigLaporan): HasilSusun {
       };
     });
 
+  // Permukaan dihitung atas deck yang tampil; slide tersembunyi (pratinjau admin) memakai kertas.
+  const slide = pasangLatar(daftar.filter((d) => d.tampil).map((d) => semua[d.kunci]), aksenTerbaca(b.acara.tema));
+  for (const s of slide) semua[s.kunci] = s;
+  for (const [k, s] of Object.entries(semua)) if (s.jenis === "isi" && !s.latar) semua[k] = { ...s, latar: s.tata === "pembatas" ? "gelap" : "kertas" };
   return {
-    deck: { bahasa: b.acara.bahasa, warna: b.acara.warna, nama: b.acara.nama, dibuat: b.sekarang, slide: daftar.filter((d) => d.tampil).map((d) => semua[d.kunci]) },
+    deck: { bahasa: b.acara.bahasa, tema: b.acara.tema, nama: b.acara.nama, dibuat: b.sekarang, slide },
     daftar,
     absen,
     semua,

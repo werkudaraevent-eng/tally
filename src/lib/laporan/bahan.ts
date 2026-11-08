@@ -4,8 +4,11 @@
  * pun: cukup id peserta, nilai kelompoknya, dan waktu.
  */
 import type { Pertanyaan } from "../kilas-balik/setelan.ts";
+import type { TemaDeck } from "./jenis.ts";
 
 export type SesiBahan = {
+  /** Kunci baris Dashboard ("cp-12", "cp-12-20261107", "sesi-4"): kunci slide titik. */
+  kunci: string;
   /** Nama dari Check-in (nama sesi atau checkpoint). */
   nama: string;
   /** Tanggal dan jam baris Agenda yang ditautkan, bila ada (zona acara). */
@@ -32,7 +35,8 @@ export type BahanLaporan = {
     offset: string;
     /** "WIB", "WITA", "WIT" atau kosong. */
     zona: string;
-    warna: string;
+    /** Warna, huruf judul dan foto dari tema halaman acara. */
+    tema: TemaDeck;
     logo: string | null;
   };
   sekarang: string;

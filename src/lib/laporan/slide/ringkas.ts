@@ -12,7 +12,8 @@ export function slideSampul(b: BahanLaporan): SlideSampul {
     kunci: "sampul",
     jenis: "sampul",
     judul: b.acara.nama,
-    baris: [tempatTanggal, pilih(bh, { id: "Laporan panitia untuk manajemen", en: "Committee report for management" })].filter(Boolean),
+    stiker: pilih(bh, { id: "Laporan panitia", en: "Committee report" }),
+    baris: [tempatTanggal, pilih(bh, { id: "Untuk direksi dan manajemen", en: "For the board and management" })].filter(Boolean),
     kaki: pilih(bh, { id: `Data per ${waktu}`, en: `Figures as of ${waktu}` }),
     logo: b.acara.logo,
   };
@@ -56,8 +57,8 @@ export function slideRingkas(b: BahanLaporan, temuan: Array<{ teks: string; slid
       saran: judul,
       tata: "penuh",
       blok: [
-        { jenis: "angka", isi: isi.slice(0, 4) },
-        ...(temuan.length ? [{ jenis: "teks" as const, paragraf: [], poin: temuan.map((t) => `${t.teks} (${pilih(bh, { id: "slide", en: "slide" })} ${t.slide})`) }] : []),
+        { jenis: "angka", raksasa: true, isi: isi.slice(0, 4) },
+        ...(temuan.length ? [{ jenis: "teks" as const, kartu: true, paragraf: [], poin: temuan.map((t) => `${t.teks} (${pilih(bh, { id: "slide", en: "slide" })} ${t.slide})`) }] : []),
       ],
       kaki: pilih(bh, { id: "Temuan dipilih dari selisih terbesar di slide lain.", en: "Findings are picked from the largest gaps on the other slides." }),
     },
