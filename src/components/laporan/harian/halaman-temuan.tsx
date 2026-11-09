@@ -6,7 +6,7 @@
  */
 import type { HalamanHarian } from "@/lib/laporan/harian/jenis";
 import type { WarnaHalaman } from "@/lib/laporan/harian/warna";
-import { isi, judul, kolom, tengah, TEPI, type Huruf } from "./gaya-halaman";
+import { isi, judul, kolom, tengah, tingkatAgenda, TEPI, UK, type Huruf } from "./gaya-halaman";
 
 type P<K extends HalamanHarian["kunci"]> = { p: Extract<HalamanHarian, { kunci: K }>; h: Huruf; w: WarnaHalaman };
 
@@ -21,18 +21,16 @@ function Batang({ persen, rata, tinggi, w, awas }: { persen: number; rata: numbe
 }
 
 export function HalAgenda({ p, h, w }: P<"agenda">) {
-  // Sampai 4 baris lega, 5-7 padat, 8 ke atas rapat (nama satu baris).
-  const n = p.baris.length;
-  const tingkat = n <= 4 ? 0 : n <= 7 ? 1 : 2;
-  const ukNama = [42, 34, 30][tingkat];
+  const tingkat = tingkatAgenda(p);
+  const ukNama = UK.nama[tingkat];
   return (
-    <div style={{ ...tengah([80, 48, 36][tingkat]), ...(p.foto ? { justifyContent: "flex-start", paddingTop: 80 } : {}) }}>
-      <p style={judul(h, w, [104, 84, 76][tingkat])}>{p.judul}</p>
-      <div style={kolom({ gap: [56, 32, 22][tingkat] })}>
+    <div style={{ ...tengah(UK.tengah[tingkat]), ...(p.foto ? { justifyContent: "flex-start", paddingTop: 80 } : {}) }}>
+      <p style={{ ...judul(h, w, UK.judul[tingkat]), flexShrink: 0 }}>{p.judul}</p>
+      <div style={kolom({ gap: UK.antar[tingkat] })}>
         {p.baris.map((r, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 24 }}>
-            <span style={{ fontFamily: h.isi, fontSize: [34, 30, 26][tingkat], color: w.teks2, width: [120, 96, 80][tingkat], flexShrink: 0 }}>{r.jam}</span>
-            <div style={kolom({ flex: 1, gap: [16, 10, 8][tingkat], minWidth: 0 })}>
+            <span style={{ fontFamily: h.isi, fontSize: [34, 30, 26][tingkat], color: w.teks2, width: UK.jam[tingkat], flexShrink: 0 }}>{r.jam}</span>
+            <div style={kolom({ flex: 1, gap: UK.dalam[tingkat], minWidth: 0 })}>
               {tingkat === 2 ? (
                 <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
                   <span style={{ fontFamily: h.isi, fontSize: ukNama, fontWeight: 700, color: w.teks, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.nama}</span>
@@ -44,9 +42,9 @@ export function HalAgenda({ p, h, w }: P<"agenda">) {
                   {r.ket ? <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks2 }}>{r.ket}</span> : null}
                 </div>
               )}
-              {r.persen !== null ? <Batang persen={r.persen} rata={p.rata} tinggi={[22, 20, 16][tingkat]} w={w} awas={!!r.rendah} /> : null}
+              {r.persen !== null ? <Batang persen={r.persen} rata={p.rata} tinggi={UK.batang[tingkat]} w={w} awas={!!r.rendah} /> : null}
             </div>
-            <span style={{ fontFamily: h.judul, fontSize: [64, 54, 46][tingkat], fontWeight: 800, color: r.rendah ? w.awas : w.teks, width: [170, 150, 120][tingkat], textAlign: "right", flexShrink: 0 }}>{r.teks}</span>
+            <span style={{ fontFamily: h.judul, fontSize: [64, 54, 46][tingkat], fontWeight: 800, color: r.rendah ? w.awas : w.teks, width: UK.persen[tingkat], textAlign: "right", flexShrink: 0 }}>{r.teks}</span>
           </div>
         ))}
       </div>

@@ -15,12 +15,12 @@ const h1 = susunHari(b, "2026-11-06", SETELAN_KOSONG, huruf).hari;
 assert.deepEqual(h1.halaman.map((p) => p.kunci), ["sampul", "penutup"]);
 assert.equal(h1.hariKe, 1);
 const sampul = h1.halaman[0];
-assert.ok(sampul.kunci === "sampul" && sampul.judul === "90% hadir di Sesi 1." && sampul.teks === "180 dari 200 peserta datang ke setidaknya satu sesi.", JSON.stringify(sampul));
+assert.ok(sampul.kunci === "sampul" && sampul.judul === "90% hadir di Sesi 1." && sampul.teks === "Check-in sesi: 180 dari 200.", JSON.stringify(sampul));
 const tutup = h1.halaman.at(-1)!;
 assert.ok(tutup.kunci === "penutup" && tutup.judul === "Besok, Sesi 2 mulai 08.00.");
 // Hari kedua dibanding kemarin.
 const h2 = susunHari(b, "2026-11-07", SETELAN_KOSONG, huruf).hari.halaman[0];
-assert.ok(h2.kunci === "sampul" && /^Turun dari 90% kemarin\. /.test(h2.teks ?? ""), JSON.stringify(h2));
+assert.ok(h2.kunci === "sampul" && /^Check-in sesi: [0-9.]+ dari [0-9.]+\. Turun dari 90% kemarin\./.test(h2.teks ?? ""), JSON.stringify(h2));
 
 // Hari terakhir: penutup terima kasih.
 const h3 = susunHari(b, "2026-11-08", SETELAN_KOSONG, huruf).hari;
@@ -190,3 +190,21 @@ assert.ok(!fotoLaporanSah(`${SB}/storage/v1/object/public/display-assets/pengumu
 assert.ok(!fotoLaporanSah(`${SB}/storage/v1/object/public/display-assets/laporan/../x.jpg`, SB));
 assert.ok(!fotoLaporanSah("https://evil.test/x.jpg", SB));
 console.log("foto ok");
+
+// QA #450 r3 M2: warna peringatan terlihat (>= 3:1, bukan warna tulisan) di permukaan yang memakainya.
+for (const merek of ["#1F5FAD", "#FFD400", "#777777", "#0B182D", "#E11D48", "#0E7C66", "#F97316", "#FFFFFF", "#F9C6D3", "#FFE14D", "#C2410C", "#2E7D32"]) {
+  const t = (await import("../warna.ts")).temaDariWarna(merek);
+  for (const p of ["gelap", "kertas", "putih", "muda"] as const) {
+    const w = warnaHalaman(t, p);
+    assert.ok(w.awas !== w.teks && kontras(w.awas, w.bg) >= 3, `${merek} ${p} awas ${w.awas} on ${w.bg}`);
+  }
+}
+// QA #450 r3 M1: 4 sesi bernama panjang tidak memakai ukuran lega bila tidak muat.
+{
+  const { tingkatAgenda } = await import("../../../components/laporan/harian/gaya-halaman.ts");
+  const panjang = (nama: string) => ({ nama, ket: "1.162 dari 1.251", persen: 90 });
+  const p = { judul: "Kehadiran 4 sesi merata, 86 sampai 91%.", baris: ["Fun Run Pagi bersama Seluruh Peserta Gathering", "Town Hall Direksi dan Kepala Divisi Seluruh Indonesia", "Gala Dinner dan Malam Penghargaan Karyawan Teladan", "Workshop Kepemimpinan untuk Manajer Muda"].map(panjang), teks: "Garis tipis: rata-rata 89%." };
+  assert.ok(tingkatAgenda(p) > 0, "4 nama panjang");
+  assert.equal(tingkatAgenda({ judul: "1 dari 3 sesi di bawah 70%.", baris: ["A", "B", "C"].map(panjang) }), 0);
+}
+console.log("harian.check r3 ok");

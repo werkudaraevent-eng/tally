@@ -40,11 +40,23 @@ export function warnaMuda(aksen: string): string {
 
 /** `awas`: warna peringatan (sesi, hari atau kelompok yang paling sepi), >= 4,5:1 di latarnya. */
 export type WarnaHalaman = { bg: string; teks: string; teks2: string; isi: string; redup: string; angka: string; awas: string };
-const AWAS = ["#B93C0C", "#FFB37A"];
-/** Oranye gelap di latar terang, oranye muda di latar gelap; bila keduanya kurang kontras, warna tulisan. */
-function awasDi(bg: string, teks: string): string {
-  const [a, c] = AWAS.map((x) => [x, kontras(x, bg)] as const).sort((x, y) => y[1] - x[1]);
-  return a[1] >= 4.5 ? a[0] : c[1] >= 4.5 ? c[0] : teks;
+/** Oranye, urut dari yang paling mencolok; dipakai yang pertama lolos di latarnya. */
+const AWAS = ["#B93C0C", "#FFB37A", "#8F2D07", "#FFD6B5"];
+/**
+ * Warna peringatan hanya dipakai untuk angka besar (44 px ke atas, tebal) dan
+ * batang, jadi syaratnya 3:1 (WCAG teks besar dan grafik); 4,5:1 bila bisa.
+ * Bila tidak ada yang 3:1, warna tulisan (halaman tetap menyebut temuannya).
+ */
+export function awasDi(bg: string, teks: string): string {
+  return AWAS.find((x) => kontras(x, bg) >= 4.5) ?? AWAS.find((x) => kontras(x, bg) >= 3) ?? teks;
+}
+const hue = (hex: string) => keHsl(hex)[0];
+const jenuh = (hex: string) => /^#[0-9a-f]{6}$/i.test(hex) && keHsl(hex)[1] >= 0.35;
+/** Batang biasa yang senada dengan warna peringatan (merek oranye/merah) jadi warna tulisan, supaya yang sepi tetap beda. */
+function bentrok(isi: string, awas: string): boolean {
+  if (!jenuh(isi.slice(0, 7)) || !jenuh(awas)) return false;
+  const d = Math.abs(hue(isi.slice(0, 7)) - hue(awas)) % 360;
+  return Math.min(d, 360 - d) < 35;
 }
 
 /** Teks redup: campuran teks dan latar, digeser ke teks sampai >= 4,5:1 (teks 30-44 px tetap dijaga AA). */
@@ -58,7 +70,8 @@ const batang = (warna: string, bg: string, teks: string) => (kontras(warna, bg) 
 
 export function warnaHalaman(t: TemaDeck, p: Permukaan): WarnaHalaman {
   const w = warnaDasar(t, p);
-  return { ...w, awas: awasDi(w.bg.slice(0, 7), w.teks) };
+  const awas = awasDi(w.bg.slice(0, 7), w.teks);
+  return { ...w, awas, isi: awas !== w.teks && bentrok(w.isi, awas) ? w.teks : w.isi };
 }
 
 function warnaDasar(t: TemaDeck, p: Permukaan): Omit<WarnaHalaman, "awas"> {

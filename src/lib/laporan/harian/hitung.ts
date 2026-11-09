@@ -39,6 +39,16 @@ function daftar(isi: string[], bh: Bahasa) {
   return `${isi.slice(0, -1).join(", ")} ${bh === "id" ? "dan" : "and"} ${isi[isi.length - 1]}`;
 }
 
+/** Jumlah check-in sesi dan yang diharapkan (penyebut rata-rata), untuk "x dari y". */
+function cekIn(sesi: SesiBahan[]): { sudah: number; harap: number } {
+  const ada = sesi.filter((s) => s.diharapkan > 0);
+  return { sudah: ada.reduce((a, s) => a + s.sudah, 0), harap: ada.reduce((a, s) => a + s.diharapkan, 0) };
+}
+const teksCekIn = (sesi: SesiBahan[], bh: Bahasa) => {
+  const c = cekIn(sesi);
+  return pilih(bh, { id: `Check-in sesi: ${dari(c.sudah, c.harap, bh)}.`, en: `Session check-ins: ${dari(c.sudah, c.harap, bh)}.` });
+};
+
 type Bangun = { halaman: HalamanHarian[]; absen: HalamanAbsen[]; poin: Array<PoinPenutup & { kunci: KunciHalaman }> };
 
 /** Semua sesi, urut dari tertinggi. Garis tipis = rata-rata. */
@@ -61,7 +71,11 @@ function halamanSesi(x: Bangun, laju: Laju[], sesi: SesiBahan[], rata: number | 
     ? pilih(bh, { id: `${laju[0].s.nama}: ${max}%.`, en: `${laju[0].s.nama}: ${max}%.` })
     : k > 0
       ? pilih(bh, { id: `${k} dari ${n} sesi di bawah ${R! - AMBANG_SEPI + 1}%.`, en: `${k} of ${n} sessions below ${R! - AMBANG_SEPI + 1}%.` })
-      : pilih(bh, { id: `Kehadiran ${n} sesi merata, ${min} sampai ${max}%.`, en: `Attendance was even across ${n} sessions, ${min} to ${max}%.` });
+      : min === max
+        ? pilih(bh, { id: `Semua ${n} sesi ${max}%.`, en: `All ${n} sessions at ${max}%.` })
+        : max - min <= AMBANG_MERATA
+          ? pilih(bh, { id: `Kehadiran ${n} sesi merata, ${min} sampai ${max}%.`, en: `Attendance was even across ${n} sessions, ${min} to ${max}%.` })
+          : pilih(bh, { id: `${n} sesi, dari ${max}% sampai ${min}%.`, en: `${n} sessions, from ${max}% down to ${min}%.` });
   const ket = [
     R !== null && n > 1 ? pilih(bh, { id: `Garis tipis: rata-rata ${R}%.`, en: `Thin line: average ${R}%.` }) : null,
     terpotong ? pilih(bh, { id: `${BATAS_SESI / 2} teratas dan ${BATAS_SESI / 2} terbawah dari ${n} sesi.`, en: `Top ${BATAS_SESI / 2} and bottom ${BATAS_SESI / 2} of ${n} sessions.` }) : null,
@@ -101,8 +115,8 @@ function halamanSepi(x: Bangun, b: BahanLaporan, laju: Laju[], rata: number | nu
     kunci: "sepi",
     judul: `${sepi.s.nama} ${P}%`,
     ket: rinci
-      ? pilih(bh, { id: `${lo.label} hanya ${dari(lo.hadir, lo.total, bh)}`, en: `${lo.label} only ${dari(lo.hadir, lo.total, bh)}` })
-      : pilih(bh, { id: `${R - P} poin di bawah rata-rata`, en: `${R - P} points below average` }),
+      ? pilih(bh, { id: `${dari(sepi.s.sudah, sepi.s.diharapkan, bh)}; ${lo.label} hanya ${dari(lo.hadir, lo.total, bh)}`, en: `${dari(sepi.s.sudah, sepi.s.diharapkan, bh)}; ${lo.label} only ${dari(lo.hadir, lo.total, bh)}` })
+      : pilih(bh, { id: `${dari(sepi.s.sudah, sepi.s.diharapkan, bh)}, ${R - P} poin di bawah rata-rata`, en: `${dari(sepi.s.sudah, sepi.s.diharapkan, bh)}, ${R - P} points below average` }),
   });
 }
 
@@ -156,7 +170,8 @@ export function susunHari(b: BahanLaporan, tgl: string, setelan: SetelanHari, hu
       : laju.length === 1
         ? pilih(bh, { id: `${R}% hadir di ${laju[0].s.nama}.`, en: `${R}% attended ${laju[0].s.nama}.` })
         : pilih(bh, { id: `${R}% hadir di ${laju.length} sesi hari ini.`, en: `${R}% attended today's ${laju.length} sessions.` }),
-    teks: [banding, datangTeks].filter(Boolean).join(" ") || undefined,
+    // Satu sesi: check-in sesi itu sudah sama dengan yang datang, jadi cukup satu.
+    teks: [R !== null ? teksCekIn(sesi, bh) : null, banding, sesi.length > 1 || R === null ? datangTeks : null].filter(Boolean).join(" ") || undefined,
   });
 
   if (sesi.length >= 2) halamanSesi(x, laju, sesi, rata, bh, (s) => jamAgenda(s, bh), f1 || null, true);
@@ -209,10 +224,11 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
       ? pilih(bh, { id: `${angka(b.hadir.size, bh)} peserta datang dalam ${total} hari.`, en: `${angka(b.hadir.size, bh)} guests came over ${total} days.` })
       : pilih(bh, { id: `Rata-rata ${R}% peserta hadir di tiap sesi.`, en: `On average, ${R}% of guests attended each session.` }),
     teks: [
+      R !== null ? teksCekIn(sesi, bh) : null,
       pilih(bh, { id: `${sesi.length} sesi dalam ${total} hari, ${angka(peserta, bh)} peserta terdaftar.`, en: `${sesi.length} sessions over ${total} days, ${angka(peserta, bh)} registered guests.` }),
       hariBeda ? pilih(bh, {
-        id: `${namaH(hiH!)} paling penuh (${bulat(hiH!.r)}%), ${namaH(loH!).toLowerCase()} paling sepi (${bulat(loH!.r)}%).`,
-        en: `${namaH(hiH!)} was the fullest (${bulat(hiH!.r)}%), ${namaH(loH!).toLowerCase()} the quietest (${bulat(loH!.r)}%).`,
+        id: `${namaH(hiH!)} paling penuh (${bulat(hiH!.r)}%, ${dari(cekIn(hiH!.sesi).sudah, cekIn(hiH!.sesi).harap, bh)}), ${namaH(loH!).toLowerCase()} paling sepi (${bulat(loH!.r)}%, ${dari(cekIn(loH!.sesi).sudah, cekIn(loH!.sesi).harap, bh)}).`,
+        en: `${namaH(hiH!)} was the fullest (${bulat(hiH!.r)}%, ${dari(cekIn(hiH!.sesi).sudah, cekIn(hiH!.sesi).harap, bh)}), ${namaH(loH!).toLowerCase()} the quietest (${bulat(loH!.r)}%, ${dari(cekIn(loH!.sesi).sudah, cekIn(loH!.sesi).harap, bh)}).`,
       }) : null,
     ].filter(Boolean).join(" "),
   });
@@ -220,9 +236,10 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
     x.poin.push({
       kunci: "sampul",
       judul: pilih(bh, { id: `${R}% hadir di tiap sesi`, en: `${R}% attended each session` }),
-      ket: hariBeda
-        ? pilih(bh, { id: `${namaH(loH!)} paling sepi, ${bulat(loH!.r)}%`, en: `${namaH(loH!)} was the quietest, ${bulat(loH!.r)}%` })
-        : pilih(bh, { id: `${sesi.length} sesi dalam ${total} hari`, en: `${sesi.length} sessions over ${total} days` }),
+      ket: pilih(bh, {
+        id: `${dari(cekIn(sesi).sudah, cekIn(sesi).harap, bh)} check-in di ${sesi.length} sesi`,
+        en: `${dari(cekIn(sesi).sudah, cekIn(sesi).harap, bh)} check-ins across ${sesi.length} sessions`,
+      }),
     });
   }
 
@@ -241,10 +258,12 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
       sorot: hariBeda ? perHari.indexOf(loH!) : undefined,
       judul: hariBeda
         ? pilih(bh, { id: `${namaH(loH!)} paling sepi: ${bulat(loH!.r)}%.`, en: `${namaH(loH!)} was the quietest: ${bulat(loH!.r)}%.` })
-        : pilih(bh, { id: `Kehadiran tiap hari merata, ${bulat(loH!.r)} sampai ${bulat(hiH!.r)}%.`, en: `Attendance held steady each day, ${bulat(loH!.r)} to ${bulat(hiH!.r)}%.` }),
+        : bulat(hiH!.r) - bulat(loH!.r) <= AMBANG_MERATA
+          ? pilih(bh, { id: `Kehadiran tiap hari merata, ${bulat(loH!.r)} sampai ${bulat(hiH!.r)}%.`, en: `Attendance held steady each day, ${bulat(loH!.r)} to ${bulat(hiH!.r)}%.` })
+          : pilih(bh, { id: `Tiap hari antara ${bulat(loH!.r)} dan ${bulat(hiH!.r)}%.`, en: `Each day between ${bulat(loH!.r)} and ${bulat(hiH!.r)}%.` }),
       teks: hariBeda
         ? pilih(bh, { id: `Sesi hari itu: ${daftar(sesiLo, bh)}.`, en: `That day: ${daftar(sesiLo, bh)}.` })
-        : pilih(bh, { id: "Rata-rata kehadiran sesi per hari, kehadiran dari kursi yang diharapkan.", en: "Average session attendance per day, attendances of expected places." }),
+        : pilih(bh, { id: "Rata-rata kehadiran sesi tiap hari.", en: "Average session attendance each day." }),
     });
   } else x.absen.push({ kunci: "rekap", alasan: perHari.length ? "Needs 2 or more days with sessions." : "Every check-in point is turned off." });
 
@@ -254,19 +273,22 @@ export function susunRingkasan(b: BahanLaporan, setelan: SetelanHari, huruf: Har
     const lo = kel[kel.length - 1];
     const merata = bulat(hi.p) - bulat(lo.p) < AMBANG_MERATA;
     const label = b.kelompokLabel!.toLowerCase();
+    // Garis tipis: rata-rata semua peserta di sesi yang sama dengan baris kelompok.
+    const rk = rataSesi(sesi.filter((s) => s.orang && s.diharapkan >= b.peserta.length));
+    const RK = rk === null ? null : bulat(rk);
     x.halaman.push({
-      kunci: "kelompok", permukaan: bisaAksen ? "aksen" : "kertas", foto: null,
+      kunci: "kelompok", permukaan: "kertas", foto: null,
       judul: merata
         ? pilih(bh, { id: `Kehadiran ${kel.length} ${label} hampir sama.`, en: `All ${kel.length} groups by ${label} attended at a similar rate.` })
         : pilih(bh, { id: `${lo.label} paling jarang hadir: ${bulat(lo.p)}%.`, en: `${lo.label} attended least: ${bulat(lo.p)}%.` }),
       teks: pilih(bh, {
-        id: `Tertinggi ${hi.label} ${bulat(hi.p)}%, terendah ${lo.label} ${bulat(lo.p)}%. Rata-rata kehadiran per sesi.`,
-        en: `Highest ${hi.label} ${bulat(hi.p)}%, lowest ${lo.label} ${bulat(lo.p)}%. Average attendance per session.`,
+        id: `Tertinggi ${hi.label} ${bulat(hi.p)}%, terendah ${lo.label} ${bulat(lo.p)}%. Rata-rata kehadiran per sesi.${RK !== null ? ` Garis tipis: rata-rata semua peserta ${RK}%.` : ""}`,
+        en: `Highest ${hi.label} ${bulat(hi.p)}%, lowest ${lo.label} ${bulat(lo.p)}%. Average attendance per session.${RK !== null ? ` Thin line: average of all guests ${RK}%.` : ""}`,
       }),
       baris: barisKelompok(kel, bh, !merata),
-      rata: R,
+      rata: RK,
     });
-    if (!merata) x.poin.push({ kunci: "kelompok", judul: pilih(bh, { id: `${lo.label} ${bulat(lo.p)}%`, en: `${lo.label} ${bulat(lo.p)}%` }), ket: pilih(bh, { id: `${bulat(hi.p) - bulat(lo.p)} poin di bawah ${hi.label}`, en: `${bulat(hi.p) - bulat(lo.p)} points below ${hi.label}` }) });
+    if (!merata) x.poin.push({ kunci: "kelompok", judul: pilih(bh, { id: `${lo.label} ${bulat(lo.p)}%`, en: `${lo.label} ${bulat(lo.p)}%` }), ket: pilih(bh, { id: `${dari(lo.hadir, lo.total, bh)}, ${bulat(hi.p) - bulat(lo.p)} poin di bawah ${hi.label}`, en: `${dari(lo.hadir, lo.total, bh)}, ${bulat(hi.p) - bulat(lo.p)} points below ${hi.label}` }) });
   } else x.absen.push({ kunci: "kelompok", alasan: b.kelompokLabel ? `Needs 2 or more groups of 10+ people and sessions open to every guest.` : "Choose a group (Group by) in the Deck tab." });
 
   const nps = nilaiNps(b);
