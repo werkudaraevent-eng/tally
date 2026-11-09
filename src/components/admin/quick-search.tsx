@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ClockCounterClockwise, MagnifyingGlass, Storefront } from "@phosphor-icons/react";
+import { ArrowRight, ClockCounterClockwise, MagnifyingGlass, Sparkle, Storefront } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -10,6 +10,7 @@ import { EVENT_STATUS_LABEL, type EventStatus } from "@/lib/domain";
 import type { Recent } from "@/components/admin/sidebar-store";
 import { navigasiTerjaga } from "@/lib/jaga-navigasi";
 import { SEPARATOR } from "@/lib/typography";
+import { JawabanAi, useTanyaAi, type HalamanAi } from "@/components/admin/tanya-ai";
 
 /**
  * Pencarian cepat: tombol di sidebar, dan palet perintah yang dibukanya.
@@ -102,9 +103,9 @@ export function QuickSearchButton({ onOpen, collapsed }: { onOpen: () => void; c
 
 /* ---- Palet --------------------------------------------------------------- */
 
-type Grup = "terakhir" | "halaman" | "event";
+type Grup = "terakhir" | "halaman" | "event" | "ai";
 
-const LABEL_GRUP: Record<Grup, string> = { terakhir: "Recently opened", halaman: "Pages", event: "Events" };
+const LABEL_GRUP: Record<Grup, string> = { terakhir: "Recently opened", halaman: "Pages", event: "Events", ai: "Ask AI" };
 
 type Hasil = {
   kunci: string;
@@ -257,8 +258,30 @@ export function CommandPalette({
    * dua urutan itu TIDAK sama. Panah dan Enter harus mengikuti yang dilihat mata,
    * jadi indeks sorot dihitung di sini sekali dan dipakai oleh keduanya.
    */
-  const urutanGrup = [...new Set(hasil.map((item) => item.grup))];
-  const tampil = urutanGrup.flatMap((grup) => hasil.filter((item) => item.grup === grup));
+  // Ask AI: baris terakhir, atau satu-satunya bila tidak ada halaman yang
+  // cocok. Bukan yang teratas: Enter pada "agenda" tetap membuka Agenda.
+  const halamanAi = useMemo<HalamanAi[]>(() => {
+    const daftar: HalamanAi[] = [];
+    for (const group of navigation) {
+      for (const item of [...group.items, ...group.items.flatMap((i) => i.children ?? [])]) {
+        if (item.ownerOnly || (bolehHref && !bolehHref(item.href)) || daftar.some((h) => h.href === item.href)) continue;
+        daftar.push({ href: item.href, label: item.label, konteks: grupDari.get(item.href) ?? group.section ?? "Workspace", uraian: item.description, global: item.global === true });
+      }
+    }
+    for (const item of halamanSistem) {
+      if (item.ownerOnly || (bolehHref && !bolehHref(item.href)) || daftar.some((h) => h.href === item.href)) continue;
+      daftar.push({ href: item.href, label: item.label, konteks: "System", uraian: item.description, global: item.global === true });
+    }
+    return daftar;
+  }, [bolehHref]);
+  const ai = useTanyaAi(eventPrefix, halamanAi);
+  const pertanyaan = kueri.trim();
+  const barisAi: Hasil[] = ai.siap && pertanyaan.length >= 3
+    ? [{ kunci: "ai", label: `\u201c${pertanyaan}\u201d`, konteks: "", icon: Sparkle, href: "", path: "", grup: "ai" }]
+    : [];
+  const semuaHasil = [...hasil, ...barisAi];
+  const urutanGrup = [...new Set(semuaHasil.map((item) => item.grup))];
+  const tampil = urutanGrup.flatMap((grup) => semuaHasil.filter((item) => item.grup === grup));
 
   // Sorot dijaga tetap terlihat. Tanpa ini, menekan panah bawah dua belas kali
   // memindahkan sorot ke luar area yang tergulir dan daftarnya diam saja.
@@ -268,13 +291,33 @@ export function CommandPalette({
   }, [sorot, hasil]);
 
   function buka(item: Hasil) {
+    if (item.grup === "ai") { void ai.tanya(pertanyaan); return; }
     onClose();
     // Halaman yang punya suntingan belum disimpan bertanya dulu.
     navigasiTerjaga(() => router.push(item.href));
   }
 
+  function bukaHref(href: string) {
+    onClose();
+    navigasiTerjaga(() => router.push(href));
+  }
+
   function onKeyDown(peristiwa: React.KeyboardEvent) {
+    if (ai.jawaban) {
+      // Di jawaban: Esc kembali ke pencarian, Enter membuka tautan pertama.
+      if (peristiwa.key === "Escape") { peristiwa.preventDefault(); ai.tutup(); return; }
+      if (peristiwa.key === "Enter") {
+        const pertama = ai.jawaban.status === "ok" ? ai.tautan[0] : undefined;
+        if (pertama) { peristiwa.preventDefault(); bukaHref(pertama.href); }
+      }
+      return;
+    }
     if (peristiwa.key === "Escape") { onClose(); return; }
+    if (peristiwa.key === "Tab" && barisAi.length > 0 && !peristiwa.shiftKey) {
+      peristiwa.preventDefault();
+      void ai.tanya(pertanyaan);
+      return;
+    }
     if (peristiwa.key === "ArrowDown" || peristiwa.key === "ArrowUp") {
       peristiwa.preventDefault();
       if (tampil.length === 0) return;
@@ -318,7 +361,7 @@ export function CommandPalette({
             <input
               ref={kolom}
               value={kueri}
-              onChange={(peristiwa) => { setKueri(peristiwa.target.value); setSorot(0); }}
+              onChange={(peristiwa) => { setKueri(peristiwa.target.value); setSorot(0); if (ai.jawaban) ai.tutup(); }}
               placeholder="Search pages, events, and features…"
               aria-label="Search pages, events, and features"
               // `m3-search-field` melepas cincin fokus global. Kolom ini menerima
@@ -336,7 +379,9 @@ export function CommandPalette({
           </div>
 
           <div ref={daftar} className="m3-thin-scroll max-h-[400px] min-h-0 flex-1 overflow-y-auto p-2">
-            {tampil.length === 0 ? (
+            {ai.jawaban ? (
+              <JawabanAi jawaban={ai.jawaban} tautan={ai.jawaban.status === "ok" ? ai.tautan : []} onBuka={bukaHref} onKembali={ai.tutup} />
+            ) : tampil.length === 0 ? (
               <p className="px-2 py-8 text-center text-body-medium text-on-surface-variant">
                 No results for &ldquo;{kueri.trim()}&rdquo;
               </p>
@@ -344,7 +389,7 @@ export function CommandPalette({
               urutanGrup.map((grup) => (
                 <div key={grup} className="mb-1">
                   <p className="px-2 pb-1 pt-2 text-label-medium font-medium text-[var(--press-ink-faint)]">{LABEL_GRUP[grup]}</p>
-                  {hasil.filter((item) => item.grup === grup).map((item) => {
+                  {semuaHasil.filter((item) => item.grup === grup).map((item) => {
                     const indeks = tampil.indexOf(item);
                     const aktif = indeks === sorot;
                     const Icon = item.icon;
@@ -361,8 +406,11 @@ export function CommandPalette({
                         // mengetik dua huruf lagi.
                         className={`flex h-10 w-full items-center gap-2.5 rounded-lg px-2 text-left ${aktif ? "bg-[var(--press-hover)]" : ""}`}
                       >
-                        <Icon size={16} className="shrink-0 text-on-surface-variant" />
+                        <Icon size={16} weight={item.grup === "ai" ? "fill" : undefined} className={`shrink-0 ${item.grup === "ai" ? "text-primary" : "text-on-surface-variant"}`} />
                         <span className="min-w-0 shrink-[2] truncate text-body-medium text-on-surface">{item.label}</span>
+                        {item.grup === "ai" ? (
+                          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-label-medium text-on-surface-variant">Ask <kbd className="m3-kbd">Tab</kbd></span>
+                        ) : <>
                         {/* Pemisahnya titik tengah, bukan tanda pisah panjang.
                             Aturan penyuntingan proyek melarang tanda pisah panjang
                             di seluruh teks antarmuka; titik tengah mengerjakan
@@ -370,6 +418,7 @@ export function CommandPalette({
                         <span className="shrink-0 text-on-surface-variant" aria-hidden>&middot;</span>
                         <span className="min-w-0 flex-1 truncate text-body-medium text-on-surface-variant">{item.konteks}</span>
                         {aktif ? <ArrowRight size={16} className="ml-auto shrink-0 text-on-surface-variant" /> : null}
+                        </>}
                       </button>
                     );
                   })}
@@ -379,19 +428,30 @@ export function CommandPalette({
           </div>
 
           <div className="m3-palette-foot flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-outline-variant px-4 py-2.5 text-label-medium text-on-surface-variant">
-            <span className="flex items-center gap-1.5">
-              <kbd className="m3-kbd">&uarr;</kbd>
-              <kbd className="m3-kbd">&darr;</kbd>
-              to navigate
-            </span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="m3-kbd">&crarr;</kbd>
-              to select
-            </span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="m3-kbd">Esc</kbd>
-              to close
-            </span>
+            {ai.jawaban ? (
+              <>
+                {ai.jawaban.status === "ok" && ai.tautan.length > 0 ? (
+                  <span className="flex items-center gap-1.5"><kbd className="m3-kbd">&crarr;</kbd>{ai.tautan[0].label}</span>
+                ) : null}
+                <span className="flex items-center gap-1.5"><kbd className="m3-kbd">Esc</kbd>back to search</span>
+              </>
+            ) : (
+              <>
+              <span className="flex items-center gap-1.5">
+                <kbd className="m3-kbd">&uarr;</kbd>
+                <kbd className="m3-kbd">&darr;</kbd>
+                to navigate
+              </span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="m3-kbd">&crarr;</kbd>
+                to select
+              </span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="m3-kbd">Esc</kbd>
+                to close
+              </span>
+              </>
+            )}
           </div>
         </motion.div>
       </motion.div>

@@ -46,6 +46,9 @@ function ringkas(runs: Run[]) {
   const perAcara = new Map<string, number>();
   const perFitur = new Map<string, { runs: number; usd: number }>();
   const hasil = { saved: 0, closed: 0, failed: 0, preview: 0 };
+  // Hasil (disimpan, ditutup) hanya bermakna untuk fitur yang punya pratinjau;
+  // pertanyaan Ask AI tidak ikut dihitung di sana, hanya biaya dan jumlahnya.
+  let hasilRuns = 0;
   let usd = 0, masuk = 0, keluar = 0;
   for (const r of runs) {
     const biaya = Number(r.cost_usd) || 0;
@@ -56,10 +59,12 @@ function ringkas(runs: Run[]) {
     perFitur.set(r.feature, { runs: f.runs + 1, usd: f.usd + biaya });
     // Pratinjau yang ditinggal (tab ditutup tanpa Save/Cancel) dihitung "ditutup tanpa disimpan" sesudah 30 menit.
     const status = r.status === "preview" && Date.now() - new Date(r.created_at).getTime() > TINGGAL_MS ? "closed" : r.status;
+    if (r.feature === "ask_ai") continue;
+    hasilRuns += 1;
     if (status in hasil) hasil[status as keyof typeof hasil] += 1;
   }
   return {
-    runs: runs.length, usd, token_masuk: masuk, token_keluar: keluar, hasil,
+    runs: runs.length, usd, token_masuk: masuk, token_keluar: keluar, hasil, hasil_runs: hasilRuns,
     per_acara: [...perAcara].map(([event_id, biaya]) => ({ event_id: event_id || null, usd: biaya })).sort((a, b) => b.usd - a.usd),
     per_fitur: Object.fromEntries(perFitur),
   };
@@ -105,7 +110,7 @@ export async function GET() {
       fitur: r.feature, model: modelAi(r.model)?.label ?? r.model, berkas: r.file_names ?? [], token_masuk: r.input_tokens, token_keluar: r.output_tokens,
       usd: Number(r.cost_usd) || 0, detail: r.detail ?? {},
       // Pratinjau yang ditinggal (tab ditutup tanpa Save/Cancel) tidak pernah diberi status akhir.
-      status: r.status === "preview" && sekarang.getTime() - new Date(r.created_at).getTime() > TINGGAL_MS ? "left" : r.status,
+      status: r.feature === "ask_ai" && r.status === "saved" ? "answered" : r.status === "preview" && sekarang.getTime() - new Date(r.created_at).getTime() > TINGGAL_MS ? "left" : r.status,
     })),
   });
 }

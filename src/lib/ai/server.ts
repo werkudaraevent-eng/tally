@@ -93,7 +93,8 @@ export async function catatRun(run: {
   berkas: string[];
   tokenMasuk: number;
   tokenKeluar: number;
-  status: "preview" | "failed";
+  /** `saved` untuk Ask AI: jawaban sudah diberikan, tidak ada pratinjau. */
+  status: "preview" | "failed" | "saved";
   detail?: Record<string, unknown>;
 }): Promise<number | null> {
   const { data, error } = await db().from("ai_runs").insert({
