@@ -9,6 +9,7 @@ import { eventApiPath } from "@/lib/event-url";
 import type { BarisRencana, JenisImpor, KamarUbah, LabelDipecah, NomorBentrok, Rencana, StatusBaris } from "@/lib/logistik/impor";
 import { cx } from "@/lib/m3/cx";
 import { BacaAi, RingkasanAi, type JawabanAi } from "./baca-ai";
+import { useUndoImpor } from "./undo-impor";
 import { plural } from "@/lib/plural";
 
 /**
@@ -22,7 +23,7 @@ import { plural } from "@/lib/plural";
  * server menempatkan orang yang tidak ada di berkas.
  */
 
-type Hasil = { masuk: number; dibuat: string[]; diubah?: number; gagal: Array<{ nama: string; alasan: string }> };
+type Hasil = { masuk: number; dibuat: string[]; diubah?: number; impor_id?: number | null; gagal: Array<{ nama: string; alasan: string }> };
 
 const URAIAN: Record<JenisImpor, string> = {
   kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
@@ -93,6 +94,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     if (simpan) form.set("simpan", "1");
     if (satu) form.set("label_satu", "1");
     if (ikutBerkas) form.set("nomor_berkas", "1");
+    if (simpan && ai?.run_id && file.name === "Room numbers read by AI.tsv") form.set("ai_run_id", String(ai.run_id));
     const response = await fetch(eventApiPath("/api/admin/logistik/impor"), { method: "POST", body: form }).catch(() => null);
     if (!response) return { galat: "Connection failed. Try again." };
     const json = await response.json().catch(() => ({}));
@@ -132,6 +134,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       setGalat(jawaban.galat);
       return;
     }
+    if (jenis === "kamar") undo.segarkan();
     if (ai && berkas.name === "Room numbers read by AI.tsv") akhiriAi("saved");
     else if (ai) akhiriAi("closed");
     setAi(null);
@@ -147,7 +150,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
         jenis === "kereta" ? `${plural(selesai.masuk, "ticket")} saved`
           : selesai.masuk === 0 && selesai.diubah ? `${plural(selesai.diubah, "room")} updated`
           : `${plural(selesai.masuk, "person", "people")} assigned`,
-        dibuat || undefined,
+        [dibuat, selesai.impor_id ? "To undo it, open Import again." : ""].filter(Boolean).join(" ") || undefined,
       );
       onClose();
       return;
@@ -170,7 +173,8 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   const ubahPerKamar = satuPerKamar(rencana?.kamarUbah ?? []);
   const kamarDiubah = ubahPerKamar.length;
   const tampil = (rencana?.baris ?? []).filter((b) => !hanyaTolak || b.status === "tolak");
-  const sibuk = proses !== null;
+  const undo = useUndoImpor({ open, aktif: jenis === "kamar" && !rencana && !hasil && proses === null, onSelesai, onTutup: onClose });
+  const sibuk = proses !== null || undo.sibuk;
 
   return (
     <Dialog
@@ -179,9 +183,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       dismissible={!sibuk}
       size="xl"
       icon={<FileXls size={20} />}
-      title={JUDUL[jenis]}
-      description={hasil ? undefined : URAIAN[jenis]}
-      actions={hasil ? (
+      title={undo.judul ?? JUDUL[jenis]}
+      description={hasil || undo.isi ? undefined : URAIAN[jenis]}
+      actions={undo.aksi ?? (hasil ? (
         <Button onClick={tutup}>Done</Button>
       ) : (
         <>
@@ -195,9 +199,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             {akanDitulis > 0 ? `Save ${plural(akanDitulis, jenis === "kereta" ? "ticket" : "assignment")}` : kamarDiubah > 0 ? `Update ${plural(kamarDiubah, "room")}` : "Save"}
           </Button>
         </>
-      )}
+      ))}
     >
-      {hasil ? (
+      {undo.isi ?? (hasil ? (
         <div className="flex flex-col gap-3">
           <p className="text-body-medium text-on-surface">
             {jenis === "kereta"
@@ -281,6 +285,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
               To change many people at once: Download current stays, edit it in Excel, then choose the file here. You see every change before anything is saved.
             </p>
           ) : null}
+          {undo.baris}
           {jenis === "kamar" ? (
             <BacaAi
               open={open}
@@ -365,7 +370,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             </div>
           ) : null}
         </div>
-      )}
+      ))}
     </Dialog>
   );
 }

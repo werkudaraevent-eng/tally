@@ -5,6 +5,7 @@ import { bacaTiketKereta, klien, muatStaySekarang, pesanRpc, semuaBaris } from "
 import { plural } from "@/lib/plural";
 import { kolomSasaran } from "@/lib/sasaran-bagian";
 import { malamIso } from "@/lib/logistik/stay";
+import { catatImpor, jejakSebelum } from "@/lib/logistik/jejak-impor";
 import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
 import { textToCells, xlsxToCells } from "@/lib/undian-import";
 
@@ -109,8 +110,10 @@ export async function POST(request: Request) {
 
   if (form.get("simpan") !== "1") return Response.json({ rencana });
 
+  const aiRun = Number(form.get("ai_run_id"));
+  const jejak = { fileName: file.name, aiRunId: Number.isInteger(aiRun) && aiRun > 0 ? aiRun : null };
   const hasil = jenis === "kamar"
-    ? await simpanKamar(eventId, auth.user.id, rencana, acara)
+    ? await simpanKamar(eventId, auth.user.id, rencana, acara, jejak)
     : jenis === "bus" ? await simpanBus(eventId, auth.user.id, rencana, acara) : await simpanKereta(eventId, auth.user.id, rencana, acara);
   if ("galat" in hasil) return apiError("VALIDATION_ERROR", 422, { message: hasil.galat });
   return Response.json({ rencana, hasil });
@@ -194,20 +197,40 @@ async function muatPesertaUnduh(event: { id: string; registration_form_config: u
   return barisPesertaBus({ peserta, info, vehicles, busBawaan, trips, busTrip, offset, kereta: [] });
 }
 
-/** `diubah`: impor kamar, jumlah kamar yang sudah ada yang isiannya diubah (nomor, label, kasur, jenis). */
-type Hasil = { masuk: number; gagal: Array<{ nama: string; alasan: string }>; dibuat: string[]; diubah?: number } | { galat: string };
+/**
+ * `diubah`: impor kamar, jumlah kamar yang sudah ada yang isiannya diubah (nomor, label, kasur, jenis).
+ * `impor_id`: jejak untuk "Undo this import"; tidak ada sebelum migrasi 202611090010.
+ */
+type Hasil = { masuk: number; gagal: Array<{ nama: string; alasan: string }>; dibuat: string[]; diubah?: number; impor_id?: number | null } | { galat: string };
 
-async function simpanKamar(eventId: string, actor: string, rencana: Rencana, acara: KeadaanAcara): Promise<Hasil> {
+async function simpanKamar(eventId: string, actor: string, rencana: Rencana, acara: KeadaanAcara, jejak: { fileName: string; aiRunId: number | null }): Promise<Hasil> {
+  const hasil = await tulisKamar(eventId, actor, rencana, acara);
+  if ("galat" in hasil.hasil) return hasil.hasil;
+  // Keadaan sebelum dari bacaan rencana; sesudahnya dibaca ulang di catatImpor.
+  // Juga dicatat bila sebagian orang gagal: undo hanya menyentuh yang berubah.
+  const roomIds = [...new Set([...(rencana.kamarUbah ?? []).map((k) => k.id), ...(rencana.kamarHapus ?? [])])];
+  const orangIds = rencana.akhir.map((o) => o.participant_id);
+  const sebelum = jejakSebelum(roomIds, orangIds, acara.rooms as never, acara.lodging);
+  const impor_id = hasil.berubah
+    ? await catatImpor({ eventId, userId: actor, fileName: jejak.fileName, aiRunId: jejak.aiRunId, sebelum, roomIds, orangIds, roomsCreated: hasil.kamarDibuat, hotelsCreated: hasil.hotelDibuat })
+    : null;
+  return { ...hasil.hasil, impor_id };
+}
+
+async function tulisKamar(eventId: string, actor: string, rencana: Rencana, acara: KeadaanAcara): Promise<{ hasil: Hasil; kamarDibuat: number[]; hotelDibuat: number[]; berubah: boolean }> {
   const db = klien();
   const dibuat: string[] = [];
+  const kamarDibuat: number[] = [];
+  const hotelDibuat: number[] = [];
   const hotelId = new Map(acara.hotels.map((hotel) => [kunci(hotel.name), hotel.id]));
+  const gagalTulis = (galat: string) => ({ hasil: { galat }, kamarDibuat, hotelDibuat, berubah: false });
 
   if (rencana.hotelBaru.length > 0) {
     const { data, error } = await db.from("lodging_hotels")
       .insert(rencana.hotelBaru.map((name, i) => ({ event_id: eventId, name, sort_order: acara.hotels.length + i })) as never)
       .select("id,name");
-    if (error) return { galat: "New hotels could not be created. Reload the page, then import again." };
-    for (const hotel of (data ?? []) as Array<{ id: number; name: string }>) hotelId.set(kunci(hotel.name), hotel.id);
+    if (error) return gagalTulis("New hotels could not be created. Reload the page, then import again.");
+    for (const hotel of (data ?? []) as Array<{ id: number; name: string }>) { hotelId.set(kunci(hotel.name), hotel.id); hotelDibuat.push(hotel.id); }
     dibuat.push(plural(rencana.hotelBaru.length, "hotel"));
   }
 
@@ -222,9 +245,9 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
       .update({ room_number, label, room_type, bed_type, updated_at: new Date().toISOString() } as never)
       .eq("id", id).eq("event_id", eventId);
     if (error) {
-      return { galat: error.code === "23505"
+      return gagalTulis(error.code === "23505"
         ? `Room ${room_number ?? label ?? ubah.nama} already exists in this hotel. Reload the page, then import again.`
-        : "Rooms could not be updated. Reload the page, then import again." };
+        : "Rooms could not be updated. Reload the page, then import again.");
     }
   }
 
@@ -244,9 +267,10 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
       })) as never)
       .select("*");
     if (error) {
-      return { galat: error.code === "23505" ? "Someone else has just created a room from this file. Reload the page, then import again." : "New rooms could not be created." };
+      return gagalTulis(error.code === "23505" ? "Someone else has just created a room from this file. Reload the page, then import again." : "New rooms could not be created.");
     }
     const dibuatKamar = (data ?? []) as Array<{ id: number; hotel_id: number; room_number: string | null; label?: string | null }>;
+    kamarDibuat.push(...dibuatKamar.map((k) => k.id));
     for (const kamar of rencana.kamarBaru) {
       const hotel = hotelId.get(kunci(kamar.hotel));
       const baris = dibuatKamar.find((k) => k.hotel_id === hotel && (kamar.label ? kunci(k.label ?? "") === kunci(kamar.label) : kunci(k.room_number ?? "") === kunci(kamar.nomor ?? "")));
@@ -305,7 +329,8 @@ async function simpanKamar(eventId: string, actor: string, rencana: Rencana, aca
     const { count } = await db.from("lodging_assignments").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("room_id", id);
     if (count === 0) await db.from("lodging_rooms").delete().eq("id", id).eq("event_id", eventId);
   }
-  return { masuk, dibuat, gagal, diubah: kamarUbah.length };
+  const berubah = masuk > 0 || kamarUbah.length > 0 || kamarDibuat.length > 0 || hotelDibuat.length > 0;
+  return { hasil: { masuk, dibuat, gagal, diubah: kamarUbah.length }, kamarDibuat, hotelDibuat, berubah };
 }
 
 async function simpanBus(eventId: string, actor: string, rencana: Rencana, acara: KeadaanAcara): Promise<Hasil> {
