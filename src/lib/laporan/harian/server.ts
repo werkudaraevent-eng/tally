@@ -10,12 +10,14 @@ import { muatBahanLaporan } from "../bahan-server";
 import type { ConfigLaporan } from "../config";
 import { tanggalLokal } from "../teks";
 import { SETELAN_KOSONG, type SetelanHari } from "./config";
-import { hariAcara, susunHari, susunRingkasan } from "./hitung";
+import { hariAcara, susunHari, susunRingkasan, tanpaSekitar } from "./hitung";
 import { RINGKASAN, type HalamanAbsen, type HariHighlight, type KunciHalaman } from "./jenis";
 
 export type StatusHari = "terkunci" | "siap" | "hari_ini" | "nanti";
 export type BarisHari = { tanggal: string; status: StatusHari; kunci_at: string | null };
-export type DataHarian = { hari: BarisHari[]; tanggal: string | null; setelan: SetelanHari; highlight: HariHighlight | null; absen: HalamanAbsen[]; ada: KunciHalaman[] };
+/** Titik check-in yang bisa dikeluarkan dari highlight hari itu (Seluruh acara: semua). */
+export type TitikHarian = { kunci: string; nama: string; tanggal: string | null; jam: string | null };
+export type DataHarian = { hari: BarisHari[]; tanggal: string | null; setelan: SetelanHari; highlight: HariHighlight | null; absen: HalamanAbsen[]; ada: KunciHalaman[]; titik: TitikHarian[] };
 
 export function hurufAcara(event: EventRow): HariHighlight["huruf"] {
   const t = landingTokens(event.landing_config as Parameters<typeof landingTokens>[0]);
@@ -37,8 +39,12 @@ export async function muatHarian(event: EventRow, config: ConfigLaporan, pilih: 
   if (semua.length > 1) hari.push(status(RINGKASAN, semua[semua.length - 1]));
   // Bawaan: hari terakhir yang sudah berjalan, atau hari pertama (Seluruh acara hanya bila dipilih).
   const tanggal = hari.find((h) => h.tanggal === pilih)?.tanggal ?? [...hari].reverse().find((h) => h.tanggal !== RINGKASAN && h.status !== "nanti")?.tanggal ?? hari[0]?.tanggal ?? null;
-  if (!tanggal) return { hari, tanggal: null, setelan: { ...SETELAN_KOSONG }, highlight: null, absen: [], ada: [] };
+  if (!tanggal) return { hari, tanggal: null, setelan: { ...SETELAN_KOSONG }, highlight: null, absen: [], ada: [], titik: [] };
   const setelan = config.harian[tanggal] ?? { ...SETELAN_KOSONG };
-  const hidup = tanggal === RINGKASAN ? susunRingkasan(bahan, setelan, hurufAcara(event)) : susunHari(bahan, tanggal, setelan, hurufAcara(event));
-  return { hari, tanggal, setelan, highlight: setelan.kunci?.hari ?? hidup.hari, absen: hidup.absen, ada: hidup.ada };
+  const hidup = tanggal === RINGKASAN ? susunRingkasan(bahan, setelan, hurufAcara(event)) : susunHari(bahan, tanggal, setelan, hurufAcara(event), tanpaSekitar(config.harian, semua, tanggal));
+  const titik = bahan.sesi
+    .filter((s) => tanggal === RINGKASAN || s.tanggal === tanggal)
+    .sort((x, y) => `${x.tanggal ?? ""} ${x.jam ?? ""}`.localeCompare(`${y.tanggal ?? ""} ${y.jam ?? ""}`))
+    .map((s) => ({ kunci: s.kunci, nama: s.nama, tanggal: s.tanggal, jam: s.jam }));
+  return { hari, tanggal, setelan, highlight: setelan.kunci?.hari ?? hidup.hari, absen: hidup.absen, ada: hidup.ada, titik };
 }

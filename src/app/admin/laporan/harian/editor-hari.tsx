@@ -5,33 +5,39 @@ import { DetailSection, Pane, PaneBody, Switch, TextArea } from "@/components/m3
 import { BATAS_HARIAN, type SetelanHari } from "@/lib/laporan/harian/config";
 import { FOLDER_FOTO_LAPORAN } from "@/lib/laporan/harian/foto";
 import type { HalamanAbsen, KunciHalaman } from "@/lib/laporan/harian/jenis";
+import type { TitikHarian } from "@/lib/laporan/harian/server";
 
 export const NAMA_HALAMAN: Record<KunciHalaman, string> = {
   sampul: "Cover",
   hadir: "Who came",
   jam: "Busiest hour",
   menit: "Busiest minute",
-  agenda: "Today's agenda",
+  agenda: "Today's sessions",
+  sepi: "Quietest session",
   rekap: "Each day",
+  kelompok: "By group",
   puas: "Satisfaction (NPS)",
-  layar: "Behind the scenes",
+  layar: "Still open",
   penutup: "Note and tomorrow",
 };
 /** Nama halaman di Seluruh acara, bila berbeda dari hari biasa. */
-const NAMA_SEMUA: Partial<Record<KunciHalaman, string>> = { hadir: "Who came", menit: "Busiest hour", agenda: "Every session", penutup: "Thank you" };
-const FOTO = ["Cover photo", "Busiest hour photo", "Closing photo"] as const;
-const KET_FOTO = ["Without one, the event page hero is used.", "Shown above the chart.", "Shown above the note."] as const;
+const NAMA_SEMUA: Partial<Record<KunciHalaman, string>> = { agenda: "Every session", penutup: "Three findings and note" };
+const FOTO = ["Cover photo", "Sessions photo", "Closing photo"] as const;
+const KET_FOTO = ["Without one, the event page hero is used.", "Shown above today's sessions when there are 4 or fewer.", "Shown above the note."] as const;
 
 export type UbahHari = Omit<SetelanHari, "kunci">;
+const hariPendek = (t: string) => new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
 /** Pengaturan satu hari: foto, gambar yang ikut, catatan panitia. Terkunci = hanya baca. */
-export function EditorHari({ setelan, absen, ada, kunci, terkunci, semua = false, onUbah }: {
+export function EditorHari({ setelan, absen, ada, titik, kunci, terkunci, semua = false, onUbah }: {
   setelan: SetelanHari;
   /** Story Seluruh acara: nama halaman lain, tanpa foto halaman jam. */
   semua?: boolean;
   absen: HalamanAbsen[];
   /** Halaman yang punya data hari ini (tampil atau disembunyikan). */
   ada: KunciHalaman[];
+  /** Titik check-in hari ini (Seluruh acara: semua) yang bisa dikeluarkan. */
+  titik: TitikHarian[];
   /** Angka hari ini sudah dikunci. */
   kunci: boolean;
   /** Acara ditutup (useTerkunci). */
@@ -39,13 +45,13 @@ export function EditorHari({ setelan, absen, ada, kunci, terkunci, semua = false
   onUbah: (s: UbahHari) => void;
 }) {
   const mati = kunci || terkunci;
-  const ubah = (sebagian: Partial<UbahHari>) => onUbah({ sembunyi: setelan.sembunyi, catatan: setelan.catatan, foto: setelan.foto, ...sebagian });
+  const ubah = (sebagian: Partial<UbahHari>) => onUbah({ sembunyi: setelan.sembunyi, catatan: setelan.catatan, foto: setelan.foto, tanpa: setelan.tanpa, ...sebagian });
   const alasan = new Map(absen.map((a) => [a.kunci, a.alasan]));
   const daftar = (Object.keys(NAMA_HALAMAN) as KunciHalaman[]).filter((k) => k !== "sampul" && (ada.includes(k) || alasan.has(k)));
   return (
     <Pane aria-label="Day settings">
       <PaneBody className="flex flex-col gap-6 p-4">
-        {kunci ? <p className="text-body-small text-on-surface-variant">Figures are locked and this day plays on the client view. Unlock to change photos, images or the note (it leaves the client view until you lock again).</p> : null}
+        {kunci ? <p className="text-body-small text-on-surface-variant">Figures are locked and this day plays on the client view. Unlock to change photos, images, check-in points or the note (it leaves the client view until you lock again).</p> : null}
         <DetailSection title="Images">
           <div className="flex flex-col">
             {daftar.map((k) => (
@@ -60,6 +66,23 @@ export function EditorHari({ setelan, absen, ada, kunci, terkunci, semua = false
             ))}
           </div>
         </DetailSection>
+        {titik.length ? (
+          <DetailSection title="Check-in points">
+            <p className="pb-2 text-body-small text-on-surface-variant">{semua ? "Turn one off to leave it out of the whole event story: its agenda row, Each day and the busiest hour. Who came still counts every scan." : "Turn one off to leave it out of this day's images: its name and its scans."}</p>
+            <div className="flex flex-col">
+              {titik.map((t) => (
+                <Switch
+                  key={t.kunci}
+                  label={t.nama}
+                  description={[semua && t.tanggal ? hariPendek(t.tanggal) : null, t.jam?.slice(0, 5)].filter(Boolean).join(" · ") || undefined}
+                  checked={!setelan.tanpa.includes(t.kunci)}
+                  disabled={mati}
+                  onChange={(v) => ubah({ tanpa: v ? setelan.tanpa.filter((x) => x !== t.kunci) : [...setelan.tanpa, t.kunci] })}
+                />
+              ))}
+            </div>
+          </DetailSection>
+        ) : null}
         <DetailSection title="Committee note">
           <TextArea
             key={`${setelan.catatan}`}

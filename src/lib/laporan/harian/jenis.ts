@@ -6,7 +6,8 @@
  */
 import type { TemaDeck } from "../jenis.ts";
 
-export const KUNCI_HALAMAN = ["sampul", "hadir", "jam", "menit", "agenda", "rekap", "puas", "layar", "penutup"] as const;
+/** "hadir", "jam" dan "menit" tidak dibuat lagi (9 Nov), tetap ada supaya salinan lama yang dikunci masih tergambar. */
+export const KUNCI_HALAMAN = ["sampul", "hadir", "jam", "menit", "agenda", "sepi", "rekap", "kelompok", "puas", "layar", "penutup"] as const;
 export type KunciHalaman = (typeof KUNCI_HALAMAN)[number];
 
 /** Kunci "hari" untuk story Seluruh acara, di samping tanggal "YYYY-MM-DD". */
@@ -17,17 +18,25 @@ export type Permukaan = "foto" | "gelap" | "aksen" | "kertas" | "muda" | "putih"
 
 type Dasar<K extends KunciHalaman> = { kunci: K; permukaan: Permukaan; foto: string | null };
 
+/** `ket`: jumlah di balik persen, mis. "1.002 dari 1.251" (salinan lama tanpa ket). `rendah`: diberi warna peringatan. */
+export type BarisAgenda = { jam: string; nama: string; persen: number | null; teks: string; ket?: string; rendah?: boolean };
+export type BarisKelompokHal = { label: string; persen: number; ket: string; rendah: boolean };
+export type PoinPenutup = { judul: string; ket: string };
+
 export type HalamanHarian =
-  | (Dasar<"sampul"> & { kecil: string; judul: string })
+  | (Dasar<"sampul"> & { kecil: string; judul: string; teks?: string })
   | (Dasar<"hadir"> & { judul: string; isi: number; teks: string })
   | (Dasar<"jam"> & { judul: string; batang: Array<{ label: string; nilai: number; puncak: boolean }>; teks: string })
   | (Dasar<"menit"> & { besar: string; judul: string; teks: string })
-  /** `ket`: jumlah di balik persen, mis. "1.002 dari 1.251" (salinan lama tanpa ket). */
-  | (Dasar<"agenda"> & { judul: string; baris: Array<{ jam: string; nama: string; persen: number | null; teks: string; ket?: string }> })
-  | (Dasar<"rekap"> & { judul: string; hari: Array<{ label: string; persen: number; ket?: string }>; teks: string })
+  /** `rata`: garis rata-rata (persen) di tiap batang; `teks`: catatan kecil di bawah daftar. */
+  | (Dasar<"agenda"> & { judul: string; baris: BarisAgenda[]; rata?: number | null; teks?: string })
+  | (Dasar<"sepi"> & { kecil: string; judul: string; besar: string; teks: string; kelompokJudul: string | null; kelompok: BarisKelompokHal[] })
+  /** `sorot`: indeks hari yang diberi warna (hari paling sepi). */
+  | (Dasar<"rekap"> & { judul: string; hari: Array<{ label: string; persen: number; ket?: string }>; teks: string; sorot?: number })
+  | (Dasar<"kelompok"> & { judul: string; teks: string; baris: BarisKelompokHal[]; rata: number | null })
   | (Dasar<"puas"> & { besar: string; judul: string; segmen: Array<{ label: string; persen: number; ket: string }>; teks: string })
-  | (Dasar<"layar"> & { judul: string; baris: Array<{ besar: string; teks: string }> })
-  | (Dasar<"penutup"> & { judul: string; teks: string | null; ttd: string });
+  | (Dasar<"layar"> & { judul: string; baris: Array<{ besar: string; teks: string }>; catatan?: string })
+  | (Dasar<"penutup"> & { judul: string; teks: string | null; ttd: string; poin?: PoinPenutup[] });
 
 export type HariHighlight = {
   /** "YYYY-MM-DD" di zona acara, atau RINGKASAN untuk Seluruh acara. */

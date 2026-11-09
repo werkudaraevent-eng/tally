@@ -1,10 +1,10 @@
 import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
-import { bacaSetelanHari, BATAS_HARIAN, hariSah } from "@/lib/laporan/harian/config";
+import { bacaSetelanHari, BATAS_HARIAN, hariSah, SETELAN_KOSONG } from "@/lib/laporan/harian/config";
 import { fotoLaporanSah } from "@/lib/laporan/harian/foto";
 import { hurufAcara, muatHarian } from "@/lib/laporan/harian/server";
 import { muatBahanLaporan } from "@/lib/laporan/bahan-server";
-import { hariAcara, susunHari, susunRingkasan } from "@/lib/laporan/harian/hitung";
+import { hariAcara, susunHari, susunRingkasan, tanpaSekitar } from "@/lib/laporan/harian/hitung";
 import { RINGKASAN } from "@/lib/laporan/harian/jenis";
 import { muatLaporan, simpanConfig } from "@/lib/laporan/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -15,7 +15,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  *
  * GET  ?tanggal=YYYY-MM-DD  daftar hari, setelan dan highlight hari itu.
  *      `tanggal` juga bisa "semua": story Seluruh acara (acara lebih dari satu hari).
- * PUT  { tanggal, setelan: { sembunyi, catatan, foto }, updated_at }  simpan setelan.
+ * PUT  { tanggal, setelan: { sembunyi, catatan, foto, tanpa }, updated_at }  simpan setelan.
  * POST { tanggal, aksi: "kunci" | "buka", updated_at }  kunci angka saat ini, atau buka lagi.
  * updated_at = yang DIMUAT (compare-and-swap); 409 bila diubah di tab lain.
  */
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
   const laporan = await muatLaporan(event.id).catch(() => null);
   if (!laporan) return apiError("INTERNAL_ERROR", 500);
   if (!laporan.siap) return Response.json({ siap: false });
-  const lama = laporan.config.harian[body.tanggal] ?? { sembunyi: [], catatan: "", foto: [], kunci: null };
+  const lama = laporan.config.harian[body.tanggal] ?? { ...SETELAN_KOSONG };
   let kunci = null;
   if (body.aksi === "kunci") {
     const bahan = await muatBahanLaporan(event, laporan.config).catch(() => null);
@@ -82,10 +82,12 @@ export async function POST(request: Request) {
     if (body.tanggal === RINGKASAN) {
       // Seluruh acara hanya untuk acara lebih dari satu hari.
       if (hariAcara(bahan).length < 2) return apiError("VALIDATION_ERROR", 422);
+      // Semua titik dikeluarkan: tidak ada yang bisa dikunci.
+      if (!bahan.sesi.some((s) => !lama.tanpa.includes(s.kunci))) return apiError("VALIDATION_ERROR", 422);
       kunci = { at: new Date().toISOString(), hari: susunRingkasan(bahan, lama, hurufAcara(event)).hari };
     } else {
-      if (!bahan.sesi.some((s) => s.tanggal === body.tanggal)) return apiError("VALIDATION_ERROR", 422);
-      kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event)).hari };
+      if (!bahan.sesi.some((s) => s.tanggal === body.tanggal && !lama.tanpa.includes(s.kunci))) return apiError("VALIDATION_ERROR", 422);
+      kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event), tanpaSekitar(laporan.config.harian, hariAcara(bahan), body.tanggal)).hari };
     }
   }
   const config = { ...laporan.config, harian: { ...laporan.config.harian, [body.tanggal]: { ...lama, kunci } } };

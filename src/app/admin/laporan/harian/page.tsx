@@ -1,6 +1,6 @@
 "use client";
 
-import { LockSimple, LockSimpleOpen, ShareNetwork } from "@phosphor-icons/react";
+import { DownloadSimple, LockSimple, LockSimpleOpen, ShareNetwork } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTerkunci } from "@/components/admin/page-context";
 import { CarouselHarian } from "@/components/laporan/harian/carousel";
@@ -13,7 +13,7 @@ import { cx } from "@/lib/m3/cx";
 import { LaporanTabs } from "../laporan-tabs";
 import { EditorHari, type UbahHari } from "./editor-hari";
 import { KartuTautan, type Tautan } from "./kartu-tautan";
-import { bagikanGambar } from "./bagikan";
+import { bagikanGambar, unduhPdf } from "./bagikan";
 
 /**
  * Admin > Event report > Daily highlights: carousel 9:16 untuk klien, satu
@@ -38,7 +38,7 @@ export default function HalamanHarian() {
   const terkunci = useTerkunci(true);
   const [data, setData] = useState<Data | null>(null);
   const [status, setStatus] = useState<"muat" | "siap" | "belum" | "gagal">("muat");
-  const [sibuk, setSibuk] = useState<"kunci" | "bagikan" | "tautan" | null>(null);
+  const [sibuk, setSibuk] = useState<"kunci" | "bagikan" | "pdf" | "tautan" | null>(null);
   const versi = useRef<string | null>(null);
   const antre = useRef<Promise<unknown>>(Promise.resolve());
 
@@ -106,6 +106,16 @@ export default function HalamanHarian() {
     else if (hasil === "unduh") toast.success("Images downloaded");
   };
 
+  const pdf = async () => {
+    if (!data?.tanggal || !data.highlight) return;
+    setSibuk("pdf");
+    const nama = `${data.slug}-highlight-${data.tanggal === RINGKASAN ? "whole-event" : data.tanggal}`;
+    const ok = await unduhPdf(data.tanggal, data.highlight.halaman.length, nama).then(() => true, () => false);
+    setSibuk(null);
+    if (ok) toast.success("PDF downloaded");
+    else toast.error("Couldn't make the PDF", "Check the connection and try again.");
+  };
+
   if (status === "belum") {
     return (
       <WorkspacePage width="form">
@@ -135,7 +145,8 @@ export default function HalamanHarian() {
           dikunci ? (
             <>
               <Button variant="text" icon={<LockSimpleOpen size={18} aria-hidden />} disabled={terkunci || !!sibuk} loading={sibuk === "kunci"} onClick={() => void kunci("buka")}>Unlock</Button>
-              <Button icon={<ShareNetwork size={18} aria-hidden />} loading={sibuk === "bagikan"} onClick={() => void bagikan()}>Share images</Button>
+              <Button variant="outlined" icon={<DownloadSimple size={18} aria-hidden />} disabled={!!sibuk && sibuk !== "pdf"} loading={sibuk === "pdf"} onClick={() => void pdf()}>Download PDF</Button>
+              <Button icon={<ShareNetwork size={18} aria-hidden />} disabled={!!sibuk && sibuk !== "bagikan"} loading={sibuk === "bagikan"} onClick={() => void bagikan()}>Share images</Button>
             </>
           ) : pilih ? (
             <Button icon={<LockSimple size={18} aria-hidden />} disabled={terkunci || !!sibuk} loading={sibuk === "kunci"} onClick={() => void kunci("kunci")}>Lock figures</Button>
@@ -175,6 +186,7 @@ export default function HalamanHarian() {
               setelan={data.setelan as SetelanHari}
               absen={data.absen}
               ada={data.ada}
+              titik={data.titik ?? []}
               kunci={!!dikunci}
               terkunci={terkunci}
               semua={data.tanggal === RINGKASAN}
