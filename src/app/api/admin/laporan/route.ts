@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     absen: hasil.absen,
     semua: hasil.semua,
     pilihan: hasil.pilihan,
+    dihitung: hasil.dihitung,
     slug: event.slug,
     klien,
   });
@@ -67,7 +68,10 @@ export async function PUT(request: Request) {
   const tersimpan = await muatLaporan(event.id).catch(() => null);
   if (!tersimpan) return apiError("INTERNAL_ERROR", 500);
   if (!tersimpan.siap) return Response.json({ siap: false });
-  const config = { ...bacaConfig(body.config), harian: tersimpan.config.harian, tautan: tersimpan.config.tautan };
+  const baru = bacaConfig(body.config);
+  // Tab lama (sebelum What's counted) tidak mengirim kecuali: jangan hapus yang tersimpan.
+  const kecuali = "kecuali" in (body.config as object) ? baru.kecuali : tersimpan.config.kecuali;
+  const config = { ...baru, kecuali, harian: tersimpan.config.harian, tautan: tersimpan.config.tautan };
   const hasil = await simpanConfig(event.id, config, body.updated_at, auth.user.id);
   if (!hasil.ok) {
     if (hasil.alasan === "belum_siap") return Response.json({ siap: false });
@@ -80,5 +84,5 @@ export async function PUT(request: Request) {
 
   // Deck baru ikut dikirim supaya pratinjau langsung sama dengan yang tersimpan.
   const susun = await hitungLaporan(event, config).catch(() => null);
-  return Response.json({ ok: true, updated_at: hasil.updated_at, config, ...(susun ? { deck: susun.deck, daftar: susun.daftar, absen: susun.absen, semua: susun.semua } : {}) });
+  return Response.json({ ok: true, updated_at: hasil.updated_at, config, ...(susun ? { deck: susun.deck, daftar: susun.daftar, absen: susun.absen, semua: susun.semua, dihitung: susun.dihitung } : {}) });
 }

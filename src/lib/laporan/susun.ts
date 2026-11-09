@@ -5,7 +5,7 @@
  */
 import type { BahanLaporan } from "./bahan.ts";
 import { aksenTerbaca } from "./warna.ts";
-import { urutkan, type ConfigLaporan, type KunciBawaan } from "./config.ts";
+import { urutkan, type ConfigLaporan, type KunciBawaan, type Sumber } from "./config.ts";
 import type { Blok, Deck, Latar, Slide, SlideAbsen, SlideIsi } from "./jenis.ts";
 import type { HasilSlide, SlideHitung } from "./teks.ts";
 import { slideCorong } from "./slide/corong.ts";
@@ -105,6 +105,11 @@ export type BarisDaftar = {
 
 export type HasilSusun = { deck: Deck; daftar: BarisDaftar[]; absen: SlideAbsen[]; semua: Record<string, Slide> };
 
+/** Slide yang seluruhnya dari satu sumber: bila sumber itu dimatikan di What's counted, alasannya disebut. */
+const SUMBER_SLIDE: Partial<Record<KunciBawaan, Sumber>> = { portal: "portal", kepuasan: "feedback", pengumuman: "pengumuman", undian: "undian", operasional: "logistik" };
+const dimatikan = (config: ConfigLaporan, sumber: Sumber | undefined) =>
+  sumber && config.kecuali.sumber.includes(sumber) ? "Switched off in What's counted" : null;
+
 export function susunDeck(b: BahanLaporan, config: ConfigLaporan): HasilSusun {
   const hitung: Partial<Record<KunciBawaan, HasilSlide>> = {
     corong: slideCorong(b),
@@ -126,7 +131,7 @@ export function susunDeck(b: BahanLaporan, config: ConfigLaporan): HasilSusun {
   const isi = new Map<string, { slide: SlideHitung; bobot: number; temuan: string | null; tambahan: BarisDaftar["tambahan"] }>();
   for (const [kunci, hasil] of Object.entries(hitung) as Array<[KunciBawaan, HasilSlide]>) {
     if (hasil.ada) isi.set(kunci, { slide: hasil.slide, bobot: hasil.bobot, temuan: hasil.temuan, tambahan: null });
-    else absen.push({ kunci, nama: hasil.nama, alasan: hasil.alasan });
+    else absen.push({ kunci, nama: hasil.nama, alasan: dimatikan(config, SUMBER_SLIDE[kunci]) ?? hasil.alasan });
   }
   for (const h of titik) {
     const hasil = slideTitik(b, h);
@@ -135,7 +140,7 @@ export function susunDeck(b: BahanLaporan, config: ConfigLaporan): HasilSusun {
   for (const t of config.tambahan) {
     const slide = slideTambahan(b, t);
     if (slide) isi.set(t.id, { slide, bobot: 0, temuan: null, tambahan: t.jenis });
-    else absen.push({ kunci: t.id, nama: "Chart from a question", alasan: "The question no longer exists" });
+    else absen.push({ kunci: t.id, nama: "Chart from a question", alasan: (t.jenis === "pertanyaan" && dimatikan(config, t.sumber === "feedback" ? "feedback" : undefined)) || "The question no longer exists" });
   }
 
   const sembunyi = new Set(config.sembunyi);

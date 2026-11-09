@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer, ShareNetwork } from "@phosphor-icons/react";
+import { Funnel, Printer, ShareNetwork } from "@phosphor-icons/react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTerkunci } from "@/components/admin/page-context";
@@ -15,6 +15,7 @@ import { geser, type ConfigLaporan } from "@/lib/laporan/config";
 import { cx } from "@/lib/m3/cx";
 import { DaftarSlide } from "./daftar-slide";
 import { DialogBagikan } from "./dialog-bagikan";
+import { DialogDihitung, LABEL_SUMBER, teksKunci } from "./dialog-dihitung";
 import { EditorSlide } from "./editor-slide";
 import { LaporanTabs } from "./laporan-tabs";
 import type { DataLaporan, Draf } from "./jenis";
@@ -38,6 +39,7 @@ export default function HalamanLaporan() {
   const [terbuka, setTerbuka] = useState(false);
   const [draf, setDraf] = useState<Draf>({});
   const [bagikan, setBagikan] = useState(false);
+  const [dihitung, setDihitung] = useState(false);
   const [sibuk, setSibuk] = useState(false);
   /** Naik setiap data dimuat ulang (mis. sesudah 409), supaya kolom editor ikut diisi ulang. */
   const [muatKe, setMuatKe] = useState(0);
@@ -79,7 +81,7 @@ export default function HalamanLaporan() {
       const json = res?.ok ? ((await res.json()) as Partial<DataLaporan> & { updated_at: string }) : null;
       if (!json) return toast.error("Couldn't save the report", "Check the connection and try again.");
       versi.current = json.updated_at;
-      setData((lama) => (lama ? { ...lama, updated_at: json.updated_at, ...(json.deck ? { deck: json.deck, daftar: json.daftar!, absen: json.absen!, semua: json.semua! } : {}) } : lama));
+      setData((lama) => (lama ? { ...lama, updated_at: json.updated_at, ...(json.deck ? { deck: json.deck, daftar: json.daftar!, absen: json.absen!, semua: json.semua!, dihitung: json.dihitung ?? lama.dihitung } : {}) } : lama));
       setDraf({});
     });
   }, [muat, toast]);
@@ -132,6 +134,18 @@ export default function HalamanLaporan() {
   const nomorDeck = data.deck.slide.findIndex((s) => s.kunci === kunci);
   const nomor = nomorDeck >= 0 ? nomorDeck + 1 : null;
   const total = data.deck.slide.length;
+  const kecuali = data.config.kecuali;
+  const hariKunci = Object.entries(data.config.harian)
+    .filter(([, s]) => s.kunci)
+    .map(([t]) => t)
+    .sort((x, y) => (x === "semua" ? -1 : y === "semua" ? 1 : x.localeCompare(y)))
+    .map((t) => (t === "semua" ? "Whole event" : new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })));
+  const keluarBagian = data.dihitung
+    ? [
+        ...(data.dihitung.total > data.dihitung.dihitung ? [`${(data.dihitung.total - data.dihitung.dihitung).toLocaleString("en-GB")} participant${data.dihitung.total - data.dihitung.dihitung === 1 ? "" : "s"}`] : []),
+        ...kecuali.sumber.map((k) => LABEL_SUMBER[k].nama),
+      ]
+    : [];
 
   return (
     <WorkspacePage fill>
@@ -142,10 +156,16 @@ export default function HalamanLaporan() {
           <>
             {data.shared_at ? <StatusChip tone="success">Shared {waktu(data.shared_at)}</StatusChip> : <StatusChip tone="neutral">Draft</StatusChip>}
             <span>Figures as of {waktu(data.deck.dibuat)}. They update each time you open this page.</span>
+            {keluarBagian.length && data.dihitung ? (
+              <span className="basis-full">
+                Counting {data.dihitung.dihitung.toLocaleString("en-GB")} of {data.dihitung.total.toLocaleString("en-GB")} participants. Left out: {keluarBagian.join(", ")}.
+              </span>
+            ) : null}
           </>
         }
         actions={
           <>
+            {data.dihitung ? <Button variant="text" icon={<Funnel size={18} aria-hidden />} onClick={() => setDihitung(true)}>What&apos;s counted</Button> : null}
             <ButtonLink variant="outlined" native icon={<Printer size={18} aria-hidden />} href={withEventPrefix("/cetak-laporan", pathname)} target="_blank" rel="noopener">Save as PDF</ButtonLink>
             <Button icon={<ShareNetwork size={18} aria-hidden />} disabled={terkunci} onClick={() => setBagikan(true)}>{data.shared_at ? "Sharing" : "Share with client"}</Button>
           </>
@@ -186,6 +206,21 @@ export default function HalamanLaporan() {
         </div>
       </div>
 
+      {data.dihitung ? (
+        <DialogDihitung
+          open={dihitung}
+          dihitung={data.dihitung}
+          kecuali={kecuali}
+          terkunci={terkunci}
+          hariKunci={hariKunci}
+          onClose={() => setDihitung(false)}
+          onSimpan={(k) => {
+            simpan((c) => ({ ...c, kecuali: k }));
+            setDihitung(false);
+            toast.success("Report updated", hariKunci.length ? `The deck and unlocked days now count only what you kept. ${teksKunci(hariKunci)}` : "The deck and Daily highlights now count only what you kept.");
+          }}
+        />
+      ) : null}
       <DialogBagikan data={data} open={bagikan} sibuk={sibuk} onClose={() => setBagikan(false)} onKirim={(aksi) => void kirimBagikan(aksi)} />
     </WorkspacePage>
   );

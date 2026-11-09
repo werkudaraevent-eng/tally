@@ -1,6 +1,6 @@
 import type { ConfigLaporan } from "@/lib/laporan/config";
 import type { Deck, Slide, SlideAbsen } from "@/lib/laporan/jenis";
-import type { PilihanEditor } from "@/lib/laporan/server";
+import type { Dihitung, PilihanEditor } from "@/lib/laporan/server";
 import type { BarisDaftar } from "@/lib/laporan/susun";
 
 /** Jawaban GET /api/admin/laporan. */
@@ -14,6 +14,8 @@ export type DataLaporan = {
   absen: SlideAbsen[];
   semua: Record<string, Slide>;
   pilihan: PilihanEditor;
+  /** What's counted; null bila bahan tidak terbaca. */
+  dihitung: Dihitung | null;
   slug: string;
   /** Akun Viewer acara ini: yang melihat salinan di tab Report. */
   klien: Array<{ username: string; aktif: boolean }>;

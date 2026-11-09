@@ -9,6 +9,7 @@ import { muatBahanLaporan } from "./bahan-server";
 import { timingSafeEqual } from "node:crypto";
 import { bacaConfig, TOKEN_TAUTAN, type ConfigLaporan } from "./config";
 import { RINGKASAN, type HariHighlight } from "./harian/jenis";
+import type { InfoSaring } from "./bahan";
 import type { Deck } from "./jenis";
 import { susunDeck, type HasilSusun } from "./susun";
 
@@ -34,9 +35,20 @@ export type PilihanEditor = {
   pertanyaan: Array<{ sumber: "daftar" | "feedback"; kunci: string; label: string }>;
 };
 
+/** What's counted untuk layar admin: ringkasan plus nama peserta yang dikeluarkan satu per satu. */
+export type Dihitung = InfoSaring & { keluar: Array<{ id: string; name: string; company: string | null }> };
+
+async function namaKeluar(eventId: string, ids: string[]): Promise<Dihitung["keluar"]> {
+  if (!ids.length) return [];
+  const { data } = await getSupabaseServiceClient().from("participants").select("id,name,company").eq("event_id", eventId).in("id", ids);
+  const nama = new Map(((data ?? []) as Array<{ id: string; name: string | null; company: string | null }>).map((r) => [r.id, r]));
+  // Urutan sesuai pilihan panitia; peserta yang sudah dihapus tetap tampil supaya bisa dihitung lagi.
+  return ids.map((id) => ({ id, name: nama.get(id)?.name || "Removed participant", company: nama.get(id)?.company ?? null }));
+}
+
 /** Deck dan daftar dari data terbaru, plus pilihan editor. Null bila bahan tidak terbaca. */
-export async function hitungLaporan(event: EventRow, config: ConfigLaporan): Promise<(HasilSusun & { pilihan: PilihanEditor }) | null> {
-  const bahan = await muatBahanLaporan(event, config);
+export async function hitungLaporan(event: EventRow, config: ConfigLaporan): Promise<(HasilSusun & { pilihan: PilihanEditor; dihitung: Dihitung | null }) | null> {
+  const [bahan, keluar] = await Promise.all([muatBahanLaporan(event, config), namaKeluar(event.id, config.kecuali.peserta).catch(() => [])]);
   if (!bahan) return null;
   const pilihan: PilihanEditor = {
     kelompok: [{ kunci: "company", label: "Organisation" }, ...bahan.pilihanDaftar.map((p) => ({ kunci: `extra.${p.kunci}`, label: p.label }))],
@@ -45,7 +57,7 @@ export async function hitungLaporan(event: EventRow, config: ConfigLaporan): Pro
       ...(bahan.feedback?.pertanyaan ?? []).filter((q) => q.type === "choice").map((q) => ({ sumber: "feedback" as const, kunci: q.key, label: q.title })),
     ],
   };
-  return { ...susunDeck(bahan, config), pilihan };
+  return { ...susunDeck(bahan, config), pilihan, dihitung: bahan.saring ? { ...bahan.saring, keluar } : null };
 }
 
 type HasilTulis = { ok: true; updated_at: string } | { ok: false; alasan: "belum_siap" | "basi" | "galat" };

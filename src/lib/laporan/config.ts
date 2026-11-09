@@ -33,6 +33,18 @@ export type SlideTambahan =
 
 export type BarisUsulan = { terjadi: string; data: string; usulan: string };
 
+/**
+ * Sumber data yang bisa dikeluarkan dari laporan ("What's counted"). Mati =
+ * hilang dari semua slide dan halaman highlight; slide yang jadi kosong
+ * pindah ke Not in this report.
+ */
+export const SUMBER = ["daftar", "feedback", "portal", "pengumuman", "undian", "logistik"] as const;
+export type Sumber = (typeof SUMBER)[number];
+/** Yang tidak dihitung: peserta tertentu, Type peserta, dan sumber data. Kosong = semua dihitung. */
+export type Kecuali = { peserta: string[]; tipe: string[]; sumber: Sumber[] };
+export const KECUALI_KOSONG: Kecuali = { peserta: [], tipe: [], sumber: [] };
+export const BATAS_KECUALI = { peserta: 200, tipe: 30, teksTipe: 50 } as const;
+
 export type ConfigLaporan = {
   sembunyi: string[];
   /** Urutan kunci slide; kunci yang tidak disebut ikut urutan bawaan di belakang. Termasuk slide titik. */
@@ -50,9 +62,11 @@ export type ConfigLaporan = {
    * yang dikunci. Null = mati. Hanya ditulis lewat /api/admin/laporan/tautan.
    */
   tautan: { token: string; dibuat: string } | null;
+  /** What's counted: berlaku untuk deck dan Daily highlights. */
+  kecuali: Kecuali;
 };
 
-export const CONFIG_KOSONG: ConfigLaporan = { sembunyi: [], urutan: [], judul: {}, catatan: {}, kelompok: null, tambahan: [], usulan: [], harian: {}, tautan: null };
+export const CONFIG_KOSONG: ConfigLaporan = { sembunyi: [], urutan: [], judul: {}, catatan: {}, kelompok: null, tambahan: [], usulan: [], harian: {}, tautan: null, kecuali: KECUALI_KOSONG };
 
 const KUNCI = /^[a-z0-9_.-]{1,80}$/;
 const teks = (nilai: unknown, maks: number): string | null => {
@@ -112,6 +126,17 @@ function bacaTautan(nilai: unknown): ConfigLaporan["tautan"] {
   return typeof t.token === "string" && TOKEN_TAUTAN.test(t.token) && typeof t.dibuat === "string" ? { token: t.token, dibuat: t.dibuat } : null;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function bacaKecuali(nilai: unknown): Kecuali {
+  if (!nilai || typeof nilai !== "object" || Array.isArray(nilai)) return KECUALI_KOSONG;
+  const isi = nilai as Record<string, unknown>;
+  const daftar = (x: unknown) => (Array.isArray(x) ? x : []);
+  const peserta = [...new Set(daftar(isi.peserta).filter((x): x is string => typeof x === "string" && UUID.test(x)).map((x) => x.toLowerCase()))].slice(0, BATAS_KECUALI.peserta);
+  const tipe = [...new Set(daftar(isi.tipe).map((x) => (typeof x === "string" ? x.trim().slice(0, BATAS_KECUALI.teksTipe) : "")).filter(Boolean))].slice(0, BATAS_KECUALI.tipe);
+  const sumber = SUMBER.filter((k) => daftar(isi.sumber).includes(k));
+  return { peserta, tipe, sumber };
+}
+
 export function bacaConfig(nilai: unknown): ConfigLaporan {
   if (!nilai || typeof nilai !== "object" || Array.isArray(nilai)) return { ...CONFIG_KOSONG };
   const isi = nilai as Record<string, unknown>;
@@ -126,6 +151,7 @@ export function bacaConfig(nilai: unknown): ConfigLaporan {
     usulan: bacaUsulan(isi.usulan),
     harian: bacaHarian(isi.harian),
     tautan: bacaTautan(isi.tautan),
+    kecuali: bacaKecuali(isi.kecuali),
   };
 }
 
