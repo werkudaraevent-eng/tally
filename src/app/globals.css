@@ -1915,6 +1915,27 @@ html:hover {
 
 .press .m3-tab { min-block-size: 2.5rem; }
 .press .m3-segmented { min-block-size: 2.25rem; }
+/* SegmentedField: grupnya setinggi kolom isian (36px) supaya sejajar dengan
+ * TextField di sebelahnya; segmennya mengisi tinggi itu. */
+.press .m3-segment-group[data-field] { block-size: 2.25rem; }
+.press .m3-segment-group[data-field] .m3-segmented { min-block-size: 0; block-size: 100%; }
+/* Cincin fokus di DALAM segmen, mengikuti sudut pil di segmen ujung. Di luar
+ * (offset global 2px) ia jadi kotak yang menimpa garis wadah dan tetangganya. */
+.press .m3-segment-group[data-field] .m3-segmented:focus-visible { outline-offset: -3px; }
+/* Di layar sentuh tingginya TETAP 36px, supaya sejajar dengan kolom isian di
+ * baris yang sama (admin 36px juga di ponsel, lihat "Kepadatan kontrol"). Yang
+ * diperbesar hanya bidang tekannya, 7px ke atas dan ke bawah, jadi segmen 34px
+ * (36px dikurangi garis wadah) menerima ketukan setinggi 48px (target sentuh
+ * M3). `::before`, karena `::after` sudah dipakai lapisan keadaan `.m3-state`. */
+@media (pointer: coarse) {
+	.press .m3-segment-group[data-field] .m3-segmented::before {
+		content: "";
+		position: absolute;
+		inset: -7px 0;
+		/* Di atas petunjuk dan label yang ditulis sesudahnya di DOM. */
+		z-index: 1;
+	}
+}
 .press .m3-filter-chip { min-block-size: 2rem; padding-inline: 0.75rem; }
 
 /* Chip status bukan kontrol — ia penanda, tidak pernah ditekan. Jadi ambang

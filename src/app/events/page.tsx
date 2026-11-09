@@ -3,7 +3,7 @@
 import { ArrowRight, ArrowSquareOut, CalendarDots, CalendarPlus, CopySimple, DotsThree, MagnifyingGlass, PencilSimple, Plus, Storefront, Trash, UsersThree } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SelectField, SelectMenu, TextField, usePopoverAnchor } from "@/components/m3";
+import { Button, CONTAINER_PADDING, Dialog, EmptyState, IconButton, PageContainer, PageHeader, Popover, POPOVER_ITEM, POPOVER_ITEM_DANGER, SegmentedButton, SegmentedField, SelectMenu, TextField, usePopoverAnchor } from "@/components/m3";
 import { EventStatusBadge, URUTAN_STATUS } from "@/components/admin/event-status";
 import { cakupanAkses, UserMenu } from "@/components/admin/user-menu";
 import { EventDetailsDialog, galatKolomDari, type GalatKolom } from "@/components/admin/event-details-dialog";
@@ -11,6 +11,7 @@ import { ACTIONS, CONFIRM_TEXT, DuplicateEventDialog, type Action } from "@/comp
 import { WorkspaceTabs } from "@/components/admin/workspace-tabs";
 import { EVENT_STATUS_LABEL, EVENT_VENUE_MAX, type EventRow, type EventStatus, type UserRole } from "@/lib/domain";
 import { daysUntil } from "@/lib/event-datetime";
+import { DEFAULT_TIME_ZONE, TIME_ZONE_OPTIONS, timeZoneHint, type EventTimeZone } from "@/lib/timezone";
 import { cx } from "@/lib/m3/cx";
 import { useQueryState } from "@/lib/url-state";
 import { EN_DASH, SEPARATOR, gabungMeta } from "@/lib/typography";
@@ -269,6 +270,7 @@ export default function EventsPage() {
   const [galatBuat, setGalatBuat] = useState<GalatKolom>({});
   const [notice, setNotice] = useState("");
   const [creating, setCreating] = useState(false);
+  const [zonaBaru, setZonaBaru] = useState<EventTimeZone>(DEFAULT_TIME_ZONE);
   const [duplicating, setDuplicating] = useState<EventRow | null>(null);
   const [editing, setEditing] = useState<EventRow | null>(null);
   const [confirming, setConfirming] = useState<{ event: EventRow; action: Action; label: string } | null>(null);
@@ -401,6 +403,7 @@ export default function EventsPage() {
   function bukaBuatEvent() {
     setError("");
     setGalatBuat({});
+    setZonaBaru(DEFAULT_TIME_ZONE);
     setCreating(true);
   }
 
@@ -526,7 +529,7 @@ export default function EventsPage() {
         <Storefront size={18} className="shrink-0 text-on-surface-variant" />
         <span className="text-body-medium font-medium">Tally</span>
         {role === "admin" || role === "super_admin" ? (
-          <WorkspaceTabs current="events" />
+          <WorkspaceTabs current="events" owner={role === "super_admin"} />
         ) : null}
         <div className="ml-auto flex items-center gap-1">
           <IconButton label="Search events (Ctrl K)" size="sm" onClick={() => kolomCari.current?.focus()}>
@@ -813,13 +816,9 @@ export default function EventsPage() {
             layarnya masing-masing, tempat semuanya memang diatur dan bisa
             diubah kapan saja. */}
         <TextField className="mt-5" label="Event name" name="name" required minLength={3} maxLength={120} autoFocus error={galatBuat.name} />
-        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_160px]">
+        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_15rem]">
           <TextField label="Date" name="event_date" type="date" optional error={galatBuat.event_date} />
-          <SelectField label="Time zone" name="time_zone" defaultValue="Asia/Jakarta" error={galatBuat.time_zone}>
-            <option value="Asia/Jakarta">WIB</option>
-            <option value="Asia/Makassar">WITA</option>
-            <option value="Asia/Jayapura">WIT</option>
-          </SelectField>
+          <SegmentedField label="Time zone" name="time_zone" value={zonaBaru} onChange={setZonaBaru} options={TIME_ZONE_OPTIONS} hint={timeZoneHint(zonaBaru)} error={galatBuat.time_zone} />
         </div>
         <TextField className={KOLOM} label="Venue" name="venue_name" optional maxLength={EVENT_VENUE_MAX} placeholder="e.g. Pullman Hotel CBD Thamrin" error={galatBuat.venue_name} />
         <p className="mt-5 rounded-lg bg-surface-container p-3 text-body-small text-on-surface-variant">

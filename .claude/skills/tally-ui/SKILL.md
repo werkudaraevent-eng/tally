@@ -39,6 +39,10 @@ Before a mockup or code, answer in a few lines:
   "Primitif": Button, TextField, SelectField, SegmentedButton, Tabs, Dialog,
   EmptyState, …), use it. Do not hand-write classes, even when the surrounding
   old screen does.
+- Single choice: 2 to 4 fixed, short options use `SegmentedField`, not a
+  dropdown (`DESIGN.md` "Dropdown, segmented, atau switch"; `npm run check`
+  fails otherwise). Dropdowns are for 5+ options, sentence labels and lists
+  that come from the organiser's data.
 - Type comes only from M3 role classes (`text-title-medium`, …), never raw
   Tailwind sizes. Admin controls 36 px; public, participant, booth and scanner
   tap targets at least 48 px.

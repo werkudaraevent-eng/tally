@@ -66,6 +66,14 @@ export function timeZoneAbbr(zone: EventTimeZone): string {
   return BY_ID.get(zone)?.abbr ?? "WIB";
 }
 
+/** Pilihan zona untuk SegmentedField: label singkatan, petunjuk kota-kotanya. */
+export const TIME_ZONE_OPTIONS = EVENT_TIME_ZONES.map((zone) => ({ value: zone.id as EventTimeZone, label: zone.abbr }));
+
+/** Kota-kota di zona itu, untuk petunjuk di bawah pilihan zona. */
+export function timeZoneHint(zone: EventTimeZone): string {
+  return BY_ID.get(zone)?.hint ?? "";
+}
+
 /** Offset ISO tetap, mis. "+08:00". */
 export function timeZoneOffset(zone: EventTimeZone): string {
   return BY_ID.get(zone)?.offset ?? "+07:00";

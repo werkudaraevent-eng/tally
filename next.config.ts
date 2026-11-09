@@ -21,6 +21,8 @@ const { version } = createRequire(import.meta.url)("./package.json") as { versio
 // daripada dua lapisan yang saling menimpa.
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_APP_VERSION: version },
+  // Ask AI menjawab dari panduan fitur; berkasnya dibaca saat route berjalan.
+  outputFileTracingIncludes: { "/api/admin/ai/tanya": ["./docs/PRODUCT.md"] },
   // Huruf halaman acara (src/app/fonts/landing.css) disimpan setahun. Isinya
   // tidak pernah berubah di folder yang sama: berkas baru masuk folder v2.
   async headers() {

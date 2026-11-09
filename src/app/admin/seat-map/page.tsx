@@ -23,7 +23,7 @@ import {
 import { tallySeatSource } from "@/lib/seat-tally-source";
 import {
   Banner, Button, Dialog, EmptyState, IconButton, MetaSeparator, PageLoading, Pane, PaneBody, PaneFooter,
-  Popover, SegmentedButton, usePopoverAnchor, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
+  Popover, SegmentedButton, SegmentedField, usePopoverAnchor, StatusChip, SupportingPane, Switch, Tabs, WorkspaceHeader, WorkspacePage,
 } from "@/components/m3";
 import { INPUT, Field, Kelompok } from "@/components/admin/compact-form";
 
@@ -682,12 +682,13 @@ export default function SeatMapAdminPage() {
                       <IconButton size="sm" label="Delete section" disabled={sections.length <= 1} onClick={() => updateParam("sections", sections.filter((_, i) => i !== index))}><Trash size={16} /></IconButton>
                     </div>
                     <div className="grid grid-cols-3 gap-3 p-3">
-                      <Field label="Type">
-                        <select value={section.kind} onChange={(event) => set({ kind: event.target.value as SeatSection["kind"] })} className={INPUT}>
-                          <option value="sofa">Sofas</option>
-                          <option value="theater">Theater</option>
-                                                  </select>
-                      </Field>
+                      <SegmentedField<SeatSection["kind"]>
+                        label="Type"
+                        className="col-span-3"
+                        value={section.kind}
+                        onChange={(kind) => set({ kind })}
+                        options={[{ value: "sofa", label: "Sofas" }, { value: "theater", label: "Theater" }]}
+                      />
                       <Field label="Name on map"><input value={section.name} placeholder="None" onChange={(event) => set({ name: event.target.value })} className={INPUT} /></Field>
                       <Field label="Label prefix" htmlFor={`awalan-${index}`} hint={sectionPrefixError(section.prefix) ? <span id={`awalan-${index}-galat`} className="text-error">{sectionPrefixError(section.prefix)}</span> : undefined}>
                         <input id={`awalan-${index}`} value={section.prefix} placeholder="None" aria-invalid={sectionPrefixError(section.prefix) ? true : undefined} aria-describedby={sectionPrefixError(section.prefix) ? `awalan-${index}-galat` : undefined} onChange={(event) => set({ prefix: event.target.value })} className={INPUT} />
@@ -696,7 +697,7 @@ export default function SeatMapAdminPage() {
                       <Field label={section.kind === "sofa" ? "Sofas per row" : "Seats per row"}><input type="number" min={1} max={40} value={section.per_row} onChange={(event) => set({ per_row: Number(event.target.value) })} className={INPUT} /></Field>
                       {section.kind === "sofa" ? (
                         <Field label="Seats per sofa"><input type="number" min={1} max={6} value={section.seats_per_sofa} onChange={(event) => set({ seats_per_sofa: Number(event.target.value) })} className={INPUT} /></Field>
-                      ) : <div />}
+                      ) : null}
                       <div className="col-span-3">
                         <Field label={section.kind === "sofa" ? "Aisle after sofa number" : "Aisle after seat number"} hint={`Seat labels: ${contoh}`}>
                           <InputLorong aisles={section.aisles} onChange={(aisles) => set({ aisles })} />

@@ -35,7 +35,7 @@ export function UsersWorkspace({ username, role }: { username: string | null; ro
         <div className="m3-topbar-row mx-auto flex min-h-14 w-full max-w-[1280px] items-center gap-2">
           <Storefront size={18} className="shrink-0 text-on-surface-variant" />
           <span className="text-body-medium font-medium">Tally</span>
-          <WorkspaceTabs current="users" />
+          <WorkspaceTabs current="users" owner={role === "super_admin"} />
           <div className="ml-auto flex items-center gap-1">
             <UserMenu
               username={username}

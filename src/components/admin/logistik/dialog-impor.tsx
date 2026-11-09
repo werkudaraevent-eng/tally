@@ -8,6 +8,8 @@ import { pesanGalatApi } from "@/lib/api-message";
 import { eventApiPath } from "@/lib/event-url";
 import type { BarisRencana, JenisImpor, KamarUbah, LabelDipecah, NomorBentrok, Rencana, StatusBaris } from "@/lib/logistik/impor";
 import { cx } from "@/lib/m3/cx";
+import { BacaAi, RingkasanAi, type JawabanAi } from "./baca-ai";
+import { useUndoImpor } from "./undo-impor";
 import { plural } from "@/lib/plural";
 
 /**
@@ -21,7 +23,7 @@ import { plural } from "@/lib/plural";
  * server menempatkan orang yang tidak ada di berkas.
  */
 
-type Hasil = { masuk: number; dibuat: string[]; diubah?: number; gagal: Array<{ nama: string; alasan: string }> };
+type Hasil = { masuk: number; dibuat: string[]; diubah?: number; impor_id?: number | null; gagal: Array<{ nama: string; alasan: string }> };
 
 const URAIAN: Record<JenisImpor, string> = {
   kamar: "One row per person, the same columns as the participant export. Fill Hotel 2 only for people who move hotels, with Check-in and Check-out for each hotel. Leave Room empty if the number comes later, and leave the dates empty to use the hotel's dates. Hotels and rooms that do not exist yet are created.",
@@ -64,6 +66,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   const [labelSatu, setLabelSatu] = useState(false);
   // "Use the numbers in this file": nomor yang dipegang label lain pindah ke label di berkas.
   const [nomorBerkas, setNomorBerkas] = useState(false);
+  // Bacaan "Read with AI" terakhir: ringkasannya tampil di atas pratinjau, dan
+  // hasil akhirnya (disimpan atau ditutup) dicatat untuk halaman AI.
+  const [ai, setAi] = useState<JawabanAi | null>(null);
 
   // Keadaan dikosongkan setiap kali dialog dibuka, dengan jenis dari tab yang
   // sedang tampil. Disetel saat render, bukan di efek, supaya tidak ada satu
@@ -78,6 +83,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     setHanyaTolak(false);
     setLabelSatu(false);
     setNomorBerkas(false);
+    setAi(null);
   }
   if (!open && bukaUntuk !== null) setBukaUntuk(null);
 
@@ -88,6 +94,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     if (simpan) form.set("simpan", "1");
     if (satu) form.set("label_satu", "1");
     if (ikutBerkas) form.set("nomor_berkas", "1");
+    if (simpan && ai?.run_id && file.name === "Room numbers read by AI.tsv") form.set("ai_run_id", String(ai.run_id));
     const response = await fetch(eventApiPath("/api/admin/logistik/impor"), { method: "POST", body: form }).catch(() => null);
     if (!response) return { galat: "Connection failed. Try again." };
     const json = await response.json().catch(() => ({}));
@@ -109,6 +116,15 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
     else setRencana(jawaban.rencana);
   };
 
+  const akhiriAi = (status: "saved" | "closed") => {
+    if (!ai?.run_id) return;
+    void fetch(eventApiPath("/api/admin/logistik/impor/ai"), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: ai.run_id, status }) }).catch(() => null);
+  };
+  const tutup = () => {
+    if (ai && !hasil) akhiriAi("closed");
+    onClose();
+  };
+
   const simpan = async () => {
     if (!berkas) return;
     setProses("simpan");
@@ -118,6 +134,10 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       setGalat(jawaban.galat);
       return;
     }
+    if (jenis === "kamar") undo.segarkan();
+    if (ai && berkas.name === "Room numbers read by AI.tsv") akhiriAi("saved");
+    else if (ai) akhiriAi("closed");
+    setAi(null);
     await onSelesai();
     setProses(null);
     const selesai = jawaban.hasil!;
@@ -130,7 +150,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
         jenis === "kereta" ? `${plural(selesai.masuk, "ticket")} saved`
           : selesai.masuk === 0 && selesai.diubah ? `${plural(selesai.diubah, "room")} updated`
           : `${plural(selesai.masuk, "person", "people")} assigned`,
-        dibuat || undefined,
+        [dibuat, selesai.impor_id ? "To undo it, open Import again." : ""].filter(Boolean).join(" ") || undefined,
       );
       onClose();
       return;
@@ -153,22 +173,23 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
   const ubahPerKamar = satuPerKamar(rencana?.kamarUbah ?? []);
   const kamarDiubah = ubahPerKamar.length;
   const tampil = (rencana?.baris ?? []).filter((b) => !hanyaTolak || b.status === "tolak");
-  const sibuk = proses !== null;
+  const undo = useUndoImpor({ open, aktif: jenis === "kamar" && !rencana && !hasil && proses === null, onSelesai, onTutup: onClose });
+  const sibuk = proses !== null || undo.sibuk;
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={tutup}
       dismissible={!sibuk}
       size="xl"
-      icon={<FileXls size={20} />}
-      title={JUDUL[jenis]}
-      description={hasil ? undefined : URAIAN[jenis]}
-      actions={hasil ? (
-        <Button onClick={onClose}>Done</Button>
+      icon={undo.ikon ?? <FileXls size={20} />}
+      title={undo.judul ?? JUDUL[jenis]}
+      description={hasil || undo.isi ? undefined : URAIAN[jenis]}
+      actions={undo.aksi ?? (hasil ? (
+        <Button onClick={tutup}>Done</Button>
       ) : (
         <>
-          <Button variant="outlined" disabled={sibuk} onClick={onClose}>Cancel</Button>
+          <Button variant="outlined" disabled={sibuk} onClick={tutup}>Cancel</Button>
           <Button
             simpan
             loading={proses === "simpan"}
@@ -178,9 +199,9 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             {akanDitulis > 0 ? `Save ${plural(akanDitulis, jenis === "kereta" ? "ticket" : "assignment")}` : kamarDiubah > 0 ? `Update ${plural(kamarDiubah, "room")}` : "Save"}
           </Button>
         </>
-      )}
+      ))}
     >
-      {hasil ? (
+      {undo.isi ?? (hasil ? (
         <div className="flex flex-col gap-3">
           <p className="text-body-medium text-on-surface">
             {jenis === "kereta"
@@ -226,6 +247,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
                   event.target.value = "";
                   // Berkas baru mulai lagi dari pilihan yang disarankan.
                   setLabelSatu(false);
+                  if (ai) { akhiriAi("closed"); setAi(null); }
                   void baca(file, jenis, false);
                 }}
               />
@@ -262,7 +284,23 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             <p className="-mt-2 text-body-small text-on-surface-variant">
               To change many people at once: Download current stays, edit it in Excel, then choose the file here. You see every change before anything is saved.
             </p>
-          ) : (
+          ) : null}
+          {undo.baris}
+          {jenis === "kamar" ? (
+            <BacaAi
+              open={open}
+              disabled={sibuk}
+              onMulai={() => { if (ai) akhiriAi("closed"); setAi(null); setBerkas(null); setRencana(null); setGalat(""); }}
+              onBerkas={(file, jawaban) => {
+                setAi(jawaban);
+                setLabelSatu(false);
+                setNomorBerkas(false);
+                if (file) void baca(file, "kamar", false, false);
+              }}
+            />
+          ) : null}
+          {ai && jenis === "kamar" ? <RingkasanAi jawaban={ai} /> : null}
+          {jenis === "kamar" ? null : (
             <p className="-mt-2 text-body-small text-on-surface-variant">
               {jenis === "kereta"
                 ? "Download participant list gives every participant an Outbound and a Return row (one per saved segment), with tickets already saved. Fill the ticket columns, leave the rest empty, then choose the file here."
@@ -332,7 +370,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
             </div>
           ) : null}
         </div>
-      )}
+      ))}
     </Dialog>
   );
 }
@@ -515,7 +553,15 @@ function satuPerKamar(kamar: KamarUbah[]): KamarUbah[] {
 /** Kamar yang sudah ada dan isiannya diubah berkas, satu isian per kolom. */
 function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
   const kolom = ISIAN_KAMAR.filter(([isian]) => kamar.some((k) => k[isian] !== undefined));
+  const diganti = kamar.filter((k) => k.nomor_lama && k.room_number).length;
   return (
+    <div className="flex flex-col gap-2">
+    {diganti > 0 ? (
+      <p className="flex items-start gap-2 text-body-medium text-on-surface">
+        <span className="mt-2 flex"><StatusDot tone="warning" /></span>
+        <span>{diganti} of {kamar.length} rooms get a different number. Everyone staying in those rooms, roommates included, sees the new number.</span>
+      </p>
+    ) : null}
     <div className="max-h-[24dvh] overflow-auto rounded-md border border-outline-variant bg-surface-container-lowest">
       <table className="w-full border-collapse text-left text-body-medium">
         <caption className="sr-only">Rooms that will be updated</caption>
@@ -529,11 +575,16 @@ function KamarDiubah({ kamar }: { kamar: KamarUbah[] }) {
           {kamar.slice(0, BATAS_TAMPIL).map((k) => (
             <tr key={k.id} className="h-9 border-b border-outline-variant last:border-b-0">
               <td className="px-4 text-on-surface">{k.nama}</td>
-              {kolom.map(([isian]) => <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] === null ? "To follow" : k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
+              {kolom.map(([isian]) => isian === "room_number" && k.nomor_lama && k.room_number ? (
+                <td key={isian} className="px-4 text-on-surface">
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><StatusDot tone="warning" /><s className="text-on-surface-variant">{k.nomor_lama}</s><span aria-hidden>→</span><strong className="font-medium">{k.room_number}</strong><span className="sr-only">(changed)</span></span>
+                </td>
+              ) : <td key={isian} className={cx("px-4", k[isian] !== undefined ? "text-on-surface" : "text-on-surface-variant")}>{k[isian] === null ? "To follow" : k[isian] !== undefined ? String(k[isian]) : "Unchanged"}</td>)}
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }
