@@ -13,6 +13,8 @@ import type { FiturAi, ModelAi, SetelanAi } from "@/lib/ai/model";
 type Ringkas = {
   mulai: string; runs: number; usd: number; token_masuk: number; token_keluar: number;
   hasil: { saved: number; closed: number; failed: number; preview: number };
+  /** Pemakaian yang punya pratinjau (tanpa Ask AI); dasar bilah Results. */
+  hasil_runs?: number;
   per_acara: Array<{ event_id: string | null; usd: number }>;
   per_fitur: Record<string, { runs: number; usd: number }>;
 };
@@ -32,6 +34,7 @@ const STATUS_RUN: Record<string, { label: string; tone: "success" | "neutral" | 
   failed: { label: "Failed", tone: "error" },
   preview: { label: "In preview", tone: "primary" },
   left: { label: "Left without saving", tone: "neutral" },
+  answered: { label: "Answered", tone: "success" },
 };
 
 /** Halaman AI: bilah atas yang sama dengan /events dan /users. */
@@ -82,6 +85,7 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
   const setelan = data && !data.belum_migrasi ? data.setelan : null;
   const ini = data?.bulan_ini;
   const ringkas = periode === "ini" ? data?.bulan_ini : data?.bulan_lalu;
+  const hasilRuns = ringkas ? ringkas.hasil_runs ?? ringkas.runs : 0;
   const labelModel = (id: string) => data?.model.find((m) => m.id === id)?.label ?? id;
   const terpakai = ini?.usd ?? 0;
   const batasAngka = setelan?.batasBulanan ?? 0;
@@ -313,12 +317,12 @@ export function AiWorkspace({ username, role }: { username: string | null; role:
                     <h2 className="text-title-medium font-medium">Results</h2>
                     <span className="text-body-small text-on-surface-variant">{bulan(ringkas.mulai)}</span>
                   </div>
-                  {ringkas.runs === 0 ? <p className="text-body-medium text-on-surface-variant">No AI runs yet.</p> : (
+                  {hasilRuns === 0 ? <p className="text-body-medium text-on-surface-variant">No imports with AI yet.</p> : (
                     <>
-                      <Batang label="Saved after preview" nilai={ringkas.hasil.saved} total={ringkas.runs} teks={`${ringkas.hasil.saved} of ${ringkas.runs}`} warna="bg-success" />
-                      <Batang label="Closed without saving" nilai={ringkas.hasil.closed} total={ringkas.runs} teks={`${ringkas.hasil.closed} of ${ringkas.runs}`} warna="bg-outline" />
-                      {ringkas.hasil.preview > 0 ? <Batang label="In preview now" nilai={ringkas.hasil.preview} total={ringkas.runs} teks={`${ringkas.hasil.preview} of ${ringkas.runs}`} warna="bg-primary" /> : null}
-                      <Batang label="Failed" nilai={ringkas.hasil.failed} total={ringkas.runs} teks={`${ringkas.hasil.failed} of ${ringkas.runs}`} warna="bg-error" />
+                      <Batang label="Saved after preview" nilai={ringkas.hasil.saved} total={hasilRuns} teks={`${ringkas.hasil.saved} of ${hasilRuns}`} warna="bg-success" />
+                      <Batang label="Closed without saving" nilai={ringkas.hasil.closed} total={hasilRuns} teks={`${ringkas.hasil.closed} of ${hasilRuns}`} warna="bg-outline" />
+                      {ringkas.hasil.preview > 0 ? <Batang label="In preview now" nilai={ringkas.hasil.preview} total={hasilRuns} teks={`${ringkas.hasil.preview} of ${hasilRuns}`} warna="bg-primary" /> : null}
+                      <Batang label="Failed" nilai={ringkas.hasil.failed} total={hasilRuns} teks={`${ringkas.hasil.failed} of ${hasilRuns}`} warna="bg-error" />
                       <span className="text-body-small text-on-surface-variant">Many closed or failed runs for one kind of file mean the AI reads it badly: try another model for that feature.</span>
                     </>
                   )}
