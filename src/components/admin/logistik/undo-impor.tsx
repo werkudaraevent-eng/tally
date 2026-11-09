@@ -95,15 +95,17 @@ export function useUndoImpor({ open, aktif, onSelesai, onTutup }: {
   };
 
   const selesai = () => { setTahap(null); setHasil(null); setGalat(""); };
+  // Ditutup (Esc, X) di tengah pratinjau atau hasil: dibuka lagi mulai dari formulir.
+  if (!open && (tahap !== null || hasil !== null || galat)) selesai();
 
   const baris = aktif && impor && !tahap ? (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-outline-variant px-3 py-1.5">
       <ArrowCounterClockwise size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
       <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">
-        Last import: <span className="text-on-surface">{impor.file_name ?? "File"}</span>
+        Last import: <span className="text-on-surface">{impor.ai ? "Read with AI" : impor.file_name ?? "File"}</span>
         {" · "}{waktu(impor.created_at)}{impor.user_name ? ` · ${impor.user_name}` : ""}
       </p>
-      <Button variant="text" size="sm" loading={proses} disabled={proses} onClick={() => void mulai()}>Undo import</Button>
+      <Button variant="text" loading={proses} disabled={proses} onClick={() => void mulai()}>Undo import</Button>
       {galat ? <p role="alert" className="w-full text-body-small text-error">{galat}</p> : null}
     </div>
   ) : null;
@@ -118,7 +120,7 @@ export function useUndoImpor({ open, aktif, onSelesai, onTutup }: {
           : `Undone: ${ringkasan(hasil) || "nothing"} put back. These were left as they are:`}
       </p>
       {tahap === "pratinjau" && hasil.dilewati.length > 0 ? (
-        <p className="text-body-medium text-on-surface-variant">Left as they are, because they changed after the import:</p>
+        <p className="text-body-medium text-on-surface-variant">Left as they are:</p>
       ) : null}
       {hasil.dilewati.length > 0 ? (
         <ul className="flex max-h-[44dvh] flex-col overflow-y-auto rounded-md border border-outline-variant">
@@ -143,19 +145,22 @@ export function useUndoImpor({ open, aktif, onSelesai, onTutup }: {
     <Button onClick={() => { selesai(); onTutup(); }}>Done</Button>
   ) : null;
 
-  return { baris, isi, aksi, sibuk: proses, judul: tahap ? "Undo the last import" : null, segarkan: () => setMuat((n) => n + 1) };
+  return { baris, isi, aksi, sibuk: proses, judul: tahap ? "Undo the last import" : null, ikon: tahap ? <ArrowCounterClockwise size={20} /> : null, segarkan: () => setMuat((n) => n + 1) };
 }
 
 /** Kamar dan hotel yang dibuat impor ini dihapus lagi bila kosong. */
 function dibuatImpor(h: HasilBatal) {
-  const bagian = [h.dihapus > 0 ? plural(h.dihapus, "room") : "", h.hotelDihapus > 0 ? plural(h.hotelDihapus, "hotel") : ""].filter(Boolean).join(" and ");
-  return bagian ? ` The ${bagian} this import created ${h.dihapus + h.hotelDihapus === 1 ? "is" : "are"} removed if no one is left in ${h.dihapus + h.hotelDihapus === 1 ? "it" : "them"}.` : "";
+  const nama = (n: number, kata: string) => (n === 1 ? `the ${kata}` : `the ${plural(n, kata)}`);
+  const bagian = [h.dihapus > 0 ? nama(h.dihapus, "room") : "", h.hotelDihapus > 0 ? nama(h.hotelDihapus, "hotel") : ""].filter(Boolean).join(" and ");
+  if (!bagian) return "";
+  const satu = h.dihapus + h.hotelDihapus === 1;
+  return ` ${bagian.charAt(0).toUpperCase()}${bagian.slice(1)} this import created ${satu ? "is" : "are"} removed if no one is left in ${satu ? "it" : "them"}.`;
 }
 
-/** "the stays of 42 people and 12 rooms", kosong bila tidak ada. */
+/** "42 people's stays and 12 rooms", kosong bila tidak ada. */
 function ringkasan(h: HasilBatal) {
   return [
-    h.orang > 0 ? `the stays of ${plural(h.orang, "person", "people")}` : "",
+    h.orang > 0 ? `${plural(h.orang, "person's", "people's")} stays` : "",
     h.kamar > 0 ? plural(h.kamar, "room") : "",
   ].filter(Boolean).join(" and ");
 }

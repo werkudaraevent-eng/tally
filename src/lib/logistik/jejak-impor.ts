@@ -149,8 +149,8 @@ export async function batalkanImpor(eventId: string, actor: string, id: number, 
   }
   const kamarNama = new Map([...baris.before.rooms, ...kini.rooms].map((k) => [Number(k.id), k.room_number ?? k.label ?? `#${k.id}`]));
   const dilewati: HasilBatal["dilewati"] = [
-    ...rencana.orangDilewati.map((o) => ({ nama: nama.get(o) ?? "Participant", alasan: "Stays changed after the import, so they are left as they are." })),
-    ...rencana.kamarDilewati.map((k) => ({ nama: `Room ${kamarNama.get(k) ?? k}`, alasan: "Changed after the import, so it is left as it is." })),
+    ...rencana.orangDilewati.map((o) => ({ nama: nama.get(o) ?? "Participant", alasan: "Their stays changed after the import." })),
+    ...rencana.kamarDilewati.map((k) => ({ nama: `Room ${kamarNama.get(k) ?? k}`, alasan: "Its number or label changed after the import." })),
   ];
 
   if (!terapkan) {

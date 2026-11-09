@@ -182,7 +182,7 @@ export function DialogImpor({ open, jenisAwal, onClose, onSelesai }: {
       onClose={tutup}
       dismissible={!sibuk}
       size="xl"
-      icon={<FileXls size={20} />}
+      icon={undo.ikon ?? <FileXls size={20} />}
       title={undo.judul ?? JUDUL[jenis]}
       description={hasil || undo.isi ? undefined : URAIAN[jenis]}
       actions={undo.aksi ?? (hasil ? (
