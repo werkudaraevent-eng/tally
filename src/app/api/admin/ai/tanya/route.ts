@@ -54,12 +54,14 @@ const Halaman = z.object({
 const Masukan = z.object({ pertanyaan: z.string().trim().min(2).max(BATAS_PERTANYAAN), halaman: z.array(Halaman).min(1).max(80) });
 
 export async function POST(request: Request) {
-  const auth = await requireRequestEvent(request, PERAN);
+  // Bertanya tidak mengubah acara, jadi acara Completed/Archived tetap boleh.
+  const auth = await requireRequestEvent(request, PERAN, { readOnly: true });
   if (auth.response) return auth.response;
   const masukan = Masukan.safeParse(await request.json().catch(() => null));
   if (!masukan.success) {
-    const panjang = masukan.error.issues.some((i) => i.path[0] === "pertanyaan");
-    return apiError("VALIDATION_ERROR", 422, { message: panjang ? `Ask in at most ${BATAS_PERTANYAAN} characters.` : "Reload the page, then ask again." });
+    const isu = masukan.error.issues.find((i) => i.path[0] === "pertanyaan");
+    const pesan = !isu ? "Reload the page, then ask again." : isu.code === "too_small" ? "Type a longer question." : `Ask in at most ${BATAS_PERTANYAAN} characters.`;
+    return apiError("VALIDATION_ERROR", 422, { message: pesan });
   }
   const siap = await siapkanFitur(FITUR_TANYA);
   if (!siap.siap) return apiError("VALIDATION_ERROR", 422, { message: siap.pesan });

@@ -304,9 +304,10 @@ export function CommandPalette({
 
   function onKeyDown(peristiwa: React.KeyboardEvent) {
     if (ai.jawaban) {
-      // Di jawaban: Esc kembali ke pencarian, Enter membuka tautan pertama.
+      // Di jawaban: Esc kembali ke pencarian, Enter di kotak cari membuka tautan
+      // pertama. Enter pada tombol yang sedang difokus membuka tombol itu sendiri.
       if (peristiwa.key === "Escape") { peristiwa.preventDefault(); ai.tutup(); return; }
-      if (peristiwa.key === "Enter") {
+      if (peristiwa.key === "Enter" && peristiwa.target instanceof HTMLInputElement) {
         const pertama = ai.jawaban.status === "ok" ? ai.tautan[0] : undefined;
         if (pertama) { peristiwa.preventDefault(); bukaHref(pertama.href); }
       }
