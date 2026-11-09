@@ -68,7 +68,10 @@ export async function PUT(request: Request) {
   const tersimpan = await muatLaporan(event.id).catch(() => null);
   if (!tersimpan) return apiError("INTERNAL_ERROR", 500);
   if (!tersimpan.siap) return Response.json({ siap: false });
-  const config = { ...bacaConfig(body.config), harian: tersimpan.config.harian, tautan: tersimpan.config.tautan };
+  const baru = bacaConfig(body.config);
+  // Tab lama (sebelum What's counted) tidak mengirim kecuali: jangan hapus yang tersimpan.
+  const kecuali = "kecuali" in (body.config as object) ? baru.kecuali : tersimpan.config.kecuali;
+  const config = { ...baru, kecuali, harian: tersimpan.config.harian, tautan: tersimpan.config.tautan };
   const hasil = await simpanConfig(event.id, config, body.updated_at, auth.user.id);
   if (!hasil.ok) {
     if (hasil.alasan === "belum_siap") return Response.json({ siap: false });

@@ -23,8 +23,10 @@ export const LABEL_SUMBER: Record<Sumber, { nama: string; dipakai: string }> = {
  * sumber yang tidak sengaja menyala. Tidak ada data yang dihapus; berlaku untuk
  * deck dan Daily highlights. Disimpan sekali lewat Save.
  */
-export function DialogDihitung({ open, dihitung, kecuali, terkunci, onClose, onSimpan }: {
+export function DialogDihitung({ open, dihitung, kecuali, terkunci, hariKunci, onClose, onSimpan }: {
   open: boolean;
+  /** Hari Daily highlights yang dikunci ("6 Nov", "Whole event"): angkanya tidak ikut berubah. */
+  hariKunci: string[];
   dihitung: Dihitung;
   kecuali: Kecuali;
   terkunci: boolean;
@@ -53,7 +55,7 @@ export function DialogDihitung({ open, dihitung, kecuali, terkunci, onClose, onS
       scrollBody
       fullScreenOnMobile
       title="What this report counts"
-      description="Leave out test accounts or anything switched on by mistake. Nothing is deleted. Applies to the deck and Daily highlights."
+      description="Leave out test accounts or anything switched on by mistake. Nothing is deleted. Applies to the deck and Daily highlights days that are not locked."
       actions={
         <>
           <Button variant="text" onClick={onClose}>Cancel</Button>
@@ -123,10 +125,14 @@ export function DialogDihitung({ open, dihitung, kecuali, terkunci, onClose, onS
         ) : null}
 
         <p className="m-0 text-body-small text-on-surface-variant">Slides say what isn&apos;t counted in a footnote on the cover and the funnel.</p>
+        {hariKunci.length ? <p className="m-0 rounded-md bg-warning-soft px-3 py-2 text-body-medium text-on-surface">{teksKunci(hariKunci)}</p> : null}
       </div>
     </Dialog>
   );
 }
+
+/** Hari yang dikunci menyimpan salinannya sendiri. */
+export const teksKunci = (hari: string[]) => `Locked days keep their figures. Unlock and lock again to update: ${hari.join(", ")}.`;
 
 function CariPeserta({ ids, onPilih }: { ids: string[]; onPilih: (o: Orang) => void }) {
   const [cari, setCari] = useState("");

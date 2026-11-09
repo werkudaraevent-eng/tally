@@ -15,7 +15,7 @@ import { geser, type ConfigLaporan } from "@/lib/laporan/config";
 import { cx } from "@/lib/m3/cx";
 import { DaftarSlide } from "./daftar-slide";
 import { DialogBagikan } from "./dialog-bagikan";
-import { DialogDihitung, LABEL_SUMBER } from "./dialog-dihitung";
+import { DialogDihitung, LABEL_SUMBER, teksKunci } from "./dialog-dihitung";
 import { EditorSlide } from "./editor-slide";
 import { LaporanTabs } from "./laporan-tabs";
 import type { DataLaporan, Draf } from "./jenis";
@@ -135,6 +135,11 @@ export default function HalamanLaporan() {
   const nomor = nomorDeck >= 0 ? nomorDeck + 1 : null;
   const total = data.deck.slide.length;
   const kecuali = data.config.kecuali;
+  const hariKunci = Object.entries(data.config.harian)
+    .filter(([, s]) => s.kunci)
+    .map(([t]) => t)
+    .sort((x, y) => (x === "semua" ? -1 : y === "semua" ? 1 : x.localeCompare(y)))
+    .map((t) => (t === "semua" ? "Whole event" : new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })));
   const keluarBagian = data.dihitung
     ? [
         ...(data.dihitung.total > data.dihitung.dihitung ? [`${(data.dihitung.total - data.dihitung.dihitung).toLocaleString("en-GB")} participant${data.dihitung.total - data.dihitung.dihitung === 1 ? "" : "s"}`] : []),
@@ -207,8 +212,13 @@ export default function HalamanLaporan() {
           dihitung={data.dihitung}
           kecuali={kecuali}
           terkunci={terkunci}
+          hariKunci={hariKunci}
           onClose={() => setDihitung(false)}
-          onSimpan={(k) => { simpan((c) => ({ ...c, kecuali: k })); setDihitung(false); toast.success("Report updated", "The deck and Daily highlights now count only what you kept."); }}
+          onSimpan={(k) => {
+            simpan((c) => ({ ...c, kecuali: k }));
+            setDihitung(false);
+            toast.success("Report updated", hariKunci.length ? `The deck and unlocked days now count only what you kept. ${teksKunci(hariKunci)}` : "The deck and Daily highlights now count only what you kept.");
+          }}
         />
       ) : null}
       <DialogBagikan data={data} open={bagikan} sibuk={sibuk} onClose={() => setBagikan(false)} onKirim={(aksi) => void kirimBagikan(aksi)} />
