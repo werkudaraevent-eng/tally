@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { bahanContoh } from "../contoh.ts";
 import { bacaHarian, bacaSetelanHari, SETELAN_KOSONG } from "./config.ts";
-import { hariAcara, kedatanganHari, sibukHari, susunHari, susunRingkasan, tanpaBesok } from "./hitung.ts";
+import { hariAcara, susunHari, susunRingkasan, tanpaSekitar } from "./hitung.ts";
 import { RINGKASAN } from "./jenis.ts";
 import { warnaHalaman, warnaMuda } from "./warna.ts";
 import { kontras } from "../../landing-hitung-mundur.ts";
@@ -10,26 +10,21 @@ const huruf = { judul: "Plus Jakarta Sans", isi: "Inter" };
 const b = bahanContoh();
 assert.deepEqual(hariAcara(b), ["2026-11-06", "2026-11-07", "2026-11-08"]);
 
-// Hari pertama: sampul, hadir, jam, menit, agenda, penutup dengan agenda besok.
+// Hari pertama (satu sesi): sampul dengan persen sesi itu, penutup dengan sesi besok.
 const h1 = susunHari(b, "2026-11-06", SETELAN_KOSONG, huruf).hari;
-assert.deepEqual(h1.halaman.map((p) => p.kunci), ["sampul", "hadir", "jam", "menit", "agenda", "penutup"]);
+assert.deepEqual(h1.halaman.map((p) => p.kunci), ["sampul", "penutup"]);
 assert.equal(h1.hariKe, 1);
 const sampul = h1.halaman[0];
-assert.ok(sampul.kunci === "sampul" && /^180 peserta datang di hari pertama\.$/.test(sampul.judul), sampul.kunci === "sampul" ? sampul.judul : "");
-const hadir = h1.halaman[1];
-assert.ok(hadir.kunci === "hadir" && hadir.isi === 9 && hadir.judul === "9 dari 10 peserta datang hari ini.");
+assert.ok(sampul.kunci === "sampul" && sampul.judul === "90% hadir di Sesi 1." && sampul.teks === "180 dari 200 peserta datang ke setidaknya satu sesi.", JSON.stringify(sampul));
 const tutup = h1.halaman.at(-1)!;
 assert.ok(tutup.kunci === "penutup" && tutup.judul === "Besok, Sesi 2 mulai 08.00.");
-const jam = h1.halaman[2];
-assert.ok(jam.kunci === "jam" && jam.batang.filter((x) => x.puncak).length === 1 && jam.batang.length <= 8);
+// Hari kedua dibanding kemarin.
+const h2 = susunHari(b, "2026-11-07", SETELAN_KOSONG, huruf).hari.halaman[0];
+assert.ok(h2.kunci === "sampul" && /^Turun dari 90% kemarin\. /.test(h2.teks ?? ""), JSON.stringify(h2));
 
-// Hari terakhir: rekap pindah ke Seluruh acara; penutup terima kasih.
+// Hari terakhir: penutup terima kasih.
 const h3 = susunHari(b, "2026-11-08", SETELAN_KOSONG, huruf).hari;
-assert.ok(!h3.halaman.some((p) => p.kunci === "rekap"));
 assert.equal(h3.halaman.at(-1)!.judul, "Terima kasih sudah bersama kami.");
-// Persen agenda disertai jumlahnya.
-const agH1 = h1.halaman.find((p) => p.kunci === "agenda");
-assert.ok(agH1?.kunci === "agenda" && agH1.baris.every((r) => r.persen === null || /^\d[\d.]* dari \d[\d.]*$/.test(r.ket ?? "")), JSON.stringify(agH1));
 
 // Seluruh acara: kunci RINGKASAN, hari 0, tiap persen ada "x dari y".
 const rk = susunRingkasan(b, SETELAN_KOSONG, huruf);
@@ -37,9 +32,27 @@ assert.equal(rk.hari.tanggal, RINGKASAN);
 assert.equal(rk.hari.hariKe, 0);
 assert.equal(rk.hari.halaman[0].kunci, "sampul");
 assert.equal(rk.hari.halaman.at(-1)!.kunci, "penutup");
+const rSampul = rk.hari.halaman[0];
+assert.ok(rSampul.kunci === "sampul" && /^Rata-rata \d+% peserta hadir di tiap sesi\.$/.test(rSampul.judul), JSON.stringify(rSampul));
 const rekap = rk.hari.halaman.find((p) => p.kunci === "rekap");
 assert.ok(rekap?.kunci === "rekap" && rekap.hari.length === 3 && rekap.hari.every((d) => / dari /.test(d.ket ?? "")), JSON.stringify(rekap));
 for (const p of rk.hari.halaman) if (p.kunci === "puas") assert.ok(p.segmen.every((g) => /orang$/.test(g.ket)));
+// Semua sesi diurutkan dari tertinggi, dengan garis rata-rata.
+const agR = rk.hari.halaman.find((p) => p.kunci === "agenda");
+assert.ok(agR?.kunci === "agenda" && agR.baris.map((r) => r.nama).join() === "Sesi 1,Sesi 2,Sesi 3" && typeof agR.rata === "number" && agR.baris.every((r) => / dari /.test(r.ket ?? "")), JSON.stringify(agR));
+// Sesi paling sepi: 10 poin atau lebih di bawah rata-rata.
+const sepi = rk.hari.halaman.find((p) => p.kunci === "sepi");
+assert.ok(sepi?.kunci === "sepi" && sepi.judul === "Sesi 3" && / poin di bawah rata-rata sesi \(\d+%\)\.$/.test(sepi.teks), JSON.stringify(sepi));
+// Tanpa id orang: tidak ada rincian kelompok (penyebut tidak bisa dihitung).
+assert.ok(sepi?.kunci === "sepi" && sepi.kelompok.length === 0 && rk.absen.some((a) => a.kunci === "kelompok"));
+// Belum selesai: hanya yang masih ada selisihnya, sisanya catatan.
+const layar = rk.hari.halaman.find((p) => p.kunci === "layar");
+assert.ok(layar?.kunci === "layar" && layar.judul === "Dua hal belum selesai." && layar.baris[0].besar === "2" && /^Juga tercatat: /.test(layar.catatan ?? ""), JSON.stringify(layar));
+// Penutup: tiga temuan dari halaman yang tampil.
+const pen = rk.hari.halaman.at(-1)!;
+assert.ok(pen.kunci === "penutup" && pen.judul === "Tiga hal dari acara ini." && pen.poin?.length === 3, JSON.stringify(pen));
+const penTanpaSepi = susunRingkasan(b, { ...SETELAN_KOSONG, sembunyi: ["sepi"] }, huruf).hari.halaman.at(-1)!;
+assert.ok(penTanpaSepi.kunci === "penutup" && !penTanpaSepi.poin?.some((x) => x.judul.startsWith("Sesi 3")), JSON.stringify(penTanpaSepi));
 // Halaman tanpa data absen dengan alasan, bukan hilang diam-diam.
 assert.ok(rk.ada.length + rk.absen.length >= 8, JSON.stringify([rk.ada, rk.absen]));
 // Sembunyi berlaku juga di Seluruh acara.
@@ -47,37 +60,59 @@ assert.ok(!susunRingkasan(b, { ...SETELAN_KOSONG, sembunyi: ["rekap"] }, huruf).
 // Kunci "semua" dibaca dari config, tanggal ngawur tetap dibuang.
 assert.deepEqual(Object.keys(bacaHarian({ semua: {}, "2026-13-45": {}, "2026-11-06": {} })), ["2026-11-06", RINGKASAN]);
 
-// Hadir unik per hari memakai id bila ada, bukan jumlah terbesar.
-const dobel = bahanContoh();
-dobel.sesi = [
-  { kunci: "a", nama: "Pagi", tanggal: "2026-11-06", jam: "08:00", diharapkan: 200, sudah: 2, datang: ["2026-11-06T01:00:00Z", "2026-11-06T01:01:00Z"], orang: ["p1", "p2"] },
-  { kunci: "b", nama: "Malam", tanggal: "2026-11-06", jam: "19:00", diharapkan: 200, sudah: 2, datang: ["2026-11-06T12:00:00Z", "2026-11-06T12:01:00Z"], orang: ["p2", "p3"] },
+// Dua sesi sehari dengan id orang: hadir unik, sesi diurutkan, kelompok dirinci bila selisih 15 poin.
+const grup = bahanContoh();
+const ids = grup.peserta.map((p) => p.id);
+const divisi = (k: string) => grup.peserta.filter((p) => p.kelompok === k).map((p) => p.id);
+grup.sesi = [
+  { kunci: "a", nama: "Pagi", tanggal: "2026-11-06", jam: "08:00", diharapkan: 200, sudah: 180, datang: [], orang: ids.slice(0, 180) },
+  // Divisi D hampir tidak datang ke Malam.
+  { kunci: "b", nama: "Malam", tanggal: "2026-11-06", jam: "19:00", diharapkan: 200, sudah: 0, datang: [], orang: [] },
 ];
-const hd = susunHari(dobel, "2026-11-06", SETELAN_KOSONG, huruf);
-assert.ok(hd.hari.halaman[0].kunci === "sampul" && hd.hari.halaman[0].judul.startsWith("3 peserta"));
-// Sedikit kedatangan: jam dan menit absen dengan alasan; satu hari saja: "hari ini" / tanpa rekap.
-assert.deepEqual(hd.absen.map((a) => a.kunci), ["jam", "menit"]);
-assert.ok(hd.hari.halaman[0].kunci === "sampul" && hd.hari.halaman[0].judul.endsWith("hari ini."));
+const malam = ids.filter((id) => !divisi("Divisi D").includes(id)).slice(0, 110);
+grup.sesi[1] = { ...grup.sesi[1], sudah: malam.length, orang: malam };
+const hg = susunHari(grup, "2026-11-06", SETELAN_KOSONG, huruf);
+assert.deepEqual(hg.hari.halaman.map((p) => p.kunci), ["sampul", "agenda", "sepi", "penutup"]);
+const sG = hg.hari.halaman[0];
+assert.ok(sG.kunci === "sampul" && sG.judul === "73% hadir di 2 sesi hari ini.", JSON.stringify(sG));
+const agG = hg.hari.halaman[1];
+assert.ok(agG.kunci === "agenda" && agG.baris[0].nama === "Pagi" && agG.baris[1].rendah === true && agG.judul === "1 dari 2 sesi di bawah 64%.", JSON.stringify(agG));
+const sp = hg.hari.halaman[2];
+assert.ok(sp.kunci === "sepi" && sp.kelompok.at(-1)!.label === "Divisi D" && sp.kelompok.at(-1)!.rendah && sp.kelompok.at(-1)!.ket === "0 dari 49", JSON.stringify(sp));
+// Kelompok kecil (Tamu, 4 orang) tidak ikut.
+assert.ok(sp.kunci === "sepi" && !sp.kelompok.some((k) => k.label === "Tamu"));
+// Satu hari saja: "hari ini", tanpa rekap.
+const rG = susunRingkasan(grup, SETELAN_KOSONG, huruf);
+assert.ok(rG.absen.some((a) => a.kunci === "rekap"));
+const kG = rG.hari.halaman.find((p) => p.kunci === "kelompok");
+assert.ok(kG?.kunci === "kelompok" && kG.judul === "Divisi D paling jarang hadir: 46%." && kG.baris.length === 4, JSON.stringify(kG));
+// Sesi untuk sebagian peserta saja: kelompok tidak dirinci (penyebutnya bukan anggota kelompok).
+const sebagian = { ...grup, sesi: grup.sesi.map((s) => ({ ...s, diharapkan: 150 })) };
+assert.ok(!susunRingkasan(sebagian, SETELAN_KOSONG, huruf).hari.halaman.some((p) => p.kunci === "kelompok"));
+// Lebih dari 12 sesi: 6 teratas dan 6 terbawah.
+const banyak15 = { ...grup, sesi: Array.from({ length: 15 }, (_, i) => ({ kunci: `s${i}`, nama: `S${i}`, tanggal: "2026-11-06", jam: `0${i % 10}:00`, diharapkan: 200, sudah: 200 - i * 10, datang: [] })) };
+const ag15 = susunRingkasan(banyak15, SETELAN_KOSONG, huruf).hari.halaman.find((p) => p.kunci === "agenda");
+assert.ok(ag15?.kunci === "agenda" && ag15.baris.length === 12 && ag15.baris[0].nama === "S0" && ag15.baris.at(-1)!.nama === "S14" && /6 teratas dan 6 terbawah dari 15 sesi/.test(ag15.teks ?? ""), JSON.stringify(ag15?.teks));
 
-// Sembunyi: halaman hilang, sampul tidak bisa disembunyikan.
-const semH = susunHari(b, "2026-11-06", { ...SETELAN_KOSONG, sembunyi: ["sampul", "menit"] }, huruf);
-const sem = semH.hari;
-assert.deepEqual(sem.halaman.map((p) => p.kunci), ["sampul", "hadir", "jam", "agenda", "penutup"]);
-// Yang disembunyikan tetap terdaftar sebagai ada, supaya sakelarnya bisa dinyalakan lagi.
-assert.ok(semH.ada.includes("menit"));
+// Sembunyi: halaman hilang, sampul tidak bisa disembunyikan; yang disembunyikan tetap terdaftar sebagai ada.
+const semH = susunHari(grup, "2026-11-06", { ...SETELAN_KOSONG, sembunyi: ["sampul", "sepi"] }, huruf);
+assert.deepEqual(semH.hari.halaman.map((p) => p.kunci), ["sampul", "agenda", "penutup"]);
+assert.ok(semH.ada.includes("sepi"));
 
-// Foto panitia: sampul, jam, penutup; tanpa foto sampul memakai foto hero.
-const foto = susunHari(b, "2026-11-06", { ...SETELAN_KOSONG, foto: ["https://x/a.jpg", "https://x/b.jpg"] }, huruf).hari;
+// Foto panitia: sampul, sesi (4 baris atau kurang), penutup; tanpa foto sampul memakai foto hero.
+const foto = susunHari(grup, "2026-11-06", { ...SETELAN_KOSONG, foto: ["https://x/a.jpg", "https://x/b.jpg"] }, huruf).hari;
 const tengah = susunHari(b, "2026-11-06", { ...SETELAN_KOSONG, foto: ["", "", "https://x/c.jpg"] }, huruf).hari;
 assert.equal(tengah.halaman[0].foto, b.acara.tema.foto);
 assert.equal(tengah.halaman.at(-1)!.foto, "https://x/c.jpg");
 assert.equal(foto.halaman[0].foto, "https://x/a.jpg");
-assert.equal(foto.halaman.find((p) => p.kunci === "jam")!.foto, "https://x/b.jpg");
+assert.equal(foto.halaman.find((p) => p.kunci === "agenda")!.foto, "https://x/b.jpg");
 assert.equal(foto.halaman.at(-1)!.foto, null);
 
 // Bahasa Inggris.
 const en = susunHari(bahanContoh({ acara: { ...b.acara, bahasa: "en" } }), "2026-11-06", SETELAN_KOSONG, huruf).hari;
-assert.equal(en.halaman[1].kunci === "hadir" && en.halaman[1].judul, "9 in 10 guests came today.");
+assert.equal(en.halaman[0].judul, "90% attended Sesi 1.");
+const enR = susunRingkasan({ ...grup, acara: { ...grup.acara, bahasa: "en" } }, SETELAN_KOSONG, huruf).hari;
+assert.equal(enR.halaman.at(-1)!.judul, "Three things from this event.");
 
 // Config: tanggal tidak sah dibuang, batas 14 hari, kunci halaman dan foto disaring.
 const c = bacaHarian({ "bukan": {}, "2026-11-06": { sembunyi: ["menit", "x", "menit"], catatan: "  a   b ", foto: ["u1", 3, "u2", "u3", "u4"] } });
@@ -93,9 +128,9 @@ assert.equal(bacaSetelanHari({ tanpa: Array.from({ length: 150 }, (_, i) => `cp-
   const ag = tanpa1.hari.halaman.find((p) => p.kunci === "agenda");
   const nama0 = b.sesi.find((s) => s.kunci === k1[0])!.nama;
   assert.ok(!ag || (ag.kunci === "agenda" && !ag.baris.some((r) => r.nama === nama0)));
-  // Semua titik hari itu dikeluarkan: tidak ada yang datang, halaman hadir absen.
+  // Semua titik hari itu dikeluarkan: tidak ada sesi, halaman sesi absen.
   const kosong = susunHari(b, "2026-11-06", { ...SETELAN_KOSONG, tanpa: k1 }, huruf);
-  assert.ok(kosong.absen.some((x) => x.kunci === "hadir"));
+  assert.ok(kosong.absen.some((x) => x.kunci === "agenda"));
   const rkT = susunRingkasan(b, { ...SETELAN_KOSONG, tanpa: [k1[0]] }, huruf).hari.halaman.find((p) => p.kunci === "agenda");
   assert.ok(rkT?.kunci === "agenda" && !rkT.baris.some((r) => r.nama === nama0));
   // Each day: hari yang semua titiknya dikeluarkan tidak ikut; semua dikeluarkan = halaman absen.
@@ -106,9 +141,9 @@ assert.equal(bacaSetelanHari({ tanpa: Array.from({ length: 150 }, (_, i) => `cp-
   assert.ok(!nol.hari.halaman.some((p) => p.kunci === "rekap") && nol.absen.some((x) => x.kunci === "rekap"));
   // "Besok, ..." mengikuti titik yang dikeluarkan di hari berikutnya.
   const k2 = b.sesi.filter((s) => s.tanggal === "2026-11-07").sort((x, y) => (x.jam ?? "").localeCompare(y.jam ?? ""));
-  assert.deepEqual(tanpaBesok({ "2026-11-07": { tanpa: ["x"] } }, hariAcara(b), "2026-11-06"), ["x"]);
-  assert.deepEqual(tanpaBesok({}, hariAcara(b), "2026-11-08"), []);
-  const tb = susunHari(b, "2026-11-06", SETELAN_KOSONG, huruf, [k2[0].kunci]).hari.halaman.at(-1)!;
+  assert.deepEqual(tanpaSekitar({ "2026-11-07": { tanpa: ["x"] }, "2026-11-05": { tanpa: ["y"] } }, hariAcara(b), "2026-11-06"), { kemarin: [], besok: ["x"] });
+  assert.deepEqual(tanpaSekitar({ "2026-11-07": { tanpa: ["x"] } }, hariAcara(b), "2026-11-08"), { kemarin: ["x"], besok: [] });
+  const tb = susunHari(b, "2026-11-06", SETELAN_KOSONG, huruf, { kemarin: [], besok: [k2[0].kunci] }).hari.halaman.at(-1)!;
   assert.ok(tb.kunci === "penutup" && !tb.judul.includes(`${k2[0].nama} mulai`), tb.judul);
 }
 assert.deepEqual(bacaSetelanHari({ foto: ["", "u", ""] }).foto, ["", "u"]);
@@ -142,39 +177,6 @@ for (const merek of ["#0E7C66", "#F97316", "#FFFFFF", "#F9C6D3", "#FFE14D"]) {
 }
 assert.match(warnaMuda("#E9C46A"), /^#[0-9A-F]{6}$/);
 assert.equal(warnaMuda("#808080"), "#DCEBFA");
-
-// QA #444 M1: jam tersibuk dari pindaian pertama tiap orang di SEMUA titik hari itu.
-const T = (jamMenit: string) => `2026-11-06T${jamMenit}:00Z`;
-const banyakTitik = bahanContoh();
-const pagi = Array.from({ length: 40 }, (_, i) => ({ id: `p${i}`, at: T(`01:${String(i % 60).padStart(2, "0")}`) }));
-const kecil = Array.from({ length: 31 }, (_, i) => ({ id: `q${i}`, at: T(`05:${String(i).padStart(2, "0")}`) }));
-banyakTitik.sesi = [
-  // Titik terbesar (Lari) datang tersebar; titik lain (Registrasi) jam 01 UTC berisi 40 orang berbeda.
-  { kunci: "a", nama: "Registrasi", tanggal: "2026-11-06", jam: "08:00", diharapkan: 100, sudah: 40, datang: pagi.map((x) => x.at), orang: pagi.map((x) => x.id) },
-  { kunci: "b", nama: "Lari", tanggal: "2026-11-06", jam: "12:00", diharapkan: 100, sudah: 31, datang: kecil.map((x) => x.at), orang: kecil.map((x) => x.id) },
-];
-const bt = susunHari(banyakTitik, "2026-11-06", SETELAN_KOSONG, huruf).hari.halaman.find((p) => p.kunci === "jam");
-assert.ok(bt && bt.kunci === "jam" && bt.judul === `Pukul ${String(1 + 7).padStart(2, "0")}.00 paling ramai.`, bt?.judul);
-assert.ok(bt.kunci === "jam" && bt.teks.startsWith("40 orang tiba antara 08.00 dan 09.00, 56%"), bt.teks);
-// Orang yang sama di dua titik dihitung sekali, di pindaian pertamanya.
-assert.equal(kedatanganHari([{ ...banyakTitik.sesi[0], datang: [T("03:00")], orang: ["z"] }, { ...banyakTitik.sesi[1], datang: [T("02:00")], orang: ["z"] }]).length, 1);
-// Lewat tengah malam: garis waktu 22, 23, 00, bukan 00..23 dan bukan "24.00".
-const malam = sibukHari([...Array(5).fill(Date.parse("2026-11-05T15:10:00Z")), ...Array(9).fill(Date.parse("2026-11-05T16:10:00Z")), ...Array(3).fill(Date.parse("2026-11-05T17:10:00Z"))], "+07:00");
-assert.deepEqual(malam.jam.map((j) => j.jam), [22, 23, 0]);
-assert.equal(malam.jamPuncak, 23);
-
-// QA #444 L1: 1.236 dari 1.251 bukan "10 dari 10"; L2: 79,9% bukan "80% ke atas".
-const hampir = bahanContoh();
-hampir.peserta = Array.from({ length: 1000 }, (_, i) => ({ ...bahanContoh().peserta[0], id: `x${i}` }));
-hampir.sesi = [
-  { kunci: "a", nama: "A", tanggal: "2026-11-06", jam: "08:00", diharapkan: 1000, sudah: 799, datang: [], orang: Array.from({ length: 990 }, (_, i) => `x${i}`) },
-  { kunci: "b", nama: "B", tanggal: "2026-11-06", jam: "10:00", diharapkan: 1000, sudah: 990, datang: [], orang: [] },
-];
-const hh = susunHari(hampir, "2026-11-06", SETELAN_KOSONG, huruf).hari.halaman;
-const hd2 = hh.find((p) => p.kunci === "hadir");
-assert.ok(hd2 && hd2.kunci === "hadir" && hd2.isi === 9 && hd2.judul === "Hampir semua peserta datang ke acara.", hd2?.judul);
-const ag = hh.find((p) => p.kunci === "agenda");
-assert.ok(ag && ag.judul === "2 agenda hari ini, semuanya terisi 75% ke atas.", ag?.judul);
 
 const { tanggalSah } = await import("./config.ts");
 assert.ok(tanggalSah("2026-11-06") && !tanggalSah("2026-13-45") && !tanggalSah("2026-02-30"));

@@ -12,16 +12,18 @@ export const NAMA_HALAMAN: Record<KunciHalaman, string> = {
   hadir: "Who came",
   jam: "Busiest hour",
   menit: "Busiest minute",
-  agenda: "Today's agenda",
+  agenda: "Today's sessions",
+  sepi: "Quietest session",
   rekap: "Each day",
+  kelompok: "By group",
   puas: "Satisfaction (NPS)",
-  layar: "Behind the scenes",
+  layar: "Still open",
   penutup: "Note and tomorrow",
 };
 /** Nama halaman di Seluruh acara, bila berbeda dari hari biasa. */
-const NAMA_SEMUA: Partial<Record<KunciHalaman, string>> = { hadir: "Who came", menit: "Busiest hour", agenda: "Every session", penutup: "Thank you" };
-const FOTO = ["Cover photo", "Busiest hour photo", "Closing photo"] as const;
-const KET_FOTO = ["Without one, the event page hero is used.", "Shown above the chart.", "Shown above the note."] as const;
+const NAMA_SEMUA: Partial<Record<KunciHalaman, string>> = { agenda: "Every session", penutup: "Three findings and note" };
+const FOTO = ["Cover photo", "Sessions photo", "Closing photo"] as const;
+const KET_FOTO = ["Without one, the event page hero is used.", "Shown above today's sessions when there are 4 or fewer.", "Shown above the note."] as const;
 
 export type UbahHari = Omit<SetelanHari, "kunci">;
 const hariPendek = (t: string) => new Date(`${t}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });

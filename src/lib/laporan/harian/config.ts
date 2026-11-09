@@ -11,7 +11,7 @@ export const BATAS_HARIAN = { hari: 14, catatan: 160, foto: 3, url: 1000, tanpa:
 export type SetelanHari = {
   sembunyi: KunciHalaman[];
   catatan: string;
-  /** Foto panitia: [0] sampul, [1] halaman jam, [2] penutup; "" = tidak ada. Sampul tanpa foto memakai foto hero acara. */
+  /** Foto panitia: [0] sampul, [1] halaman sesi hari itu (4 baris atau kurang), [2] penutup; "" = tidak ada. Sampul tanpa foto memakai foto hero acara. */
   foto: string[];
   /** Kunci titik check-in (SesiBahan.kunci) yang tidak ikut highlight ini: tidak tampil dan tidak dihitung. */
   tanpa: string[];

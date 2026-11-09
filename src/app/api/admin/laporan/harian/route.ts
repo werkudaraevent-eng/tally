@@ -4,7 +4,7 @@ import { bacaSetelanHari, BATAS_HARIAN, hariSah, SETELAN_KOSONG } from "@/lib/la
 import { fotoLaporanSah } from "@/lib/laporan/harian/foto";
 import { hurufAcara, muatHarian } from "@/lib/laporan/harian/server";
 import { muatBahanLaporan } from "@/lib/laporan/bahan-server";
-import { hariAcara, susunHari, susunRingkasan, tanpaBesok } from "@/lib/laporan/harian/hitung";
+import { hariAcara, susunHari, susunRingkasan, tanpaSekitar } from "@/lib/laporan/harian/hitung";
 import { RINGKASAN } from "@/lib/laporan/harian/jenis";
 import { muatLaporan, simpanConfig } from "@/lib/laporan/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       kunci = { at: new Date().toISOString(), hari: susunRingkasan(bahan, lama, hurufAcara(event)).hari };
     } else {
       if (!bahan.sesi.some((s) => s.tanggal === body.tanggal && !lama.tanpa.includes(s.kunci))) return apiError("VALIDATION_ERROR", 422);
-      kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event), tanpaBesok(laporan.config.harian, hariAcara(bahan), body.tanggal)).hari };
+      kunci = { at: new Date().toISOString(), hari: susunHari(bahan, body.tanggal, lama, hurufAcara(event), tanpaSekitar(laporan.config.harian, hariAcara(bahan), body.tanggal)).hari };
     }
   }
   const config = { ...laporan.config, harian: { ...laporan.config.harian, [body.tanggal]: { ...lama, kunci } } };

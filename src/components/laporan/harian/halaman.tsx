@@ -11,13 +11,10 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { HalamanHarian, HariHighlight } from "@/lib/laporan/harian/jenis";
 import { warnaHalaman, type WarnaHalaman } from "@/lib/laporan/harian/warna";
+import { isi, judul, kolom, LEBAR, TEPI, TINGGI, type Huruf } from "./gaya-halaman";
+import { HalAgenda, HalKelompok, HalPenutup, HalRekap, HalSepi } from "./halaman-temuan";
 
-export const LEBAR = 1080;
-export const TINGGI = 1920;
-const TEPI = 104;
-
-type Huruf = { judul: string; isi: string };
-const kolom = (gaya: CSSProperties = {}): CSSProperties => ({ display: "flex", flexDirection: "column", ...gaya });
+export { LEBAR, TINGGI };
 
 function Kepala({ hari, nomor, total, w, di }: { hari: HariHighlight; nomor: number; total: number; w: WarnaHalaman; di?: CSSProperties }) {
   return (
@@ -28,8 +25,6 @@ function Kepala({ hari, nomor, total, w, di }: { hari: HariHighlight; nomor: num
   );
 }
 
-const judul = (h: Huruf, w: WarnaHalaman, ukuran = 104): CSSProperties => ({ fontFamily: h.judul, fontSize: ukuran, lineHeight: 1.04, fontWeight: 800, letterSpacing: -3, color: w.teks, margin: 0, wordBreak: "break-word" });
-const isi = (h: Huruf, w: WarnaHalaman): CSSProperties => ({ fontFamily: h.isi, fontSize: 44, lineHeight: 1.32, fontWeight: 500, color: w.teks2, margin: 0, wordBreak: "break-word" });
 
 function Foto({ src, tinggi }: { src: string; tinggi: number | "penuh" }) {
   // eslint-disable-next-line @next/next/no-img-element
@@ -52,6 +47,7 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
         <div style={kolom({ marginTop: "auto", padding: `0 ${TEPI}px ${TEPI}px`, gap: 28 })}>
           <p style={{ ...isi(h, w), fontSize: 38, color: w.teks }}>{p.kecil}</p>
           <p data-gerak="angka" style={{ ...judul(h, w, 112) }}>{p.judul}</p>
+          {p.teks ? <p style={{ ...isi(h, w), fontSize: 40, color: w.teks2 }}>{p.teks}</p> : null}
         </div>
       );
     case "hadir":
@@ -88,53 +84,14 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
           <p style={isi(h, w)}>{p.teks}</p>
         </div>
       );
-    case "agenda": {
-      // Lima baris atau lebih (nama sesi panjang, Seluruh acara): lebih rapat, supaya muat di 1920.
-      const padat = p.baris.length > 4;
-      return (
-        <div style={kolom({ flex: 1, justifyContent: "center", padding: `170px ${TEPI}px`, gap: padat ? 48 : 80 })}>
-          <p style={judul(h, w, padat ? 84 : 104)}>{p.judul}</p>
-          <div style={kolom({ gap: padat ? 32 : 56 })}>
-            {p.baris.map((r, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 28 }}>
-                <span style={{ fontFamily: h.isi, fontSize: padat ? 30 : 34, color: w.teks2, width: padat ? 96 : 120, flexShrink: 0 }}>{r.jam}</span>
-                <div style={kolom({ flex: 1, gap: padat ? 10 : 16 })}>
-                  <span style={{ fontFamily: h.isi, fontSize: padat ? 34 : 42, fontWeight: 700, color: w.teks, lineHeight: 1.1 }}>{r.nama}</span>
-                  {r.ket ? <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks2 }}>{r.ket}</span> : null}
-                  {r.persen !== null ? (
-                    <div style={{ display: "flex", height: 22, borderRadius: 11, backgroundColor: w.redup }}>
-                      <div data-gerak="isi" style={{ width: `${Math.min(100, r.persen)}%`, height: 22, borderRadius: 11, backgroundColor: w.isi }} />
-                    </div>
-                  ) : null}
-                </div>
-                <span style={{ fontFamily: h.judul, fontSize: padat ? 54 : 64, fontWeight: 800, color: w.teks, width: padat ? 150 : 170, textAlign: "right", flexShrink: 0 }}>{r.teks}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    case "rekap": {
-      // Sampai 3 hari satu baris; 4 hari 2×2; lebih dari itu 3 per baris.
-      const n = p.hari.length;
-      const per = n <= 3 ? n : n === 4 ? 2 : 3;
-      const lebar = Math.floor((LEBAR - 2 * TEPI - 20 * (per - 1)) / per);
-      return (
-        <div style={kolom({ flex: 1, justifyContent: "center", padding: `170px ${TEPI}px`, gap: 72 })}>
-          <p style={judul(h, w)}>{p.judul}</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
-            {p.hari.map((d) => (
-              <div key={d.label} style={kolom({ width: lebar, gap: 8, padding: 28, borderRadius: 24, backgroundColor: w.redup })}>
-                <span data-gerak="angka" style={{ fontFamily: h.judul, fontSize: 76, fontWeight: 800, color: w.angka }}>{`${d.persen}%`}</span>
-                <span style={{ fontFamily: h.isi, fontSize: 30, color: w.teks }}>{d.label}</span>
-                {d.ket ? <span style={{ fontFamily: h.isi, fontSize: 28, color: w.teks2 }}>{d.ket}</span> : null}
-              </div>
-            ))}
-          </div>
-          <p style={isi(h, w)}>{p.teks}</p>
-        </div>
-      );
-    }
+    case "agenda":
+      return <HalAgenda p={p} h={h} w={w} />;
+    case "sepi":
+      return <HalSepi p={p} h={h} w={w} />;
+    case "rekap":
+      return <HalRekap p={p} h={h} w={w} />;
+    case "kelompok":
+      return <HalKelompok p={p} h={h} w={w} />;
     case "puas": {
       const warna = [w.isi, w.redup, w.teks2];
       return (
@@ -172,18 +129,11 @@ function Isi({ p, h, w }: { p: HalamanHarian; h: Huruf; w: WarnaHalaman }): Reac
               </div>
             ))}
           </div>
+          {p.catatan ? <p style={{ ...isi(h, w), fontSize: 32 }}>{p.catatan}</p> : null}
         </div>
       );
     case "penutup":
-      return (
-        <div style={kolom({ flex: 1, padding: `${p.foto ? 88 : 0}px ${TEPI}px ${TEPI}px` })}>
-          <div style={kolom({ gap: 48, margin: p.foto ? 0 : "auto 0" })}>
-            <p style={judul(h, w)}>{p.judul}</p>
-            {p.teks ? <p style={isi(h, w)}>{p.teks}</p> : null}
-          </div>
-          <p style={{ ...isi(h, w), fontSize: 34, marginTop: "auto" }}>{p.ttd}</p>
-        </div>
-      );
+      return <HalPenutup p={p} h={h} w={w} />;
   }
 }
 
@@ -192,12 +142,12 @@ export function HalamanHarianView({ hari, p, nomor, total, huruf }: { hari: Hari
   // Sampul tanpa foto memakai latar gelap merek (tulisan putih tidak terbaca di merek terang).
   const w = warnaHalaman(hari.tema, p.permukaan === "foto" && !p.foto ? "gelap" : p.permukaan);
   const penuh = p.kunci === "sampul" && p.foto;
-  const atas = !penuh && p.foto && (p.kunci === "jam" || p.kunci === "penutup") ? p.foto : null;
+  const atas = !penuh && p.foto && (p.kunci === "jam" || p.kunci === "agenda" || p.kunci === "penutup") ? p.foto : null;
   return (
     <div style={{ position: "relative", width: LEBAR, height: TINGGI, display: "flex", flexDirection: "column", overflow: "hidden", backgroundColor: w.bg, fontFamily: h.isi, lineHeight: 1.2 }}>
       {penuh ? <Foto src={p.foto!} tinggi="penuh" /> : null}
       {penuh ? <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 1150, backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.86))" }} /> : null}
-      {atas ? <Foto src={atas} tinggi={p.kunci === "jam" ? 720 : 860} /> : null}
+      {atas ? <Foto src={atas} tinggi={p.kunci === "penutup" ? 860 : 720} /> : null}
       {penuh || atas ? <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 260, backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0))" }} /> : null}
       <Isi p={p} h={h} w={w} />
       <Kepala hari={hari} nomor={nomor} total={total} w={atas ? { ...w, teks: "#FFFFFF" } : w} />
