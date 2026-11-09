@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { bahanContoh as bahan } from "./contoh.ts";
-import { bacaConfig, CONFIG_KOSONG, geser, urutkan } from "./config.ts";
+import { bacaConfig, bacaKecuali, CONFIG_KOSONG, geser, urutkan } from "./config.ts";
+import { catatanSaring, daftarTipe, pesertaKeluar } from "./saring.ts";
 import type { Slide } from "./jenis.ts";
 import { pasangLatar, susunDeck } from "./susun.ts";
 import { hitungTitik, slideTitik } from "./slide/titik.ts";
@@ -267,6 +268,38 @@ const teksSlide = (s: Slide): string[] => {
     b.acara.tema = terang;
     assert.ok(susunDeck(b, CONFIG_KOSONG).deck.slide.every((x) => x.jenis === "sampul" || x.latar !== "aksen"));
   }
+}
+
+// What's counted: config dibaca aman, Type tanpa beda huruf, catatan kaki dua bahasa.
+{
+  const a = "0f8fad5b-d9cb-469f-a165-70867728950e";
+  assert.deepEqual(bacaKecuali(null), { peserta: [], tipe: [], sumber: [] });
+  assert.deepEqual(bacaKecuali({ peserta: [a.toUpperCase(), a, "bukan-uuid", 5], tipe: [" Panitia ", "", 3], sumber: ["feedback", "hapus", "daftar"] }), { peserta: [a], tipe: ["Panitia"], sumber: ["daftar", "feedback"] });
+  assert.equal(bacaKecuali({ peserta: Array.from({ length: 250 }, (_, i) => `0f8fad5b-d9cb-469f-a165-${String(i).padStart(12, "0")}`) }).peserta.length, 200);
+  assert.deepEqual(bacaConfig({}).kecuali, { peserta: [], tipe: [], sumber: [] });
+
+  const tipe = new Map([["p1", "Panitia"], ["p2", "panitia "], ["p3", "Peserta"], ["p4", "Peserta"]]);
+  assert.deepEqual([...pesertaKeluar({ peserta: ["p9"], tipe: ["PANITIA"], sumber: [] }, tipe)].sort(), ["p1", "p2", "p9"]);
+  assert.equal(pesertaKeluar({ peserta: [], tipe: [], sumber: [] }, tipe).size, 0);
+  assert.deepEqual(daftarTipe(tipe, new Set(["p1", "p2", "p3"])), [{ nama: "Panitia", jumlah: 2 }, { nama: "Peserta", jumlah: 1 }]);
+
+  assert.equal(catatanSaring("id", 0, []), null);
+  assert.equal(catatanSaring("id", 1, ["daftar", "feedback"]), "Tidak dihitung: 1 peserta, pendaftaran online dan jawaban Feedback.");
+  assert.equal(catatanSaring("en", 2, []), "Not counted: 2 participants.");
+  assert.equal(catatanSaring("en", 0, ["undian"]), "Not counted: lucky draw and voting.");
+
+  // Catatan masuk kaki sampul dan corong; tanpa catatan, kaki sampul tidak berubah.
+  const polos = susunDeck(bahan(), CONFIG_KOSONG).semua;
+  const b = bahan();
+  b.saring = { total: 10, dihitung: 9, tipe: [], sumber: { daftar: null, feedback: "6 answers", portal: null, pengumuman: null, undian: null, logistik: null }, catatan: "Tidak dihitung: 1 peserta." };
+  const { semua } = susunDeck(b, { ...CONFIG_KOSONG, kecuali: { peserta: [], tipe: [], sumber: ["feedback"] } });
+  const kaki = (s: Slide | undefined) => (s && "kaki" in s ? s.kaki : "");
+  assert.equal(kaki(semua.sampul), `${kaki(polos.sampul)}. Tidak dihitung: 1 peserta.`);
+  if (semua.corong) assert.ok(kaki(semua.corong).endsWith("Tidak dihitung: 1 peserta."));
+  // Slide yang sumbernya dimatikan menyebut alasannya.
+  const kosong = bahan({ feedback: null });
+  const { absen } = susunDeck(kosong, { ...CONFIG_KOSONG, kecuali: { peserta: [], tipe: [], sumber: ["feedback"] } });
+  assert.equal(absen.find((x) => x.kunci === "kepuasan")?.alasan, "Switched off in What's counted");
 }
 
 console.log("laporan.check: ok");

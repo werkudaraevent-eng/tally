@@ -48,7 +48,7 @@ export function slideCorong(b: BahanLaporan): HasilSlide {
           seri: tahap.map((t) => ({ label: t.label, nilai: t.nilai, teks: angka(t.nilai, bh), sorot: t.utama ? "utama" : t.akhir ? "kedua" : null })),
         },
       ],
-      kaki: pilih(bh, { id: "Hadir berarti pernah di-scan di salah satu titik check-in.", en: "Attended means scanned at least once at any check-in point." }),
+      kaki: [pilih(bh, { id: "Hadir berarti pernah di-scan di salah satu titik check-in.", en: "Attended means scanned at least once at any check-in point." }), b.saring?.catatan].filter(Boolean).join(" "),
     },
   };
 }

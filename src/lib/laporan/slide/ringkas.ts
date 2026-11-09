@@ -14,7 +14,7 @@ export function slideSampul(b: BahanLaporan): SlideSampul {
     judul: b.acara.nama,
     stiker: pilih(bh, { id: "Laporan panitia", en: "Committee report" }),
     baris: [tempatTanggal, pilih(bh, { id: "Untuk direksi dan manajemen", en: "For the board and management" })].filter(Boolean),
-    kaki: pilih(bh, { id: `Data per ${waktu}`, en: `Figures as of ${waktu}` }),
+    kaki: pilih(bh, { id: `Data per ${waktu}`, en: `Figures as of ${waktu}` }) + (b.saring?.catatan ? `. ${b.saring.catatan}` : ""),
     logo: b.acara.logo,
   };
 }

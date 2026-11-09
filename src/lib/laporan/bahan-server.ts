@@ -19,8 +19,9 @@ import { laporanDilihat, type PengumumanDilihat } from "@/lib/pengumuman-dilihat
 import { jawabanPeserta, kolomSasaran } from "@/lib/sasaran-bagian";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneAbbr, timeZoneOffset } from "@/lib/timezone";
-import type { BahanLaporan, PengumumanBahan, SesiBahan } from "./bahan";
-import type { ConfigLaporan } from "./config";
+import type { BahanLaporan, InfoSaring, PengumumanBahan, SesiBahan } from "./bahan";
+import type { ConfigLaporan, Sumber } from "./config";
+import { catatanSaring, daftarTipe, pesertaKeluar } from "./saring";
 import { temaAcara } from "./warna";
 
 type Hitungan = { count: number | null; error: unknown };
@@ -32,9 +33,17 @@ export async function muatBahanLaporan(event: EventRow, config: ConfigLaporan, s
   const offset = timeZoneOffset(zona);
   const lc = event.landing_config as Parameters<typeof landingTokens>[0];
 
-  const pantau = await muatBahanPantau(event, sekarang, { orang: true });
+  const [pantau, tipe] = await Promise.all([muatBahanPantau(event, sekarang, { orang: true }), muatTipe(event.id)]);
   if (!pantau) return null;
-  const { bahan, orang } = pantau;
+  // What's counted: peserta yang dikeluarkan hilang dari bahan Dashboard sebelum
+  // apa pun dihitung, jadi sesi, hadir, portal dan Feedback ikut tanpa mereka.
+  const keluar = pesertaKeluar(config.kecuali, tipe);
+  const semuaAktif = new Set(pantau.orang.keys());
+  const tanpaKeluar = <T extends { participant_id: string }>(xs: readonly T[]) => xs.filter((x) => !keluar.has(x.participant_id));
+  const bahan = keluar.size
+    ? { ...pantau.bahan, peserta: pantau.bahan.peserta.filter((p) => !keluar.has(p.id)), scans: tanpaKeluar(pantau.bahan.scans), pickups: tanpaKeluar(pantau.bahan.pickups) }
+    : pantau.bahan;
+  const orang = keluar.size ? new Map([...pantau.orang].filter(([id]) => !keluar.has(id))) : pantau.orang;
 
   // Kelompok dan pertanyaan pilihan formulir.
   const pilihanDaftar = kolomSasaran(event.registration_form_config).map((k) => ({ kunci: k.key, label: k.label, opsi: k.options }));
@@ -65,11 +74,11 @@ export async function muatBahanLaporan(event: EventRow, config: ConfigLaporan, s
     });
   const sesi = semuaSesi.filter((s) => s.tanggal !== null);
 
-  const [portal, undangan, daftarTotal, daftarSetuju, feedback, pengumuman, undian, voting, logistik] = await Promise.all([
+  const [portal, undangan, daftar, feedback, pengumuman, undianSemua, voting, logistik] = await Promise.all([
     pakaiPortal(event) ? jejakPortal(event.id).then((p) => new Set([...p.keys()].filter((id) => aktif.has(id)))).catch(() => null) : Promise.resolve(null),
     db.from("event_invitations").select("id", { count: "exact", head: true }).eq("event_id", event.id).is("deleted_at", null).eq("is_test", false),
-    db.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", event.id),
-    db.from("event_registrations").select("id", { count: "exact", head: true }).eq("event_id", event.id).eq("status", "approved"),
+    semuaBaris<{ status: string; participant_id: string | null }>(() =>
+      db.from("event_registrations").select("id,status,participant_id").eq("event_id", event.id).order("id")),
     muatFeedback(event.id, aktif),
     muatPengumuman(event),
     muatUndian(event.id),
@@ -78,14 +87,41 @@ export async function muatBahanLaporan(event: EventRow, config: ConfigLaporan, s
   ]);
 
   const diundang = jumlah(undangan);
-  const mendaftar = jumlah(daftarTotal);
+  // Pendaftaran milik peserta yang dikeluarkan ikut tidak dihitung.
+  const pendaftaran = (daftar ?? []).filter((r) => !r.participant_id || !keluar.has(r.participant_id));
+  const mendaftar = pendaftaran.length;
+  const disetujui = pendaftaran.filter((r) => r.status === "approved").length;
+  const pemenang = undianSemua?.pemenang.filter((w) => !w.participant_id || !keluar.has(w.participant_id)) ?? [];
+  const undian = pemenang.length ? { slot: pemenang.length, pemenang } : null;
+
+  const bh = landingDefaultLang(lc);
+  const isi: InfoSaring["sumber"] = {
+    daftar: mendaftar > 0 ? hitungan(mendaftar, "sign-up") : null,
+    feedback: feedback ? hitungan(feedback.jawaban.length, "answer") : null,
+    portal: portal ? hitungan(portal.size, "person", "people") : null,
+    pengumuman: pengumuman?.length ? hitungan(pengumuman.length, "announcement") : null,
+    undian: undian || voting ? [undian && hitungan(undian.slot, "winner"), voting && hitungan(voting.pemilih, "voter")].filter(Boolean).join(", ") : null,
+    logistik: logistik && logistik.kamar + logistik.kendaraan + logistik.tas > 0
+      ? [logistik.kamar && hitungan(logistik.kamar, "room"), logistik.kendaraan && hitungan(logistik.kendaraan, "vehicle"), logistik.tas && hitungan(logistik.tas, "bag")].filter(Boolean).join(", ")
+      : null,
+  };
+  const mati = new Set(config.kecuali.sumber);
+  const hidup = <T,>(k: Sumber, nilai: T): T | null => (mati.has(k) ? null : nilai);
+  const saring: InfoSaring = {
+    total: semuaAktif.size,
+    dihitung: orang.size,
+    tipe: daftarTipe(tipe, semuaAktif),
+    sumber: isi,
+    catatan: catatanSaring(bh, semuaAktif.size - orang.size, config.kecuali.sumber.filter((k) => isi[k] !== null)),
+  };
+
   return {
     acara: {
       nama: event.name,
       tempat: event.venue_name ?? null,
       mulai: event.event_date,
       selesai: event.end_date,
-      bahasa: landingDefaultLang(lc),
+      bahasa: bh,
       offset,
       zona: timeZoneAbbr(zona),
       tema: temaAcara(lc),
@@ -93,22 +129,37 @@ export async function muatBahanLaporan(event: EventRow, config: ConfigLaporan, s
     },
     sekarang: sekarang.toISOString(),
     diundang: diundang > 0 ? diundang : null,
-    mendaftar: mendaftar > 0 ? mendaftar : null,
-    disetujui: mendaftar > 0 ? jumlah(daftarSetuju) : null,
+    mendaftar: hidup("daftar", mendaftar > 0 ? mendaftar : null),
+    disetujui: hidup("daftar", mendaftar > 0 ? disetujui : null),
     peserta,
     kelompokLabel,
     pilihanDaftar,
-    portal,
+    portal: hidup("portal", portal),
     hadir,
     sesiDiikuti,
     sesi,
     semuaSesi,
-    feedback,
-    pengumuman,
-    undian,
-    voting,
-    logistik,
+    feedback: hidup("feedback", feedback),
+    pengumuman: hidup("pengumuman", pengumuman),
+    undian: hidup("undian", undian),
+    voting: hidup("undian", voting),
+    logistik: hidup("logistik", logistik),
+    saring,
   };
+}
+
+/** "1 sign-up", "6 answers" (layar admin, en-GB). */
+const hitungan = (n: number, satu: string, banyak = `${satu}s`) => `${n.toLocaleString("en-GB")} ${n === 1 ? satu : banyak}`;
+
+/**
+ * Type peserta aktif (kolom `participant_type`, ada di produksi tapi tidak dibuat
+ * migrasi repo). Gagal dibaca = tanpa Type, laporan tetap jalan.
+ */
+async function muatTipe(eventId: string): Promise<Map<string, string>> {
+  const db = getSupabaseServiceClient();
+  const baris = await semuaBaris<{ id: string; participant_type: string | null }>(() =>
+    db.from("participants").select("id,participant_type").eq("event_id", eventId).is("source_removed_at", null).not("participant_type", "is", null).order("id")).catch(() => null);
+  return new Map((baris ?? []).flatMap((b) => (b.participant_type?.trim() ? [[b.id, b.participant_type.trim()] as [string, string]] : [])));
 }
 
 async function muatFeedback(eventId: string, aktif: Set<string>): Promise<BahanLaporan["feedback"]> {

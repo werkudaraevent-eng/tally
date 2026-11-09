@@ -4,6 +4,7 @@
  * pun: cukup id peserta, nilai kelompoknya, dan waktu.
  */
 import type { Pertanyaan } from "../kilas-balik/setelan.ts";
+import type { Sumber } from "./config.ts";
 import type { TemaDeck } from "./jenis.ts";
 
 export type SesiBahan = {
@@ -23,6 +24,22 @@ export type SesiBahan = {
 };
 
 export type PengumumanBahan = { judul: string; terbit: string; total: number; dilihat: number; emailTerkirim: number; emailKlik: number };
+
+/**
+ * What's counted: ringkasan untuk layar admin dan catatan kaki slide. Tanpa
+ * nama siapa pun; nama peserta yang dikeluarkan dibaca terpisah (server.ts).
+ */
+export type InfoSaring = {
+  /** Peserta aktif sebelum dan sesudah dikeluarkan. */
+  total: number;
+  dihitung: number;
+  /** Type peserta yang ada di acara ini, dengan jumlah orangnya. */
+  tipe: Array<{ nama: string; jumlah: number }>;
+  /** Isi tiap sumber sebelum dimatikan (teks admin, en-GB); null = acara tidak memakainya. */
+  sumber: Record<Sumber, string | null>;
+  /** "Tidak dihitung: ..." dalam bahasa acara; null bila semua dihitung. */
+  catatan: string | null;
+};
 
 export type PilihanDaftar = { kunci: string; label: string; opsi: string[] };
 
@@ -68,4 +85,6 @@ export type BahanLaporan = {
   undian: { slot: number; pemenang: Array<{ participant_id: string | null; dikonfirmasi: boolean }> } | null;
   voting: { pertanyaan: number; pemilih: number } | null;
   logistik: { hotel: number; kamar: number; kendaraan: number; trip: number; tas: number; tasKembali: number | null } | null;
+  /** Diisi bahan-server; contoh dan uji boleh tanpa ini (= semua dihitung). */
+  saring?: InfoSaring;
 };

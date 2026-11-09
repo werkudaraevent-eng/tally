@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     absen: hasil.absen,
     semua: hasil.semua,
     pilihan: hasil.pilihan,
+    dihitung: hasil.dihitung,
     slug: event.slug,
     klien,
   });
@@ -80,5 +81,5 @@ export async function PUT(request: Request) {
 
   // Deck baru ikut dikirim supaya pratinjau langsung sama dengan yang tersimpan.
   const susun = await hitungLaporan(event, config).catch(() => null);
-  return Response.json({ ok: true, updated_at: hasil.updated_at, config, ...(susun ? { deck: susun.deck, daftar: susun.daftar, absen: susun.absen, semua: susun.semua } : {}) });
+  return Response.json({ ok: true, updated_at: hasil.updated_at, config, ...(susun ? { deck: susun.deck, daftar: susun.daftar, absen: susun.absen, semua: susun.semua, dihitung: susun.dihitung } : {}) });
 }
