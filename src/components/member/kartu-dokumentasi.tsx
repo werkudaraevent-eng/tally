@@ -1,6 +1,6 @@
 import { ArrowSquareOut, Images } from "@phosphor-icons/react/dist/ssr";
 import { KARTU_HZ, KepalaKartuHorizon, PAD_KARTU } from "@/components/member/portal-horizon";
-import { DOKUMENTASI_UI, layananTautan, type AlbumDokumentasi } from "@/lib/member/dokumentasi";
+import { DOKUMENTASI_UI, labelTanpaTanggal, layananTautan, type AlbumDokumentasi } from "@/lib/member/dokumentasi";
 import type { LandingLang } from "@/lib/landing-i18n";
 
 /**
@@ -24,8 +24,8 @@ export function teksAlbum(album: AlbumDokumentasi, lang: LandingLang): { judul: 
   const gabung = (...bagian: Array<string | null>) => bagian.filter(Boolean).join(" · ") || null;
   if (album.jenis === "event") return { judul: t.semua, isi: layanan };
   if (album.jenis === "session") return { judul: album.judul ?? t.sesi, isi: gabung(tanggal, layanan) };
-  // Label bagian yang hanya mengulang nama hari ("Jumat, 6 November") tidak ditulis dua kali.
-  const label = album.judul && tanggal && !album.judul.toLowerCase().includes(tanggal.split(",")[0].toLowerCase()) ? album.judul : null;
+  // Tanggal di label bagian tidak ditulis dua kali; sisanya ("Batch 2") tetap.
+  const label = tanggal ? labelTanpaTanggal(album.judul) : album.judul;
   return tanggal ? { judul: tanggal, isi: gabung(label, layanan) } : { judul: album.judul ?? t.semua, isi: layanan };
 }
 

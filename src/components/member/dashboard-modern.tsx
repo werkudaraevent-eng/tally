@@ -315,7 +315,7 @@ export async function DashboardModern({
 
         <div className="grid gap-10 pb-16 pt-8 lg:grid-cols-12 lg:gap-6 lg:pb-24">
           {/* Kanan di layar lebar, PERTAMA di ponsel: tiket lalu tautan cepat. */}
-          <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--nav-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:self-start">
+          <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-[calc(var(--nav-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:self-start">
             {/* Kehadiran untuk panitia (lib/member/akses-panitia.ts): paling atas, hanya untuk Tipe terpilih. */}
             {panitiaDiPortal(asli, member, sesi, pratinjau) ? <KartuPanitia gaya="modern" slug={event.slug} lang={lang} href={`${halamanAcara}/peserta?tab=panitia`} /> : null}
             {/* Hadiah undian (lib/member/hadiah.ts); QR ada di kartu tiket tepat di bawahnya, jadi tanpa tautan QR. */}

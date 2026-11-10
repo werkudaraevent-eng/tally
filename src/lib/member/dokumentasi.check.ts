@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { albumTerbuka, bacaSetelanDokumentasi, layananTautan, selesaiBaris, selesaiHari, tautanSesiTerbuka } from "./dokumentasi.ts";
+import { albumTerbuka, bacaSetelanDokumentasi, labelTanpaTanggal, layananTautan, selesaiBaris, selesaiHari, tautanSesiTerbuka } from "./dokumentasi.ts";
 
 const D1 = "https://drive.google.com/drive/folders/hari1";
 const D2 = "https://drive.google.com/drive/folders/hari2";
@@ -40,6 +40,10 @@ assert.equal(selesaiBaris("2026-11-06", { time: "06.00", end: null }, "Asia/Maka
 const acara = bacaSetelanDokumentasi({ enabled: true, mode: "event", url: D1 });
 assert.deepEqual(albumTerbuka(acara, agenda, jadwal, WIB("2026-11-08T16:59:00")), []);
 assert.equal(albumTerbuka(acara, agenda, jadwal, WIB("2026-11-08T17:00:00")).length, 1);
+// Baris Agenda terakhir lewat jam selesai acara: tunggu baris itu (QA #456 L2).
+const agendaGala = [{ id: 13, sectionTitle: null, tanggal: "2026-11-08", items: [{ id: 130, time: "19.00", end: "21.00", title: "Gala dinner", jeda: false }] }];
+assert.deepEqual(albumTerbuka(acara, agendaGala, jadwal, WIB("2026-11-08T17:00:00")), []);
+assert.equal(albumTerbuka(acara, agendaGala, jadwal, WIB("2026-11-08T21:00:00")).length, 1);
 // Acara tanpa tanggal: langsung tampil.
 assert.equal(albumTerbuka(acara, agenda, { ...jadwal, event_date: null }, 0).length, 1);
 // Mode acara tanpa link: kosong.
@@ -70,5 +74,14 @@ assert.equal(layananTautan("https://photos.app.goo.gl/abc"), "Google Photos");
 assert.equal(layananTautan("https://www.dropbox.com/sh/x"), "Dropbox");
 assert.equal(layananTautan("https://galeri.contoh.id/album/1"), "galeri.contoh.id");
 assert.equal(layananTautan("bukan url"), null);
+
+// Label bagian tanpa tanggalnya (QA #456 M1).
+assert.equal(labelTanpaTanggal("Jumat, 06 November 2026 (Batch 2)"), "Batch 2");
+assert.equal(labelTanpaTanggal("Kamis, 05 November 2026"), null);
+assert.equal(labelTanpaTanggal("Hari 1 - Kedatangan"), "Hari 1 - Kedatangan");
+assert.equal(labelTanpaTanggal("Friday 6 Nov · Arrival"), "Arrival");
+assert.equal(labelTanpaTanggal("Batch 1 (Sabtu, 7 Nov)"), "Batch 1");
+assert.equal(labelTanpaTanggal("Gala dinner"), "Gala dinner");
+assert.equal(labelTanpaTanggal(null), null);
 
 console.log("dokumentasi.check: ok");

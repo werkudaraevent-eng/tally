@@ -7,7 +7,7 @@ import { Button, SegmentedField, Switch, TextField } from "@/components/m3";
 import { useToast } from "@/components/toast";
 import type { LandingMemberConfig } from "@/lib/domain";
 import { withEventPrefix } from "@/lib/event-path";
-import { POLA_URL_DOKUMENTASI, URL_DOKUMENTASI_MAX, type ModeDokumentasi } from "@/lib/member/dokumentasi";
+import { labelTanpaTanggal, POLA_URL_DOKUMENTASI, URL_DOKUMENTASI_MAX, type ModeDokumentasi } from "@/lib/member/dokumentasi";
 import type { HariAgendaAdmin } from "@/lib/member/dokumentasi-server";
 import { KUNCI_DRAF_PENGUMUMAN } from "@/lib/sasaran-pengumuman";
 
@@ -32,9 +32,9 @@ function galat(url: string | undefined | null): string | undefined {
   return isi && !POLA_URL_DOKUMENTASI.test(isi) ? "Use a full link that starts with https://" : undefined;
 }
 
-/** "Mon 2 Nov · Arrival": label bagian dibuang bila hanya mengulang tanggalnya ("Senin, 02 November 2026"). */
+/** "Fri 6 Nov · Batch 2": tanggal di label bagian tidak ditulis dua kali. */
 function judulHari(bagian: HariAgendaAdmin, urutan: number): string {
-  const label = bagian.label && bagian.date && bagian.label.includes(bagian.date.slice(0, 4)) && new RegExp(`\\b0?${Number(bagian.date.slice(8, 10))}\\b`).test(bagian.label) ? null : bagian.label;
+  const label = bagian.date ? labelTanpaTanggal(bagian.label) : bagian.label;
   return [tanggal(bagian.date) ?? `Day ${urutan + 1}`, label].filter(Boolean).join(" · ");
 }
 
@@ -77,7 +77,12 @@ export function DokumentasiPeserta({
   const ubah = (patch: Partial<Setelan>) => onChange({ ...isi, ...patch });
   const hari = agenda ?? [];
   const sesi = hari.flatMap((bagian) => bagian.items);
-  const terisi = isi.mode === "event" ? (isi.url?.trim() ? 1 : 0) : Object.values((isi.mode === "day" ? isi.days : isi.sessions) ?? {}).filter((url) => url.trim()).length;
+  // Hanya link untuk hari atau baris yang masih ada di Agenda (link baris yang sudah dihapus tidak tampil).
+  const adaDiAgenda = new Set((isi.mode === "day" ? hari.map((bagian) => bagian.id) : sesi.map((item) => item.id)).map(String));
+  const terisi =
+    isi.mode === "event"
+      ? isi.url?.trim() ? 1 : 0
+      : Object.entries((isi.mode === "day" ? isi.days : isi.sessions) ?? {}).filter(([kunci, url]) => url.trim() && adaDiAgenda.has(kunci)).length;
 
   function umumkan() {
     const teks = DRAF[lang];
@@ -126,7 +131,7 @@ export function DokumentasiPeserta({
                 ? "One folder for everyone. Shows once the event has ended."
                 : isi.mode === "day"
                   ? "One folder per Agenda day. Shows after that day's last item."
-                  : "One folder per Agenda item. Shows after it ends, only to participants who see that item, and also under the item in the Schedule."
+                  : "One folder per Agenda item. Shows after it ends (items without an end time: at their start time), only to participants who see that item, and also under the item in the Schedule."
             }
           />
           {isi.mode === "event" ? kolom("acara", "Album link", isi.url, (url) => ubah({ url: url.trim() ? url : null }), "Leave empty to show nothing.") : null}
@@ -172,7 +177,9 @@ export function DokumentasiPeserta({
               Tell participants
             </Button>
             <span className="text-body-medium text-on-surface-variant">
-              {adaPerubahan ? "Save your changes first." : terisi === 0 ? "Add a link first." : "Opens a new announcement in Messages. Nothing is sent until you publish it."}
+              {adaPerubahan ? "Save your changes first." : terisi === 0 ? "Add a link first." : isi.mode === "event"
+                  ? "Opens a new announcement in Messages. Nothing is sent until you publish it. The album shows once the event has ended."
+                  : "Opens a new announcement in Messages. Nothing is sent until you publish it. Each album shows once its day or session has ended, so publish after that."}
             </span>
           </div>
         </>
