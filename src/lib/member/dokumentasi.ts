@@ -122,7 +122,8 @@ export function selesaiHari(bagian: BagianDokumentasi, zona: EventTimeZone): num
 
 /**
  * Album yang sudah boleh dibuka peserta pada `sekarang`, dalam urutan Agenda.
- * - `event`: setelah acara selesai (tanggal dan jam selesai acara). Acara
+ * - `event`: setelah acara selesai (jam selesai acara, atau baris Agenda
+ *   terakhir bila lebih malam). Acara
  *   tanpa tanggal: langsung, karena tidak ada waktu yang bisa ditunggu.
  * - `day`: setelah hari itu selesai; bagian tanpa tanggal ikut selesainya acara.
  * - `session`: setelah baris itu selesai; hanya baris yang ada di `agenda`
@@ -135,7 +136,10 @@ export function albumTerbuka(setelan: SetelanDokumentasi | null, agenda: readonl
   const sudah = (waktu: number | null) => (waktu === null ? akhirAcara === null || sekarang >= akhirAcara : sekarang >= waktu);
 
   if (setelan.mode === "event") {
-    return setelan.url && sudah(akhirAcara) ? [{ kunci: "acara", url: setelan.url, tanggal: null, judul: null, jenis: "event" }] : [];
+    // Acara selesai = yang paling akhir dari jam selesai acara dan baris Agenda terakhir (Gala dinner lewat jam selesai).
+    const akhirAgenda = agenda.map((bagian) => selesaiHari(bagian, zona)).filter((nilai): nilai is number => nilai !== null);
+    const akhir = akhirAcara === null ? null : Math.max(akhirAcara, ...akhirAgenda);
+    return setelan.url && sudah(akhir) ? [{ kunci: "acara", url: setelan.url, tanggal: null, judul: null, jenis: "event" }] : [];
   }
   if (setelan.mode === "day") {
     const hasil: AlbumDokumentasi[] = [];
@@ -157,6 +161,36 @@ export function albumTerbuka(setelan: SetelanDokumentasi | null, agenda: readonl
     }
   }
   return hasil;
+}
+
+const NAMA_HARI = "senin|selasa|rabu|kamis|jum'?at|sabtu|minggu|ahad|monday|tuesday|wednesday|thursday|friday|saturday|sunday";
+const NAMA_BULAN = "januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|january|february|march|may|june|july|august|october|december|jan|feb|mar|apr|jun|jul|agu|agt|aug|sep|sept|okt|oct|nov|des|dec";
+const POLA_TANGGAL_LABEL = [
+  new RegExp(`\\b(?:${NAMA_HARI})\\b`, "gi"),
+  new RegExp(`\\b\\d{1,2}\\s+(?:${NAMA_BULAN})\\b\\.?(?:\\s+\\d{4})?`, "gi"),
+  new RegExp(`\\b(?:${NAMA_BULAN})\\b\\.?\\s+\\d{1,2}(?:,?\\s+\\d{4})?`, "gi"),
+  /\b\d{4}-\d{2}-\d{2}\b/g,
+  /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g,
+];
+
+/**
+ * Label bagian Agenda tanpa tanggalnya, karena tanggal sudah ditulis sendiri:
+ * "Jumat, 06 November 2026 (Batch 2)" menjadi "Batch 2", "Kamis, 05 November
+ * 2026" menjadi null. Nama hari dan bulan Indonesia dan Inggris, karena label
+ * Agenda bisa berbahasa Indonesia di halaman English.
+ */
+export function labelTanpaTanggal(label: string | null | undefined): string | null {
+  let sisa = label?.trim() ?? "";
+  if (!sisa) return null;
+  for (const pola of POLA_TANGGAL_LABEL) sisa = sisa.replace(pola, " ");
+  for (let i = 0; i < 3; i += 1) {
+    sisa = sisa
+      .replace(/\(\s*[,·\-–—]*\s*\)/g, " ")
+      .replace(/^\s*\(([^()]*)\)\s*$/, "$1")
+      .replace(/^[\s,·\-–—:|/]+|[\s,·\-–—:|/]+$/g, "")
+      .replace(/\s{2,}/g, " ");
+  }
+  return sisa || null;
 }
 
 /** Link per sesi yang sudah terbuka, dikunci id baris: untuk tautan di Susunan acara. */
