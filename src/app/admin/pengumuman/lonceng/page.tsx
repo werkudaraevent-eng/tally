@@ -28,7 +28,7 @@ import {
 import { useToast } from "@/components/toast";
 import { cx } from "@/lib/m3/cx";
 import { plural } from "@/lib/plural";
-import { KUNCI_UMUMKAN, PILIH_MAX, type AudiensPengumuman } from "@/lib/sasaran-pengumuman";
+import { KUNCI_DRAF_PENGUMUMAN, KUNCI_UMUMKAN, PILIH_MAX, type AudiensPengumuman } from "@/lib/sasaran-pengumuman";
 import { PesanTabs } from "../pesan-tabs";
 import { BagianDilihat, SelDilihat, useRingkasDilihat } from "./dilihat";
 import { kirimanPenerima, penerimaLengkap, PilihPenerima, ringkasPenerima, salahSatuBerlaku, useHitungPenerima, type DrafSyarat, type InfoPenerima, type Orang } from "./penerima";
@@ -131,6 +131,21 @@ function ambilTitipan(): string[] | null {
   }
 }
 
+/** Draf titipan layar lain (KUNCI_DRAF_PENGUMUMAN): judul, isi, link. Kedaluwarsa 10 menit. */
+function ambilDrafTitipan(): Pick<Draft, "title" | "body" | "link_url" | "link_label"> | null {
+  try {
+    const mentah = window.sessionStorage.getItem(KUNCI_DRAF_PENGUMUMAN);
+    if (!mentah) return null;
+    window.sessionStorage.removeItem(KUNCI_DRAF_PENGUMUMAN);
+    const isi = JSON.parse(mentah) as Record<string, unknown>;
+    if (typeof isi.waktu !== "number" || Date.now() - isi.waktu > 10 * 60_000) return null;
+    const teks = (nilai: unknown) => (typeof nilai === "string" ? nilai : "");
+    return { title: teks(isi.title), body: teks(isi.body), link_url: teks(isi.link_url), link_label: teks(isi.link_label) };
+  } catch {
+    return null;
+  }
+}
+
 /** Jam di zona waktu acara, sama dengan yang dilihat peserta, bukan zona peramban admin. */
 function waktu(iso: string, timeZone?: string) {
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(iso));
@@ -218,7 +233,9 @@ export default function PengumumanPage() {
     setData(body as Muat);
     const muatan = body as Muat;
     const titipan = ambilTitipan();
-    if (titipan && muatan.ready && muatan.targeting_ready) setDraft({ ...KOSONG, audience: "pilih", audience_ids: titipan });
+    const drafTitipan = ambilDrafTitipan();
+    if (drafTitipan && muatan.ready) setDraft({ ...KOSONG, ...drafTitipan });
+    else if (titipan && muatan.ready && muatan.targeting_ready) setDraft({ ...KOSONG, audience: "pilih", audience_ids: titipan });
     // Sebelum migrasi 202610300004: katakan kenapa tidak ada yang terbuka.
     else if (titipan) toast.error("Can't announce to chosen participants yet", "This needs a database update first (migration 202610300004).");
   }, [toast]);

@@ -32,6 +32,8 @@ import { KirimUlangKonfirmasi } from "@/components/member/kirim-ulang-konfirmasi
 import { KartuLengkapi } from "@/components/member/kartu-lengkapi";
 import { normalizeTimeZone } from "@/lib/timezone";
 import { KartuHadiah } from "@/components/member/kartu-hadiah";
+import { KartuDokumentasi } from "@/components/member/kartu-dokumentasi";
+import { albumTerbuka, bacaSetelanDokumentasi } from "@/lib/member/dokumentasi";
 import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
 import { hadiahDiAtas } from "@/lib/member/hadiah";
 import { KartuPanitia } from "@/components/member/kartu-panitia";
@@ -181,6 +183,13 @@ export async function DashboardModern({
   const zonaAcara = normalizeTimeZone(event.time_zone);
   const hadiahAtas = hadiahDiAtas(hadiah, zonaAcara, sekarang);
   const kartuHadiah = <KartuHadiah gaya="modern" hadiah={hadiah} lang={lang} zona={zonaAcara} qrHref={null} />;
+  // Foto dan video acara (lib/member/dokumentasi.ts): album yang hari atau sesinya sudah selesai.
+  const albumDokumentasi = albumTerbuka(
+    bacaSetelanDokumentasi(member.photos),
+    agenda,
+    { event_date: event.event_date ?? null, end_date: event.end_date ?? null, start_time: event.start_time ?? null, end_time: event.end_time ?? null, time_zone: zonaAcara },
+    sekarang.getTime(),
+  );
   const nama = publicEventName(event);
   const namaLengkap = namaSapaan(sesi.name);
   const tanggal = formatEventDate(event, lang);
@@ -318,6 +327,7 @@ export async function DashboardModern({
               </BagianBeranda>
             ) : null}
             {!hadiahAtas && berikutnya && nextDuluan ? kartuHadiah : null}
+            <KartuDokumentasi gaya="modern" album={albumDokumentasi} lang={lang} />
             {!peserta ? (
               <section aria-labelledby="status-judul" className={KARTU}>
                 {sesi.status === "rejected" ? (
