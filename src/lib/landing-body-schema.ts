@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HARI_DOKUMENTASI_MAX, MODE_DOKUMENTASI, POLA_URL_DOKUMENTASI, SESI_DOKUMENTASI_MAX, URL_DOKUMENTASI_MAX } from "@/lib/member/dokumentasi";
 import { DAFTAR_JENIS_BLOK } from "@/lib/blok/jenis";
 import { CATATAN_HADIAH_MAX } from "@/lib/member/hadiah";
 import { BAGIAN_LOGISTIK } from "@/lib/logistik/bagian-tampil";
@@ -254,6 +255,9 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 /** Setelan area peserta (`landing_config.member`), disimpan di /admin/area-peserta. */
 const idBeranda = z.union([z.enum(["quick", "announcements", "next", "checkpoints", "logistics", "roommates", "agenda", "outfit", "help"]), blockId]);
 
+/** Link album foto dan video: https saja (lib/member/dokumentasi.ts). */
+const urlDokumentasi = z.string().trim().max(URL_DOKUMENTASI_MAX).regex(POLA_URL_DOKUMENTASI, "Album links must start with https://");
+
 export const memberSchema = z.object({
   enabled: z.boolean(),
   audience: z.enum(["approved", "all"]).optional(),
@@ -351,7 +355,19 @@ export const memberSchema = z.object({
       en: z.object({ note: z.string().trim().max(CATATAN_HADIAH_MAX).nullish() }).nullish(),
     })
     .nullable()
-    .optional(),  /** Notifikasi HP peserta (lib/push). Bawaan mati. */
+    .optional(),
+  /** Foto dan video acara (lib/member/dokumentasi.ts). Bawaan mati. */
+  photos: z
+    .object({
+      enabled: z.boolean(),
+      mode: z.enum(MODE_DOKUMENTASI),
+      url: urlDokumentasi.nullish(),
+      days: z.record(z.string().regex(/^\d{1,12}$/), urlDokumentasi).refine((isi) => Object.keys(isi).length <= HARI_DOKUMENTASI_MAX, "Too many days").nullish(),
+      sessions: z.record(z.string().regex(/^\d{1,12}$/), urlDokumentasi).refine((isi) => Object.keys(isi).length <= SESI_DOKUMENTASI_MAX, "Too many sessions").nullish(),
+    })
+    .nullable()
+    .optional(),
+  /** Notifikasi HP peserta (lib/push). Bawaan mati. */
   push: z.object({ enabled: z.boolean() }).nullable().optional(),
 });
 

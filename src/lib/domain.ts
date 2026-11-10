@@ -1332,6 +1332,12 @@ export type LandingMemberConfig = {
    * acara supaya bisa dipasang di Layar Utama iPhone.
    */
   push?: { enabled: boolean } | null;
+  /**
+   * Foto dan video acara (lib/member/dokumentasi.ts), Participant area >
+   * Event photos and videos. Bawaan MATI. Satu link, per hari Agenda (id
+   * bagian), atau per baris Agenda (id baris); tampil setelah selesai.
+   */
+  photos?: { enabled: boolean; mode: "event" | "day" | "session"; url?: string | null; days?: Record<string, string> | null; sessions?: Record<string, string> | null } | null;
 };
 
 /** `outfit` dan `help`: hanya Gathering Horizon (Beranda "Hari ini"). */

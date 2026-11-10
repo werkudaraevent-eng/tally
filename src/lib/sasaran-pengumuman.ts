@@ -42,6 +42,14 @@ export const ORGANISASI_PANJANG = 200;
  */
 export const KUNCI_UMUMKAN = "tally:umumkan-ke";
 
+/**
+ * Pengumuman baru yang sudah terisi (judul, isi, link), dititipkan layar lain
+ * (Participant area > Event photos and videos > Tell participants), lalu
+ * Announcements membukanya sebagai draf. Satu kali pakai; tidak ada yang terkirim
+ * sebelum panitia menerbitkannya.
+ */
+export const KUNCI_DRAF_PENGUMUMAN = "tally:draf-pengumuman";
+
 const RUSAK: SasaranBlok = { field: "", values: [] };
 
 /** Satu syarat Organisasi: nama organisasi apa adanya, tanpa kembar. */

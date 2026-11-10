@@ -16,6 +16,7 @@ import { formFields, kolomTerpilih, ringkasKolom } from "@/lib/member/masuk-lain
 import { kontakPanitia } from "@/lib/kontak-panitia";
 import { loadOutfitBagian } from "@/lib/outfit-server";
 import { tanpaSetiapHariKosong } from "@/lib/outfit-setiap-hari";
+import { loadAgendaDokumentasi } from "@/lib/member/dokumentasi-server";
 
 /**
  * Setelan area peserta (menu admin "Area peserta").
@@ -190,6 +191,10 @@ export async function GET(request: Request) {
           organiser_contact: kontakPanitia(landing) !== null,
         }
       : {}),
+    // Event photos and videos: hari dan baris Agenda yang diterbitkan, dan
+    // bahasa utama acara untuk pengumuman "Tell participants". null = gagal dibaca.
+    agenda: layout ? await loadAgendaDokumentasi(eventId) : null,
+    default_lang: landing.default_lang === "en" ? "en" : "id",
     // Halaman English ada: Emergency and help menampilkan isian English.
     english: landingEnAvailable(landing),
     // Cara masuk: kolom yang boleh dipilih untuk "Participant fields", dan

@@ -14,6 +14,7 @@ import {
   Flag,
   Globe,
   House,
+  Images,
   Hourglass,
   Lifebuoy,
   MapPin,
@@ -128,6 +129,8 @@ import { legBerikutnya, pencocokBarisTrip, tripUntukBaris } from "@/lib/member/t
 import { rentangPerjalanan } from "@/lib/member/rentang-perjalanan";
 import { faseBeranda } from "@/lib/member/fase-beranda";
 import { KartuHadiah, type GayaKartuHadiah } from "@/components/member/kartu-hadiah";
+import { KartuDokumentasi, type GayaKartuDokumentasi } from "@/components/member/kartu-dokumentasi";
+import { albumTerbuka, bacaSetelanDokumentasi, DOKUMENTASI_UI, tautanSesiTerbuka } from "@/lib/member/dokumentasi";
 import { loadHadiahPeserta } from "@/lib/member/hadiah-server";
 import { hadiahDiAtas } from "@/lib/member/hadiah";
 import { KartuPanitia, type GayaKartuPanitia } from "@/components/member/kartu-panitia";
@@ -420,6 +423,20 @@ export async function DashboardGathering({
     const kartu = <KartuHadiah gaya={gayaKartu} hadiah={hadiah} lang={lang} zona={zona} qrHref={tampilKode ? keTab("qr") : null} />;
     return gayaKartu !== "gathering" && posisi === "atas" ? <div className="order-[0] lg:order-none">{kartu}</div> : kartu;
   };
+
+  // Foto dan video acara (lib/member/dokumentasi.ts): album yang hari atau sesinya
+  // sudah selesai. Agenda yang dipakai sudah disaring Who sees it. Bawaan mati.
+  const albumDokumentasi = albumTerbuka(
+    bacaSetelanDokumentasi(member.photos),
+    agendaNav,
+    { event_date: event.event_date ?? null, end_date: event.end_date ?? null, start_time: event.start_time ?? null, end_time: event.end_time ?? null, time_zone: zona },
+    sekarang.getTime(),
+  );
+  const kartuDokumentasi = (gayaKartu: GayaKartuDokumentasi) =>
+    albumDokumentasi.length && tab === "beranda" ? (
+      gayaKartu === "gathering" ? <KartuDokumentasi gaya={gayaKartu} album={albumDokumentasi} lang={lang} /> : <div className="order-[0] lg:order-none"><KartuDokumentasi gaya={gayaKartu} album={albumDokumentasi} lang={lang} /></div>
+    ) : null;
+  const sesiDokumentasi = tautanSesiTerbuka(albumDokumentasi);
 
   const tanggal = formatEventDate(event, lang);
   const venue = event.venue_name?.trim() || null;
@@ -840,6 +857,7 @@ export async function DashboardGathering({
           <KartuKilas lang={lang} href={kilas} />
           {pantauPanitia("gathering")}
           {kartuHadiah("gathering", "atas", diBeranda("next"))}
+          {kartuDokumentasi("gathering")}
           {beranda.order.map((id, index) => {
             // Status pendaftaran sebelum isi pertama selain Tautan cepat, seperti sebelum urutan ini ada.
             const status = index === beranda.order.findIndex((lain) => lain !== "quick") ? statusPendaftaran : null;
@@ -1084,6 +1102,14 @@ export async function DashboardGathering({
                               <CaretRight size={16} aria-hidden className="mt-0.5 shrink-0" />
                               <PenandaTab tab="perjalanan" />
                             </Link>
+                          ) : null}
+                          {sesiDokumentasi.has(item.id) ? (
+                            <a href={sesiDokumentasi.get(item.id)} target="_blank" rel="noreferrer noopener" className="relative mt-1 inline-flex items-start gap-1.5 self-start text-[14px] font-semibold leading-5 text-[#101E38] underline decoration-[var(--hz-emas,currentColor)] decoration-2 underline-offset-[5px] before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-['']">
+                              <Images size={18} aria-hidden className="shrink-0" />
+                              {DOKUMENTASI_UI[lang].sesi}
+                              <ArrowSquareOut size={16} aria-hidden className="mt-0.5 shrink-0" />
+                              <span className="sr-only">({DOKUMENTASI_UI[lang].tabBaru})</span>
+                            </a>
                           ) : null}
                         </div>
                       </li>
@@ -2485,6 +2511,7 @@ export async function DashboardGathering({
                 {statusPendaftaran ? <div className="order-[0] lg:order-none">{statusPendaftaran}</div> : null}
                 {kartuPantau ? <div className="order-[0] lg:order-none">{kartuPantau}</div> : null}
                 {kartuHadiah(trip ? "trip" : "horizon", "atas", urutan.includes("next"))}
+                {kartuDokumentasi(trip ? "trip" : "horizon")}
                 {urutan.filter((id) => !SAMPING.has(id)).map(susun)}
                 {/* Bantuan selalu paling bawah: di ponsel dan di akhir kolom utama desktop. */}
                 {kartuBantuan ? (

@@ -10,6 +10,8 @@ import { PratinjauPeserta, type PesertaPratinjau } from "./pratinjau-peserta";
 import { SusunanBeranda, type BlokPeserta } from "./susunan-beranda";
 import { KontakDaruratForm } from "./kontak-darurat";
 import { KelompokSetiapHari } from "./setiap-hari";
+import { DokumentasiPeserta } from "./dokumentasi";
+import type { HariAgendaAdmin } from "@/lib/member/dokumentasi-server";
 import { useToast } from "@/components/toast";
 import { pesanGalatApi } from "@/lib/api-message";
 import { LANDING_BLOCK_LABELS, MEMBER_HOME_BUILTINS, type LandingMemberAudience, type LandingMemberConfig, type LandingMemberSignIn } from "@/lib/domain";
@@ -63,6 +65,10 @@ type Muat = {
   email_ready?: boolean;
   /** Perangkat yang mengizinkan notifikasi HP; null = migrasi 202611070002 belum jalan. */
   push_devices?: number | null;
+  /** Event photos and videos: hari dan baris Agenda yang diterbitkan; null = gagal dibaca. */
+  agenda?: HariAgendaAdmin[] | null;
+  /** Bahasa utama acara, untuk draf pengumuman "Tell participants". */
+  default_lang?: "id" | "en";
 };
 
 /** Ringkasan dua kolom terpilih: yang punya keduanya, dan yang kembar. */
@@ -513,6 +519,22 @@ export default function AreaPesertaPage() {
                 >
                   <HadiahPortal prize={anggota.prize} english={data.english === true} onChange={(prize) => set({ prize })} />
                 </SettingRow>
+                {data.layout ? (
+                  <SettingRow
+                    stacked={berpratinjau}
+                    title="Event photos and videos"
+                    description="Links to your albums, such as a Google Drive folder, on Participant home. Days and items come from the Agenda."
+                  >
+                    <DokumentasiPeserta
+                      photos={anggota.photos}
+                      agenda={data.agenda ?? null}
+                      lang={data.default_lang === "en" ? "en" : "id"}
+                      slug={slug}
+                      adaPerubahan={belumDisimpan}
+                      onChange={(photos) => set({ photos })}
+                    />
+                  </SettingRow>
+                ) : null}
                 <SettingRow stacked={berpratinjau} title="Shown in the Participant area">
                   <div className="flex flex-col gap-4">
                     <Switch checked={anggota.show_code !== false} onChange={(value) => set({ show_code: value })} label="QR code and participant code" description="For check-in at the entrance." />
