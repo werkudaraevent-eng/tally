@@ -18,7 +18,9 @@
  * Sesi meja ambil bagasi (Luggage mode: Pick-up) hanya mengharapkan peserta
  * yang menitip minimal satu tas di meja titip mana pun, tetap dipotong Who
  * sees it. Yang tidak menitip tidak punya apa pun untuk diambil, jadi tidak
- * boleh menurunkan persentasenya. Tanpa setelan baru: datanya sudah ada.
+ * boleh menurunkan persentasenya. Titik bertanggal (satu hari) hanya
+ * mengharapkan titipan yang dicatat sampai hari itu dan belum diserahkan
+ * sebelum hari itu; titik tanpa tanggal semua penitip. Tanpa setelan baru.
  *
  * Murni, tanpa impor runtime selain sasaran-baris, supaya bisa diuji langsung
  * oleh Node (pantau-checkin.check.ts).
@@ -92,8 +94,11 @@ export type BahanPantau = {
   sekarang: Date;
   /** Offset zona acara ("+07:00"), untuk tanggal pencatatan di titik yang dipecah per hari. */
   offset?: string;
-  /** Peserta dengan catatan titip bagasi minimal 1 tas. Hanya dipakai sesi luggage_pickup. */
-  penitipBagasi?: ReadonlySet<string>;
+  /**
+   * Catatan titip bagasi minimal 1 tas (at = dicatat, kembali = diserahkan
+   * kembali). Hanya dipakai sesi luggage_pickup.
+   */
+  titipan?: readonly { participant_id: string; at: string; kembali: string | null }[];
 };
 
 /** Label tambahan kolom For untuk sesi meja ambil bagasi. */
@@ -145,11 +150,26 @@ function titikPantau(input: BahanPantau): TitikPantau[] {
     return hasil;
   };
 
-  // Meja ambil bagasi: yang diharapkan dipotong lagi ke yang menitip.
-  const penitip = input.penitipBagasi ?? new Set<string>();
+  // Meja ambil bagasi: yang diharapkan dipotong lagi ke yang menitip. Hari
+  // titik = satu tanggal baris Agenda-nya; beberapa tanggal atau tanpa tautan
+  // = semua titipan acara.
+  const offset0 = input.offset ?? "+00:00";
+  const cachePenitip = new Map<string, Set<string>>();
+  const penitipPada = (hari: string | null): Set<string> => {
+    const kunci = hari ?? "";
+    const ada = cachePenitip.get(kunci);
+    if (ada) return ada;
+    const hasil = new Set((input.titipan ?? [])
+      .filter((t) => !hari || (tanggalPada(t.at, offset0) <= hari && (!t.kembali || tanggalPada(t.kembali, offset0) >= hari)))
+      .map((t) => t.participant_id));
+    cachePenitip.set(kunci, hasil);
+    return hasil;
+  };
   const harapTitik = (ids: readonly number[], ambilBagasi: boolean): Set<string> | null => {
     const harap = diharapkan(ids);
     if (!ambilBagasi) return harap;
+    const tanggal = [...new Set(ids.map((id) => input.agenda.get(id)?.tanggal).filter((isi): isi is string => Boolean(isi)))];
+    const penitip = penitipPada(tanggal.length === 1 ? tanggal[0] : null);
     return new Set([...(harap ?? aktif)].filter((id) => penitip.has(id)));
   };
 
@@ -461,7 +481,9 @@ export function sasaranSesi(input: BahanPantau): Map<number, SasaranSesi> {
   const perSesi = new Map<number, Array<{ titik: TitikPantau; tanggal: string | null; dipecah: boolean }>>();
   for (const titik of titikPantau(input)) {
     if (titik.dasar.jenis !== "sesi") continue;
-    const sesi = sesiCp.get(kunciDasar(titik.dasar.key));
+    // Sesi meja ambil bagasi tanpa checkpoint juga dipersempit (ke penitip).
+    const sesiLepas = titik.ambilBagasi ? /^sesi-(\d+)$/.exec(titik.dasar.key)?.[1] : undefined;
+    const sesi = sesiCp.get(kunciDasar(titik.dasar.key)) ?? (sesiLepas ? Number(sesiLepas) : undefined);
     if (sesi === undefined) continue;
     const akhiran = /-(\d{4})(\d{2})(\d{2})$/.exec(titik.dasar.key);
     const tanggal = akhiran

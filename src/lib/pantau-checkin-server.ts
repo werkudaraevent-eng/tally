@@ -45,8 +45,9 @@ export async function muatRingkasCheckin(event: EventRow, sekarang = new Date())
 
 /**
  * Siapa yang diharapkan per sesi Check-in, untuk layar pemindai (lib/pantau-checkin.ts
- * sasaranSesi). Acara tanpa checkpoint bertautan baris Agenda tidak membaca apa
- * pun selain daftar checkpoint: hasilnya peta kosong dan layar pemindai tetap
+ * sasaranSesi). Acara tanpa checkpoint bertautan baris Agenda dan tanpa meja
+ * ambil bagasi tidak membaca apa pun selain daftar checkpoint dan jumlah sesi
+ * Pick-up: hasilnya peta kosong dan layar pemindai tetap
  * menghitung semua peserta aktif. Null bila gagal dibaca; pemanggil juga jatuh
  * ke hitungan semua peserta, bukan ke angka salah.
  */
@@ -54,7 +55,12 @@ export async function muatSasaranSesi(event: EventRow, sekarang = new Date()): P
   const daftar = await loadDaftarCheckpoint(event.id);
   const offset = timeZoneOffset(normalizeTimeZone((event as { time_zone?: unknown }).time_zone));
   if (!daftar) return null;
-  if (!daftar.some((cp) => cp.session_id !== null && cp.agenda_item_ids.length > 0)) return { sasaran: new Map(), offset };
+  if (!daftar.some((cp) => cp.session_id !== null && cp.agenda_item_ids.length > 0)) {
+    // Meja ambil bagasi selalu dipersempit ke penitip, juga tanpa tautan Agenda.
+    const ambil = await getSupabaseServiceClient().from("attendance_sessions").select("id", { count: "exact", head: true }).eq("event_id", event.id).eq("luggage_pickup", true);
+    if (ambil.error) return null;
+    if (!ambil.count) return { sasaran: new Map(), offset };
+  }
   const dimuat = await muatBahanPantau(event, sekarang);
   if (!dimuat) return null;
   return { sasaran: sasaranSesi(dimuat.bahan), offset };
@@ -111,8 +117,8 @@ export async function muatBahanPantau(
       ? db.from("rundown_items").select("id,audience,start_time,rundown_sections!inner(event_id,event_date)").in("id", agendaIds).eq("rundown_sections.event_id", event.id)
       : Promise.resolve({ data: [], error: null }),
     adaAmbilBagasi
-      ? semuaBaris<{ id: number; participant_id: string }>(() =>
-          db.from("luggage_drops").select("id,participant_id").eq("event_id", event.id).gt("bag_count", 0).order("id"))
+      ? semuaBaris<{ id: number; participant_id: string; recorded_at: string; handed_over_at: string | null }>(() =>
+          db.from("luggage_drops").select("id,participant_id,recorded_at,handed_over_at").eq("event_id", event.id).gt("bag_count", 0).order("id"))
       : Promise.resolve([]),
   ]);
   if (!peserta || !scans || !pickups || !titipan || barangHasil.error || agendaHasil.error) return null;
@@ -149,7 +155,7 @@ export async function muatBahanPantau(
     barang: new Map(((barangHasil.data ?? []) as Array<{ id: number; name: string }>).map((isi) => [Number(isi.id), isi.name])),
     sekarang,
     offset,
-    penitipBagasi: new Set(titipan.map((isi) => isi.participant_id)),
+    titipan: titipan.map((isi) => ({ participant_id: isi.participant_id, at: isi.recorded_at, kembali: isi.handed_over_at })),
   };
   const orang = new Map<string, OrangPantau>(
     opsi.orang ? peserta.map((isi) => [isi.id, { name: isi.name ?? "", company: isi.company ?? null, extra: isi.extra }]) : [],
