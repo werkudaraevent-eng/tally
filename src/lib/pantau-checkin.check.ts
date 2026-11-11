@@ -195,3 +195,54 @@ console.log("pantau-checkin ringkas ok");
   assert.equal(gab.untuk, "Batch 1 / Batch 2");
 }
 console.log("pantau-checkin sasaran sesi ok");
+
+// Meja ambil bagasi (Luggage mode: Pick-up): hanya yang menitip diharapkan,
+// tetap dipotong Who sees it. Yang di-scan tanpa titipan masuk `lainnya`.
+{
+  const sesiAmbil = [{ id: 5, name: "Pick-up", is_active: true, sort_order: 0, luggage_pickup: true }, { id: 6, name: "Lepas", is_active: true, sort_order: 1, luggage_pickup: true }];
+  const cpAmbil = [{ id: 200, title: "Ambil bagasi B1", place: null, session_id: 5, item_id: null, agenda_item_ids: [10] }];
+  const scanAmbil = [
+    { kunci: 5, participant_id: "a", at: "2026-11-05T23:00:00Z" }, // menitip, Batch 1
+    { kunci: 5, participant_id: "b", at: "2026-11-05T23:01:00Z" }, // tidak menitip
+    { kunci: 6, participant_id: "c", at: "2026-11-05T23:02:00Z" },
+  ];
+  const isi = { sesi: sesiAmbil, checkpoints: cpAmbil, agenda, peserta, scans: scanAmbil, pickups: [], barang: new Map(), sekarang, titipan: ["a", "c", "d"].map((id) => ({ participant_id: id, at: "2026-11-05T01:00:00Z", kembali: null })) };
+  const [ambil, lepas] = hitungPantau(isi);
+  assert.equal(ambil.key, "cp-200");
+  assert.equal(ambil.diharapkan, 1); // Batch 1 (a, b) yang menitip: a
+  assert.equal(ambil.sudah, 1);
+  assert.equal(ambil.lainnya, 1); // b di-scan tanpa titipan
+  assert.equal(ambil.ambil_bagasi, true);
+  assert.equal(ambil.untuk, "Batch 1 · Left luggage");
+  // Sesi tanpa checkpoint: semua peserta aktif yang menitip.
+  assert.equal(lepas.diharapkan, 3);
+  assert.equal(lepas.untuk, "Left luggage");
+  // Tanpa catatan titip: tidak ada yang diharapkan.
+  assert.equal(hitungPantau({ ...isi, titipan: undefined })[0].diharapkan, 0);
+  // Layar pemindai memakai angka yang sama.
+  const pindai = sasaranSesi(isi).get(5);
+  assert.equal(pindai?.diharapkan, 1);
+  assert.equal(pindai?.lainnya, 1);
+  // Sesi Pick-up tanpa checkpoint juga sampai ke layar pemindai.
+  assert.equal(sasaranSesi(isi).get(6)?.diharapkan, 3);
+  // Sesi biasa tidak berubah.
+  assert.equal(hasil[0].ambil_bagasi, false);
+}
+
+// Meja ambil dipecah per hari: hanya titipan yang dicatat sampai hari itu dan
+// belum diserahkan sebelum hari itu.
+{
+  const agenda2 = new Map([
+    [20, { id: 20, tanggal: "2026-11-05", jam: "10:00:00", syarat: null }],
+    [21, { id: 21, tanggal: "2026-11-06", jam: "10:00:00", syarat: null }],
+  ]);
+  const cp = [{ id: 300, title: "Ambil bagasi", place: null, session_id: 5, item_id: null, agenda_item_ids: [20, 21] }];
+  const sesi5 = [{ id: 5, name: "Pick-up", is_active: true, sort_order: 0, luggage_pickup: true }];
+  const dasar = { sesi: sesi5, checkpoints: cp, agenda: agenda2, peserta, scans: [], pickups: [], barang: new Map(), sekarang, offset: "+07:00" };
+  // Titipan hanya hari kedua (6 Nov): hari pertama tidak mengharapkan siapa pun.
+  const hanyaHari2 = hitungPantau({ ...dasar, titipan: [{ participant_id: "a", at: "2026-11-06T02:00:00Z", kembali: null }] });
+  assert.deepEqual(hanyaHari2.map((b) => [b.key, b.diharapkan]), [["cp-300-20261105", 0], ["cp-300-20261106", 1]]);
+  // Dititip 4 Nov, diambil 5 Nov (zona acara): diharapkan 5 Nov, tidak lagi 6 Nov.
+  const sudahAmbil = hitungPantau({ ...dasar, titipan: [{ participant_id: "b", at: "2026-11-04T02:00:00Z", kembali: "2026-11-05T03:00:00Z" }] });
+  assert.deepEqual(sudahAmbil.map((b) => b.diharapkan), [1, 0]);
+}

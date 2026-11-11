@@ -15,13 +15,21 @@
  * Batch 1) tidak menaikkan persentase, tetapi dihitung terpisah sebagai
  * `lainnya` supaya angkanya tidak hilang diam-diam.
  *
+ * Sesi meja ambil bagasi (Luggage mode: Pick-up) hanya mengharapkan peserta
+ * yang menitip minimal satu tas di meja titip mana pun, tetap dipotong Who
+ * sees it. Yang tidak menitip tidak punya apa pun untuk diambil, jadi tidak
+ * boleh menurunkan persentasenya. Titik bertanggal (satu hari) hanya
+ * mengharapkan titipan yang dicatat sampai hari itu dan belum diserahkan
+ * sebelum hari itu; titik tanpa tanggal semua penitip. Tanpa setelan baru.
+ *
  * Murni, tanpa impor runtime selain sasaran-baris, supaya bisa diuji langsung
  * oleh Node (pantau-checkin.check.ts).
  */
 import { barisUntukPeserta, type SyaratBaris } from "./sasaran-baris.ts";
 import { KOLOM_HOTEL, samaJawaban, type DataSasaranPeserta } from "./sasaran-blok.ts";
 
-export type SesiPantau = { id: number; name: string; is_active: boolean; sort_order: number };
+/** luggage_pickup: sesi meja ambil bagasi (Check-in > Luggage mode: Pick-up). */
+export type SesiPantau = { id: number; name: string; is_active: boolean; sort_order: number; luggage_pickup?: boolean };
 export type CheckpointPantau = { id: number; title: string; place: string | null; session_id: number | null; item_id: number | null; agenda_item_ids: number[] };
 /** Baris Agenda yang ditautkan checkpoint: tanggal bagiannya, jam mulai, dan Who sees it. */
 export type AgendaPantau = { id: number; tanggal: string | null; jam: string | null; syarat: SyaratBaris | null };
@@ -53,6 +61,8 @@ export type BarisPantau = {
   baru_15: number;
   /** Sesi ditutup di Check-in. Barang selalu terbuka. */
   aktif: boolean;
+  /** Meja ambil bagasi: diharapkan = yang menitip bagasi saja. */
+  ambil_bagasi: boolean;
 };
 
 const LIMA_BELAS_MENIT = 15 * 60 * 1000;
@@ -84,7 +94,15 @@ export type BahanPantau = {
   sekarang: Date;
   /** Offset zona acara ("+07:00"), untuk tanggal pencatatan di titik yang dipecah per hari. */
   offset?: string;
+  /**
+   * Catatan titip bagasi minimal 1 tas (at = dicatat, kembali = diserahkan
+   * kembali). Hanya dipakai sesi luggage_pickup.
+   */
+  titipan?: readonly { participant_id: string; at: string; kembali: string | null }[];
 };
+
+/** Label tambahan kolom For untuk sesi meja ambil bagasi. */
+export const UNTUK_PENITIP = "Left luggage";
 
 /**
  * Kunci titik tanpa akhiran hari: "cp-12-20261105" menjadi "cp-12". Pengaturan
@@ -107,6 +125,8 @@ type TitikPantau = {
   ids: readonly number[];
   /** null = tanpa Who sees it: semua peserta aktif. */
   harap: Set<string> | null;
+  /** Sesi meja ambil bagasi: harap sudah dipotong ke yang menitip. */
+  ambilBagasi: boolean;
   orang: Map<string, string>;
   terakhir: string | null;
 };
@@ -130,10 +150,34 @@ function titikPantau(input: BahanPantau): TitikPantau[] {
     return hasil;
   };
 
-  const titik = (dasar: TitikPantau["dasar"], ids: readonly number[], ringkas: ReturnType<typeof ringkasCatatan>, kunci: number): TitikPantau => ({
+  // Meja ambil bagasi: yang diharapkan dipotong lagi ke yang menitip. Hari
+  // titik = satu tanggal baris Agenda-nya; beberapa tanggal atau tanpa tautan
+  // = semua titipan acara.
+  const offset0 = input.offset ?? "+00:00";
+  const cachePenitip = new Map<string, Set<string>>();
+  const penitipPada = (hari: string | null): Set<string> => {
+    const kunci = hari ?? "";
+    const ada = cachePenitip.get(kunci);
+    if (ada) return ada;
+    const hasil = new Set((input.titipan ?? [])
+      .filter((t) => !hari || (tanggalPada(t.at, offset0) <= hari && (!t.kembali || tanggalPada(t.kembali, offset0) >= hari)))
+      .map((t) => t.participant_id));
+    cachePenitip.set(kunci, hasil);
+    return hasil;
+  };
+  const harapTitik = (ids: readonly number[], ambilBagasi: boolean): Set<string> | null => {
+    const harap = diharapkan(ids);
+    if (!ambilBagasi) return harap;
+    const tanggal = [...new Set(ids.map((id) => input.agenda.get(id)?.tanggal).filter((isi): isi is string => Boolean(isi)))];
+    const penitip = penitipPada(tanggal.length === 1 ? tanggal[0] : null);
+    return new Set([...(harap ?? aktif)].filter((id) => penitip.has(id)));
+  };
+
+  const titik = (dasar: TitikPantau["dasar"], ids: readonly number[], ringkas: ReturnType<typeof ringkasCatatan>, kunci: number, ambilBagasi = false): TitikPantau => ({
     dasar,
     ids,
-    harap: diharapkan(ids),
+    ambilBagasi,
+    harap: harapTitik(ids, ambilBagasi),
     orang: ringkas.pertama.get(kunci) ?? new Map<string, string>(),
     terakhir: ringkas.terakhir.get(kunci) ?? null,
   });
@@ -143,17 +187,17 @@ function titikPantau(input: BahanPantau): TitikPantau[] {
   // yang diharapkan dari baris hari itu, dan hanya pencatatan pada hari itu
   // (zona acara). Digabung, angkanya menjadi semua batch di hari pertama.
   const offset = input.offset ?? "+00:00";
-  const perHari = (dasar: TitikPantau["dasar"], ids: readonly number[], catatan: readonly CatatanPantau[], semua: ReturnType<typeof ringkasCatatan>, kunci: number): TitikPantau[] => {
+  const perHari = (dasar: TitikPantau["dasar"], ids: readonly number[], catatan: readonly CatatanPantau[], semua: ReturnType<typeof ringkasCatatan>, kunci: number, ambilBagasi = false): TitikPantau[] => {
     const hari = new Map<string, number[]>();
     for (const id of ids) {
       const tanggal = input.agenda.get(id)?.tanggal;
       if (!tanggal) continue;
       hari.set(tanggal, [...(hari.get(tanggal) ?? []), id]);
     }
-    if (hari.size < 2) return [titik(dasar, ids, semua, kunci)];
+    if (hari.size < 2) return [titik(dasar, ids, semua, kunci, ambilBagasi)];
     return [...hari].map(([tanggal, idHari]) => {
       const ringkas = ringkasCatatan(catatan.filter((isi) => isi.kunci === kunci && aktif.has(isi.participant_id) && tanggalPada(isi.at, offset) === tanggal));
-      return titik({ ...dasar, key: `${dasar.key}-${tanggal.replaceAll("-", "")}` }, idHari, ringkas, kunci);
+      return titik({ ...dasar, key: `${dasar.key}-${tanggal.replaceAll("-", "")}` }, idHari, ringkas, kunci, ambilBagasi);
     });
   };
 
@@ -164,14 +208,14 @@ function titikPantau(input: BahanPantau): TitikPantau[] {
       const sesi = sesiById.get(cp.session_id);
       if (!sesi) continue;
       dipakai.add(sesi.id);
-      hasil.push(...perHari({ key: `cp-${cp.id}`, jenis: "sesi", nama: cp.title, tempat: cp.place, aktif: sesi.is_active }, cp.agenda_item_ids, input.scans, scan, sesi.id));
+      hasil.push(...perHari({ key: `cp-${cp.id}`, jenis: "sesi", nama: cp.title, tempat: cp.place, aktif: sesi.is_active }, cp.agenda_item_ids, input.scans, scan, sesi.id, sesi.luggage_pickup === true));
     } else if (cp.item_id !== null) {
       hasil.push(...perHari({ key: `cp-${cp.id}`, jenis: "barang", nama: cp.title, tempat: cp.place ?? input.barang.get(cp.item_id) ?? null, aktif: true }, cp.agenda_item_ids, input.pickups, ambil, cp.item_id));
     }
   }
   for (const sesi of input.sesi) {
     if (dipakai.has(sesi.id)) continue;
-    hasil.push(titik({ key: `sesi-${sesi.id}`, jenis: "sesi", nama: sesi.name, tempat: null, aktif: sesi.is_active }, [], scan, sesi.id));
+    hasil.push(titik({ key: `sesi-${sesi.id}`, jenis: "sesi", nama: sesi.name, tempat: null, aktif: sesi.is_active }, [], scan, sesi.id, sesi.luggage_pickup === true));
   }
   return hasil;
 }
@@ -201,6 +245,13 @@ function labelUntuk(input: BahanPantau, ids: readonly number[]): string | null {
   return [...label].join(" / ");
 }
 
+/** Kolom For satu titik: Who sees it, ditambah "Left luggage" untuk meja ambil bagasi. */
+function untukTitik(input: BahanPantau, ids: readonly number[], ambilBagasi: boolean): string | null {
+  const label = labelUntuk(input, ids);
+  if (!ambilBagasi) return label;
+  return label ? `${label} · ${UNTUK_PENITIP}` : UNTUK_PENITIP;
+}
+
 export function hitungPantau(input: BahanPantau): BarisPantau[] {
   const jumlahAktif = input.peserta.length;
   const batas = new Date(input.sekarang.getTime() - LIMA_BELAS_MENIT).toISOString();
@@ -211,7 +262,7 @@ export function hitungPantau(input: BahanPantau): BarisPantau[] {
     return baris[0] ? { tanggal: baris[0].tanggal, jam: baris[0].jam } : { tanggal: null, jam: null };
   };
 
-  const susun = ({ dasar, ids, harap, orang, terakhir }: TitikPantau): BarisPantau => {
+  const susun = ({ dasar, ids, harap, orang, terakhir, ambilBagasi }: TitikPantau): BarisPantau => {
     let sudah = 0;
     let lainnya = 0;
     let baru = 0;
@@ -224,12 +275,13 @@ export function hitungPantau(input: BahanPantau): BarisPantau[] {
       ...dasar,
       ...waktu(ids),
       menurut_agenda: harap !== null,
-      untuk: harap === null ? null : labelUntuk(input, ids),
+      untuk: harap === null ? null : untukTitik(input, ids, ambilBagasi),
       diharapkan: harap ? harap.size : jumlahAktif,
       sudah,
       lainnya,
       terakhir,
       baru_15: baru,
+      ambil_bagasi: ambilBagasi,
     };
   };
 
@@ -429,7 +481,9 @@ export function sasaranSesi(input: BahanPantau): Map<number, SasaranSesi> {
   const perSesi = new Map<number, Array<{ titik: TitikPantau; tanggal: string | null; dipecah: boolean }>>();
   for (const titik of titikPantau(input)) {
     if (titik.dasar.jenis !== "sesi") continue;
-    const sesi = sesiCp.get(kunciDasar(titik.dasar.key));
+    // Sesi meja ambil bagasi tanpa checkpoint juga dipersempit (ke penitip).
+    const sesiLepas = titik.ambilBagasi ? /^sesi-(\d+)$/.exec(titik.dasar.key)?.[1] : undefined;
+    const sesi = sesiCp.get(kunciDasar(titik.dasar.key)) ?? (sesiLepas ? Number(sesiLepas) : undefined);
     if (sesi === undefined) continue;
     const akhiran = /-(\d{4})(\d{2})(\d{2})$/.exec(titik.dasar.key);
     const tanggal = akhiran
@@ -451,7 +505,7 @@ export function sasaranSesi(input: BahanPantau): Map<number, SasaranSesi> {
     for (const isi of dipilih) for (const id of isi.titik.orang.keys()) orang.add(id);
     let sudah = 0;
     for (const id of orang) if (harap.has(id)) sudah += 1;
-    const label = [...new Set(dipilih.map((isi) => labelUntuk(input, isi.titik.ids)).filter((isi): isi is string => Boolean(isi)))].join(" / ");
+    const label = [...new Set(dipilih.map((isi) => untukTitik(input, isi.titik.ids, isi.titik.ambilBagasi)).filter((isi): isi is string => Boolean(isi)))].join(" / ");
     hasil.set(sesi, {
       harap,
       hari: dipilih.some((isi) => isi.dipecah) ? pilih : null,
