@@ -19,10 +19,15 @@ export function slideSesi(b: BahanLaporan): HasilSlide {
     : pilih(bh, { id: `Kehadiran paling rendah di ${sesi[terendah].nama}, ${min}%`, en: `Attendance was lowest at ${sesi[terendah].nama}, ${min}%` });
 
   const sub = (tgl: string | null) => (tgl ? namaHari(tgl, bh) : undefined);
-  const kaki = pilih(bh, {
-    id: "Diharapkan = peserta aktif yang termasuk sasaran baris Agenda itu.",
-    en: "Expected = active participants the Agenda item is shown to.",
-  });
+  const kaki = sesi.some((s) => s.ambilBagasi)
+    ? pilih(bh, {
+        id: "Diharapkan = peserta aktif yang termasuk sasaran baris Agenda itu. Meja ambil bagasi: hanya yang menitip bagasi.",
+        en: "Expected = active participants the Agenda item is shown to. Luggage pick-up: only those who left luggage.",
+      })
+    : pilih(bh, {
+        id: "Diharapkan = peserta aktif yang termasuk sasaran baris Agenda itu.",
+        en: "Expected = active participants the Agenda item is shown to.",
+      });
 
   // Banyak sesi: tabel lebih mudah dibaca daripada garis yang padat.
   if (sesi.length > MAKS_GARIS) {

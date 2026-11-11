@@ -17,6 +17,8 @@ export type SesiBahan = {
   jam: string | null;
   diharapkan: number;
   sudah: number;
+  /** Meja ambil bagasi: diharapkan hanya yang menitip bagasi. */
+  ambilBagasi?: boolean;
   /** Pindaian pertama tiap orang di sesi ini, ISO. */
   datang: string[];
   /** Id peserta yang dipindai (untuk hadir unik per hari di Highlight harian). */

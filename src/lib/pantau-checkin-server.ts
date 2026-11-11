@@ -79,7 +79,7 @@ export async function muatBahanPantau(
 ): Promise<{ bahan: BahanPantau; orang: Map<string, OrangPantau>; checkpoints: { id: number; agenda_item_ids: number[] }[] } | null> {
   const db = getSupabaseServiceClient();
   const [sesiHasil, checkpoints] = await Promise.all([
-    db.from("attendance_sessions").select("id,name,is_active,sort_order").eq("event_id", event.id).order("sort_order").order("id"),
+    db.from("attendance_sessions").select("id,name,is_active,sort_order,luggage_pickup").eq("event_id", event.id).order("sort_order").order("id"),
     loadDaftarCheckpoint(event.id),
   ]);
   if (sesiHasil.error) return null;
@@ -92,7 +92,10 @@ export async function muatBahanPantau(
   const agendaIds = [...new Set(daftar.flatMap((cp) => cp.agenda_item_ids))];
   const barangIds = [...new Set(daftar.map((cp) => cp.item_id).filter((id): id is number => id !== null))];
 
-  const [peserta, scans, pickups, barangHasil, agendaHasil] = await Promise.all([
+  // Meja ambil bagasi hanya mengharapkan yang menitip: dibaca hanya bila ada sesinya.
+  const adaAmbilBagasi = sesi.some((s) => s.luggage_pickup === true);
+
+  const [peserta, scans, pickups, barangHasil, agendaHasil, titipan] = await Promise.all([
     semuaBaris<{ id: string; extra: Record<string, unknown> | null; name?: string; company?: string | null }>(() =>
       db.from("participants").select(opsi.orang ? "id,extra,name,company" : "id,extra").eq("event_id", event.id).is("source_removed_at", null).order("id")),
     sesi.length
@@ -107,8 +110,12 @@ export async function muatBahanPantau(
     agendaIds.length
       ? db.from("rundown_items").select("id,audience,start_time,rundown_sections!inner(event_id,event_date)").in("id", agendaIds).eq("rundown_sections.event_id", event.id)
       : Promise.resolve({ data: [], error: null }),
+    adaAmbilBagasi
+      ? semuaBaris<{ id: number; participant_id: string }>(() =>
+          db.from("luggage_drops").select("id,participant_id").eq("event_id", event.id).gt("bag_count", 0).order("id"))
+      : Promise.resolve([]),
   ]);
-  if (!peserta || !scans || !pickups || barangHasil.error || agendaHasil.error) return null;
+  if (!peserta || !scans || !pickups || !titipan || barangHasil.error || agendaHasil.error) return null;
 
   const agenda = new Map<number, AgendaPantau>();
   for (const baris of (agendaHasil.data ?? []) as unknown as Array<{ id: number; audience: unknown; start_time: string | null; rundown_sections: { event_date: string | null } | Array<{ event_date: string | null }> }>) {
@@ -142,6 +149,7 @@ export async function muatBahanPantau(
     barang: new Map(((barangHasil.data ?? []) as Array<{ id: number; name: string }>).map((isi) => [Number(isi.id), isi.name])),
     sekarang,
     offset,
+    penitipBagasi: new Set(titipan.map((isi) => isi.participant_id)),
   };
   const orang = new Map<string, OrangPantau>(
     opsi.orang ? peserta.map((isi) => [isi.id, { name: isi.name ?? "", company: isi.company ?? null, extra: isi.extra }]) : [],
