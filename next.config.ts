@@ -27,7 +27,8 @@ const nextConfig: NextConfig = {
   // tidak pernah berubah di folder yang sama: berkas baru masuk folder v2.
   async headers() {
     // Lengkapi data dan Baca pengumuman dari email (/peserta/kabar) membawa
-    // token pribadi di `?t=`: jangan bocor lewat Referer.
+    // token pribadi di `?t=`: jangan bocor lewat Referer. Piksel buka-email
+    // (/api/jejak) juga membawa token di alamatnya.
     // Alamat /e/<slug>/... dan alamat domain klien (/lengkapi, /en/lengkapi).
     const tanpaReferer = [{ key: "Referrer-Policy", value: "no-referrer" }];
     // Header keamanan untuk semua halaman dan API. Ditaruh PALING ATAS: bila dua
@@ -46,7 +47,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: keamanan },
       { source: "/fonts/v1/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
-      ...["/e/:slug/lengkapi", "/e/:slug/:bahasa(en|id)/lengkapi", "/lengkapi", "/:bahasa(en|id)/lengkapi", "/e/:slug/peserta/kabar", "/peserta/kabar"].map((source) => ({ source, headers: tanpaReferer })),
+      ...["/e/:slug/lengkapi", "/e/:slug/:bahasa(en|id)/lengkapi", "/lengkapi", "/:bahasa(en|id)/lengkapi", "/e/:slug/peserta/kabar", "/peserta/kabar", "/api/jejak/:path*"].map((source) => ({ source, headers: tanpaReferer })),
     ];
   },
 };
