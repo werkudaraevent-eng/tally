@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
 import { Button, IconButton, TextField } from "@/components/m3";
+import { LangkahKode } from "@/components/auth/langkah-kode";
 import { SEPARATOR } from "@/lib/typography";
 
 /**
@@ -35,7 +36,10 @@ import { SEPARATOR } from "@/lib/typography";
  */
 export default function LoginPage() {
   const [username, setUsername] = useState("");
+  // PIN 6 digit (akun perangkat) atau kata sandi (admin, super admin).
   const [pin, setPin] = useState("");
+  // Admin yang kata sandinya benar lanjut ke kode authenticator di layar ini.
+  const [tahapKode, setTahapKode] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
@@ -49,8 +53,8 @@ export default function LoginPage() {
       setError("Enter your staff username.");
       return;
     }
-    if (!/^\d{6}$/.test(pin)) {
-      setError("PIN must be 6 digits.");
+    if (!pin) {
+      setError("Enter your PIN or password.");
       return;
     }
     setPending(true);
@@ -60,7 +64,7 @@ export default function LoginPage() {
     // tombol terjebak di state "Memproses..." tanpa pesan apa pun.
     let response: Response;
     try {
-      response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, pin, remember_me: rememberMe }) });
+      response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, secret: pin, remember_me: rememberMe }) });
     } catch {
       setPending(false);
       setError("Connection failed. Check your network and try again.");
@@ -87,8 +91,21 @@ export default function LoginPage() {
       // mengetiknya ulang di ponsel adalah hukuman untuk kesalahan yang bukan
       // miliknya.
       setPin("");
-      setError("Wrong username or PIN.");
-      toast.error("Sign-in failed", "Wrong username or PIN. Check and try again.");
+      setError("Wrong username, PIN or password.");
+      toast.error("Sign-in failed", "Wrong username, PIN or password. Check and try again.");
+      return;
+    }
+    // Admin: kata sandi benar, masih perlu kode authenticator, atau belum
+    // pernah memasang kata sandi + authenticator sama sekali.
+    const hasil = await response.json().catch(() => null) as { next?: "totp" | "setup" } | null;
+    if (hasil?.next === "setup") {
+      router.push("/login/setup");
+      return;
+    }
+    if (hasil?.next === "totp") {
+      setPending(false);
+      setPin("");
+      setTahapKode(true);
       return;
     }
     // Tidak ada toast sukses di sini, dan itu keputusan yang disengaja.
@@ -127,6 +144,9 @@ export default function LoginPage() {
             isinya di atas — layar sempit tidak boleh menaruh kolom isian di
             tengah, karena papan ketik yang muncul akan mendorongnya keluar. */}
         <div className="mx-auto w-full max-w-[380px] max-lg:mt-8">
+          {tahapKode ? (
+            <LangkahKode onBatal={() => setTahapKode(false)} />
+          ) : (<>
           <h1 className="text-center text-[1.75rem] font-semibold leading-9 tracking-[-0.01em]">Sign in to Tally</h1>
 
           <form className="mt-7" onSubmit={handleSubmit} noValidate>
@@ -143,22 +163,20 @@ export default function LoginPage() {
 
             <TextField
               className="mt-4"
-              label="PIN"
-              name="pin"
+              label="PIN or password"
+              name="password"
               type={showPin ? "text" : "password"}
-              inputMode="numeric"
-              pattern="\d{6}"
               autoComplete="current-password"
-              maxLength={6}
-              inputClassName="m3-field-auth tracking-[0.35em]"
+              maxLength={128}
+              inputClassName="m3-field-auth"
               value={pin}
-              onChange={(event) => { setPin(event.target.value.replace(/\D/g, "")); setError(""); }}
+              onChange={(event) => { setPin(event.target.value); setError(""); }}
               aria-invalid={error ? true : undefined}
-              hint="Enter your staff username and 6-digit PIN."
+              hint="Device accounts use a 6-digit PIN. Admins use their password."
               trailing={
                 <IconButton
                   size="sm"
-                  label={showPin ? "Hide PIN" : "Show PIN"}
+                  label={showPin ? "Hide" : "Show"}
                   onClick={() => setShowPin((value) => !value)}
                 >
                   {showPin ? <EyeSlash size={18} /> : <Eye size={18} />}
@@ -203,8 +221,9 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-4 text-center text-body-small text-on-surface-variant">
-            Forgot your PIN? Contact the event admin.
+            Forgot your PIN or password? Contact the event admin.
           </p>
+          </>)}
         </div>
 
         <p className="absolute inset-x-0 bottom-6 text-center text-body-small text-on-surface-variant">
