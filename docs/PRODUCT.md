@@ -122,7 +122,7 @@ The aim is an answer at every stage, not parity with enterprise suites: Tally go
 
 ## 1. Platform and roles
 
-Tally runs many events from one workspace. Every event has its own data, settings, look and staff access. Staff sign in with a username and a 6-digit PIN; participants sign in per event in the participant area.
+Tally runs many events from one workspace. Every event has its own data, settings, look and staff access. Staff sign in with a username and a 6-digit PIN. Staff sessions are kept on the server (`staff_sessions`): Sign out ends that device's session, a new PIN or a deactivated account signs that account out everywhere, and the account menu has Sign out of all devices. Participants sign in per event in the participant area.
 
 | Role | Lands on | Can do |
 | --- | --- | --- |

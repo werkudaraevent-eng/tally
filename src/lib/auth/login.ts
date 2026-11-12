@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { CurrentUser, UserRole } from "./roles";
@@ -45,16 +45,68 @@ function sign(id: string) {
   return createHmac("sha256", sessionSecret()).update(id).digest("hex");
 }
 
-function encodeSession(id: string) {
-  return `${id}.${sign(id)}`;
-}
-
-function validSession(value: string) {
+/**
+ * Cookie bentuk lama `<user id>.<HMAC>`: tanda tangan tanpa catatan di server,
+ * jadi tidak bisa dicabut. Hanya diterima selama tabel staff_sessions belum ada
+ * (kode ini boleh sampai lebih dulu daripada migrasi 202611130001). Begitu
+ * tabelnya ada, cookie lama ditolak dan pemiliknya masuk ulang sekali.
+ */
+function legacySessionId(value: string) {
   const [id, signature] = value.split(".");
   if (!id || !signature || !/^[0-9a-f-]{36}$/.test(id)) return null;
   const expected = sign(id);
   if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
   return id;
+}
+
+function hashToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/** Token baru: 32 byte acak base64url (43 karakter, tanpa titik). */
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+/** PostgREST: tabel belum ada di schema cache / Postgres: relasi tidak ada. */
+function tabelBelumAda(error: { code?: string } | null) {
+  return error?.code === "PGRST205" || error?.code === "42P01";
+}
+
+// Diingat per instans begitu terbukti ada; tabel tidak akan hilang lagi.
+let tabelSesiAda = false;
+
+async function tabelSesiTersedia(): Promise<boolean | null> {
+  if (tabelSesiAda) return true;
+  // GET, bukan HEAD: jawaban HEAD tidak membawa body, jadi kode galat
+  // "tabel belum ada" tidak terbaca.
+  const { error } = await getSupabaseServiceClient().from("staff_sessions").select("id").limit(1);
+  if (!error) {
+    tabelSesiAda = true;
+    return true;
+  }
+  return tabelBelumAda(error) ? false : null;
+}
+
+/**
+ * Buat sesi di server dan kembalikan nilai cookie. Bila tabel sesi belum ada
+ * (kode sampai lebih dulu daripada migrasi), jatuh ke cookie bentuk lama supaya
+ * staf tetap bisa masuk.
+ */
+async function createSession(userId: string, seconds: number) {
+  const client = getSupabaseServiceClient();
+  const token = randomBytes(32).toString("base64url");
+  const { error } = await client.from("staff_sessions").insert({
+    user_id: userId,
+    token_hash: hashToken(token),
+    expires_at: new Date(Date.now() + seconds * 1000).toISOString(),
+  } as never);
+  if (error) {
+    if (tabelBelumAda(error)) return `${userId}.${sign(userId)}`;
+    throw new Error("Could not create the session.");
+  }
+  tabelSesiAda = true;
+  // Rapikan sesi kedaluwarsa akun ini. Gagal pun tidak apa-apa.
+  await client.from("staff_sessions").delete().eq("user_id", userId).lt("expires_at", new Date().toISOString());
+  return token;
 }
 
 // Hasil percobaan login. `retry_after_seconds` hanya berarti pada RATE_LIMITED.
@@ -119,22 +171,68 @@ export async function loginWithPin(username: string, pin: string, rememberMe = f
     await client.from("users").update({ pin_hash: upgraded } as never).eq("id", user.id);
   }
 
+  const seconds = rememberMe ? REMEMBER_ME_SECONDS : SESSION_SECONDS;
+  const value = await createSession(user.id, seconds);
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, encodeSession(user.id), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: rememberMe ? REMEMBER_ME_SECONDS : SESSION_SECONDS, path: "/" });
+  cookieStore.set(SESSION_COOKIE, value, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: seconds, path: "/" });
   return { status: "ok", user: { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id } };
+}
+
+type UserRow = { id: string; username: string; role: UserRole; booth_id: number | null; is_active: boolean; access_role_id?: string | null };
+
+function toCurrentUser(user: UserRow): CurrentUser {
+  return { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id, access_role_id: user.access_role_id ?? null };
 }
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const raw = (await cookies()).get(SESSION_COOKIE)?.value;
-  const id = raw ? validSession(raw) : null;
+  if (!raw) return null;
+  const client = getSupabaseServiceClient();
+
+  if (TOKEN_PATTERN.test(raw)) {
+    // `users(*)`, bukan daftar kolom: access_role_id datang dari migrasi
+    // 202610300003. Daftar kolom yang menyebutnya akan mengeluarkan SEMUA orang
+    // bila kode ini sampai lebih dulu daripada migrasinya.
+    const { data } = await client
+      .from("staff_sessions")
+      .select("expires_at, users(*)")
+      .eq("token_hash", hashToken(raw))
+      .maybeSingle() as { data: { expires_at: string; users: UserRow | null } | null };
+    if (!data?.users || !data.users.is_active) return null;
+    if (new Date(data.expires_at).getTime() <= Date.now()) return null;
+    return toCurrentUser(data.users);
+  }
+
+  // Cookie bentuk lama: hanya sah sebelum migrasi sesi dijalankan. Bila
+  // keberadaan tabel tidak bisa dipastikan (galat lain), tolak.
+  const id = legacySessionId(raw);
   if (!id) return null;
-  // `*`, bukan daftar kolom: access_role_id datang dari migrasi 202610300003.
-  // Daftar kolom yang menyebutnya akan mengeluarkan SEMUA orang bila kode ini
-  // sampai lebih dulu daripada migrasinya.
-  const { data: user } = await getSupabaseServiceClient().from("users").select("*").eq("id", id).eq("is_active", true).single() as { data: { id: string; username: string; role: UserRole; booth_id: number | null; is_active: boolean; access_role_id?: string | null } | null };
-  return user ? { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id, access_role_id: user.access_role_id ?? null } : null;
+  if ((await tabelSesiTersedia()) !== false) return null;
+  const { data: user } = await client.from("users").select("*").eq("id", id).eq("is_active", true).single() as { data: UserRow | null };
+  return user ? toCurrentUser(user) : null;
 }
 
+/** Keluar dari perangkat ini: hapus baris sesinya, lalu cookie-nya. */
 export async function logout() {
-  (await cookies()).delete(SESSION_COOKIE);
+  const store = await cookies();
+  const raw = store.get(SESSION_COOKIE)?.value;
+  if (raw && TOKEN_PATTERN.test(raw)) {
+    await getSupabaseServiceClient().from("staff_sessions").delete().eq("token_hash", hashToken(raw));
+  }
+  store.delete(SESSION_COOKIE);
+}
+
+/**
+ * Cabut semua sesi satu akun. Dipakai saat PIN diganti, akun dinonaktifkan, dan
+ * "Keluar dari semua perangkat". `kecualiIni` membiarkan sesi di browser yang
+ * meminta tetap masuk (orang yang mengganti PIN-nya sendiri).
+ */
+export async function revokeUserSessions(userId: string, kecualiIni = false) {
+  let kueri = getSupabaseServiceClient().from("staff_sessions").delete().eq("user_id", userId);
+  if (kecualiIni) {
+    const raw = (await cookies()).get(SESSION_COOKIE)?.value;
+    if (raw && TOKEN_PATTERN.test(raw)) kueri = kueri.neq("token_hash", hashToken(raw));
+  }
+  const { error } = await kueri;
+  if (error && !tabelBelumAda(error)) throw new Error("Could not sign out the other devices.");
 }

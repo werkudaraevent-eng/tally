@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/guards";
 // menuliskan cost sendiri adalah dua tempat yang bisa menyimpang, dan ketidaksamaan
 // itu tidak akan memunculkan kesalahan apa pun — hanya PIN yang lebih lambat
 // diverifikasi daripada yang diperkirakan.
-import { PIN_HASH_ROUNDS } from "@/lib/auth/login";
+import { PIN_HASH_ROUNDS, revokeUserSessions } from "@/lib/auth/login";
 import { canManageUsers, canResetOperatorPin } from "@/lib/auth/roles";
 import type { UserRole } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -331,6 +331,9 @@ export async function PATCH(request: Request) {
     const pinHash = await bcrypt.hash(parsed.data.pin as string, PIN_HASH_ROUNDS);
     const { data, error } = await client.from("users").update({ pin_hash: pinHash } as never).eq("id", current.id).select(KOLOM_AKUN).single();
     if (error) return apiError("INTERNAL_ERROR", 500);
+    // PIN baru mengeluarkan akun itu dari semua perangkat: cookie lama tidak
+    // boleh tetap berlaku setelah kredensialnya diganti.
+    await revokeUserSessions(current.id, current.id === auth.user.id);
     await client.from("audit_logs").insert({ user_id: auth.user.id, action: "user_pin_reset", payload: { user: { id: current.id, username: current.username } } } as never);
     return Response.json({ user: data });
   }
@@ -402,6 +405,9 @@ export async function PATCH(request: Request) {
   const barisAwal = (salinan.data ?? []) as { event_id: string; booth_id: number | null }[];
   const { data, error } = await client.from("users").update(update as never).eq("id", parsed.data.id).select(KOLOM_AKUN).single();
   if (error) return apiError("INTERNAL_ERROR", 500);
+  // PIN baru atau akun dinonaktifkan: cabut semua sesinya. Perangkat yang
+  // meminta tetap masuk bila ia mengganti PIN-nya sendiri.
+  if (parsed.data.pin || parsed.data.is_active === false) await revokeUserSessions(current.id, current.id === auth.user.id && parsed.data.is_active !== false);
 
   let barisOk = true;
   let dihapusArsip: string[] = [];
