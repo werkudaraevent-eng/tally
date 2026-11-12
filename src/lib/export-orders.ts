@@ -42,20 +42,20 @@ type OrderRow = {
 // ada keterangan APA yang diserahkan padahal tiap booth punya item berbeda.
 export const EXPORT_HEADERS = [
   "order_code",
-  "waktu",
-  "booth_kode",
-  "booth_nama",
-  "peserta",
-  "instansi",
-  "item_diserahkan",
-  "jumlah_item",
-  "item_diskon",
-  "nominal_reguler",
+  "created_at",
+  "booth_code",
+  "booth_name",
+  "participant",
+  "organisation",
+  "items",
+  "special_item_count",
+  "discount_item",
+  "regular_amount",
   "total",
   "status",
-  "metode_bayar",
+  "payment_method",
   "approval_code",
-  "kasir",
+  "cashier",
   "booth_id",
   "participant_id",
 ] as const;
@@ -65,7 +65,7 @@ function toRow(order: OrderRow) {
   // Nominal reguler ikut disebut sebagai baris item supaya kolom ini tidak pernah
   // kosong pada order yang sebenarnya berisi belanja biasa.
   const parts = [
-    ...(order.regular_amount > 0 ? [`Item reguler (${order.regular_amount})`] : []),
+    ...(order.regular_amount > 0 ? [`Regular items (${order.regular_amount})`] : []),
     ...items.map((item) => `${item.special_offers?.name ?? "Item deleted"} (${item.price_at_claim})`),
   ];
   return [
@@ -133,7 +133,7 @@ export async function buildXlsx(rows: unknown[][]) {
   // Indeks dihitung dari EXPORT_HEADERS, bukan ditulis sebagai angka tetap. Versi
   // sebelumnya memakai [6, 7] secara harfiah, dan angka itu langsung salah menunjuk
   // kolom begitu ada kolom baru disisipkan di depannya.
-  for (const name of ["nominal_reguler", "total"] as const) {
+  for (const name of ["regular_amount", "total"] as const) {
     const index = EXPORT_HEADERS.indexOf(name) + 1;
     if (index > 0) sheet.getColumn(index).numFmt = "#,##0";
   }
