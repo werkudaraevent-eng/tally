@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     .eq("event_id", auth.scope.event.id)
     .in("id", parsed.data.order_ids);
   if ((milikEvent ?? 0) !== parsed.data.order_ids.length) {
-    return apiError("ORDER_NOT_PENDING", 404, { reason: "Ada order yang bukan milik event ini." });
+    return apiError("ORDER_NOT_PENDING", 404, { reason: "Some orders do not belong to this event." });
   }
 
   const { data, error } = await client.rpc("settle_orders_transaction" as never, {

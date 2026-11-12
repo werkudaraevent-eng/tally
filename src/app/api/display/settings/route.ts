@@ -8,7 +8,7 @@ import { normalizeTimeZone } from "@/lib/timezone";
 
 const SELECT = `event_title,headline,tagline,background_color,text_color,accent_color,background_image_url,leaderboard_limit,show_company,show_booth_progress,show_ticker,show_amount,ticker_text,refresh_seconds,updated_at,${BRANDING_COLUMNS}`;
 
-const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format hex #RRGGBB");
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colour must be a hex value, #RRGGBB");
 
 // Skala adalah pengali 0,5-2 terhadap rumus clamp() yang sudah ada, bukan ukuran
 // piksel. Lihat `scaleClamp` di src/lib/branding.ts: ukuran absolut akan merusak

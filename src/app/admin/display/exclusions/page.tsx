@@ -73,10 +73,10 @@ export default function LeaderboardExclusionsPage() {
       setFrozen(Boolean(data?.frozen));
       if (data) setRevealMode(data.mode === "staged" ? "staged" : "off");
     }
-    if (!response) { setError("Koneksi terputus. Daftar pengecualian tidak bisa dimuat."); return; }
-    if (!response.ok) { setError("Daftar pengecualian gagal dimuat."); return; }
+    if (!response) { setError("Connection lost. The exclusion list could not be loaded."); return; }
+    if (!response.ok) { setError("Could not load the exclusion list."); return; }
     const data = await response.json().catch(() => null);
-    if (!data) { setError("Daftar pengecualian gagal dibaca."); return; }
+    if (!data) { setError("Could not read the exclusion list."); return; }
     setRules(data.rules ?? []);
     setSummary(data.summary ?? null);
     setParticipants(data.participants ?? []);
@@ -107,13 +107,13 @@ export default function LeaderboardExclusionsPage() {
     const data = await response?.json().catch(() => ({}));
     setBusy(false); setMenambah(false);
     if (!response?.ok) {
-      const failure = data?.error?.details?.company_keyword?.[0] ?? data?.error?.message ?? (response ? `Gagal menambah pengecualian (${response.status}).` : "Koneksi terputus. Coba lagi.");
+      const failure = data?.error?.details?.company_keyword?.[0] ?? data?.error?.message ?? (response ? `Could not add the exclusion (${response.status}).` : "Connection lost. Try again.");
       setError(failure);
-      toast.error("Gagal menambah pengecualian", failure);
+      toast.error("Could not add the exclusion", failure);
       return;
     }
     setCompany(""); setParticipantId(""); setReason("");
-    toast.success("Pengecualian ditambahkan", "Papan top spender langsung menyesuaikan.");
+    toast.success("Exclusion added", "The top spender board updates right away.");
     await load();
   }
 
@@ -125,7 +125,7 @@ export default function LeaderboardExclusionsPage() {
       body: JSON.stringify({ is_active: !rule.is_active }),
     }).catch(() => null);
     setBusy(false);
-    if (!response?.ok) { setError("Gagal mengubah status aturan."); return; }
+    if (!response?.ok) { setError("Could not change the rule status."); return; }
     await load();
   }
 
@@ -134,18 +134,18 @@ export default function LeaderboardExclusionsPage() {
     const response = await fetch(`/api/admin/leaderboard/exclusions/${id}`, { method: "DELETE" }).catch(() => null);
     setBusy(false);
     setConfirmId(null);
-    if (!response?.ok) { setError("Gagal menghapus aturan."); return; }
-    toast.info("Pengecualian dicabut", "Peserta terkait kembali dihitung di top spender.");
+    if (!response?.ok) { setError("Could not delete the rule."); return; }
+    toast.info("Exclusion removed", "Matching participants count towards top spender again.");
     await load();
   }
 
   const participantName = (id: string | null) => {
     if (!id) return null;
     const found = participants.find((item) => item.id === id);
-    return found ? `${found.name}${found.company ? ` · ${found.company}` : ""}` : "Peserta tidak ditemukan";
+    return found ? `${found.name}${found.company ? ` · ${found.company}` : ""}` : "Participant not found";
   };
 
-  const namaAturan = (rule: Rule) => rule.company_keyword ?? participantName(rule.participant_id) ?? "aturan ini";
+  const namaAturan = (rule: Rule) => rule.company_keyword ?? participantName(rule.participant_id) ?? "this rule";
 
   // Papan lebih pendek daripada yang disetel. Bukan galat, tapi wajib terlihat:
   // di proyektor gejalanya hanya baris yang lebih sedikit, dan tidak ada yang
@@ -157,13 +157,13 @@ export default function LeaderboardExclusionsPage() {
 
   // ---- Panel utama: ringkasan dan daftar -----------------------------------------
   const daftar = (
-    <Pane aria-label="Daftar pengecualian">
+    <Pane aria-label="Exclusion list">
       {summary ? (
         <dl className="grid shrink-0 grid-cols-3 divide-x divide-outline-variant border-b border-outline-variant">
           {[
-            { label: "Peserta berbelanja", value: summary.total_spenders },
-            { label: "Dikecualikan", value: summary.excluded_spenders },
-            { label: "Masuk papan", value: summary.remaining_spenders },
+            { label: "Participants who bought", value: summary.total_spenders },
+            { label: "Excluded", value: summary.excluded_spenders },
+            { label: "On the board", value: summary.remaining_spenders },
           ].map((item) => (
             <div key={item.label} className="min-w-0 px-4 py-3">
               <dt className="truncate text-body-medium text-on-surface-variant">{item.label}</dt>
@@ -173,22 +173,22 @@ export default function LeaderboardExclusionsPage() {
         </dl>
       ) : null}
       <PaneHeader>
-        <h2 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Daftar pengecualian</h2>
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Exclusion list</h2>
         {rules ? <span className="text-body-medium tabular-nums text-on-surface-variant">{rules.length} aturan</span> : null}
       </PaneHeader>
       <PaneBody>
         {rules === null ? (
           error ? (
-            <p className="px-4 py-6 text-body-medium text-on-surface-variant">Daftar tidak bisa ditampilkan. Muat ulang halaman.</p>
+            <p className="px-4 py-6 text-body-medium text-on-surface-variant">The list cannot be shown. Reload the page.</p>
           ) : (
-            <div role="status" aria-label="Memuat" className="flex h-60 items-center justify-center"><span aria-hidden className="m3-spinner" /></div>
+            <div role="status" aria-label="Loading" className="flex h-60 items-center justify-center"><span aria-hidden className="m3-spinner" /></div>
           )
         ) : rules.length === 0 ? (
           <EmptyState
             plain
             icon={<Prohibit size={32} />}
-            title="Belum ada pengecualian"
-            description="Seluruh peserta berhak masuk top spender. Tambahkan perusahaan atau peserta lewat panel Tambah pengecualian."
+            title="No exclusions yet"
+            description="Every participant is eligible for top spender. Add a company or participant in the Add exclusion panel."
           />
         ) : (
           <ul>
@@ -200,7 +200,7 @@ export default function LeaderboardExclusionsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-on-surface">{namaAturan(rule)}</span>
-                    {!rule.is_active ? <StatusChip>Nonaktif</StatusChip> : null}
+                    {!rule.is_active ? <StatusChip>Off</StatusChip> : null}
                   </p>
                   {rule.reason ? <p className="mt-0.5 text-on-surface-variant">{rule.reason}</p> : null}
                   {/* Nol cocok DITANDAI, bukan disembunyikan. Nol hampir selalu
@@ -208,15 +208,15 @@ export default function LeaderboardExclusionsPage() {
                       tersedia sebelum acara dimulai. */}
                   <p className={rule.matched_participants === 0 ? "mt-1 flex items-center gap-1.5 font-medium text-error" : "mt-1 tabular-nums text-on-surface-variant"}>
                     {rule.matched_participants === 0
-                      ? <><WarningCircle size={16} aria-hidden />Tidak cocok dengan siapa pun. Periksa lagi pilihannya.</>
+                      ? <><WarningCircle size={16} aria-hidden />Matches nobody. Check the selection again.</>
                       : <>Cocok {rule.matched_participants} peserta, {rule.matched_spenders} di antaranya punya transaksi lunas.</>}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button variant="outlined" size="sm" disabled={busy} onClick={() => void toggle(rule)}>
-                    {rule.is_active ? "Nonaktifkan" : "Aktifkan"}
+                    {rule.is_active ? "Turn off" : "Turn on"}
                   </Button>
-                  <IconButton simpan size="sm" label={`Hapus aturan ${namaAturan(rule)}`} disabled={busy} onClick={() => setConfirmId(rule.id)}>
+                  <IconButton simpan size="sm" label={`Delete rule ${namaAturan(rule)}`} disabled={busy} onClick={() => setConfirmId(rule.id)}>
                     <Trash size={18} />
                   </IconButton>
                 </div>
@@ -231,20 +231,20 @@ export default function LeaderboardExclusionsPage() {
   // ---- Panel pendukung: tambah aturan --------------------------------------------
   const siapTambah = mode === "company" ? Boolean(company) : Boolean(participantId);
   const formulir = (
-    <Pane as="aside" aria-label="Tambah pengecualian">
+    <Pane as="aside" aria-label="Add exclusion">
       <PaneHeader>
-        <h2 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Tambah pengecualian</h2>
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Add exclusion</h2>
       </PaneHeader>
       <PaneBody className="px-5 py-4">
         <form id="form-pengecualian" className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void add(); }}>
           <SegmentedButton<Sasaran>
-            label="Jenis pengecualian"
+            label="Exclusion type"
             value={mode}
             onChange={setMode}
             className="w-full"
             options={[
-              { value: "company", label: "Satu perusahaan", icon: <Buildings size={16} aria-hidden /> },
-              { value: "participant", label: "Satu peserta", icon: <User size={16} aria-hidden /> },
+              { value: "company", label: "One company", icon: <Buildings size={16} aria-hidden /> },
+              { value: "participant", label: "One participant", icon: <User size={16} aria-hidden /> },
             ]}
           />
           {mode === "company" ? (
@@ -252,25 +252,25 @@ export default function LeaderboardExclusionsPage() {
             // yang tersimpan rapi, berefek nol, dan panitia menunggu perubahan
             // yang tidak akan pernah muncul.
             <SelectField
-              label="Perusahaan"
+              label="Company"
               value={company}
               onChange={(event) => setCompany(event.target.value)}
-              hint="Dicocokkan sebagian tanpa membedakan huruf besar-kecil, jadi “PT Rintis Sejahtera” dan “PT. Rintis Sejahtera” ikut tersaring sekaligus."
+              hint="Matched partially and case-insensitive, so “PT Rintis Sejahtera” and “PT. Rintis Sejahtera” are both caught."
             >
-              <option value="">Pilih perusahaan...</option>
+              <option value="">Pick a company…</option>
               {companies.map((item) => <option key={item.label} value={item.label}>{item.label} ({item.count} peserta)</option>)}
             </SelectField>
           ) : (
-            <SelectField label="Peserta" value={participantId} onChange={(event) => setParticipantId(event.target.value)}>
-              <option value="">Pilih peserta...</option>
+            <SelectField label="Participant" value={participantId} onChange={(event) => setParticipantId(event.target.value)}>
+              <option value="">Pick a participant…</option>
               {participants.map((item) => <option key={item.id} value={item.id}>{item.name}{item.company ? ` · ${item.company}` : ""}</option>)}
             </SelectField>
           )}
-          <TextField label="Alasan" optional value={reason} onChange={(event) => setReason(event.target.value)} maxLength={300} placeholder="mis. internal klien" />
+          <TextField label="Reason" optional value={reason} onChange={(event) => setReason(event.target.value)} maxLength={300} placeholder="e.g. client's own staff" />
         </form>
       </PaneBody>
-      <PaneFooter note="Berlaku seketika">
-        <Button simpan type="submit" form="form-pengecualian" size="sm" icon={<Prohibit size={16} />} loading={menambah} disabled={busy || !siapTambah}>Kecualikan</Button>
+      <PaneFooter note="Applies instantly">
+        <Button simpan type="submit" form="form-pengecualian" size="sm" icon={<Prohibit size={16} />} loading={menambah} disabled={busy || !siapTambah}>Exclude</Button>
       </PaneFooter>
     </Pane>
   );
@@ -278,29 +278,29 @@ export default function LeaderboardExclusionsPage() {
   return (
     <WorkspacePage fill>
       <WorkspaceHeader
-        title="Papan peringkat"
+        title="Leaderboard"
         meta={rules ? (
           <>
             <span className="tabular-nums">{aturanAktif} aturan aktif</span>
             {summary ? <><MetaSeparator /><span className="tabular-nums">{summary.remaining_spenders} peserta masuk papan</span></> : null}
             <MetaSeparator />
-            <span>Transaksi yang dikecualikan tetap tercatat penuh di Laporan</span>
+            <span>Excluded transactions are still recorded in full in Reports</span>
           </>
         ) : null}
-        actions={<ButtonLink href="/display" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Buka papan peringkat</ButtonLink>}
+        actions={<ButtonLink href="/display" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open leaderboard</ButtonLink>}
       />
       <DisplayTabs revealMode={revealMode} />
 
       {error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
 
-      {/* Reveal beku memakai snapshot yang diambil saat "Mulai reveal". Diperingatkan,
+      {/* Reveal beku memakai snapshot yang diambil saat "Start reveal". Diperingatkan,
           BUKAN dikunci: mengunci halaman ini di tengah acara menghapus satu-satunya
           jalan keluar kalau ternyata ada yang keliru. */}
       {frozen ? (
         <Banner tone="info" icon={<Snowflake size={18} />}>
-          Reveal bertahap sedang beku. Papan di proyektor memakai angka yang dibekukan saat reveal dimulai, jadi perubahan di
-          sini belum terlihat sampai reveal dikosongkan atau dimulai ulang dari{" "}
-          <Link href="/admin/display/reveal" className="font-medium text-primary underline">Reveal bertahap</Link>.
+          The staged reveal is frozen. The projector board uses the figures frozen when the reveal started, so changes
+          here do not show until the reveal is cleared or restarted from{" "}
+          <Link href="/admin/display/reveal" className="font-medium text-primary underline">Staged reveal</Link>.
         </Banner>
       ) : null}
 
@@ -321,12 +321,12 @@ export default function LeaderboardExclusionsPage() {
         onClose={() => setConfirmId(null)}
         dismissible={!busy}
         tone="danger"
-        title={`Cabut pengecualian ${dikonfirmasi ? namaAturan(dikonfirmasi) : ""}?`}
-        description={`Aturan ini dihapus dan peserta yang cocok langsung kembali dihitung di top spender${frozen ? " (di proyektor baru terlihat setelah reveal yang beku dikosongkan atau dimulai ulang)" : ""}. Isi aturannya tetap tercatat di jejak audit. Kalau hanya ingin menahan sementara, pakai Nonaktifkan.`}
+        title={`Remove exclusion ${dikonfirmasi ? namaAturan(dikonfirmasi) : ""}?`}
+        description={`This rule is deleted and matching participants count towards top spender again right away${frozen ? " (on the projector this shows once the frozen reveal is cleared or restarted)" : ""}. The rule's content stays in the audit trail. To pause it for now, use Turn off.`}
         actions={
           <>
-            <Button variant="outlined" disabled={busy} onClick={() => setConfirmId(null)}>Batal</Button>
-            <Button variant="danger" loading={busy} onClick={() => { if (confirmId !== null) void remove(confirmId); }}>Cabut pengecualian</Button>
+            <Button variant="outlined" disabled={busy} onClick={() => setConfirmId(null)}>Cancel</Button>
+            <Button variant="danger" loading={busy} onClick={() => { if (confirmId !== null) void remove(confirmId); }}>Remove exclusion</Button>
           </>
         }
       />

@@ -66,7 +66,7 @@ function toRow(order: OrderRow) {
   // kosong pada order yang sebenarnya berisi belanja biasa.
   const parts = [
     ...(order.regular_amount > 0 ? [`Item reguler (${order.regular_amount})`] : []),
-    ...items.map((item) => `${item.special_offers?.name ?? "Item dihapus"} (${item.price_at_claim})`),
+    ...items.map((item) => `${item.special_offers?.name ?? "Item deleted"} (${item.price_at_claim})`),
   ];
   return [
     order.code,

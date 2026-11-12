@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   // menebak id -- RPC-nya sendiri belum mengenal event.
   const client = getSupabaseServiceClient();
   const { data: owned } = await client.from("orders").select("id").eq("event_id", event.id).eq("id", params.data.id).maybeSingle();
-  if (!owned) return apiError("ORDER_NOT_VOIDABLE", 404, { reason: "Order tidak ada di event ini." });
+  if (!owned) return apiError("ORDER_NOT_VOIDABLE", 404, { reason: "This order is not in this event." });
 
   const { data, error } = await client.rpc("void_order_transaction" as never, {
     p_event_id: event.id,

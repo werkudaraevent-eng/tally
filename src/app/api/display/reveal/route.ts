@@ -145,7 +145,7 @@ const stageSchema = z.object({
   to: z.number().int().min(1).max(50),
   label: z.string().trim().min(1).max(60),
   layout: z.enum(["spotlight", "list"]),
-}).refine((value) => value.to >= value.from, { message: "Peringkat akhir tidak boleh lebih kecil dari peringkat awal" });
+}).refine((value) => value.to >= value.from, { message: "The last rank cannot be lower than the first rank" });
 
 const postSchema = z.object({
   action: z.enum(REVEAL_ACTIONS),
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
   // audit setiap kali dipanggil, dan setiap klien yang menyegarkan diri akan
   // membanjiri riwayat audit hari acara. Pembacaan memakai GET.
   if (action === "config" && parsed.data.mode === undefined && parsed.data.freeze_on_start === undefined && parsed.data.stages === undefined) {
-    return apiError("VALIDATION_ERROR", 422, { form: ["Tidak ada setting reveal yang diubah."] });
+    return apiError("VALIDATION_ERROR", 422, { form: ["No reveal settings were changed."] });
   }
 
   const client = getSupabaseServiceClient();

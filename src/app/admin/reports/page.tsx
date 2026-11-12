@@ -42,10 +42,10 @@ export default function ReportsPage() {
     try {
       const response = await fetch("/api/admin/reports", { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message ?? "Laporan gagal dimuat.");
+      if (!response.ok) throw new Error(data.error?.message ?? "Could not load the report.");
       setReport(data);
     } catch (loadError: unknown) {
-      setError(loadError instanceof Error && loadError.message !== "Failed to fetch" ? loadError.message : "Koneksi terputus. Laporan tidak bisa dimuat.");
+      setError(loadError instanceof Error && loadError.message !== "Failed to fetch" ? loadError.message : "Connection lost. The report could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -63,29 +63,29 @@ export default function ReportsPage() {
   return (
     <WorkspacePage width="wide">
       <WorkspaceHeader
-        meta={<span>Revenue hanya dihitung dari order lunas dan diserahkan. Cocokkan dengan settlement kasir.</span>}
+        meta={<span>Revenue counts only paid and handed-over orders. Match it with the cashier settlement.</span>}
         actions={<ExportMenu />}
       />
 
       {error ? (
-        <Banner tone="error" icon={<XCircle size={18} />} actions={<Button variant="outlined" size="sm" icon={<ArrowClockwise size={16} />} loading={loading} onClick={() => void load()}>Coba lagi</Button>}>
+        <Banner tone="error" icon={<XCircle size={18} />} actions={<Button variant="outlined" size="sm" icon={<ArrowClockwise size={16} />} loading={loading} onClick={() => void load()}>Try again</Button>}>
           {error}
         </Banner>
       ) : null}
 
       {/* Empat metrik */}
-      <section aria-label="Ringkasan" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {report ? (
           <>
-            <Kartu label="Revenue lunas" value={money(report.summary.total_revenue)} note={`Dari ${angka(report.summary.paid_orders)} order lunas`} />
-            <Kartu label="Order lunas" value={angka(report.summary.paid_orders)} note={report.summary.void_orders > 0 ? `Dari ${angka(report.summary.total_orders)} order, ${angka(report.summary.void_orders)} void` : `Dari ${angka(report.summary.total_orders)} order`} />
+            <Kartu label="Paid revenue" value={money(report.summary.total_revenue)} note={`From ${angka(report.summary.paid_orders)} paid orders`} />
+            <Kartu label="Paid orders" value={angka(report.summary.paid_orders)} note={report.summary.void_orders > 0 ? `From ${angka(report.summary.total_orders)} orders, ${angka(report.summary.void_orders)} void` : `From ${angka(report.summary.total_orders)} orders`} />
             <Kartu
               label="Pending"
               value={angka(report.summary.pending_orders)}
-              note="Belum dibayar di kasir"
-              chip={report.summary.pending_orders > 0 ? <StatusChip dot tone="warning">Perlu tindak lanjut</StatusChip> : null}
+              note="Not paid at the cashier"
+              chip={report.summary.pending_orders > 0 ? <StatusChip dot tone="warning">Needs follow-up</StatusChip> : null}
             />
-            <Kartu label="Klaim diskon" value={angka(report.summary.discount_claims)} note="Order berisi item diskon, di luar void" />
+            <Kartu label="Discount claims" value={angka(report.summary.discount_claims)} note="Orders with a discount item, excluding void" />
           </>
         ) : !error ? [0, 1, 2, 3].map((index) => (
           <div key={index} aria-hidden className="flex flex-col gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-5 py-4">
@@ -98,11 +98,11 @@ export default function ReportsPage() {
       {report || !error ? (
         <section aria-labelledby="judul-rekonsiliasi" className="flex flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-outline-variant px-5 py-3.5">
-            <h2 id="judul-rekonsiliasi" className="min-w-0 flex-1 text-body-medium font-semibold">Rekonsiliasi per booth</h2>
-            <span className="text-body-medium text-on-surface-variant">Kolom Order termasuk void; Revenue hanya dari order lunas</span>
+            <h2 id="judul-rekonsiliasi" className="min-w-0 flex-1 text-body-medium font-semibold">Reconciliation per booth</h2>
+            <span className="text-body-medium text-on-surface-variant">The Orders column includes void; Revenue counts paid orders only</span>
           </div>
           {!report ? (
-            <div aria-label="Memuat rekonsiliasi" className="flex flex-col">
+            <div aria-label="Loading reconciliation" className="flex flex-col">
               {Array.from({ length: 5 }, (_, i) => (
                 <div key={i} className="flex items-center gap-6 border-b border-outline-variant px-5 py-4 last:border-b-0">
                   <Skeleton className="h-3 w-40" /><Skeleton className="ml-auto h-3 w-24" />
@@ -110,7 +110,7 @@ export default function ReportsPage() {
               ))}
             </div>
           ) : report.booths.length === 0 ? (
-            <EmptyState plain icon={<Storefront size={40} />} title="Belum ada booth" description="Rekonsiliasi muncul setelah booth dibuat di Booth & item dan mulai mencatat order." />
+            <EmptyState plain icon={<Storefront size={40} />} title="No booths yet" description="Reconciliation appears once booths are created in Booths & items and start recording orders." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] border-separate border-spacing-0 text-left text-body-medium">
@@ -118,8 +118,8 @@ export default function ReportsPage() {
                   <tr>
                     <th scope="col" className={TH}>Booth</th>
                     <th scope="col" className={cx(TH, "text-right")}>Order</th>
-                    <th scope="col" className={cx(TH, "text-right")}>Lunas</th>
-                    <th scope="col" className={cx(TH, "text-right")}>Diskon</th>
+                    <th scope="col" className={cx(TH, "text-right")}>Paid</th>
+                    <th scope="col" className={cx(TH, "text-right")}>Discount</th>
                     <th scope="col" className={cx(TH, "text-right")}>Revenue</th>
                   </tr>
                 </thead>
@@ -155,13 +155,13 @@ export default function ReportsPage() {
       {report ? (
         <section aria-labelledby="judul-peserta" className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
           <div className="border-b border-outline-variant px-5 py-3.5">
-            <h2 id="judul-peserta" className="text-body-medium font-semibold">Data peserta & kehadiran</h2>
+            <h2 id="judul-peserta" className="text-body-medium font-semibold">Participant & attendance data</h2>
           </div>
           <dl className="grid gap-px bg-outline-variant sm:grid-cols-3">
             {([
-              ["Peserta tersalin", report.participants.total, "Peserta aktif, di luar yang dihapus di sumber"],
-              ["Check-in dari sumber", report.participants.checked_in, "Menurut Scanner API"],
-              ["Total pemindaian", report.participants.total_scans, "Menurut Scanner API"],
+              ["Participants copied", report.participants.total, "Active participants, excluding those deleted at the source"],
+              ["Check-ins from the source", report.participants.checked_in, "According to the Scanner API"],
+              ["Total scans", report.participants.total_scans, "According to the Scanner API"],
             ] as const).map(([label, value, note]) => (
               <div key={label} className="flex flex-col gap-1 bg-surface-container-lowest px-5 py-4">
                 <dt className="text-body-medium text-on-surface-variant">{label}</dt>

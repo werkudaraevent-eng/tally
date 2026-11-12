@@ -19,7 +19,7 @@ const boothCode = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^[A-Z][A-Z0-9]{0,7}$/, "Kode booth 1-8 karakter, dimulai huruf, tanpa spasi atau tanda hubung.");
+  .regex(/^[A-Z][A-Z0-9]{0,7}$/, "Booth code: 1-8 characters, starting with a letter, no spaces or hyphens.");
 
 // `transactions_enabled` menentukan sifat booth: false berarti booth hanya
 // menyerahkan barang (mis. tas belanja) dan tidak boleh mencatat nominal apa pun.
