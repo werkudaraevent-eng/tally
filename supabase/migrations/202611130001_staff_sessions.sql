@@ -47,7 +47,9 @@ notify pgrst, 'reload schema';
 --   coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.staff_sessions')), false) as rls_aktif,
 --   coalesce((select not has_table_privilege('anon', to_regclass('public.staff_sessions'), 'select') from pg_class where oid = to_regclass('public.staff_sessions')), false) as anon_ditolak,
 --   coalesce((select not has_table_privilege('authenticated', to_regclass('public.staff_sessions'), 'select') from pg_class where oid = to_regclass('public.staff_sessions')), false) as authenticated_ditolak,
---   coalesce((select has_table_privilege('service_role', to_regclass('public.staff_sessions'), 'select,insert,delete') from pg_class where oid = to_regclass('public.staff_sessions')), false) as service_role_boleh;
+--   coalesce((select has_table_privilege('service_role', to_regclass('public.staff_sessions'), 'select') from pg_class where oid = to_regclass('public.staff_sessions')), false) as service_role_select,
+--   coalesce((select has_table_privilege('service_role', to_regclass('public.staff_sessions'), 'insert') from pg_class where oid = to_regclass('public.staff_sessions')), false) as service_role_insert,
+--   coalesce((select has_table_privilege('service_role', to_regclass('public.staff_sessions'), 'delete') from pg_class where oid = to_regclass('public.staff_sessions')), false) as service_role_delete;
 --
 -- Rollback (HANYA bersama revert kode + redeploy: instans yang masih hangat
 -- sudah mengingat "tabel ada" dan akan menolak semua cookie setelah tabel
