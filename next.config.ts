@@ -30,7 +30,21 @@ const nextConfig: NextConfig = {
     // token pribadi di `?t=`: jangan bocor lewat Referer.
     // Alamat /e/<slug>/... dan alamat domain klien (/lengkapi, /en/lengkapi).
     const tanpaReferer = [{ key: "Referrer-Policy", value: "no-referrer" }];
+    // Header keamanan untuk semua halaman dan API. Ditaruh PALING ATAS: bila dua
+    // entri cocok dengan kunci yang sama, entri terakhir yang menang, jadi
+    // Referrer-Policy khusus di bawah tetap berlaku.
+    //   - frame-ancestors 'self' / SAMEORIGIN: halaman Tally hanya boleh dibingkai
+    //     oleh origin-nya sendiri (pratinjau admin, StageScaler undian). Situs lain
+    //     tidak bisa membingkai admin atau scanner untuk clickjacking.
+    //   - nosniff: browser tidak menebak tipe berkas.
+    const keamanan = [
+      { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+      { key: "X-Frame-Options", value: "SAMEORIGIN" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    ];
     return [
+      { source: "/:path*", headers: keamanan },
       { source: "/fonts/v1/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       ...["/e/:slug/lengkapi", "/e/:slug/:bahasa(en|id)/lengkapi", "/lengkapi", "/:bahasa(en|id)/lengkapi", "/e/:slug/peserta/kabar", "/peserta/kabar"].map((source) => ({ source, headers: tanpaReferer })),
     ];
