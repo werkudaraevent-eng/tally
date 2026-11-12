@@ -67,8 +67,12 @@ function hashToken(token: string) {
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 /** PostgREST: tabel belum ada di schema cache / Postgres: relasi tidak ada. */
-function tabelBelumAda(error: { code?: string } | null) {
-  return error?.code === "PGRST205" || error?.code === "42P01";
+// PostgREST 13+ menjawab PGRST205, Postgres 42P01. PostgREST 12 menjawab tulis
+// ke tabel yang tidak ada dengan 404 tanpa kode sama sekali (lihat juga
+// tabelBadgeBelumAda di lib/badge/load.ts).
+function tabelBelumAda(error: { code?: string } | null, status?: number) {
+  if (!error) return false;
+  return error.code === "PGRST205" || error.code === "42P01" || (status === 404 && !error.code);
 }
 
 // Diingat per instans begitu terbukti ada; tabel tidak akan hilang lagi.
@@ -78,12 +82,12 @@ async function tabelSesiTersedia(): Promise<boolean | null> {
   if (tabelSesiAda) return true;
   // GET, bukan HEAD: jawaban HEAD tidak membawa body, jadi kode galat
   // "tabel belum ada" tidak terbaca.
-  const { error } = await getSupabaseServiceClient().from("staff_sessions").select("id").limit(1);
+  const { error, status } = await getSupabaseServiceClient().from("staff_sessions").select("id").limit(1);
   if (!error) {
     tabelSesiAda = true;
     return true;
   }
-  return tabelBelumAda(error) ? false : null;
+  return tabelBelumAda(error, status) ? false : null;
 }
 
 /**
@@ -94,13 +98,13 @@ async function tabelSesiTersedia(): Promise<boolean | null> {
 async function createSession(userId: string, seconds: number) {
   const client = getSupabaseServiceClient();
   const token = randomBytes(32).toString("base64url");
-  const { error } = await client.from("staff_sessions").insert({
+  const { error, status } = await client.from("staff_sessions").insert({
     user_id: userId,
     token_hash: hashToken(token),
     expires_at: new Date(Date.now() + seconds * 1000).toISOString(),
   } as never);
   if (error) {
-    if (tabelBelumAda(error)) return `${userId}.${sign(userId)}`;
+    if (tabelBelumAda(error, status)) return `${userId}.${sign(userId)}`;
     throw new Error("Could not create the session.");
   }
   tabelSesiAda = true;
@@ -233,6 +237,6 @@ export async function revokeUserSessions(userId: string, kecualiIni = false) {
     const raw = (await cookies()).get(SESSION_COOKIE)?.value;
     if (raw && TOKEN_PATTERN.test(raw)) kueri = kueri.neq("token_hash", hashToken(raw));
   }
-  const { error } = await kueri;
-  if (error && !tabelBelumAda(error)) throw new Error("Could not sign out the other devices.");
+  const { error, status } = await kueri;
+  if (error && !tabelBelumAda(error, status)) throw new Error("Could not sign out the other devices.");
 }

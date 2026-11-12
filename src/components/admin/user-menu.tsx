@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Popover, POPOVER_ITEM, ThemeToggle, usePopoverAnchor } from "@/components/m3";
 import { ROLE_LABEL, type UserRole } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
+import { useToast } from "@/components/toast";
 
 /**
  * Menu akun di ujung kanan bilah atas.
@@ -65,11 +66,18 @@ export function UserMenu({
   const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
   const router = useRouter();
+  const toast = useToast();
   const [keluarSemuaJalan, setKeluarSemuaJalan] = useState(false);
 
   async function keluarSemua() {
     setKeluarSemuaJalan(true);
-    await fetch("/api/auth/logout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ all: true }) }).catch(() => null);
+    const res = await fetch("/api/auth/logout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ all: true }) }).catch(() => null);
+    // Gagal: jangan pura-pura berhasil. Sesi di perangkat lain masih hidup.
+    if (!res?.ok) {
+      setKeluarSemuaJalan(false);
+      toast.error("Couldn't sign out other devices", "Check your connection and try again.");
+      return;
+    }
     router.replace("/login");
     router.refresh();
   }

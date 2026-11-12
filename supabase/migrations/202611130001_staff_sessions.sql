@@ -28,6 +28,9 @@ create index if not exists staff_sessions_expires_idx on public.staff_sessions (
 
 alter table public.staff_sessions enable row level security;
 revoke all on table public.staff_sessions from public, anon, authenticated;
+-- Eksplisit, seperti migrasi lain di repo: tanpa ini login bergantung pada
+-- default privileges proyek, dan bila itu tidak ada semua staf terkunci.
+grant select, insert, delete on table public.staff_sessions to service_role;
 
 comment on table public.staff_sessions is
   'Sesi staf (cookie tally_session). Cookie membawa token acak; tabel menyimpan sha256-nya.';
@@ -43,4 +46,11 @@ notify pgrst, 'reload schema';
 --   to_regclass('public.staff_sessions') is not null as tabel_ada,
 --   coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.staff_sessions')), false) as rls_aktif,
 --   coalesce((select not has_table_privilege('anon', to_regclass('public.staff_sessions'), 'select') from pg_class where oid = to_regclass('public.staff_sessions')), false) as anon_ditolak,
---   coalesce((select not has_table_privilege('authenticated', to_regclass('public.staff_sessions'), 'select') from pg_class where oid = to_regclass('public.staff_sessions')), false) as authenticated_ditolak;
+--   coalesce((select not has_table_privilege('authenticated', to_regclass('public.staff_sessions'), 'select') from pg_class where oid = to_regclass('public.staff_sessions')), false) as authenticated_ditolak,
+--   coalesce((select has_table_privilege('service_role', to_regclass('public.staff_sessions'), 'select,insert,delete') from pg_class where oid = to_regclass('public.staff_sessions')), false) as service_role_boleh;
+--
+-- Rollback (HANYA bersama revert kode + redeploy: instans yang masih hangat
+-- sudah mengingat "tabel ada" dan akan menolak semua cookie setelah tabel
+-- dibuang):
+--
+-- begin; set local lock_timeout = '5s'; drop table if exists public.staff_sessions; commit; notify pgrst, 'reload schema';
