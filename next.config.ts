@@ -47,7 +47,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: keamanan },
       { source: "/fonts/v1/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
-      ...["/e/:slug/lengkapi", "/e/:slug/:bahasa(en|id)/lengkapi", "/lengkapi", "/:bahasa(en|id)/lengkapi", "/e/:slug/peserta/kabar", "/peserta/kabar", "/api/jejak/:path*"].map((source) => ({ source, headers: tanpaReferer })),
+      ...["/e/:slug/lengkapi", "/e/:slug/:bahasa(en|id)/lengkapi", "/lengkapi", "/:bahasa(en|id)/lengkapi", "/e/:slug/peserta/kabar", "/peserta/kabar", "/api/jejak/:path*", "/e/:slug/api/jejak/:path*"].map((source) => ({ source, headers: tanpaReferer })),
     ];
   },
 };
