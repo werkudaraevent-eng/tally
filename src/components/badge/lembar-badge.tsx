@@ -124,10 +124,10 @@ export function TandaLembar({ lembar }: { lembar: Lembar }) {
 						color: "#555555",
 					}}
 				>
-					<p style={{ fontWeight: 700, marginBottom: "2mm" }}>Cara melipat</p>
-					<p>1. Lipat bagian kanan ke belakang, tepat di takik tengah atas dan bawah.</p>
-					<p>2. Lipat bagian bawah ke belakang di takik samping.</p>
-					<p>3. Nama di depan, rundown di belakang. Bagian ini tersembunyi di dalam.</p>
+					<p style={{ fontWeight: 700, marginBottom: "2mm" }}>How to fold</p>
+					<p>1. Fold the right half back, exactly at the notches in the top and bottom centre.</p>
+					<p>2. Fold the bottom half back at the side notches.</p>
+					<p>3. Name on the front, agenda on the back. This part ends up hidden inside.</p>
 				</div>
 			) : null}
 		</>
@@ -154,15 +154,15 @@ export function LembarKalibrasi({ kertas, nama }: { kertas: Mm; nama: string }) 
 		<div className="cetak-lembar relative bg-white shadow-level2" style={{ width: `${w}mm`, height: `${h}mm` }}>
 			<svg aria-hidden viewBox={`0 0 ${w} ${h}`} style={{ width: `${w}mm`, height: `${h}mm`, display: "block" }}>
 				{[sudut(10, 10, 1, 1, 0), sudut(w - 10, 10, -1, 1, 1), sudut(10, h - 10, 1, -1, 2), sudut(w - 10, h - 10, -1, -1, 3)]}
-				<text x={14} y={17} fontSize={3} fill="#333">Setiap sudut tepat 10 mm dari tepi kertas</text>
+				<text x={14} y={17} fontSize={3} fill="#333">Each corner is exactly 10 mm from the paper edge</text>
 				<line x1={mulai} y1={yGaris} x2={mulai + 100} y2={yGaris} stroke="#000" strokeWidth={0.3} />
 				{Array.from({ length: 11 }, (_, i) => (
 					<line key={i} x1={mulai + i * 10} y1={yGaris - (i % 5 === 0 ? 4 : 2.5)} x2={mulai + i * 10} y2={yGaris} stroke="#000" strokeWidth={0.25} />
 				))}
-				<text x={w / 2} y={yGaris + 6} fontSize={3.2} textAnchor="middle" fill="#333">Garis ini harus tepat 100 mm</text>
+				<text x={w / 2} y={yGaris + 6} fontSize={3.2} textAnchor="middle" fill="#333">This line must be exactly 100 mm</text>
 				<line x1={w / 2} y1={h / 2 - 15} x2={w / 2} y2={h / 2 + 15} stroke="#c0392b" strokeWidth={0.2} strokeDasharray="1.5 1" />
 				<line x1={w / 2 - 15} y1={h / 2} x2={w / 2 + 15} y2={h / 2} stroke="#c0392b" strokeWidth={0.2} strokeDasharray="1.5 1" />
-				<text x={w / 2} y={h - 14} fontSize={2.8} textAnchor="middle" fill="#777">Tally · kalibrasi {nama}</text>
+				<text x={w / 2} y={h - 14} fontSize={2.8} textAnchor="middle" fill="#777">Tally · calibration {nama}</text>
 			</svg>
 		</div>
 	);

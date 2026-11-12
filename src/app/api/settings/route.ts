@@ -19,8 +19,8 @@ const patchSchema = z.object({
   time_zone: z.enum(TIME_ZONE_IDS as unknown as [string, ...string[]]).optional(),
   // Nama pengirim email acara ini. Tanpa < > " dan baris baru: nilainya
   // disusun menjadi header From `Nama <alamat>`.
-  email_sender_name: z.preprocess(kosongJadiNull, z.string().trim().max(80).regex(/^[^<>"\r\n]+$/, "Nama pengirim tidak boleh memuat < > atau tanda petik.").nullable()).optional(),
-  email_reply_to: z.preprocess(kosongJadiNull, z.string().trim().toLowerCase().max(254).email("Alamat balasan bukan email yang sah.").nullable()).optional(),
+  email_sender_name: z.preprocess(kosongJadiNull, z.string().trim().max(80).regex(/^[^<>"\r\n]+$/, "Sender name cannot contain < > or quotation marks.").nullable()).optional(),
+  email_reply_to: z.preprocess(kosongJadiNull, z.string().trim().toLowerCase().max(254).email("The reply-to address is not a valid email.").nullable()).optional(),
 });
 
 const SELECT = "pickup_mode,name_display_mode,leaderboard_enabled,pending_auto_void_minutes,cashier_confirmation_required,time_zone,email_sender_name,email_reply_to,updated_at";

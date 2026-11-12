@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     .eq("event_id", eventId)
     .is("session_id", null);
   if ((count ?? 0) === 0) {
-    return apiError("VALIDATION_ERROR", 422, { form: ["Tidak ada hasil undian yang belum bersesi."] });
+    return apiError("VALIDATION_ERROR", 422, { form: ["There are no draw results without a session."] });
   }
 
   // Rentang waktunya dipakai sebagai nama, supaya sesi ini bisa dikenali di
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle();
   const firstDraw = (bounds as { drawn_at?: string } | null)?.drawn_at ?? new Date().toISOString();
-  const dateLabel = new Date(firstDraw).toLocaleDateString("id-ID", {
+  const dateLabel = new Date(firstDraw).toLocaleDateString("en-GB", {
     timeZone: "Asia/Jakarta", day: "numeric", month: "short", year: "numeric",
   });
 
@@ -74,8 +74,8 @@ export async function POST(request: Request) {
     .from("undian_sessions")
     .insert({
       event_id: eventId,
-      name: `Hasil sebelum sesi (${dateLabel})`,
-      note: "Dibuat otomatis untuk menampung hasil undian yang diundi sebelum fitur sesi ada.",
+      name: `Results before sessions (${dateLabel})`,
+      note: "Created automatically to hold draw results from before sessions existed.",
       status: "closed",
       started_at: firstDraw,
       closed_at: now,

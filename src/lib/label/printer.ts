@@ -94,7 +94,7 @@ export function loadPrinterDriver(): Promise<NiimbotDriver> {
 		pemuatan = import("niimbot-web-bluetooth")
 			.then(() => {
 				const driver = (window as unknown as { Niimbot?: NiimbotDriver }).Niimbot;
-				if (!driver) throw new Error("Driver printer gagal dimuat.");
+				if (!driver) throw new Error("The printer driver could not be loaded.");
 				return driver;
 			})
 			.catch((error) => {

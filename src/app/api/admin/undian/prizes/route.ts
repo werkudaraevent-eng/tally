@@ -46,7 +46,7 @@ const leafSchema = z.union([
     key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
     cmp: z.enum(["eq", "neq", "contains", "not_contains", "starts_with", "ends_with", "is_empty", "is_not_empty"]),
     text: z.string().trim().max(200),
-  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Isi nilai pembandingnya." }),
+  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Enter a value to compare with." }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
@@ -56,7 +56,7 @@ const leafSchema = z.union([
     // berbahaya, tapi tetap ditolak supaya aturan yang setengah jadi tidak
     // tersimpan dan terbaca sebagai syarat yang sengaja dibuat longgar.
     if (!CMP_WITHOUT_VALUE.includes(value.cmp) && value.text === "") {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["text"], message: "Isi nilai pembandingnya." });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["text"], message: "Enter a value to compare with." });
     }
   }),
 ]);
@@ -110,10 +110,10 @@ const bodySchema = z.object({
   // yang gagal tanpa penjelasan. Ditolak di sini, sebelum menyentuh database,
   // supaya pesannya menyebut field yang salah.
   if (value.source === "entries" && !value.entry_group_id) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["entry_group_id"], message: "Pilih daftar entri yang akan diundi." });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["entry_group_id"], message: "Pick the entry list to draw from." });
   }
   if (value.weight_base > value.weight_max) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["weight_max"], message: "Tiket maksimum tidak boleh lebih kecil dari tiket dasar." });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["weight_max"], message: "Maximum tickets cannot be lower than base tickets." });
   }
   // Cadangan ikut diambil dari kolam yang sama dalam satu kali undi, jadi
   // totalnya yang menentukan berapa nama harus tersedia.
@@ -122,7 +122,7 @@ const bodySchema = z.object({
   }
   // Terowongan dan tabung mengungkap pemenang satu per satu; di atas batasnya MC menunggu terlalu lama.
   if (value.winners_per_draw > maxWinnersPerDraw(value.animation)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["winners_per_draw"], message: `Animasi ini memuat paling banyak ${maxWinnersPerDraw(value.animation)} pemenang per undi.` });
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["winners_per_draw"], message: `This animation fits at most ${maxWinnersPerDraw(value.animation)} winners per draw.` });
   }
 });
 

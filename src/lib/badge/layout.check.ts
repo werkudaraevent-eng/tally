@@ -20,7 +20,7 @@ assert.equal(isi2.potongan.length, 1);
 
 // Khusus lipat samping 100x140: unit 200x140 di A4 mendatar (297x210), satu per lembar, di tengah.
 const samping = susunLembar(f({}));
-assert.equal(samping.namaKertas, "A4 mendatar");
+assert.equal(samping.namaKertas, "A4 landscape");
 assert.equal(samping.tidakMuat, null);
 assert.equal(samping.badgePerLembar, 1);
 assert.equal(samping.panels[0].x, 48.5);
@@ -29,13 +29,13 @@ assert.ok(samping.tanda.length > 0);
 
 // Printer berisi A5: unit yang sama tetap muat di A5 mendatar (210x148)? 200+12 > 210, jadi tanpa tepi.
 const sampingA5 = susunLembar(f({ w_mm: 100, h_mm: 140 }), "A5");
-assert.equal(sampingA5.namaKertas, "A5 mendatar");
+assert.equal(sampingA5.namaKertas, "A5 landscape");
 assert.equal(sampingA5.tanda.length, 0);
 
 // Khusus lipat atas: belakang di bawah, terbalik.
 const atas = susunLembar(f({ fold: "top" }));
 assert.equal(atas.panels[1].rotate, 180);
-assert.equal(atas.namaKertas, "A4 tegak");
+assert.equal(atas.namaKertas, "A4 portrait");
 
 // Satu sisi A6 di A4: empat per lembar, bukan halaman seukuran badge.
 const tunggal = susunLembar(f({ kind: "tunggal", w_mm: 90, h_mm: 130 }));

@@ -7,7 +7,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 // synced participant list) so the event can be rehearsed from a clean slate.
 // Requires an explicit confirmation phrase to prevent accidental data loss.
 const bodySchema = z.object({
-  confirm: z.literal("HAPUS SEMUA DATA"),
+  confirm: z.literal("DELETE ALL DATA"),
   include_participants: z.boolean().default(false),
 });
 

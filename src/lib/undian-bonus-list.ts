@@ -7,12 +7,12 @@
 // ganda ("Budi Santoso" ada tiga) atau beda ejaan, dan salah cocok berarti
 // tiket tambahan jatuh ke orang yang tidak dipilih panitia tanpa ada yang tahu.
 
-export const BONUS_TEMPLATE_HEADERS = ["QR peserta", "Email", "Nama (untuk dicek)"] as const;
+export const BONUS_TEMPLATE_HEADERS = ["Participant QR", "Email", "Name (for checking)"] as const;
 
 const ALIASES = {
-  qr: ["qr peserta", "qr", "qr code", "kode qr", "kode", "code", "participant code", "id peserta"],
+  qr: ["participant qr", "qr peserta", "qr", "qr code", "kode qr", "kode", "code", "participant code", "id peserta"],
   email: ["email", "e-mail", "surel", "alamat email"],
-  name: ["nama (untuk dicek)", "nama", "name", "nama peserta", "full name"],
+  name: ["name (for checking)", "nama (untuk dicek)", "nama", "name", "nama peserta", "full name"],
 } as const;
 
 export type BonusListRow = { row: number; qr: string; email: string; name: string };
@@ -101,13 +101,13 @@ export function matchBonusRows(rows: BonusListRow[], participants: BonusParticip
     if (!qr && !email) {
       // Baris yang hanya berisi nama tetap dilaporkan: itu tanda panitia
       // mengisi kolom yang salah, bukan baris kosong.
-      if (item.name) miss({ row: item.row, value: item.name, reason: "QR dan email kosong" });
+      if (item.name) miss({ row: item.row, value: item.name, reason: "QR and email are empty" });
       continue;
     }
     const byQrCode = qr ? byQr.get(qr) : undefined;
     const sharedBy = !byQrCode && email ? (emailUsers.get(email) ?? 0) : 0;
     if (sharedBy > 1) {
-      miss({ row: item.row, value: item.email, reason: `Email dipakai ${sharedBy} peserta, isi QR-nya` });
+      miss({ row: item.row, value: item.email, reason: `Email used by ${sharedBy} participants, enter the QR instead` });
       continue;
     }
     const person = byQrCode ?? (email ? byEmail.get(email) : undefined);
@@ -115,7 +115,7 @@ export function matchBonusRows(rows: BonusListRow[], participants: BonusParticip
       miss({
         row: item.row,
         value: item.qr || item.email,
-        reason: qr && email ? "QR dan email tidak ada di acara ini" : qr ? "QR tidak ada di acara ini" : "Email tidak terdaftar di acara ini",
+        reason: qr && email ? "QR and email not found in this event" : qr ? "QR not found in this event" : "Email not registered for this event",
       });
       continue;
     }

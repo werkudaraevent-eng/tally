@@ -82,7 +82,7 @@ export default function CetakBadgePage() {
 		let batal = false;
 		void (async () => {
 			const r = await fetch(eventApiPath("/api/admin/badge"), { cache: "no-store" }).catch(() => null);
-			if (!r?.ok) { if (!batal) setError(r?.status === 401 || r?.status === 403 ? "Masuk sebagai admin acara ini untuk mencetak badge." : "Susunan badge gagal dimuat. Muat ulang halaman."); return; }
+			if (!r?.ok) { if (!batal) setError(r?.status === 401 || r?.status === 403 ? "Sign in as an admin of this event to print badges." : "The badge layout could not be loaded. Reload the page."); return; }
 			const body = (await r.json()) as Muatan;
 			if (batal) return;
 			// Cetak contoh dari penyunting: susunan yang sedang dilihat, belum
@@ -99,7 +99,7 @@ export default function CetakBadgePage() {
 			if (param.mode === "contoh" && !param.id) { setPeserta([BADGE_PREVIEW_DATA]); return; }
 			const q = param.id ? `?id=${encodeURIComponent(param.id)}` : "";
 			const rp = await fetch(eventApiPath(`/api/admin/badge/peserta${q}`), { cache: "no-store" }).catch(() => null);
-			if (!rp?.ok) { if (!batal) setError(rp?.status === 404 ? "Peserta tidak ditemukan." : "Data peserta gagal dimuat. Muat ulang halaman."); return; }
+			if (!rp?.ok) { if (!batal) setError(rp?.status === 404 ? "Participant not found." : "Participant data could not be loaded. Reload the page."); return; }
 			const data = (await rp.json()) as { peserta: BadgeData[] };
 			if (!batal) setPeserta(data.peserta);
 		})();
@@ -144,9 +144,9 @@ export default function CetakBadgePage() {
 	const pakaiRundown = Boolean(muatan && punyaBelakang(muatan.layout.format) && [...muatan.layout.back, ...muatan.layout.front].some((e) => e.type === "rundown"));
 	const peringatan: string[] = [];
 	if (param.mode !== "kalibrasi" && muatan && lembar) {
-		if (pakaiRundown && hari.length === 0) peringatan.push("Rundown acara belum diterbitkan, jadi kotak rundown di belakang badge kosong. Terbitkan dulu di menu Rundown acara bila ingin ikut tercetak.");
-		if (rundownLuber) peringatan.push("Rundown tidak muat walau sudah 8 pt. Badge mencetak baris yang muat lalu \"+N acara lagi\". Perbesar kotaknya atau pilih satu hari di penyunting.");
-		if (profil && !kertasCocok(lembar, profil.kertas)) peringatan.push(`Format ini dicetak di kertas ${lembar.namaKertas}, sedangkan ${profil.nama || "printer ini"} berisi ${profil.kertas}. Ganti kertasnya atau pilih format lain.`);
+		if (pakaiRundown && hari.length === 0) peringatan.push("The rundown is not published yet, so the rundown box on the back of the badge is empty. Publish it in Rundown first if you want it printed.");
+		if (rundownLuber) peringatan.push("The rundown does not fit even at 8 pt. The badge prints the lines that fit, then \"+N acara lagi\". Make the box bigger or pick one day in the editor.");
+		if (profil && !kertasCocok(lembar, profil.kertas)) peringatan.push(`This format prints on ${lembar.namaKertas} paper, but ${profil.nama || "this printer"} holds ${profil.kertas}. Change the paper or pick another format.`);
 	}
 
 	// Peserta dikelompokkan per lembar: A4 isi dua memuat dua badge.
@@ -154,7 +154,7 @@ export default function CetakBadgePage() {
 	const halaman: BadgeData[][] = [];
 	for (let i = 0; peserta && i < peserta.length; i += perLembar) halaman.push(peserta.slice(i, i + perLembar));
 
-	const namaKertas = param.mode === "kalibrasi" ? (param.kertas === "A5" ? "A5 mendatar" : "A4 tegak") : lembar?.namaKertas ?? "";
+	const namaKertas = param.mode === "kalibrasi" ? (param.kertas === "A5" ? "A5 landscape" : "A4 portrait") : lembar?.namaKertas ?? "";
 
 	return (
 		<>
@@ -172,27 +172,27 @@ export default function CetakBadgePage() {
 			<div className="cetak-alat sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-outline-variant bg-surface px-4 py-3 text-body-medium text-on-surface">
 				<div className="min-w-60 flex-1">
 					<p className="font-semibold">
-						{param.mode === "kalibrasi" ? "Halaman kalibrasi" : param.mode === "semua" ? `Badge semua peserta${peserta ? `, ${peserta.length} orang` : ""}` : "Badge"}
-						{namaKertas ? <span className="font-normal text-on-surface-variant"> · kertas {namaKertas}</span> : null}
+						{param.mode === "kalibrasi" ? "Calibration page" : param.mode === "semua" ? `Badges for all participants${peserta ? `, ${peserta.length} people` : ""}` : "Badge"}
+						{namaKertas ? <span className="font-normal text-on-surface-variant"> · {namaKertas} paper</span> : null}
 					</p>
 					<p className="text-on-surface-variant">
-						Di dialog cetak pilih printernya, ukuran kertas {namaKertas || "A4"}, skala 100% atau Ukuran sebenarnya, dan margin Tidak ada.
-						Untuk PDF, pilih Tujuan: Simpan sebagai PDF.
+						In the print dialog, pick the printer, paper size {namaKertas?.split(" ")[0] || "A4"}, scale 100% or Actual size, and margins None.
+						For a PDF, set Destination to Save as PDF.
 					</p>
 				</div>
 				{param.mode !== "kalibrasi" && printer.length > 0 ? (
 					<div className="w-60">
 						<SelectField
-							label="Koreksi printer"
+							label="Printer correction"
 							value={aktif ?? ""}
 							onChange={(e) => { const id = e.target.value || null; setAktif(id); simpanPrinterAktif(id); }}
 						>
-							<option value="">Tanpa koreksi</option>
+							<option value="">No correction</option>
 							{printer.map((p) => <option key={p.id} value={p.id}>{p.nama || p.model || "Printer"}</option>)}
 						</SelectField>
 					</div>
 				) : null}
-				<Button size="sm" icon={<Printer size={16} />} disabled={!siap} onClick={() => window.print()}>Cetak</Button>
+				<Button size="sm" icon={<Printer size={16} />} disabled={!siap} onClick={() => window.print()}>Print</Button>
 			</div>
 
 			{error ? <div className="cetak-alat p-4"><Banner tone="error" icon={<Warning size={18} />}>{error}</Banner></div> : null}
@@ -222,7 +222,7 @@ export default function CetakBadgePage() {
 						/>
 					))
 				) : !error ? (
-					<p className="cetak-alat py-20 text-body-medium text-on-surface-variant">Menyiapkan badge…</p>
+					<p className="cetak-alat py-20 text-body-medium text-on-surface-variant">Preparing badges…</p>
 				) : null}
 			</div>
 		</>

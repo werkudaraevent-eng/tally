@@ -71,22 +71,22 @@ const jepit = (nilai: number, min: number, maks: number) => Math.min(maks, Math.
 
 /** Nama yang muncul di tombol tambah, dan di label aksesibilitas tiap elemen. */
 const NAMA_ISI: Record<LabelField, string> = {
-  name: "Nama peserta",
-  company: "Instansi",
-  title: "Jabatan",
-  qr_code: "Kode peserta",
-  static: "Teks bebas",
+  name: "Participant name",
+  company: "Organisation",
+  title: "Job title",
+  qr_code: "Participant code",
+  static: "Free text",
 };
 
 type ElemenBaru = { kind: "text"; field: LabelField } | { kind: "qr" };
 
 const TOMBOL_TAMBAH: Array<{ label: string; buat: ElemenBaru }> = [
-  { label: "Nama", buat: { kind: "text", field: "name" } },
-  { label: "Instansi", buat: { kind: "text", field: "company" } },
-  { label: "Jabatan", buat: { kind: "text", field: "title" } },
-  { label: "Kode peserta", buat: { kind: "text", field: "qr_code" } },
-  { label: "Kode QR", buat: { kind: "qr" } },
-  { label: "Teks bebas", buat: { kind: "text", field: "static" } },
+  { label: "Name", buat: { kind: "text", field: "name" } },
+  { label: "Organisation", buat: { kind: "text", field: "company" } },
+  { label: "Job title", buat: { kind: "text", field: "title" } },
+  { label: "Participant code", buat: { kind: "text", field: "qr_code" } },
+  { label: "QR code", buat: { kind: "qr" } },
+  { label: "Free text", buat: { kind: "text", field: "static" } },
 ];
 
 type Bagian = "isi" | "gulungan" | "printer";
@@ -117,7 +117,7 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
 
   const load = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/label"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) { setError("Setelan label gagal dimuat. Muat ulang halaman."); return; }
+    if (!response?.ok) { setError("Label settings could not be loaded. Reload the page."); return; }
     const body = await response.json();
     const data = body.settings as LabelSettings;
     setSettings(data);
@@ -153,7 +153,7 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
     if (!settings || !kanvas.current) return;
     let batal = false;
     void renderLabelToCanvas(kanvas.current, settings, LABEL_PREVIEW_DATA).catch(() => {
-      if (!batal) setError("Pratinjau gagal digambar. Periksa ukuran label di bagian Printer.");
+      if (!batal) setError("The preview could not be drawn. Check the label size in the Printer section.");
     });
     return () => { batal = true; };
   }, [settings]);
@@ -362,17 +362,17 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
     }).catch(() => null);
     setBusy(false);
 
-    if (!response) { toast.error("Koneksi gagal", "Setelan belum tersimpan."); return; }
+    if (!response) { toast.error("Connection failed", "Settings are not saved."); return; }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      toast.error("Gagal disimpan", "Ada angka di luar batas yang diizinkan. Periksa bagian Printer.");
+      toast.error("Not saved", "A number is outside the allowed range. Check the Printer section.");
       return;
     }
     const tersimpan = body.settings as LabelSettings;
     setSettings(tersimpan);
     setPrefixText(tersimpan.name_prefixes.join(", "));
     setKotor(false);
-    toast.success("Tersimpan", "Layar pemindai memakainya setelah dimuat ulang.");
+    toast.success("Saved", "The scanner screen uses it after a reload.");
   }
 
   if (!settings) {
@@ -392,9 +392,9 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
 
   // ---- Panel utama: labelnya sendiri ------------------------------------------
   const utama = (
-    <Pane aria-label="Pratinjau label">
+    <Pane aria-label="Label preview">
       <PaneHeader className="flex-wrap gap-2 px-4 py-3">
-        <span className="text-body-medium text-on-surface-variant">Tambahkan:</span>
+        <span className="text-body-medium text-on-surface-variant">Add:</span>
         {TOMBOL_TAMBAH.map((tombol) => (
           <Button
             key={tombol.label}
@@ -428,7 +428,7 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
               ? elements.map((element, index) => {
                   const { w, h } = kotak(element);
                   const dipilih = terpilih === index;
-                  const nama = element.type === "qr" ? "Kode QR" : NAMA_ISI[element.field];
+                  const nama = element.type === "qr" ? "QR code" : NAMA_ISI[element.field];
                   return (
                     <div
                       key={index}
@@ -453,7 +453,7 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
                         <span
                           role="slider"
                           tabIndex={0}
-                          aria-label={`Lebar ${nama}`}
+                          aria-label={`${nama} width`}
                           aria-valuenow={element.type === "qr" ? element.size : element.w}
                           aria-valuemin={24}
                           aria-valuemax={settings.width_px}
@@ -477,21 +477,21 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
           </div>
         </div>
         <p className="shrink-0 px-6 pb-5 text-center text-body-medium text-on-surface-variant">
-          Klik isi label lalu geser. Titik biru di sudut mengatur lebarnya. Dengan papan ketik: Tab untuk berpindah,
-          panah untuk menggeser, Shift dan panah untuk lompat sepuluh.
+          Click an item on the label and drag it. The blue dot in the corner sets its width. With the keyboard: Tab to move between items,
+          arrow keys to move, Shift and an arrow to jump ten.
         </p>
       </PaneBody>
 
       {penuh || tanpaQr ? (
         <div className="flex shrink-0 flex-col gap-2 border-t border-outline-variant px-4 py-3 text-body-medium">
-          {penuh ? <p className="text-on-surface-variant">Sudah dua belas isi. Hapus salah satu sebelum menambah lagi.</p> : null}
+          {penuh ? <p className="text-on-surface-variant">The label already has twelve items. Delete one before adding more.</p> : null}
           {/* Label tanpa QR tetap tercetak rapi dan tetap tidak berguna: tamu
               membawanya ke booth, dipindai, dan tidak terbaca. Lebih baik
               diketahui sekarang daripada dari antrean yang macet. */}
           {tanpaQr ? (
             <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
               <Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-              Belum ada kode QR di label ini. Tanpa QR, badge-nya tidak bisa dipindai di booth maupun undian.
+              This label has no QR code. Without it, the badge can&apos;t be scanned at booths or the lucky draw.
             </p>
           ) : null}
         </div>
@@ -506,10 +506,10 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
         <Kelompok first>
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              <h3 className="text-body-medium font-semibold text-on-surface">{aktif.type === "qr" ? "Kode QR" : NAMA_ISI[aktif.field]}</h3>
+              <h3 className="text-body-medium font-semibold text-on-surface">{aktif.type === "qr" ? "QR code" : NAMA_ISI[aktif.field]}</h3>
               <p className="text-body-medium tabular-nums text-on-surface-variant">Posisi {aktif.x}, {aktif.y}</p>
             </div>
-            <IconButton size="sm" label="Hapus dari label" onClick={() => hapusElemen(terpilih)}>
+            <IconButton size="sm" label="Remove from label" onClick={() => hapusElemen(terpilih)}>
               <Trash size={16} className="text-error" />
             </IconButton>
           </div>
@@ -518,52 +518,52 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
             <>
               {aktif.field === "static" ? (
                 <TextField
-                  label="Tulisannya"
+                  label="Text"
                   maxLength={120}
                   value={aktif.text ?? ""}
                   onChange={(event) => ubahElemen(terpilih, { text: event.target.value })}
                 />
               ) : null}
               <TextField
-                label="Ukuran huruf"
+                label="Font size"
                 type="number"
                 min={6}
                 max={200}
-                hint="Teks yang kepanjangan mengecil sendiri agar muat, tidak dipotong."
+                hint="Text that is too long shrinks to fit instead of being cut."
                 value={aktif.size}
                 onChange={(event) => ubahElemen(terpilih, { size: jepit(Number(event.target.value) || 6, 6, 200) })}
               />
               <div>
-                <p className="text-body-medium font-medium text-on-surface">Rata</p>
+                <p className="text-body-medium font-medium text-on-surface">Alignment</p>
                 <SegmentedButton
                   className="mt-2 w-full"
-                  label="Perataan teks"
+                  label="Text alignment"
                   value={aktif.align}
                   onChange={(nilai) => ubahElemen(terpilih, { align: nilai })}
                   options={[
-                    { value: "left" as const, label: "Kiri" },
-                    { value: "center" as const, label: "Tengah" },
-                    { value: "right" as const, label: "Kanan" },
+                    { value: "left" as const, label: "Left" },
+                    { value: "center" as const, label: "Centre" },
+                    { value: "right" as const, label: "Right" },
                   ]}
                 />
               </div>
               <Switch
                 checked={aktif.weight === "bold"}
                 onChange={(nilai) => ubahElemen(terpilih, { weight: nilai ? "bold" : "normal" })}
-                label="Tebal"
+                label="Bold"
               />
               <Switch
                 checked={Boolean(aktif.uppercase)}
                 onChange={(nilai) => ubahElemen(terpilih, { uppercase: nilai })}
-                label="Huruf besar semua"
+                label="All capitals"
               />
             </>
           ) : (
             <TextField
-              label="Ukuran kotak QR"
+              label="QR box size"
               type="number"
               min={24}
-              hint="Terlalu kecil membuatnya gagal dipindai di booth. Di bawah 70 sebaiknya diuji dulu."
+              hint="Too small and it fails to scan at booths. Test it first if below 70."
               value={aktif.size}
               onChange={(event) => ubahElemen(terpilih, { size: jepit(Number(event.target.value) || 24, 24, 1000) })}
             />
@@ -573,13 +573,13 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
         <EmptyState
           plain
           className="px-4 py-10"
-          title="Belum ada isi yang dipilih"
-          description="Klik salah satu isi di label untuk mengatur ukuran huruf, rata, dan tebalnya."
+          title="No item selected"
+          description="Click an item on the label to set its font size, alignment and weight."
         />
       )}
 
-      <Kelompok title="Susunan">
-        <p className="text-body-medium text-on-surface-variant">Mengganti seluruh isi label dengan susunan bawaan. Baru berlaku setelah disimpan.</p>
+      <Kelompok title="Layout">
+        <p className="text-body-medium text-on-surface-variant">Replaces everything on the label with the default layout. Takes effect once saved.</p>
         <div>
           <Button
             variant="outlined"
@@ -591,7 +591,7 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
               setKotor(true);
             }}
           >
-            Kembalikan susunan bawaan
+            Restore default layout
           </Button>
         </div>
       </Kelompok>
@@ -600,8 +600,8 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
 
   const isiGulungan = (
     <div className="flex flex-col gap-5">
-      <Kelompok title="Ukuran gulungan" first>
-        <p className="text-body-medium text-on-surface-variant">Pilih yang tertulis di kotak gulungan labelmu.</p>
+      <Kelompok title="Roll size" first>
+        <p className="text-body-medium text-on-surface-variant">Pick the size printed on your label roll box.</p>
         <div className="overflow-hidden rounded-md border border-outline-variant">
           {UKURAN_LABEL.map((ukuran) => {
             const dipakai = ukuran.w === settings.width_mm && ukuran.h === settings.height_mm;
@@ -623,19 +623,19 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
           })}
         </div>
       </Kelompok>
-      <Kelompok title="Ukuran khusus">
+      <Kelompok title="Custom size">
         {!ukuranCocok ? (
-          <p className="text-body-medium text-on-surface-variant">Sekarang memakai ukuran khusus {settings.width_mm} x {settings.height_mm} mm.</p>
+          <p className="text-body-medium text-on-surface-variant">Now using a custom size of {settings.width_mm} x {settings.height_mm} mm.</p>
         ) : null}
         <div className="grid grid-cols-2 gap-3">
           <TextField
-            label="Lebar (mm)"
+            label="Width (mm)"
             type="number"
             value={settings.width_mm}
             onChange={(event) => ubahUkuran(jepit(Number(event.target.value) || 1, 1, 300), settings.height_mm)}
           />
           <TextField
-            label="Tinggi (mm)"
+            label="Height (mm)"
             type="number"
             value={settings.height_mm}
             onChange={(event) => ubahUkuran(settings.width_mm, jepit(Number(event.target.value) || 1, 1, 300))}
@@ -649,38 +649,38 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
     <div className="flex flex-col gap-5">
       <Kelompok first>
         <p className="text-body-medium text-on-surface-variant">
-          Ubah hanya kalau label pertama keluar kosong, terpotong, atau pucat. Protokol NIIMBOT tidak diterbitkan
-          vendornya, dan B21 belum pernah diuji oleh penulis pustaka yang dipakai di sini, jadi angkanya bisa
-          dibetulkan sendiri.
+          Change these only if the first label comes out blank, cut off or faint. NIIMBOT doesn&apos;t publish its
+          protocol, and the author of the library used here has never tested the B21, so the numbers can be
+          corrected here.
         </p>
         <TextField
-          label="Kerapatan panas (1 sampai 5)"
+          label="Heat density (1 to 5)"
           type="number"
           min={1}
           max={5}
-          hint="Naikkan kalau cetakan pucat. Makin tinggi makin lambat."
+          hint="Raise it if prints are faint. Higher is slower."
           value={settings.density}
           onChange={(event) => ubah("density", jepit(Number(event.target.value) || 3, 1, 5))}
         />
         <TextField
-          label="Lebar kepala cetak (px)"
+          label="Print head width (px)"
           type="number"
-          hint="Turunkan kalau tepi kanan hilang. Printer melaporkan angkanya di layar pemindai setelah tersambung. B1 terukur 384."
+          hint="Lower it if the right edge is missing. The printer reports this number on the scanner screen once connected. The B1 measured 384."
           value={settings.head_px}
           onChange={(event) => hitungUlang({ head_px: jepit(Number(event.target.value) || 384, 32, 1200) })}
         />
         <TextField
-          label="Geser vertikal (px)"
+          label="Vertical offset (px)"
           type="number"
-          hint="Positif menurunkan cetakan pada kertasnya."
+          hint="Positive moves the print down on the paper."
           value={settings.offset_y_px}
           onChange={(event) => ubah("offset_y_px", jepit(Number(event.target.value) || 0, -200, 200))}
         />
       </Kelompok>
-      <Kelompok title="Model printer">
+      <Kelompok title="Printer model">
         <SegmentedField
-          label="Urutan perintah"
-          hint="b1 untuk B21, B1, D11, D110. v4 untuk B21 Pro dan B1 Pro."
+          label="Command set"
+          hint="b1 for B21, B1, D11, D110. v4 for B21 Pro and B1 Pro."
           value={settings.task === "v4" ? "v4" : "b1"}
           onChange={(task) => ubah("task", task)}
           options={[{ value: "b1", label: "b1" }, { value: "v4", label: "v4" }]}
@@ -688,30 +688,30 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
         <TextField
           label="DPI"
           type="number"
-          hint="203 untuk B21. Harus cocok dengan urutan perintah."
+          hint="203 for the B21. Must match the command set."
           value={settings.dpi}
           onChange={(event) => hitungUlang({ dpi: jepit(Number(event.target.value) || 203, 100, 600) })}
         />
         <TextField
-          label="Awalan nama Bluetooth"
-          hint="Dipisah koma, untuk menyaring daftar perangkat. Kosongkan bila nama printernya belum diketahui."
+          label="Bluetooth name prefix"
+          hint="Comma separated, to filter the device list. Leave empty if the printer's name isn't known yet."
           value={prefixText}
           onChange={(event) => { setPrefixText(event.target.value); setKotor(true); }}
           placeholder="B21, B1"
         />
       </Kelompok>
-      <Kelompok title="Kertas">
+      <Kelompok title="Paper">
         <TextField
-          label="Jenis gulungan"
+          label="Roll type"
           type="number"
           min={1}
           max={5}
-          hint="1 untuk label terpisah bercelah. Ubah hanya untuk kertas menerus atau bertanda hitam."
+          hint="1 for separate labels with gaps. Change only for continuous or black-mark paper."
           value={settings.label_type}
           onChange={(event) => ubah("label_type", jepit(Number(event.target.value) || 1, 1, 5))}
         />
         <TextField
-          label="Kecepatan"
+          label="Speed"
           type="number"
           min={1}
           max={5}
@@ -719,9 +719,9 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
           onChange={(event) => ubah("speed", jepit(Number(event.target.value) || 1, 1, 5))}
         />
         <p className="text-body-medium text-on-surface-variant">
-          Yang dikirim ke printer: <span className="tabular-nums">{settings.width_px} x {settings.height_px} px</span> pada {settings.dpi} dpi.
+          Sent to the printer: <span className="tabular-nums">{settings.width_px} x {settings.height_px} px</span> at {settings.dpi} dpi.
           {mmKePx(settings.width_mm, settings.dpi) > settings.head_px
-            ? ` Label ${settings.width_mm} mm sebenarnya ${mmKePx(settings.width_mm, settings.dpi)} px, tetapi kepala cetak berhenti di ${settings.head_px}.`
+            ? ` A ${settings.width_mm} mm label is really ${mmKePx(settings.width_mm, settings.dpi)} px, but the print head stops at ${settings.head_px}.`
             : ""}
         </p>
       </Kelompok>
@@ -729,19 +729,19 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
   );
 
   const panel = (
-    <Pane as="aside" aria-label="Setelan label">
+    <Pane as="aside" aria-label="Label settings">
       <div className="shrink-0 border-b border-outline-variant px-4 py-3">
         <SegmentedButton<Bagian>
-          label="Bagian setelan"
+          label="Settings section"
           value={bagian}
           onChange={setBagian}
           className="w-full"
-          options={[{ value: "isi", label: "Isi terpilih" }, { value: "gulungan", label: "Gulungan" }, { value: "printer", label: "Printer" }]}
+          options={[{ value: "isi", label: "Selected item" }, { value: "gulungan", label: "Roll" }, { value: "printer", label: "Printer" }]}
         />
       </div>
       <PaneBody className="px-4 py-4">{bagian === "isi" ? isiTerpilih : bagian === "gulungan" ? isiGulungan : isiPrinter}</PaneBody>
-      <PaneFooter note={kotor ? "Ada perubahan belum disimpan" : "Semua perubahan tersimpan"}>
-        <Button simpan size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
+      <PaneFooter note={kotor ? "Unsaved changes" : "All changes saved"}>
+        <Button simpan size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Save</Button>
       </PaneFooter>
     </Pane>
   );
@@ -751,14 +751,14 @@ export function LabelEditor({ pilihJenis, hidden, labelDiMeja }: {
       <WorkspaceHeader
         meta={
           <>
-            <span>Badge tamu walk-in</span>
+            <span>Walk-in badge</span>
             <MetaSeparator />
             <span className="tabular-nums">{settings.width_mm} x {settings.height_mm} mm</span>
             <MetaSeparator />
             <span>
               {labelDiMeja
-                ? "Dicetak di meja registrasi"
-                : "Tidak dicetak di meja registrasi. Ubah di Badge kertas, bagian Cetak"}
+                ? "Printed at the check-in desk"
+                : "Not printed at the check-in desk. Change it in Paper badge, Print section"}
             </span>
           </>
         }

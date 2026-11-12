@@ -76,9 +76,9 @@ const result = matchBonusRows(keys, people);
 assert.deepEqual(result.matched.map((item) => item.participant_id), ["a", "b"]);
 assert.equal(result.duplicates, 1);
 assert.deepEqual(result.missing, [
-  { row: 5, value: "rina@ptx.co", reason: "Email tidak terdaftar di acara ini" },
-  { row: 6, value: "KSO-9921", reason: "QR tidak ada di acara ini" },
-  { row: 7, value: "Budi S.", reason: "QR dan email kosong" },
+  { row: 5, value: "rina@ptx.co", reason: "Email not registered for this event" },
+  { row: 6, value: "KSO-9921", reason: "QR not found in this event" },
+  { row: 7, value: "Budi S.", reason: "QR and email are empty" },
 ]);
 assert.equal(result.rows_read, 6);
 // QR didahulukan; email cadangan bila QR tidak dikenal.
@@ -99,7 +99,7 @@ const sharedResult = matchBonusRows([
   { row: 3, qr: "T-101", email: "kantor@ptx.co", name: "" },
 ], shared);
 assert.deepEqual(sharedResult.matched.map((item) => item.participant_id), ["c"]);
-assert.deepEqual(sharedResult.missing, [{ row: 2, value: "kantor@ptx.co", reason: "Email dipakai 2 peserta, isi QR-nya" }]);
+assert.deepEqual(sharedResult.missing, [{ row: 2, value: "kantor@ptx.co", reason: "Email used by 2 participants, enter the QR instead" }]);
 // Ada judul tapi tanpa kolom QR/Email: null, bukan judulnya dilaporkan sebagai baris.
 assert.equal(rowsToBonusKeys([{ row: 1, cells: ["No", "NIK", "Nama"] }, { row: 2, cells: ["1", "3201", "Andi"] }]), null);
 

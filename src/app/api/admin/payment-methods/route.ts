@@ -6,7 +6,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 const SELECT = "code,label,requires_reference,reference_label,reference_digits,is_active,sort_order,is_builtin";
 
 const createSchema = z.object({
-  code: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{2,32}$/, "Kode hanya huruf kecil, angka, dan underscore."),
+  code: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{2,32}$/, "Code: lowercase letters, digits and underscores only."),
   label: z.string().trim().min(1).max(60),
   requires_reference: z.boolean().default(false),
   reference_label: z.string().trim().max(60).nullable().optional(),
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
   if (parsed.data.requires_reference && !parsed.data.reference_digits) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Metode yang butuh nomor referensi harus menentukan jumlah digit." });
+    return apiError("VALIDATION_ERROR", 422, { message: "A method that needs a reference number must set the number of digits." });
   }
 
   const client = getSupabaseServiceClient();
@@ -83,7 +83,7 @@ export async function PATCH(request: Request) {
   const requiresReference = changes.requires_reference ?? current.requires_reference;
   const referenceDigits = changes.reference_digits ?? current.reference_digits;
   if (requiresReference && !referenceDigits) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Metode yang butuh nomor referensi harus menentukan jumlah digit." });
+    return apiError("VALIDATION_ERROR", 422, { message: "A method that needs a reference number must set the number of digits." });
   }
 
   const { data, error } = await client.from("payment_methods").update({
