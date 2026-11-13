@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { jawabGagal } from "@/lib/auth/jawab";
-import { bacaPending, bersihkanPercobaan, gerbangPercobaan, kunciPercobaan, masukkan } from "@/lib/auth/login";
+import { bacaPending, bersihkanPercobaan, gerbangKode, masukkan } from "@/lib/auth/login";
 import { bukaRahasia, hashKodeCadangan } from "@/lib/auth/kredensial";
 import { cocokkanKode } from "@/lib/auth/totp";
 import { ipKlien } from "@/lib/ip-klien";
@@ -31,10 +31,8 @@ export async function POST(request: Request) {
   const { data: user } = await client.from("users").select("*").eq("id", pending.u).eq("is_active", true).maybeSingle() as { data: Baris | null };
   if (!user || !user.totp_enabled_at) return apiError("UNAUTHENTICATED", 401);
 
-  // Penghitung sendiri untuk kode (awalan "2fa:"), per akun + IP: kata sandi
-  // yang benar tidak membuka tebakan kode tanpa batas.
-  const kunci = kunciPercobaan(user.username, ipKlien(request.headers), "2fa:");
-  const tertahan = await gerbangPercobaan(kunci);
+  // Penghitung per akun + IP dan per akun saja; lihat gerbangKode.
+  const { hasil: tertahan, kunci } = await gerbangKode(user.username, ipKlien(request.headers));
   if (tertahan?.status === "rate_limited") return jawabGagal(tertahan, "");
 
   if ("code" in parsed.data) {
@@ -54,7 +52,7 @@ export async function POST(request: Request) {
     await client.from("audit_logs").insert({ user_id: user.id, action: "staff_recovery_code_used", payload: { left: sisa } } as never);
   }
 
-  await bersihkanPercobaan(kunci);
+  await Promise.all(kunci.map(bersihkanPercobaan));
   await masukkan(user.id, pending.ingat);
   return Response.json({ ok: true });
 }

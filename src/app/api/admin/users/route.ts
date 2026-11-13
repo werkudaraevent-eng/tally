@@ -410,7 +410,10 @@ export async function PATCH(request: Request) {
   if (parsed.data.pin || parsed.data.is_active === false) await revokeUserSessions(current.id, current.id === auth.user.id && parsed.data.is_active !== false);
   // PIN baru dari super admin juga menghapus kata sandi + authenticator: ini
   // jalan pulih bila admin kehilangan HP dan kode cadangannya.
-  if (parsed.data.pin) await hapusDuaLangkah(current.id);
+  // Bukan untuk PIN akun sendiri: super admin yang mengganti PIN-nya tidak
+  // boleh menghapus authenticator-nya sendiri (dan membuka setup bagi siapa
+  // pun yang tahu PIN baru itu).
+  if (parsed.data.pin && current.id !== auth.user.id) await hapusDuaLangkah(current.id);
 
   let barisOk = true;
   let dihapusArsip: string[] = [];

@@ -160,6 +160,21 @@ export async function gerbangPercobaan(kunci: string): Promise<LoginOutcome | nu
   return hasil?.allowed === false ? { status: "rate_limited", retryAfterSeconds: hasil.retry_after_seconds ?? 60 } : null;
 }
 
+/**
+ * Gerbang kode authenticator: per akun + IP, DAN per akun saja (tanpa IP),
+ * supaya penebak yang sudah tahu kata sandi tidak mendapat jatah baru di setiap
+ * IP. Kunci per akun saja aman di sini: langkah ini baru terbuka setelah kata
+ * sandi benar, jadi orang lain tidak bisa memakainya untuk mengunci pemilik.
+ */
+export async function gerbangKode(username: string, ip: string | null): Promise<{ hasil: LoginOutcome | null; kunci: string[] }> {
+  const kunci = [kunciPercobaan(username, ip, "2fa:"), `2fa-akun:${username.trim()}`];
+  for (const k of kunci) {
+    const hasil = await gerbangPercobaan(k);
+    if (hasil) return { hasil, kunci };
+  }
+  return { hasil: null, kunci };
+}
+
 export async function bersihkanPercobaan(kunci: string) {
   await getSupabaseServiceClient().rpc("clear_login_attempts" as never, { p_username: kunci } as never);
 }
@@ -210,7 +225,13 @@ export async function loginStaff(username: string, rahasia: string, rememberMe: 
 
   // Aktif hanya setelah migrasi 202611130002 (kolomnya ada) dan bila rahasia
   // authenticator bisa disandikan di server ini.
-  const duaLangkahAktif = "password_hash" in user && butuhDuaLangkah(user.role) && kunciDuaLangkahSiap();
+  const kolomAda = "password_hash" in user && butuhDuaLangkah(user.role);
+  if (kolomAda && !kunciDuaLangkahSiap()) {
+    // Dua langkah sudah dipasang di database tapi tidak bisa dipakai: admin
+    // tetap masuk dengan PIN. Harus terlihat di log Vercel, bukan diam-diam.
+    console.error("[auth] Two-step sign-in is OFF: INVITE_LINK_SECRET is missing or shorter than 32 characters. Admins are signing in with PIN only.");
+  }
+  const duaLangkahAktif = kolomAda && kunciDuaLangkahSiap();
 
   if (duaLangkahAktif && user.password_hash) {
     if (!(await cocokSandi(rahasia, user.password_hash))) return { status: "invalid" };
@@ -241,7 +262,19 @@ export async function loginStaff(username: string, rahasia: string, rememberMe: 
   return { status: "ok", user: { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id, access_role_id: user.access_role_id ?? null } };
 }
 
-type UserRow = { id: string; username: string; role: UserRole; booth_id: number | null; is_active: boolean; access_role_id?: string | null };
+type UserRow = { id: string; username: string; role: UserRole; booth_id: number | null; is_active: boolean; access_role_id?: string | null; password_hash?: string | null; totp_enabled_at?: string | null };
+
+/**
+ * Admin/super admin hanya boleh memakai sesi bila authenticator-nya sudah
+ * aktif. Sesi PIN yang dibuat sebelum dua langkah berlaku (sampai 30 hari)
+ * berhenti berlaku begitu migrasi 202611130002 jalan, apa pun urutan SQL dan
+ * deploy-nya. Setup selesai dan reset PIN sama-sama mencabut sesi lama, jadi
+ * sesi yang lolos di sini selalu dibuat sesudah kode authenticator.
+ */
+function sesiSah(user: UserRow): boolean {
+  if (!("password_hash" in user) || !butuhDuaLangkah(user.role) || !kunciDuaLangkahSiap()) return true;
+  return Boolean(user.totp_enabled_at);
+}
 
 function toCurrentUser(user: UserRow): CurrentUser {
   return { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id, access_role_id: user.access_role_id ?? null };
@@ -263,6 +296,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       .maybeSingle() as { data: { expires_at: string; users: UserRow | null } | null };
     if (!data?.users || !data.users.is_active) return null;
     if (new Date(data.expires_at).getTime() <= Date.now()) return null;
+    if (!sesiSah(data.users)) return null;
     return toCurrentUser(data.users);
   }
 
@@ -272,7 +306,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!id) return null;
   if ((await tabelSesiTersedia()) !== false) return null;
   const { data: user } = await client.from("users").select("*").eq("id", id).eq("is_active", true).single() as { data: UserRow | null };
-  return user ? toCurrentUser(user) : null;
+  return user && sesiSah(user) ? toCurrentUser(user) : null;
 }
 
 /** Keluar dari perangkat ini: hapus baris sesinya, lalu cookie-nya. */

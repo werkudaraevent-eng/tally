@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { z } from "zod";
 import { apiError } from "@/lib/api";
 import { jawabGagal } from "@/lib/auth/jawab";
-import { bacaPending, bersihkanPercobaan, gerbangPercobaan, kunciPercobaan, masukkan, pasangPending, revokeUserSessions } from "@/lib/auth/login";
+import { bacaPending, bersihkanPercobaan, gerbangKode, masukkan, pasangPending, revokeUserSessions } from "@/lib/auth/login";
 import { buatKodeCadangan, bukaRahasia, hashKodeCadangan, hashSandi, periksaSandi, SANDI_MAX, sandikanRahasia } from "@/lib/auth/kredensial";
 import { alamatOtpauth, buatRahasia, cocokkanKode } from "@/lib/auth/totp";
 import { ipKlien } from "@/lib/ip-klien";
@@ -24,8 +24,14 @@ const AKHIR = { error: { code: "SIGN_IN_EXPIRED", message: "This set-up timed ou
 async function akunSetup() {
   const pending = await bacaPending();
   if (!pending || pending.t !== "setup") return null;
-  const { data } = await getSupabaseServiceClient().from("users").select("id,username,role,is_active").eq("id", pending.u).eq("is_active", true).maybeSingle();
-  return data ? { pending, user: data as { id: string; username: string; role: string } } : null;
+  // `*`: totp_enabled_at datang dari migrasi 202611130002.
+  const { data } = await getSupabaseServiceClient().from("users").select("*").eq("id", pending.u).eq("is_active", true).maybeSingle();
+  const user = data as { id: string; username: string; role: string; totp_enabled_at?: string | null } | null;
+  // Akun yang authenticator-nya sudah aktif tidak boleh disetup ulang lewat
+  // cookie setup yang masih hidup (10 menit): itu jalan mengambil alih akun.
+  // Hanya setup yang belum selesai yang boleh berlanjut.
+  if (!user || user.totp_enabled_at) return null;
+  return { pending, user };
 }
 
 export async function GET() {
@@ -57,8 +63,7 @@ export async function POST(request: Request) {
   const galatSandi = periksaSandi(parsed.data.password, akun.user.username);
   if (galatSandi) return Response.json({ error: { code: "VALIDATION_ERROR", message: galatSandi, details: { password: galatSandi } } }, { status: 422 });
 
-  const kunci = kunciPercobaan(akun.user.username, ipKlien(request.headers), "2fa:");
-  const tertahan = await gerbangPercobaan(kunci);
+  const { hasil: tertahan, kunci } = await gerbangKode(akun.user.username, ipKlien(request.headers));
   if (tertahan?.status === "rate_limited") return jawabGagal(tertahan, "");
 
   const rahasia = bukaRahasia(akun.pending.s);
@@ -68,17 +73,25 @@ export async function POST(request: Request) {
   }
 
   const kodeCadangan = buatKodeCadangan();
-  const { error } = await getSupabaseServiceClient().from("users").update({
+  const rahasiaTersandi = sandikanRahasia(rahasia);
+  const client = getSupabaseServiceClient();
+  // Bersyarat: hanya menulis bila authenticator belum aktif. Dua setup yang
+  // berlomba, hanya yang pertama yang tertulis. Tanpa `select` (PostgREST di
+  // bawah v14 menyaring ulang hasil PATCH), jadi pemenangnya dibaca ulang:
+  // rahasia tersandi memakai IV acak, jadi hanya penulisnya yang cocok.
+  const { error } = await client.from("users").update({
     password_hash: await hashSandi(parsed.data.password),
-    totp_secret: sandikanRahasia(rahasia),
+    totp_secret: rahasiaTersandi,
     totp_enabled_at: new Date().toISOString(),
     totp_last_step: langkah,
     recovery_codes: kodeCadangan.map(hashKodeCadangan),
-  } as never).eq("id", akun.user.id);
+  } as never).eq("id", akun.user.id).is("totp_enabled_at", null);
   if (error) return apiError("INTERNAL_ERROR", 500);
+  const { data: sesudah } = await client.from("users").select("totp_secret").eq("id", akun.user.id).maybeSingle() as { data: { totp_secret: string | null } | null };
+  if (sesudah?.totp_secret !== rahasiaTersandi) return Response.json(AKHIR, { status: 401 });
 
-  await getSupabaseServiceClient().from("audit_logs").insert({ user_id: akun.user.id, action: "staff_two_step_enabled", payload: {} } as never);
-  await bersihkanPercobaan(kunci);
+  await client.from("audit_logs").insert({ user_id: akun.user.id, action: "staff_two_step_enabled", payload: {} } as never);
+  await Promise.all(kunci.map(bersihkanPercobaan));
   // Kredensial berganti: sesi lama akun ini (bila ada) ikut berakhir.
   await revokeUserSessions(akun.user.id);
   await masukkan(akun.user.id, akun.pending.ingat);
