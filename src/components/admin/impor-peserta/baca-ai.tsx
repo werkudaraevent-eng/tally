@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkle, UploadSimple, Warning } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Banner } from "@/components/m3";
 import { siapkanBerkas } from "@/components/admin/logistik/kecilkan-berkas";
 import { pesanGalatApi } from "@/lib/api-message";
@@ -42,6 +42,13 @@ export function BacaAiPeserta({ open, disabled, onMulai, onBerkas }: {
   const [siap, setSiap] = useState<{ siap: boolean; alasan?: string; pesan?: string; model?: string } | null>(null);
   const [proses, setProses] = useState<number | null>(null);
   const [galat, setGalat] = useState("");
+  // Tiap bacaan punya nomor. Dialog ditutup atau bacaan baru dimulai menaikkan
+  // nomornya, jadi jawaban yang datang sesudahnya dibuang dan run-nya ditutup.
+  const generasi = useRef(0);
+  useEffect(() => {
+    if (!open) { generasi.current += 1; setProses(null); setGalat(""); }
+  }, [open]);
+  useEffect(() => () => { generasi.current += 1; }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -65,15 +72,24 @@ export function BacaAiPeserta({ open, disabled, onMulai, onBerkas }: {
 
   const baca = async (files: File[]) => {
     if (files.length === 0) return;
+    const nomor = ++generasi.current;
+    const basi = () => generasi.current !== nomor;
     setGalat("");
     setProses(files.length);
     onMulai();
     const siapKirim = await siapkanBerkas(files);
+    if (basi()) return;
     if ("galat" in siapKirim) { setProses(null); setGalat(siapKirim.galat); return; }
     const form = new FormData();
     for (const f of siapKirim.files) form.append("file", f);
     const response = await fetch(eventApiPath(API), { method: "POST", body: form }).catch(() => null);
     const json = response ? await response.json().catch(() => null) : null;
+    if (basi()) {
+      // Dialog sudah ditutup: hasilnya tidak dipakai, run dicatat "closed".
+      const run = (json as { run_id?: number } | null)?.run_id;
+      if (response?.ok && run) void fetch(eventApiPath(API), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: run, status: "closed" }) }).catch(() => null);
+      return;
+    }
     setProses(null);
     if (response?.status === 413) { setGalat("These files are too large to send at once. Choose fewer files, or send a screenshot of the page instead of the whole PDF."); return; }
     if (!response?.ok || !json) { setGalat(pesanGalatApi(json) ?? (response ? "The AI could not read these files. Try again." : "No connection to Tally. Check the internet, then try again.")); return; }
@@ -89,7 +105,7 @@ export function BacaAiPeserta({ open, disabled, onMulai, onBerkas }: {
           <Sparkle size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0">
             <p className="text-body-medium font-medium text-on-surface">List does not match the template?</p>
-            <p className="text-body-small text-on-surface-variant">
+            <p className="text-body-medium text-on-surface-variant">
               Choose the committee&apos;s list as it is: Excel with its own columns, PDF, photos of a printed list or chat screenshots, up to 10 at once (4 MB together). AI copies it into the template columns; you see the preview before anything is saved.
             </p>
           </div>
@@ -130,10 +146,10 @@ export function RingkasanAiPeserta({ jawaban }: { jawaban: JawabanAiPeserta }) {
         AI read {plural(jawaban.orang, "person", "people")} ({jawaban.model}, ${jawaban.biaya_usd.toFixed(2)})
       </p>
       {jawaban.tanpa_nama > 0 ? (
-        <p className="text-body-small text-on-surface-variant">{plural(jawaban.tanpa_nama, "row")} without a name left out.</p>
+        <p className="text-body-medium text-on-surface-variant">{plural(jawaban.tanpa_nama, "row")} without a name left out.</p>
       ) : null}
       {jawaban.dikosongkan.length > 0 ? (
-        <div className="flex items-start gap-2 text-body-small text-on-surface-variant">
+        <div className="flex items-start gap-2 text-body-medium text-on-surface-variant">
           <Warning size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />
           <p>
             Left empty because they match no option or format on your form:{" "}
@@ -145,7 +161,7 @@ export function RingkasanAiPeserta({ jawaban }: { jawaban: JawabanAiPeserta }) {
         </div>
       ) : null}
       {jawaban.catatan.length > 0 ? (
-        <ul className="list-disc pl-5 text-body-small text-on-surface-variant">
+        <ul className="list-disc pl-5 text-body-medium text-on-surface-variant">
           {jawaban.catatan.map((c, i) => <li key={i}>{c}</li>)}
         </ul>
       ) : null}

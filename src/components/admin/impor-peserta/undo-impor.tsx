@@ -121,7 +121,7 @@ export function useUndoImporPeserta({ open, aktif, onSelesai, onTutup }: {
   };
 
   const baris = aktif && impor && !tahap ? (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-outline-variant px-3 py-1.5">
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-outline-variant px-3 py-1.5">
       <ArrowCounterClockwise size={16} className="shrink-0 text-on-surface-variant" aria-hidden />
       <p className="min-w-0 flex-1 text-body-small text-on-surface-variant">
         Last import: <span className="text-on-surface">{impor.ai ? "Read with AI" : impor.file_name ?? "File"}</span>
