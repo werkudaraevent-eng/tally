@@ -6,7 +6,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { EventRow } from "@/lib/domain";
 import { tanpaPersetujuanKlien } from "@/lib/live/kolom-klien";
 
-const paramsSchema = z.string().uuid();
+const paramsSchema = z.string().guid();
 const bodySchema = z.object({
   name: z.string().trim().min(3).max(120),
   event_date: z.string().date().nullable().optional(),

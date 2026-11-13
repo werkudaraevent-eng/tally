@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
 const postSchema = z.object({
   stasiun_id: z.number().int().positive(),
-  participant_id: z.string().uuid(),
+  participant_id: z.string().guid(),
   lane_id: z.number().int().positive().nullish(),
 });
 

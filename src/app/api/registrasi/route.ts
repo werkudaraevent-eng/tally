@@ -38,7 +38,7 @@ const submitSchema = z.object({
   job_title: z.string().trim().max(160).optional().nullable(),
   // Field tambahan dari events.registration_form_config. Dibatasi 20 kunci agar
   // endpoint publik tidak bisa dipakai menitipkan jsonb berukuran bebas.
-  extra: z.record(z.string().max(2000)).refine((value) => Object.keys(value).length <= 20).default({}),
+  extra: z.record(z.string(), z.string().max(2000)).refine((value) => Object.keys(value).length <= 20).default({}),
   // Kata sandi area peserta. Wajib atau tidaknya ditentukan di bawah: hanya
   // bila area peserta acara ini menyala. Tidak pernah disimpan di pendaftaran.
   password: z.string().max(PASSWORD_MAX).optional(),

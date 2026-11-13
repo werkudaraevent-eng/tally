@@ -22,7 +22,7 @@ const bodySchema = z.object({
   /** Mode `participant_code`. */
   code: z.string().trim().max(100).nullish(),
   /** Mode `participant_pick`. */
-  participant_id: z.string().uuid().nullish(),
+  participant_id: z.string().guid().nullish(),
   /** Mode `name_text`. */
   name: z.string().trim().max(120).nullish(),
 });

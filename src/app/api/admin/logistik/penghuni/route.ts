@@ -45,10 +45,10 @@ const malam = {
 const satuOrangBilaStay = (isi: { stay_id?: number; participant_ids: string[] }) => isi.stay_id === undefined || isi.participant_ids.length === 1;
 const adaMalam = (isi: { check_in_at?: string; check_out_at?: string }) => (isi.check_in_at === undefined) === (isi.check_out_at === undefined);
 const tempatkan = z.union([
-  z.object({ room_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(20), ...malam }).strict().refine(adaMalam).refine(satuOrangBilaStay),
-  z.object({ hotel_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(2000), ...malam, tambah: z.literal(true).optional() })
+  z.object({ room_id: z.number().int().positive(), participant_ids: z.array(z.string().guid()).min(1).max(20), ...malam }).strict().refine(adaMalam).refine(satuOrangBilaStay),
+  z.object({ hotel_id: z.number().int().positive(), participant_ids: z.array(z.string().guid()).min(1).max(2000), ...malam, tambah: z.literal(true).optional() })
     .strict().refine(adaMalam).refine(satuOrangBilaStay).refine((isi) => !(isi.tambah && isi.stay_id)),
-  z.object({ release_room_id: z.number().int().positive(), participant_ids: z.array(z.string().uuid()).min(1).max(200) }).strict(),
+  z.object({ release_room_id: z.number().int().positive(), participant_ids: z.array(z.string().guid()).min(1).max(200) }).strict(),
 ]);
 
 export async function POST(request: Request) {
@@ -140,7 +140,7 @@ export async function DELETE(request: Request) {
   // sekaligus, panel kamar melepas satu. `hotel_id` = lepas stay di hotel itu
   // saja; tanpa itu semua stay orangnya dilepas.
   const url = new URL(request.url);
-  const ids = z.array(z.string().uuid()).min(1).max(200).safeParse(url.searchParams.getAll("participant_id"));
+  const ids = z.array(z.string().guid()).min(1).max(200).safeParse(url.searchParams.getAll("participant_id"));
   const hotel = z.coerce.number().int().positive().optional().safeParse(url.searchParams.get("hotel_id") ?? undefined);
   // `stay_id`: satu stay saja, untuk satu orang (dua stay di hotel yang sama).
   const stay = z.coerce.number().int().positive().optional().safeParse(url.searchParams.get("stay_id") ?? undefined);
@@ -169,7 +169,7 @@ const isiStay = z.object({
   check_out_at: z.string().datetime({ offset: true }).nullable(),
 }).strict().refine((s) => (s.check_in_at === null) === (s.check_out_at === null));
 const gantiStay = z.object({
-  items: z.array(z.object({ participant_id: z.string().uuid(), stays: z.array(isiStay).max(6) }).strict()).min(1).max(2000),
+  items: z.array(z.object({ participant_id: z.string().guid(), stays: z.array(isiStay).max(6) }).strict()).min(1).max(2000),
 }).strict().refine((isi) => new Set(isi.items.map((i) => i.participant_id)).size === isi.items.length);
 
 export async function PUT(request: Request) {

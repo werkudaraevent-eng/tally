@@ -37,7 +37,7 @@ export const penerimaSchema = z.object({
     .max(SYARAT_PENGUMUMAN_MAX)
     .nullable()
     .optional(),
-  audience_ids: z.array(z.string().uuid()).min(1).max(PILIH_MAX).nullable().optional(),
+  audience_ids: z.array(z.string().guid()).min(1).max(PILIH_MAX).nullable().optional(),
   /** Match: Any condition. Hanya untuk syarat dengan dua syarat atau lebih. */
   audience_any: z.boolean().optional(),
 });

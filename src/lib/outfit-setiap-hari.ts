@@ -37,16 +37,16 @@ const BENTUK_SALAH = "Every day is not in the expected shape. Reload the page an
 export const outfitSetiapHariSchema = z
   .object(
     {
-      what: z.string({ invalid_type_error: BENTUK_SALAH }).trim().max(OUTFIT_BATAS.what, `What to wear can be at most ${OUTFIT_BATAS.what} characters.`).nullish(),
-      note: z.string({ invalid_type_error: BENTUK_SALAH }).trim().max(OUTFIT_BATAS.note, `The note can be at most ${OUTFIT_BATAS.note} characters.`).nullish(),
+      what: z.string({ error: BENTUK_SALAH }).trim().max(OUTFIT_BATAS.what, `What to wear can be at most ${OUTFIT_BATAS.what} characters.`).nullish(),
+      note: z.string({ error: BENTUK_SALAH }).trim().max(OUTFIT_BATAS.note, `The note can be at most ${OUTFIT_BATAS.note} characters.`).nullish(),
       photo_url: z
-        .string({ invalid_type_error: BENTUK_SALAH })
+        .string({ error: BENTUK_SALAH })
         .trim()
         .max(600, "The photo address is too long. Upload the photo again.")
         .nullish()
         .refine((nilai) => !nilai || urlHttps(nilai), "The photo must be an https:// address. Upload the photo again."),
     },
-    { invalid_type_error: BENTUK_SALAH },
+    { error: BENTUK_SALAH },
   )
   .nullish()
   .transform((isi): OutfitSetiapHari | null | undefined => {

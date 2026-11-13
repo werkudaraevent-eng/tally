@@ -22,7 +22,7 @@ const schema = z.object({
   email: z.string().trim().email().max(200),
   state: z.enum(["approved", "pending", "rejected"]),
   templat: templatSchema,
-  sebagai: z.string().uuid().nullable().optional(),
+  sebagai: z.string().guid().nullable().optional(),
   /** Bahasa yang sedang diedit; tes mengirim versi yang sedang dilihat panitia. */
   lang: z.enum(["id", "en"]).default("id"),
 });

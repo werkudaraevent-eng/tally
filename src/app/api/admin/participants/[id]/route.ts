@@ -6,7 +6,7 @@ import { cleanExtra, participantBodySchema, tanpaQr, toRpcArgs } from "@/lib/par
 import { applyTallySeats, prepareTallySeats, SeatInputError } from "@/lib/seat-tally";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const paramsSchema = z.string().uuid();
+const paramsSchema = z.string().guid();
 
 /**
  * Sunting satu peserta.

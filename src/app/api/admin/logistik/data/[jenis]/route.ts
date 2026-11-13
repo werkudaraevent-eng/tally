@@ -169,7 +169,7 @@ const JENIS: Record<string, Jenis> = {
     tabel: "train_tickets",
     kolom: KOLOM_KERETA,
     skema: z.object({
-      participant_id: z.string().uuid(),
+      participant_id: z.string().guid(),
       direction: z.enum(["outbound", "return"]),
       // Tanpa nilai = bawaan database (kereta, segmen 1).
       mode: z.enum(["train", "flight", "ship"]).optional(),
