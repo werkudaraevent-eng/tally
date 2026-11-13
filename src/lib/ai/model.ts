@@ -49,7 +49,7 @@ export type FiturAi = {
 export const FITUR_AI: readonly FiturAi[] = [
   { key: "logistik_kamar", label: "Hotel file to room numbers", uraian: "Excel, CSV, PDF, photos of room keys, chat screenshots", tempat: "Logistics › Import", siap: true },
   { key: "ask_ai", label: "Ask AI", uraian: "Where and how questions about Tally, answered from the feature guide", tempat: "Quick search (Ctrl K)", siap: true },
-  { key: "peserta_impor", label: "Participant file to list", uraian: "Client lists in any layout", tempat: "Participant list › Import", siap: false },
+  { key: "peserta_impor", label: "Participant file to list", uraian: "Committee lists in any layout: Excel, PDF, photos, chat screenshots", tempat: "Participant list › Import", siap: true },
   { key: "agenda_rundown", label: "Rundown to agenda", uraian: "PDF or Word rundown", tempat: "Agenda", siap: false },
   { key: "pembicara_cv", label: "CV to speaker profile", uraian: "CV or bio", tempat: "Speakers", siap: false },
   { key: "feedback_ringkas", label: "Summary of open answers", uraian: "Feedback answers", tempat: "Feedback", siap: false },

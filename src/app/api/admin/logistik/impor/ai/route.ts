@@ -4,10 +4,10 @@ import { apiError } from "@/lib/api";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { isiNomorKamar, promptSistem, selKeTsv, SKEMA_KELUARAN, type KeluaranAi } from "@/lib/ai/logistik-kamar";
 import { biayaUsd, modelAi } from "@/lib/ai/model";
+import { ambilBerkas, berkasKeIsi } from "@/lib/ai/berkas";
 import { akhiriRun, catatRun, siapkanFitur } from "@/lib/ai/server";
 import { klien, muatStaySekarang, semuaBaris } from "@/lib/logistik/server";
 import { normalizeTimeZone, timeZoneOffset } from "@/lib/timezone";
-import { textToCells, xlsxToCells } from "@/lib/undian-import";
 
 /**
  * Logistics > Import > "Read a hotel file with AI".
@@ -32,15 +32,6 @@ import { textToCells, xlsxToCells } from "@/lib/undian-import";
 export const maxDuration = 300;
 
 const FITUR = "logistik_kamar";
-// Vercel menolak badan permintaan di atas 4,5 MB sebelum route ini berjalan;
-// browser sudah mengecilkan foto dan menahan di 4 MB (kecilkan-berkas.ts).
-const BATAS_TOTAL = 4.5 * 1024 * 1024;
-const BATAS_JUMLAH = 10;
-const BATAS_BARIS_TEKS = 3000;
-
-const GAMBAR: Record<string, "image/jpeg" | "image/png" | "image/gif" | "image/webp"> = {
-  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",
-};
 
 const keluaranSchema = z.object({
   rows: z.array(z.object({
@@ -62,39 +53,14 @@ export async function POST(request: Request) {
   if (auth.response) return auth.response;
   const event = auth.scope.event;
 
-  const form = await request.formData().catch(() => null);
-  const berkas = (form?.getAll("file") ?? []).filter((f): f is File => f instanceof File && f.size > 0);
-  if (berkas.length === 0) return apiError("VALIDATION_ERROR", 422, { message: "Choose at least one file." });
-  if (berkas.length > BATAS_JUMLAH) return apiError("VALIDATION_ERROR", 422, { message: `Choose at most ${BATAS_JUMLAH} files at a time.` });
-  if (berkas.reduce((n, f) => n + f.size, 0) > BATAS_TOTAL) return apiError("VALIDATION_ERROR", 422, { message: "These files are more than 4 MB together. Send fewer at a time." });
+  const berkas = ambilBerkas(await request.formData().catch(() => null));
+  if (typeof berkas === "string") return apiError("VALIDATION_ERROR", 422, { message: berkas });
 
   const siap = await siapkanFitur(FITUR);
   if (!siap.siap) return apiError("VALIDATION_ERROR", 422, { message: siap.pesan });
 
-  // Isi berkas untuk AI. Jenis dari ekstensi, seperti impor biasa.
-  const isi: Anthropic.ContentBlockParam[] = [];
-  for (const file of berkas) {
-    const nama = file.name.slice(0, 200);
-    const ext = nama.toLowerCase().split(".").pop() ?? "";
-    if (ext === "pdf") {
-      isi.push({ type: "text", text: `File: ${nama}` });
-      isi.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: Buffer.from(await file.arrayBuffer()).toString("base64") } });
-    } else if (GAMBAR[ext]) {
-      isi.push({ type: "text", text: `File: ${nama}` });
-      isi.push({ type: "image", source: { type: "base64", media_type: GAMBAR[ext], data: Buffer.from(await file.arrayBuffer()).toString("base64") } });
-    } else if (ext === "heic" || ext === "heif") {
-      return apiError("VALIDATION_ERROR", 422, { message: `${nama} is an iPhone HEIC photo. Send it as JPG (on iPhone: share it, or take a screenshot).` });
-    } else if (["xlsx", "xlsm", "csv", "tsv", "txt"].includes(ext)) {
-      const sel = ext === "xlsx" || ext === "xlsm" ? await xlsxToCells(await file.arrayBuffer()) : textToCells(await file.text());
-      if (!sel) return apiError("VALIDATION_ERROR", 422, { message: `${nama} could not be read. Check that it is not damaged or password-protected.` });
-      if (sel.length > BATAS_BARIS_TEKS) return apiError("VALIDATION_ERROR", 422, { message: `${nama} has more than ${BATAS_BARIS_TEKS} rows. Split it into smaller files.` });
-      isi.push({ type: "text", text: `File: ${nama} (spreadsheet, tab-separated)\n${selKeTsv(sel)}` });
-    } else if (ext === "xls") {
-      return apiError("VALIDATION_ERROR", 422, { message: `${nama} is the old .xls format. Open it in Excel, then Save As .xlsx.` });
-    } else {
-      return apiError("VALIDATION_ERROR", 422, { message: `${nama} is not a supported file. Use Excel, CSV, PDF, JPG, PNG or a chat export (.txt).` });
-    }
-  }
+  const isi = await berkasKeIsi(berkas);
+  if (typeof isi === "string") return apiError("VALIDATION_ERROR", 422, { message: isi });
 
   const hotels = await semuaBaris<{ name: string }>(() => klien().from("lodging_hotels").select("id,name").eq("event_id", event.id).order("id"));
   if (!hotels) return apiError("INTERNAL_ERROR", 500);
