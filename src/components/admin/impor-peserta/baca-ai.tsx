@@ -46,8 +46,13 @@ export function BacaAiPeserta({ open, disabled, onMulai, onBerkas }: {
   // nomornya, jadi jawaban yang datang sesudahnya dibuang dan run-nya ditutup.
   const generasi = useRef(0);
   useEffect(() => {
-    if (!open) { generasi.current += 1; setProses(null); setGalat(""); }
+    if (!open) generasi.current += 1;
   }, [open]);
+  const [bukaLalu, setBukaLalu] = useState(open);
+  if (bukaLalu !== open) {
+    setBukaLalu(open);
+    if (!open) { setProses(null); setGalat(""); }
+  }
   useEffect(() => () => { generasi.current += 1; }, []);
 
   useEffect(() => {
