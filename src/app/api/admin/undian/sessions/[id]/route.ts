@@ -29,7 +29,7 @@ const patchSchema = z.object({
 const deleteSchema = z.object({
   // Frasa konfirmasi, pola yang sama dengan /api/admin/reset. Tombol yang bisa
   // ditekan tidak sengaja tidak boleh menghapus catatan serah terima hadiah.
-  confirm: z.literal("HAPUS HASIL UNDIAN"),
+  confirm: z.literal("DELETE DRAW RESULTS"),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {

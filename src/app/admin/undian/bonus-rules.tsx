@@ -441,7 +441,7 @@ function RuleDialog({
                 </tbody>
               </table>
             </div>
-            <p className="text-on-surface-variant">Enter either the QR peserta or the Email column. The Nama column is not used for matching.</p>
+            <p className="text-on-surface-variant">Enter either the Participant QR or the Email column. The Name column is not used for matching.</p>
             <div>
               {/* `native`: unduhan berkas dari /api, bukan navigasi halaman. */}
               <ButtonLink native variant="outlined" size="sm" href="/api/admin/undian/bonus-list/template" icon={<DownloadSimple size={16} />}>Download template</ButtonLink>

@@ -24,7 +24,7 @@ function gagal(code: string, message: string, status: number) {
   return Response.json({ error: { code, message } }, { status });
 }
 
-const PESAN_BELUM_SIAP = "Domain klien belum bisa dipakai di server ini. Hubungi pengelola Tally.";
+const PESAN_BELUM_SIAP = "Client domains cannot be used on this server yet. Contact the Tally team.";
 
 /** Tampilan untuk layar: status, record, dan fase yang langsung dipetakan ke kartu. */
 function tampilan(row: DomainRow) {
@@ -81,23 +81,23 @@ export async function POST(request: Request) {
   const kesiapan = domainReadiness();
   if (!kesiapan.ready) return gagal("DOMAIN_NOT_READY", PESAN_BELUM_SIAP, 409);
   const parsed = tambahSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return gagal("DOMAIN_INVALID", "Tulis domainnya saja, misalnya event.namaklien.com.", 422);
+  if (!parsed.success) return gagal("DOMAIN_INVALID", "Type the domain only, for example event.clientname.com.", 422);
   const hasil = normalizeDomain(parsed.data.domain, tallyHosts());
   if (!hasil.ok) return gagal(hasil.code, hasil.message, 422);
 
   const { row: ada, missing } = await readDomain(event.id);
   if (missing) return gagal("DOMAIN_NOT_READY", PESAN_BELUM_SIAP, 409);
-  if (ada) return gagal("DOMAIN_EXISTS", "Acara ini sudah punya domain. Batalkan atau hapus dulu domain yang lama.", 409);
+  if (ada) return gagal("DOMAIN_EXISTS", "This event already has a domain. Cancel or delete the old one first.", 409);
 
   const client = getSupabaseServiceClient();
   const { data: dipakai } = await client.from("event_domains").select("event_id").eq("domain", hasil.domain).maybeSingle();
-  if (dipakai) return gagal("DOMAIN_TAKEN", "Domain ini sudah dipakai acara lain di Tally. Pakai subdomain lain.", 409);
+  if (dipakai) return gagal("DOMAIN_TAKEN", "Another event on Tally already uses this domain. Use a different subdomain.", 409);
 
   const tambah = await vercelDomains.add(kesiapan, hasil.domain);
   if (!tambah.ok) {
-    if (tambah.code === "taken") return gagal("DOMAIN_TAKEN_ELSEWHERE", "Domain ini sedang dipakai situs lain di Vercel. Minta pemiliknya melepasnya, atau pakai subdomain lain.", 409);
-    if (tambah.code === "invalid") return gagal("DOMAIN_INVALID", "Vercel menolak nama domain ini. Periksa ejaannya.", 422);
-    return gagal("DOMAIN_SERVICE_ERROR", "Domain belum bisa didaftarkan sekarang. Coba lagi beberapa saat lagi.", 502);
+    if (tambah.code === "taken") return gagal("DOMAIN_TAKEN_ELSEWHERE", "Another site on Vercel uses this domain. Ask its owner to remove it, or use a different subdomain.", 409);
+    if (tambah.code === "invalid") return gagal("DOMAIN_INVALID", "Vercel refused this domain name. Check the spelling.", 422);
+    return gagal("DOMAIN_SERVICE_ERROR", "The domain cannot be added right now. Try again in a moment.", 502);
   }
 
   const { data: baru, error } = await client
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   if (error || !baru) {
     // Barisnya gagal, jadi domain di Vercel jangan sampai yatim.
     await vercelDomains.remove(kesiapan, hasil.domain);
-    return gagal(error?.code === "23505" ? "DOMAIN_TAKEN" : "INTERNAL_ERROR", error?.code === "23505" ? "Domain ini sudah dipakai acara lain di Tally." : "Domain gagal disimpan. Coba lagi.", error?.code === "23505" ? 409 : 500);
+    return gagal(error?.code === "23505" ? "DOMAIN_TAKEN" : "INTERNAL_ERROR", error?.code === "23505" ? "Another event on Tally already uses this domain." : "The domain could not be saved. Try again.", error?.code === "23505" ? 409 : 500);
   }
   await catat(event.id, auth.user.id, "domain_add", { domain: hasil.domain, apex: hasil.apex });
   forgetDomainMap();
@@ -125,26 +125,26 @@ export async function PATCH(request: Request) {
   const kesiapan = domainReadiness();
   if (!kesiapan.ready) return gagal("DOMAIN_NOT_READY", PESAN_BELUM_SIAP, 409);
   const parsed = aksiSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return gagal("VALIDATION_ERROR", "Aksi tidak dikenali.", 422);
+  if (!parsed.success) return gagal("VALIDATION_ERROR", "Unknown action.", 422);
   const { row } = await readDomain(event.id);
-  if (!row) return gagal("DOMAIN_NOT_FOUND", "Acara ini belum punya domain.", 404);
+  if (!row) return gagal("DOMAIN_NOT_FOUND", "This event has no domain yet.", 404);
   const client = getSupabaseServiceClient();
   let hasil = row;
 
   if (parsed.data.aksi === "periksa") {
-    if (row.status === "dilepas") return gagal("DOMAIN_RELEASED", "Domain ini sudah dilepas. Hubungkan lagi dulu.", 409);
+    if (row.status === "dilepas") return gagal("DOMAIN_RELEASED", "This domain is disconnected. Connect it again first.", 409);
     // Tombol yang ditekan berulang tidak memanggil Vercel berulang.
     const baru = row.last_checked_at && Date.now() - new Date(row.last_checked_at).getTime() < 10_000;
     hasil = baru ? row : await checkAndStore(kesiapan, row, auth.user.id);
   } else if (parsed.data.aksi === "lepas") {
-    if (row.status !== "aktif" && row.status !== "bermasalah") return gagal("DOMAIN_NOT_ACTIVE", "Hanya domain aktif yang bisa dilepas.", 409);
+    if (row.status !== "aktif" && row.status !== "bermasalah") return gagal("DOMAIN_NOT_ACTIVE", "Only an active domain can be disconnected.", 409);
     const sekarang = new Date().toISOString();
     const { data } = await client.from("event_domains").update({ status: "dilepas", released_at: sekarang, status_since: sekarang, fail_count: 0 } as never).eq("event_id", event.id).select("*").single();
     hasil = data as unknown as DomainRow;
     await catat(event.id, auth.user.id, "domain_release", { domain: row.domain, from: row.status });
     forgetDomainMap();
   } else {
-    if (row.status !== "dilepas") return gagal("DOMAIN_NOT_RELEASED", "Domain ini masih terhubung.", 409);
+    if (row.status !== "dilepas") return gagal("DOMAIN_NOT_RELEASED", "This domain is still connected.", 409);
     const sekarang = new Date().toISOString();
     const { data } = await client.from("event_domains").update({ status: "menunggu", released_at: null, status_since: sekarang, fail_count: 0, created_at: sekarang } as never).eq("event_id", event.id).select("*").single();
     await catat(event.id, auth.user.id, "domain_reconnect", { domain: row.domain });
@@ -161,10 +161,10 @@ export async function DELETE(request: Request) {
   const kesiapan = domainReadiness();
   if (!kesiapan.ready) return gagal("DOMAIN_NOT_READY", PESAN_BELUM_SIAP, 409);
   const { row } = await readDomain(event.id);
-  if (!row) return gagal("DOMAIN_NOT_FOUND", "Acara ini belum punya domain.", 404);
+  if (!row) return gagal("DOMAIN_NOT_FOUND", "This event has no domain yet.", 404);
   // Domain aktif harus dilepas dulu: melepas menjaga tautan lama tetap
   // diarahkan, menghapus langsung mematikannya.
-  if (row.status === "aktif" || row.status === "bermasalah") return gagal("DOMAIN_ACTIVE", "Lepas domain ini dulu sebelum menghapusnya.", 409);
+  if (row.status === "aktif" || row.status === "bermasalah") return gagal("DOMAIN_ACTIVE", "Disconnect this domain before deleting it.", 409);
 
   const client = getSupabaseServiceClient();
   // Temuan QA N2: kiriman yang masih antre dengan tautan ke domain ini akan
@@ -175,10 +175,10 @@ export async function DELETE(request: Request) {
     .eq("event_id", event.id)
     .eq("link_origin", `https://${row.domain}`)
     .in("status", ["terjadwal", "mengirim"]);
-  if ((count ?? 0) > 0) return gagal("DOMAIN_IN_USE", "Masih ada Pesan peserta yang sedang dikirim atau terjadwal dengan tautan ke domain ini. Tunggu selesai atau batalkan kirimannya dulu.", 409);
+  if ((count ?? 0) > 0) return gagal("DOMAIN_IN_USE", "Some messages being sent or scheduled still link to this domain. Wait until they finish or cancel them first.", 409);
 
   const hapus = await vercelDomains.remove(kesiapan, row.domain);
-  if (!hapus.ok && hapus.code !== "not_found") return gagal("DOMAIN_SERVICE_ERROR", "Domain belum bisa dihapus sekarang. Coba lagi beberapa saat lagi.", 502);
+  if (!hapus.ok && hapus.code !== "not_found") return gagal("DOMAIN_SERVICE_ERROR", "The domain cannot be deleted right now. Try again in a moment.", 502);
   await client.from("event_domains").delete().eq("event_id", event.id).eq("domain", row.domain);
   await catat(event.id, auth.user.id, row.status === "dilepas" ? "domain_delete" : "domain_cancel", { domain: row.domain });
   forgetDomainMap();

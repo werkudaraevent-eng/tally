@@ -82,15 +82,6 @@ const BADGE_UJI: BadgeData = { name: "Test Badge", company: "Tally print station
 const jamDi = (iso: string | null | undefined, zona: EventTimeZone) =>
 	iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: zona }) : "";
 
-/** Nama kertas dari layout.ts masih berbahasa Indonesia; diterjemahkan di layar ini saja supaya /cetak-badge tidak berubah. */
-const kertasEn = (nama: string) => nama.replace(/ tegak$/, " portrait").replace(/ mendatar$/, " landscape");
-
-function tidakMuatEn(pesan: string | null): string | null {
-	if (!pesan) return null;
-	const m = /^Lembar (\d+) × (\d+) mm lebih besar dari kertas (\w+)\./.exec(pesan);
-	return m ? `The ${m[1]} × ${m[2]} mm sheet is larger than ${m[3]} paper. Make the badge smaller or choose another fold.` : pesan;
-}
-
 /** 409 dari route stasiun: acara selesai atau diarsipkan, atau migrasi 0009 belum ada. */
 const koneksi409 = (r: Jawaban): Koneksi =>
 	(r.body.error as { code?: string } | undefined)?.code === "EVENT_NOT_WRITABLE" ? { jenis: "tutup" } : { jenis: "belum" };
@@ -310,7 +301,7 @@ export default function StasiunClient() {
 		sibukRef.current = true;
 		try {
 			if (!b.peserta) {
-				await selesai(job.id, "gagal", "data peserta tidak terbaca");
+				await selesai(job.id, "gagal", "participant data could not be read");
 				setGagalSiap({ nama: null, participant_id: job.participant_id });
 				return true;
 			}
@@ -479,8 +470,8 @@ export default function StasiunClient() {
 	const winKiosk = `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --user-data-dir=C:\\TallyStation --kiosk-printing ${alamat}`;
 	const macKiosk = `open -na "Google Chrome" --args --user-data-dir=$HOME/TallyStation --kiosk-printing ${alamat}`;
 	const namaPrinter = profil ? profil.nama || profil.model || "Printer" : null;
-	const namaFormat = lembar ? kertasEn(lembar.namaKertas) : "";
-	const tidakMuat = tidakMuatEn(lembar?.tidakMuat ?? null);
+	const namaFormat = lembar?.namaKertas ?? "";
+	const tidakMuat = lembar?.tidakMuat ?? null;
 
 	// ---- Pita keadaan, urut dari yang paling menghentikan ----------------
 	const pita: ReactNode[] = [];

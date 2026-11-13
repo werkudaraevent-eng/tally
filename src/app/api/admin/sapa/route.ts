@@ -16,7 +16,7 @@ import { DEFAULT_GREETING, GREETING_COLUMNS, type GreetingConfig } from "@/lib/g
  */
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const hex = z.string().regex(HEX, "Warna harus format #rrggbb.");
+const hex = z.string().regex(HEX, "Colour must be in #rrggbb format.");
 const skala = z.number().min(0.5).max(2);
 const gambar = z.string().trim().max(500).nullable();
 
@@ -170,7 +170,7 @@ export async function PATCH(request: Request) {
       .eq("id", parsed.data.session_id)
       .eq("event_id", auth.scope.event.id)
       .maybeSingle();
-    if (!sesi) return apiError("VALIDATION_ERROR", 422, { session_id: "Sesi tidak ada di acara ini." });
+    if (!sesi) return apiError("VALIDATION_ERROR", 422, { session_id: "That check-in point is not in this event." });
   }
 
   const { data, error } = await client

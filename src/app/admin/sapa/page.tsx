@@ -46,9 +46,9 @@ type Layar = {
 type Bagian = "isi" | "tampilan";
 
 const diamnya = (menit: number) => {
-  if (menit < 1) return "barusan";
-  if (menit < 60) return `${menit} menit lalu`;
-  return `${Math.floor(menit / 60)} jam lalu`;
+  if (menit < 1) return "just now";
+  if (menit < 60) return `${menit} min ago`;
+  return `${Math.floor(menit / 60)} h ago`;
 };
 
 /** Nama contoh untuk pratinjau. Bukan nama peserta sungguhan. */
@@ -63,13 +63,13 @@ function WarnaField({ label, value, onChange }: { label: string; value: string; 
           type="color"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          aria-label={`${label}, pemilih warna`}
+          aria-label={`${label}, colour picker`}
           className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-outline bg-surface-container-lowest"
         />
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          aria-label={`${label}, kode warna`}
+          aria-label={`${label}, colour code`}
           className="h-9 w-full min-w-0 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium tabular-nums text-on-surface outline-none focus:border-primary"
         />
       </span>
@@ -148,7 +148,7 @@ export default function SapaAdminPage() {
 
   const load = useCallback(async () => {
     const response = await fetch(eventApiPath("/api/admin/sapa"), { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) { setMuat("galat"); toast.error("Setelan gagal dimuat", "Muat ulang halaman."); return; }
+    if (!response?.ok) { setMuat("galat"); toast.error("Settings could not be loaded", "Reload the page."); return; }
     const body = await response.json();
     const nextConfig = body.config as GreetingConfig;
     setConfig(nextConfig);
@@ -182,8 +182,8 @@ export default function SapaAdminPage() {
 
   async function lepasLayar(layar: Layar) {
     const response = await fetch(eventApiPath(`/api/admin/sapa?screen=${layar.id}`), { method: "DELETE" }).catch(() => null);
-    if (!response?.ok) { toast.error("Gagal dilepas", "Coba lagi."); return; }
-    toast.success("Layar dilepas", "TV itu akan menampilkan kode baru dalam beberapa detik.");
+    if (!response?.ok) { toast.error("Not disconnected", "Try again."); return; }
+    toast.success("Screen disconnected", "That TV will show a new code in a few seconds.");
     void muatLayar();
   }
 
@@ -202,12 +202,12 @@ export default function SapaAdminPage() {
     setBusy(false);
     if (!response?.ok) {
       const body = await response?.json().catch(() => ({}));
-      toast.error("Gagal disimpan", pesanGalatApi(body) ?? "Coba lagi.");
+      toast.error("Not saved", pesanGalatApi(body) ?? "Try again.");
       return;
     }
     setKotor(false);
     setAktifTersimpan(config.is_enabled);
-    toast.success("Tersimpan", "Layar yang sedang menyala ikut berubah dalam beberapa detik.");
+    toast.success("Saved", "Screens that are on update within a few seconds.");
   }
 
   /** Endpoint unggah yang sama dengan latar papan peringkat; aturan format dan ukurannya sudah ada di sana. */
@@ -220,7 +220,7 @@ export default function SapaAdminPage() {
     const body = await response?.json().catch(() => null);
     setUploading(false);
     if (!response?.ok) {
-      toast.error("Upload gagal", body?.error?.details?.file ?? "Coba gambar lain.");
+      toast.error("Upload failed", body?.error?.details?.file ?? "Try another image.");
       return;
     }
     update({ background_image_url: body.url as string });
@@ -231,18 +231,18 @@ export default function SapaAdminPage() {
 
   // ---- Panel utama: pratinjau TV dan layar terhubung --------------------------
   const utama = (
-    <Pane aria-label="Pratinjau dan layar terhubung">
+    <Pane aria-label="Preview and connected screens">
       <PaneHeader className="flex-wrap">
-        <span className="min-w-0 flex-1 text-body-medium text-on-surface-variant">Pratinjau · proporsi dan warna</span>
+        <span className="min-w-0 flex-1 text-body-medium text-on-surface-variant">Preview · proportions and colours</span>
         {/* SegmentedButton, bukan Tabs: yang berubah adalah SETELAN orientasi,
             dan pratinjaunya ikut. */}
         <SegmentedButton<GreetingOrientation>
-          label="Orientasi layar sapa"
+          label="Welcome screen orientation"
           value={config.orientation}
           onChange={(value) => update({ orientation: value })}
           options={[
-            { value: "landscape", label: "Melintang 16:9" },
-            { value: "portrait", label: "Berdiri 9:16" },
+            { value: "landscape", label: "Landscape 16:9" },
+            { value: "portrait", label: "Portrait 9:16" },
           ]}
         />
       </PaneHeader>
@@ -250,21 +250,21 @@ export default function SapaAdminPage() {
         <div className="flex flex-col items-center gap-3 border-b border-outline-variant bg-surface-container-high px-4 py-6 sm:px-6">
           <Pratinjau config={config} />
           <p className="max-w-[720px] text-center text-body-medium text-on-surface-variant">
-            Ukuran huruf di TV berbeda. Panel yang dipasang berdiri sering tetap melaporkan 1920×1080, jadi orientasi
-            dipilih di sini, bukan ditebak. Untuk mengintip orientasi lain tanpa mengubah setelan, buka{" "}
+            Text size on the TV differs. A panel mounted upright often still reports 1920×1080, so the orientation
+            is chosen here rather than guessed. To peek at the other orientation without changing the setting, open{" "}
             <span className="break-all text-on-surface">{url}?orientasi={potret ? "landscape" : "portrait"}</span>.
           </p>
         </div>
 
         <section aria-labelledby="layar-terhubung">
           <div className="flex items-center gap-2 px-4 pb-2 pt-4">
-            <h2 id="layar-terhubung" className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Layar terhubung</h2>
+            <h2 id="layar-terhubung" className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Connected screens</h2>
             <span className="text-body-medium tabular-nums text-on-surface-variant">{screens.length} TV</span>
           </div>
           {screens.length === 0 ? (
             <p className="px-4 pb-5 text-body-medium text-on-surface-variant">
-              Belum ada TV yang membuka layar sapa. Buka alamatnya di TV dan layar langsung menyapa. Kode enam angka
-              baru diminta kalau acara ini punya lebih dari satu jalur, supaya TV tahu melayani meja yang mana.
+              No TV has opened the welcome screen yet. Open its address on a TV and it starts greeting straight away. A
+              six-digit code is only asked for when this event has more than one lane, so the TV knows which desk it serves.
             </p>
           ) : (
             <ul>
@@ -273,11 +273,11 @@ export default function SapaAdminPage() {
                   {/* Keadaan dibawa titik DAN teks, bukan warna saja. */}
                   <StatusDot tone={layar.alive ? "success" : "neutral"} />
                   <span className="min-w-0 flex-1">
-                    <span className="font-medium text-on-surface">{layar.lane?.name ?? "Belum dipasang ke jalur"}</span>
-                    <span className="ml-2 text-on-surface-variant">{layar.alive ? "menyala" : `terakhir ${diamnya(layar.idle_minutes)}`}</span>
+                    <span className="font-medium text-on-surface">{layar.lane?.name ?? "Not assigned to a lane"}</span>
+                    <span className="ml-2 text-on-surface-variant">{layar.alive ? "on" : `last seen ${diamnya(layar.idle_minutes)}`}</span>
                   </span>
-                  <Button variant="text" size="sm" aria-label={`Lepas ${layar.lane?.name ?? "layar tanpa jalur"}`} onClick={() => void lepasLayar(layar)}>
-                    Lepas
+                  <Button variant="text" size="sm" aria-label={`Disconnect ${layar.lane?.name ?? "screen without a lane"}`} onClick={() => void lepasLayar(layar)}>
+                    Disconnect
                   </Button>
                 </li>
               ))}
@@ -291,58 +291,58 @@ export default function SapaAdminPage() {
   // ---- Panel pendukung: setelan -------------------------------------------------
   const isi = (
     <>
-      <DetailSection title="Teks">
+      <DetailSection title="Text">
         <div className="flex flex-col gap-4">
-          <TextField label="Judul layar" value={config.headline} maxLength={80} onChange={(event) => update({ headline: event.target.value })} />
+          <TextField label="Screen title" value={config.headline} maxLength={80} onChange={(event) => update({ headline: event.target.value })} />
           <TextField
-            label="Pesan saat sepi"
-            hint="Tampil di antara kedatangan. Layar kosong terbaca sebagai layar rusak."
+            label="Message when quiet"
+            hint="Shown between arrivals. An empty screen reads as a broken screen."
             value={config.idle_message}
             maxLength={160}
             onChange={(event) => update({ idle_message: event.target.value })}
           />
         </div>
       </DetailSection>
-      <DetailSection title="Penyapaan">
+      <DetailSection title="Greeting">
         <div className="flex flex-col gap-4">
           <SelectField
-            label="Sesi yang disapa"
-            hint="Biasanya Registrasi. Sesi lain seperti makan siang jarang perlu disambut."
+            label="Check-in point greeted"
+            hint="Usually the registration point. Other points such as lunch rarely need a welcome."
             value={config.session_id ?? ""}
             onChange={(event) => update({ session_id: Number(event.target.value) || null })}
           >
-            <option value="">Semua sesi</option>
+            <option value="">All check-in points</option>
             {sessions.map((sesi) => (
-              <option key={sesi.id} value={sesi.id}>{sesi.name}{sesi.is_active ? "" : " (ditutup)"}</option>
+              <option key={sesi.id} value={sesi.id}>{sesi.name}{sesi.is_active ? "" : " (closed)"}</option>
             ))}
           </SelectField>
           <TextField
-            label="Nama bertahan (detik)"
+            label="Name stays for (seconds)"
             type="number"
             min={3}
             max={60}
             value={config.hold_seconds}
-            hint="3–60. Terlalu lama berarti antrean sapaan menumpuk di jam sibuk."
+            hint="3–60. Too long means greetings pile up at busy times."
             onChange={(event) => update({ hold_seconds: Number(event.target.value) || 8 })}
             className="max-w-[160px]"
             inputClassName="tabular-nums"
           />
-          <Switch checked={config.show_company} onChange={(value) => update({ show_company: value })} label="Tampilkan instansi" description="Di bawah nama tamu." />
+          <Switch checked={config.show_company} onChange={(value) => update({ show_company: value })} label="Show organisation" description="Below the participant's name." />
           <Switch
             checked={config.greet_duplicates}
             onChange={(value) => update({ greet_duplicates: value })}
-            label="Sapa pemindaian ulang"
-            description="Bawaannya mati. Panitia yang keluar-masuk ruangan tidak ikut menyapu nama tamu dari layar."
+            label="Greet repeat scans"
+            description="Off by default. Staff walking in and out don't push participants' names off the screen."
           />
           <Switch
             checked={config.show_recent}
             onChange={(value) => update({ show_recent: value })}
-            label="Deretan “baru saja masuk”"
-            description="Nama-nama terakhir di bagian bawah layar."
+            label="“Just arrived” row"
+            description="The latest names along the bottom of the screen."
           />
           {config.show_recent ? (
             <TextField
-              label="Berapa nama di deretan"
+              label="Names in the row"
               type="number"
               min={1}
               max={12}
@@ -357,7 +357,7 @@ export default function SapaAdminPage() {
       <DetailSection>
         <p className="flex items-start gap-2 text-body-medium text-on-surface-variant">
           <Info size={16} aria-hidden className="mt-0.5 shrink-0" />
-          Peserta yang mematikan izin tampil di layar tetap disapa, tetapi dengan inisial.
+          Participants who turned off being shown on screens are still greeted, but by their initials.
         </p>
       </DetailSection>
     </>
@@ -365,25 +365,25 @@ export default function SapaAdminPage() {
 
   const tampilan = (
     <>
-      <DetailSection title="Warna">
+      <DetailSection title="Colours">
         <div className="flex flex-col gap-3">
           {([
-            ["background_color", "Latar"],
-            ["text_color", "Teks"],
-            ["accent_color", "Aksen"],
+            ["background_color", "Background"],
+            ["text_color", "Text"],
+            ["accent_color", "Accent"],
           ] as const).map(([key, label]) => (
             <WarnaField key={key} label={label} value={config[key]} onChange={(value) => update({ [key]: value } as Partial<GreetingConfig>)} />
           ))}
         </div>
       </DetailSection>
-      <DetailSection title="Gambar latar">
+      <DetailSection title="Background image">
         <div className="flex flex-wrap items-center gap-3">
           <label className={cx(
             "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium font-medium text-on-surface hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
             uploading && "pointer-events-none opacity-60",
           )}>
             <UploadSimple size={16} aria-hidden />
-            {uploading ? "Mengunggah..." : "Pilih gambar"}
+            {uploading ? "Uploading…" : "Choose image"}
             <input
               type="file"
               accept="image/*"
@@ -397,13 +397,13 @@ export default function SapaAdminPage() {
             />
           </label>
           {config.background_image_url ? (
-            <Button variant="text" size="sm" icon={<XCircle size={16} />} onClick={() => update({ background_image_url: null })}>Hapus gambar</Button>
+            <Button variant="text" size="sm" icon={<XCircle size={16} />} onClick={() => update({ background_image_url: null })}>Remove image</Button>
           ) : null}
         </div>
         {config.background_image_url ? (
-          <ImagePreview url={config.background_image_url} alt="Latar layar sapa" fit="cover" className="h-16 w-28" />
+          <ImagePreview url={config.background_image_url} alt="Welcome screen background" fit="cover" className="h-16 w-28" />
         ) : (
-          <p className="text-body-medium text-on-surface-variant">Opsional. Tanpa gambar, layar memakai warna latar.</p>
+          <p className="text-body-medium text-on-surface-variant">Optional. Without an image, the screen uses the background colour.</p>
         )}
       </DetailSection>
       <DetailSection title="Header & footer">
@@ -420,19 +420,19 @@ export default function SapaAdminPage() {
   );
 
   const panel = (
-    <Pane as="aside" aria-label="Setelan layar sapa">
+    <Pane as="aside" aria-label="Welcome screen settings">
       <div className="shrink-0 border-b border-outline-variant px-4 py-3">
         <SegmentedButton<Bagian>
-          label="Bagian setelan"
+          label="Settings section"
           value={bagian}
           onChange={setBagian}
           className="w-full"
-          options={[{ value: "isi", label: "Isi" }, { value: "tampilan", label: "Tampilan" }]}
+          options={[{ value: "isi", label: "Content" }, { value: "tampilan", label: "Look" }]}
         />
       </div>
       <PaneBody>{bagian === "isi" ? isi : tampilan}</PaneBody>
-      <PaneFooter note={kotor ? "Ada perubahan yang belum disimpan" : "Layar yang menyala ikut berubah"}>
-        <Button simpan size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Simpan</Button>
+      <PaneFooter note={kotor ? "Unsaved changes" : "Screens that are on update too"}>
+        <Button simpan size="sm" loading={busy} disabled={!kotor} onClick={() => void simpan()}>Save</Button>
       </PaneFooter>
     </Pane>
   );
@@ -441,13 +441,13 @@ export default function SapaAdminPage() {
   if (muat === "siap") {
     meta = (
       <>
-        <StatusChip dot tone={aktifTersimpan ? "success" : "neutral"}>{aktifTersimpan ? "Aktif" : "Nonaktif"}</StatusChip>
-        <span className="tabular-nums">{screens.length === 0 ? "Belum ada TV terhubung" : `${menyala} dari ${screens.length} TV menyala`}</span>
+        <StatusChip dot tone={aktifTersimpan ? "success" : "neutral"}>{aktifTersimpan ? "Active" : "Off"}</StatusChip>
+        <span className="tabular-nums">{screens.length === 0 ? "No TV connected yet" : `${menyala} of ${screens.length} TV${screens.length === 1 ? "" : "s"} on`}</span>
         <MetaSeparator />
         {/* Alamat layar tidak meminta login, sama seperti papan peringkat dan
             denah LED. Yang memutuskan boleh-tidaknya memajang nama tamu adalah
             panitia, jadi peringatannya berdiri di kepala halaman. */}
-        <span>Alamat publik tanpa login, bagikan seperlunya</span>
+        <span>Public address without sign-in, share only as needed</span>
       </>
     );
   }
@@ -462,10 +462,10 @@ export default function SapaAdminPage() {
               <Switch
                 checked={config.is_enabled}
                 onChange={(value) => update({ is_enabled: value })}
-                label="Layar sapa aktif"
+                label="Welcome screen on"
               />
             ) : null}
-            <ButtonLink href="/sapa" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Buka layar sapa</ButtonLink>
+            <ButtonLink href="/sapa" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open welcome screen</ButtonLink>
           </>
         }
       />
@@ -476,9 +476,9 @@ export default function SapaAdminPage() {
         <Banner
           tone="error"
           icon={<Warning size={18} />}
-          actions={<Button variant="outlined" size="sm" icon={<ArrowClockwise size={16} />} onClick={() => { setMuat("memuat"); void load(); }}>Muat ulang</Button>}
+          actions={<Button variant="outlined" size="sm" icon={<ArrowClockwise size={16} />} onClick={() => { setMuat("memuat"); void load(); }}>Reload</Button>}
         >
-          Setelan layar sapa gagal dimuat. Form disembunyikan supaya setelan asli tidak tertimpa nilai bawaan.
+          Welcome screen settings could not be loaded. The form is hidden so the real settings are not overwritten by defaults.
         </Banner>
       ) : null}
 
@@ -486,8 +486,8 @@ export default function SapaAdminPage() {
         <>
           {!config.is_enabled ? (
             <Banner tone="warning" icon={<Info size={18} />}>
-              Layar sapa {kotor && aktifTersimpan ? "akan dinonaktifkan setelah disimpan" : "nonaktif"}. TV tetap menampilkan judul dan pesan sepi,
-              tanpa nama tamu. Alamatnya tidak berubah, jadi TV di lobi tidak perlu disentuh.
+              The welcome screen {kotor && aktifTersimpan ? "turns off when you save" : "is off"}. TVs still show the title and the quiet message,
+              without participant names. The address stays the same, so TVs in the lobby don&apos;t need touching.
             </Banner>
           ) : null}
           <SupportingPane main={utama} pane={panel} />

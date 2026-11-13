@@ -72,26 +72,26 @@ export async function POST(request: Request) {
 
   // Ditolak dari header sebelum body dibaca: body di atas batas proxy terpotong
   // dan formData() menggantung sampai koneksi putus.
-  if (Number(request.headers.get("content-length") ?? 0) > MAX_FILE_BYTES + 64 * 1024) return fileError("Ukuran berkas maksimal 5 MB.");
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_FILE_BYTES + 64 * 1024) return fileError("Maximum file size is 5 MB.");
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return fileError("Berkas tidak ditemukan.");
-  if (file.size === 0 || file.size > MAX_FILE_BYTES) return fileError("Ukuran berkas maksimal 5 MB.");
+  if (!(file instanceof File)) return fileError("No file found.");
+  if (file.size === 0 || file.size > MAX_FILE_BYTES) return fileError("Maximum file size is 5 MB.");
 
   // Jenis berkas dari ekstensi, sama seperti impor Daftar import: MIME type
   // berkas Excel tidak dapat diandalkan antar sistem operasi.
   const lower = file.name.toLowerCase();
-  if (lower.endsWith(".xls")) return fileError("Format .xls lama tidak didukung. Buka di Excel lalu Save As .xlsx.");
+  if (lower.endsWith(".xls")) return fileError("The old .xls format is not supported. Open it in Excel and Save As .xlsx.");
   const isXlsx = lower.endsWith(".xlsx") || lower.endsWith(".xlsm");
   const isText = lower.endsWith(".csv") || lower.endsWith(".txt") || lower.endsWith(".tsv");
-  if (!isXlsx && !isText) return fileError("Format harus .xlsx atau .csv.");
+  if (!isXlsx && !isText) return fileError("The format must be .xlsx or .csv.");
 
   const rows = isXlsx ? await xlsxToRows(await file.arrayBuffer()) : textToRows(await file.text());
-  if (!rows) return fileError("Berkas tidak terbaca. Pastikan berkasnya .xlsx yang bisa dibuka di Excel.");
+  if (!rows) return fileError("The file could not be read. Make sure it is an .xlsx file that opens in Excel.");
   const keys = rowsToBonusKeys(rows);
-  if (!keys) return fileError("Kolom QR atau Email tidak ditemukan. Pakai judul kolom dari templat.");
-  if (keys.length === 0) return fileError("Tidak ada baris yang terbaca. Unduh templatnya lalu isi kolom QR atau Email.");
-  if (keys.length > BONUS_LIST_MAX) return fileError(`Maksimal ${BONUS_LIST_MAX.toLocaleString("id-ID")} baris per daftar.`);
+  if (!keys) return fileError("No QR or Email column found. Use the column headings from the template.");
+  if (keys.length === 0) return fileError("No rows could be read. Download the template and fill in the QR or Email column.");
+  if (keys.length > BONUS_LIST_MAX) return fileError(`Maximum ${BONUS_LIST_MAX.toLocaleString("en-GB")} rows per list.`);
 
   const people = await eventParticipants(eventId);
   if (!people) return apiError("INTERNAL_ERROR", 500);

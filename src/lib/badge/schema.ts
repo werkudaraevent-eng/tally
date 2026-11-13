@@ -11,7 +11,7 @@ import { BADGE_FORMATS, BADGE_TEXT_FIELDS, MAX_ELEMEN_PER_SISI, UKURAN_KHUSUS } 
 
 const mm = z.number().min(0).max(300);
 const warna = z.string().regex(/^#[0-9a-fA-F]{6}$/);
-const urlGambar = z.string().url().max(1000).refine((nilai) => nilai.startsWith("https://"), "Harus https").nullable();
+const urlGambar = z.string().url().max(1000).refine((nilai) => nilai.startsWith("https://"), "Must be https").nullable();
 
 const textSchema = z.object({
 	type: z.literal("text"),

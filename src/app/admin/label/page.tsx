@@ -59,19 +59,19 @@ export default function BadgeLabelPage() {
 		const body = await response?.json().catch(() => null);
 		if (!response?.ok) {
 			setMeja(sebelum);
-			toast.error("Belum tersimpan", body?.error?.message ?? "Koneksi gagal. Coba lagi.");
+			toast.error("Not saved", body?.error?.message ?? "Connection failed. Try again.");
 			return;
 		}
 		setMeja(body.meja as Meja);
-		toast.success("Tersimpan", berikut === "label" ? "Layar scan menawarkan cetak label setelah dimuat ulang." : "Pilihan meja registrasi diperbarui.");
+		toast.success("Saved", berikut === "label" ? "The scan screen offers label printing after a reload." : "Check-in desk choice updated.");
 	}, [meja, toast]);
 
 	const pilih = (
 		<SegmentedButton<Jenis>
-			label="Jenis cetakan"
+			label="Print type"
 			value={jenis}
 			onChange={setJenis}
-			options={[{ value: "badge", label: "Badge kertas" }, { value: "label", label: "Label stiker", badge: labelUkuran ?? undefined }]}
+			options={[{ value: "badge", label: "Paper badge" }, { value: "label", label: "Sticker label", badge: labelUkuran ?? undefined }]}
 		/>
 	);
 

@@ -39,14 +39,14 @@ const leafSchema = z.union([
     key: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
     cmp: z.enum(["eq", "neq", "contains", "not_contains", "starts_with", "ends_with", "is_empty", "is_not_empty"]),
     text: z.string().trim().max(200),
-  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Isi nilai pembandingnya." }),
+  }).refine((value) => value.cmp === "is_empty" || value.cmp === "is_not_empty" || value.text !== "", { path: ["text"], message: "Enter a value to compare with." }),
   z.object({
     var: z.enum(TEXT_VARS),
     cmp: z.enum(TEXT_CMPS),
     text: z.string().trim().max(200),
   }).superRefine((value, ctx) => {
     if (!CMP_WITHOUT_VALUE.includes(value.cmp) && value.text === "") {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["text"], message: "Isi nilai pembandingnya." });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["text"], message: "Enter a value to compare with." });
     }
   }),
 ]);
@@ -121,16 +121,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   // menolak dan pesannya tidak dapat dibaca operator.
   const merged = { ...before, ...parsed.data };
   if (merged.source === "entries" && !merged.entry_group_id) {
-    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { entry_group_id: ["Pilih daftar entri yang akan diundi."] } });
+    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { entry_group_id: ["Pick the entry list to draw from."] } });
   }
   if (merged.weight_base > merged.weight_max) {
-    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { weight_max: ["Tiket maksimum tidak boleh lebih kecil dari tiket dasar."] } });
+    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { weight_max: ["Maximum tickets cannot be lower than base tickets."] } });
   }
   if (merged.winners_per_draw + merged.backup_per_draw > 60) {
     return apiError("VALIDATION_ERROR", 422, { fieldErrors: { backup_per_draw: ["Pemenang + cadangan per undi maksimal 60."] } });
   }
   if (merged.winners_per_draw > maxWinnersPerDraw(merged.animation)) {
-    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { winners_per_draw: [`Animasi ini memuat paling banyak ${maxWinnersPerDraw(merged.animation)} pemenang per undi.`] } });
+    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { winners_per_draw: [`This animation fits at most ${maxWinnersPerDraw(merged.animation)} winners per draw.`] } });
   }
 
   const { data, error } = await client

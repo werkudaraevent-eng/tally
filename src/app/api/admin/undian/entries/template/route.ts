@@ -28,7 +28,7 @@ export async function GET() {
   // src/lib/export-orders.ts.
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Daftar Undian");
+  const sheet = workbook.addWorksheet("Draw list");
 
   sheet.addRow([...TEMPLATE_HEADERS]);
   sheet.getRow(1).font = { bold: true };
@@ -57,31 +57,32 @@ export async function GET() {
   // Menaruhnya sebagai baris keterangan di sheet pertama akan membuat parser
   // membacanya sebagai data — dan panitia yang lupa menghapusnya akan mendapati
   // "Cara mengisi:" ikut berputar di roda sebagai nama peserta.
-  const help = workbook.addWorksheet("Cara mengisi");
+  const help = workbook.addWorksheet("How to fill in");
   help.getColumn(1).width = 100;
   const notes = [
-    "CARA MENGISI DAFTAR UNDIAN",
+    "HOW TO FILL IN THE DRAW LIST",
     "",
-    "1. Isi mulai baris ke-2 pada sheet \"Daftar Undian\". Jangan hapus baris judulnya.",
-    "2. Hapus dua baris contoh sebelum mengunggah.",
-    "3. Kolom Nama WAJIB diisi. Baris tanpa nama akan dilewati.",
-    "4. Kolom Perusahaan, Kode, dan Bobot boleh dikosongkan.",
+    "1. Start on row 2 of the \"Draw list\" sheet. Do not delete the heading row.",
+    "2. Delete the two example rows before uploading.",
+    "3. Name is REQUIRED. Rows without a name are skipped.",
+    "4. Company, Code and Weight can be left empty.",
     "",
-    "KETERANGAN KOLOM",
+    "COLUMNS",
     "",
-    "Nama        Nama yang tampil besar di layar panggung.",
-    "Perusahaan  Tampil kecil di bawah nama. Boleh diisi jabatan atau keterangan lain.",
-    "Kode        Nomor kupon, nomor kursi, atau kode QR. Tidak wajib.",
-    "Bobot       Jumlah tiket undian. Kosong atau 1 berarti satu tiket.",
-    "            Isi 3 bila orang itu mengumpulkan 3 kupon, sehingga peluangnya tiga kali lipat.",
-    "            Maksimal 1000.",
+    "Name        The name shown large on the stage screen.",
+    "Company     Shown small under the name. A job title or other note also works.",
+    "Code        Coupon number, seat number or QR code. Optional.",
+    "Weight      Number of draw tickets. Empty or 1 means one ticket.",
+    "            Enter 3 if the person collected 3 coupons, so their chance is three times higher.",
+    "            Maximum 1000.",
     "",
-    "CATATAN",
+    "NOTES",
     "",
-    "- Maksimal 5000 baris per daftar.",
-    "- Nama yang sama boleh muncul lebih dari sekali; keduanya tetap diundi terpisah.",
-    "  Yang dilewati hanya baris yang SELURUH isinya persis sama.",
-    "- Selain .xlsx, sistem juga menerima .csv dan .txt, atau tempel langsung dari Excel.",
+    "- Maximum 5000 rows per list.",
+    "- The same name can appear more than once; each is drawn separately.",
+    "  Only rows whose ENTIRE content is identical are skipped.",
+    "- Besides .xlsx, the system also accepts .csv and .txt, or a paste straight from Excel.",
+    "- Indonesian column headings (Nama, Perusahaan, Kode, Bobot) still work.",
   ];
   for (const line of notes) help.addRow([line]);
   help.getRow(1).font = { bold: true, size: 14 };
@@ -91,7 +92,7 @@ export async function GET() {
   return new Response(buffer as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": 'attachment; filename="templat-daftar-undian.xlsx"',
+      "Content-Disposition": 'attachment; filename="draw-list-template.xlsx"',
       // Templat berubah hanya saat kode berubah, tapi tetap tidak di-cache:
       // panitia yang mengunduh ulang setelah kolomnya bertambah harus mendapat
       // versi yang baru, bukan salinan lama dari peramban.

@@ -48,7 +48,7 @@ type Zoom = "pas" | "100" | "200";
  */
 const KUNCI_TINGGI = "lg:short:h-[calc(100dvh-var(--workspace-top,58px))]! lg:short:overflow-hidden!";
 
-const NAMA_ZOOM: Record<Zoom, string> = { pas: "Pas", "100": "100%", "200": "200%" };
+const NAMA_ZOOM: Record<Zoom, string> = { pas: "Fit", "100": "100%", "200": "200%" };
 
 type Muatan = {
 	layout: BadgeLayout;
@@ -61,21 +61,21 @@ const jepit = (nilai: number, min: number, maks: number) => Math.min(maks, Math.
 const bulat = (nilai: number) => Math.round(nilai * 2) / 2;
 
 const FORMAT: Array<{ kind: BadgeFormatKind; judul: string; keterangan: string }> = [
-	{ kind: "a4_lipat4", judul: "A4 lipat empat jadi A6", keterangan: "HVS 80–100 g. Jalan di semua printer kantor." },
-	{ kind: "a5_lipat2", judul: "A5 lipat dua jadi A6", keterangan: "Kertas tebal, satu lipatan saja, jadi tetap rapi." },
-	{ kind: "a4_isi2", judul: "A4 isi dua, potong, lipat dua jadi A6", keterangan: "Kertas tebal yang dijual A4. Satu garis potong, hemat setengah lembar." },
-	{ kind: "a4_lipat2", judul: "A4 lipat dua jadi A5", keterangan: "Badge besar. Perlu holder A5." },
-	{ kind: "tunggal", judul: "Satu sisi, tanpa lipat", keterangan: "Ditata beberapa per lembar dengan tanda potong. Tanpa rundown di belakang." },
-	{ kind: "khusus", judul: "Ukuran khusus", keterangan: "Ketik lebar dan tinggi badge jadi, pilih lipatannya." },
+	{ kind: "a4_lipat4", judul: "A4 folded in four to A6", keterangan: "80–100 g office paper. Works on any office printer." },
+	{ kind: "a5_lipat2", judul: "A5 folded in two to A6", keterangan: "Thick paper, one fold only, so it stays neat." },
+	{ kind: "a4_isi2", judul: "Two per A4, cut, fold in two to A6", keterangan: "Thick paper sold as A4. One cut line, saves half a sheet." },
+	{ kind: "a4_lipat2", judul: "A4 folded in two to A5", keterangan: "Large badge. Needs an A5 holder." },
+	{ kind: "tunggal", judul: "One side, no fold", keterangan: "Several per sheet with cut marks. No agenda on the back." },
+	{ kind: "khusus", judul: "Custom size", keterangan: "Type the finished badge width and height, then pick the fold." },
 ];
 
 const NAMA_FORMAT: Record<BadgeFormatKind, string> = {
-	a4_lipat4: "A4 lipat empat jadi A6",
-	a5_lipat2: "A5 lipat dua jadi A6",
-	a4_isi2: "A4 isi dua jadi A6",
-	a4_lipat2: "A4 lipat dua jadi A5",
-	tunggal: "Satu sisi",
-	khusus: "Ukuran khusus",
+	a4_lipat4: "A4 folded in four to A6",
+	a5_lipat2: "A5 folded in two to A6",
+	a4_isi2: "Two per A4 to A6",
+	a4_lipat2: "A4 folded in two to A5",
+	tunggal: "One side",
+	khusus: "Custom size",
 };
 
 /** Gramatur yang dibutuhkan format kertas tebal. Di bawah ini lipatannya pecah dan badge melengkung di holder. */
@@ -84,26 +84,26 @@ const GSM_TEBAL = 160;
 type Tambahan = { label: string; jenis: "text" | "qr" | "rect" | "image" | "rundown"; field: BadgeTextField | "qr_code" | "rundown_url" };
 
 const MENU_TAMBAH: Tambahan[] = [
-	{ label: "Nama peserta", jenis: "text", field: "name" },
-	{ label: "Instansi", jenis: "text", field: "company" },
-	{ label: "Jabatan", jenis: "text", field: "title" },
-	{ label: "Kode peserta (teks)", jenis: "text", field: "qr_code" },
-	{ label: "Kode QR peserta", jenis: "qr", field: "qr_code" },
-	{ label: "Kode QR rundown", jenis: "qr", field: "rundown_url" },
-	{ label: "Rundown", jenis: "rundown", field: "static" },
-	{ label: "Nama acara", jenis: "text", field: "event_name" },
-	{ label: "Teks bebas", jenis: "text", field: "static" },
-	{ label: "Pita warna", jenis: "rect", field: "static" },
-	{ label: "Gambar atau logo", jenis: "image", field: "static" },
+	{ label: "Participant name", jenis: "text", field: "name" },
+	{ label: "Organisation", jenis: "text", field: "company" },
+	{ label: "Job title", jenis: "text", field: "title" },
+	{ label: "Participant code (text)", jenis: "text", field: "qr_code" },
+	{ label: "Participant QR code", jenis: "qr", field: "qr_code" },
+	{ label: "Agenda QR code", jenis: "qr", field: "rundown_url" },
+	{ label: "Agenda", jenis: "rundown", field: "static" },
+	{ label: "Event name", jenis: "text", field: "event_name" },
+	{ label: "Free text", jenis: "text", field: "static" },
+	{ label: "Colour band", jenis: "rect", field: "static" },
+	{ label: "Image or logo", jenis: "image", field: "static" },
 ];
 
 function namaElemen(element: BadgeElement): string {
 	switch (element.type) {
 		case "text": return BADGE_TEXT_LABELS[element.field];
-		case "qr": return element.field === "rundown_url" ? "Kode QR rundown" : "Kode QR peserta";
-		case "rect": return "Pita warna";
-		case "image": return "Gambar";
-		case "rundown": return "Rundown";
+		case "qr": return element.field === "rundown_url" ? "Agenda QR code" : "Participant QR code";
+		case "rect": return "Colour band";
+		case "image": return "Image";
+		case "rundown": return "Agenda";
 	}
 }
 
@@ -173,7 +173,7 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 
 	const load = useCallback(async () => {
 		const response = await fetch(eventApiPath("/api/admin/badge"), { cache: "no-store" }).catch(() => null);
-		if (!response?.ok) { setError("Setelan badge gagal dimuat. Muat ulang halaman."); return; }
+		if (!response?.ok) { setError("Badge settings could not be loaded. Reload the page."); return; }
 		const body = (await response.json()) as Muatan;
 		setMuatan(body);
 		setLayout(body.layout);
@@ -348,22 +348,22 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 			body: JSON.stringify(layout),
 		}).catch(() => null);
 		setBusy(false);
-		if (!response) { toast.error("Koneksi gagal", "Badge belum tersimpan."); return; }
+		if (!response) { toast.error("Connection failed", "The badge is not saved."); return; }
 		const body = await response.json().catch(() => ({}));
 		if (!response.ok) {
-			toast.error("Gagal disimpan", body?.error?.message ?? "Ada isi di luar batas. Periksa ukuran badge.");
+			toast.error("Not saved", body?.error?.message ?? "Some content is outside the edges. Check the badge size.");
 			return;
 		}
 		setLayout(body.layout as BadgeLayout);
 		setMuatan((current) => (current ? { ...current, layout: body.layout, migrasi: true } : current));
 		setKotor(false);
-		toast.success("Tersimpan", "Cetakan berikutnya memakai susunan ini.");
+		toast.success("Saved", "The next prints use this layout.");
 	}
 
 	function bukaCetak(mode: "contoh" | "semua") {
 		if (!layout || !muatan) return;
 		if (mode === "semua" && kotor) {
-			toast.error("Simpan dulu", "Cetak semua peserta memakai susunan yang tersimpan. Simpan perubahan ini, lalu cetak.");
+			toast.error("Save first", "Printing all participants uses the saved layout. Save these changes, then print.");
 			return;
 		}
 		let draf = "";
@@ -415,13 +415,13 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 
 	// ---- Panel utama ---------------------------------------------------------
 	const utama = (
-		<Pane aria-label="Pratinjau badge">
+		<Pane aria-label="Badge preview">
 			<PaneHeader className="flex-wrap gap-2 px-4 py-3">
 				<SegmentedButton<BadgeSide>
-					label="Sisi badge"
+					label="Badge side"
 					value={sisiAktif}
 					onChange={gantiSisi}
-					options={[{ value: "front", label: "Depan" }, { value: "back", label: "Belakang", disabled: !adaBelakang }]}
+					options={[{ value: "front", label: "Front" }, { value: "back", label: "Back", disabled: !adaBelakang }]}
 				/>
 				<span ref={pasangPemicu} className="inline-flex">
 				<Button
@@ -434,11 +434,11 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 					aria-expanded={menuTambah.open}
 					onClick={menuTambah.toggle}
 				>
-					Tambah isi
+					Add content
 				</Button>
 				</span>
 				{menuTambah.open ? (
-					<Popover anchor={menuTambah} label="Tambah isi" align="start" width={240}>
+					<Popover anchor={menuTambah} label="Add content" align="start" width={240}>
 						<div className="p-1.5">
 							{MENU_TAMBAH.filter((t) => !(t.jenis === "rundown" && elements.some((e) => e.type === "rundown"))).map((t) => (
 								<button key={t.label} type="button" role="menuitem" className={POPOVER_ITEM} onClick={() => tambah(t)}>
@@ -459,14 +459,14 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 						trailingIcon={<CaretDown size={14} />}
 						aria-haspopup="menu"
 						aria-expanded={menuZoom.open}
-						aria-label={`Perbesaran: ${NAMA_ZOOM[zoom]}`}
+						aria-label={`Zoom: ${NAMA_ZOOM[zoom]}`}
 						onClick={menuZoom.toggle}
 					>
 						{NAMA_ZOOM[zoom]}
 					</Button>
 				</span>
 				{menuZoom.open ? (
-					<Popover anchor={menuZoom} label="Perbesaran" align="end" width={160}>
+					<Popover anchor={menuZoom} label="Zoom" align="end" width={160}>
 						<div className="p-1.5">
 							{(Object.keys(NAMA_ZOOM) as Zoom[]).map((z) => (
 								<button key={z} type="button" role="menuitemradio" aria-checked={zoom === z} className={POPOVER_ITEM} onClick={() => { setZoom(z); menuZoom.tutup(); }}>
@@ -515,7 +515,7 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 										<button
 											type="button"
 											aria-pressed={dipilih}
-											aria-label={`${nama}, ${element.x} kali ${element.y} mm dari kiri atas. Panah untuk menggeser.`}
+											aria-label={`${nama}, ${element.x} by ${element.y} mm from the top left. Arrow keys move it.`}
 											onPointerDown={(e) => mulaiGeser(e, index)}
 											onKeyDown={(e) => panah(e, index)}
 											onFocus={() => pilih(index)}
@@ -549,40 +549,40 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 
 			{tanpaQr || penuh || rundownBelumTerbit || !kertasPas ? (
 				<div className="flex shrink-0 flex-col gap-2 border-t border-outline-variant px-4 py-3 text-body-medium">
-					{penuh ? <p className="text-on-surface-variant">Sudah {MAX_ELEMEN_PER_SISI} isi di sisi ini. Hapus salah satu sebelum menambah lagi.</p> : null}
+					{penuh ? <p className="text-on-surface-variant">This side already has {MAX_ELEMEN_PER_SISI} items. Delete one before adding more.</p> : null}
 					{rundownBelumTerbit ? (
 						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
 							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-							Rundown acara belum diterbitkan. Pratinjau memakai contoh, tetapi badge yang dicetak belakangnya kosong sampai rundown diterbitkan.
+							The agenda is not published yet. The preview uses a sample, but printed badges have an empty back until the agenda is published.
 						</p>
 					) : null}
 					{!kertasPas ? (
 						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
 							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-							Format ini dicetak di kertas {lembar.namaKertas}, sedangkan {profil?.nama || "printer aktif"} berisi {kertasPrinter}.
+							This format prints on {lembar.namaKertas} paper, but {profil?.nama || "the active printer"} holds {kertasPrinter}.
 						</p>
 					) : null}
 					{tanpaQr ? (
 						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-on-surface">
 							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-							Belum ada kode QR peserta di depan. Tanpa itu badge tidak bisa dipindai saat kehadiran, booth, maupun undian.
+							There is no participant QR code on the front. Without it the badge can&apos;t be scanned at check-in, booths or the lucky draw.
 						</p>
 					) : null}
 				</div>
 			) : null}
 
 			<div className="flex shrink-0 flex-wrap items-center gap-x-1.5 border-t border-outline-variant px-4 py-2.5 text-body-medium text-on-surface-variant">
-				<span>Contoh: {data.name}</span>
+				<span>Sample: {data.name}</span>
 				{contoh.length > 1 ? (
 					<>
 						<span aria-hidden>·</span>
 						<button type="button" className="text-primary hover:underline" onClick={() => setIndeksContoh((i) => (i + 1) % contoh.length)}>
-							Ganti peserta contoh
+							Next sample participant
 						</button>
 					</>
 				) : null}
 				<span aria-hidden>·</span>
-				<span>geser isi dengan tetikus, jari, atau tombol panah</span>
+				<span>move items with the mouse, a finger or the arrow keys</span>
 			</div>
 		</Pane>
 	);
@@ -594,11 +594,11 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 				<div className="flex items-start gap-3">
 					<div className="min-w-0 flex-1">
 						<h3 className="text-body-medium font-semibold text-on-surface">
-							{namaElemen(aktif)} <span className="font-normal text-on-surface-variant">· sisi {sisiAktif === "front" ? "Depan" : "Belakang"}</span>
+							{namaElemen(aktif)} <span className="font-normal text-on-surface-variant">· {sisiAktif === "front" ? "front" : "back"}</span>
 						</h3>
-						<p className="text-body-medium tabular-nums text-on-surface-variant">{aktif.x} × {aktif.y} mm dari kiri atas</p>
+						<p className="text-body-medium tabular-nums text-on-surface-variant">{aktif.x} × {aktif.y} mm from the top left</p>
 					</div>
-					<IconButton size="sm" label="Hapus dari badge" onClick={() => hapusElemen(terpilih)}>
+					<IconButton size="sm" label="Remove from badge" onClick={() => hapusElemen(terpilih)}>
 						<Trash size={16} className="text-error" />
 					</IconButton>
 				</div>
@@ -618,11 +618,11 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 			<EmptyState
 				plain
 				className="px-4 py-10"
-				title="Belum ada isi yang dipilih"
-				description="Klik salah satu isi di badge untuk mengatur ukuran, warna, dan isinya. Tambah isi baru dari tombol di atas badge."
+				title="No item selected"
+				description="Click an item on the badge to set its size, colour and content. Add new items with the button above the badge."
 			/>
-			<Kelompok title="Susunan">
-				<p className="text-body-medium text-on-surface-variant">Mengganti isi depan dan belakang dengan susunan bawaan, disesuaikan ke ukuran badge sekarang. Baru berlaku setelah disimpan.</p>
+			<Kelompok title="Layout">
+				<p className="text-body-medium text-on-surface-variant">Replaces the front and back with the default layout, fitted to the current badge size. Takes effect once saved.</p>
 				<div>
 					<Button
 						variant="outlined"
@@ -638,7 +638,7 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 							setTerpilih(null);
 						}}
 					>
-						Kembalikan susunan bawaan
+						Restore default layout
 					</Button>
 				</div>
 			</Kelompok>
@@ -649,8 +649,8 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 	const gsmPrinter = profil?.gsm_maks ?? null;
 	const isiKertas = (
 		<div className="flex flex-col gap-5">
-			<Kelompok title="Format badge" first>
-				<div className="flex flex-col gap-2" role="radiogroup" aria-label="Format badge">
+			<Kelompok title="Badge format" first>
+				<div className="flex flex-col gap-2" role="radiogroup" aria-label="Badge format">
 					{FORMAT.map((f) => {
 						const dipakai = format.kind === f.kind;
 						const tebal = f.kind === "a5_lipat2" || f.kind === "a4_isi2";
@@ -672,13 +672,13 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 									<span className="block text-on-surface-variant">
 										{tebal
 											? gsmPrinter != null
-												? `Kertas ${GSM_TEBAL} g ke atas. ${profil?.nama || "Printer ini"} sanggup sampai ${gsmPrinter} g.`
-												: `Kertas tebal ${GSM_TEBAL} g ke atas, sesuai batas printermu.`
+												? `Paper ${GSM_TEBAL} g or heavier. ${profil?.nama || "This printer"} handles up to ${gsmPrinter} g.`
+												: `Thick paper, ${GSM_TEBAL} g or heavier, within your printer's limit.`
 											: f.keterangan}
 									</span>
 									{tebal && (gsmPrinter == null || gsmPrinter < GSM_TEBAL) ? (
 										<span className="mt-1 inline-block rounded-xs bg-warning-soft px-1.5 text-label-medium font-medium text-on-warning-soft">
-											{gsmPrinter == null ? "Perlu printer kertas tebal" : `Printer ini maks ${gsmPrinter} g`}
+											{gsmPrinter == null ? "Needs a thick-paper printer" : `This printer: max ${gsmPrinter} g`}
 										</span>
 									) : null}
 								</span>
@@ -693,10 +693,10 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 				) : null}
 
 				<p className="text-body-medium text-on-surface-variant">
-					Dicetak di kertas <span className="font-medium text-on-surface">{lembar.namaKertas}</span>
-					{lembar.badgePerLembar > 1 ? `, ${lembar.badgePerLembar} badge per lembar` : ""}. Badge jadi{" "}
+					Prints on <span className="font-medium text-on-surface">{lembar.namaKertas}</span> paper
+					{lembar.badgePerLembar > 1 ? `, ${lembar.badgePerLembar} badges per sheet` : ""}. Finished badge{" "}
 					<span className="tabular-nums">{ukuran.w} × {ukuran.h} mm</span>.
-					{lembar.potongan.length > 0 ? " Potong di garis putus-putus." : ""}
+					{lembar.potongan.length > 0 ? " Cut along the dashed lines." : ""}
 				</p>
 				{lembar.tidakMuat ? (
 					<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
@@ -706,26 +706,26 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 				{kertasCocok(lembar, "A4") ? (
 					<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 						<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-						Pastikan kertas di printer A4, bukan F4 atau Folio. Kertas yang lebih panjang menggeser posisi lipatan.
+						Make sure the printer holds A4, not F4 or Folio. Longer paper shifts the fold lines.
 					</p>
 				) : null}
 			</Kelompok>
 
-			<Kelompok title="Latar">
+			<Kelompok title="Background">
 				<SegmentedButton<BadgeLayout["background"]["mode"]>
-					label="Latar badge"
+					label="Badge background"
 					value={layout.background.mode}
 					onChange={(mode) => ubahLayout((c) => ({ ...c, background: { ...c.background, mode } }))}
-					options={[{ value: "polos", label: "Polos" }, { value: "kv", label: "KV acara" }, { value: "unggah", label: "Unggah desain" }]}
+					options={[{ value: "polos", label: "Plain" }, { value: "kv", label: "Event KV" }, { value: "unggah", label: "Upload design" }]}
 				/>
 				{layout.background.mode === "kv" && !muatan.event.kv_url ? (
-					<p className="text-body-medium text-on-surface-variant">Halaman acara belum punya KV. Pasang di Halaman acara › Hero › Background image (KV); untuk acara Gathering di Theme › Page › Link preview image. Atau pilih Unggah desain.</p>
+					<p className="text-body-medium text-on-surface-variant">The event page has no KV yet. Add it in Event page › Hero › Background image (KV); for Gathering events in Theme › Page › Link preview image. Or choose Upload design.</p>
 				) : null}
 				{layout.background.mode === "kv" && muatan.event.kv_url ? (
-					<p className="text-body-medium text-on-surface-variant">KV halaman acara dipakai di depan, dipotong mengikuti badge dari tengah atas. Belakang memakai warna di bawah.</p>
+					<p className="text-body-medium text-on-surface-variant">The event page KV is used on the front, cropped to the badge from the top centre. The back uses the colour below.</p>
 				) : null}
 				<WarnaField
-					label={layout.background.mode === "polos" ? "Warna latar" : "Warna di belakang gambar"}
+					label={layout.background.mode === "polos" ? "Background colour" : "Colour behind the image"}
 					value={layout.background.color}
 					onChange={(color) => ubahLayout((c) => ({ ...c, background: { ...c.background, color } }))}
 				/>
@@ -733,7 +733,7 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 					<>
 						<div className="grid grid-cols-2 gap-3">
 							<ImageUploadField
-								label="Depan"
+								label="Front"
 								kind="badge"
 								value={layout.background.front_url}
 								previewClassName="h-24 w-full"
@@ -741,7 +741,7 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 							/>
 							{adaBelakang ? (
 								<ImageUploadField
-									label="Belakang"
+									label="Back"
 									kind="badge"
 									value={layout.background.back_url}
 									previewClassName="h-24 w-full"
@@ -750,15 +750,15 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 							) : null}
 						</div>
 						<p className="text-body-medium text-on-surface-variant">
-							Per sisi {ukuran.w + 6} × {ukuran.h + 6} mm termasuk lebihan 3 mm, idealnya 300 dpi ({Math.round(((ukuran.w + 6) / 25.4) * 300)} × {Math.round(((ukuran.h + 6) / 25.4) * 300)} px).
-							Simpan sebagai JPG di bawah 5 MB; PNG 300 dpi sering melewati batas itu. Nama, QR, dan rundown ditambahkan di sini, bukan di desain.
+							Per side {ukuran.w + 6} × {ukuran.h + 6} mm including 3 mm bleed, ideally 300 dpi ({Math.round(((ukuran.w + 6) / 25.4) * 300)} × {Math.round(((ukuran.h + 6) / 25.4) * 300)} px).
+							Save as JPG under 5 MB; a 300 dpi PNG often goes over that limit. Name, QR and agenda are added here, not in the design.
 						</p>
 						<PeringatanDpi url={layout.background.front_url} wMm={ukuran.w} hMm={ukuran.h} />
 						{adaBelakang ? <PeringatanDpi url={layout.background.back_url} wMm={ukuran.w} hMm={ukuran.h} /> : null}
 						{adaBelakang ? (
 							<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 								<Info size={16} className="mt-0.5 shrink-0 text-warning" />
-								Samakan warna di tepi lipatan pada depan dan belakang. Lipatan tangan meleset 1–2 mm, dan warna sisi lain akan terlihat di tepi.
+								Match the colours at the fold edge on the front and back. Hand folds drift 1–2 mm, and the other side&apos;s colour shows at the edge.
 							</p>
 						) : null}
 					</>
@@ -770,12 +770,12 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 	// ---- Cetak -----------------------------------------------------------------
 	const isiCetak = (
 		<div className="flex flex-col gap-5">
-			<Kelompok title="Yang dicetak di meja registrasi" first>
-				<div role="radiogroup" aria-label="Yang dicetak di meja registrasi" className="flex flex-col gap-1">
+			<Kelompok title="Printed at the check-in desk" first>
+				<div role="radiogroup" aria-label="Printed at the check-in desk" className="flex flex-col gap-1">
 					{([
-						{ value: "badge", label: "Badge kertas", sub: NAMA_FORMAT[format.kind] },
-						{ value: "label", label: "Label stiker", sub: labelUkuran ? `NIIMBOT · ${labelUkuran}` : "NIIMBOT" },
-						{ value: "tidak", label: "Tidak ada", sub: null },
+						{ value: "badge", label: "Paper badge", sub: NAMA_FORMAT[format.kind] },
+						{ value: "label", label: "Sticker label", sub: labelUkuran ? `NIIMBOT · ${labelUkuran}` : "NIIMBOT" },
+						{ value: "tidak", label: "Nothing", sub: null },
 					] as const).map((o) => (
 						<label key={o.value} className="flex min-h-9 cursor-pointer items-center gap-3 text-body-medium text-on-surface">
 							<input
@@ -793,26 +793,26 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 					))}
 				</div>
 				<p className="text-body-medium text-on-surface-variant">
-					Menggantikan sakelar &ldquo;Pakai printer label&rdquo; dan langsung tersimpan.
-					{meja === "badge" ? " Tombol cetak badge di layar scan menyusul; sementara itu cetak walk-in lewat Cetak contoh dengan peserta yang dipilih." : ""}
-					{!muatan.migrasi ? " Badge kertas bisa dipilih setelah migrasi database dijalankan." : ""}
+					Replaces the &ldquo;Use label printer&rdquo; switch and saves straight away.
+					{meja === "badge" ? " A print badge button on the scan screen is coming; until then, print walk-ins with Print sample for the chosen participant." : ""}
+					{!muatan.migrasi ? " Paper badge can be chosen once the database migration has run." : ""}
 				</p>
 			</Kelompok>
 
-			<Kelompok title="Cetak">
+			<Kelompok title="Print">
 				<div className="flex flex-wrap gap-2">
-					<Button variant="outlined" size="sm" icon={<Printer size={16} />} onClick={() => bukaCetak("contoh")}>Cetak contoh</Button>
-					<Button variant="outlined" size="sm" icon={<DownloadSimple size={16} />} onClick={() => bukaCetak("semua")}>Semua peserta</Button>
+					<Button variant="outlined" size="sm" icon={<Printer size={16} />} onClick={() => bukaCetak("contoh")}>Print sample</Button>
+					<Button variant="outlined" size="sm" icon={<DownloadSimple size={16} />} onClick={() => bukaCetak("semua")}>All participants</Button>
 				</div>
 				<p className="text-body-medium text-on-surface-variant">
-					Antrean utama dicetak sebelum hari-H lewat Semua peserta, urut nama, lalu disusun per abjad di meja registrasi.
-					Untuk PDF, pilih Simpan sebagai PDF di dialog cetak.
+					Print the main batch before event day with All participants, sorted by name, then lay them out alphabetically at the check-in desk.
+					For a PDF, choose Save as PDF in the print dialog.
 				</p>
 			</Kelompok>
 
-			<Kelompok title="Printer" note="Disimpan di laptop ini untuk semua acara. Laptop atau ponsel lain menyimpan printernya sendiri.">
+			<Kelompok title="Printer" note="Saved on this laptop for every event. Other laptops or phones keep their own printers.">
 				{printer.length === 0 ? (
-					<p className="text-body-medium text-on-surface-variant">Belum ada printer. Tambahkan supaya posisi cetaknya bisa dikoreksi setelah kalibrasi.</p>
+					<p className="text-body-medium text-on-surface-variant">No printers yet. Add one so its print position can be corrected after calibration.</p>
 				) : (
 					<div className="flex flex-col gap-2">
 						{printer.map((p) => (
@@ -829,53 +829,53 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 									<Printer size={16} className="shrink-0 text-on-surface-variant" />
 									<span className="min-w-0 flex-1 truncate font-semibold text-on-surface">{p.nama || "Printer"}</span>
 									<span className={cx("rounded-xs px-1.5 text-label-medium font-medium", p.dikalibrasi ? "bg-success-soft text-on-success-soft" : "bg-surface-container-high text-on-surface-variant")}>
-										{p.dikalibrasi ? "Dikalibrasi" : "Belum dikalibrasi"}
+										{p.dikalibrasi ? "Calibrated" : "Not calibrated"}
 									</span>
 								</span>
 								<span className="text-on-surface-variant">
-									{[p.model, p.jenis === "laser" ? "laser" : "inkjet", p.kertas, `maks ${p.gsm_maks} g`].filter(Boolean).join(" · ")}
+									{[p.model, p.jenis === "laser" ? "laser" : "inkjet", p.kertas, `max ${p.gsm_maks} g`].filter(Boolean).join(" · ")}
 								</span>
 							</button>
 						))}
 					</div>
 				)}
 				<div>
-					<Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setDialogPrinter("baru")}>Tambah printer</Button>
+					<Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => setDialogPrinter("baru")}>Add printer</Button>
 				</div>
 				<p className="text-body-medium text-on-surface-variant">
-					Printernya sendiri dipilih di dialog cetak laptop, sebab halaman web tidak bisa melihat printer yang tersambung.
-					Di laptop meja, Chrome bisa dibuka dengan mode cetak kios supaya badge langsung keluar ke printer bawaan tanpa dialog.
+					The printer itself is chosen in the laptop&apos;s print dialog, because a web page can&apos;t see connected printers.
+					On a desk laptop, Chrome can run in kiosk printing mode so badges go straight to the default printer without a dialog.
 				</p>
 			</Kelompok>
 
-			<Kelompok title="Cetak instan di meja scan">
+			<Kelompok title="Instant printing at the scan desk">
 				<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 					<Info size={16} className="mt-0.5 shrink-0 text-warning" />
-					Satu badge butuh sekitar 45–60 detik termasuk melipat dan memasukkan ke holder. Pakai untuk walk-in dan cetak ulang.
-					Tombol cetak badge di layar scan menyusul setelah pembaruan layar scan selesai.
+					One badge takes about 45–60 seconds including folding and putting it in a holder. Use it for walk-ins and reprints.
+					A print badge button on the scan screen comes after the scan screen update.
 				</p>
 				<p className="text-body-medium text-on-surface-variant">
-					Mode kios: buat pintasan Chrome dengan tambahan <code className="rounded-xs bg-surface-container-high px-1">--kiosk-printing</code>, lalu pilih printer badge sebagai printer bawaan laptop.
-					Tidak berlaku di ponsel; di sana dialog cetak tetap muncul.
+					Kiosk mode: make a Chrome shortcut with <code className="rounded-xs bg-surface-container-high px-1">--kiosk-printing</code> added, then set the badge printer as the laptop&apos;s default printer.
+					Not available on phones; the print dialog still shows there.
 				</p>
 			</Kelompok>
 		</div>
 	);
 
 	const panel = (
-		<Pane as="aside" aria-label="Setelan badge">
+		<Pane as="aside" aria-label="Badge settings">
 			<div className="shrink-0 border-b border-outline-variant px-4 py-3">
 				<SegmentedButton<Bagian>
-					label="Bagian setelan"
+					label="Settings section"
 					value={bagian}
 					onChange={setBagian}
 					className="w-full"
-					options={[{ value: "isi", label: "Isi terpilih" }, { value: "kertas", label: "Kertas" }, { value: "cetak", label: "Cetak" }]}
+					options={[{ value: "isi", label: "Selected item" }, { value: "kertas", label: "Paper" }, { value: "cetak", label: "Print" }]}
 				/>
 			</div>
 			<PaneBody className="px-4 py-4">{bagian === "isi" ? isiTerpilih : bagian === "kertas" ? isiKertas : isiCetak}</PaneBody>
-			<PaneFooter note={!muatan.migrasi ? "Menunggu migrasi database" : kotor ? "Ada perubahan belum disimpan" : "Semua perubahan tersimpan"}>
-				<Button simpan size="sm" loading={busy} disabled={!kotor || !muatan.migrasi} onClick={() => void simpan()}>Simpan</Button>
+			<PaneFooter note={!muatan.migrasi ? "Waiting for a database migration" : kotor ? "Unsaved changes" : "All changes saved"}>
+				<Button simpan size="sm" loading={busy} disabled={!kotor || !muatan.migrasi} onClick={() => void simpan()}>Save</Button>
 			</PaneFooter>
 		</Pane>
 	);
@@ -887,20 +887,20 @@ export function BadgeEditor({ pilihJenis, hidden, meja, ubahMeja, labelUkuran }:
 					<>
 						<span>{format.kind === "khusus" || format.kind === "tunggal" ? `${NAMA_FORMAT[format.kind]} ${ukuran.w} × ${ukuran.h} mm` : NAMA_FORMAT[format.kind]}</span>
 						<MetaSeparator />
-						<span>kertas {lembar.namaKertas}</span>
+						<span>{lembar.namaKertas} paper</span>
 					</>
 				}
 				actions={
 					<>
 						{pilihJenis}
-						<Button variant="outlined" size="sm" icon={<Printer size={16} />} onClick={() => bukaCetak("contoh")}>Cetak contoh</Button>
-						<Button variant="outlined" size="sm" icon={<DownloadSimple size={16} />} onClick={() => bukaCetak("semua")}>Unduh PDF</Button>
+						<Button variant="outlined" size="sm" icon={<Printer size={16} />} onClick={() => bukaCetak("contoh")}>Print sample</Button>
+						<Button variant="outlined" size="sm" icon={<DownloadSimple size={16} />} onClick={() => bukaCetak("semua")}>Download PDF</Button>
 					</>
 				}
 			/>
 			{!muatan.migrasi ? (
 				<Banner tone="warning" icon={<Warning size={18} />}>
-					Badge kertas belum bisa disimpan: migrasi database 202610040002 belum dijalankan. Penyunting dan Cetak contoh tetap bisa dicoba.
+					Paper badges can&apos;t be saved yet: database migration 202610040002 has not been run. The editor and Print sample still work.
 				</Banner>
 			) : null}
 			{error ? <Banner tone="error" icon={<Warning size={18} />}>{error}</Banner> : null}
@@ -993,28 +993,28 @@ function UkuranKhusus({ format, ubah }: { format: BadgeFormat; ubah: (patch: Par
 	return (
 		<div className="flex flex-col gap-3 rounded-md border border-outline-variant p-3">
 			<div className="grid grid-cols-2 gap-3">
-				<TextField label="Lebar badge (mm)" type="number" min={UKURAN_KHUSUS.min} max={UKURAN_KHUSUS.max} value={w} onChange={(e) => setW(e.target.value)} onBlur={terapkan} onKeyDown={(e) => { if (e.key === "Enter") terapkan(); }} />
-				<TextField label="Tinggi badge (mm)" type="number" min={UKURAN_KHUSUS.min} max={UKURAN_KHUSUS.max} value={h} onChange={(e) => setH(e.target.value)} onBlur={terapkan} onKeyDown={(e) => { if (e.key === "Enter") terapkan(); }} />
+				<TextField label="Badge width (mm)" type="number" min={UKURAN_KHUSUS.min} max={UKURAN_KHUSUS.max} value={w} onChange={(e) => setW(e.target.value)} onBlur={terapkan} onKeyDown={(e) => { if (e.key === "Enter") terapkan(); }} />
+				<TextField label="Badge height (mm)" type="number" min={UKURAN_KHUSUS.min} max={UKURAN_KHUSUS.max} value={h} onChange={(e) => setH(e.target.value)} onBlur={terapkan} onKeyDown={(e) => { if (e.key === "Enter") terapkan(); }} />
 			</div>
 			<p className="text-body-medium text-on-surface-variant">
-				Ukuran badge jadi, {UKURAN_KHUSUS.min} sampai {UKURAN_KHUSUS.max} mm. Pastikan ada holder ukuran ini sebelum mencetak ratusan.
+				Finished badge size, {UKURAN_KHUSUS.min} to {UKURAN_KHUSUS.max} mm. Make sure you have holders this size before printing hundreds.
 			</p>
 			{format.kind === "khusus" ? (
 				<div>
-					<p className="text-body-medium font-medium text-on-surface">Lipatan</p>
+					<p className="text-body-medium font-medium text-on-surface">Fold</p>
 					<SegmentedButton<BadgeFold>
 						className="mt-2 w-full"
-						label="Lipatan"
+						label="Fold"
 						value={format.fold}
 						onChange={(fold) => ubah({ fold })}
-						options={[{ value: "side", label: "Samping" }, { value: "top", label: "Atas" }, { value: "none", label: "Tanpa" }]}
+						options={[{ value: "side", label: "Side" }, { value: "top", label: "Top" }, { value: "none", label: "None" }]}
 					/>
 					<p className="mt-2 text-body-medium text-on-surface-variant">
 						{format.fold === "side"
-							? "Disarankan. Depan dan belakang berdampingan, belakang tegak."
+							? "Recommended. Front and back side by side, back upright."
 							: format.fold === "top"
-								? "Belakang dicetak terbalik di bawah depan, supaya tegak setelah dilipat."
-								: "Satu sisi saja, tanpa rundown di belakang."}
+								? "The back prints upside down below the front, so it is upright after folding."
+								: "One side only, no agenda on the back."}
 					</p>
 				</div>
 			) : null}
@@ -1061,22 +1061,22 @@ function SetelanElemen({
 			return (
 				<>
 					{element.field === "static" ? (
-						<TextField label="Tulisannya" maxLength={160} value={element.text ?? ""} onChange={(e) => ubah({ text: e.target.value })} />
+						<TextField label="Text" maxLength={160} value={element.text ?? ""} onChange={(e) => ubah({ text: e.target.value })} />
 					) : null}
-					<AngkaMm label="Ukuran huruf (pt)" value={element.size} min={5} max={96} hint="Teks yang kepanjangan mengecil sendiri agar muat, tidak dipotong." onChange={(size) => ubah({ size })} />
+					<AngkaMm label="Font size (pt)" value={element.size} min={5} max={96} hint="Text that is too long shrinks to fit instead of being cut." onChange={(size) => ubah({ size })} />
 					<div>
-						<p className="text-body-medium font-medium text-on-surface">Rata</p>
+						<p className="text-body-medium font-medium text-on-surface">Alignment</p>
 						<SegmentedButton
 							className="mt-2 w-full"
-							label="Perataan teks"
+							label="Text alignment"
 							value={element.align}
 							onChange={(align) => ubah({ align })}
-							options={[{ value: "left" as const, label: "Kiri" }, { value: "center" as const, label: "Tengah" }, { value: "right" as const, label: "Kanan" }]}
+							options={[{ value: "left" as const, label: "Left" }, { value: "center" as const, label: "Centre" }, { value: "right" as const, label: "Right" }]}
 						/>
 					</div>
-					<WarnaField label="Warna" value={element.color} onChange={(color) => ubah({ color })} />
-					<Switch checked={element.weight === "bold"} onChange={(v) => ubah({ weight: v ? "bold" : "normal" })} label="Tebal" />
-					<Switch checked={Boolean(element.uppercase)} onChange={(v) => ubah({ uppercase: v })} label="Huruf besar semua" />
+					<WarnaField label="Colour" value={element.color} onChange={(color) => ubah({ color })} />
+					<Switch checked={element.weight === "bold"} onChange={(v) => ubah({ weight: v ? "bold" : "normal" })} label="Bold" />
+					<Switch checked={Boolean(element.uppercase)} onChange={(v) => ubah({ uppercase: v })} label="All capitals" />
 				</>
 			);
 		case "qr": {
@@ -1084,31 +1084,31 @@ function SetelanElemen({
 			const terlaluKecil = modulMm < MODUL_MIN_MM;
 			return (
 				<>
-					<SelectField label="Isi kode" value={element.field} onChange={(e) => ubah({ field: e.target.value === "rundown_url" ? "rundown_url" : "qr_code" })}>
-						<option value="qr_code">Kode peserta, untuk kehadiran dan booth</option>
-						<option value="rundown_url">Tautan rundown terbaru</option>
+					<SelectField label="Code content" value={element.field} onChange={(e) => ubah({ field: e.target.value === "rundown_url" ? "rundown_url" : "qr_code" })}>
+						<option value="qr_code">Participant code, for check-in and booths</option>
+						<option value="rundown_url">Link to the latest agenda</option>
 					</SelectField>
 					<AngkaMm
-						label="Ukuran pelat (mm)"
+						label="Plate size (mm)"
 						value={element.size}
 						min={14}
 						max={Math.min(sisi.w, sisi.h)}
 						step={1}
-						hint={`${modulMm.toFixed(2).replace(".", ",")} mm per titik. Minimal 0,5 mm supaya terbaca kamera ponsel.`}
+						hint={`${modulMm.toFixed(2).replace(".", ",")} mm per dot. At least 0.5 mm so phone cameras can read it.`}
 						onChange={(size) => ubah({ size })}
 					/>
 					{terlaluKecil ? (
 						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
-							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />Terlalu kecil: titiknya di bawah 0,5 mm. Perbesar pelatnya.
+							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />Too small: the dots are under 0.5 mm. Make the plate bigger.
 						</p>
 					) : null}
 					<p className="flex items-start gap-2 rounded-md bg-success-soft p-3 text-body-medium text-on-surface">
 						<Check size={16} className="mt-0.5 shrink-0 text-success" />
-						<span><span className="font-semibold">Pelat putih dan zona tenang 4 titik dijaga otomatis.</span> Kode selalu hitam di atas putih, apa pun latarnya.</span>
+						<span><span className="font-semibold">The white plate and 4-dot quiet zone are kept automatically.</span> The code is always black on white, whatever the background.</span>
 					</p>
 					<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 						<Info size={16} className="mt-0.5 shrink-0 text-warning" />
-						Pakai holder doff atau anti-silau. Holder plastik mengilap memantulkan lampu dan memperlambat pemindaian.
+						Use matte or anti-glare holders. Shiny plastic holders reflect the lights and slow scanning down.
 					</p>
 				</>
 			);
@@ -1116,53 +1116,53 @@ function SetelanElemen({
 		case "rect":
 			return (
 				<>
-					<WarnaField label="Warna" value={element.color} onChange={(color) => ubah({ color })} />
+					<WarnaField label="Colour" value={element.color} onChange={(color) => ubah({ color })} />
 					<div className="grid grid-cols-2 gap-3">
-						<AngkaMm label="Lebar (mm)" value={element.w} min={1} max={sisi.w} onChange={(w) => ubah({ w })} />
-						<AngkaMm label="Tinggi (mm)" value={element.h} min={1} max={sisi.h} onChange={(h) => ubah({ h })} />
+						<AngkaMm label="Width (mm)" value={element.w} min={1} max={sisi.w} onChange={(w) => ubah({ w })} />
+						<AngkaMm label="Height (mm)" value={element.h} min={1} max={sisi.h} onChange={(h) => ubah({ h })} />
 					</div>
-					<AngkaMm label="Sudut membulat (mm)" value={element.radius} min={0} max={20} onChange={(radius) => ubah({ radius })} />
-					<p className="text-body-medium text-on-surface-variant">Pita yang menempel tepi badge perlu melewati tepi kertas 3 mm, jadi pakai lebar penuh dan biarkan printer memotongnya.</p>
+					<AngkaMm label="Corner radius (mm)" value={element.radius} min={0} max={20} onChange={(radius) => ubah({ radius })} />
+					<p className="text-body-medium text-on-surface-variant">A band touching the badge edge needs to run 3 mm past the paper edge, so use the full width and let the printer trim it.</p>
 				</>
 			);
 		case "image":
 			return (
 				<>
-					<ImageUploadField label="Gambar" kind="badge" fit="contain" value={element.url} previewClassName="h-24 w-full" hint="PNG transparan atau JPG, di bawah 5 MB." onChange={(url) => ubah({ url })} />
+					<ImageUploadField label="Image" kind="badge" fit="contain" value={element.url} previewClassName="h-24 w-full" hint="Transparent PNG or JPG, under 5 MB." onChange={(url) => ubah({ url })} />
 					<PeringatanDpi url={element.url} wMm={element.w} hMm={element.h} />
 					<div className="grid grid-cols-2 gap-3">
-						<AngkaMm label="Lebar (mm)" value={element.w} min={4} max={sisi.w} onChange={(w) => ubah({ w })} />
-						<AngkaMm label="Tinggi (mm)" value={element.h} min={4} max={sisi.h} onChange={(h) => ubah({ h })} />
+						<AngkaMm label="Width (mm)" value={element.w} min={4} max={sisi.w} onChange={(w) => ubah({ w })} />
+						<AngkaMm label="Height (mm)" value={element.h} min={4} max={sisi.h} onChange={(h) => ubah({ h })} />
 					</div>
 				</>
 			);
 		case "rundown":
 			return (
 				<>
-					<SelectField label="Hari yang dicetak" value={element.day} onChange={(e) => ubah({ day: e.target.value })}>
-						<option value="auto">Hari pertama</option>
-						<option value="hari_ini">Hari saat badge dicetak</option>
-						<option value="semua">Semua hari, ringkas</option>
+					<SelectField label="Day printed" value={element.day} onChange={(e) => ubah({ day: e.target.value })}>
+						<option value="auto">First day</option>
+						<option value="hari_ini">Day the badge is printed</option>
+						<option value="semua">All days, compact</option>
 						{hari.map((h) => <option key={h.id} value={h.id}>{h.nama}</option>)}
 					</SelectField>
 					{hari.length === 0 ? (
-						<p className="text-body-medium text-on-surface-variant">Rundown acara belum diterbitkan. Pratinjau memakai contoh; di badge yang dicetak kotak ini kosong sampai rundown diterbitkan.</p>
+						<p className="text-body-medium text-on-surface-variant">The agenda is not published yet. The preview uses a sample; on printed badges this box stays empty until the agenda is published.</p>
 					) : null}
-					<Switch checked={element.merge_parallel} onChange={(v) => ubah({ merge_parallel: v })} label="Gabung sesi berjam sama" description="Tiga sesi paralel jadi satu baris." />
-					<AngkaMm label="Ukuran huruf awal (pt)" value={element.size} min={8} max={14} hint="Turun sendiri sampai 8 pt bila tidak muat." onChange={(size) => ubah({ size })} />
+					<Switch checked={element.merge_parallel} onChange={(v) => ubah({ merge_parallel: v })} label="Merge sessions at the same time" description="Three parallel sessions become one row." />
+					<AngkaMm label="Starting font size (pt)" value={element.size} min={8} max={14} hint="Goes down to 8 pt by itself if it doesn't fit." onChange={(size) => ubah({ size })} />
 					<div className="grid grid-cols-2 gap-3">
-						<AngkaMm label="Lebar (mm)" value={element.w} min={30} max={sisi.w} onChange={(w) => ubah({ w })} />
-						<AngkaMm label="Tinggi (mm)" value={element.h} min={20} max={sisi.h} onChange={(h) => ubah({ h })} />
+						<AngkaMm label="Width (mm)" value={element.w} min={30} max={sisi.w} onChange={(w) => ubah({ w })} />
+						<AngkaMm label="Height (mm)" value={element.h} min={20} max={sisi.h} onChange={(h) => ubah({ h })} />
 					</div>
-					<WarnaField label="Warna teks" value={element.color} onChange={(color) => ubah({ color })} />
-					<WarnaField label="Warna jam" value={element.accent} onChange={(accent) => ubah({ accent })} />
+					<WarnaField label="Text colour" value={element.color} onChange={(color) => ubah({ color })} />
+					<WarnaField label="Time colour" value={element.accent} onChange={(accent) => ubah({ accent })} />
 					{statusRundown && !statusRundown.muat ? (
 						<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 							<Warning size={16} className="mt-0.5 shrink-0 text-warning" />
-							Rundown tidak muat walau sudah 8 pt; baris terakhir terpotong. Perbesar kotaknya, nyalakan Gabung sesi, atau pilih satu hari saja.
+							The agenda doesn&apos;t fit even at 8 pt; the last rows are cut. Make the box bigger, turn on Merge sessions, or pick one day only.
 						</p>
 					) : statusRundown && statusRundown.ukuran < element.size ? (
-						<p className="text-body-medium text-on-surface-variant">Dikecilkan ke {String(statusRundown.ukuran).replace(".", ",")} pt supaya muat.</p>
+						<p className="text-body-medium text-on-surface-variant">Shrunk to {statusRundown.ukuran} pt to fit.</p>
 					) : null}
 				</>
 			);

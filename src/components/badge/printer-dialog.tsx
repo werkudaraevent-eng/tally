@@ -47,32 +47,32 @@ export function PrinterDialog({
 			open
 			onClose={onClose}
 			size="xl"
-			title={awal ? "Ubah printer" : "Tambah printer"}
-			description="Badge dicetak lewat dialog cetak di laptop atau ponsel, jadi printer kantor apa pun bisa dipakai. Printernya dipilih di dialog itu; di sini hanya disimpan kertasnya dan koreksi posisinya."
+			title={awal ? "Edit printer" : "Add printer"}
+			description="Badges print through the print dialog on a laptop or phone, so any office printer works. The printer is chosen in that dialog; here you only save its paper and position correction."
 			actions={
 				<>
 					{awal ? (
-						<Button variant="text" size="sm" icon={<Trash size={16} />} className="mr-auto text-error" onClick={() => onHapus(awal.id)}>Hapus</Button>
+						<Button variant="text" size="sm" icon={<Trash size={16} />} className="mr-auto text-error" onClick={() => onHapus(awal.id)}>Delete</Button>
 					) : null}
-					<Button variant="outlined" size="sm" onClick={onClose}>Batal</Button>
-					<Button size="sm" onClick={simpan}>Simpan printer</Button>
+					<Button variant="outlined" size="sm" onClick={onClose}>Cancel</Button>
+					<Button size="sm" onClick={simpan}>Save printer</Button>
 				</>
 			}
 		>
 			<div className="flex flex-col gap-4">
 				<div className="grid gap-3 sm:grid-cols-2">
-					<TextField label="Nama" placeholder="Meja registrasi 1" value={p.nama} maxLength={60} onChange={(e) => ubah({ nama: e.target.value })} />
-					<TextField label="Merek dan model" placeholder="Brother HL-L2370" value={p.model} maxLength={60} onChange={(e) => ubah({ model: e.target.value })} />
+					<TextField label="Name" placeholder="Check-in desk 1" value={p.nama} maxLength={60} onChange={(e) => ubah({ nama: e.target.value })} />
+					<TextField label="Make and model" placeholder="Brother HL-L2370" value={p.model} maxLength={60} onChange={(e) => ubah({ model: e.target.value })} />
 				</div>
 				<div className="grid gap-3 sm:grid-cols-3">
 					<SegmentedField
-						label="Jenis"
+						label="Type"
 						value={p.jenis === "inkjet" ? "inkjet" : "laser"}
 						onChange={(jenis) => ubah({ jenis })}
 						options={[{ value: "laser", label: "Laser" }, { value: "inkjet", label: "Inkjet" }]}
 					/>
 					<TextField
-						label="Gramatur maksimum (g)"
+						label="Max paper weight (g)"
 						type="number"
 						min={60}
 						max={350}
@@ -80,48 +80,48 @@ export function PrinterDialog({
 						onChange={(e) => ubah({ gsm_maks: Math.min(350, Math.max(60, Number(e.target.value) || 60)) })}
 					/>
 					<SegmentedField
-						label="Kertas yang dimasukkan"
+						label="Paper loaded"
 						value={p.kertas === "A5" ? "A5" : "A4"}
 						onChange={(kertas) => ubah({ kertas })}
 						options={[{ value: "A4", label: "A4" }, { value: "A5", label: "A5" }]}
 					/>
 				</div>
-				<p className="-mt-2 text-body-medium text-on-surface-variant">Cek gramatur maksimum di manual printer. Ukuran kertas harus sama dengan format badge.</p>
+				<p className="-mt-2 text-body-medium text-on-surface-variant">Check the maximum paper weight in the printer manual. The paper size must match the badge format.</p>
 
 				<p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
 					<Info size={16} className="mt-0.5 shrink-0 text-warning" />
 					{p.jenis === "laser" ? (
 						<span>
-							<span className="font-semibold">Printer laser:</span> kertas maksimal sesuai spesifikasi printer, di sini {p.gsm_maks} g. Pakai art paper atau ivory doff lewat
-							baki manual, dan pilih jenis kertas Tebal/Heavy di pengaturan printer. Kertas foto inkjet jangan dimasukkan ke laser.
+							<span className="font-semibold">Laser printer:</span> paper up to the printer&apos;s spec, here {p.gsm_maks} g. Use art paper or matte ivory through
+							the manual tray, and choose the Heavy paper type in the printer settings. Never put inkjet photo paper in a laser printer.
 						</span>
 					) : (
 						<span>
-							<span className="font-semibold">Printer inkjet:</span> kertas foto doff atau matte paper, bukan glossy, supaya QR tidak memantulkan lampu. Biarkan tinta kering
-							satu menit sebelum dilipat, atau lipatannya luntur.
+							<span className="font-semibold">Inkjet printer:</span> matte photo paper, not glossy, so the QR doesn&apos;t reflect the lights. Let the ink dry
+							for a minute before folding, or the fold smudges.
 						</span>
 					)}
 				</p>
 
 				<div>
-					<h3 className="text-body-medium font-semibold text-on-surface">Kalibrasi</h3>
+					<h3 className="text-body-medium font-semibold text-on-surface">Calibration</h3>
 					<ol className="mt-2 flex list-decimal flex-col gap-1.5 rounded-md bg-surface-container-high p-4 pl-8 text-body-medium text-on-surface">
-						<li><span className="font-semibold">Cetak halaman kalibrasi</span> dengan printer ini. Di dialog cetak pilih Ukuran sebenarnya atau skala 100%.</li>
-						<li><span className="font-semibold">Ukur garis 100 mm.</span> Kalau tidak tepat 100 mm, skalanya belum 100%. Ubah setelan itu lalu cetak ulang.</li>
+						<li><span className="font-semibold">Print the calibration page</span> on this printer. In the print dialog choose Actual size or 100% scale.</li>
+						<li><span className="font-semibold">Measure the 100 mm line.</span> If it isn&apos;t exactly 100 mm, the scale isn&apos;t 100% yet. Change that setting and print again.</li>
 						<li>
-							<span className="font-semibold">Ukur tanda sudut.</span> Jaraknya harus 10 mm dari tepi kertas. Tanda kiri 11 mm berarti cetakan bergeser 1 mm ke kanan: isi
-							Geser ke kanan −1.
+							<span className="font-semibold">Measure the corner marks.</span> They should be 10 mm from the paper edge. A left mark at 11 mm means the print shifted 1 mm to the right: enter
+							Move right −1.
 						</li>
 					</ol>
-					<Button variant="outlined" size="sm" className="mt-3" icon={<Printer size={16} />} onClick={kalibrasi}>Cetak halaman kalibrasi</Button>
+					<Button variant="outlined" size="sm" className="mt-3" icon={<Printer size={16} />} onClick={kalibrasi}>Print calibration page</Button>
 				</div>
 
 				<div className="grid gap-3 sm:grid-cols-2">
-					<TextField label="Geser ke kanan (mm)" inputMode="decimal" value={geser.x} onChange={(e) => setGeser((g) => ({ ...g, x: e.target.value }))} hint="Minus untuk ke kiri." />
-					<TextField label="Geser ke bawah (mm)" inputMode="decimal" value={geser.y} onChange={(e) => setGeser((g) => ({ ...g, y: e.target.value }))} hint="Minus untuk ke atas." />
+					<TextField label="Move right (mm)" inputMode="decimal" value={geser.x} onChange={(e) => setGeser((g) => ({ ...g, x: e.target.value }))} hint="Negative moves left." />
+					<TextField label="Move down (mm)" inputMode="decimal" value={geser.y} onChange={(e) => setGeser((g) => ({ ...g, y: e.target.value }))} hint="Negative moves up." />
 				</div>
 				<p className="text-body-medium text-on-surface-variant">
-					Halaman web tidak bisa memilih printer, baki, atau jenis kertas. Atur sekali di laptop meja: printer bawaan, ukuran kertas, baki manual, jenis kertas Tebal.
+					A web page can&apos;t choose the printer, tray or paper type. Set them once on the desk laptop: default printer, paper size, manual tray, Heavy paper type.
 				</p>
 			</div>
 		</Dialog>

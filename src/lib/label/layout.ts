@@ -146,11 +146,11 @@ export const DEFAULT_LABEL_SETTINGS: LabelSettings = {
  * dpi printer, jadi daftar ini tidak perlu tahu apa pun tentang model printer.
  */
 export const UKURAN_LABEL = [
-	{ w: 50, h: 30, label: "50 x 30 mm", catatan: "Paling umum untuk badge" },
+	{ w: 50, h: 30, label: "50 x 30 mm", catatan: "Most common for badges" },
 	{ w: 40, h: 30, label: "40 x 30 mm", catatan: null },
-	{ w: 50, h: 40, label: "50 x 40 mm", catatan: "Muat jabatan" },
-	{ w: 40, h: 60, label: "40 x 60 mm", catatan: "Tegak, muat logo" },
-	{ w: 30, h: 20, label: "30 x 20 mm", catatan: "Kecil, kode saja" },
+	{ w: 50, h: 40, label: "50 x 40 mm", catatan: "Fits job title" },
+	{ w: 40, h: 60, label: "40 x 60 mm", catatan: "Portrait, fits a logo" },
+	{ w: 30, h: 20, label: "30 x 20 mm", catatan: "Small, code only" },
 ] as const;
 
 /** Data peserta yang dicetak. Sengaja bukan tipe peserta penuh: label hanya butuh empat kolom. */

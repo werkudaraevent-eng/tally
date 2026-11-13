@@ -80,7 +80,7 @@ export async function POST(request: Request) {
   if (existing) {
     return apiError("UNDIAN_SESSION_ACTIVE", 409, {
       active: existing,
-      message: `Sesi "${(existing as { name: string }).name}" masih berjalan. Tutup dulu sebelum memulai sesi baru.`,
+      message: `Session "${(existing as { name: string }).name}" is still running. Close it before starting a new session.`,
     });
   }
 

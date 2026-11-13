@@ -67,9 +67,9 @@ export default function SettingsPage() {
       <WorkspaceHeader
         meta={
           <>
-            <span>Berlaku di semua perangkat dalam 30 detik</span>
+            <span>Changes reach every device within 30 seconds</span>
             <MetaSeparator />
-            <span>Setiap perubahan tercatat di jejak audit</span>
+            <span>Every change is recorded in the audit trail</span>
             <MetaSeparator />
             {/* Akses acara ini hanya untuk pemilik: API-nya khusus super admin. */}
             {isOwner && eventId ? (
@@ -84,17 +84,17 @@ export default function SettingsPage() {
       />
 
       <Tabs<Tab>
-        label="Bagian pengaturan"
+        label="Settings sections"
         idPrefix="pengaturan"
         value={aktif}
         onChange={setTab}
         options={[
-          { value: "acara", label: "Acara" },
-          { value: "pembayaran", label: "Pembayaran" },
+          { value: "acara", label: "Event" },
+          { value: "pembayaran", label: "Payments" },
           // Integrasi duduk di sini, bukan sebagai menu sidebar sendiri: ia diisi
           // sekali saat acara disiapkan, sama seperti tab di sebelahnya.
-          { value: "integrasi", label: "Integrasi" },
-          ...(isOwner ? [{ value: "audit" as const, label: "Jejak audit" }, { value: "bahaya" as const, label: "Zona bahaya" }] : []),
+          { value: "integrasi", label: "Integrations" },
+          ...(isOwner ? [{ value: "audit" as const, label: "Audit trail" }, { value: "bahaya" as const, label: "Danger zone" }] : []),
         ]}
       />
 

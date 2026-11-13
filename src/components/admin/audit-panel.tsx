@@ -21,193 +21,193 @@ type Entry = {
 type Actor = { id: string; username: string; role: string };
 
 const CATEGORIES: Array<{ value: string; label: string }> = [
-  { value: "config", label: "Perubahan konfigurasi" },
-  { value: "settings", label: "Pengaturan & Papan peringkat" },
-  { value: "offers", label: "Item spesial" },
+  { value: "config", label: "Setting changes" },
+  { value: "settings", label: "Settings & leaderboard" },
+  { value: "offers", label: "Special items" },
   { value: "booths", label: "Booth" },
-  { value: "payment_methods", label: "Metode pembayaran" },
-  { value: "rundown", label: "Rundown acara" },
-  { value: "undian", label: "Undian" },
-  { value: "participants", label: "Peserta & registrasi" },
-  { value: "messages", label: "Pesan" },
+  { value: "payment_methods", label: "Payment methods" },
+  { value: "rundown", label: "Agenda" },
+  { value: "undian", label: "Lucky draw" },
+  { value: "participants", label: "Participants & registration" },
+  { value: "messages", label: "Messages" },
   { value: "logistics", label: "Logistics" },
-  { value: "users", label: "User & role" },
+  { value: "users", label: "Users & roles" },
   { value: "danger", label: "Danger zone" },
-  { value: "orders", label: "Transaksi" },
-  { value: "sync", label: "Sync peserta" },
-  { value: "all", label: "Semua aktivitas" },
+  { value: "orders", label: "Orders" },
+  { value: "sync", label: "Participant sync" },
+  { value: "all", label: "All activity" },
 ];
 
 const ACTION_LABEL: Record<string, string> = {
-  settings_update: "Mengubah settings acara",
-  participant_check_in_reset: "Mereset check-in peserta",
-  participant_luggage_reset: "Mereset bagasi peserta",
-  room_number_set_by_bot: "Mengisi nomor kamar",
-  room_joined_by_bot: "Menggabung kamar",
-  api_key_create: "Membuat API key",
-  api_key_revoke: "Mencabut API key",
-  room_notice_send: "Mengirim kabar nomor kamar",
-  display_settings_update: "Mengubah Papan peringkat",
-  display_background_upload: "Mengganti latar Papan peringkat",
-  leaderboard_reveal_config: "Mengatur reveal bertahap",
-  leaderboard_reveal_start: "Memulai reveal bertahap",
-  leaderboard_reveal_reset: "Mengakhiri reveal bertahap",
-  leaderboard_exclusion_create: "Mengecualikan dari top spender",
-  leaderboard_exclusion_update: "Mengubah pengecualian top spender",
-  leaderboard_exclusion_delete: "Mencabut pengecualian top spender",
-  special_offer_create: "Menambah item spesial",
-  special_offer_update: "Mengubah item spesial",
-  special_offer_delete: "Menghapus item spesial",
-  booth_create: "Menambah booth",
-  booth_update: "Mengubah booth",
-  payment_method_create: "Menambah metode pembayaran",
-  payment_method_update: "Mengubah metode pembayaran",
-  payment_method_delete: "Menghapus metode pembayaran",
-  rundown_header_update: "Mengubah header rundown",
-  rundown_section_create: "Menambah bagian rundown",
-  rundown_section_update: "Mengubah bagian rundown",
-  rundown_section_delete: "Menghapus bagian rundown",
-  rundown_item_create: "Menambah baris rundown",
-  rundown_item_update: "Mengubah baris rundown",
-  rundown_item_delete: "Menghapus baris rundown",
+  settings_update: "Changed event settings",
+  participant_check_in_reset: "Reset a participant's check-in",
+  participant_luggage_reset: "Reset a participant's luggage",
+  room_number_set_by_bot: "Filled in a room number",
+  room_joined_by_bot: "Merged rooms",
+  api_key_create: "Created an API key",
+  api_key_revoke: "Revoked an API key",
+  room_notice_send: "Sent room number notices",
+  display_settings_update: "Changed the leaderboard",
+  display_background_upload: "Replaced the leaderboard background",
+  leaderboard_reveal_config: "Set up the staged reveal",
+  leaderboard_reveal_start: "Started the staged reveal",
+  leaderboard_reveal_reset: "Ended the staged reveal",
+  leaderboard_exclusion_create: "Excluded from top spender",
+  leaderboard_exclusion_update: "Changed a top spender exclusion",
+  leaderboard_exclusion_delete: "Removed a top spender exclusion",
+  special_offer_create: "Added a special item",
+  special_offer_update: "Changed a special item",
+  special_offer_delete: "Deleted a special item",
+  booth_create: "Added a booth",
+  booth_update: "Changed a booth",
+  payment_method_create: "Added a payment method",
+  payment_method_update: "Changed a payment method",
+  payment_method_delete: "Deleted a payment method",
+  rundown_header_update: "Changed the agenda header",
+  rundown_section_create: "Added an agenda section",
+  rundown_section_update: "Changed an agenda section",
+  rundown_section_delete: "Deleted an agenda section",
+  rundown_item_create: "Added an agenda row",
+  rundown_item_update: "Changed an agenda row",
+  rundown_item_delete: "Deleted an agenda row",
   rundown_item_reorder: "Reordered agenda rows",
-  rundown_section_outfit_update: "Mengubah outfit bagian rundown",
-  checkpoint_settings_update: "Mengubah setelan checkpoint",
-  undian_settings_update: "Mengubah setelan undian",
-  undian_prize_create: "Menambah hadiah undian",
-  undian_prize_update: "Mengubah hadiah undian",
-  undian_prize_delete: "Menghapus hadiah undian",
-  undian_prize_reorder: "Mengubah urutan hadiah undian",
-  undian_draw: "Mengundi pemenang",
-  undian_winner_confirm: "Mengesahkan pemenang",
-  undian_winner_reject: "Membatalkan pemenang",
-  undian_mode_change: "Mengubah mode layar undian",
-  undian_reset: "Mereset undian",
-  undian_redraw: "Mengundi ulang hadiah (pemenang lama dibatalkan)",
-  undian_rehearsal_on: "Memulai mode latihan undian",
-  undian_rehearsal_off: "Mengakhiri mode latihan undian",
-  undian_entry_import: "Mengimpor daftar entri undian",
-  undian_entry_group_delete: "Menghapus daftar entri undian",
-  undian_exclusion_add: "Mengecualikan peserta dari undian",
-  undian_exclusion_remove: "Mengembalikan peserta ke undian",
-  undian_rule_create: "Menambah aturan pengecualian undian",
-  undian_rule_update: "Mengubah aturan pengecualian undian",
-  undian_rule_delete: "Menghapus aturan pengecualian undian",
-  undian_session_start: "Memulai sesi undian",
-  undian_session_close: "Menutup sesi undian",
-  undian_session_delete: "MENGHAPUS PERMANEN hasil sesi undian",
-  undian_session_adopt: "Mengarsipkan hasil undian lama ke sesi",
-  user_create: "Membuat akun",
-  user_update: "Mengubah akun",
-  access_role_create: "Membuat peran kustom",
-  access_role_update: "Mengubah peran kustom",
-  access_role_delete: "Menghapus peran kustom",
-  participant_created: "Menambah peserta",
-  participant_updated: "Mengubah data peserta",
-  participant_deleted: "Menghapus peserta",
-  participant_walkin_created: "Menambah peserta walk-in",
-  registration_approved: "Menyetujui pendaftaran",
-  registration_rejected: "Menolak pendaftaran",
-  invitation_delete: "Menghapus tamu undangan",
-  invitation_new_link: "Membuat tautan undangan baru",
-  announcement_create: "Membuat pengumuman",
-  announcement_update: "Mengubah pengumuman",
-  announcement_delete: "Menghapus pengumuman",
-  announcement_email: "Mengirim pengumuman lewat email",
-  message_send: "Mengirim email",
-  message_schedule: "Menjadwalkan email",
-  message_retry: "Mengirim ulang email yang gagal",
-  message_resume: "Melanjutkan pengiriman email",
-  message_cancel: "Membatalkan pengiriman email",
-  admin_reset_records: "Mengosongkan data pencatatan",
-  participant_sync: "Sync peserta dari Scanner API",
-  participant_qr_archived: "Mengarsipkan kode badge peserta",
-  create: "Membuat order",
-  pay: "Menandai lunas",
+  rundown_section_outfit_update: "Changed an agenda section's dress code",
+  checkpoint_settings_update: "Changed check-in point settings",
+  undian_settings_update: "Changed lucky draw settings",
+  undian_prize_create: "Added a prize",
+  undian_prize_update: "Changed a prize",
+  undian_prize_delete: "Deleted a prize",
+  undian_prize_reorder: "Reordered prizes",
+  undian_draw: "Drew winners",
+  undian_winner_confirm: "Confirmed a winner",
+  undian_winner_reject: "Cancelled a winner",
+  undian_mode_change: "Changed the draw screen mode",
+  undian_reset: "Reset the lucky draw",
+  undian_redraw: "Redrew a prize (earlier winners cancelled)",
+  undian_rehearsal_on: "Started lucky draw rehearsal mode",
+  undian_rehearsal_off: "Ended lucky draw rehearsal mode",
+  undian_entry_import: "Imported a draw entry list",
+  undian_entry_group_delete: "Deleted a draw entry list",
+  undian_exclusion_add: "Excluded a participant from the draw",
+  undian_exclusion_remove: "Returned a participant to the draw",
+  undian_rule_create: "Added a draw exclusion rule",
+  undian_rule_update: "Changed a draw exclusion rule",
+  undian_rule_delete: "Deleted a draw exclusion rule",
+  undian_session_start: "Started a draw round",
+  undian_session_close: "Closed a draw round",
+  undian_session_delete: "PERMANENTLY DELETED a draw round's results",
+  undian_session_adopt: "Archived old draw results into a round",
+  user_create: "Created an account",
+  user_update: "Changed an account",
+  access_role_create: "Created a custom role",
+  access_role_update: "Changed a custom role",
+  access_role_delete: "Deleted a custom role",
+  participant_created: "Added a participant",
+  participant_updated: "Changed participant details",
+  participant_deleted: "Deleted a participant",
+  participant_walkin_created: "Added a walk-in participant",
+  registration_approved: "Approved a registration",
+  registration_rejected: "Rejected a registration",
+  invitation_delete: "Deleted an invited guest",
+  invitation_new_link: "Created a new invitation link",
+  announcement_create: "Created an announcement",
+  announcement_update: "Changed an announcement",
+  announcement_delete: "Deleted an announcement",
+  announcement_email: "Sent an announcement by email",
+  message_send: "Sent an email",
+  message_schedule: "Scheduled an email",
+  message_retry: "Resent failed emails",
+  message_resume: "Resumed email sending",
+  message_cancel: "Cancelled email sending",
+  admin_reset_records: "Cleared records",
+  participant_sync: "Synced participants from the Scanner API",
+  participant_qr_archived: "Archived a participant's badge code",
+  create: "Created an order",
+  pay: "Marked paid",
   void: "Void order",
-  admin_order_void: "Void order dari layar admin",
-  hand_over: "Menyerahkan barang",
-  booth_order_created: "Order dibuat di booth",
-  participant_scan: "Scan peserta",
+  admin_order_void: "Voided an order from admin",
+  hand_over: "Handed over goods",
+  booth_order_created: "Order made at a booth",
+  participant_scan: "Scanned a participant",
 };
 
 // Label field dalam bahasa manusia. Tanpa ini, diff menampilkan nama kolom
 // database yang tidak berarti bagi pembaca laporan audit.
 const FIELD_LABEL: Record<string, string> = {
-  pickup_mode: "Mode penyerahan barang",
-  name_display_mode: "Tampilan nama di Papan peringkat",
+  pickup_mode: "Hand-over mode",
+  name_display_mode: "Name display on the leaderboard",
   leaderboard_enabled: "Leaderboard",
-  mode: "Mode reveal",
-  stage: "Tahap reveal",
-  stages: "Daftar tahap",
-  freeze_on_start: "Bekukan angka saat mulai",
-  snapshot: "Snapshot papan",
-  frozen_at: "Waktu pembekuan",
-  pending_auto_void_minutes: "Auto-void (menit)",
-  cashier_confirmation_required: "Konfirmasi kasir",
-  name: "Nama",
-  price: "Harga",
-  stock: "Stok",
-  scope: "Cakupan",
+  mode: "Reveal mode",
+  stage: "Reveal stage",
+  stages: "Stages",
+  freeze_on_start: "Freeze numbers at start",
+  snapshot: "Board snapshot",
+  frozen_at: "Frozen at",
+  pending_auto_void_minutes: "Auto-void (minutes)",
+  cashier_confirmation_required: "Cashier confirmation",
+  name: "Name",
+  price: "Price",
+  stock: "Stock",
+  scope: "Scope",
   booth_id: "Booth",
-  is_active: "Status aktif",
-  max_per_participant: "Maks per peserta",
-  counts_toward_leaderboard: "Masuk top spender",
-  conditions: "Syarat penawaran",
-  sort_order: "Urutan",
+  is_active: "Active",
+  max_per_participant: "Max per participant",
+  counts_toward_leaderboard: "Counts towards top spender",
+  conditions: "Offer conditions",
+  sort_order: "Position",
   username: "Username",
   role: "Role",
-  discount_item_name: "Nama item diskon",
-  discount_item_price: "Harga item diskon",
-  discount_item_stock: "Stok item diskon",
-  discount_enabled: "Item diskon aktif",
-  discount_limit_per_participant: "Maks item diskon per peserta",
-  code: "Kode",
+  discount_item_name: "Discount item name",
+  discount_item_price: "Discount item price",
+  discount_item_stock: "Discount item stock",
+  discount_enabled: "Discount item active",
+  discount_limit_per_participant: "Max discount items per participant",
+  code: "Code",
   label: "Label",
   // Data peserta (participant_updated).
-  company: "Organisasi",
-  title: "Jabatan",
+  company: "Organisation",
+  title: "Job title",
   email: "Email",
-  phone: "Telepon",
-  participant_type: "Tipe peserta",
+  phone: "Phone",
+  participant_type: "Participant type",
   rsvp_status: "RSVP",
-  qr_code: "Kode QR",
-  extra: "Jawaban formulir",
-  requires_reference: "Butuh nomor referensi",
-  reference_digits: "Jumlah digit referensi",
+  qr_code: "QR code",
+  extra: "Form answers",
+  requires_reference: "Needs a reference number",
+  reference_digits: "Reference digits",
   // Setelan checkpoint (checkpoint_settings_update).
-  checkpoints_enabled: "Checkpoint tampil di area peserta",
-  checkpoint_points_enabled: "Poin checkpoint",
-  points_goal: "Tujuan poin",
-  points_reward: "Untuk apa poinnya",
-  points_reward_en: "Untuk apa poinnya (English)",
+  checkpoints_enabled: "Check-in points shown in the participant area",
+  checkpoint_points_enabled: "Check-in point points",
+  points_goal: "Points goal",
+  points_reward: "What the points are for",
+  points_reward_en: "What the points are for (English)",
   // Field Papan peringkat. Dicantumkan sebagai satu kelompok utuh, bukan hanya
   // saklar yang baru ditambahkan: semuanya muncul di diff
   // `display_settings_update` yang sama, dan satu label rapi di antara belasan
   // nama kolom mentah terbaca seperti kesalahan, bukan seperti pilihan.
-  show_amount: "Tampilkan nominal belanja",
-  show_company: "Tampilkan perusahaan peserta",
-  show_booth_progress: "Tampilkan panel booth explorer",
-  show_ticker: "Tampilkan ticker bawah",
-  ticker_text: "Teks ticker",
-  event_title: "Judul acara",
+  show_amount: "Show spending amount",
+  show_company: "Show participant organisation",
+  show_booth_progress: "Show booth explorer panel",
+  show_ticker: "Show bottom ticker",
+  ticker_text: "Ticker text",
+  event_title: "Event title",
   headline: "Headline",
   tagline: "Tagline",
-  leaderboard_limit: "Jumlah top spender",
-  refresh_seconds: "Refresh (detik)",
-  background_color: "Warna latar",
-  text_color: "Warna teks",
-  accent_color: "Warna aksen",
-  background_image_url: "Gambar latar",
+  leaderboard_limit: "Number of top spenders",
+  refresh_seconds: "Refresh (seconds)",
+  background_color: "Background colour",
+  text_color: "Text colour",
+  accent_color: "Accent colour",
+  background_image_url: "Background image",
 };
 
 // Field yang tidak berarti bagi pembaca audit, atau selalu berubah tanpa makna.
 const HIDDEN_FIELDS = new Set(["id", "event_id", "updated_at", "updated_by", "created_at", "created_by", "pin_hash", "is_builtin", "source_synced_at"]);
 
 function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return "kosong";
-  if (typeof value === "boolean") return value ? "aktif" : "tidak";
-  if (typeof value === "number") return new Intl.NumberFormat("id-ID").format(value);
+  if (value === null || value === undefined) return "empty";
+  if (typeof value === "boolean") return value ? "on" : "off";
+  if (typeof value === "number") return new Intl.NumberFormat("en-GB").format(value);
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
@@ -236,29 +236,29 @@ function summarise(entry: Entry): string {
   const payload = entry.payload ?? {};
   const subject = (payload.user ?? payload.booth ?? payload.new ?? payload.old) as Record<string, unknown> | undefined;
   if (entry.action === "admin_reset_records") {
-    return `${payload.deleted_orders ?? 0} order, ${payload.deleted_claims ?? 0} klaim item, ${payload.deleted_participants ?? 0} peserta terhapus`;
+    return `Deleted ${payload.deleted_orders ?? 0} orders, ${payload.deleted_claims ?? 0} item claims, ${payload.deleted_participants ?? 0} participants`;
   }
   if (entry.action === "participant_check_in_reset") {
     const scans = Array.isArray(payload.scans) ? payload.scans.length : 0;
     const pickups = Array.isArray(payload.pickups) ? payload.pickups.length : 0;
     const bagasi = Array.isArray(payload.luggage) ? payload.luggage.length : 0;
-    return `${payload.participant_name ?? "?"} · ${payload.session_id ? "satu sesi" : "semua sesi"} · ${scans} scan, ${pickups} barang kit${bagasi ? `, ${bagasi} catatan bagasi` : ""} dihapus`;
+    return `${payload.participant_name ?? "?"} · ${payload.session_id ? "one check-in point" : "all check-in points"} · deleted ${scans} scans, ${pickups} kit items${bagasi ? `, ${bagasi} luggage records` : ""}`;
   }
   if (entry.action === "participant_luggage_reset") {
     const catatan = Array.isArray(payload.luggage) ? (payload.luggage as Array<{ bag_count?: number }>) : [];
-    return `${payload.participant_name ?? "?"} · ${catatan.reduce((n, item) => n + (item.bag_count ?? 0), 0)} koper dihapus`;
+    return `${payload.participant_name ?? "?"} · ${catatan.reduce((n, item) => n + (item.bag_count ?? 0), 0)} bags deleted`;
   }
   if (entry.action === "participant_sync") {
     const synced = payload.synced as Record<string, unknown> | undefined;
-    return `${payload.fetched ?? 0} peserta diterima · ${synced?.inserted ?? 0} baru · ${synced?.newly_removed ?? 0} ditandai hilang`;
+    return `${payload.fetched ?? 0} participants received · ${synced?.inserted ?? 0} new · ${synced?.newly_removed ?? 0} marked missing`;
   }
   if (entry.action === "room_number_set_by_bot") {
     const kamar = [payload.label, payload.hotel].filter(Boolean).join(" · ");
-    return `${kamar || "Kamar"}: ${payload.old_number ?? "kosong"} → ${payload.new_number ?? "?"} (${payload.participant_name ?? "?"})`;
+    return `${kamar || "Room"}: ${payload.old_number ?? "empty"} → ${payload.new_number ?? "?"} (${payload.participant_name ?? "?"})`;
   }
   if (entry.action === "room_joined_by_bot") {
     const pindah = Array.isArray(payload.moved) ? payload.moved.length : 0;
-    return `${payload.from_label ?? "Kamar"} → ${[payload.label, payload.new_number].filter(Boolean).join(" ")} · ${payload.hotel ?? ""}: ${pindah} orang (${payload.participant_name ?? "?"})`;
+    return `${payload.from_label ?? "Room"} → ${[payload.label, payload.new_number].filter(Boolean).join(" ")} · ${payload.hotel ?? ""}: ${pindah} people (${payload.participant_name ?? "?"})`;
   }
   if (entry.action === "participant_qr_archived") {
     return `${payload.old_qr_code ?? "?"} → ${payload.new_qr_code ?? "?"}`;
@@ -295,11 +295,11 @@ export function AuditPanel() {
       if (nextActor) params.set("actor", nextActor);
       const response = await fetch(`/api/admin/audit?${params}`, { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) { setError(data.error?.message ?? "Jejak audit gagal dimuat."); return; }
+      if (!response.ok) { setError(data.error?.message ?? "The audit trail could not be loaded."); return; }
       setEntries(data.entries ?? []);
       setActors(data.actors ?? []);
       setTotal(data.total ?? 0);
-    } catch { setError("Koneksi terputus. Coba lagi."); } finally { setLoading(false); }
+    } catch { setError("Connection lost. Try again."); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(category, actor, page); }, 0); return () => window.clearTimeout(timer); }, [load, category, actor, page]);
@@ -309,33 +309,33 @@ export function AuditPanel() {
   const resetSaringan = () => { setCategory("config"); setActor(""); setPage(0); };
 
   return (
-    <Pane aria-label="Jejak audit">
+    <Pane aria-label="Audit trail">
       <PaneHeader className="flex-wrap gap-2 px-3 py-3">
         <SelectMenu
-          label="Kategori"
+          label="Category"
           value={category}
           onChange={(value) => { setCategory(value); setPage(0); }}
           options={CATEGORIES}
           width="15rem"
         />
         <ChipMenu
-          label="Pelaku"
+          label="Done by"
           searchable
           options={actors.map((item) => ({ value: item.id, label: item.username }))}
           selected={actor ? [actor] : []}
           onChange={(next) => { setActor(next[0] ?? ""); setPage(0); }}
         />
-        <span className="ml-auto text-body-medium tabular-nums text-on-surface-variant">{total} catatan</span>
+        <span className="ml-auto text-body-medium tabular-nums text-on-surface-variant">{total === 1 ? "1 entry" : `${total} entries`}</span>
       </PaneHeader>
 
       <PaneBody>
         {error ? (
           <div className="flex flex-wrap items-center gap-3 px-5 py-4">
             <p role="alert" className="flex min-w-0 flex-1 items-start gap-2 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p>
-            <Button variant="outlined" size="sm" onClick={() => void load(category, actor, page)}>Coba lagi</Button>
+            <Button variant="outlined" size="sm" onClick={() => void load(category, actor, page)}>Try again</Button>
           </div>
         ) : loading && entries.length === 0 ? (
-          <div aria-label="Memuat jejak audit">
+          <div aria-label="Loading audit trail">
             {Array.from({ length: 6 }, (_, i) => (
               <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-5 py-4">
                 <div className="h-3 w-64 animate-pulse rounded bg-surface-container-high" />
@@ -347,9 +347,9 @@ export function AuditPanel() {
           <EmptyState
             plain
             icon={<ClipboardText size={40} />}
-            title="Belum ada catatan untuk saringan ini"
-            description="Pilih kategori lain atau hapus saringan pelaku."
-            action={adaSaringan ? <Button variant="outlined" size="sm" onClick={resetSaringan}>Kembalikan saringan</Button> : undefined}
+            title="No entries for this filter"
+            description="Pick another category or clear the Done by filter."
+            action={adaSaringan ? <Button variant="outlined" size="sm" onClick={resetSaringan}>Reset filters</Button> : undefined}
           />
         ) : (
           <ul className={cx(loading && "opacity-60")}>
@@ -389,7 +389,7 @@ export function AuditPanel() {
                     </div>
                     {entry.payload ? (
                       <Button variant="text" size="sm" aria-expanded={open} onClick={() => setExpanded(open ? null : entry.id)}>
-                        {open ? "Tutup detail" : "Detail"}
+                        {open ? "Hide details" : "Details"}
                       </Button>
                     ) : null}
                   </div>
@@ -403,11 +403,11 @@ export function AuditPanel() {
 
       <PaneFooter
         className="bg-surface-container-lowest py-2"
-        note="Tercatat otomatis untuk pengaturan, item spesial, booth, metode pembayaran, akun, dan pengosongan data."
+        note="Recorded automatically for settings, special items, booths, payment methods, accounts and cleared records."
       >
-        <IconButton size="sm" variant="outlined" label="Halaman sebelumnya" disabled={page === 0 || loading} onClick={() => setPage((current) => Math.max(0, current - 1))}><CaretLeft size={16} /></IconButton>
+        <IconButton size="sm" variant="outlined" label="Previous page" disabled={page === 0 || loading} onClick={() => setPage((current) => Math.max(0, current - 1))}><CaretLeft size={16} /></IconButton>
         <span className="min-w-14 text-center text-body-medium tabular-nums text-on-surface-variant">{page + 1} / {totalPages}</span>
-        <IconButton size="sm" variant="outlined" label="Halaman berikutnya" disabled={page + 1 >= totalPages || loading || Boolean(error)} onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))}><CaretRight size={16} /></IconButton>
+        <IconButton size="sm" variant="outlined" label="Next page" disabled={page + 1 >= totalPages || loading || Boolean(error)} onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))}><CaretRight size={16} /></IconButton>
       </PaneFooter>
     </Pane>
   );

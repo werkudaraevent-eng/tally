@@ -29,11 +29,11 @@ export function normalizeDomain(masukan: string, hostTally: string[] = []): Hasi
   const label = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
   const bagian = teks.split(".");
   if (teks.length === 0 || teks.length > 253 || bagian.length < 2 || !bagian.every((b) => label.test(b)) || !/^[a-z]{2,}$/.test(bagian.at(-1) ?? "")) {
-    return { ok: false, code: "DOMAIN_INVALID", message: "Tulis domainnya saja, misalnya event.namaklien.com." };
+    return { ok: false, code: "DOMAIN_INVALID", message: "Type the domain only, for example event.clientname.com." };
   }
   const terlarang = [...AKHIRAN_TERLARANG, ...hostTally.map((h) => h.toLowerCase())];
   if (terlarang.some((akhiran) => teks === akhiran || teks.endsWith(`.${akhiran}`))) {
-    return { ok: false, code: "DOMAIN_RESERVED", message: "Domain ini milik Tally atau Vercel. Pakai domain milik klien." };
+    return { ok: false, code: "DOMAIN_RESERVED", message: "This domain belongs to Tally or Vercel. Use the client's own domain." };
   }
   return { ok: true, domain: teks, apex: isApex(teks) };
 }

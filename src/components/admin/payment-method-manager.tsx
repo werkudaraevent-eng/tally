@@ -37,9 +37,9 @@ export function PaymentMethodManager() {
     try {
       const response = await fetch("/api/admin/payment-methods", { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) { setLoadError(data.error?.message ?? "Metode pembayaran gagal dimuat."); return; }
+      if (!response.ok) { setLoadError(data.error?.message ?? "Payment methods could not be loaded."); return; }
       setMethods(data.payment_methods ?? []);
-    } catch { setLoadError("Koneksi terputus. Coba lagi."); } finally { setLoading(false); }
+    } catch { setLoadError("Connection lost. Try again."); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
@@ -52,12 +52,12 @@ export function PaymentMethodManager() {
     const data = await response.json();
     setBusyCode("");
     if (!response.ok) {
-      const failure = data.error?.message ?? "Perubahan gagal disimpan.";
-      setError(failure); toast.error("Gagal mengubah metode", failure);
+      const failure = data.error?.message ?? "The change could not be saved.";
+      setError(failure); toast.error("Method not changed", failure);
       return;
     }
     setMethods((current) => current.map((item) => (item.code === method.code ? data : item)));
-    toast.success(data.is_active ? `${data.label} dinyalakan` : `${data.label} dimatikan`, data.is_active ? "Kasir dapat memakai metode ini." : "Metode ini tidak lagi muncul di kasir.");
+    toast.success(data.is_active ? `${data.label} turned on` : `${data.label} turned off`, data.is_active ? "Cashiers can use this method." : "This method no longer shows at the cashier.");
   }
 
   async function remove(method: PaymentMethod) {
@@ -67,12 +67,12 @@ export function PaymentMethodManager() {
     setBusyCode("");
     setConfirmDelete(null);
     if (!response.ok) {
-      const failure = data.error?.message ?? "Metode gagal dihapus.";
-      setError(failure); toast.error("Gagal menghapus metode", failure);
+      const failure = data.error?.message ?? "The method could not be deleted.";
+      setError(failure); toast.error("Method not deleted", failure);
       return;
     }
     setMethods((current) => current.filter((item) => item.code !== method.code));
-    toast.warning(`${method.label} dihapus`, "Metode tidak lagi tersedia di kasir.");
+    toast.warning(`${method.label} deleted`, "The method is no longer available at the cashier.");
   }
 
   function closeForm() { setFormOpen(false); setForm(EMPTY_FORM); setFormError(""); }
@@ -86,7 +86,7 @@ export function PaymentMethodManager() {
         code: form.code.trim().toLowerCase(),
         label: form.label.trim(),
         requires_reference: form.requires_reference,
-        reference_label: form.requires_reference ? form.reference_label.trim() || "Nomor referensi" : null,
+        reference_label: form.requires_reference ? form.reference_label.trim() || "Reference number" : null,
         reference_digits: form.requires_reference ? form.reference_digits : null,
         sort_order: 100,
       }),
@@ -94,24 +94,24 @@ export function PaymentMethodManager() {
     const data = await response.json();
     setCreating(false);
     if (!response.ok) {
-      const failure = data.error?.details?.message ?? data.error?.message ?? "Metode gagal dibuat.";
-      setFormError(failure); toast.error("Gagal menambah metode", failure);
+      const failure = data.error?.details?.message ?? data.error?.message ?? "The method could not be created.";
+      setFormError(failure); toast.error("Method not added", failure);
       return;
     }
     setMethods((current) => [...current, data].sort((a, b) => a.sort_order - b.sort_order));
     closeForm();
-    toast.success(`${data.label} ditambahkan`, "Metode langsung tersedia di kasir.");
+    toast.success(`${data.label} added`, "The method is available at the cashier straight away.");
   }
 
   return (
     <>
-      <Pane aria-label="Metode pembayaran">
+      <Pane aria-label="Payment methods">
         <PaneHeader className="px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-body-medium font-semibold text-on-surface">Metode pembayaran</h2>
-            <p className="mt-0.5 text-body-medium text-on-surface-variant">Nyalakan atau matikan metode yang muncul di kasir. Minimal satu metode harus tetap aktif.</p>
+            <h2 className="text-body-medium font-semibold text-on-surface">Payment methods</h2>
+            <p className="mt-0.5 text-body-medium text-on-surface-variant">Turn on or off the methods shown at the cashier. At least one method must stay active.</p>
           </div>
-          <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => { setFormOpen(true); setFormError(""); }}>Tambah metode</Button>
+          <Button variant="outlined" size="sm" icon={<Plus size={16} />} onClick={() => { setFormOpen(true); setFormError(""); }}>Add method</Button>
         </PaneHeader>
 
         <PaneBody>
@@ -119,10 +119,10 @@ export function PaymentMethodManager() {
           {loadError ? (
             <div className="flex flex-wrap items-center gap-3 px-5 py-4">
               <p role="alert" className="flex min-w-0 flex-1 items-start gap-2 text-body-medium text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{loadError}</p>
-              <Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>
+              <Button variant="outlined" size="sm" onClick={() => void load()}>Try again</Button>
             </div>
           ) : loading ? (
-            <div aria-label="Memuat metode pembayaran">
+            <div aria-label="Loading payment methods">
               {Array.from({ length: 3 }, (_, i) => (
                 <div key={i} className="flex items-center gap-4 border-b border-outline-variant px-5 py-4 last:border-b-0">
                   <div className="h-3 w-40 animate-pulse rounded bg-surface-container-high" />
@@ -131,7 +131,7 @@ export function PaymentMethodManager() {
               ))}
             </div>
           ) : methods.length === 0 ? (
-            <EmptyState plain icon={<CreditCard size={40} />} title="Belum ada metode pembayaran" description="Tambahkan metode agar kasir bisa menandai order lunas." />
+            <EmptyState plain icon={<CreditCard size={40} />} title="No payment methods yet" description="Add a method so cashiers can mark orders paid." />
           ) : (
             <ul>
               {methods.map((method) => {
@@ -152,19 +152,19 @@ export function PaymentMethodManager() {
                       label={
                         <span className="inline-flex flex-wrap items-center gap-2">
                           {method.label}
-                          {method.is_builtin ? <StatusChip>Bawaan</StatusChip> : null}
+                          {method.is_builtin ? <StatusChip>Built-in</StatusChip> : null}
                         </span>
                       }
                       description={
                         <>
-                          Kode {method.code}.{" "}
-                          {method.requires_reference ? `Butuh ${method.reference_label ?? "nomor referensi"} ${method.reference_digits} digit.` : "Tanpa nomor referensi."}
-                          {lastActive ? " Satu-satunya metode aktif, jadi tidak bisa dimatikan." : ""}
+                          Code {method.code}.{" "}
+                          {method.requires_reference ? `Needs a ${method.reference_digits}-digit ${method.reference_label ?? "reference number"}.` : "No reference number."}
+                          {lastActive ? " The only active method, so it cannot be turned off." : ""}
                         </>
                       }
                     />
                     {!method.is_builtin ? (
-                      <IconButton size="sm" label={`Hapus ${method.label}`} disabled={busy} onClick={() => setConfirmDelete(method)}>
+                      <IconButton size="sm" label={`Delete ${method.label}`} disabled={busy} onClick={() => setConfirmDelete(method)}>
                         <Trash size={16} className="text-error" />
                       </IconButton>
                     ) : null}
@@ -175,45 +175,45 @@ export function PaymentMethodManager() {
           )}
         </PaneBody>
 
-        <PaneFooter note="Metode yang sudah dipakai order tidak dapat dihapus, hanya dimatikan, agar laporan tetap utuh. Kasir memuat ulang daftar metode tiap 30 detik." />
+        <PaneFooter note="A method already used by an order cannot be deleted, only turned off, so reports stay complete. The cashier reloads the method list every 30 seconds." />
       </Pane>
 
       <Dialog
         open={formOpen}
         onClose={closeForm}
         dismissible={!creating}
-        title="Tambah metode pembayaran"
-        description="Metode baru langsung aktif dan muncul di layar kasir."
+        title="Add payment method"
+        description="A new method is active straight away and shows on the cashier screen."
         actions={
           <>
-            <Button variant="outlined" disabled={creating} onClick={closeForm}>Batal</Button>
-            <Button simpan loading={creating} disabled={!form.code.trim() || !form.label.trim()} onClick={() => void create()}>Tambah metode</Button>
+            <Button variant="outlined" disabled={creating} onClick={closeForm}>Cancel</Button>
+            <Button simpan loading={creating} disabled={!form.code.trim() || !form.label.trim()} onClick={() => void create()}>Add method</Button>
           </>
         }
       >
         <div className="flex flex-col gap-4 text-body-medium">
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextField label="Nama tampilan" value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} placeholder="QRIS" />
+            <TextField label="Display name" value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} placeholder="QRIS" />
             <TextField
-              label="Kode sistem"
+              label="System code"
               value={form.code}
               onChange={(event) => setForm((current) => ({ ...current, code: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }))}
               placeholder="qris"
             />
           </div>
-          <p className="text-on-surface-variant">Kode dipakai di database dan laporan, tidak bisa diubah setelah dibuat. Huruf kecil, angka, dan garis bawah saja.</p>
+          <p className="text-on-surface-variant">The code is used in the database and reports and cannot be changed later. Lowercase letters, digits and underscores only.</p>
           <label className="flex cursor-pointer items-start gap-3">
             <input type="checkbox" checked={form.requires_reference} onChange={(event) => setForm((current) => ({ ...current, requires_reference: event.target.checked }))} className="mt-0.5 size-4 shrink-0 accent-[var(--md-sys-color-primary)]" />
             <span>
-              <span className="block font-medium">Butuh nomor referensi</span>
-              <span className="mt-0.5 block text-on-surface-variant">Kasir wajib mengisi nomor referensi sebelum menandai lunas, seperti approval code EDC.</span>
+              <span className="block font-medium">Needs a reference number</span>
+              <span className="mt-0.5 block text-on-surface-variant">The cashier must enter a reference number before marking the order paid, such as an EDC approval code.</span>
             </span>
           </label>
           {form.requires_reference ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Label referensi" value={form.reference_label} onChange={(event) => setForm((current) => ({ ...current, reference_label: event.target.value }))} placeholder="Nomor referensi QRIS" />
+              <TextField label="Reference label" value={form.reference_label} onChange={(event) => setForm((current) => ({ ...current, reference_label: event.target.value }))} placeholder="QRIS reference number" />
               <TextField
-                label="Jumlah digit"
+                label="Number of digits"
                 type="number"
                 min={4}
                 max={32}
@@ -232,12 +232,12 @@ export function PaymentMethodManager() {
         onClose={() => setConfirmDelete(null)}
         dismissible={busyCode === ""}
         tone="danger"
-        title={`Hapus ${confirmDelete?.label ?? "metode"}?`}
-        description="Metode hilang dari layar kasir dan penghapusannya tercatat di jejak audit. Bila metode ini sudah dipakai order, server menolak penghapusan; matikan saja sakelarnya."
+        title={`Delete ${confirmDelete?.label ?? "method"}?`}
+        description="The method disappears from the cashier screen and the deletion is recorded in the audit trail. If an order already used this method, the server refuses; turn its switch off instead."
         actions={
           <>
-            <Button variant="outlined" disabled={busyCode !== ""} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={busyCode !== "" && busyCode === confirmDelete?.code} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus metode</Button>
+            <Button variant="outlined" disabled={busyCode !== ""} onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={busyCode !== "" && busyCode === confirmDelete?.code} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Delete method</Button>
           </>
         }
       />
