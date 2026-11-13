@@ -1,9 +1,11 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Popover, POPOVER_ITEM, ThemeToggle, usePopoverAnchor } from "@/components/m3";
 import { ROLE_LABEL, type UserRole } from "@/lib/domain";
 import { cx } from "@/lib/m3/cx";
+import { useToast } from "@/components/toast";
 
 /**
  * Menu akun di ujung kanan bilah atas.
@@ -63,6 +65,22 @@ export function UserMenu({
   const [pemicu, setPemicu] = useState<HTMLElement | null>(null);
   const menu = usePopoverAnchor(pemicu);
   const menuId = useId();
+  const router = useRouter();
+  const toast = useToast();
+  const [keluarSemuaJalan, setKeluarSemuaJalan] = useState(false);
+
+  async function keluarSemua() {
+    setKeluarSemuaJalan(true);
+    const res = await fetch("/api/auth/logout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ all: true }) }).catch(() => null);
+    // Gagal: jangan pura-pura berhasil. Sesi di perangkat lain masih hidup.
+    if (!res?.ok) {
+      setKeluarSemuaJalan(false);
+      toast.error("Couldn't sign out other devices", "Check your connection and try again.");
+      return;
+    }
+    router.replace("/login");
+    router.refresh();
+  }
 
   const inisial = (username ?? "?").slice(0, 1).toUpperCase();
   const namaPeran = role ? ROLE_LABEL[role as UserRole] ?? role : null;
@@ -119,6 +137,17 @@ export function UserMenu({
             className={cx(POPOVER_ITEM, "disabled:opacity-50")}
           >
             {loggingOut ? "Signing out…" : "Sign out"}
+          </button>
+          {/* Mencabut sesi akun ini di semua perangkat (laptop hilang, HP
+              dipinjam). Tanpa konfirmasi: akibat terburuknya hanya masuk ulang. */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => void keluarSemua()}
+            disabled={loggingOut || keluarSemuaJalan}
+            className={cx(POPOVER_ITEM, "disabled:opacity-50")}
+          >
+            {keluarSemuaJalan ? "Signing out everywhere…" : "Sign out of all devices"}
           </button>
         </Popover>
       ) : null}
