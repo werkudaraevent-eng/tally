@@ -13,7 +13,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * tabel ini, jadi tidak perlu disaring.
  */
 const querySchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().guid().optional(),
   contoh: z.coerce.number().int().min(1).max(200).optional(),
 });
 

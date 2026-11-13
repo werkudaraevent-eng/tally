@@ -76,9 +76,9 @@ const tulisSchema = z.object({
   session_id: z.number().int().positive(),
   label: z.string().trim().min(1).max(40),
   /** Peserta yang didudukkan di kursi ini; null untuk mengosongkan kursi. */
-  participant_id: z.string().uuid().nullable(),
+  participant_id: z.string().guid().nullable(),
   /** Pemegang kursi yang dilihat admin saat membuka kursi, untuk menolak data basi. */
-  current_participant_id: z.string().uuid().nullable(),
+  current_participant_id: z.string().guid().nullable(),
 });
 
 export async function POST(request: Request) {

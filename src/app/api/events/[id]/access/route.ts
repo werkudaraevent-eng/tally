@@ -3,7 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const idSchema = z.string().uuid();
+const idSchema = z.string().guid();
 
 /**
  * `super_admin` sengaja TIDAK boleh diberi baris di sini. Invariannya:
@@ -13,12 +13,12 @@ const idSchema = z.string().uuid();
  * seharusnya melihat semuanya.
  */
 const grantSchema = z.object({
-  user_id: z.string().uuid(),
+  user_id: z.string().guid(),
   role: z.enum(["booth", "cashier", "scanner", "viewer", "admin", "custom"]),
   booth_id: z.number().int().positive().nullable().optional(),
 });
 
-const revokeSchema = z.object({ user_id: z.string().uuid() });
+const revokeSchema = z.object({ user_id: z.string().guid() });
 
 async function loadEvent(id: string) {
   const client = getSupabaseServiceClient();

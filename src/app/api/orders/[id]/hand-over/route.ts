@@ -3,7 +3,7 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 
-const paramsSchema = z.object({ id: z.string().uuid() });
+const paramsSchema = z.object({ id: z.string().guid() });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireRequestEvent(request, ["booth", "admin"]);

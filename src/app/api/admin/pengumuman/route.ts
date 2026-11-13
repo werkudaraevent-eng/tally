@@ -66,9 +66,12 @@ const tautanSchema = z
   .refine((nilai) => nilai === "" || /^https?:\/\//i.test(nilai), "Links must start with http:// or https://")
   .transform((nilai) => nilai || null);
 
+// Tanpa `.default()`: ubahSchema memakai `.partial()`, dan di zod 4 bawaan di
+// dalam `.partial()` tetap diisi, sehingga PATCH `{ pinned }` akan
+// mengosongkan isi. Bawaan hanya untuk membuat (isiBuatSchema).
 const isiSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
-  body: z.string().trim().max(2000).default(""),
+  body: z.string().trim().max(2000),
   link_url: tautanSchema.nullable().optional(),
   link_label: z
     .string()
@@ -85,8 +88,13 @@ const isiSchema = z.object({
     .transform((nilai) => nilai || null)
     .nullable()
     .optional(),
-  pinned: z.boolean().default(false),
+  pinned: z.boolean(),
   popup: z.boolean().optional(),
+});
+
+const isiBuatSchema = isiSchema.extend({
+  body: isiSchema.shape.body.default(""),
+  pinned: isiSchema.shape.pinned.default(false),
 });
 
 /**
@@ -99,8 +107,8 @@ function fotoTulis(isi: { image_url?: string | null; image_alt?: string | null }
   return { image_url: isi.image_url ?? null, image_alt: isi.image_url ? (isi.image_alt ?? null) : null };
 }
 
-const buatSchema = isiSchema.merge(penerimaSchema.partial({ audience: true }));
-const ubahSchema = isiSchema.partial().merge(penerimaSchema.partial()).extend({ id: z.string().uuid() });
+const buatSchema = isiBuatSchema.merge(penerimaSchema.partial({ audience: true }));
+const ubahSchema = isiSchema.partial().merge(penerimaSchema.partial()).extend({ id: z.string().guid() });
 
 /**
  * Kolom penerima yang ditulis. Sebelum migrasi 202610300004 hanya `audience`,
@@ -245,7 +253,7 @@ export async function DELETE(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const id = new URL(request.url).searchParams.get("id") ?? "";
-  if (!z.string().uuid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
+  if (!z.string().guid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
 
   const client = getSupabaseServiceClient();
   const { data, error } = await client

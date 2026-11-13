@@ -28,7 +28,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * tersimpan, karena itu memang check-in baru.
  */
 
-const paramsSchema = z.string().uuid();
+const paramsSchema = z.string().guid();
 // Hanya angka: `z.coerce` menerima "1e3" atau " 7 " sebagai id sesi.
 const querySchema = z.object({ session: z.string().regex(/^[1-9]\d{0,15}$/).transform(Number).optional() });
 

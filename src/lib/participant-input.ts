@@ -32,7 +32,7 @@ export const participantBodySchema = z.object({
   participant_type: z.string().trim().max(50).nullish(),
   rsvp_status: z.enum(["invited", "confirmed"]).nullish().or(z.literal("")),
   extra: z
-    .record(z.string().max(MAX_ANSWER_LENGTH))
+    .record(z.string(), z.string().max(MAX_ANSWER_LENGTH))
     .refine((value) => Object.keys(value).length <= MAX_CUSTOM_FIELDS)
     .optional(),
   // Kursi yang diisi di Tally, per sesi denah ber-sumber "Set in Tally". Tidak

@@ -104,7 +104,7 @@ export async function GET(request: Request) {
 
 const pilihanSchema = z.object({
   format: z.enum(["csv", "xlsx"]).default("csv"),
-  ids: z.array(z.string().uuid()).min(1).max(5000),
+  ids: z.array(z.string().guid()).min(1).max(5000),
 });
 
 /**

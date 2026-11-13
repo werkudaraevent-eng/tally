@@ -24,7 +24,7 @@ import { linkOrigin } from "@/lib/domain-klien/asal";
  * seharusnya hanya dikirimi ulang emailnya.
  */
 
-const bodySchema = z.object({ id: z.string().uuid() });
+const bodySchema = z.object({ id: z.string().guid() });
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);

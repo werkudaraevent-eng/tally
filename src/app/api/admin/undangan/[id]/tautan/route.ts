@@ -22,7 +22,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (auth.response) return auth.response;
   if (!inviteSecretReady()) return apiError("VALIDATION_ERROR", 503, { message: "INVITE_LINK_SECRET is not set on the server." });
   const id = (await context.params).id;
-  if (!z.string().uuid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
+  if (!z.string().guid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
   const parsed = schema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422);
 

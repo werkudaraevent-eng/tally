@@ -25,7 +25,7 @@ import { kirimPengumumanBerjejak } from "@/lib/pengumuman-email-jejak";
 
 export const maxDuration = 60;
 
-const schema = z.object({ id: z.string().uuid() });
+const schema = z.object({ id: z.string().guid() });
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);

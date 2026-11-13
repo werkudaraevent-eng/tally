@@ -90,7 +90,7 @@ export async function DELETE(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const id = new URL(request.url).searchParams.get("id") ?? "";
-  if (!z.string().uuid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
+  if (!z.string().guid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
 
   const db = getSupabaseServiceClient();
   const { data, error } = await db.from("api_keys")
