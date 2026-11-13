@@ -131,7 +131,11 @@ export async function POST(request: Request) {
     return apiErrorPeserta(code, code === "INTERNAL_ERROR" ? 500 : code === "VOTE_ALREADY_CAST" ? 409 : 422);
   }
 
-  const response = Response.json({ ...(data as Record<string, unknown>), voter: displayName });
+  // Nama pemilih TIDAK dikirim balik. Di mode kode peserta, balasan yang
+  // menyebut nama berarti siapa pun bisa menebak kode QR dan mendapat nama
+  // pemiliknya. Halaman /vote tidak memakai nama ini; ia tetap disimpan di
+  // surat suara (p_display_name) untuk admin.
+  const response = Response.json(data as Record<string, unknown>);
   if (issueCookie) {
     // Cookie disetel pada balasan SUKSES saja. Disetel lebih awal, permintaan
     // yang gagal karena alasan lain tetap meninggalkan penanda perangkat baru,
