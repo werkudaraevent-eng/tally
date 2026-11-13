@@ -32,7 +32,7 @@ const bodySchema = z.object({
    * kode QR ke perangkat petugas (kode itu kunci masuk peserta), jadi yang
    * dikirim balik adalah id-nya, dan kodenya dicari di sini.
    */
-  participant_id: z.string().uuid().optional(),
+  participant_id: z.string().guid().optional(),
   // Meja tempat pemindaian ini terjadi. Opsional: acara satu meja tidak
   // mengenal jalur sama sekali, dan layar sapa tunggalnya menyapa semua orang.
   lane_id: z.number().int().positive().nullish(),

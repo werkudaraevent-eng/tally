@@ -25,7 +25,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const JEDA_MS = 10 * 60_000;
 
-const schema = z.object({ id: z.string().uuid(), action: z.enum(["hide", "show", "notify"]) });
+const schema = z.object({ id: z.string().guid(), action: z.enum(["hide", "show", "notify"]) });
 
 type Baris = { id: string; title: string; published_at: string; hidden_at?: string | null };
 

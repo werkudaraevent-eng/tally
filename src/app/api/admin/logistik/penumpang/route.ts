@@ -20,12 +20,12 @@ import { galatRpc, klien } from "@/lib/logistik/server";
 const tempatkan = z.object({
   trip_id: z.number().int().positive().nullable(),
   vehicle_id: z.number().int().positive().nullable(),
-  participant_ids: z.array(z.string().uuid()).min(1).max(2000),
+  participant_ids: z.array(z.string().guid()).min(1).max(2000),
 });
 
 const kembalikan = z.object({
   trip_id: z.number().int().positive(),
-  participant_ids: z.array(z.string().uuid()).min(1).max(2000),
+  participant_ids: z.array(z.string().guid()).min(1).max(2000),
 });
 
 export async function POST(request: Request) {

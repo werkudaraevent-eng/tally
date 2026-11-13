@@ -13,7 +13,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 const bodySchema = z.object({
   stasiun_id: z.number().int().positive(),
-  token: z.string().uuid(),
+  token: z.string().guid(),
 });
 
 type Ambil =

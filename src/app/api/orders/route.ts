@@ -6,12 +6,12 @@ import { MAX_ORDER_AMOUNT } from "@/lib/domain";
 
 const bodySchema = z.object({
   order_code: z.string().trim().min(1).max(20),
-  participant_id: z.string().uuid(),
+  participant_id: z.string().guid(),
   booth_id: z.number().int().positive(),
   has_discount_item: z.boolean(),
   regular_amount: z.number().int().min(0).max(MAX_ORDER_AMOUNT),
   note: z.string().max(500).optional(),
-  created_by: z.string().uuid().nullable().optional(),
+  created_by: z.string().guid().nullable().optional(),
   // Kode penawaran spesial yang diklaim. Dibiarkan opsional supaya pemanggil lama
   // (hanya has_discount_item) tetap bekerja: RPC menerjemahkannya ke penawaran
   // bawaan booth. Kuota, stok, syarat akumulasi, dan harga divalidasi di RPC.

@@ -19,7 +19,7 @@ import { linkOrigin } from "@/lib/domain-klien/asal";
  * tes harus ada di MESSAGING_ALLOWLIST.
  */
 
-const schema = z.object({ blast_id: z.string().uuid(), email: z.string().trim().email().max(200), sebagai: z.string().uuid().nullable().optional() });
+const schema = z.object({ blast_id: z.string().guid(), email: z.string().trim().email().max(200), sebagai: z.string().guid().nullable().optional() });
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"]);

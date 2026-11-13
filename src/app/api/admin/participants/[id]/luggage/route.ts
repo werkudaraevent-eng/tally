@@ -15,7 +15,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  *               dihapus dari bucket. Check-in di sesi itu tidak disentuh.
  */
 
-const paramsSchema = z.string().uuid();
+const paramsSchema = z.string().guid();
 const querySchema = z.object({ drop: z.string().regex(/^[1-9]\d{0,15}$/).transform(Number) });
 
 async function pesertaAcara(eventId: string, id: string) {

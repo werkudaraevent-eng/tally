@@ -18,7 +18,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 const sasaran = z.object({
   session_id: z.coerce.number().int().positive(),
-  participant_id: z.string().uuid(),
+  participant_id: z.string().guid(),
 });
 
 async function siapkan(request: Request, sumber: "query" | "body") {

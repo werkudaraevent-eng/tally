@@ -19,7 +19,7 @@ export function bonusRulesSchema(group: z.ZodType<{ op: "and" | "or"; children: 
   return z.array(z.discriminatedUnion("source", [
     z.object({
       name, tickets, source: z.literal("list"),
-      participant_ids: z.array(z.string().uuid()).min(requireConditions ? 1 : 0, "Daftar ini belum berisi peserta.").max(BONUS_LIST_MAX),
+      participant_ids: z.array(z.string().guid()).min(requireConditions ? 1 : 0, "Daftar ini belum berisi peserta.").max(BONUS_LIST_MAX),
       file_name: z.string().trim().max(200).nullable(),
       uploaded_at: z.string().max(40).nullable(),
     }),

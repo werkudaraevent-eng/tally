@@ -89,7 +89,7 @@ const CONFIG_ACTIONS = [
 
 const querySchema = z.object({
   category: z.enum(["config", "settings", "offers", "booths", "payment_methods", "rundown", "undian", "users", "participants", "messages", "logistics", "danger", "orders", "sync", "all"]).default("config"),
-  actor: z.string().uuid().optional(),
+  actor: z.string().guid().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),

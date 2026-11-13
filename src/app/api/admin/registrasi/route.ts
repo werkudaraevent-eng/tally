@@ -40,7 +40,7 @@ const querySchema = z.object({
 });
 
 const reviewSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   approve: z.boolean(),
   reason: z.string().trim().max(300).optional().nullable(),
 });

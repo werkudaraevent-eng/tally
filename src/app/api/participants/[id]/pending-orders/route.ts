@@ -6,7 +6,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const auth = await requireRequestEvent(request, ["cashier", "admin"]);
   if (auth.response) return auth.response;
-  const params = z.object({ id: z.string().uuid() }).safeParse(await context.params);
+  const params = z.object({ id: z.string().guid() }).safeParse(await context.params);
   if (!params.success) return apiError("VALIDATION_ERROR", 422);
   const eventId = auth.scope.event.id;
   const client = getSupabaseServiceClient();
