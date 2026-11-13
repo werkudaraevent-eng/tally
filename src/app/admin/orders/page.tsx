@@ -53,16 +53,16 @@ const money = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(val
 
 const STATUS: Record<string, { label: string; tone: ChipTone }> = {
   pending: { label: "Pending", tone: "warning" },
-  paid: { label: "Lunas", tone: "success" },
-  handed_over: { label: "Diserahkan", tone: "neutral" },
+  paid: { label: "Paid", tone: "success" },
+  handed_over: { label: "Handed over", tone: "neutral" },
   void: { label: "Void", tone: "error" },
 };
 const statusOf = (status: string) => STATUS[status] ?? STATUS.pending;
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
-  { value: "paid", label: "Lunas" },
-  { value: "handed_over", label: "Diserahkan" },
+  { value: "paid", label: "Paid" },
+  { value: "handed_over", label: "Handed over" },
   { value: "void", label: "Void" },
 ];
 
@@ -82,8 +82,8 @@ function Langkah({ done, title, detail }: { done: boolean; title: string; detail
   return (
     <li className="flex items-start gap-2.5 text-body-medium">
       {done
-        ? <CheckCircle size={16} className="mt-0.5 shrink-0 text-success" aria-label="Selesai" />
-        : <Circle size={16} className="mt-0.5 shrink-0 text-on-surface-variant" aria-label="Belum" />}
+        ? <CheckCircle size={16} className="mt-0.5 shrink-0 text-success" aria-label="Done" />
+        : <Circle size={16} className="mt-0.5 shrink-0 text-on-surface-variant" aria-label="Not yet" />}
       <span className="min-w-0">
         <span className="block font-medium text-on-surface">{title}</span>
         {detail ? <span className="block text-on-surface-variant">{detail}</span> : null}
@@ -156,7 +156,7 @@ export default function AdminOrdersPage() {
       setOrders([]);
       setTotal(0);
       setSummary(null);
-      setError(response ? (data.error?.message ?? "Order gagal dimuat.") : "Koneksi terputus. Daftar order tidak bisa dimuat.");
+      setError(response ? (data.error?.message ?? "Could not load orders.") : "Connection lost. The order list could not be loaded.");
       return;
     }
     setOrders(data.orders ?? []);
@@ -173,7 +173,7 @@ export default function AdminOrdersPage() {
   async function confirmVoid() {
     if (!voidTarget) return;
     const reason = voidReason.trim();
-    if (reason.length < 3) { setVoidError("Alasan void minimal 3 huruf."); return; }
+    if (reason.length < 3) { setVoidError("The void reason needs at least 3 characters."); return; }
     setVoiding(true); setVoidError("");
     const response = await fetch(`/api/admin/orders/${voidTarget.id}/void`, {
       method: "POST",
@@ -184,17 +184,17 @@ export default function AdminOrdersPage() {
     // `fetch` yang gagal berarti permintaannya mungkin SUDAH sampai ke server.
     // Menyuruh "coba lagi" tanpa syarat bisa membuat order yang sudah batal
     // di-void dua kali; yang benar adalah memuat ulang daftarnya dulu.
-    if (!response) { setVoidError("Koneksi terputus. Muat ulang daftar untuk memastikan statusnya sebelum mencoba lagi."); return; }
+    if (!response) { setVoidError("Connection lost. Reload the list to check the status before trying again."); return; }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const failure = data.error?.details?.reason?.[0] ?? data.error?.message ?? `Void gagal (${response.status}).`;
+      const failure = data.error?.details?.reason?.[0] ?? data.error?.message ?? `Void failed (${response.status}).`;
       setVoidError(failure);
-      toast.error("Void gagal", failure);
+      toast.error("Void failed", failure);
       return;
     }
     const code = voidTarget.code;
     closeVoid();
-    toast.warning(`Order ${code} dibatalkan`, "Kuota item diskon peserta kembali tersedia dan nilainya keluar dari leaderboard.");
+    toast.warning(`Order ${code} voided`, "The participant's discount item quota is available again and its value leaves the leaderboard.");
     await load();
   }
 
@@ -209,15 +209,15 @@ export default function AdminOrdersPage() {
 
   // ---- Panel daftar --------------------------------------------------------
   const list = (
-    <Pane aria-label="Daftar order">
+    <Pane aria-label="Order list">
       <PaneHeader className="flex-wrap gap-2 px-3 py-3">
         <label className="relative min-w-[200px] flex-1">
-          <span className="sr-only">Cari nomor stiker</span>
+          <span className="sr-only">Search sticker number</span>
           <MagnifyingGlass size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
           <input
             value={qInput}
             onChange={(event) => setQInput(event.target.value)}
-            placeholder="Nomor stiker, mis. B3-014"
+            placeholder="Sticker number, e.g. B3-014"
             className="h-8 w-full rounded-md border border-outline bg-surface-container-lowest pl-9 pr-3 text-body-medium outline-none placeholder:text-on-surface-variant focus:border-primary"
           />
         </label>
@@ -230,14 +230,14 @@ export default function AdminOrdersPage() {
           onChange={(next) => setBoothId(next[0] ?? "")}
           summary={(pilihan) => `Booth: ${boothCode(Number(pilihan[0]?.value))}`}
         />
-        <IconButton size="sm" variant="outlined" label="Muat ulang daftar" disabled={loading} onClick={() => void load()}><ArrowClockwise size={16} /></IconButton>
+        <IconButton size="sm" variant="outlined" label="Reload list" disabled={loading} onClick={() => void load()}><ArrowClockwise size={16} /></IconButton>
       </PaneHeader>
 
       <PaneBody>
         {error ? (
           <p role="alert" className="m-4 flex items-start gap-2 rounded-md bg-error-soft p-3 text-body-medium text-error"><XCircle size={18} className="mt-0.5 shrink-0" />{error}</p>
         ) : !loaded ? (
-          <div aria-label="Memuat order" className="flex flex-col">
+          <div aria-label="Loading orders" className="flex flex-col">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="flex items-center gap-6 border-b border-outline-variant px-4 py-4">
                 <Skeleton className="h-3 w-20" /><Skeleton className="h-3 w-40" /><Skeleton className="ml-auto h-3 w-24" />
@@ -248,16 +248,16 @@ export default function AdminOrdersPage() {
           <EmptyState
             plain
             icon={<Receipt size={40} />}
-            title={adaSaringan ? "Tidak ada order yang cocok" : "Belum ada order"}
-            description={adaSaringan ? "Longgarkan salah satu saringan atau ubah nomor stiker." : "Order muncul di sini begitu booth mencatat transaksi pertama."}
-            action={adaSaringan ? <Button variant="outlined" size="sm" onClick={hapusSaringan}>Hapus semua saringan</Button> : undefined}
+            title={adaSaringan ? "No matching orders" : "No orders yet"}
+            description={adaSaringan ? "Loosen one of the filters or change the sticker number." : "Orders appear here as soon as a booth records its first transaction."}
+            action={adaSaringan ? <Button variant="outlined" size="sm" onClick={hapusSaringan}>Clear all filters</Button> : undefined}
           />
         ) : (
           <table className={cx("w-full min-w-[560px] border-separate border-spacing-0 text-left text-body-medium", loading && "opacity-60")}>
             <thead className="sticky top-0 z-10 bg-surface-container-high text-on-surface-variant">
               <tr>
                 <th scope="col" className="border-b border-outline-variant px-4 py-2.5 font-medium">Order</th>
-                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Peserta</th>
+                <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Participant</th>
                 <th scope="col" className="border-b border-outline-variant px-3 py-2.5 font-medium">Status</th>
                 <th scope="col" className="border-b border-outline-variant px-4 py-2.5 text-right font-medium">Total</th>
               </tr>
@@ -280,7 +280,7 @@ export default function AdminOrdersPage() {
                         className="block rounded-sm text-left"
                       >
                         <span className="block font-medium tabular-nums text-on-surface">{order.code}</span>
-                        <span className="block text-on-surface-variant">{order.has_discount_item ? "Item diskon" : "Reguler"}</span>
+                        <span className="block text-on-surface-variant">{order.has_discount_item ? "Discount item" : "Regular"}</span>
                       </button>
                     </td>
                     <td className="max-w-0 border-b border-outline-variant px-3 py-2.5">
@@ -303,9 +303,9 @@ export default function AdminOrdersPage() {
         className="bg-surface-container-lowest py-2.5"
         note={
           <span className="flex flex-wrap items-center gap-x-2">
-            <span className="tabular-nums">{error ? "Daftar tidak dimuat" : total > orders.length ? `${orders.length} order terbaru dari ${total}` : `${total} order`}</span>
-            {!error && total > orders.length ? <span>Persempit saringan untuk melihat sisanya.</span> : null}
-            {adaSaringan ? <button type="button" onClick={hapusSaringan} className="rounded-sm font-medium text-primary hover:underline">Hapus semua saringan</button> : null}
+            <span className="tabular-nums">{error ? "List not loaded" : total > orders.length ? `${orders.length} latest orders of ${total}` : `${total} order`}</span>
+            {!error && total > orders.length ? <span>Narrow the filters to see the rest.</span> : null}
+            {adaSaringan ? <button type="button" onClick={hapusSaringan} className="rounded-sm font-medium text-primary hover:underline">Clear all filters</button> : null}
           </span>
         }
       />
@@ -321,12 +321,12 @@ export default function AdminOrdersPage() {
     const subjudul = [order.participants?.name, order.participants?.company, booth ? `Booth ${booth.code} ${booth.name}` : `Booth ${boothCode(order.booth_id)}`].filter(Boolean).join(" · ");
     const bisaVoid = isOwner && order.status !== "void";
     return (
-      <Pane as="aside" aria-label={`Detail order ${order.code}`}>
+      <Pane as="aside" aria-label={`Order ${order.code} details`}>
         <div className="flex shrink-0 flex-col gap-1 border-b border-outline-variant px-5 py-4">
           <div className="flex items-center gap-2">
             <h2 className="text-title-medium font-semibold tabular-nums">{order.code}</h2>
             <StatusChip dot tone={badge.tone}>{badge.label}</StatusChip>
-            <IconButton size="sm" label="Tutup detail" className="ml-auto" onClick={() => setSelectedId(null)}><X size={16} /></IconButton>
+            <IconButton size="sm" label="Close details" className="ml-auto" onClick={() => setSelectedId(null)}><X size={16} /></IconButton>
           </div>
           <p className={cx("text-headline-small font-semibold tabular-nums", order.status === "void" && "text-on-surface-variant")}>{money(order.total_amount)}</p>
           <p className="text-body-medium text-on-surface-variant">{subjudul}</p>
@@ -334,41 +334,41 @@ export default function AdminOrdersPage() {
         <PaneBody>
           <dl>
             {order.status === "void" ? (
-              <DetailSection title="Alasan void">
+              <DetailSection title="Void reason">
                 <p className="text-body-medium">{order.void_reason ?? <EmptyCell />}</p>
               </DetailSection>
             ) : null}
             {/* Nominal reguler ikut dirinci: tanpa itu order tanpa item spesial
                 terlihat kosong, padahal isinya belanja reguler. */}
             <DetailSection title="Item">
-              {order.regular_amount > 0 ? <KeyValue label="Item reguler"><span className="block text-right tabular-nums">{money(order.regular_amount)}</span></KeyValue> : null}
+              {order.regular_amount > 0 ? <KeyValue label="Regular items"><span className="block text-right tabular-nums">{money(order.regular_amount)}</span></KeyValue> : null}
               {items.map((item, index) => (
-                <KeyValue key={`${item.special_offers?.code ?? "item"}-${index}`} label={item.special_offers?.name ?? "Item dihapus"}>
+                <KeyValue key={`${item.special_offers?.code ?? "item"}-${index}`} label={item.special_offers?.name ?? "Item deleted"}>
                   <span className="block text-right tabular-nums">{money(item.price_at_claim)}</span>
                 </KeyValue>
               ))}
-              {order.regular_amount === 0 && items.length === 0 ? <p className="text-body-medium text-on-surface-variant">Tidak ada item tercatat.</p> : null}
+              {order.regular_amount === 0 && items.length === 0 ? <p className="text-body-medium text-on-surface-variant">No items recorded.</p> : null}
             </DetailSection>
-            <DetailSection title="Pembayaran">
-              <KeyValue label="Metode">{order.payment_method ? `${order.payment_method.toUpperCase()}${order.approval_code ? ` · approval ${order.approval_code}` : ""}` : <EmptyCell />}</KeyValue>
-              <KeyValue label="Pengambilan">{order.pickup_mode === "immediate" ? "Serahkan langsung di booth" : "Ambil setelah lunas"}</KeyValue>
-              <KeyValue label="Kode QR peserta"><span className="tabular-nums">{order.participants?.qr_code ?? <EmptyCell />}</span></KeyValue>
+            <DetailSection title="Payment">
+              <KeyValue label="Method">{order.payment_method ? `${order.payment_method.toUpperCase()}${order.approval_code ? ` · approval ${order.approval_code}` : ""}` : <EmptyCell />}</KeyValue>
+              <KeyValue label="Pick-up">{order.pickup_mode === "immediate" ? "Hand over at the booth" : "Pick up after payment"}</KeyValue>
+              <KeyValue label="Participant QR code"><span className="tabular-nums">{order.participants?.qr_code ?? <EmptyCell />}</span></KeyValue>
             </DetailSection>
-            <DetailSection title="Riwayat">
+            <DetailSection title="History">
               <ol className="flex flex-col gap-3">
-                <Langkah done title={`Dibuat di booth ${boothCode(order.booth_id)}`} detail={dateTime(order.created_at)} />
+                <Langkah done title={`Created at booth ${boothCode(order.booth_id)}`} detail={dateTime(order.created_at)} />
                 {order.paid_at
-                  ? <Langkah done title="Lunas di kasir" detail={dateTime(order.paid_at)} />
-                  : order.status !== "void" ? <Langkah done={false} title="Belum lunas" /> : null}
+                  ? <Langkah done title="Paid at cashier" detail={dateTime(order.paid_at)} />
+                  : order.status !== "void" ? <Langkah done={false} title="Not paid" /> : null}
                 {order.handed_over_at
-                  ? <Langkah done title="Diserahkan" detail={dateTime(order.handed_over_at)} />
-                  : order.status === "paid" && order.pickup_mode === "after_payment" ? <Langkah done={false} title="Belum diserahkan" detail="Ambil setelah lunas" /> : null}
-                {order.status === "void" ? <Langkah done title="Dibatalkan (void)" /> : null}
+                  ? <Langkah done title="Handed over" detail={dateTime(order.handed_over_at)} />
+                  : order.status === "paid" && order.pickup_mode === "after_payment" ? <Langkah done={false} title="Not handed over" detail="Pick up after payment" /> : null}
+                {order.status === "void" ? <Langkah done title="Cancelled (void)" /> : null}
               </ol>
             </DetailSection>
           </dl>
         </PaneBody>
-        <PaneFooter note={order.status === "void" ? "Order ini sudah void" : isOwner ? "Void mengeluarkan nilainya dari hitungan" : "Void hanya untuk super admin"}>
+        <PaneFooter note={order.status === "void" ? "This order is already void" : isOwner ? "Void removes its value from the count" : "Void is for super admins only"}>
           {bisaVoid ? (
             <Button simpan variant="outlined" size="sm" className="text-error" icon={<Prohibit size={16} />} onClick={() => { setVoidTarget(order); setVoidReason(""); setVoidError(""); }}>
               Void order
@@ -384,9 +384,9 @@ export default function AdminOrdersPage() {
       <WorkspaceHeader
         meta={
           <>
-            <span className="tabular-nums">{!loaded ? "Memuat order" : error ? "Jumlah order tidak diketahui" : `${total} order`}</span>
+            <span className="tabular-nums">{!loaded ? "Loading orders" : error ? "Number of orders unknown" : `${total} order`}</span>
             <MetaSeparator />
-            <span>Ringkasan mengikuti saringan, dihitung dari semua order yang cocok</span>
+            <span>The summary follows the filters and counts every matching order</span>
           </>
         }
         actions={<ExportMenu />}
@@ -395,23 +395,23 @@ export default function AdminOrdersPage() {
       {/* Ringkasan hasil filter, di ANTARA judul dan daftar supaya terbaca sebagai
           akibat dari saringan di bawahnya. */}
       {summary === null ? (
-        <Banner tone="warning" icon={<XCircle size={18} />}>Ringkasan gagal dihitung. Angka sengaja tidak ditampilkan daripada menampilkan nilai yang belum tentu benar.</Banner>
+        <Banner tone="warning" icon={<XCircle size={18} />}>The summary could not be calculated. Figures are hidden on purpose rather than showing values that may be wrong.</Banner>
       ) : (
-        <section aria-label="Ringkasan hasil saringan" className="grid shrink-0 gap-px overflow-hidden rounded-lg border border-outline-variant bg-outline-variant sm:grid-cols-2 xl:grid-cols-4">
+        <section aria-label="Summary of filtered results" className="grid shrink-0 gap-px overflow-hidden rounded-lg border border-outline-variant bg-outline-variant sm:grid-cols-2 xl:grid-cols-4">
           {summary === undefined ? [0, 1, 2, 3].map((index) => (
             <div key={index} aria-hidden className="flex flex-col gap-2 bg-surface-container-lowest px-5 py-4"><Skeleton className="h-3.5 w-24" /><Skeleton className="h-7 w-36" /><Skeleton className="h-3.5 w-32" /></div>
           )) : (
             <>
-              <Angka label="Nilai transaksi" value={money(summary.total_amount)} note={`${summary.order_count} order dihitung, di luar void`} />
-              <Angka label="Belanja reguler" value={money(summary.regular_amount)} note="Tanpa nilai item spesial" />
-              <Angka label="Item spesial" value={money(summary.special_amount)} note={`${summary.discount_item_count} order pakai item diskon`} />
+              <Angka label="Transaction value" value={money(summary.total_amount)} note={`${summary.order_count} order dihitung, di luar void`} />
+              <Angka label="Regular spending" value={money(summary.regular_amount)} note="Without special item value" />
+              <Angka label="Special items" value={money(summary.special_amount)} note={`${summary.discount_item_count} orders used a discount item`} />
               {/* Void dipisah, TIDAK dicampur ke total, supaya angka di sini cocok
                   dengan Laporan dan leaderboard yang hanya menghitung lunas. */}
               <Angka
                 label="Void"
                 value={`${summary.void_count} order`}
                 tone={summary.void_count > 0 ? "error" : "muted"}
-                note={summary.void_count > 0 ? `Senilai ${money(summary.void_amount)}, tidak dihitung` : "Tidak ada order dibatalkan"}
+                note={summary.void_count > 0 ? `Worth ${money(summary.void_amount)}, not counted` : "No orders voided"}
               />
             </>
           )}
@@ -432,9 +432,9 @@ export default function AdminOrdersPage() {
         title={`Void order ${voidTarget?.code ?? ""}?`}
         actions={
           <>
-            <Button variant="outlined" disabled={voiding} onClick={closeVoid}>Batal</Button>
+            <Button variant="outlined" disabled={voiding} onClick={closeVoid}>Cancel</Button>
             <Button simpan variant="danger" icon={<Prohibit size={18} />} loading={voiding} disabled={voidReason.trim().length < 3} onClick={() => void confirmVoid()}>
-              Void order ini
+              Void this order
             </Button>
           </>
         }
@@ -452,23 +452,23 @@ export default function AdminOrdersPage() {
             {/* Akibatnya ditulis sesuai RPC void_order_transaction, bukan
                 diringkas jadi "yakin?". */}
             <ul className="mt-4 flex list-disc flex-col gap-1.5 pl-5 text-body-medium text-on-surface-variant">
-              <li>Nilainya keluar dari leaderboard top spender dan dari Laporan.</li>
-              <li>Kuota item diskon peserta kembali tersedia, dan stok item spesial yang terbatas bertambah lagi.</li>
-              <li>Barisnya tetap ada dengan status Void. Riwayat dan nomor stikernya tidak hilang.</li>
-              {voidTarget.status === "handed_over" ? <li className="font-medium text-warning">Barang sudah diserahkan ke peserta. Void tidak menariknya kembali, hanya mencatat pembatalannya.</li> : null}
+              <li>Its value leaves the top spender leaderboard and Reports.</li>
+              <li>The participant’s discount item quota is available again, and limited special item stock goes back up.</li>
+              <li>The row stays with status Void. Its history and sticker number are kept.</li>
+              {voidTarget.status === "handed_over" ? <li className="font-medium text-warning">The item was already handed to the participant. Void does not take it back; it only records the cancellation.</li> : null}
             </ul>
           </>
         ) : null}
 
         <TextField
           className="mt-4"
-          label="Alasan void"
+          label="Void reason"
           value={voidReason}
           onChange={(event) => setVoidReason(event.target.value)}
           maxLength={500}
           autoFocus
-          placeholder="mis. salah input nominal"
-          hint="Tersimpan permanen di audit trail bersama nama Anda. Ini satu-satunya keterangan kenapa nomor stiker ini tidak terhitung."
+          placeholder="e.g. wrong amount entered"
+          hint="Stored permanently in the audit trail with your name. It is the only record of why this sticker number does not count."
           error={voidError || undefined}
         />
       </Dialog>

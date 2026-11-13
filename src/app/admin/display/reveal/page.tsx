@@ -90,8 +90,8 @@ export default function RevealControlPage() {
       setEnabled(data.leaderboard_enabled !== false);
       setTimeZone(normalizeTimeZone(data.time_zone));
     }
-    if (!revealResponse) { setGalatMuat("Koneksi terputus. Status di layar mungkin sudah tidak akurat."); return; }
-    if (!revealResponse.ok) { setGalatMuat("Status reveal gagal dimuat."); return; }
+    if (!revealResponse) { setGalatMuat("Connection lost. The status shown may be out of date."); return; }
+    if (!revealResponse.ok) { setGalatMuat("Could not load the reveal status."); return; }
     apply(await revealResponse.json());
     setGalatMuat("");
   }, [apply]);
@@ -114,9 +114,9 @@ export default function RevealControlPage() {
     const data = await response?.json().catch(() => null);
     setBusy(null);
     if (!response?.ok) {
-      const failure = data?.error?.message ?? (response ? "Aksi reveal gagal." : "Koneksi terputus. Aksi belum tentu terkirim, periksa status di atas.");
+      const failure = data?.error?.message ?? (response ? "Reveal action failed." : "Connection lost. The action may not have been sent; check the status above.");
       setGalatAksi(failure);
-      toast.error("Aksi reveal gagal", failure);
+      toast.error("Reveal action failed", failure);
       return false;
     }
     apply(data as Record<string, unknown>);
@@ -125,32 +125,32 @@ export default function RevealControlPage() {
 
   function gantiMode(value: RevealMode) {
     void act("config", { mode: value }).then((ok) => {
-      if (ok) toast.success(value === "staged" ? "Mode bertahap aktif" : "Kembali ke papan penuh", value === "staged" ? "Layar menunggu tahap pertama dibuka." : "Layar menampilkan semua peringkat live.");
+      if (ok) toast.success(value === "staged" ? "Step-by-step mode on" : "Back to the full board", value === "staged" ? "The screen is waiting for the first step." : "The screen shows all ranks live.");
     });
   }
 
   function mulai() {
     const beku = row?.freeze_on_start;
-    void act("start").then((ok) => { if (ok) toast.success("Reveal dimulai", beku ? "Angka dibekukan. Buka tahap pertama saat MC siap." : "Buka tahap pertama saat MC siap."); });
+    void act("start").then((ok) => { if (ok) toast.success("Reveal started", beku ? "Figures frozen. Open the first step when the MC is ready." : "Open the first step when the MC is ready."); });
   }
 
   function kosongkan() {
-    void act("reset").then((ok) => { if (ok) toast.info("Tahap dikosongkan", "Layar kembali ke tahap 0."); });
+    void act("reset").then((ok) => { if (ok) toast.info("Steps cleared", "The screen is back at step 0."); });
   }
 
   const galat = galatAksi || galatMuat;
 
   const header = (
     <WorkspaceHeader
-      title="Papan peringkat"
+      title="Leaderboard"
       meta={row ? (
         <>
-          <span>{row.mode === "staged" ? "Mode bertahap" : "Mode papan penuh"}</span>
+          <span>{row.mode === "staged" ? "Step-by-step mode" : "Full board mode"}</span>
           <MetaSeparator />
           <span>Status disegarkan tiap {POLL_MS / 1000} detik</span>
         </>
       ) : null}
-      actions={<ButtonLink href="/display?fullscreen=1" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Buka papan peringkat</ButtonLink>}
+      actions={<ButtonLink href="/display?fullscreen=1" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open leaderboard</ButtonLink>}
     />
   );
 
@@ -178,10 +178,10 @@ export default function RevealControlPage() {
   // Apa yang SEDANG di layar, sebagai satu kalimat. Operator tidak boleh harus
   // menerjemahkan "tahap 2 dari 3" menjadi peringkat berapa yang tampil.
   const onScreen = !staged
-    ? "Papan penuh, mengikuti transaksi live"
-    : atShowAll ? "Papan penuh (semua peringkat)"
+    ? "Full board, following live transactions"
+    : atShowAll ? "Full board (all ranks)"
     : currentStage ? currentStage.label
-    : "Belum ada peringkat yang dibuka";
+    : "No ranks opened yet";
 
   // Peringatan celah peringkat. Susunan 1-3 lalu 5-10 lolos validasi bentuk
   // tetapi membuat peringkat 4 tidak pernah tampil.
@@ -196,10 +196,10 @@ export default function RevealControlPage() {
   const kendali = (
     // Di bawah `lg` panel ini tidak memotong isinya, supaya bilah tombol bisa
     // menempel di tepi bawah layar ponsel selama panel masih terlihat.
-    <Pane aria-label="Kendali reveal" className="max-lg:overflow-visible">
+    <Pane aria-label="Reveal controls" className="max-lg:overflow-visible">
       <div className="shrink-0 border-b border-outline-variant px-4 py-3">
         <SegmentedButton<RevealMode>
-          label="Mode papan peringkat"
+          label="Leaderboard mode"
           value={row.mode}
           onChange={(value) => {
             if (value === row.mode) return;
@@ -210,39 +210,39 @@ export default function RevealControlPage() {
           }}
           className="w-full"
           options={[
-            { value: "off", label: "Papan penuh", disabled: busy !== null },
-            { value: "staged", label: "Bertahap", disabled: busy !== null },
+            { value: "off", label: "Full board", disabled: busy !== null },
+            { value: "staged", label: "Step by step", disabled: busy !== null },
           ]}
         />
       </div>
 
       <PaneBody className="flex flex-col gap-4 px-4 py-4">
-        <section aria-label="Sedang di layar" className="rounded-lg border border-outline-variant p-4">
-          <p className="text-body-medium text-on-surface-variant">Sedang di layar</p>
+        <section aria-label="On screen now" className="rounded-lg border border-outline-variant p-4">
+          <p className="text-body-medium text-on-surface-variant">On screen now</p>
           <p className="mt-1 text-title-large font-semibold text-on-surface">{onScreen}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {staged ? <StatusChip dot tone="primary"><span className="tabular-nums">Tahap {Math.min(row.stage, showAllStageNumber)} / {showAllStageNumber}</span></StatusChip> : null}
             {row.frozen_at
               ? <StatusChip icon={<Lock size={12} aria-hidden />}>Angka dibekukan {formatEventDateTime(row.frozen_at, timeZone)} {timeZoneAbbr(timeZone)}</StatusChip>
-              : <StatusChip icon={<LockOpen size={12} aria-hidden />}>Mengikuti data live</StatusChip>}
+              : <StatusChip icon={<LockOpen size={12} aria-hidden />}>Following live data</StatusChip>}
             {enabled
-              ? <StatusChip icon={<Eye size={12} aria-hidden />}>Layar menyala</StatusChip>
-              : <StatusChip tone="warning" icon={<EyeSlash size={12} aria-hidden />}>Layar disembunyikan</StatusChip>}
+              ? <StatusChip icon={<Eye size={12} aria-hidden />}>Screen on</StatusChip>
+              : <StatusChip tone="warning" icon={<EyeSlash size={12} aria-hidden />}>Screen hidden</StatusChip>}
           </div>
         </section>
 
         {!staged ? (
           <p className="text-body-medium text-on-surface-variant">
-            Semua top spender tampil live sekaligus. Pilih Bertahap untuk membuka peringkat sedikit-sedikit lewat tombol.
-            Kembali ke papan penuh langsung menampilkan semua peringkat dan mengosongkan tahap.
+            All top spenders show live at once. Pick Step by step to open the ranks a few at a time with a button.
+            Back to the full board shows every rank right away and clears the steps.
           </p>
         ) : (
           <>
             {/* Peta tahap: urutan lengkap sekaligus posisi sekarang, supaya
                 operator tahu apa yang muncul setelah ketukan berikutnya. */}
-            <ol aria-label="Urutan tahap" className="overflow-hidden rounded-lg border border-outline-variant">
-              {[...stages.map((item, index) => ({ key: `${index}`, number: index + 1, label: item.label, detail: `Peringkat ${item.from}–${item.to}, ${item.layout === "spotlight" ? "tampilan besar" : "daftar"}` })),
-                { key: "all", number: showAllStageNumber, label: "Papan penuh", detail: "Semua peringkat sekaligus" }]
+            <ol aria-label="Step order" className="overflow-hidden rounded-lg border border-outline-variant">
+              {[...stages.map((item, index) => ({ key: `${index}`, number: index + 1, label: item.label, detail: `Ranks ${item.from}–${item.to}, ${item.layout === "spotlight" ? "large view" : "list"}` })),
+                { key: "all", number: showAllStageNumber, label: "Full board", detail: "All ranks at once" }]
                 .map((item) => {
                   const done = row.stage >= item.number;
                   const active = Math.min(row.stage, showAllStageNumber) === item.number;
@@ -257,7 +257,7 @@ export default function RevealControlPage() {
                         <span className="block font-medium text-on-surface">{item.label}</span>
                         <span className="block text-on-surface-variant">{item.detail}</span>
                       </span>
-                      {active ? <StatusChip dot tone="primary">Di layar</StatusChip> : null}
+                      {active ? <StatusChip dot tone="primary">On screen</StatusChip> : null}
                     </li>
                   );
                 })}
@@ -265,13 +265,13 @@ export default function RevealControlPage() {
 
             <div className="flex flex-wrap items-center gap-2">
               {row.frozen_at ? (
-                <Button variant="outlined" size="sm" icon={<Play size={16} />} disabled={busy !== null} onClick={() => setKonfirmasi("restart")}>Mulai ulang dari awal</Button>
+                <Button variant="outlined" size="sm" icon={<Play size={16} />} disabled={busy !== null} onClick={() => setKonfirmasi("restart")}>Start again from the beginning</Button>
               ) : null}
-              <Button variant="outlined" size="sm" icon={<ArrowClockwise size={16} />} disabled={busy !== null || (row.stage === 0 && !row.frozen_at)} onClick={() => setKonfirmasi("reset")}>Kosongkan tahap</Button>
+              <Button variant="outlined" size="sm" icon={<ArrowClockwise size={16} />} disabled={busy !== null || (row.stage === 0 && !row.frozen_at)} onClick={() => setKonfirmasi("reset")}>Clear steps</Button>
             </div>
             <p className="text-body-medium text-on-surface-variant">
-              Tampilkan semua punya tombolnya sendiri dan tidak terpicu oleh tombol tahap, supaya satu ketukan kelebihan tidak
-              membocorkan seluruh peringkat lebih cepat dari rencana MC.
+              Show all has its own button and is never triggered by the step button, so one extra tap cannot
+              reveal every rank sooner than the MC planned.
             </p>
           </>
         )}
@@ -285,27 +285,27 @@ export default function RevealControlPage() {
         <div className="sticky bottom-0 z-10 flex shrink-0 flex-col gap-2 rounded-b-lg border-t border-outline-variant bg-surface-container-high p-4">
           {perluMulai ? (
             <>
-              <Button size="xl" block icon={<Play size={20} weight="fill" />} loading={busy === "start"} disabled={busy !== null} onClick={mulai}>Mulai reveal</Button>
-              <p className="text-center text-body-medium text-on-surface-variant">Mengunci angka dan urutan saat ini, lalu layar menunggu tahap pertama.</p>
+              <Button size="xl" block icon={<Play size={20} weight="fill" />} loading={busy === "start"} disabled={busy !== null} onClick={mulai}>Start reveal</Button>
+              <p className="text-center text-body-medium text-on-surface-variant">Locks the current figures and order, then the screen waits for the first step.</p>
             </>
           ) : (
             // Tombol utama menyebut tahap yang akan dibuka, bukan sekadar "Lanjut":
             // operator membaca apa yang akan dilihat penonton sebelum menekan.
             <Button size="xl" block trailingIcon={nextStage ? <CaretRight size={20} aria-hidden /> : undefined} loading={busy === "next"} disabled={busy !== null || row.stage >= stages.length} onClick={() => { void act("next"); }}>
-              {nextStage ? `Buka ${nextStage.label}` : "Semua tahap sudah dibuka"}
+              {nextStage ? `Open ${nextStage.label}` : "All steps opened"}
             </Button>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outlined" size="xl" icon={<ArrowLeft size={18} />} loading={busy === "prev"} disabled={busy !== null || row.stage <= 0} onClick={() => { void act("prev"); }}>Kembali</Button>
+            <Button variant="outlined" size="xl" icon={<ArrowLeft size={18} />} loading={busy === "prev"} disabled={busy !== null || row.stage <= 0} onClick={() => { void act("prev"); }}>Back</Button>
             <Button
               variant="outlined"
               size="xl"
               icon={<ArrowLineRight size={18} />}
               loading={busy === "show_all"}
               disabled={busy !== null || atShowAll}
-              onClick={() => { void act("show_all").then((ok) => { if (ok) toast.info("Papan penuh tampil", "Semua peringkat sekarang terlihat penonton."); }); }}
+              onClick={() => { void act("show_all").then((ok) => { if (ok) toast.info("Full board showing", "The audience now sees every rank."); }); }}
             >
-              Tampilkan semua
+              Show all
             </Button>
           </div>
         </div>
@@ -315,27 +315,27 @@ export default function RevealControlPage() {
 
   // ---- Panel pendukung: setelan sebelum acara ----------------------------------
   const setelan = (
-    <Pane as="aside" aria-label="Setelan reveal">
+    <Pane as="aside" aria-label="Reveal settings">
       <PaneHeader>
-        <h2 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Setelan reveal</h2>
+        <h2 className="min-w-0 flex-1 text-body-medium font-semibold text-on-surface">Reveal settings</h2>
       </PaneHeader>
       <PaneBody>
-        <DetailSection title="Angka selama pengumuman">
+        <DetailSection title="Figures during the announcement">
           <div className="flex flex-col gap-2">
             {([
               {
                 value: true,
                 icon: Snowflake,
-                title: "Bekukan angka saat reveal dimulai",
-                badge: "Disarankan",
-                desc: "Angka dan urutan dikunci saat Mulai reveal ditekan. Transaksi baru tetap tercatat, tetapi tidak mengubah layar sampai tahap dikosongkan. Pakai ini kalau booth masih buka: tanpa dibekukan, peringkat 4 bisa melompat ke peringkat 2 setelah tiga besar diumumkan.",
+                title: "Freeze figures when the reveal starts",
+                badge: "Recommended",
+                desc: "Figures and order are locked when Start reveal is pressed. New transactions are still recorded but do not change the screen until the steps are cleared. Use this while booths are still open: without freezing, rank 4 can jump to rank 2 after the top three are announced.",
               },
               {
                 value: false,
                 icon: LockOpen,
-                title: "Ikuti data live",
+                title: "Follow live data",
                 badge: null,
-                desc: "Layar mengikuti transaksi terbaru, jadi urutan bisa berubah di tengah pengumuman. Pakai hanya kalau semua booth sudah tutup.",
+                desc: "The screen follows the latest transactions, so the order can change mid-announcement. Use only when every booth has closed.",
               },
             ]).map((option) => {
               const Icon = option.icon;
@@ -372,8 +372,8 @@ export default function RevealControlPage() {
           ) : null}
         </DetailSection>
 
-        <DetailSection title="Susunan tahap">
-          <p className="text-body-medium text-on-surface-variant">Setiap tahap adalah rentang peringkat. Bawaan: peringkat 1–3 tampil besar, lalu diganti peringkat 4–10.</p>
+        <DetailSection title="Step order">
+          <p className="text-body-medium text-on-surface-variant">Each step is a range of ranks. Default: ranks 1–3 shown large, then replaced by ranks 4–10.</p>
           <div className="flex flex-col gap-2">
             {editing.map((item, index) => (
               <fieldset key={index} className="rounded-lg border border-outline-variant p-3">
@@ -384,19 +384,19 @@ export default function RevealControlPage() {
                 </label>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <label className="block text-body-medium font-medium text-on-surface">
-                    Dari
+                    From
                     <input type="number" min={1} max={50} value={item.from} onChange={(event) => ubahTahap(index, { from: Math.max(1, Math.min(50, Number(event.target.value) || 1)) })} className={cx(INPUT, "tabular-nums")} />
                   </label>
                   <label className="block text-body-medium font-medium text-on-surface">
-                    Sampai
+                    To
                     <input type="number" min={1} max={50} value={item.to} onChange={(event) => ubahTahap(index, { to: Math.max(1, Math.min(50, Number(event.target.value) || 1)) })} className={cx(INPUT, "tabular-nums")} />
                   </label>
                   <SegmentedField
-                    label="Tampilan"
+                    label="View"
                     className="col-span-2"
                     value={item.layout === "spotlight" ? "spotlight" : "list"}
                     onChange={(layout) => ubahTahap(index, { layout })}
-                    options={[{ value: "spotlight", label: "Besar" }, { value: "list", label: "Daftar" }]}
+                    options={[{ value: "spotlight", label: "Large" }, { value: "list", label: "List" }]}
                   />
                 </div>
               </fieldset>
@@ -405,23 +405,23 @@ export default function RevealControlPage() {
           {celah.length > 0 ? (
             <p className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-medium text-on-surface">
               <WarningCircle size={16} aria-hidden className="mt-0.5 shrink-0 text-warning" />
-              Peringkat {celah.join(", ")} tidak masuk tahap mana pun, jadi hanya akan terlihat lewat Tampilkan semua.
+              Ranks {celah.join(", ")} are not in any step, so they only show through Show all.
             </p>
           ) : null}
         </DetailSection>
       </PaneBody>
-      <PaneFooter note={draft ? "Belum disimpan" : "Susunan perlu disimpan, tidak seketika"}>
-        <Button variant="text" size="sm" disabled={busy !== null} onClick={() => setDraft(DEFAULT_REVEAL_STAGES)}>Bawaan</Button>
-        <Button variant="text" size="sm" disabled={draft === null} onClick={() => setDraft(null)}>Batalkan</Button>
+      <PaneFooter note={draft ? "Not saved" : "The order must be saved; it does not apply instantly"}>
+        <Button variant="text" size="sm" disabled={busy !== null} onClick={() => setDraft(DEFAULT_REVEAL_STAGES)}>Default</Button>
+        <Button variant="text" size="sm" disabled={draft === null} onClick={() => setDraft(null)}>Cancel</Button>
         {/* Outlined, bukan filled: aksi utama halaman ini tombol tahap di panel kendali. */}
         <Button simpan
           variant="outlined"
           size="sm"
           loading={busy === "config" && draft !== null}
           disabled={busy !== null || draft === null}
-          onClick={() => { void act("config", { stages: editing }).then((ok) => { if (ok) { setDraft(null); toast.success("Susunan tahap tersimpan"); } }); }}
+          onClick={() => { void act("config", { stages: editing }).then((ok) => { if (ok) { setDraft(null); toast.success("Step order saved"); } }); }}
         >
-          Simpan susunan
+          Save order
         </Button>
       </PaneFooter>
     </Pane>
@@ -429,23 +429,23 @@ export default function RevealControlPage() {
 
   const dialog: Record<Konfirmasi, { title: string; description: string; aksi: string; jalankan: () => void }> = {
     off: {
-      title: "Kembali ke papan penuh?",
-      description: "Semua peringkat langsung terlihat penonton dan mengikuti transaksi live. Tahap dan angka yang dibekukan dikosongkan.",
-      aksi: "Tampilkan papan penuh",
+      title: "Back to the full board?",
+      description: "Every rank becomes visible to the audience right away and follows live transactions. Steps and frozen figures are cleared.",
+      aksi: "Show full board",
       jalankan: () => gantiMode("off"),
     },
     reset: {
-      title: "Kosongkan tahap?",
-      description: `Layar kembali ke tahap 0 dan tidak menampilkan peringkat.${row.frozen_at ? " Angka yang dibekukan dilepas; pembekuan baru diambil saat Mulai reveal ditekan lagi." : ""}`,
-      aksi: "Kosongkan tahap",
+      title: "Clear steps?",
+      description: `The screen goes back to step 0 and shows no ranks.${row.frozen_at ? " Frozen figures are released; a new freeze is taken when Start reveal is pressed again." : ""}`,
+      aksi: "Clear steps",
       jalankan: kosongkan,
     },
     restart: {
-      title: "Mulai ulang dari awal?",
+      title: "Start again from the beginning?",
       description: row.freeze_on_start
-        ? "Angka dibekukan ulang dari data saat ini, dan layar kembali ke tahap 0."
-        : "Pembekuan angka dilepas dan layar kembali ke tahap 0. Angka mengikuti data live.",
-      aksi: "Mulai ulang",
+        ? "Figures are frozen again from the current data, and the screen goes back to step 0."
+        : "Frozen figures are released and the screen goes back to step 0. Figures follow live data.",
+      aksi: "Start again",
       jalankan: mulai,
     },
   };
@@ -459,7 +459,7 @@ export default function RevealControlPage() {
       description={dialog[konfirmasi].description}
       actions={
         <>
-          <Button variant="outlined" onClick={() => setKonfirmasi(null)}>Batal</Button>
+          <Button variant="outlined" onClick={() => setKonfirmasi(null)}>Cancel</Button>
           <Button variant="danger" onClick={() => { const pilihan = dialog[konfirmasi]; setKonfirmasi(null); pilihan.jalankan(); }}>{dialog[konfirmasi].aksi}</Button>
         </>
       }
@@ -478,8 +478,8 @@ export default function RevealControlPage() {
           lalu menekannya berulang. */}
       {!enabled ? (
         <Banner tone="warning" icon={<EyeSlash size={18} />}>
-          Leaderboard sedang disembunyikan di semua layar. Tahap tetap berpindah saat tombol ditekan, tetapi penonton belum
-          melihat apa pun. Nyalakan Tampilkan leaderboard di Setelan, bagian Privasi, saat siap. Tahap yang sudah dibuka tidak hilang.
+          The leaderboard is hidden on every screen. Steps still move when you press the button, but the audience
+          sees nothing yet. Turn on Show leaderboard in Settings, Privacy section, when ready. Steps already opened stay open.
         </Banner>
       ) : null}
 

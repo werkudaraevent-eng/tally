@@ -17,23 +17,23 @@ import type { OfferConditionGroup, OfferConditionNode, OfferSpendScope } from "@
 type BoothOption = { id: number; code: string; name: string };
 
 const VAR_LABEL: Record<string, string> = {
-  total_spend: "Total transaksi",
-  booth_count: "Jumlah booth dikunjungi",
-  participant_type: "Tipe peserta",
+  total_spend: "Total transactions",
+  booth_count: "Booths visited",
+  participant_type: "Participant type",
 };
 
 const SCOPE_LABEL: Record<OfferSpendScope, string> = {
-  all_booths: "di semua booth",
-  this_booth: "di booth ini saja",
-  booth: "di booth tertentu",
+  all_booths: "at all booths",
+  this_booth: "at this booth only",
+  booth: "at a specific booth",
 };
 
 const CMP_LABEL: Record<string, string> = {
-  gte: "minimal",
-  gt: "lebih dari",
-  lte: "maksimal",
-  lt: "kurang dari",
-  eq: "tepat",
+  gte: "at least",
+  gt: "more than",
+  lte: "at most",
+  lt: "less than",
+  eq: "exactly",
 };
 
 const PARTICIPANT_TYPES = ["Delegates", "Committee", "Media", "Speaker"];
@@ -72,9 +72,9 @@ export function ConditionBuilder({
 
   return <div className={depth > 0 ? "border-l-2 border-primary/30 pl-4" : ""}>
     {value.children.length > 1 && <div className="mb-3 flex items-center gap-2">
-      <span className="text-body-small text-on-surface-variant">Gabungan:</span>
+      <span className="text-body-small text-on-surface-variant">Combine:</span>
       {(["and", "or"] as const).map((op) => <button key={op} type="button" onClick={() => onChange({ ...value, op })} className={`rounded-sm min-h-9 border px-3 text-body-small font-semibold ${value.op === op ? "border-primary bg-primary-soft text-primary-dim" : "border-outline-variant"}`}>
-        {op === "and" ? "SEMUA harus terpenuhi" : "SALAH SATU cukup"}
+        {op === "and" ? "ALL must be met" : "ANY ONE is enough"}
       </button>)}
     </div>}
 
@@ -82,8 +82,8 @@ export function ConditionBuilder({
       {value.children.map((child, index) => <div key={index} className="rounded-lg border border-outline-variant bg-panel p-3">
         {isGroup(child) ? <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-body-small font-semibold ed-label text-on-surface-variant">Grup syarat</span>
-            <button type="button" onClick={() => removeChild(index)} className="flex min-h-9 items-center px-2 text-error" aria-label="Hapus grup"><X size={15} /></button>
+            <span className="text-body-small font-semibold ed-label text-on-surface-variant">Condition group</span>
+            <button type="button" onClick={() => removeChild(index)} className="flex min-h-9 items-center px-2 text-error" aria-label="Delete group"><X size={15} /></button>
           </div>
           <ConditionBuilder value={child} booths={booths} depth={depth + 1} onChange={(next) => updateChild(index, next)} />
         </div> : <LeafEditor leaf={child} booths={booths} onChange={(next) => updateChild(index, next)} onRemove={() => removeChild(index)} />}
@@ -96,17 +96,17 @@ export function ConditionBuilder({
         onChange={(event) => { if (event.target.value) onChange({ ...value, children: [...value.children, defaultLeaf(event.target.value)] }); }}
         className="rounded-md min-h-11 border border-outline-variant bg-surface px-3 text-body-small font-semibold outline-none focus:border-primary"
       >
-        <option value="">+ Tambah syarat</option>
+        <option value="">+ Add condition</option>
         {Object.entries(VAR_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
       </select>
       {/* Kedalaman dibatasi 2 agar aturan tetap terbaca; lebih dalam dari ini
           hampir selalu tanda aturannya perlu dipecah jadi penawaran terpisah. */}
       {depth < 2 && <button type="button" onClick={() => onChange({ ...value, children: [...value.children, { op: "or", children: [] }] })} className="rounded-md flex min-h-11 items-center gap-1.5 border border-outline-variant px-3 text-body-small font-semibold hover:border-primary hover:text-primary">
-        <Plus size={14} /> Grup ATAU
+        <Plus size={14} /> OR group
       </button>}
     </div>
 
-    {value.children.length === 0 && depth === 0 && <p className="mt-2 text-body-small text-on-surface-variant">Tanpa syarat: penawaran terbuka untuk semua peserta.</p>}
+    {value.children.length === 0 && depth === 0 && <p className="mt-2 text-body-small text-on-surface-variant">No conditions: the offer is open to every participant.</p>}
   </div>;
 }
 
@@ -129,7 +129,7 @@ function LeafEditor({
         {(Object.keys(SCOPE_LABEL) as OfferSpendScope[]).map((scope) => <option key={scope} value={scope}>{SCOPE_LABEL[scope]}</option>)}
       </select>
       {leaf.scope === "booth" && <select value={leaf.booth_id ?? 0} onChange={(event) => onChange({ ...leaf, booth_id: Number(event.target.value) || null })} className="rounded-md min-h-10 border border-outline-variant bg-surface px-2 text-body-small outline-none focus:border-primary">
-        <option value={0}>Pilih booth</option>
+        <option value={0}>Pick a booth</option>
         {booths.map((booth) => <option key={booth.id} value={booth.id}>{booth.code}</option>)}
       </select>}
     </>}
@@ -147,8 +147,8 @@ function LeafEditor({
       <span className="text-body-small text-on-surface-variant">{leaf.var === "total_spend" ? "rupiah" : "booth"}</span>
     </> : <>
       <select value={leaf.cmp} onChange={(event) => onChange({ ...leaf, cmp: event.target.value as "in" | "not_in" })} className="rounded-md min-h-10 border border-outline-variant bg-surface px-2 text-body-small outline-none focus:border-primary">
-        <option value="in">adalah salah satu</option>
-        <option value="not_in">bukan salah satu</option>
+        <option value="in">is one of</option>
+        <option value="not_in">is not one of</option>
       </select>
       <div className="flex flex-wrap gap-1">
         {PARTICIPANT_TYPES.map((type) => {
@@ -158,7 +158,7 @@ function LeafEditor({
       </div>
     </>}
 
-    <button type="button" onClick={onRemove} className="ml-auto flex min-h-10 items-center px-2 text-error hover:underline" aria-label="Hapus syarat"><Trash size={15} /></button>
+    <button type="button" onClick={onRemove} className="ml-auto flex min-h-10 items-center px-2 text-error hover:underline" aria-label="Delete condition"><Trash size={15} /></button>
   </div>;
 }
 
@@ -176,11 +176,11 @@ export function describeConditions(node: OfferConditionGroup, booths: BoothOptio
       return `${CMP_LABEL[child.cmp]} ${child.value} booth`;
     }
     const scope = child.scope === "all_booths"
-      ? "semua booth"
+      ? "all booths"
       : child.scope === "this_booth"
-        ? "booth ini"
+        ? "this booth"
         : booths.find((booth) => booth.id === child.booth_id)?.code ?? "booth";
-    return `belanja ${scope} ${CMP_LABEL[child.cmp]} Rp ${grouped(child.value)}`;
+    return `spending ${scope} ${CMP_LABEL[child.cmp]} Rp ${grouped(child.value)}`;
   });
 
   return parts.join(node.op === "and" ? " dan " : " atau ");

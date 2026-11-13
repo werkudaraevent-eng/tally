@@ -76,10 +76,10 @@ export async function POST(request: Request) {
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { file: "File tidak ditemukan." });
+  if (!(file instanceof File)) return apiError("VALIDATION_ERROR", 422, { file: "No file found." });
 
-  if (!ALLOWED.has(file.type)) return apiError("VALIDATION_ERROR", 422, { file: "Format harus PNG, JPG, atau WebP." });
-  if (file.size === 0 || file.size > MAX_BYTES) return apiError("VALIDATION_ERROR", 422, { file: "Ukuran gambar maksimal 5 MB." });
+  if (!ALLOWED.has(file.type)) return apiError("VALIDATION_ERROR", 422, { file: "The format must be PNG, JPG or WebP." });
+  if (file.size === 0 || file.size > MAX_BYTES) return apiError("VALIDATION_ERROR", 422, { file: "Maximum image size is 5 MB." });
 
   // Nilai tak dikenal jatuh ke `backgrounds`, bukan ditolak: pemakai lama endpoint
   // ini tidak mengirim `kind` sama sekali dan harus tetap bekerja seperti dulu.
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const jenis = jenisGambarDariIsi(buffer.subarray(0, 12));
-  if (!jenis) return apiError("VALIDATION_ERROR", 422, { file: "Isi berkas bukan gambar PNG, JPG, atau WebP." });
+  if (!jenis) return apiError("VALIDATION_ERROR", 422, { file: "The file content is not a PNG, JPG or WebP image." });
   // Kepala yang tidak terbaca tetap diterima seperti sebelumnya: yang ditolak
   // hanya gambar yang jelas terlalu besar.
   const ukuran = ukuranDariKepala(buffer, jenis);

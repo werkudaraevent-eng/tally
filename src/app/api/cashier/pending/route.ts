@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     } else {
       grouped.set(key, {
         qr_code: row.participants?.qr_code ?? "",
-        name: row.participants?.name ?? "Peserta",
+        name: row.participants?.name ?? "Participant",
         company: row.participants?.company ?? null,
         orders_count: 1,
         total: row.total_amount,

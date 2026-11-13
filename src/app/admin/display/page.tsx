@@ -25,10 +25,10 @@ type EventSettings = {
 };
 
 const NAME_MODES: { value: NameDisplayMode; label: string; contoh: string }[] = [
-  { value: "full", label: "Nama lengkap", contoh: "Budi Santoso · PT Maju Jaya" },
-  { value: "initials", label: "Inisial", contoh: "B. S. · PT Maju Jaya" },
-  { value: "company_only", label: "Perusahaan saja", contoh: "PT Maju Jaya" },
-  { value: "hidden", label: "Sembunyikan", contoh: "Peserta #14" },
+  { value: "full", label: "Full name", contoh: "Budi Santoso · PT Maju Jaya" },
+  { value: "initials", label: "Initials", contoh: "B. S. · PT Maju Jaya" },
+  { value: "company_only", label: "Company only", contoh: "PT Maju Jaya" },
+  { value: "hidden", label: "Hidden", contoh: "Peserta #14" },
 ];
 
 type DisplaySettings = {
@@ -66,7 +66,7 @@ function WarnaField({ label, value, onChange }: { label: string; value: string; 
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          aria-label={`${label}, kode warna`}
+          aria-label={`${label}, colour code`}
           className="h-9 w-full min-w-0 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium tabular-nums text-on-surface outline-none focus:border-primary"
         />
       </span>
@@ -101,22 +101,22 @@ export default function DisplaySettingsPage() {
   useEffect(() => { const timer = window.setTimeout(() => {
     void fetch("/api/display/settings", { cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) { setError("Setelan papan peringkat gagal dimuat."); return; }
+        if (!response.ok) { setError("Could not load the leaderboard settings."); return; }
         const data = (await response.json()) as DisplaySettings;
         setSettings(data);
         setTersimpan((current) => ({ ...current, limit: data.leaderboard_limit }));
       })
-      .catch(() => setError("Koneksi terputus saat memuat setelan papan peringkat."));
+      .catch(() => setError("Connection lost while loading the leaderboard settings."));
     // Cabang gagal untuk setelan leaderboard. Tanpa itu, kegagalan berakhir
     // sebagai bagian layar yang diam dan Simpan melewatinya tanpa sepatah kata.
     void fetch("/api/settings", { cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) { setEventGagal(true); setError("Setelan leaderboard gagal dimuat. Muat ulang sebelum menyimpan, atau perubahan di bagian Privasi tidak ikut tersimpan."); return; }
+        if (!response.ok) { setEventGagal(true); setError("Could not load the leaderboard settings. Reload before saving, or changes in the Privacy section will not be saved."); return; }
         const data = await response.json();
         setEvent({ leaderboard_enabled: data.leaderboard_enabled, name_display_mode: data.name_display_mode, time_zone: normalizeTimeZone(data.time_zone) });
         setTersimpan((current) => ({ ...current, enabled: Boolean(data.leaderboard_enabled) }));
       })
-      .catch(() => { setEventGagal(true); setError("Koneksi terputus saat memuat setelan leaderboard. Muat ulang sebelum menyimpan."); });
+      .catch(() => { setEventGagal(true); setError("Connection lost while loading the leaderboard settings. Reload before saving."); });
     void fetch("/api/display/reveal", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return;
@@ -158,14 +158,14 @@ export default function DisplaySettingsPage() {
     const data = await response?.json().catch(() => ({}));
     setUploading(false);
     if (!response?.ok) {
-      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Upload gambar gagal.";
+      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Image upload failed.";
       setError(failure);
-      toast.error("Upload gambar gagal", failure);
+      toast.error("Image upload failed", failure);
       return;
     }
     update("background_image_url", data.url);
-    setMessage("Gambar terunggah. Tekan Simpan tampilan untuk menerapkannya.");
-    toast.info("Gambar terunggah", "Tekan Simpan tampilan untuk menerapkannya ke papan peringkat.");
+    setMessage("Image uploaded. Press Save display to apply it.");
+    toast.info("Image uploaded", "Press Save display to apply it to the leaderboard.");
   }
 
   async function save() {
@@ -199,14 +199,14 @@ export default function DisplaySettingsPage() {
     const data = await response?.json().catch(() => ({}));
     setSaving(false);
     if (!response?.ok) {
-      const failure = data?.error?.message ?? (response ? "Setelan tampilan gagal disimpan." : "Koneksi terputus. Setelan belum tentu tersimpan.");
+      const failure = data?.error?.message ?? (response ? "Could not save the display settings." : "Connection lost. Settings may not be saved.");
       setError(failure);
-      toast.error("Setelan tampilan gagal disimpan", failure);
+      toast.error("Could not save the display settings", failure);
       return;
     }
     if (event && !eventResponse?.ok) {
-      setError("Sebagian setelan leaderboard gagal disimpan.");
-      toast.error("Sebagian setelan gagal disimpan", "Tampilan tersimpan, tetapi setelan leaderboard gagal. Coba simpan ulang.");
+      setError("Some leaderboard settings could not be saved.");
+      toast.error("Some settings could not be saved", "Display saved, but the leaderboard settings failed. Try saving again.");
       return;
     }
     setSettings(data);
@@ -214,17 +214,17 @@ export default function DisplaySettingsPage() {
     // Draf dibuang setelah tersimpan: nilai yang berlaku sekarang datang dari
     // server, dan draf yang tertinggal akan menutupinya di layar.
     setDraftAngka({});
-    setMessage("Tersimpan. Papan peringkat menyesuaikan dalam beberapa detik.");
-    toast.success("Tampilan tersimpan", "Papan peringkat menyesuaikan dalam beberapa detik.");
+    setMessage("Saved. The leaderboard updates within a few seconds.");
+    toast.success("Display saved", "The leaderboard updates within a few seconds.");
   }
 
   const zona = event?.time_zone ?? DEFAULT_TIME_ZONE;
 
   // ---- Panel utama: pratinjau ---------------------------------------------------
   const pratinjau = settings ? (
-    <Pane aria-label="Pratinjau papan peringkat">
+    <Pane aria-label="Leaderboard preview">
       <PaneHeader>
-        <span className="min-w-0 flex-1 text-body-medium text-on-surface-variant">Pratinjau perkiraan · 16:9</span>
+        <span className="min-w-0 flex-1 text-body-medium text-on-surface-variant">Approximate preview · 16:9</span>
       </PaneHeader>
       <PaneBody className="flex flex-col items-center gap-3 bg-surface-container-high px-4 py-6 sm:px-6">
         <div
@@ -255,46 +255,46 @@ export default function DisplaySettingsPage() {
             ) : null}
           </div>
         </div>
-        <p className="max-w-[720px] text-center text-body-medium text-on-surface-variant">Perkiraan. Buka papan peringkat untuk tampilan penuh di proyektor.</p>
+        <p className="max-w-[720px] text-center text-body-medium text-on-surface-variant">Approximate. Open the leaderboard for the full projector view.</p>
       </PaneBody>
     </Pane>
   ) : null;
 
   // ---- Panel pendukung: setelan -------------------------------------------------
   const isi = settings ? (
-    <DetailSection title="Teks di layar">
+    <DetailSection title="Screen text">
       <div className="flex flex-col gap-4">
-        <TextField label="Judul acara" value={settings.event_title} onChange={(e) => update("event_title", e.target.value)} />
+        <TextField label="Event title" value={settings.event_title} onChange={(e) => update("event_title", e.target.value)} />
         <TextField label="Headline" value={settings.headline} onChange={(e) => update("headline", e.target.value)} />
-        <TextField label="Tagline besar" value={settings.tagline} onChange={(e) => update("tagline", e.target.value)} />
+        <TextField label="Large tagline" value={settings.tagline} onChange={(e) => update("tagline", e.target.value)} />
       </div>
     </DetailSection>
   ) : null;
 
   const tampilan = settings ? (
     <>
-      <DetailSection title="Warna">
+      <DetailSection title="Colours">
         <div className="flex flex-col gap-3">
-          {([["background_color", "Latar"], ["text_color", "Teks"], ["accent_color", "Aksen"]] as const).map(([key, label]) => (
+          {([["background_color", "Background"], ["text_color", "Text"], ["accent_color", "Accent"]] as const).map(([key, label]) => (
             <WarnaField key={key} label={label} value={settings[key]} onChange={(value) => update(key, value)} />
           ))}
         </div>
       </DetailSection>
-      <DetailSection title="Gambar latar">
+      <DetailSection title="Background image">
         <div className="flex flex-wrap items-center gap-3">
           <label className={cx(
             "inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium font-medium text-on-surface hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary",
             uploading && "pointer-events-none opacity-60",
           )}>
             <UploadSimple size={16} aria-hidden />
-            {uploading ? "Mengunggah..." : "Unggah gambar"}
+            {uploading ? "Uploading…" : "Upload image"}
             <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={uploading} onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadBackground(file); e.target.value = ""; }} />
           </label>
           {settings.background_image_url ? (
-            <Button variant="text" size="sm" icon={<XCircle size={16} />} onClick={() => update("background_image_url", null)}>Hapus gambar</Button>
+            <Button variant="text" size="sm" icon={<XCircle size={16} />} onClick={() => update("background_image_url", null)}>Remove image</Button>
           ) : null}
         </div>
-        <p className="text-body-medium text-on-surface-variant">Opsional. PNG, JPG, atau WebP, maksimal 5 MB. Disarankan 1920×1080.</p>
+        <p className="text-body-medium text-on-surface-variant">Optional. PNG, JPG or WebP, up to 5 MB. 1920×1080 recommended.</p>
         {settings.background_image_url ? (
           <span className="h-16 w-28 rounded-md border border-outline-variant bg-cover bg-center" style={{ backgroundImage: `url(${settings.background_image_url})` }} />
         ) : null}
@@ -315,7 +315,7 @@ export default function DisplaySettingsPage() {
 
   const privasi = !event ? (
     <p className="px-5 py-4 text-body-medium text-on-surface-variant">
-      {eventGagal ? "Setelan leaderboard tidak terbaca. Muat ulang halaman sebelum mengubah bagian ini." : "Memuat setelan leaderboard..."}
+      {eventGagal ? "Leaderboard settings could not be read. Reload the page before changing this section." : "Loading leaderboard settings…"}
     </p>
   ) : (
     <>
@@ -323,13 +323,13 @@ export default function DisplaySettingsPage() {
         <Switch
           checked={event.leaderboard_enabled}
           onChange={(value) => updateEvent("leaderboard_enabled", value)}
-          label="Tampilkan leaderboard"
-          description="Sakelar utama. Kalau mati, leaderboard disembunyikan di semua layar display."
+          label="Show leaderboard"
+          description="Main switch. When off, the leaderboard is hidden on every display screen."
         />
       </DetailSection>
-      <DetailSection title="Nama peserta di layar">
+      <DetailSection title="Participant names on screen">
         <fieldset className="flex flex-col gap-2">
-          <legend className="sr-only">Nama peserta di leaderboard</legend>
+          <legend className="sr-only">Participant names on the leaderboard</legend>
           {NAME_MODES.map((mode) => {
             const on = event.name_display_mode === mode.value;
             return (
@@ -350,10 +350,10 @@ export default function DisplaySettingsPage() {
       <DetailSection>
         <div className="flex items-start gap-3 rounded-md bg-surface-container-high p-3 text-body-medium">
           <p className="min-w-0 flex-1 text-on-surface-variant">
-            <span className="block font-medium text-on-surface">Pengecualian peserta</span>
-            Perusahaan atau peserta yang tidak berhak masuk top spender. Transaksinya tetap terhitung penuh di Laporan.
+            <span className="block font-medium text-on-surface">Participant exclusions</span>
+            Companies or participants not eligible for top spender. Their transactions still count in full in Reports.
           </p>
-          <Link href="/admin/display/exclusions" className="shrink-0 rounded-sm font-medium text-primary hover:underline">Atur</Link>
+          <Link href="/admin/display/exclusions" className="shrink-0 rounded-sm font-medium text-primary hover:underline">Manage</Link>
         </div>
       </DetailSection>
     </>
@@ -361,10 +361,10 @@ export default function DisplaySettingsPage() {
 
   const tataLetak = settings ? (
     <>
-      <DetailSection title="Ukuran papan">
+      <DetailSection title="Board size">
         <div className="grid grid-cols-2 gap-3">
           <TextField
-            label="Jumlah top spender"
+            label="Number of top spenders"
             type="number" min={3} max={50}
             hint="3–50"
             value={draftAngka.leaderboard_limit ?? String(settings.leaderboard_limit)}
@@ -373,7 +373,7 @@ export default function DisplaySettingsPage() {
             inputClassName="tabular-nums"
           />
           <TextField
-            label="Muat ulang setelan (detik)"
+            label="Settings refresh (seconds)"
             type="number" min={5} max={300}
             hint="5–300"
             value={draftAngka.refresh_seconds ?? String(settings.refresh_seconds)}
@@ -383,17 +383,17 @@ export default function DisplaySettingsPage() {
           />
         </div>
       </DetailSection>
-      <DetailSection title="Isi baris">
+      <DetailSection title="Row content">
         <div className="flex flex-col gap-4">
-          <Switch checked={settings.show_company} onChange={(value) => update("show_company", value)} label="Tampilkan perusahaan peserta" />
-          <Switch checked={settings.show_amount} onChange={(value) => update("show_amount", value)} label="Tampilkan nominal belanja" />
-          <Switch checked={settings.show_booth_progress} onChange={(value) => update("show_booth_progress", value)} label="Tampilkan panel booth explorer" />
-          <Switch checked={settings.show_ticker} onChange={(value) => update("show_ticker", value)} label="Tampilkan ticker bawah" />
+          <Switch checked={settings.show_company} onChange={(value) => update("show_company", value)} label="Show participant company" />
+          <Switch checked={settings.show_amount} onChange={(value) => update("show_amount", value)} label="Show spending amount" />
+          <Switch checked={settings.show_booth_progress} onChange={(value) => update("show_booth_progress", value)} label="Show booth explorer panel" />
+          <Switch checked={settings.show_ticker} onChange={(value) => update("show_ticker", value)} label="Show bottom ticker" />
           {settings.show_ticker ? (
             <TextField
-              label="Teks ticker"
+              label="Ticker text"
               optional
-              hint="Kosong = teks bawaan."
+              hint="Empty = default text."
               value={settings.ticker_text ?? ""}
               onChange={(e) => update("ticker_text", e.target.value)}
               placeholder="Leaderboard ter-update dari transaksi live"
@@ -405,7 +405,7 @@ export default function DisplaySettingsPage() {
             nominal dan progress booth mati bersamaan. */}
         {!settings.show_amount ? (
           <div className="flex flex-col gap-2 rounded-md bg-surface-container-high p-3 text-body-medium text-on-surface-variant">
-            <p>Peringkat tetap tampil, nominalnya tidak. Angka juga tidak dikirim ke layar sama sekali, jadi tidak dapat dibaca dari alat pengembang browser oleh siapa pun yang membuka papan peringkat.</p>
+            <p>Ranks still show, amounts do not. Amounts are not sent to the screen at all, so nobody who opens the leaderboard can read them in the browser’s developer tools.</p>
             {!settings.show_booth_progress ? (
               <p className="text-warning">Nominal dan progress booth dua-duanya mati, jadi setiap baris hanya berisi nama{settings.show_company ? " dan perusahaan" : ""}. Penonton tidak punya petunjuk tentang alasan urutannya.</p>
             ) : null}
@@ -418,24 +418,24 @@ export default function DisplaySettingsPage() {
   const isiPanel: Record<Bagian, ReactNode> = { isi, tampilan, privasi, "tata-letak": tataLetak };
 
   const panel = settings ? (
-    <Pane as="aside" aria-label="Setelan papan peringkat">
+    <Pane as="aside" aria-label="Leaderboard settings">
       <div className="shrink-0 border-b border-outline-variant px-4 py-3">
         <SegmentedButton<Bagian>
-          label="Bagian setelan"
+          label="Settings sections"
           value={bagian}
           onChange={setBagian}
           className="w-full"
           options={[
-            { value: "isi", label: "Isi" },
-            { value: "tampilan", label: "Tampilan" },
-            { value: "privasi", label: "Privasi" },
-            { value: "tata-letak", label: "Tata letak" },
+            { value: "isi", label: "Content" },
+            { value: "tampilan", label: "Display" },
+            { value: "privasi", label: "Privacy" },
+            { value: "tata-letak", label: "Layout" },
           ]}
         />
       </div>
       <PaneBody>{isiPanel[bagian]}</PaneBody>
-      <PaneFooter note={message || (settings.updated_at ? `Terakhir diubah ${formatEventDateTime(settings.updated_at, zona)} ${timeZoneAbbr(zona)}` : null)}>
-        <Button simpan size="sm" loading={saving} onClick={() => void save()}>Simpan tampilan</Button>
+      <PaneFooter note={message || (settings.updated_at ? `Last changed ${formatEventDateTime(settings.updated_at, zona)} ${timeZoneAbbr(zona)}` : null)}>
+        <Button simpan size="sm" loading={saving} onClick={() => void save()}>Save display</Button>
       </PaneFooter>
     </Pane>
   ) : null;
@@ -443,18 +443,18 @@ export default function DisplaySettingsPage() {
   return (
     <WorkspacePage fill>
       <WorkspaceHeader
-        title="Papan peringkat"
+        title="Leaderboard"
         meta={tersimpan.enabled !== null || tersimpan.limit !== null ? (
           <>
             {tersimpan.enabled !== null ? (
-              <StatusChip dot tone={tersimpan.enabled ? "success" : "neutral"}>{tersimpan.enabled ? "Tampil di layar" : "Disembunyikan"}</StatusChip>
+              <StatusChip dot tone={tersimpan.enabled ? "success" : "neutral"}>{tersimpan.enabled ? "On screen" : "Hidden"}</StatusChip>
             ) : null}
             {tersimpan.limit !== null ? <span className="tabular-nums">Top {tersimpan.limit}</span> : null}
             <MetaSeparator />
-            <span>Dari transaksi lunas</span>
+            <span>From paid transactions</span>
           </>
         ) : null}
-        actions={<ButtonLink href="/display" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Buka papan peringkat</ButtonLink>}
+        actions={<ButtonLink href="/display" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Open leaderboard</ButtonLink>}
       />
       <DisplayTabs revealMode={reveal ? (reveal.mode === "staged" ? "staged" : "off") : null} />
 
