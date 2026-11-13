@@ -3,7 +3,7 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { requireUser } from "@/lib/auth/guards";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const paramsSchema = z.string().uuid();
+const paramsSchema = z.string().guid();
 // Slug, bukan boolean `confirm: true`. Yang dicegah bukan "menekan tanpa
 // membaca" melainkan "menekan pada BARIS YANG SALAH": daftar event memuat
 // beberapa kartu berdampingan, dan tombol hapus di kartu tetangga terlihat

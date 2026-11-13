@@ -24,7 +24,7 @@ const izinSchema = z.object({
 const namaSchema = z.string().trim().min(1, "Give the role a name.").max(60, "Use 60 characters or fewer.");
 
 const buatSchema = z.object({ name: namaSchema, permissions: izinSchema });
-const ubahSchema = z.object({ id: z.string().uuid(), name: namaSchema.optional(), permissions: izinSchema.optional() });
+const ubahSchema = z.object({ id: z.string().guid(), name: namaSchema.optional(), permissions: izinSchema.optional() });
 
 type Baris = { id: string; name: string; permissions: unknown; created_at: string; updated_at: string };
 
@@ -103,7 +103,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   const auth = await requireUser(["super_admin"]);
   if (auth.response) return auth.response;
-  const id = z.string().uuid().safeParse(new URL(request.url).searchParams.get("id"));
+  const id = z.string().guid().safeParse(new URL(request.url).searchParams.get("id"));
   if (!id.success) return apiError("VALIDATION_ERROR", 422);
   const client = getSupabaseServiceClient();
   const { count, error: galatHitung } = await client.from("users").select("id", { count: "exact", head: true }).eq("access_role_id" as never, id.data);

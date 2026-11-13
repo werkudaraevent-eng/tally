@@ -4,7 +4,7 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 const bodySchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(500),
+  ids: z.array(z.string().guid()).min(1).max(500),
 });
 
 /** 500 hapus dengan 8 sekaligus selesai jauh di bawah batas ini. */

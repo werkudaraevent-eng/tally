@@ -19,7 +19,7 @@ import { aksesPerUser, akunTerlihat, bolehResetPin, periksaAkses, type AcaraRing
 const roleSchema = z.enum(["booth", "cashier", "admin", "super_admin", "scanner", "viewer", "custom"]);
 
 const aksesSchema = z.array(z.object({
-  event_id: z.string().uuid(),
+  event_id: z.string().guid(),
   booth_id: z.number().int().positive().nullable(),
 })).max(500);
 
@@ -28,17 +28,17 @@ const createSchema = z.object({
   pin: z.string().regex(/^\d{6}$/, "The PIN must be 6 digits."),
   role: roleSchema,
   /** Wajib tepat ketika role = custom (users_custom_role_check). */
-  access_role_id: z.string().uuid().nullable().optional(),
+  access_role_id: z.string().guid().nullable().optional(),
   is_active: z.boolean().optional(),
   events: aksesSchema,
 });
 
 const updateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   username: z.string().trim().min(3).max(50).regex(/^[a-z0-9._-]+$/i).optional(),
   pin: z.string().regex(/^\d{6}$/).optional(),
   role: roleSchema.optional(),
-  access_role_id: z.string().uuid().nullable().optional(),
+  access_role_id: z.string().guid().nullable().optional(),
   booth_id: z.number().int().positive().nullable().optional(),
   is_active: z.boolean().optional(),
   // Bila ada: pengganti SELURUH daftar acara akun ini.

@@ -32,7 +32,7 @@ const keyword = z.string().trim().min(2, "Kata kunci minimal 2 huruf.").max(120)
 
 const createSchema = z.object({
   company_keyword: keyword.nullable().optional(),
-  participant_id: z.string().uuid().nullable().optional(),
+  participant_id: z.string().guid().nullable().optional(),
   reason: z.string().trim().max(300).nullable().optional(),
   is_active: z.boolean().default(true),
 }).superRefine((value, ctx) => {

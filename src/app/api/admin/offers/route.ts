@@ -37,7 +37,7 @@ type ConditionNode = z.infer<typeof leafSchema> | { op: "and" | "or"; children: 
 // Input diberi tipe `unknown`, bukan ConditionNode: field ber-`.default()` membuat
 // tipe input berbeda dari output (scope opsional saat masuk, terisi saat keluar),
 // sehingga ZodType<ConditionNode> tidak dapat mencocokkan keduanya.
-const conditionSchema: z.ZodType<ConditionNode, z.ZodTypeDef, unknown> = z.lazy(() =>
+const conditionSchema: z.ZodType<ConditionNode, unknown> = z.lazy(() =>
   z.union([
     leafSchema,
     z.object({ op: z.enum(["and", "or"]), children: z.array(conditionSchema).max(10) }),

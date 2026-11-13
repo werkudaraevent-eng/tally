@@ -7,10 +7,10 @@ import { requireRequestEvent } from "@/lib/auth/request-event";
 // payment_methods. Validasi keberadaan, status aktif, dan aturan nomor referensi
 // dilakukan di dalam RPC settle_orders_transaction agar tidak bisa dilewati.
 const schema = z.object({
-  order_ids: z.array(z.string().uuid()).min(1),
+  order_ids: z.array(z.string().guid()).min(1),
   payment_method: z.string().trim().regex(/^[a-z0-9_]{2,32}$/),
   approval_code: z.string().nullable().optional(),
-  paid_by: z.string().uuid().nullable().optional(),
+  paid_by: z.string().guid().nullable().optional(),
 });
 
 export async function POST(request: Request) {

@@ -11,7 +11,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 // mengulang aturan yang sama di setiap hadiah dan cukup satu terlewat.
 
 const postSchema = z.object({
-  participant_id: z.string().uuid(),
+  participant_id: z.string().guid(),
   reason: z.string().trim().max(200).nullable().optional(),
 });
 

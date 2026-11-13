@@ -39,7 +39,7 @@ const bodySchema = z.object({
   title: z.string().trim().max(300).nullish(),
   email: z.string().trim().max(320).email().nullish().or(z.literal("")),
   phone: z.string().trim().max(50).nullish(),
-  extra: z.record(z.string().max(2000)).optional(),
+  extra: z.record(z.string(), z.string().max(2000)).optional(),
   /**
    * Petugas sudah melihat daftar nama kembar dan menegaskan ini orang lain.
    * Tanpa ini, fungsi database menolak menulis dan mengembalikan kandidatnya.

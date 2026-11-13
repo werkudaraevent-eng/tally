@@ -23,7 +23,7 @@ const buatSchema = z.object({
   audience: audienceSchema.optional(),
   title: z.string().trim().min(1).max(120).optional(),
   /** Duplikat: salin isi dan penerima kiriman ini. */
-  dari: z.string().uuid().optional(),
+  dari: z.string().guid().optional(),
 });
 
 export async function GET(request: Request) {

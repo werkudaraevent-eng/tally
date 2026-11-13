@@ -21,7 +21,7 @@ export async function PATCH(request: Request, context: Konteks) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const id = (await context.params).id;
-  if (!z.string().uuid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
+  if (!z.string().guid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
   const parsed = ubahSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("VALIDATION_ERROR", 422, parsed.error.flatten());
 
@@ -69,7 +69,7 @@ export async function DELETE(request: Request, context: Konteks) {
   const auth = await requireRequestEvent(request, ["admin"]);
   if (auth.response) return auth.response;
   const id = (await context.params).id;
-  if (!z.string().uuid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
+  if (!z.string().guid().safeParse(id).success) return apiError("VALIDATION_ERROR", 422);
   const client = getSupabaseServiceClient();
   const { data, error } = await client
     .from("event_invitations")

@@ -3,8 +3,8 @@ import { apiError, mapDatabaseError } from "@/lib/api";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireRequestEvent } from "@/lib/auth/request-event";
 
-const paramsSchema = z.object({ id: z.string().uuid() });
-const bodySchema = z.object({ reason: z.string().trim().min(1).max(500), user_id: z.string().uuid().nullable().optional() });
+const paramsSchema = z.object({ id: z.string().guid() });
+const bodySchema = z.object({ reason: z.string().trim().min(1).max(500), user_id: z.string().guid().nullable().optional() });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   // Booth ikut diizinkan karena saat konfirmasi kasir dimatikan, order langsung

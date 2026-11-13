@@ -36,7 +36,7 @@ function tolak(status: number, galat: Galat) {
 
 const skema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  participant_id: z.string().uuid().optional(),
+  participant_id: z.string().guid().optional(),
   room_number: z.string().max(80).transform(rapikanNomor).pipe(z.string().min(1).max(40)),
   hotel: z.string().trim().max(120).optional(),
   room_id: z.number().int().positive().optional(),
