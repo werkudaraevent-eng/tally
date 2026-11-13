@@ -4,16 +4,7 @@ import { tanpaBintang } from "@/lib/landing-tagline";
 import Link from "next/link";
 import { FaqDaftar } from "./modern/faq-daftar";
 import { ArrowRight, ArrowUpRight, CalendarBlank, CalendarPlus, Clock, EnvelopeSimple, MapPin, Minus, Moon, Phone, Plus, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
-import type {
-  EventLandingConfig,
-  EventRow,
-  LandingHeadingScale,
-  LandingHeroHeight,
-  LandingSection,
-  LandingHeadedSection,
-  LandingSectionId,
-  LandingSpeaker,
-} from "@/lib/domain";
+import type { EventLandingConfig, EventRow, LandingSection, LandingHeadedSection, LandingSectionId } from "@/lib/domain";
 import { LANDING_BLOCK_LABELS, logoNavPutih, isLandingBlockId, landingBlockShownOn, isPortalEntry, landingBlockHasContent, landingHeadingFontSize, publicEventName, susunanDenganPortal } from "@/lib/domain";
 import { gatheringColors, heroCtaColors, kvGathering, latarGathering } from "@/lib/registration-theme-css";
 import { kontras } from "@/lib/landing-hitung-mundur";
@@ -21,8 +12,8 @@ import { emasHorizon as hitungEmasHorizon, sorotHorizon } from "@/lib/landing-to
 import { landingTokens } from "@/lib/landing-tokens";
 import { preloadLandingFonts } from "@/lib/landing-font-preload";
 import { formatEventDate, formatEventDateRingkas, formatEventTime } from "@/lib/event-datetime";
-import { jumlahHariAgenda, loadAgendaPreview, type AgendaPreview } from "@/lib/landing-agenda";
-import { jumlahSesi, pembicaraSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
+import { jumlahHariAgenda, loadAgendaPreview } from "@/lib/landing-agenda";
+import { jumlahSesi, speakerTabs } from "@/lib/landing-speaker-tabs";
 import { LANDING_LANG_LABELS, LANDING_UI, labelTautanPeta, landingDefaultLang, landingPath, landingSectionHeading, landingSessionLabels, withQuery, type LandingLang } from "@/lib/landing-i18n";
 import { rentangAkhir } from "@/lib/landing-agenda-range";
 import { getMemberSession, memberConfig, PASSWORD_MIN } from "@/lib/member/account";
@@ -31,7 +22,7 @@ import { daftarKontakPanitia } from "@/lib/kontak-panitia";
 import { caraMasukPublik } from "@/lib/member/kolom-masuk";
 import type { MasukMode, MasukSandi } from "@/app/masuk/masuk-client";
 import { timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
-import { loadLandingLodging, type LandingHotel } from "@/lib/landing-hotel";
+import { loadLandingLodging } from "@/lib/landing-hotel";
 import { loadDressCodePublik } from "@/lib/outfit-server";
 import type { HariDressCode } from "@/lib/dress-code-publik";
 import { labelOutfit } from "@/lib/outfit";
@@ -50,13 +41,15 @@ import { BagianTrip, FaqTrip, HeroTrip, KakiTrip, KartuMasukTrip, KontakPanitiaT
 import { CeritaHorizon, HeroHorizon, KakiHorizon, PenutupHorizon, PerjalananHorizon, UndanganHorizon, gayaHorizon, type HorizonAksi } from "./modern/horizon";
 import { LandingNavModern } from "./modern/landing-nav-modern";
 import { SpeakerTabs } from "./modern/speaker-tabs";
-import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
+import { HEAD, JUDUL, JUDUL_BUTIR, LABEL_BAGIAN, LEBAR_BACA, MUTED, PIL_GARIS, PIL_PENUH, SECTION, SHELL } from "./modern/styles";
 import { LandingBlockView } from "./modern/landing-blocks";
 import { BagianRute } from "./modern/blok-rute";
 import { KotakKosong } from "./modern/kotak-kosong";
 import { KakiModern, KV_SCRIM, KV_SCRIM_RATA, PitaMitra, bagianModern, gayaModern, tinta } from "./modern/kerangka";
 import { muatNavPeserta } from "@/lib/member/nav";
 import { jumlahHari, tanpaTahunUjung } from "@/lib/gathering-formulir";
+import { ALIS, CHIP, GARIS_LEBAR, HEADING_SCALE, HERO_DELAY, HERO_HEIGHT, HERO_HEIGHT_ANGKA, JudulBagian, KV_SCRIM_TENGAH, Kv, PANEL_GATHERING, PIL_CTA_KV, PIL_INK, PIL_INK_GARIS, STATE_ON_PRIMARY, Section, pengantarFaq } from "./modern/bagian-modern";
+import { TempatMenginap, pembicaraDiAgenda } from "./modern/tempat-menginap";
 
 /**
  * Landing page publik acara, tata letak Modern (`landing_config.layout`).
@@ -104,101 +97,6 @@ type Props = {
   /** Pratinjau CMS: bagian yang menyala tetapi kosong diganti kotak bertitik (KotakKosong). */
   pratinjau?: boolean;
 };
-
-/** Label kecil di atas judul bagian, sama dengan blok dari pustaka blok. */
-/** `--alis` hanya disetel gaya gathering (aksen yang digelapkan); acara lain tetap primary. */
-const ALIS = `${LABEL_BAGIAN} text-[var(--alis,var(--reg-primary))]`;
-
-const STATE_ON_PRIMARY = { "--m3-state-color": "var(--reg-on-primary)" } as CSSProperties;
-
-/** Kartu di atas putih dan pita susunan acara gaya gathering. */
-const PANEL_GATHERING = "#F4F6F8";
-/** Garis 1px selebar layar di tepi pita (tanpa menambah gulir menyamping). */
-const GARIS_LEBAR = "pointer-events-none absolute inset-x-0 h-px bg-[var(--garis-pita,#E6EAEF)] [box-shadow:0_0_0_100vmax_var(--garis-pita,#E6EAEF)] [clip-path:inset(0_-100vmax)]";
-
-
-/**
- * Tinggi minimum hero, termasuk bilah nav yang menumpang di atasnya. Patokan
- * `tall` = 850px, tinggi hero di rancangan, tapi tidak pernah lebih dari
- * tinggi layar: tombol daftar harus terlihat tanpa menggulir.
- */
-const HERO_HEIGHT: Record<LandingHeroHeight, string> = {
-  compact: "min-h-[480px] lg:min-h-[min(600px,100svh)]",
-  standard: "min-h-[560px] sm:min-h-[min(640px,100svh)] lg:min-h-[min(760px,100svh)]",
-  tall: "min-h-[620px] sm:min-h-[min(720px,100svh)] lg:min-h-[min(850px,100svh)]",
-};
-
-/** Tinggi hero dari angka di CMS (`--hero-h`), ponsel 75% darinya, tidak pernah melebihi layar. */
-const HERO_HEIGHT_ANGKA = "min-h-[min(calc(var(--hero-h)*0.75),100svh)] lg:min-h-[min(var(--hero-h),100svh)]";
-
-/**
- * Ukuran nama acara. Paling besar 72px: di atas itu nama acara yang panjang
- * memakan dua baris dan mendorong tombol ke bawah lipatan layar.
- */
-const HEADING_SCALE: Record<LandingHeadingScale, string> = {
-  md: "text-[36px] sm:text-[44px] lg:text-[52px]",
-  lg: "text-[40px] sm:text-[52px] lg:text-[64px]",
-  xl: "text-[44px] sm:text-[60px] lg:text-[72px]",
-};
-
-
-
-/**
- * Bayangan KV gaya gathering: isinya di tengah, jadi bagian tengah ikut cukup
- * gelap untuk teks putih, bukan hanya bagian bawah seperti KV_SCRIM.
- */
-const KV_SCRIM_TENGAH = "linear-gradient(to bottom, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.45) 45%, rgb(0 0 0 / 0.6))";
-
-const HERO_DELAY = (step: number) => ({ "--rise-delay": `${step * 60}ms` }) as CSSProperties;
-
-
-/** Chip pil di atas permukaan terang (kartu program). */
-const CHIP =
-  "inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--reg-on-surface)_12%,transparent)] bg-[color-mix(in_srgb,var(--reg-on-surface)_5%,transparent)] px-3.5 py-1.5 text-label-large font-normal tabular-nums";
-
-/**
- * Tombol di atas bidang bergambar: latar `--ink`, teks `--ink-accent`. Lihat
- * `tinta` untuk pasangannya.
- */
-const PIL_INK = `${PIL} bg-[var(--ink)] font-semibold text-[var(--ink-accent)]`;
-/** Tombol utama di atas KV: warna dari heroCtaColors lewat `--cta-bg`/`--cta-fg`. */
-const PIL_CTA_KV = `${PIL} bg-[var(--cta-bg)] font-semibold text-[var(--cta-fg)] shadow-[0_1px_3px_rgb(0_0_0/0.3)]`;
-/** Tombol kedua di atas bidang bergambar: garis `--ink`, tanpa isi. */
-const PIL_INK_GARIS = `${PIL} border border-[color-mix(in_srgb,var(--ink)_60%,transparent)] font-semibold text-[var(--ink)]`;
-
-function Kv({ src, scrim }: { src: string; scrim: string }) {
-  return (
-    <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="settle-in absolute inset-0 -z-10 size-full object-cover" />
-      <div aria-hidden className="absolute inset-0 -z-10" style={{ background: scrim }} />
-    </>
-  );
-}
-
-/** Pengantar FAQ; diberi titik bila kalimat kontak ("Hubungi panitia ...") ditempel di belakangnya. */
-function pengantarFaq(teks: string, adaKontak: boolean): string {
-  return adaKontak && !/[.!?…]$/.test(teks) ? `${teks}.` : teks;
-}
-
-/** Label kecil (opsional) dan judul bagian, 12px di antaranya. */
-function JudulBagian({ alis, judul }: { alis: string | null; judul: string }) {
-  if (!alis) return <h2 className={JUDUL}>{judul}</h2>;
-  return (
-    <div className="flex flex-col gap-3">
-      <p className={ALIS}>{alis}</p>
-      <h2 className={JUDUL}>{judul}</h2>
-    </div>
-  );
-}
-
-function Section({ id, children }: { id?: string; children: ReactNode }) {
-  return (
-    <section id={id} className={SECTION}>
-      {children}
-    </section>
-  );
-}
 
 export async function EventLandingModern({ event, config, sections, theme, lang = "id", otherLang = null, masukAwal = null, sandi = null, masukLanjut = null, pratinjau = false }: Props) {
   // Teks bawaan halaman dalam bahasa halaman. Teks dari CMS sudah diterjemahkan
@@ -1584,7 +1482,7 @@ function sisaHari(mulai: string | null, selesai: string | null, zona: EventTimeZ
   return { sisa: 0, hariKe: sekarang - hari(mulai) + 1, lama };
 }
 
-function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): string | null {
+export function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): string | null {
   if (!iso) return null;
   const tanggal = new Date(iso);
   const locale = lang === "en" ? "en-GB" : "id-ID";
@@ -1592,135 +1490,3 @@ function waktuInap(iso: string | null, zona: EventTimeZone, lang: LandingLang): 
   const jamnya = new Intl.DateTimeFormat(locale, { timeZone: zona, hour: "2-digit", minute: "2-digit", hour12: false }).format(tanggal);
   return `${hari}, ${lang === "en" ? jamnya : jamnya.replace(":", ".")}`;
 }
-
-/**
- * Bagian "Tempat menginap" gaya gathering: hotel dari Logistik, dengan jam
- * check-in/out. Satu hotel: peta tersemat di kanan, sama
- * dengan Lokasi. Dua hotel atau lebih: tiap hotel jadi kartu dengan petanya
- * sendiri, supaya tamu tidak menebak peta itu milik hotel yang mana.
- * Nomor kamar dan teman sekamar TIDAK di sini; itu milik Dashboard saya.
- */
-function TempatMenginap({ hotels, zona, lang }: { hotels: LandingHotel[]; zona: EventTimeZone; lang: LandingLang }) {
-  const t = LANDING_UI[lang];
-  const judul = (
-    <div className="flex flex-col gap-3">
-      <p className={ALIS}>{t.hotelEyebrow}</p>
-      <h2 className={JUDUL}>{t.hotelHeading}</h2>
-    </div>
-  );
-  if (hotels.length > 1) {
-    return (
-      <div className="flex flex-col gap-8 sm:gap-10">
-        {judul}
-        <ul className={`grid gap-6 lg:grid-cols-2 lg:gap-8 ${hotels.length === 3 ? "xl:grid-cols-3" : ""}`}>
-          {hotels.map((hotel) => (
-            <li key={hotel.id} className="flex flex-col overflow-hidden rounded-lg bg-[var(--reg-panel)] [box-shadow:inset_0_0_0_1px_var(--garis-kartu,transparent)]">
-              <PetaHotel hotel={hotel} lang={lang} className="h-48 sm:h-56" />
-              <div className="flex flex-1 flex-col items-start gap-5 p-5 sm:p-7">
-                <InfoHotel hotel={hotel} zona={zona} lang={lang} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-  const utama = hotels[0];
-  return (
-    <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-20">
-      <div className="flex max-w-[572px] flex-col gap-8 sm:gap-10">
-        {judul}
-        <div className="flex flex-col items-start gap-5">
-          <InfoHotel hotel={utama} zona={zona} lang={lang} />
-        </div>
-      </div>
-      <PetaHotel hotel={utama} lang={lang} className="rounded-lg [aspect-ratio:4/3] sm:[aspect-ratio:625/460]" />
-    </div>
-  );
-}
-
-function InfoHotel({ hotel, zona, lang }: { hotel: LandingHotel; zona: EventTimeZone; lang: LandingLang }) {
-  const t = LANDING_UI[lang];
-  const masuk = waktuInap(hotel.check_in_at, zona, lang);
-  const keluar = waktuInap(hotel.check_out_at, zona, lang);
-  const petaUrl = hotel.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([hotel.name, hotel.address].filter(Boolean).join(", "))}`;
-  return (
-    <>
-      <div className="flex flex-col gap-1.5">
-        <h3 className={`${HEAD} text-[24px] font-semibold leading-tight [overflow-wrap:anywhere]`}>{hotel.name}</h3>
-        {hotel.address ? <p className={`whitespace-pre-line text-isi [overflow-wrap:anywhere] ${MUTED}`}>{hotel.address}</p> : null}
-      </div>
-      {masuk || keluar ? (
-        <dl className="grid w-full grid-cols-[120px_minmax(0,1fr)] gap-y-2.5 text-isi">
-          {masuk ? (
-            <>
-              <dt className={MUTED}>{t.checkIn}</dt>
-              <dd className="font-medium tabular-nums">{masuk}</dd>
-            </>
-          ) : null}
-          {keluar ? (
-            <>
-              <dt className={MUTED}>{t.checkOut}</dt>
-              <dd className="font-medium tabular-nums">{keluar}</dd>
-            </>
-          ) : null}
-        </dl>
-      ) : null}
-      <a href={petaUrl} target="_blank" rel="noreferrer noopener" className={`${PIL_GARIS} mt-auto`}>
-        {labelTautanPeta(petaUrl, lang)}
-        <ArrowUpRight size={16} weight="bold" aria-hidden />
-      </a>
-    </>
-  );
-}
-
-/** Peta tersemat dari nama dan alamat hotel (tanpa kunci API), dimuat malas. */
-function PetaHotel({ hotel, lang, className }: { hotel: LandingHotel; lang: LandingLang; className: string }) {
-  const kueri = [hotel.name, hotel.address].filter(Boolean).join(", ");
-  return (
-    <div className={`overflow-hidden bg-[var(--reg-panel)] ${className}`}>
-      <iframe
-        title={LANDING_UI[lang].mapOf(hotel.name)}
-        src={`https://www.google.com/maps?q=${encodeURIComponent(kueri)}&output=embed`}
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-        className="size-full border-0"
-      />
-    </div>
-  );
-}
-
-/**
- * Pembicara untuk daftar di bawah judul sesi: hanya yang dipasangkan ke baris
- * agenda publik bukan jeda, dengan kolom yang dipakai daftar itu saja. Tautan
- * sesinya pun dibatasi ke baris yang tampil, supaya label sesi draf tidak bocor.
- */
-function pembicaraDiAgenda(speakers: LandingSpeaker[], agenda: AgendaPreview[]): LandingSpeaker[] {
-  const baris = agenda.flatMap((bagian) => bagian.items).filter((item) => !item.jeda);
-  const tampil = new Set(baris.flatMap((item) => pembicaraSesiAsli(speakers, item)));
-  const ids = new Set(baris.map((item) => item.id));
-  return speakers
-    .filter((speaker) => tampil.has(speaker))
-    .map((speaker) => {
-      const ringkas: LandingSpeaker = { name: speaker.name };
-      if (speaker.title) ringkas.title = speaker.title;
-      if (speaker.company) ringkas.company = speaker.company;
-      if (speaker.role) ringkas.role = speaker.role;
-      if (speaker.role_id) ringkas.role_id = speaker.role_id;
-      if (speaker.photo_url) ringkas.photo_url = speaker.photo_url;
-      if (speaker.session_refs) {
-        ringkas.session_refs = speaker.session_refs
-          .filter((ref) => ids.has(ref.id))
-          .map(({ id, label, role, role_id, pos }) => ({ id, label, ...(role ? { role } : {}), ...(role_id ? { role_id } : {}), ...(pos !== undefined ? { pos } : {}) }));
-      } else if (speaker.session) {
-        ringkas.session = speaker.session;
-      }
-      return ringkas;
-    });
-}
-
-/** Pembicara asli (bukan salinan berperan) yang tampil di satu baris. */
-function pembicaraSesiAsli(speakers: LandingSpeaker[], item: AgendaPreview["items"][number]): LandingSpeaker[] {
-  return speakers.filter((speaker) => pembicaraSesi([speaker], item).length > 0);
-}
-
