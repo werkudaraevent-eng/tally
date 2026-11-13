@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/guards";
 // menuliskan cost sendiri adalah dua tempat yang bisa menyimpang, dan ketidaksamaan
 // itu tidak akan memunculkan kesalahan apa pun — hanya PIN yang lebih lambat
 // diverifikasi daripada yang diperkirakan.
-import { PIN_HASH_ROUNDS, revokeUserSessions } from "@/lib/auth/login";
+import { hapusDuaLangkah, PIN_HASH_ROUNDS, revokeUserSessions } from "@/lib/auth/login";
 import { canManageUsers, canResetOperatorPin } from "@/lib/auth/roles";
 import type { UserRole } from "@/lib/domain";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -408,6 +408,12 @@ export async function PATCH(request: Request) {
   // PIN baru atau akun dinonaktifkan: cabut semua sesinya. Perangkat yang
   // meminta tetap masuk bila ia mengganti PIN-nya sendiri.
   if (parsed.data.pin || parsed.data.is_active === false) await revokeUserSessions(current.id, current.id === auth.user.id && parsed.data.is_active !== false);
+  // PIN baru dari super admin juga menghapus kata sandi + authenticator: ini
+  // jalan pulih bila admin kehilangan HP dan kode cadangannya.
+  // Bukan untuk PIN akun sendiri: super admin yang mengganti PIN-nya tidak
+  // boleh menghapus authenticator-nya sendiri (dan membuka setup bagi siapa
+  // pun yang tahu PIN baru itu).
+  if (parsed.data.pin && current.id !== auth.user.id) await hapusDuaLangkah(current.id);
 
   let barisOk = true;
   let dihapusArsip: string[] = [];

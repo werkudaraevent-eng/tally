@@ -3,6 +3,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { cookies } from "next/headers";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { CurrentUser, UserRole } from "./roles";
+import { bukaPending, bungkusPending, butuhDuaLangkah, cocokSandi, kunciDuaLangkahSiap, PENDING_COOKIE, PENDING_DETIK, type Tahap } from "./kredensial";
 
 const SESSION_COOKIE = "tally_session";
 // Default menutupi durasi acara penuh (BR non-functional: jangan auto-logout
@@ -31,7 +32,7 @@ const REMEMBER_ME_SECONDS = 30 * 24 * 60 * 60;
 //
 // Hash lama cost 12 TETAP BERLAKU: bcrypt menyimpan cost di dalam string hash,
 // jadi `compare` membacanya dari sana. Konstanta ini menentukan hash BARU, dan
-// `loginWithPin` menulis ulang hash lama begitu PIN-nya terbukti benar, sehingga
+// `loginStaff` menulis ulang hash lama begitu PIN-nya terbukti benar, sehingga
 // tidak ada seorang pun perlu mengganti PIN untuk mendapat biaya yang baru.
 export const PIN_HASH_ROUNDS = 10;
 
@@ -114,75 +115,166 @@ async function createSession(userId: string, seconds: number) {
 }
 
 // Hasil percobaan login. `retry_after_seconds` hanya berarti pada RATE_LIMITED.
+// `next`: langkah pertama lolos, tapi admin masih harus memasukkan kode
+// authenticator ("totp") atau memasang kata sandi + authenticator ("setup").
 export type LoginOutcome =
   | { status: "ok"; user: CurrentUser }
+  | { status: "next"; tahap: Tahap }
   | { status: "invalid" }
   | { status: "rate_limited"; retryAfterSeconds: number };
 
-export async function loginWithPin(username: string, pin: string, rememberMe = false): Promise<LoginOutcome> {
+type BarisMasuk = {
+  id: string;
+  username: string;
+  pin_hash: string;
+  role: UserRole;
+  booth_id: number | null;
+  is_active: boolean;
+  access_role_id?: string | null;
+  // Hanya ada setelah migrasi 202611130002. Sebelum itu kuncinya tidak ada sama
+  // sekali (`select *`), dan semua akun masuk dengan PIN seperti dulu.
+  password_hash?: string | null;
+  totp_enabled_at?: string | null;
+};
+
+/**
+ * Kunci penghitung percobaan: username + IP. Dulu username saja, sehingga
+ * siapa pun yang tahu username admin (tercetak di panduan booth) bisa
+ * menguncinya di hari H dengan enam tebakan salah. Kini kuncian hanya berlaku
+ * untuk IP penebak; pemilik akun dari jaringan lain tetap bisa masuk.
+ */
+export function kunciPercobaan(username: string, ip: string | null, awalan = "") {
+  return `${awalan}${username.trim()}@${ip ?? "?"}`;
+}
+
+/**
+ * Gerbang percobaan, dipanggil SEBELUM baris user diambil dan sebelum hash
+ * dijalankan (biayanya tidak boleh dikeluarkan dulu baru ditolak). Atomik di
+ * database, jadi permintaan paralel ikut terhitung. Bila pemeriksaan gagal
+ * (database sesaat tidak terjangkau), login TETAP dicoba: mengunci seluruh
+ * panitia di tengah acara lebih mahal daripada beberapa tebakan yang lolos.
+ */
+export async function gerbangPercobaan(kunci: string): Promise<LoginOutcome | null> {
+  const { data } = await getSupabaseServiceClient().rpc("begin_login_attempt" as never, { p_username: kunci } as never);
+  const hasil = data as { allowed?: boolean; retry_after_seconds?: number } | null;
+  return hasil?.allowed === false ? { status: "rate_limited", retryAfterSeconds: hasil.retry_after_seconds ?? 60 } : null;
+}
+
+/**
+ * Gerbang kode authenticator: per akun + IP, DAN per akun saja (tanpa IP),
+ * supaya penebak yang sudah tahu kata sandi tidak mendapat jatah baru di setiap
+ * IP. Kunci per akun saja aman di sini: langkah ini baru terbuka setelah kata
+ * sandi benar, jadi orang lain tidak bisa memakainya untuk mengunci pemilik.
+ */
+export async function gerbangKode(username: string, ip: string | null): Promise<{ hasil: LoginOutcome | null; kunci: string[] }> {
+  const kunci = [kunciPercobaan(username, ip, "2fa:"), `2fa-akun:${username.trim()}`];
+  for (const k of kunci) {
+    const hasil = await gerbangPercobaan(k);
+    if (hasil) return { hasil, kunci };
+  }
+  return { hasil: null, kunci };
+}
+
+export async function bersihkanPercobaan(kunci: string) {
+  await getSupabaseServiceClient().rpc("clear_login_attempts" as never, { p_username: kunci } as never);
+}
+
+const cookieAman = () => ({ httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" });
+
+/** Buat sesi penuh dan pasang cookie-nya. */
+export async function masukkan(userId: string, rememberMe: boolean) {
+  const seconds = rememberMe ? REMEMBER_ME_SECONDS : SESSION_SECONDS;
+  const value = await createSession(userId, seconds);
+  const store = await cookies();
+  store.set(SESSION_COOKIE, value, { ...cookieAman(), maxAge: seconds });
+  store.delete(PENDING_COOKIE);
+}
+
+export async function pasangPending(p: Parameters<typeof bungkusPending>[0]) {
+  (await cookies()).set(PENDING_COOKIE, bungkusPending(p), { ...cookieAman(), maxAge: PENDING_DETIK });
+}
+
+export async function bacaPending() {
+  return bukaPending((await cookies()).get(PENDING_COOKIE)?.value);
+}
+
+/**
+ * Langkah pertama masuk staf.
+ *
+ * - Akun perangkat (booth, kasir, scanner, viewer, custom): PIN 6 digit, sesi
+ *   langsung dibuat.
+ * - Admin/super admin dengan kata sandi: kata sandi, lalu kode authenticator.
+ *   PIN lamanya tidak berlaku lagi.
+ * - Admin/super admin yang belum punya kata sandi: PIN sekali lagi, lalu wajib
+ *   memasang kata sandi + authenticator sebelum mendapat sesi.
+ */
+export async function loginStaff(username: string, rahasia: string, rememberMe: boolean, ip: string | null): Promise<LoginOutcome> {
   const client = getSupabaseServiceClient();
   const trimmed = username.trim();
+  const kunci = kunciPercobaan(trimmed, ip);
 
-  // Dipanggil SEBELUM baris user diambil dan sebelum bcrypt dijalankan.
-  //
-  // Urutan ini adalah inti perbaikannya. Rate limit yang memeriksa setelah bcrypt
-  // tidak menyelesaikan apa pun: biaya yang menahan event loop — dan karenanya
-  // menahan pembuatan order booth — sudah dikeluarkan sebelum penolakan terjadi.
-  //
-  // Fungsinya menaikkan penghitung secara atomik, bukan hanya membacanya. Versi
-  // pertama memisahkan "periksa" dari "catat kegagalan", dan pengukuran menunjukkan
-  // pemisahan itu tidak menahan apa pun terhadap permintaan PARALEL: kedua puluh
-  // permintaan membaca penghitung sebelum salah satu pun menaikkannya, jadi
-  // kedua puluhnya masuk ke bcrypt. Serangan otomatis selalu paralel.
-  const { data: gate } = await client.rpc("begin_login_attempt" as never, { p_username: trimmed } as never);
-  const gateResult = gate as { allowed?: boolean; retry_after_seconds?: number } | null;
-  // `=== false` dengan sengaja, bukan `!gateResult?.allowed`. Bila pemeriksaan
-  // gagal (database sesaat tidak terjangkau), login harus TETAP DICOBA. Menolak
-  // seluruh login karena penghitung tidak terbaca akan mengunci seluruh panitia
-  // dari sistemnya sendiri di tengah acara — kerugiannya jauh lebih besar daripada
-  // beberapa percobaan brute force yang lolos.
-  if (gateResult?.allowed === false) {
-    return { status: "rate_limited", retryAfterSeconds: gateResult.retry_after_seconds ?? 60 };
+  const tertahan = await gerbangPercobaan(kunci);
+  if (tertahan) return tertahan;
+
+  // `*`: password_hash dan totp_enabled_at datang dari migrasi 202611130002.
+  const { data: user } = await client.from("users").select("*").eq("username", trimmed).eq("is_active", true).maybeSingle() as { data: BarisMasuk | null };
+
+  // Username tidak dikenal tidak menjalankan hash (daftar username panitia
+  // bukan rahasia; menyamakan waktu dengan hash tiruan justru menahan server).
+  if (!user) return { status: "invalid" };
+
+  // Aktif hanya setelah migrasi 202611130002 (kolomnya ada) dan bila rahasia
+  // authenticator bisa disandikan di server ini.
+  const kolomAda = "password_hash" in user && butuhDuaLangkah(user.role);
+  if (kolomAda && !kunciDuaLangkahSiap()) {
+    // Dua langkah sudah dipasang di database tapi tidak bisa dipakai: admin
+    // tetap masuk dengan PIN. Harus terlihat di log Vercel, bukan diam-diam.
+    console.error("[auth] Two-step sign-in is OFF: INVITE_LINK_SECRET is missing or shorter than 32 characters. Admins are signing in with PIN only.");
+  }
+  const duaLangkahAktif = kolomAda && kunciDuaLangkahSiap();
+
+  if (duaLangkahAktif && user.password_hash) {
+    if (!(await cocokSandi(rahasia, user.password_hash))) return { status: "invalid" };
+    await bersihkanPercobaan(kunci);
+    // Kata sandi tanpa authenticator hanya terjadi bila setup terputus di
+    // tengah; ulangi setup, jangan beri sesi.
+    const tahap: Tahap = user.totp_enabled_at ? "totp" : "setup";
+    await pasangPending({ u: user.id, t: tahap, ingat: rememberMe });
+    return { status: "next", tahap };
   }
 
-  const { data: user } = await client.from("users").select("id,username,pin_hash,role,booth_id,is_active").eq("username", trimmed).eq("is_active", true).single() as { data: { id: string; username: string; pin_hash: string; role: "booth" | "cashier" | "admin"; booth_id: number | null; is_active: boolean } | null };
+  if (!/^\d{6}$/.test(rahasia) || !user.pin_hash || !(await bcrypt.compare(rahasia, user.pin_hash))) return { status: "invalid" };
+  await bersihkanPercobaan(kunci);
 
-  // Username tidak dikenal TIDAK memanggil bcrypt.
-  //
-  // Perbedaan waktu antara kedua cabang memang dapat diamati, sehingga secara teori
-  // membocorkan username mana yang ada. Diterima dengan sadar: daftar username
-  // panitia bukan rahasia — tercetak di panduan meja booth — sementara memanggil
-  // bcrypt pada hash tiruan hanya untuk menyamakan waktu justru mengembalikan tepat
-  // masalah yang sedang diperbaiki, dan membuat serangan pada username acak dapat
-  // menahan event loop.
-  if (!user) return { status: "invalid" };
-  if (!(await bcrypt.compare(pin, user.pin_hash))) return { status: "invalid" };
-
-  // Penghitung dibersihkan hanya setelah PIN benar. Karena `begin_login_attempt`
-  // menaikkan hitungan untuk SETIAP percobaan termasuk yang berhasil, penghapusan
-  // di sini adalah yang membuat operator yang bekerja normal tidak pernah menumpuk
-  // hitungan sama sekali.
-  await client.rpc("clear_login_attempts" as never, { p_username: trimmed } as never);
-
-  // Hash lama menyimpan cost-nya sendiri di dalam string, jadi PIN yang dibuat saat
-  // cost masih 12 tetap membutuhkan ~526ms untuk diverifikasi. Hash ditulis ulang
-  // dengan cost sekarang begitu PIN terbukti benar, sehingga login berikutnya untuk
-  // operator itu memakai biaya yang baru tanpa ada yang perlu mengganti PIN.
-  // Kegagalannya diabaikan: hash lama tetap sah, jadi rugi terburuknya hanya
-  // kesempatan yang terlewat — bukan operator yang gagal masuk.
+  // Hash lama menyimpan cost-nya sendiri; tulis ulang dengan cost sekarang begitu
+  // PIN terbukti benar. Gagal pun tidak apa-apa: hash lama tetap sah.
   if (!user.pin_hash.startsWith(`$2b$${PIN_HASH_ROUNDS}$`) && !user.pin_hash.startsWith(`$2a$${PIN_HASH_ROUNDS}$`)) {
-    const upgraded = await bcrypt.hash(pin, PIN_HASH_ROUNDS);
+    const upgraded = await bcrypt.hash(rahasia, PIN_HASH_ROUNDS);
     await client.from("users").update({ pin_hash: upgraded } as never).eq("id", user.id);
   }
 
-  const seconds = rememberMe ? REMEMBER_ME_SECONDS : SESSION_SECONDS;
-  const value = await createSession(user.id, seconds);
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, value, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: seconds, path: "/" });
-  return { status: "ok", user: { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id } };
+  if (duaLangkahAktif) {
+    await pasangPending({ u: user.id, t: "setup", ingat: rememberMe });
+    return { status: "next", tahap: "setup" };
+  }
+
+  await masukkan(user.id, rememberMe);
+  return { status: "ok", user: { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id, access_role_id: user.access_role_id ?? null } };
 }
 
-type UserRow = { id: string; username: string; role: UserRole; booth_id: number | null; is_active: boolean; access_role_id?: string | null };
+type UserRow = { id: string; username: string; role: UserRole; booth_id: number | null; is_active: boolean; access_role_id?: string | null; password_hash?: string | null; totp_enabled_at?: string | null };
+
+/**
+ * Admin/super admin hanya boleh memakai sesi bila authenticator-nya sudah
+ * aktif. Sesi PIN yang dibuat sebelum dua langkah berlaku (sampai 30 hari)
+ * berhenti berlaku begitu migrasi 202611130002 jalan, apa pun urutan SQL dan
+ * deploy-nya. Setup selesai dan reset PIN sama-sama mencabut sesi lama, jadi
+ * sesi yang lolos di sini selalu dibuat sesudah kode authenticator.
+ */
+function sesiSah(user: UserRow): boolean {
+  if (!("password_hash" in user) || !butuhDuaLangkah(user.role) || !kunciDuaLangkahSiap()) return true;
+  return Boolean(user.totp_enabled_at);
+}
 
 function toCurrentUser(user: UserRow): CurrentUser {
   return { id: user.id, username: user.username, role: user.role, booth_id: user.booth_id, access_role_id: user.access_role_id ?? null };
@@ -204,6 +296,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       .maybeSingle() as { data: { expires_at: string; users: UserRow | null } | null };
     if (!data?.users || !data.users.is_active) return null;
     if (new Date(data.expires_at).getTime() <= Date.now()) return null;
+    if (!sesiSah(data.users)) return null;
     return toCurrentUser(data.users);
   }
 
@@ -213,7 +306,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!id) return null;
   if ((await tabelSesiTersedia()) !== false) return null;
   const { data: user } = await client.from("users").select("*").eq("id", id).eq("is_active", true).single() as { data: UserRow | null };
-  return user ? toCurrentUser(user) : null;
+  return user && sesiSah(user) ? toCurrentUser(user) : null;
 }
 
 /** Keluar dari perangkat ini: hapus baris sesinya, lalu cookie-nya. */
@@ -239,4 +332,17 @@ export async function revokeUserSessions(userId: string, kecualiIni = false) {
   }
   const { error, status } = await kueri;
   if (error && !tabelBelumAda(error, status)) throw new Error("Could not sign out the other devices.");
+}
+
+/**
+ * Hapus kata sandi + authenticator + kode cadangan sebuah akun, dipanggil saat
+ * super admin mereset PIN-nya (mis. HP hilang). Masuk berikutnya dengan PIN
+ * baru langsung masuk ke setup ulang. Sebelum migrasi 202611130002 kolomnya
+ * belum ada: tidak ada yang perlu dihapus.
+ */
+export async function hapusDuaLangkah(userId: string) {
+  const { error } = await getSupabaseServiceClient().from("users")
+    .update({ password_hash: null, totp_secret: null, totp_enabled_at: null, totp_last_step: null, recovery_codes: [] } as never)
+    .eq("id", userId);
+  if (error && error.code !== "PGRST204" && error.code !== "42703") throw new Error("Could not reset two-step sign-in.");
 }
