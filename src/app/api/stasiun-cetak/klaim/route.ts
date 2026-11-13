@@ -14,7 +14,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 const bodySchema = z.object({
   nama: z.string().trim().min(1).max(40),
-  token: z.string().uuid(),
+  token: z.string().guid(),
   ambil_alih: z.boolean().optional(),
 });
 

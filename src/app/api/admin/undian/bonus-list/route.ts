@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   return Response.json({ participants: hits });
 }
 
-const idsSchema = z.object({ participant_ids: z.array(z.string().uuid()).max(BONUS_LIST_MAX) });
+const idsSchema = z.object({ participant_ids: z.array(z.string().guid()).max(BONUS_LIST_MAX) });
 
 export async function POST(request: Request) {
   const auth = await requireRequestEvent(request, ["admin"], { readOnly: true });

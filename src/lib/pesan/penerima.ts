@@ -29,7 +29,7 @@ export const audienceSchema = z.object({
   /** Penyempit: hanya perusahaan ini. Kosong = semua perusahaan. */
   perusahaan: z.array(z.string().trim().min(1).max(200)).max(200).default([]),
   /** Untuk `manual`: id peserta yang dipilih (Daftar peserta, Logistik). */
-  ids: z.array(z.string().uuid()).max(5000).default([]),
+  ids: z.array(z.string().guid()).max(5000).default([]),
   /** Nama pilihan manual untuk ditampilkan, mis. "Berubah sejak terbit". */
   label: z.string().trim().max(80).optional(),
 });

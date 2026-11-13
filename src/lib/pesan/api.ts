@@ -10,7 +10,7 @@ export function pesanBelumAda(error: { code?: string; message?: string } | null)
   return error.code === "42P01" || error.code === "PGRST205" || error.code === "42703" || /message_blast/.test(error.message ?? "");
 }
 
-export const idSchema = z.string().uuid();
+export const idSchema = z.string().guid();
 
 export async function loadBlast(eventId: string, id: string) {
   const { data, error } = await getSupabaseServiceClient()

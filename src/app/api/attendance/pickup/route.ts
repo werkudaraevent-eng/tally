@@ -21,12 +21,12 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  */
 const query = z.object({
   session_id: z.coerce.number().int().positive(),
-  participant_id: z.string().uuid(),
+  participant_id: z.string().guid(),
 });
 
 const body = z.object({
   session_id: z.number().int().positive(),
-  participant_id: z.string().uuid(),
+  participant_id: z.string().guid(),
   item_ids: z.array(z.number().int().positive()).min(1).max(30),
   lane_id: z.number().int().positive().nullish(),
 });

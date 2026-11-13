@@ -28,7 +28,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
  * terikat pada satu booth.
  */
 
-const paramsSchema = z.object({ id: z.string().uuid() });
+const paramsSchema = z.object({ id: z.string().guid() });
 
 // Alasan wajib dan minimal 3 huruf. RPC hanya menolak string kosong; "x" lolos
 // di sana tapi tidak menjelaskan apa pun kepada orang yang membaca laporan
