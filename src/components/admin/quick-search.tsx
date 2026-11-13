@@ -75,14 +75,15 @@ function usePintasanMac() {
   return useSyncExternalStore(langgananKosong, bacaPintasan, () => "Ctrl K");
 }
 
-export function QuickSearchButton({ onOpen, collapsed }: { onOpen: () => void; collapsed: boolean }) {
+export function QuickSearchButton({ onOpen, collapsed, ai = false }: { onOpen: () => void; collapsed: boolean; /** Ask AI siap: labelnya ikut bilang bisa bertanya. */ ai?: boolean }) {
   const pintasan = usePintasanMac();
+  const label = ai ? "Search or ask AI" : "Quick search";
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Quick search (${pintasan})`}
+      aria-label={`${label} (${pintasan})`}
       // SATU elemen untuk dua lebar, bukan dua tombol yang saling menggantikan.
       // Rel yang melebar saat disentuh tidak boleh memasang ulang isinya; lihat
       // catatan "Rel: satu pohon, dua lebar" di globals.css.
@@ -95,7 +96,7 @@ export function QuickSearchButton({ onOpen, collapsed }: { onOpen: () => void; c
       }`}
     >
       <MagnifyingGlass size={16} className="shrink-0" />
-      <span className="m3-nav-label min-w-0 flex-1 truncate">Quick search…</span>
+      <span className="m3-nav-label min-w-0 flex-1 truncate">{label}…</span>
       <span className="m3-rail-hide shrink-0 text-label-medium tabular-nums">{pintasan}</span>
     </button>
   );
@@ -103,9 +104,26 @@ export function QuickSearchButton({ onOpen, collapsed }: { onOpen: () => void; c
 
 /* ---- Palet --------------------------------------------------------------- */
 
-type Grup = "terakhir" | "halaman" | "event" | "ai";
+type Grup = "contoh" | "terakhir" | "halaman" | "event" | "ai";
 
-const LABEL_GRUP: Record<Grup, string> = { terakhir: "Recently opened", halaman: "Pages", event: "Events", ai: "Ask AI" };
+const LABEL_GRUP: Record<Grup, string> = { contoh: "Ask AI \u00b7 try one", terakhir: "Recently opened", halaman: "Pages", event: "Events", ai: "Ask AI" };
+
+/**
+ * Contoh pertanyaan saat palet kosong dan Ask AI siap. Tiga pertama yang
+ * halamannya boleh dibuka orang ini; contoh tentang halaman yang tersembunyi
+ * dari perannya hanya akan dijawab "halaman itu tidak tersedia".
+ *
+ * Isinya pertanyaan "di mana / bagaimana", karena itu yang bisa dijawab Ask AI
+ * hari ini. Contoh "ubah ..." menunggu Ask AI yang bisa mengubah data.
+ */
+const CONTOH_AI: Array<{ pertanyaan: string; href: string }> = [
+  { pertanyaan: "How do I add a question to the registration form?", href: "/admin/registrasi" },
+  { pertanyaan: "Where do I assign hotels and vehicles?", href: "/admin/logistik" },
+  { pertanyaan: "How do I send a message to all participants?", href: "/admin/pengumuman" },
+  { pertanyaan: "How do I import a participant list from a file?", href: "/admin/participants" },
+  { pertanyaan: "Where do I change the event page photo?", href: "/admin/landing" },
+];
+const JUMLAH_CONTOH = 3;
 
 type Hasil = {
   kunci: string;
@@ -129,8 +147,14 @@ export function CommandPalette({
   events,
   recents,
   bolehHref,
+  aiSiap = false,
+  modeAi = false,
 }: {
   onClose: () => void;
+  /** Ask AI siap di acara ini; dibaca rangka admin sekali, bukan setiap palet dibuka. */
+  aiSiap?: boolean;
+  /** Dibuka dari tombol Ask AI: kolomnya bilang "tanya", bukan "cari". */
+  modeAi?: boolean;
   /** Peran kustom: hanya halaman yang lolos saringan ini. Tidak diisi = semua. */
   bolehHref?: (href: string) => boolean;
   /** `/e/<slug>` atau string kosong. Hasil "Halaman" tetap di acara yang sedang dibuka. */
@@ -274,12 +298,17 @@ export function CommandPalette({
     }
     return daftar;
   }, [bolehHref]);
-  const ai = useTanyaAi(eventPrefix, halamanAi);
+  const ai = useTanyaAi(eventPrefix, halamanAi, aiSiap);
   const pertanyaan = kueri.trim();
   const barisAi: Hasil[] = ai.siap && pertanyaan.length >= 3
     ? [{ kunci: "ai", label: `\u201c${pertanyaan}\u201d`, konteks: "", icon: Sparkle, href: "", path: "", grup: "ai" }]
     : [];
-  const semuaHasil = [...hasil, ...barisAi];
+  // Contoh hanya saat kolom kosong: begitu orang mengetik, yang dicari adalah
+  // ketikannya sendiri.
+  const barisContoh: Hasil[] = ai.siap && !pertanyaan
+    ? CONTOH_AI.filter((c) => !bolehHref || bolehHref(c.href)).slice(0, JUMLAH_CONTOH).map((c) => ({ kunci: `c:${c.href}`, label: c.pertanyaan, konteks: "", icon: Sparkle, href: "", path: "", grup: "contoh" }))
+    : [];
+  const semuaHasil = [...barisContoh, ...hasil, ...barisAi];
   const urutanGrup = [...new Set(semuaHasil.map((item) => item.grup))];
   const tampil = urutanGrup.flatMap((grup) => semuaHasil.filter((item) => item.grup === grup));
 
@@ -292,6 +321,9 @@ export function CommandPalette({
 
   function buka(item: Hasil) {
     if (item.grup === "ai") { void ai.tanya(pertanyaan); return; }
+    // Contoh diketik ke kolom lalu ditanyakan, supaya "kembali ke pencarian"
+    // menunjukkan pertanyaan yang tadi dikirim, dan orang bisa mengubahnya.
+    if (item.grup === "contoh") { setKueri(item.label); void ai.tanya(item.label); return; }
     onClose();
     // Halaman yang punya suntingan belum disimpan bertanya dulu.
     navigasiTerjaga(() => router.push(item.href));
@@ -349,7 +381,7 @@ export function CommandPalette({
           role="dialog"
           lang="en"
           aria-modal="true"
-          aria-label="Quick search"
+          aria-label={modeAi ? "Ask AI" : "Quick search"}
           onKeyDown={onKeyDown}
           initial={{ opacity: 0, y: -8, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -358,13 +390,13 @@ export function CommandPalette({
           className="flex max-h-[76vh] w-full max-w-[640px] flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-level3"
         >
           <div className="flex h-14 shrink-0 items-center gap-3 border-b border-outline-variant px-4">
-            <MagnifyingGlass size={18} className="shrink-0 text-on-surface-variant" />
+            {modeAi ? <Sparkle size={18} weight="fill" className="shrink-0 text-primary" /> : <MagnifyingGlass size={18} className="shrink-0 text-on-surface-variant" />}
             <input
               ref={kolom}
               value={kueri}
               onChange={(peristiwa) => { setKueri(peristiwa.target.value); setSorot(0); if (ai.jawaban) ai.tutup(); }}
-              placeholder="Search pages, events, and features…"
-              aria-label="Search pages, events, and features"
+              placeholder={modeAi ? "Ask AI, or search pages…" : ai.siap ? "Search pages, or ask AI…" : "Search pages, events, and features…"}
+              aria-label={ai.siap ? "Search pages or ask AI" : "Search pages, events, and features"}
               // `m3-search-field` melepas cincin fokus global. Kolom ini menerima
               // fokus otomatis saat palet dibuka, jadi cincinnya hanya melingkari
               // satu-satunya hal yang sudah pasti aktif. Lihat globals.css.
@@ -405,11 +437,14 @@ export function CommandPalette({
                         // hasil memuat setengah jumlah tujuan pada tinggi yang sama,
                         // dan daftar yang harus digulir lebih lambat daripada
                         // mengetik dua huruf lagi.
-                        className={`flex h-10 w-full items-center gap-2.5 rounded-lg px-2 text-left ${aktif ? "bg-[var(--press-hover)]" : ""}`}
+                        // Contoh boleh dua baris: di HP pertanyaan yang terpotong tidak bisa dibaca.
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 text-left ${item.grup === "contoh" ? "min-h-10 py-2" : "h-10"} ${aktif ? "bg-[var(--press-hover)]" : ""}`}
                       >
-                        <Icon size={16} weight={item.grup === "ai" ? "fill" : undefined} className={`shrink-0 ${item.grup === "ai" ? "text-primary" : "text-on-surface-variant"}`} />
-                        <span className="min-w-0 shrink-[2] truncate text-body-medium text-on-surface">{item.label}</span>
-                        {item.grup === "ai" ? (
+                        <Icon size={16} weight={item.grup === "ai" || item.grup === "contoh" ? "fill" : undefined} className={`shrink-0 ${item.grup === "ai" || item.grup === "contoh" ? "text-primary" : "text-on-surface-variant"}`} />
+                        <span className={`min-w-0 shrink-[2] text-body-medium text-on-surface ${item.grup === "contoh" ? "line-clamp-2" : "truncate"}`}>{item.label}</span>
+                        {item.grup === "contoh" ? (
+                          aktif ? <span className="ml-auto flex shrink-0 items-center gap-1.5 text-label-medium text-on-surface-variant max-sm:hidden">Ask <kbd className="m3-kbd">&crarr;</kbd></span> : null
+                        ) : item.grup === "ai" ? (
                           <span className="ml-auto flex shrink-0 items-center gap-1.5 text-label-medium text-on-surface-variant">Ask <kbd className="m3-kbd">Tab</kbd></span>
                         ) : <>
                         {/* Pemisahnya titik tengah, bukan tanda pisah panjang.

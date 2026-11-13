@@ -22,20 +22,30 @@ type Jawaban =
 /** Halaman yang boleh dibuka penanya; `global` = alamat tanpa awalan acara. */
 export type HalamanAi = HalamanTanya & { global: boolean };
 
-export function useTanyaAi(eventPrefix: string, halaman: HalamanAi[]) {
-  const [siap, setSiap] = useState(false);
-  const [jawaban, setJawaban] = useState<Jawaban | null>(null);
-  const urutan = useRef(0);
-
+/**
+ * Apakah Ask AI siap di acara ini (kunci terpasang, fitur menyala, batas
+ * bulanan belum tercapai). Dipegang rangka admin, bukan palet: tombol Ask AI di
+ * bilah atas dan label kotak cari di sidebar ikut membacanya, dan keduanya
+ * harus tetap 0 px berubah selama jawabannya belum `true`.
+ */
+export function useAiSiap(eventPrefix: string) {
+  const [siap, setSiap] = useState<{ untuk: string; nilai: boolean } | null>(null);
   useEffect(() => {
     // Ask AI terikat pada acara yang sedang dibuka; di /events tidak ada.
     if (!eventPrefix) return;
     let batal = false;
     void fetch(`${eventPrefix}/api/admin/ai/tanya`).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((json: { siap?: boolean } | null) => {
-      if (!batal) setSiap(json?.siap === true);
+      if (!batal) setSiap({ untuk: eventPrefix, nilai: json?.siap === true });
     });
     return () => { batal = true; };
   }, [eventPrefix]);
+  // Jawaban acara sebelumnya tidak berlaku di acara lain.
+  return Boolean(eventPrefix) && siap?.untuk === eventPrefix && siap.nilai;
+}
+
+export function useTanyaAi(eventPrefix: string, halaman: HalamanAi[], siap: boolean) {
+  const [jawaban, setJawaban] = useState<Jawaban | null>(null);
+  const urutan = useRef(0);
 
   const tanya = async (pertanyaan: string) => {
     const nomor = (urutan.current += 1);
