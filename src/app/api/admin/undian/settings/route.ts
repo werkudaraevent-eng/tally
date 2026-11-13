@@ -36,7 +36,7 @@ const musicUrl = z.string().trim().max(1000)
   .refine((nilai) => musikSah(nilai, process.env.NEXT_PUBLIC_SUPABASE_URL), "Upload the music file again.")
   .nullable().optional();
 
-const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format hex #RRGGBB");
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colour must be a hex value, #RRGGBB");
 const scale = z.number().min(SCALE_MIN).max(SCALE_MAX);
 const assetUrl = z.string().trim().url().max(600).nullable().optional();
 

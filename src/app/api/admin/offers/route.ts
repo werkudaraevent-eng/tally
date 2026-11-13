@@ -50,7 +50,7 @@ const rootConditionSchema = z.object({
 });
 
 const createSchema = z.object({
-  code: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{2,40}$/, "Kode hanya huruf kecil, angka, dan underscore."),
+  code: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{2,40}$/, "Code: lowercase letters, numbers and underscores only."),
   name: z.string().trim().min(1).max(80),
   price: z.number().int().min(0).max(1_000_000_000),
   stock: z.number().int().min(0).nullable().optional(),
@@ -108,10 +108,10 @@ export async function POST(request: Request) {
   // Constraint database menjaga hal yang sama, tapi pesan di sini jauh lebih jelas
   // untuk admin daripada error constraint mentah.
   if (parsed.data.scope === "per_booth" && !parsed.data.booth_id) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Penawaran per booth harus memilih booth." });
+    return apiError("VALIDATION_ERROR", 422, { message: "A per-booth offer needs a booth." });
   }
   if (parsed.data.scope === "global" && parsed.data.booth_id) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Penawaran global tidak boleh terikat booth." });
+    return apiError("VALIDATION_ERROR", 422, { message: "A global offer cannot be tied to a booth." });
   }
 
   const client = getSupabaseServiceClient();
@@ -178,7 +178,7 @@ export async function PATCH(request: Request) {
   const nextScope = changes.scope ?? current.scope;
   const nextBoothId = changes.booth_id ?? current.booth_id;
   if (nextScope === "per_booth" && !nextBoothId) {
-    return apiError("VALIDATION_ERROR", 422, { message: "Penawaran per booth harus memilih booth." });
+    return apiError("VALIDATION_ERROR", 422, { message: "A per-booth offer needs a booth." });
   }
   if (nextScope === "per_booth" && nextBoothId && changes.booth_id !== undefined) {
     const { data: booth } = await client.from("booths").select("id").eq("event_id", eventId).eq("id", nextBoothId).maybeSingle();

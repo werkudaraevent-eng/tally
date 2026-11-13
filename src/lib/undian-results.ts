@@ -90,7 +90,7 @@ export async function loadWinners(eventId: string, sessionId: number | null): Pr
     // Hadiah yang sudah dihapus tetap punya baris pemenang lewat ON DELETE
     // CASCADE... kecuali memang dihapus. Fallback ini menjaga export tetap
     // terbaca bila relasinya hilang karena sebab lain.
-    prize_name: row.undian_prizes?.name ?? "(hadiah dihapus)",
+    prize_name: row.undian_prizes?.name ?? "(prize deleted)",
     sponsor_name: row.undian_prizes?.sponsor_name ?? null,
     draw_round: row.draw_round,
     display_name: row.display_name,

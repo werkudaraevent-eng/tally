@@ -10,7 +10,7 @@ import { formatEventDateTime } from "@/lib/datetime";
 import { cx } from "@/lib/m3/cx";
 import { DEFAULT_TIME_ZONE, EVENT_TIME_ZONES, timeZoneAbbr, type EventTimeZone } from "@/lib/timezone";
 
-const RESET_PHRASE = "HAPUS SEMUA DATA";
+const RESET_PHRASE = "DELETE ALL DATA";
 
 type Settings = {
   pickup_mode: "after_payment" | "immediate";
@@ -119,7 +119,7 @@ export function SettingsPanel() {
       fetch("/api/settings", { cache: "no-store" }).catch(() => null),
       fetch("/api/admin/kontak", { cache: "no-store" }).catch(() => null),
     ]);
-    if (!response?.ok) { setLoadError("Pengaturan gagal dimuat."); return; }
+    if (!response?.ok) { setLoadError("Settings could not be loaded."); return; }
     const data = (await response.json()) as Settings;
     setSaved(data);
     setSettings(data);
@@ -153,16 +153,16 @@ export function SettingsPanel() {
       const adaTambahan = kontak.contact_more.some((item) => item.name.trim() || item.role.trim() || item.email.trim() || item.phone.trim());
       if (adaTambahan && !kontak.contact_email.trim() && !kontak.contact_phone.trim()) {
         setSaving(false);
-        const failure = "Isi nomor telepon atau email kontak 1 dulu. Kontak 1 dipakai di halaman daftar, undangan, dan dashboard peserta.";
+        const failure = "Fill in a phone number or email for contact 1 first. Contact 1 is used on the registration page, invitations and the participant area.";
         setError(failure);
-        toast.error("Kontak panitia belum tersimpan", failure);
+        toast.error("Organiser contacts not saved", failure);
         return;
       }
       if (tanpaSambung >= 0) {
         setSaving(false);
-        const failure = `Kontak ${tanpaSambung + 2} perlu nomor telepon atau email.`;
+        const failure = `Contact ${tanpaSambung + 2} needs a phone number or email.`;
         setError(failure);
-        toast.error("Kontak panitia belum tersimpan", failure);
+        toast.error("Organiser contacts not saved", failure);
         return;
       }
       const jawab = await fetch("/api/admin/kontak", {
@@ -175,40 +175,40 @@ export function SettingsPanel() {
         setSaving(false);
         // Diubah di tab lain: tampilkan yang terbaru, admin mengulang perubahannya.
         if (body?.error?.code === "CONTACT_CHANGED" && body.error.details) { const terbaru = kontakBaca(body.error.details); setKontakSaved(terbaru); setKontak(terbaru); }
-        const failure = body?.error?.message ?? "Kontak panitia gagal disimpan.";
+        const failure = body?.error?.message ?? "Organiser contacts could not be saved.";
         setError(failure);
-        toast.error("Kontak panitia gagal disimpan", failure);
+        toast.error("Organiser contacts not saved", failure);
         return;
       }
       const tersimpan = kontakBaca(body); setKontakSaved(tersimpan); setKontak(tersimpan);
     }
     if (!Object.keys(ubah).length) {
       setSaving(false);
-      if (kontakUbah) toast.success("Kontak panitia tersimpan", "Tampil di halaman acara dan halaman peserta.");
+      if (kontakUbah) toast.success("Organiser contacts saved", "Shown on the event page and in the participant area.");
       return;
     }
     const response = await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ubah) });
     const data = await response.json();
     setSaving(false);
     if (!response.ok) {
-      const failure = data.error?.message ?? "Pengaturan gagal disimpan.";
+      const failure = data.error?.message ?? "Settings could not be saved.";
       setError(failure);
-      toast.error("Pengaturan gagal disimpan", failure);
+      toast.error("Settings not saved", failure);
       return;
     }
     setSettings(data); setSaved(data);
     // Mematikan konfirmasi kasir ikut melunasi antrean yang menggantung; jumlahnya
     // harus terlihat agar admin tahu ada order yang berubah status.
     if (data.auto_settled_orders > 0) {
-      toast.warning("Pengaturan tersimpan", `${data.auto_settled_orders} order pending di antrean kasir ikut ditandai lunas.`);
+      toast.warning("Settings saved", `${data.auto_settled_orders} unpaid ${data.auto_settled_orders === 1 ? "order" : "orders"} in the cashier queue were also marked paid.`);
     } else {
-      toast.success("Pengaturan tersimpan", "Perubahan berlaku di semua perangkat dalam 30 detik.");
+      toast.success("Settings saved", "Changes reach every device within 30 seconds.");
     }
   }
 
   if (loadError) {
     return (
-      <Banner tone="error" icon={<XCircle size={18} />} actions={<Button variant="outlined" size="sm" onClick={() => void load()}>Coba lagi</Button>}>
+      <Banner tone="error" icon={<XCircle size={18} />} actions={<Button variant="outlined" size="sm" onClick={() => void load()}>Try again</Button>}>
         {loadError}
       </Banner>
     );
@@ -216,7 +216,7 @@ export function SettingsPanel() {
 
   if (!settings || !saved) {
     return (
-      <Pane aria-label="Memuat pengaturan">
+      <Pane aria-label="Loading settings">
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="grid gap-3 border-b border-outline-variant px-5 py-6 last:border-b-0 md:grid-cols-[2fr_3fr] md:gap-8">
             <div className="h-3 w-40 animate-pulse rounded bg-surface-container-high" />
@@ -243,14 +243,14 @@ export function SettingsPanel() {
   return (
     <div className="flex flex-col gap-4">
       {error ? <Banner tone="error" icon={<XCircle size={18} />}>{error}</Banner> : null}
-      <Pane aria-label="Pengaturan acara">
+      <Pane aria-label="Event settings">
         <PaneBody>
           {/* Zona waktu paling atas karena ia menentukan arti setiap angka jam di
               halaman lain: order, audit, Papan peringkat, denah, dan penanda
               "sedang berlangsung" di rundown. Setelan yang salah di sini membuat
               semua jam tampak wajar tapi geser serentak. */}
-          <SettingRow title="Zona waktu acara" description="Ikuti zona lokasi acara, bukan zona kantor atau laptop panitia. Semua jam di aplikasi memakai zona ini.">
-            <label className="sr-only" htmlFor="zona-waktu">Zona waktu acara</label>
+          <SettingRow title="Event time zone" description="Use the venue's time zone, not the office's or a staff laptop's. Every time in the app uses this zone.">
+            <label className="sr-only" htmlFor="zona-waktu">Event time zone</label>
             <select
               id="zona-waktu"
               value={settings.time_zone}
@@ -262,7 +262,7 @@ export function SettingsPanel() {
             {zonaDipilih ? <p className="mt-1.5 text-body-medium text-on-surface-variant">{zonaDipilih.hint}</p> : null}
             {settings.time_zone !== saved.time_zone ? (
               <Peringatan>
-                Jam order yang sudah tercatat ikut bergeser saat ditampilkan, karena yang tersimpan adalah waktu absolut. Setel sekali sebelum acara mulai. Jam di rundown adalah jam dinding yang diketik panitia, jadi angkanya tetap; yang menyesuaikan hanya penanda &ldquo;sedang berlangsung&rdquo;.
+                Times of orders already recorded shift when shown, because they are stored as absolute times. Set this once before the event starts. Agenda times are the clock times staff typed, so they stay the same; only the &ldquo;happening now&rdquo; marker adjusts.
               </Peringatan>
             ) : null}
           </SettingRow>
@@ -270,28 +270,28 @@ export function SettingsPanel() {
           {/* Pengirim email: nama yang tampil di kotak masuk peserta, per acara.
               Alamatnya tetap dari EMAIL_FROM (domain terverifikasi di Resend),
               jadi ditampilkan sebagai teks, bukan kolom. */}
-          <SettingRow title="Pengirim email" description="Nama yang dilihat peserta di kotak masuk, dan ke mana balasan mereka dikirim. Berlaku untuk konfirmasi pendaftaran, tautan masuk, dan Pesan peserta.">
+          <SettingRow title="Email sender" description="The name participants see in their inbox, and where their replies go. Used for registration confirmations, sign-in links and Messages.">
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor="nama-pengirim">Nama pengirim</label>
+                <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor="nama-pengirim">Sender name</label>
                 <input
                   id="nama-pengirim"
                   type="text"
                   maxLength={80}
                   value={settings.email_sender_name ?? ""}
-                  placeholder={bawaan?.name ?? "Nama penyelenggara"}
+                  placeholder={bawaan?.name ?? "Organiser name"}
                   onChange={(event) => set({ email_sender_name: event.target.value })}
                   className={kelasInput}
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor="balasan-ke">Balasan ke</label>
+                <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor="balasan-ke">Reply-to</label>
                 <input
                   id="balasan-ke"
                   type="email"
                   maxLength={254}
                   value={settings.email_reply_to ?? ""}
-                  placeholder={bawaan?.reply_to ?? "email@penyelenggara.com"}
+                  placeholder={bawaan?.reply_to ?? "email@organiser.com"}
                   onChange={(event) => set({ email_reply_to: event.target.value })}
                   className={kelasInput}
                 />
@@ -299,11 +299,11 @@ export function SettingsPanel() {
               <p className="text-body-medium text-on-surface-variant">
                 {bawaan ? (
                   <>
-                    Peserta melihat: <span className="font-medium text-on-surface">{namaTampil ? `${namaTampil} <${bawaan.address}>` : bawaan.address}</span>
-                    {balasanTampil ? <>. Balasan masuk ke <span className="font-medium text-on-surface">{balasanTampil}</span>.</> : ". Balasan masuk ke alamat pengirim."}
-                    {" "}Kosongkan untuk memakai bawaan situs.
+                    Participants see: <span className="font-medium text-on-surface">{namaTampil ? `${namaTampil} <${bawaan.address}>` : bawaan.address}</span>
+                    {balasanTampil ? <>. Replies go to <span className="font-medium text-on-surface">{balasanTampil}</span>.</> : ". Replies go to the sender address."}
+                    {" "}Leave empty to use the site default.
                   </>
-                ) : "Pengiriman email belum disetel di server, jadi nama ini belum dipakai."}
+                ) : "Email sending is not set up on the server, so this name is not used yet."}
               </p>
             </div>
           </SettingRow>
@@ -313,21 +313,21 @@ export function SettingsPanel() {
               peserta. Disimpan di landing_config lewat /api/admin/kontak. */}
           {kontak ? (
             <SettingRow
-              title="Kontak panitia"
-              description={`Sampai ${KONTAK_PANITIA_MAX} kontak untuk peserta. Semua tampil di bagian Kontak panitia halaman acara. Kontak pertama juga tampil di halaman daftar saat ditutup, halaman undangan, dan dashboard peserta.`}
+              title="Organiser contacts"
+              description={`Up to ${KONTAK_PANITIA_MAX} contacts for participants. All of them show in the organiser contacts section of the event page. The first contact also shows on the registration page when it is closed, on invitations and in the participant area.`}
             >
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3">
-                  {kontak.contact_more.length > 0 ? <p className="text-body-medium font-semibold text-on-surface">Kontak 1 (utama)</p> : null}
+                  {kontak.contact_more.length > 0 ? <p className="text-body-medium font-semibold text-on-surface">Contact 1 (main)</p> : null}
                   {([
-                    ["contact_name", "Nama", "text", 120, "Tim Acara", true],
-                    ["contact_role", "Peran / jabatan", "text", KONTAK_PERAN_MAX, "Ketua Panitia", true],
-                    ["contact_email", "Email", "email", 160, balasanAcara ?? "panitia@penyelenggara.com", false],
-                    ["contact_phone", "Telepon / WhatsApp", "tel", 40, "+62 812-3456-7890", false],
+                    ["contact_name", "Name", "text", 120, "Event team", true],
+                    ["contact_role", "Role", "text", KONTAK_PERAN_MAX, "Head of organising committee", true],
+                    ["contact_email", "Email", "email", 160, balasanAcara ?? "team@organiser.com", false],
+                    ["contact_phone", "Phone / WhatsApp", "tel", 40, "+62 812-3456-7890", false],
                   ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
                     <div key={kunci}>
                       <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor={`kontak-${kunci}`}>
-                        {label}{opsional ? <span className="font-normal text-on-surface-variant"> (opsional)</span> : null}
+                        {label}{opsional ? <span className="font-normal text-on-surface-variant"> (optional)</span> : null}
                       </label>
                       <input
                         id={`kontak-${kunci}`}
@@ -343,8 +343,8 @@ export function SettingsPanel() {
                   ))}
                   <p className="text-body-medium text-on-surface-variant">
                     {balasanAcara
-                      ? <>Email kosong: memakai alamat Balasan ke (<span className="font-medium text-on-surface">{balasanAcara}</span>).</>
-                      : "Email kosong: memakai alamat Balasan ke bila diisi."}
+                      ? <>Empty email: the Reply-to address is used (<span className="font-medium text-on-surface">{balasanAcara}</span>).</>
+                      : "Empty email: the Reply-to address is used if filled in."}
                   </p>
                 </div>
 
@@ -356,24 +356,24 @@ export function SettingsPanel() {
                   return (
                     <div key={urutan} className="flex flex-col gap-3 border-t border-outline-variant pt-4">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-body-medium font-semibold text-on-surface">Kontak {urutan + 2}</p>
+                        <p className="text-body-medium font-semibold text-on-surface">Contact {urutan + 2}</p>
                         <IconButton
                           size="sm"
-                          label={`Hapus kontak ${urutan + 2}`}
+                          label={`Delete contact ${urutan + 2}`}
                           onClick={() => setKontak((sekarang) => sekarang && { ...sekarang, contact_more: sekarang.contact_more.filter((_, i) => i !== urutan) })}
                         >
                           <Trash size={16} />
                         </IconButton>
                       </div>
                       {([
-                        ["name", "Nama", "text", 120, "Budi Santoso", true],
-                        ["role", "Peran / jabatan", "text", KONTAK_PERAN_MAX, "Transportasi", true],
-                        ["email", "Email", "email", 160, "panitia@penyelenggara.com", false],
-                        ["phone", "Telepon / WhatsApp", "tel", 40, "+62 813-0000-0000", false],
+                        ["name", "Name", "text", 120, "Budi Santoso", true],
+                        ["role", "Role", "text", KONTAK_PERAN_MAX, "Transport", true],
+                        ["email", "Email", "email", 160, "team@organiser.com", false],
+                        ["phone", "Phone / WhatsApp", "tel", 40, "+62 813-0000-0000", false],
                       ] as const).map(([kunci, label, jenis, maks, contoh, opsional]) => (
                         <div key={kunci}>
                           <label className="mb-1.5 block text-body-medium font-medium text-on-surface" htmlFor={`kontak-${urutan + 2}-${kunci}`}>
-                            {label}{opsional ? <span className="font-normal text-on-surface-variant"> (opsional)</span> : null}
+                            {label}{opsional ? <span className="font-normal text-on-surface-variant"> (optional)</span> : null}
                           </label>
                           <input
                             id={`kontak-${urutan + 2}-${kunci}`}
@@ -399,41 +399,41 @@ export function SettingsPanel() {
                       icon={<Plus size={16} />}
                       onClick={() => setKontak((sekarang) => sekarang && { ...sekarang, contact_more: [...sekarang.contact_more, { name: "", role: "", email: "", phone: "" }] })}
                     >
-                      Tambah kontak
+                      Add contact
                     </Button>
                   ) : null}
                   <p className="text-body-medium text-on-surface-variant">
-                    Bagian Kontak panitia dinyalakan dan diurutkan di <Link href="/admin/landing" className="rounded-sm font-medium text-primary hover:underline">Event page</Link>.
+                    The organiser contacts section is turned on and ordered in <Link href="/admin/landing" className="rounded-sm font-medium text-primary hover:underline">Event page</Link>.
                   </p>
                 </div>
               </div>
             </SettingRow>
           ) : null}
 
-          <SettingRow title="Penyerahan barang" description="Kapan booth menyerahkan barang ke peserta.">
+          <SettingRow title="Hand-over" description="When a booth hands goods to the participant.">
             <div className="flex flex-col gap-2">
-              {([["after_payment", "Ambil setelah lunas", "Barang disimpan di booth. Peserta kembali setelah membayar di kasir."], ["immediate", "Serahkan langsung di booth", "Barang diberikan saat order dibuat."]] as const).map(([value, label, desc]) => (
+              {([["after_payment", "Collect after payment", "Goods stay at the booth. The participant comes back after paying at the cashier."], ["immediate", "Hand over at the booth", "Goods are given when the order is made."]] as const).map(([value, label, desc]) => (
                 <PilihanRadio key={value} name="pickup" checked={settings.pickup_mode === value} onSelect={() => set({ pickup_mode: value })} label={label} description={desc} />
               ))}
             </div>
           </SettingRow>
 
-          <SettingRow title="Konfirmasi kasir" description="Tentukan sebelum pintu dibuka, bukan di tengah acara.">
+          <SettingRow title="Cashier confirmation" description="Decide before the doors open, not during the event.">
             <div className="flex flex-col gap-2">
-              {([[true, "Lewat kasir", "Order booth masuk antrean kasir. Kasir menandai lunas dan memilih metode pembayaran. Nilai masuk top spender setelah lunas."], [false, "Tanpa kasir", "Order booth langsung tercatat lunas dan nilainya langsung masuk top spender. Antrean kasir tidak dipakai, metode pembayaran tidak dicatat."]] as const).map(([value, label, desc]) => (
+              {([[true, "Through the cashier", "Booth orders join the cashier queue. The cashier marks them paid and picks the payment method. The amount counts towards top spender once paid."], [false, "No cashier", "Booth orders are recorded as paid straight away and count towards top spender at once. The cashier queue is not used and no payment method is recorded."]] as const).map(([value, label, desc]) => (
                 <PilihanRadio key={String(value)} name="cashier-confirmation" checked={settings.cashier_confirmation_required === value} onSelect={() => set({ cashier_confirmation_required: value })} label={label} description={desc} />
               ))}
             </div>
             {!settings.cashier_confirmation_required ? (
               <Peringatan>
-                Tanpa kasir, tidak ada pihak kedua yang memverifikasi pembayaran. Order langsung final saat dibuat dan <span className="font-medium">metode pembayaran tidak tercatat</span>, sehingga rekonsiliasi EDC tidak bisa dipakai. Order pending yang masih di antrean kasir ikut ditandai lunas saat disimpan. Booth dapat mem-void order buatannya sendiri dengan alasan wajib.
+                Without a cashier, nobody else checks the payment. Orders are final when made and <span className="font-medium">no payment method is recorded</span>, so EDC reconciliation cannot be used. Unpaid orders still in the cashier queue are marked paid when you save. A booth can void its own orders with a required reason.
               </Peringatan>
             ) : null}
           </SettingRow>
 
-          <SettingRow title="Auto-void order pending" description="Order yang belum dibayar dibatalkan otomatis setelah waktu ini.">
+          <SettingRow title="Auto-void unpaid orders" description="Orders not paid by then are cancelled automatically.">
             <div className="flex items-center gap-2">
-              <label className="sr-only" htmlFor="auto-void">Auto-void order pending setelah (menit)</label>
+              <label className="sr-only" htmlFor="auto-void">Auto-void unpaid orders after (minutes)</label>
               <input
                 id="auto-void"
                 type="number"
@@ -443,25 +443,25 @@ export function SettingsPanel() {
                 onChange={(event) => set({ pending_auto_void_minutes: Math.max(5, Math.min(1440, Number(event.target.value) || 5)) })}
                 className={cx(kelasInput, "w-28 tabular-nums")}
               />
-              <span className="text-body-medium text-on-surface-variant">menit</span>
+              <span className="text-body-medium text-on-surface-variant">minutes</span>
             </div>
-            <p className="mt-1.5 text-body-medium text-on-surface-variant">Antara 5 dan 1.440 menit.</p>
+            <p className="mt-1.5 text-body-medium text-on-surface-variant">Between 5 and 1,440 minutes.</p>
           </SettingRow>
 
-          <SettingRow title="Diatur di halaman lain">
+          <SettingRow title="Set on other pages">
             <ul className="flex flex-col gap-1.5 text-body-medium text-on-surface-variant">
-              <li>Item diskon diatur per booth (aktif, batas per peserta, stok) di <Link href="/admin/booths" className="rounded-sm font-medium text-primary hover:underline">Booth &amp; item</Link>.</li>
-              <li>Leaderboard dan privasi nama diatur di <Link href="/admin/display" className="rounded-sm font-medium text-primary hover:underline">Papan peringkat</Link>.</li>
+              <li>Discount items are set per booth (active, limit per participant, stock) in <Link href="/admin/booths" className="rounded-sm font-medium text-primary hover:underline">Booths &amp; items</Link>.</li>
+              <li>The leaderboard and name privacy are set in <Link href="/admin/display" className="rounded-sm font-medium text-primary hover:underline">Leaderboard</Link>.</li>
             </ul>
           </SettingRow>
         </PaneBody>
         <PaneFooter
           note={jumlahUbah > 0
-            ? `${jumlahUbah} perubahan belum disimpan${waktuUbah ? ` · terakhir diubah ${waktuUbah}` : ""}`
-            : waktuUbah ? `Terakhir diubah ${waktuUbah}` : null}
+            ? `${jumlahUbah} unsaved ${jumlahUbah === 1 ? "change" : "changes"}${waktuUbah ? ` · last changed ${waktuUbah}` : ""}`
+            : waktuUbah ? `Last changed ${waktuUbah}` : null}
         >
-          {jumlahUbah > 0 ? <Button variant="outlined" size="sm" disabled={saving} onClick={() => { setSettings(saved); setKontak(kontakSaved); setError(""); }}>Batalkan</Button> : null}
-          <Button simpan size="sm" loading={saving} disabled={jumlahUbah === 0} onClick={() => void save()}>Simpan perubahan</Button>
+          {jumlahUbah > 0 ? <Button variant="outlined" size="sm" disabled={saving} onClick={() => { setSettings(saved); setKontak(kontakSaved); setError(""); }}>Cancel</Button> : null}
+          <Button simpan size="sm" loading={saving} disabled={jumlahUbah === 0} onClick={() => void save()}>Save changes</Button>
         </PaneFooter>
       </Pane>
     </div>
@@ -489,32 +489,32 @@ export function DangerZonePanel() {
     const data = await response.json();
     setResetting(false);
     if (!response.ok) {
-      const failure = data.error?.message ?? "Reset data gagal.";
+      const failure = data.error?.message ?? "Data could not be cleared.";
       setResetError(failure);
-      toast.error("Reset data gagal", failure);
+      toast.error("Data not cleared", failure);
       return;
     }
-    const summary = `${data.deleted_orders} order${data.deleted_participants ? `, ${data.deleted_participants} peserta` : ""} terhapus.`;
-    setResetMessage(`Data terhapus: ${summary}`);
-    toast.warning("Data pencatatan dikosongkan", summary);
+    const summary = `${data.deleted_orders} ${data.deleted_orders === 1 ? "order" : "orders"}${data.deleted_participants ? `, ${data.deleted_participants} ${data.deleted_participants === 1 ? "participant" : "participants"}` : ""} deleted.`;
+    setResetMessage(`Data deleted: ${summary}`);
+    toast.warning("Records cleared", summary);
     setResetPhrase(""); setResetParticipants(false); setResetOpen(false);
   }
 
   return (
     <div className="flex flex-col gap-4">
       {resetMessage ? <Banner tone="success">{resetMessage}</Banner> : null}
-      <Pane aria-label="Zona bahaya">
+      <Pane aria-label="Danger zone">
         <SettingRow
-          title="Kosongkan data pencatatan"
-          description="Untuk memulai ulang dari nol, misalnya setelah gladi. Konfigurasi booth, item, akun, dan tampilan tetap."
+          title="Clear records"
+          description="To start again from zero, for example after a rehearsal. Booth, item, account and display settings stay."
         >
           <ul className="flex list-disc flex-col gap-1 pl-5 text-body-medium text-on-surface-variant">
-            <li>Semua order acara ini dan klaim item spesialnya. Stok item yang terklaim dikembalikan.</li>
-            <li>Catatan audit yang menempel pada order. Catatan perubahan konfigurasi tetap disimpan.</li>
-            <li>Daftar peserta hanya bila Anda memilihnya di langkah berikut.</li>
+            <li>Every order of this event and its special item claims. Stock of claimed items is returned.</li>
+            <li>Audit entries attached to orders. Entries for setting changes are kept.</li>
+            <li>The participant list, only if you choose it in the next step.</li>
           </ul>
           <Button simpan variant="outlined" size="sm" className="mt-4 text-error" icon={<Trash size={16} />} onClick={() => { setResetOpen(true); setResetMessage(""); setResetError(""); }}>
-            Kosongkan data pencatatan
+            Clear records
           </Button>
         </SettingRow>
       </Pane>
@@ -525,12 +525,12 @@ export function DangerZonePanel() {
         dismissible={!resetting}
         tone="danger"
         icon={<Warning size={20} weight="fill" />}
-        title="Kosongkan data pencatatan?"
-        description={<>Semua order acara ini, klaim item spesialnya, dan catatan audit order dihapus{resetParticipants ? ", begitu juga seluruh peserta acara ini" : ""}. Tindakan ini tidak dapat dibatalkan.</>}
+        title="Clear records?"
+        description={<>Every order of this event, its special item claims and the order audit entries are deleted{resetParticipants ? ", along with every participant of this event" : ""}. This cannot be undone.</>}
         actions={
           <>
-            <Button variant="outlined" disabled={resetting} onClick={tutup}>Batal</Button>
-            <Button variant="danger" loading={resetting} disabled={resetPhrase !== RESET_PHRASE} icon={<Trash size={16} />} onClick={() => void resetRecords()}>Hapus permanen</Button>
+            <Button variant="outlined" disabled={resetting} onClick={tutup}>Cancel</Button>
+            <Button variant="danger" loading={resetting} disabled={resetPhrase !== RESET_PHRASE} icon={<Trash size={16} />} onClick={() => void resetRecords()}>Delete permanently</Button>
           </>
         }
       >
@@ -538,12 +538,12 @@ export function DangerZonePanel() {
           <label className="flex cursor-pointer items-start gap-3">
             <input type="checkbox" checked={resetParticipants} onChange={(event) => setResetParticipants(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-error" />
             <span>
-              <span className="block font-medium">Hapus juga daftar peserta</span>
-              <span className="mt-0.5 block text-on-surface-variant">Seluruh peserta acara ini ikut terhapus, apa pun sumbernya. Biarkan kosong untuk mempertahankan peserta.</span>
+              <span className="block font-medium">Also delete the participant list</span>
+              <span className="mt-0.5 block text-on-surface-variant">Every participant of this event is deleted too, whatever the source. Leave unticked to keep participants.</span>
             </span>
           </label>
           <TextField
-            label={<>Ketik <span className="text-error">{RESET_PHRASE}</span> untuk konfirmasi</>}
+            label={<>Type <span className="text-error">{RESET_PHRASE}</span> to confirm</>}
             value={resetPhrase}
             onChange={(event) => setResetPhrase(event.target.value)}
             placeholder={RESET_PHRASE}

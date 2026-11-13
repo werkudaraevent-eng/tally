@@ -19,7 +19,7 @@ const COLUMN_ALIASES = {
   weight: ["bobot", "weight", "tiket", "jumlah", "jumlah tiket", "tickets", "entries"],
 } as const;
 
-export const TEMPLATE_HEADERS = ["Nama", "Perusahaan", "Kode", "Bobot"] as const;
+export const TEMPLATE_HEADERS = ["Name", "Company", "Code", "Weight"] as const;
 
 /**
  * Ubah matriks sel mentah menjadi baris entri.

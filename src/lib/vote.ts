@@ -9,10 +9,10 @@ export type VoterMode = "anonymous" | "participant_code" | "participant_pick" | 
 export type VoteStatus = "draft" | "open" | "closed";
 
 export const VOTE_TYPES: { value: VoteType; label: string; hint: string }[] = [
-  { value: "single", label: "Pilihan tunggal", hint: "Peserta memilih satu jawaban." },
-  { value: "multi", label: "Pilihan ganda", hint: "Peserta boleh memilih beberapa jawaban, sampai batas yang Anda tentukan." },
-  { value: "rating", label: "Skala / rating", hint: "Peserta memberi nilai 1 sampai maksimum yang Anda tentukan. Hasilnya rata-rata dan sebaran." },
-  { value: "wordcloud", label: "Word cloud", hint: "Peserta mengetik satu sampai lima kata. Kata yang sering muncul membesar di layar." },
+  { value: "single", label: "Single choice", hint: "Participants choose one answer." },
+  { value: "multi", label: "Multiple choice", hint: "Participants can choose several answers, up to the limit you set." },
+  { value: "rating", label: "Scale / rating", hint: "Participants rate from 1 to the maximum you set. The result is the average and the spread." },
+  { value: "wordcloud", label: "Word cloud", hint: "Participants type one to five words. Words that come up often grow bigger on screen." },
 ];
 
 /** Tipe yang punya daftar opsi. Rating dan word cloud tidak. */
@@ -28,34 +28,34 @@ export const TYPES_WITH_OPTIONS: VoteType[] = ["single", "multi"];
 export const VOTER_MODES: { value: VoterMode; label: string; hint: string; warning?: string }[] = [
   {
     value: "anonymous",
-    label: "Anonim",
-    hint: "Pindai QR di layar, langsung pilih. Tanpa identitas apa pun.",
-    warning: "Satu suara dikunci per perangkat lewat cookie. Menghapus cookie atau membuka mode samaran memberi suara kedua — jangan dipakai untuk voting yang menentukan hadiah.",
+    label: "Anonymous",
+    hint: "Scan the QR on screen and vote straight away. No identity at all.",
+    warning: "One vote is locked per device with a cookie. Clearing cookies or opening a private window gives a second vote, so don't use this for voting that decides a prize.",
   },
   {
     value: "participant_code",
-    label: "Kode peserta",
-    hint: "Peserta mengetik kode di badge-nya sebelum memilih.",
-    warning: "Terikat baris peserta yang nyata, jadi satu orang satu suara. Orang tanpa badge tidak bisa ikut.",
+    label: "Participant code",
+    hint: "Participants type the code on their badge before voting.",
+    warning: "Tied to a real participant row, so one person, one vote. People without a badge can't take part.",
   },
   {
     value: "participant_pick",
-    label: "Pilih nama dari daftar",
-    hint: "Peserta mencari lalu memilih namanya sendiri. Tanpa perlu membawa badge.",
-    warning: "ATRIBUSI, BUKAN PENGAMAN: siapa pun bisa memilih nama orang lain, dan nama yang sudah dipakai tidak bisa dipakai pemiliknya lagi. Daftar nama juga ikut terbuka ke halaman publik lewat pencarian. Jangan dipakai untuk voting berhadiah.",
+    label: "Pick a name from the list",
+    hint: "Participants search for and pick their own name. No badge needed.",
+    warning: "ATTRIBUTION, NOT SECURITY: anyone can pick someone else's name, and a name already used can't be used by its owner again. The name list is also open to the public page through search. Don't use this for voting with prizes.",
   },
   {
     value: "name_text",
-    label: "Ketik nama sendiri",
-    hint: "Peserta mengetik namanya sebelum memilih. Berguna untuk tahu siapa yang menjawab.",
-    warning: "ATRIBUSI, BUKAN PENGAMAN: nama tidak diperiksa sama sekali. Suara ganda dicegah lewat cookie perangkat, sekuat mode anonim.",
+    label: "Type their own name",
+    hint: "Participants type their name before voting. Useful to know who answered.",
+    warning: "ATTRIBUTION, NOT SECURITY: names are not checked at all. Double votes are blocked by a device cookie, as strong as anonymous mode.",
   },
 ];
 
 export const VOTE_STATUS_LABEL: Record<VoteStatus, string> = {
-  draft: "Draf",
-  open: "Dibuka",
-  closed: "Ditutup",
+  draft: "Draft",
+  open: "Open",
+  closed: "Closed",
 };
 
 export type VoteOption = { id: number; label: string; vote_count: number; image_url: string | null };

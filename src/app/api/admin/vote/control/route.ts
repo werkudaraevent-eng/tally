@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   // Aksi selain `hide` selalu menyangkut satu pertanyaan tertentu.
   let poll: { id: number; question: string; status: string } | null = null;
   if (action !== "hide") {
-    if (!body.data.poll_id) return apiError("VALIDATION_ERROR", 422, { message: "Pertanyaan belum dipilih." });
+    if (!body.data.poll_id) return apiError("VALIDATION_ERROR", 422, { message: "No question selected." });
     const { data } = await client
       .from("vote_polls").select("id,question,status")
       .eq("id", body.data.poll_id).eq("event_id", eventId).maybeSingle();

@@ -24,7 +24,7 @@ import { INPUT } from "@/components/admin/compact-form";
 //
 // Susunannya list-detail: daftar sesi di kiri, hasil sesi yang dipilih di kanan.
 
-const DELETE_PHRASE = "HAPUS HASIL UNDIAN";
+const DELETE_PHRASE = "DELETE DRAW RESULTS";
 
 type Winner = {
   id: number;

@@ -261,7 +261,7 @@ export function susunLembar(format: BadgeFormat, kertasPrinter: KertasPrinter = 
 			return {
 				...kosong,
 				kertas: KERTAS.A4,
-				namaKertas: "A4 tegak",
+				namaKertas: "A4 portrait",
 				panels: [
 					{ side: "front", x: 0, y: 0, w: 105, h: 148.5, rotate: 0, slot: 0 },
 					{ side: "back", x: 0, y: 148.5, w: 105, h: 148.5, rotate: 180, slot: 0 },
@@ -275,7 +275,7 @@ export function susunLembar(format: BadgeFormat, kertasPrinter: KertasPrinter = 
 			return {
 				...kosong,
 				kertas: { w: 210, h: 148 },
-				namaKertas: "A5 mendatar",
+				namaKertas: "A5 landscape",
 				panels: [
 					{ side: "front", x: 0, y: 0, w: 105, h: 148, rotate: 0, slot: 0 },
 					{ side: "back", x: 105, y: 0, w: 105, h: 148, rotate: 0, slot: 0 },
@@ -287,7 +287,7 @@ export function susunLembar(format: BadgeFormat, kertasPrinter: KertasPrinter = 
 			return {
 				...kosong,
 				kertas: KERTAS.A4,
-				namaKertas: "A4 tegak",
+				namaKertas: "A4 portrait",
 				panels: [0, 1].flatMap((slot) => [
 					{ side: "front" as const, x: 0, y: slot * 148.5, w: 105, h: 148, rotate: 0 as const, slot },
 					{ side: "back" as const, x: 105, y: slot * 148.5, w: 105, h: 148, rotate: 0 as const, slot },
@@ -300,7 +300,7 @@ export function susunLembar(format: BadgeFormat, kertasPrinter: KertasPrinter = 
 			return {
 				...kosong,
 				kertas: { w: 297, h: 210 },
-				namaKertas: "A4 mendatar",
+				namaKertas: "A4 landscape",
 				panels: [
 					{ side: "front", x: 0, y: 0, w: 148.5, h: 210, rotate: 0, slot: 0 },
 					{ side: "back", x: 148.5, y: 0, w: 148.5, h: 210, rotate: 0, slot: 0 },
@@ -336,8 +336,8 @@ function tataDiKertas(format: BadgeFormat, kertasPrinter: KertasPrinter): Lembar
 	const unit: Mm = fold === "side" ? { w: w * 2, h } : fold === "top" ? { w, h: h * 2 } : { w, h };
 	const dasar = KERTAS[kertasPrinter];
 	const pilihan: Array<{ kertas: Mm; nama: string }> = [
-		{ kertas: { w: dasar.w, h: dasar.h }, nama: `${kertasPrinter} tegak` },
-		{ kertas: { w: dasar.h, h: dasar.w }, nama: `${kertasPrinter} mendatar` },
+		{ kertas: { w: dasar.w, h: dasar.h }, nama: `${kertasPrinter} portrait` },
+		{ kertas: { w: dasar.h, h: dasar.w }, nama: `${kertasPrinter} landscape` },
 	];
 	const muat = (panjang: number, ukuran: number, tepi: number, jarak: number) =>
 		Math.max(0, Math.floor((panjang - 2 * tepi + jarak + 0.01) / (ukuran + jarak)));
@@ -356,14 +356,14 @@ function tataDiKertas(format: BadgeFormat, kertasPrinter: KertasPrinter): Lembar
 	if (!terbaik) {
 		return {
 			kertas: dasar,
-			namaKertas: `${kertasPrinter} tegak`,
+			namaKertas: `${kertasPrinter} portrait`,
 			panels: [{ side: "front", x: 0, y: 0, w, h, rotate: 0, slot: 0 }],
 			lipatan: [],
 			potongan: [],
 			tanda: [],
 			petunjuk: null,
 			badgePerLembar: 1,
-			tidakMuat: `Lembar ${Math.round(unit.w)} × ${Math.round(unit.h)} mm lebih besar dari kertas ${kertasPrinter}. Perkecil badge, atau pilih lipatan lain.`,
+			tidakMuat: `The ${Math.round(unit.w)} × ${Math.round(unit.h)} mm sheet is larger than the ${kertasPrinter} paper. Make the badge smaller, or pick another fold.`,
 		};
 	}
 

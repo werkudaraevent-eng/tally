@@ -14,7 +14,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 export const VOTE_SETTINGS_ROW =
   `page_title,page_subtitle,background_color,text_color,accent_color,panel_color,background_image_url,${BRANDING_COLUMNS}`;
 
-const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Warna harus format #RRGGBB");
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Colour must be in #RRGGBB format");
 const scale = z.number().min(0.5).max(2);
 
 const bodySchema = z.object({

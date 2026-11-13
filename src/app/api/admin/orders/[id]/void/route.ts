@@ -35,7 +35,7 @@ const paramsSchema = z.object({ id: z.string().uuid() });
 // sebulan kemudian. Karena baris void inilah satu-satunya keterangan kenapa
 // sebuah nomor stiker tidak terhitung, isinya harus benar-benar berupa alasan.
 const bodySchema = z.object({
-  reason: z.string().trim().min(3, "Alasan void minimal 3 huruf.").max(500),
+  reason: z.string().trim().min(3, "The void reason needs at least 3 characters.").max(500),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -69,10 +69,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { data: before } = await client.from("orders").select("id,code,status").eq("event_id", eventId).eq("id", params.data.id).maybeSingle();
   const previous = before as { id: string; code: string; status: string } | null;
   if (!previous) {
-    return apiError("ORDER_NOT_VOIDABLE", 404, { reason: ["Order tidak ditemukan. Muat ulang daftarnya."] });
+    return apiError("ORDER_NOT_VOIDABLE", 404, { reason: ["Order not found. Reload the list."] });
   }
   if (previous.status === "void") {
-    return apiError("ORDER_NOT_VOIDABLE", 409, { reason: ["Order ini sudah void sebelumnya."] });
+    return apiError("ORDER_NOT_VOIDABLE", 409, { reason: ["This order is already void."] });
   }
 
   const { data, error } = await client.rpc("void_order_transaction" as never, {

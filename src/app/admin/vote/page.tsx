@@ -109,7 +109,7 @@ type Langkah = "show" | "open" | "close" | "reveal";
 
 /** Aksi `/api/admin/vote/control` yang menjalankan tiap langkah. */
 const AKSI_LANGKAH: Record<Langkah, string> = { show: "show", open: "open", close: "close", reveal: "reveal_results" };
-const TOMBOL_LANGKAH: Record<Langkah, string> = { show: "Tayangkan", open: "Buka voting", close: "Tutup voting", reveal: "Perlihatkan hasil" };
+const TOMBOL_LANGKAH: Record<Langkah, string> = { show: "Show on screen", open: "Open voting", close: "Close voting", reveal: "Show results" };
 
 type BarisLangkah = {
   key: Langkah;
@@ -129,26 +129,26 @@ function langkahPanggung(poll: VotePoll, onScreen: boolean): { daftar: BarisLang
   const daftar: BarisLangkah[] = [
     {
       key: "show",
-      judul: "Tayangkan pertanyaan",
-      ket: onScreen ? "Sedang tampil di layar panggung" : "Belum tampil di layar panggung",
+      judul: "Show the question",
+      ket: onScreen ? "On the stage screen now" : "Not on the stage screen yet",
       selesai: onScreen,
     },
     {
       key: "open",
-      judul: "Buka voting",
-      ket: poll.status === "draft" ? "Peserta belum bisa memilih" : `${poll.ballots} orang sudah memilih`,
+      judul: "Open voting",
+      ket: poll.status === "draft" ? "Participants can't vote yet" : `${poll.ballots} ${poll.ballots === 1 ? "person has" : "people have"} voted`,
       selesai: poll.status !== "draft",
     },
     {
       key: "close",
-      judul: "Tutup voting",
-      ket: poll.status === "closed" ? "Ditutup, suara tidak lagi diterima" : "Suara berhenti diterima",
+      judul: "Close voting",
+      ket: poll.status === "closed" ? "Closed, votes are no longer accepted" : "Votes stop being accepted",
       selesai: poll.status === "closed",
     },
     {
       key: "reveal",
-      judul: "Perlihatkan hasil",
-      ket: poll.results_visible ? "Hasil diperlihatkan" : "Saat MC siap",
+      judul: "Show results",
+      ket: poll.results_visible ? "Results shown" : "When the MC is ready",
       selesai: poll.results_visible,
     },
   ];
@@ -156,15 +156,15 @@ function langkahPanggung(poll: VotePoll, onScreen: boolean): { daftar: BarisLang
 
   for (const baris of daftar) {
     if (baris.key === berikut) continue;
-    if (baris.key === "open" && !baris.selesai) baris.lain = { label: "Buka sekarang", action: "open" };
+    if (baris.key === "open" && !baris.selesai) baris.lain = { label: "Open now", action: "open" };
     if (baris.key === "close") {
-      if (poll.status === "closed") baris.lain = { label: "Buka lagi", action: "open" };
-      else if (poll.status === "open") baris.lain = { label: "Tutup sekarang", action: "close" };
+      if (poll.status === "closed") baris.lain = { label: "Open again", action: "open" };
+      else if (poll.status === "open") baris.lain = { label: "Close now", action: "close" };
     }
     if (baris.key === "reveal") {
       baris.lain = poll.results_visible
-        ? { label: "Sembunyikan", action: "hide_results" }
-        : { label: "Perlihatkan sekarang", action: "reveal_results" };
+        ? { label: "Hide", action: "hide_results" }
+        : { label: "Show now", action: "reveal_results" };
     }
   }
   return { daftar, berikut };
@@ -174,9 +174,9 @@ const NADA_STATUS = { draft: "warning", open: "success", closed: "neutral" } as 
 
 function ringkasTipe(poll: VotePoll) {
   const bagian = [VOTE_TYPES.find((item) => item.value === poll.type)?.label ?? poll.type];
-  if (poll.type === "multi") bagian.push(`maks ${poll.max_choices}`);
-  if (poll.type === "rating") bagian[0] = `Skala 1–${poll.rating_max}`;
-  if (poll.type === "wordcloud") bagian.push(`maks ${poll.max_words} kata`);
+  if (poll.type === "multi") bagian.push(`max ${poll.max_choices}`);
+  if (poll.type === "rating") bagian[0] = `Scale 1–${poll.rating_max}`;
+  if (poll.type === "wordcloud") bagian.push(`max ${poll.max_words} ${poll.max_words === 1 ? "word" : "words"}`);
   bagian.push(VOTER_MODES.find((item) => item.value === poll.voter_mode)?.label ?? poll.voter_mode);
   return bagian.join(" · ");
 }
@@ -195,29 +195,29 @@ function MenuPertanyaan({ poll, disabled, onEdit, onRecount, onReset, onDelete }
   const jalankan = (aksi: () => void) => () => { anchor.tutup(); aksi(); };
   return (
     <>
-      <IconButton ref={setPemicu} size="sm" label="Aksi lain" aria-haspopup="menu" aria-expanded={anchor.open} onClick={anchor.toggle}>
+      <IconButton ref={setPemicu} size="sm" label="More actions" aria-haspopup="menu" aria-expanded={anchor.open} onClick={anchor.toggle}>
         <DotsThree size={18} weight="bold" />
       </IconButton>
-      <Popover anchor={anchor} label="Aksi pertanyaan" align="end" width={248}>
-        <button type="button" role="menuitem" className={POPOVER_ITEM} onClick={jalankan(onEdit)}>Sunting pertanyaan</button>
+      <Popover anchor={anchor} label="Question actions" align="end" width={248}>
+        <button type="button" role="menuitem" className={POPOVER_ITEM} onClick={jalankan(onEdit)}>Edit question</button>
         {/* `<a>` biasa, bukan tautan router: alamatnya route handler yang membalas
             Content-Disposition attachment. Ekspor selalu tersedia, termasuk saat
             voting masih dibuka: panitia sering mengambil angka sementara. */}
         <a role="menuitem" className={POPOVER_ITEM} href={`/api/admin/vote/polls/${poll.id}/export?format=xlsx`} onClick={() => anchor.tutup()}>
-          <DownloadSimple size={16} className="text-on-surface-variant" />Unduh XLSX, per pemilih
+          <DownloadSimple size={16} className="text-on-surface-variant" />Download XLSX, per voter
         </a>
         <a role="menuitem" className={POPOVER_ITEM} href={`/api/admin/vote/polls/${poll.id}/export?format=csv`} onClick={() => anchor.tutup()}>
-          <DownloadSimple size={16} className="text-on-surface-variant" />Unduh CSV, rekap saja
+          <DownloadSimple size={16} className="text-on-surface-variant" />Download CSV, totals only
         </a>
         {/* Hitung ulang hanya berguna bila angkanya diragukan. */}
-        <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM, "disabled:opacity-40")} onClick={jalankan(onRecount)}>Hitung ulang suara</button>
+        <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM, "disabled:opacity-40")} onClick={jalankan(onRecount)}>Recount votes</button>
         <div className="my-1 border-t border-outline-variant" role="separator" />
         {/* Kosongkan hanya muncul bila memang ada yang bisa dikosongkan. */}
         {poll.ballots > 0 ? (
-          <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM_DANGER, "disabled:opacity-40")} onClick={jalankan(onReset)}>Kosongkan suara</button>
+          <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM_DANGER, "disabled:opacity-40")} onClick={jalankan(onReset)}>Clear votes</button>
         ) : null}
         <button type="button" role="menuitem" disabled={disabled} className={cx(POPOVER_ITEM_DANGER, "disabled:opacity-40")} onClick={jalankan(onDelete)}>
-          <Trash size={16} />Hapus pertanyaan
+          <Trash size={16} />Delete question
         </button>
       </Popover>
     </>
@@ -254,7 +254,7 @@ export default function VoteAdminPage() {
   const load = useCallback(async () => {
     const response = await fetch("/api/admin/vote/polls", { cache: "no-store" }).catch(() => null);
     setLoading(false);
-    if (!response?.ok) { setGagalMuat(true); setError("Daftar voting gagal dimuat."); return; }
+    if (!response?.ok) { setGagalMuat(true); setError("The voting list could not be loaded."); return; }
     const data = await response.json();
     setGagalMuat(false);
     setPolls(data.polls ?? []);
@@ -279,8 +279,8 @@ export default function VoteAdminPage() {
     setBusy(null);
     if (!response?.ok) {
       const body = await response?.json().catch(() => ({}));
-      const message = body?.error?.details?.message ?? body?.error?.message ?? "Aksi gagal.";
-      setError(message); toast.error("Kontrol voting gagal", message);
+      const message = body?.error?.details?.message ?? body?.error?.message ?? "The action failed.";
+      setError(message); toast.error("Voting control failed", message);
       return;
     }
     void load();
@@ -319,12 +319,12 @@ export default function VoteAdminPage() {
     setSaving(false);
     if (!response?.ok) {
       const body = await response?.json().catch(() => ({}));
-      const message = body?.error?.details?.message ?? body?.error?.message ?? "Pertanyaan gagal disimpan.";
-      setError(message); toast.error("Gagal menyimpan", message);
+      const message = body?.error?.details?.message ?? body?.error?.message ?? "The question could not be saved.";
+      setError(message); toast.error("Not saved", message);
       return;
     }
     setDraft(null);
-    toast.success("Pertanyaan tersimpan");
+    toast.success("Question saved");
     void load();
   }
 
@@ -367,10 +367,10 @@ export default function VoteAdminPage() {
     const response = await fetch("/api/admin/vote/join-code", { method: "POST" }).catch(() => null);
     setRotating(false);
     setConfirmRotate(false);
-    if (!response?.ok) { setError("Kode gagal diganti."); return; }
+    if (!response?.ok) { setError("The code could not be replaced."); return; }
     const data = await response.json();
     setJoinCode(data.join_code ?? null);
-    toast.success("Kode baru diterbitkan", "Kode lama tidak lagi berlaku.");
+    toast.success("New code issued", "The old code no longer works.");
   }
 
   async function saveSettings() {
@@ -384,11 +384,11 @@ export default function VoteAdminPage() {
     setSavingSettings(false);
     if (!response?.ok) {
       const body = await response?.json().catch(() => ({}));
-      const message = body?.error?.details?.message ?? body?.error?.message ?? "Setelan gagal disimpan.";
-      setError(message); toast.error("Gagal menyimpan tampilan", message);
+      const message = body?.error?.details?.message ?? body?.error?.message ?? "Settings could not be saved.";
+      setError(message); toast.error("Screen look not saved", message);
       return;
     }
-    toast.success("Tampilan tersimpan");
+    toast.success("Screen look saved");
     void loadSettings();
   }
 
@@ -408,8 +408,8 @@ export default function VoteAdminPage() {
     setUploading(null);
     const data = await response?.json().catch(() => null);
     if (!response?.ok) {
-      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Upload gambar gagal.";
-      setError(failure); toast.error("Upload gambar gagal", failure);
+      const failure = data?.error?.details?.file ?? data?.error?.message ?? "Image upload failed.";
+      setError(failure); toast.error("Image upload failed", failure);
       return null;
     }
     return data.url as string;
@@ -439,7 +439,7 @@ export default function VoteAdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ballot_id: ballotId, approve }),
     }).catch(() => null);
-    if (!response?.ok) { setError("Moderasi gagal. Muat ulang daftar."); }
+    if (!response?.ok) { setError("Moderation failed. Reload the list."); }
     if (moderating !== null) void loadPending(moderating);
     void load();
   }
@@ -448,9 +448,9 @@ export default function VoteAdminPage() {
     setBusy(`reset-${poll.id}`); setError("");
     const response = await fetch(`/api/admin/vote/polls/${poll.id}/reset`, { method: "POST" }).catch(() => null);
     setBusy(null); setConfirmReset(null);
-    if (!response?.ok) { setError("Suara gagal dikosongkan."); return; }
+    if (!response?.ok) { setError("Votes could not be cleared."); return; }
     const body = await response.json().catch(() => ({}));
-    toast.success("Suara dikosongkan", `${body.ballots_deleted ?? 0} suara dihapus. Opsi dan setelan pertanyaan tetap utuh.`);
+    toast.success("Votes cleared", `${body.ballots_deleted ?? 0} ${(body.ballots_deleted ?? 0) === 1 ? "vote" : "votes"} deleted. The question's options and settings stay.`);
     void load();
   }
 
@@ -458,8 +458,8 @@ export default function VoteAdminPage() {
     setBusy(`delete-${poll.id}`);
     const response = await fetch(`/api/admin/vote/polls/${poll.id}`, { method: "DELETE" }).catch(() => null);
     setBusy(null); setConfirmDelete(null);
-    if (!response?.ok) { setError("Pertanyaan gagal dihapus."); return; }
-    toast.success("Pertanyaan dihapus");
+    if (!response?.ok) { setError("The question could not be deleted."); return; }
+    toast.success("Question deleted");
     setSelectedId((current) => (current === poll.id ? null : current));
     void load();
   }
@@ -475,10 +475,10 @@ export default function VoteAdminPage() {
 
   // ---- Panel daftar ------------------------------------------------------------
   const daftar = (
-    <Pane aria-label="Daftar pertanyaan">
+    <Pane aria-label="Questions">
       <PaneBody>
         {loading ? (
-          <div aria-label="Memuat pertanyaan" className="flex flex-col">
+          <div aria-label="Loading questions" className="flex flex-col">
             {Array.from({ length: 4 }, (_, i) => (
               <div key={i} className="flex flex-col gap-2 border-b border-outline-variant px-4 py-4">
                 <div className="h-3 w-56 animate-pulse rounded bg-surface-container-high" />
@@ -490,15 +490,15 @@ export default function VoteAdminPage() {
           <EmptyState
             plain
             icon={<XCircle size={40} />}
-            title="Daftar voting gagal dimuat"
-            description="Halaman mencoba lagi tiap 3 detik. Periksa koneksi bila tidak kunjung muncul."
+            title="The voting list could not be loaded"
+            description="The page tries again every 3 seconds. Check the connection if it doesn't appear."
           />
         ) : polls.length === 0 ? (
           <EmptyState
             plain
-            title="Belum ada pertanyaan"
-            description="Susun pertanyaan, tayangkan ke layar, buka voting, lalu perlihatkan hasilnya saat MC siap. Peserta memilih dari HP."
-            action={<Button size="sm" icon={<Plus size={16} />} onClick={() => setDraft(emptyDraft())}>Pertanyaan baru</Button>}
+            title="No questions yet"
+            description="Write a question, show it on screen, open voting, then show the results when the MC is ready. Participants vote on their phones."
+            action={<Button size="sm" icon={<Plus size={16} />} onClick={() => setDraft(emptyDraft())}>New question</Button>}
           />
         ) : (
           <div role="list">
@@ -511,15 +511,15 @@ export default function VoteAdminPage() {
                       <span className="truncate font-medium text-on-surface">{poll.question}</span>
                       <span className="truncate text-on-surface-variant">
                         {ringkasTipe(poll)}
-                        {poll.type === "wordcloud" && poll.moderation && poll.pending_words > 0 ? ` · ${poll.pending_words} menunggu moderasi` : ""}
+                        {poll.type === "wordcloud" && poll.moderation && poll.pending_words > 0 ? ` · ${poll.pending_words} awaiting moderation` : ""}
                       </span>
                       <span className="mt-0.5 flex flex-wrap gap-1.5">
-                        {onScreen ? <StatusChip dot tone="primary">Di layar</StatusChip> : null}
+                        {onScreen ? <StatusChip dot tone="primary">On screen</StatusChip> : null}
                         <StatusChip dot tone={NADA_STATUS[poll.status]}>{VOTE_STATUS_LABEL[poll.status]}</StatusChip>
-                        {poll.results_visible ? <StatusChip>Hasil diperlihatkan</StatusChip> : null}
+                        {poll.results_visible ? <StatusChip>Results shown</StatusChip> : null}
                       </span>
                     </span>
-                    <span className="shrink-0 tabular-nums text-on-surface-variant">{poll.ballots} pemilih</span>
+                    <span className="shrink-0 tabular-nums text-on-surface-variant">{poll.ballots} {poll.ballots === 1 ? "voter" : "voters"}</span>
                   </ListRow>
                 </div>
               );
@@ -538,7 +538,7 @@ export default function VoteAdminPage() {
     const { daftar: langkah, berikut } = langkahPanggung(poll, onScreen);
     const nomorBerikut = berikut ? langkah.findIndex((baris) => baris.key === berikut) + 1 : null;
     return (
-      <Pane as="aside" aria-label={`Kendali ${poll.question}`}>
+      <Pane as="aside" aria-label={`Controls for ${poll.question}`}>
         <div className="flex shrink-0 flex-col gap-1 border-b border-outline-variant px-5 py-4">
           <div className="flex items-start gap-1">
             <h2 className="min-w-0 flex-1 pt-2 text-title-medium font-semibold leading-6">{poll.question}</h2>
@@ -550,25 +550,25 @@ export default function VoteAdminPage() {
               onReset={() => setConfirmReset(poll)}
               onDelete={() => setConfirmDelete(poll)}
             />
-            <IconButton size="sm" label="Tutup detail" onClick={() => setSelectedId(null)}><X size={16} /></IconButton>
+            <IconButton size="sm" label="Close details" onClick={() => setSelectedId(null)}><X size={16} /></IconButton>
           </div>
-          <p className="text-body-medium text-on-surface-variant">{ringkasTipe(poll)} · <span className="tabular-nums">{poll.ballots}</span> orang memilih</p>
+          <p className="text-body-medium text-on-surface-variant">{ringkasTipe(poll)} · <span className="tabular-nums">{poll.ballots}</span> {poll.ballots === 1 ? "person" : "people"} voted</p>
           {poll.description ? <p className="text-body-medium text-on-surface-variant">{poll.description}</p> : null}
         </div>
 
         <PaneBody>
           <DetailSection
-            title="Hasil langsung"
-            action={<span className="text-body-medium text-on-surface-variant">{poll.results_visible ? "Diperlihatkan di layar" : "Belum diperlihatkan"}</span>}
+            title="Live results"
+            action={<span className="text-body-medium text-on-surface-variant">{poll.results_visible ? "Shown on screen" : "Not shown yet"}</span>}
           >
             {poll.type === "rating" ? (
               <p className="text-body-medium text-on-surface-variant">
-                Skala 1–{poll.rating_max}. Rata-rata dan sebaran tampil di layar panggung saat hasil diperlihatkan.
+                Scale 1–{poll.rating_max}. The average and spread show on the stage screen when results are shown.
               </p>
             ) : null}
             {poll.type === "wordcloud" ? (
               <div className="flex flex-col gap-2 text-body-medium">
-                <p className="text-on-surface-variant">Maksimal {poll.max_words} kata per peserta. Moderasi {poll.moderation ? "menyala" : "mati"}.</p>
+                <p className="text-on-surface-variant">At most {poll.max_words} {poll.max_words === 1 ? "word" : "words"} per participant. Moderation {poll.moderation ? "on" : "off"}.</p>
                 {poll.moderation ? (
                   <div>
                     <Button
@@ -578,19 +578,19 @@ export default function VoteAdminPage() {
                       className={poll.pending_words > 0 ? "text-warning" : undefined}
                       onClick={() => setModerating(moderating === poll.id ? null : poll.id)}
                     >
-                      {poll.pending_words > 0 ? `${poll.pending_words} kata menunggu persetujuan` : "Antrean moderasi kosong"}
+                      {poll.pending_words > 0 ? `${poll.pending_words} ${poll.pending_words === 1 ? "word" : "words"} awaiting approval` : "Moderation queue empty"}
                     </Button>
                   </div>
                 ) : null}
                 {moderating === poll.id ? (
                   <ul className="max-h-64 overflow-y-auto rounded-md border border-outline-variant">
-                    {pending.length === 0 ? <li className="px-3 py-2.5 text-on-surface-variant">Tidak ada kata menunggu.</li>
+                    {pending.length === 0 ? <li className="px-3 py-2.5 text-on-surface-variant">No words waiting.</li>
                       : pending.map((row) => (
                         <li key={row.id} className="flex items-center gap-2 border-b border-outline-variant px-3 py-1.5 last:border-b-0">
                           <span className="min-w-0 flex-1 truncate text-on-surface">{row.text_value}</span>
                           {row.display_name ? <span className="shrink-0 text-on-surface-variant">{row.display_name}</span> : null}
-                          <Button variant="text" size="sm" onClick={() => void moderate(row.id, true)}>Setujui</Button>
-                          <Button variant="text" size="sm" className="text-error" onClick={() => void moderate(row.id, false)}>Tolak</Button>
+                          <Button variant="text" size="sm" onClick={() => void moderate(row.id, true)}>Approve</Button>
+                          <Button variant="text" size="sm" className="text-error" onClick={() => void moderate(row.id, false)}>Reject</Button>
                         </li>
                       ))}
                   </ul>
@@ -614,7 +614,7 @@ export default function VoteAdminPage() {
             ) : null}
           </DetailSection>
 
-          <DetailSection title="Langkah di panggung">
+          <DetailSection title="Stage steps">
             <ol className="flex flex-col gap-3">
               {langkah.map((baris, index) => {
                 const sekarang = baris.key === berikut;
@@ -622,7 +622,7 @@ export default function VoteAdminPage() {
                 return (
                   <li key={baris.key} aria-current={sekarang ? "step" : undefined} className="flex items-start gap-3 text-body-medium">
                     {baris.selesai ? (
-                      <CheckCircle size={22} aria-label="Selesai" className="mt-px shrink-0 text-success" />
+                      <CheckCircle size={22} aria-label="Done" className="mt-px shrink-0 text-success" />
                     ) : (
                       <span
                         aria-hidden
@@ -656,10 +656,10 @@ export default function VoteAdminPage() {
           </DetailSection>
         </PaneBody>
 
-        <PaneFooter note={nomorBerikut ? `Langkah ${nomorBerikut} dari 4` : "Semua langkah selesai"}>
+        <PaneFooter note={nomorBerikut ? `Step ${nomorBerikut} of 4` : "All steps done"}>
           {onScreen ? (
             <Button variant="outlined" size="sm" disabled={busy !== null} loading={busy === `hide-${poll.id}`} onClick={() => void control("hide", poll.id)}>
-              Turunkan dari layar
+              Take off screen
             </Button>
           ) : null}
           {berikut ? (
@@ -683,30 +683,30 @@ export default function VoteAdminPage() {
   const bisaSimpan = draft ? Boolean(draft.question.trim()) && (!TYPES_WITH_OPTIONS.includes(draft.type) || opsiValid) : false;
 
   const penyunting = draft ? (
-    <Pane as="aside" aria-label={draft.id ? "Sunting pertanyaan" : "Pertanyaan baru"}>
+    <Pane as="aside" aria-label={draft.id ? "Edit question" : "New question"}>
       <PaneHeader className="px-5 py-4">
-        <h2 className="min-w-0 flex-1 truncate text-title-medium font-semibold">{draft.id ? "Sunting pertanyaan" : "Pertanyaan baru"}</h2>
-        <IconButton size="sm" label="Batal" disabled={saving} onClick={() => setDraft(null)}><X size={16} /></IconButton>
+        <h2 className="min-w-0 flex-1 truncate text-title-medium font-semibold">{draft.id ? "Edit question" : "New question"}</h2>
+        <IconButton size="sm" label="Cancel" disabled={saving} onClick={() => setDraft(null)}><X size={16} /></IconButton>
       </PaneHeader>
       <PaneBody>
         <form id="form-pertanyaan" onSubmit={(event) => { event.preventDefault(); void save(); }} className="flex flex-col gap-5 px-5 py-4">
           <TextField
-            label="Pertanyaan"
+            label="Question"
             value={draft.question}
             onChange={(event) => setDraft({ ...draft, question: event.target.value })}
-            placeholder="Siapa karyawan terbaik tahun ini?"
+            placeholder="Who is this year's best employee?"
             required
           />
           <TextField
-            label="Keterangan"
+            label="Description"
             optional
-            hint="Tampil di bawah pertanyaan."
+            hint="Shown below the question."
             value={draft.description}
             onChange={(event) => setDraft({ ...draft, description: event.target.value })}
           />
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-body-medium font-semibold text-on-surface">Tipe</legend>
+            <legend className="mb-2 text-body-medium font-semibold text-on-surface">Type</legend>
             {VOTE_TYPES.map((item) => {
               const on = draft.type === item.value;
               return (
@@ -724,7 +724,7 @@ export default function VoteAdminPage() {
           {draft.type === "rating" ? (
             <div className="flex flex-col gap-4">
               <TextField
-                label="Nilai tertinggi"
+                label="Highest rating"
                 type="number"
                 min={2}
                 max={10}
@@ -732,8 +732,8 @@ export default function VoteAdminPage() {
                 onChange={(event) => setDraft({ ...draft, rating_max: Math.min(10, Math.max(2, Number(event.target.value) || 5)) })}
               />
               <div className="grid grid-cols-2 gap-3">
-                <TextField label="Label nilai 1" value={draft.rating_min_label} onChange={(event) => setDraft({ ...draft, rating_min_label: event.target.value })} placeholder="Sangat kurang" />
-                <TextField label="Label nilai tertinggi" value={draft.rating_max_label} onChange={(event) => setDraft({ ...draft, rating_max_label: event.target.value })} placeholder="Sangat baik" />
+                <TextField label="Label for 1" value={draft.rating_min_label} onChange={(event) => setDraft({ ...draft, rating_min_label: event.target.value })} placeholder="Very poor" />
+                <TextField label="Label for highest" value={draft.rating_max_label} onChange={(event) => setDraft({ ...draft, rating_max_label: event.target.value })} placeholder="Very good" />
               </div>
             </div>
           ) : null}
@@ -741,7 +741,7 @@ export default function VoteAdminPage() {
           {draft.type === "wordcloud" ? (
             <div className="flex flex-col gap-4">
               <TextField
-                label="Maksimal kata per peserta"
+                label="Max words per participant"
                 type="number"
                 min={1}
                 max={5}
@@ -755,15 +755,15 @@ export default function VoteAdminPage() {
               <Switch
                 checked={draft.moderation}
                 onChange={(checked) => setDraft({ ...draft, moderation: checked })}
-                label="Tahan kata sampai disetujui"
-                description="Sangat disarankan. Kata baru masuk antrean dan baru tampil di layar setelah Anda setujui. Dimatikan, apa pun yang diketik peserta langsung terpampang."
+                label="Hold words until approved"
+                description="Strongly recommended. New words go into a queue and show on screen only after you approve them. Turned off, whatever participants type shows straight away."
               />
             </div>
           ) : null}
 
           {draft.type === "multi" ? (
             <TextField
-              label="Maksimal pilihan"
+              label="Max choices"
               type="number"
               min={2}
               max={20}
@@ -773,7 +773,7 @@ export default function VoteAdminPage() {
           ) : null}
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-body-medium font-semibold text-on-surface">Siapa yang boleh memilih</legend>
+            <legend className="mb-2 text-body-medium font-semibold text-on-surface">Who can vote</legend>
             {VOTER_MODES.map((item) => {
               const on = draft.voter_mode === item.value;
               return (
@@ -799,7 +799,7 @@ export default function VoteAdminPage() {
 
           {TYPES_WITH_OPTIONS.includes(draft.type) ? (
             <div className="flex flex-col gap-2">
-              <p className="text-body-medium font-semibold text-on-surface">Opsi jawaban</p>
+              <p className="text-body-medium font-semibold text-on-surface">Answer options</p>
               <ul className="flex flex-col gap-2">
                 {draft.options.map((option, index) => (
                   <li key={index} className="flex items-center gap-2">
@@ -807,11 +807,11 @@ export default function VoteAdminPage() {
                         "pilih desain" butuh gambar, sebagian besar pertanyaan tidak. */}
                     <label
                       className="flex size-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-outline hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary"
-                      title={option.image_url ? "Ganti gambar opsi" : "Unggah gambar opsi"}
+                      title={option.image_url ? "Replace option image" : "Upload option image"}
                     >
-                      <span className="sr-only">{option.image_url ? `Ganti gambar opsi ${index + 1}` : `Unggah gambar opsi ${index + 1}`}</span>
+                      <span className="sr-only">{option.image_url ? `Replace image for option ${index + 1}` : `Upload image for option ${index + 1}`}</span>
                       {option.image_url
-                        ? <ImagePreview url={option.image_url} alt={`Gambar opsi ${index + 1}`} className="size-9" />
+                        ? <ImagePreview url={option.image_url} alt={`Image for option ${index + 1}`} className="size-9" />
                         : <UploadSimple size={16} className={uploading === `option-${index}` ? "animate-pulse text-primary" : "text-on-surface-variant"} />}
                       <input type="file" accept="image/*" className="sr-only" onChange={async (event) => {
                         const file = event.target.files?.[0];
@@ -823,10 +823,10 @@ export default function VoteAdminPage() {
                     </label>
                     <input
                       value={option.label}
-                      aria-label={`Opsi ${index + 1}`}
+                      aria-label={`Option ${index + 1}`}
                       onChange={(event) => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, label: event.target.value } : item) })}
                       className={INPUT}
-                      placeholder={`Opsi ${index + 1}`}
+                      placeholder={`Option ${index + 1}`}
                     />
                     {option.image_url ? (
                       <Button
@@ -835,12 +835,12 @@ export default function VoteAdminPage() {
                         className="shrink-0"
                         onClick={() => setDraft({ ...draft, options: draft.options.map((item, position) => position === index ? { ...item, image_url: null } : item) })}
                       >
-                        Hapus gambar
+                        Remove image
                       </Button>
                     ) : null}
                     <IconButton
                       size="sm"
-                      label={`Hapus opsi ${index + 1}`}
+                      label={`Delete option ${index + 1}`}
                       disabled={draft.options.length <= 2}
                       onClick={() => setDraft({ ...draft, options: draft.options.filter((_, position) => position !== index) })}
                     >
@@ -857,17 +857,17 @@ export default function VoteAdminPage() {
                   disabled={draft.options.length >= 30}
                   onClick={() => setDraft({ ...draft, options: [...draft.options, { id: null, label: "", image_url: null }] })}
                 >
-                  Tambah opsi
+                  Add option
                 </Button>
               </div>
             </div>
           ) : null}
         </form>
       </PaneBody>
-      <PaneFooter note={TYPES_WITH_OPTIONS.includes(draft.type) && !opsiValid ? "Isi minimal dua opsi" : null}>
-        <Button variant="outlined" size="sm" disabled={saving} onClick={() => setDraft(null)}>Batal</Button>
+      <PaneFooter note={TYPES_WITH_OPTIONS.includes(draft.type) && !opsiValid ? "Enter at least two options" : null}>
+        <Button variant="outlined" size="sm" disabled={saving} onClick={() => setDraft(null)}>Cancel</Button>
         <Button simpan type="submit" form="form-pertanyaan" size="sm" loading={saving} disabled={!bisaSimpan}>
-          {draft.id ? "Simpan perubahan" : "Simpan pertanyaan"}
+          {draft.id ? "Save changes" : "Save question"}
         </Button>
       </PaneFooter>
     </Pane>
@@ -875,43 +875,43 @@ export default function VoteAdminPage() {
 
   // ---- Tab tampilan layar ------------------------------------------------------
   const tampilan = settings ? (
-    <Pane aria-label="Tampilan layar panggung">
+    <Pane aria-label="Stage screen look">
       <PaneBody>
         <div className="flex max-w-[720px] flex-col gap-5 px-5 py-5">
           <p className="text-body-medium text-on-surface-variant">
-            Berlaku untuk /vote/layar. Judul di sini adalah judul acara yang menetap; pertanyaannya sendiri berganti
-            mengikuti apa yang sedang ditayangkan.
+            Applies to /vote/layar. The title here is the event title that stays on screen; the question itself changes
+            with whatever is being shown.
           </p>
 
           {/* Kode gabung paling atas: inilah yang dibacakan MC dari panggung, dan
               yang paling sering dicari operator saat peserta bertanya caranya ikut. */}
-          <Kelompok title="Kode gabung acara" first>
+          <Kelompok title="Event join code" first>
             <div className="flex flex-wrap items-center gap-4">
-              <p className="text-[1.5rem] font-semibold leading-8 tabular-nums text-on-surface">{kode ?? "Belum ada kode"}</p>
+              <p className="text-[1.5rem] font-semibold leading-8 tabular-nums text-on-surface">{kode ?? "No code yet"}</p>
               <p className="min-w-48 flex-1 text-body-medium text-on-surface-variant">
-                Peserta membuka /join lalu mengetik angka ini. Berlaku untuk seluruh acara, bukan per pertanyaan, jadi
-                cukup diumumkan sekali di awal sesi.
+                Participants open /join and type this number. It works for the whole event, not per question, so
+                announce it once at the start of the session.
               </p>
               <Button variant="outlined" size="sm" loading={rotating} onClick={() => setConfirmRotate(true)}>
-                {joinCode ? "Ganti kode" : "Terbitkan kode"}
+                {joinCode ? "Replace code" : "Issue code"}
               </Button>
             </div>
           </Kelompok>
 
-          <Kelompok title="Judul">
+          <Kelompok title="Title">
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Judul layar" value={settings.page_title} onChange={(event) => setSettings({ ...settings, page_title: event.target.value })} />
-              <TextField label="Sub judul" optional value={settings.page_subtitle} onChange={(event) => setSettings({ ...settings, page_subtitle: event.target.value })} />
+              <TextField label="Screen title" value={settings.page_title} onChange={(event) => setSettings({ ...settings, page_title: event.target.value })} />
+              <TextField label="Subtitle" optional value={settings.page_subtitle} onChange={(event) => setSettings({ ...settings, page_subtitle: event.target.value })} />
             </div>
           </Kelompok>
 
-          <Kelompok title="Warna">
+          <Kelompok title="Colours">
             <div className="grid gap-4 sm:grid-cols-2">
               {([
-                ["background_color", "Latar"],
-                ["text_color", "Teks"],
-                ["accent_color", "Aksen"],
-                ["panel_color", "Panel hasil"],
+                ["background_color", "Background"],
+                ["text_color", "Text"],
+                ["accent_color", "Accent"],
+                ["panel_color", "Results panel"],
               ] as const).map(([key, label]) => (
                 <div key={key}>
                   <label htmlFor={`vote-${key}`} className="block text-body-medium font-medium text-on-surface">{label}</label>
@@ -927,7 +927,7 @@ export default function VoteAdminPage() {
                         bawaan: keduanya terlihat sama di layar, tetapi hanya NULL yang
                         ikut berubah bila bawaannya kelak diubah. */}
                     <Button variant="outlined" size="sm" disabled={settings[key] === null} onClick={() => setSettings({ ...settings, [key]: null })}>
-                      {settings[key] === null ? "Bawaan" : "Pakai bawaan"}
+                      {settings[key] === null ? "Default" : "Use default"}
                     </Button>
                   </div>
                 </div>
@@ -937,16 +937,16 @@ export default function VoteAdminPage() {
                 perhitungan otomatis, dan tanpa kalimat ini "Bawaan" terbaca seperti
                 warna tetap. */}
             <p className="text-body-medium text-on-surface-variant">
-              Panel hasil adalah bidang di belakang daftar suara. Dibiarkan bawaan, ia menjadi lapisan gelap tembus pandang
-              sehingga serasi dengan gambar latar apa pun. Isi warna hanya bila ingin bidang solid.
+              The results panel is the area behind the vote list. Left on default, it is a see-through dark layer
+              that suits any background image. Pick a colour only if you want a solid panel.
             </p>
           </Kelompok>
 
-          <Kelompok title="Gambar latar">
+          <Kelompok title="Background image">
             <div className="flex flex-wrap items-center gap-2">
               <label className={cx("inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-medium font-medium hover:bg-primary-soft focus-within:ring-2 focus-within:ring-primary", uploading === "background" && "pointer-events-none opacity-60")}>
                 <UploadSimple size={16} />
-                {uploading === "background" ? "Mengunggah..." : settings.background_image_url ? "Ganti gambar" : "Unggah gambar"}
+                {uploading === "background" ? "Uploading…" : settings.background_image_url ? "Replace image" : "Upload image"}
                 <input type="file" accept="image/*" className="sr-only" onChange={async (event) => {
                   const file = event.target.files?.[0];
                   event.target.value = "";
@@ -956,10 +956,10 @@ export default function VoteAdminPage() {
                 }} />
               </label>
               {settings.background_image_url ? (
-                <Button variant="text" size="sm" className="text-error" onClick={() => setSettings({ ...settings, background_image_url: null })}>Hapus gambar</Button>
+                <Button variant="text" size="sm" className="text-error" onClick={() => setSettings({ ...settings, background_image_url: null })}>Remove image</Button>
               ) : null}
             </div>
-            {settings.background_image_url ? <ImagePreview url={settings.background_image_url} alt="Pratinjau latar" className="h-16 w-28" /> : null}
+            {settings.background_image_url ? <ImagePreview url={settings.background_image_url} alt="Background preview" className="h-16 w-28" /> : null}
           </Kelompok>
 
           <Kelompok title="Header & footer">
@@ -974,16 +974,16 @@ export default function VoteAdminPage() {
           </Kelompok>
         </div>
       </PaneBody>
-      <PaneFooter note="Berlaku untuk semua layar yang membuka /vote/layar">
-        <Button simpan size="sm" loading={savingSettings} onClick={() => void saveSettings()}>Simpan tampilan</Button>
+      <PaneFooter note="Applies to every screen that opens /vote/layar">
+        <Button simpan size="sm" loading={savingSettings} onClick={() => void saveSettings()}>Save screen look</Button>
       </PaneFooter>
     </Pane>
   ) : settingsGagal ? (
     <EmptyState
       icon={<XCircle size={40} />}
-      title="Setelan tampilan gagal dimuat"
-      description="Periksa koneksi lalu coba lagi."
-      action={<Button variant="outlined" size="sm" onClick={() => void loadSettings()}>Coba lagi</Button>}
+      title="Screen settings could not be loaded"
+      description="Check the connection and try again."
+      action={<Button variant="outlined" size="sm" onClick={() => void loadSettings()}>Try again</Button>}
     />
   ) : <PageLoading />;
 
@@ -993,24 +993,24 @@ export default function VoteAdminPage() {
         meta={
           <>
             {kode ? (
-              <span>Kode gabung <span className="font-semibold tabular-nums text-on-surface">{kode}</span></span>
-            ) : <span>Belum ada kode gabung</span>}
+              <span>Join code <span className="font-semibold tabular-nums text-on-surface">{kode}</span></span>
+            ) : <span>No join code yet</span>}
             <MetaSeparator />
-            <span>Peserta membuka /join lalu mengetik kode ini</span>
+            <span>Participants open /join and type this code</span>
             <MetaSeparator />
-            <span>Diperbarui tiap 3 detik</span>
+            <span>Updates every 3 seconds</span>
           </>
         }
         actions={
           <>
-            <ButtonLink href="/vote/layar" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Layar panggung</ButtonLink>
+            <ButtonLink href="/vote/layar" target="_blank" rel="noreferrer" variant="outlined" icon={<ArrowSquareOut size={16} />}>Stage screen</ButtonLink>
             <Button
               variant="outlined"
               icon={<Plus size={16} />}
               disabled={draft !== null}
               onClick={() => { setTab("pertanyaan"); setDraft(emptyDraft()); }}
             >
-              Pertanyaan baru
+              New question
             </Button>
           </>
         }
@@ -1020,20 +1020,20 @@ export default function VoteAdminPage() {
         <Banner
           tone="error"
           icon={<XCircle size={18} />}
-          actions={<IconButton size="sm" label="Tutup pesan" onClick={() => setError("")}><X size={16} /></IconButton>}
+          actions={<IconButton size="sm" label="Dismiss message" onClick={() => setError("")}><X size={16} /></IconButton>}
         >
           {error}
         </Banner>
       ) : null}
 
       <Tabs<Tab>
-        label="Bagian voting"
+        label="Voting sections"
         idPrefix="voting"
         value={tab}
         onChange={setTab}
         options={[
-          { value: "pertanyaan", label: "Pertanyaan", badge: loading || (gagalMuat && polls.length === 0) ? undefined : polls.length },
-          { value: "tampilan", label: "Tampilan layar" },
+          { value: "pertanyaan", label: "Questions", badge: loading || (gagalMuat && polls.length === 0) ? undefined : polls.length },
+          { value: "tampilan", label: "Screen look" },
         ]}
       />
 
@@ -1049,18 +1049,18 @@ export default function VoteAdminPage() {
         onClose={() => setConfirmReset(null)}
         dismissible={busy === null}
         tone="danger"
-        title="Kosongkan suara?"
-        description={confirmReset ? `${confirmReset.ballots} suara pada "${confirmReset.question}" dihapus permanen dan penghitungnya kembali ke nol.` : undefined}
+        title="Clear votes?"
+        description={confirmReset ? `${confirmReset.ballots} ${confirmReset.ballots === 1 ? "vote" : "votes"} on "${confirmReset.question}" will be deleted permanently and the count goes back to zero.` : undefined}
         actions={
           <>
-            <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmReset(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={busy === `reset-${confirmReset?.id}`} disabled={busy !== null} onClick={() => { if (confirmReset) void reset(confirmReset); }}>Kosongkan suara</Button>
+            <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmReset(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={busy === `reset-${confirmReset?.id}`} disabled={busy !== null} onClick={() => { if (confirmReset) void reset(confirmReset); }}>Clear votes</Button>
           </>
         }
       >
         <p className="mt-3 text-body-medium leading-6 text-on-surface-variant">
-          Pertanyaan, opsi, gambar, dan setelannya tetap utuh, begitu juga status buka/tutup dan tampil/sembunyi.
-          Unduh hasilnya lebih dulu bila masih dibutuhkan.
+          The question, options, images and settings stay, and so do the open/closed and shown/hidden states.
+          Download the results first if you still need them.
         </p>
       </Dialog>
 
@@ -1071,14 +1071,14 @@ export default function VoteAdminPage() {
         onClose={() => setConfirmDelete(null)}
         dismissible={busy === null}
         tone="danger"
-        title="Hapus pertanyaan?"
+        title="Delete question?"
         description={confirmDelete
-          ? `"${confirmDelete.question}" akan dihapus${confirmDelete.ballots > 0 ? ` beserta ${confirmDelete.ballots} suara yang sudah masuk` : ""}. Tidak dapat dikembalikan.`
+          ? `"${confirmDelete.question}" will be deleted${confirmDelete.ballots > 0 ? ` along with ${confirmDelete.ballots} ${confirmDelete.ballots === 1 ? "vote" : "votes"} already in` : ""}. This cannot be undone.`
           : undefined}
         actions={
           <>
-            <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmDelete(null)}>Batal</Button>
-            <Button simpan variant="danger" loading={busy === `delete-${confirmDelete?.id}`} disabled={busy !== null} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Hapus pertanyaan</Button>
+            <Button variant="outlined" disabled={busy !== null} onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button simpan variant="danger" loading={busy === `delete-${confirmDelete?.id}`} disabled={busy !== null} onClick={() => { if (confirmDelete) void remove(confirmDelete); }}>Delete question</Button>
           </>
         }
       />
@@ -1088,15 +1088,15 @@ export default function VoteAdminPage() {
         onClose={() => setConfirmRotate(false)}
         dismissible={!rotating}
         tone={joinCode ? "danger" : "neutral"}
-        title={joinCode ? "Ganti kode gabung?" : "Terbitkan kode gabung?"}
+        title={joinCode ? "Replace join code?" : "Issue join code?"}
         description={joinCode
-          ? "Kode lama langsung tidak berlaku. Peserta yang masih memegangnya akan mengetik angka yang tidak menemukan apa pun, jadi umumkan kode baru dari panggung."
-          : "Kode dibuat otomatis dan berlaku untuk seluruh acara."}
+          ? "The old code stops working at once. Participants who still have it will type a number that finds nothing, so announce the new code from the stage."
+          : "The code is made automatically and works for the whole event."}
         actions={
           <>
-            <Button variant="outlined" disabled={rotating} onClick={() => setConfirmRotate(false)}>Batal</Button>
+            <Button variant="outlined" disabled={rotating} onClick={() => setConfirmRotate(false)}>Cancel</Button>
             <Button variant={joinCode ? "danger" : "filled"} loading={rotating} onClick={() => void rotateJoinCode()}>
-              {joinCode ? "Ganti kode" : "Terbitkan kode"}
+              {joinCode ? "Replace code" : "Issue code"}
             </Button>
           </>
         }

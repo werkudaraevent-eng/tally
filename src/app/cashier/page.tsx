@@ -70,21 +70,21 @@ export default function CashierPage() {
 
   const lookup = useCallback(async (code?: string) => {
     const target = (code ?? qr).trim();
-    if (!target) { setError("Masukkan atau pilih peserta terlebih dahulu."); return; }
-    if (!online) { setError("Offline — lookup membutuhkan koneksi."); return; }
+    if (!target) { setError("Enter or pick a participant first."); return; }
+    if (!online) { setError("Offline. Lookup needs a connection."); return; }
     setQr(target);
     setLoading(true); setError("");
     const response = await fetch(`/api/cashier/participant?qr=${encodeURIComponent(target)}`);
     const data = await response.json();
     setLoading(false);
-    if (!response.ok) { setParticipant(null); setOrders([]); setSelected([]); setError(data.error?.message ?? "Peserta tidak ditemukan."); return; }
+    if (!response.ok) { setParticipant(null); setOrders([]); setSelected([]); setError(data.error?.message ?? "Participant not found."); return; }
     setParticipant(data.participant); setOrders(data.orders); setSelected(data.orders.map((order: Order) => order.id));
     setSearchHits([]); setSearchTerm(""); setScanning(false);
   }, [online, qr]);
 
   const searchParticipants = useCallback(async () => {
     if (!searchTerm.trim()) return;
-    if (!online) { setError("Offline — pencarian membutuhkan koneksi."); return; }
+    if (!online) { setError("Offline. Search needs a connection."); return; }
     // Hasil kata kunci sebelumnya dikosongkan lebih dulu agar kasir tidak menekan
     // nama yang sudah tidak sesuai dengan yang sedang ia cari.
     setSearchHits([]);
@@ -92,7 +92,7 @@ export default function CashierPage() {
     const response = await fetch(`/api/cashier/search?q=${encodeURIComponent(searchTerm.trim())}`, { cache: "no-store" });
     const data = await response.json();
     setSearching(false);
-    if (!response.ok) { setError(data.error?.message ?? "Pencarian gagal."); return; }
+    if (!response.ok) { setError(data.error?.message ?? "Search failed."); return; }
     setSearchHits(data.participants ?? []);
   }, [online, searchTerm]);
 
@@ -113,27 +113,27 @@ export default function CashierPage() {
           void lookup(value);
         }
       } else if (decodeError && decodeError.name !== "NotFoundException") {
-        setError("Kamera tidak dapat membaca QR. Pastikan izin kamera aktif.");
+        setError("The camera cannot read the QR. Make sure camera permission is on.");
       }
-    }).then((value) => { controls = value; if (stopped) controls.stop(); }).catch(() => setError("Kamera tidak tersedia atau izin kamera ditolak."));
+    }).then((value) => { controls = value; if (stopped) controls.stop(); }).catch(() => setError("Camera not available or camera permission was denied."));
     return () => { stopped = true; controls?.stop(); };
   }, [scanning, online, lookup]);
 
   async function settle() {
-    if (!online) { setError("Offline — pembayaran tidak boleh diproses."); return; }
+    if (!online) { setError("Offline. Payments cannot be processed."); return; }
     setLoading(true); setError("");
     const response = await fetch("/api/orders/settle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_ids: selected, payment_method: method, approval_code: activeMethod?.requires_reference ? approval : null }) });
     const data = await response.json();
     setLoading(false);
     if (!response.ok) {
-      const failure = data.error?.message ?? "Pembayaran gagal.";
+      const failure = data.error?.message ?? "Payment failed.";
       setError(failure);
-      toast.error("Pembayaran gagal", failure);
+      toast.error("Payment failed", failure);
       return;
     }
     const codes = data.settled_orders.map((order: Order) => order.code);
     setSuccess(codes);
-    toast.success(`${codes.length} order lunas`, `${codes.join(" · ")} — ${formatRupiah(data.total ?? total)}`);
+    toast.success(`${codes.length} orders paid`, `${codes.join(" · ")} — ${formatRupiah(data.total ?? total)}`);
     setOrders((current) => current.filter((order) => !selected.includes(order.id)));
     setSelected([]); setApproval("");
     void loadQueue();
@@ -141,19 +141,19 @@ export default function CashierPage() {
 
   async function confirmVoid() {
     if (!voidTarget) return;
-    if (!online) { setError("Offline — void tidak boleh diproses."); return; }
-    if (!voidReason.trim()) { setError("Alasan void wajib diisi."); return; }
+    if (!online) { setError("Offline. Voids cannot be processed."); return; }
+    if (!voidReason.trim()) { setError("A void reason is required."); return; }
     setLoading(true); setError("");
     const response = await fetch(`/api/orders/${voidTarget.id}/void`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: voidReason.trim() }) });
     const data = await response.json();
     setLoading(false);
     if (!response.ok) {
-      const failure = data.error?.message ?? "Void gagal.";
+      const failure = data.error?.message ?? "Void failed.";
       setError(failure);
-      toast.error("Void gagal", failure);
+      toast.error("Void failed", failure);
       return;
     }
-    toast.warning(`Order ${voidTarget.code} dibatalkan`, "Kuota item diskon peserta kembali tersedia.");
+    toast.warning(`Order ${voidTarget.code} voided`, "The participant's discount item quota is available again.");
     setOrders((current) => current.filter((order) => order.id !== voidTarget.id));
     setSelected((current) => current.filter((id) => id !== voidTarget.id));
     setVoidTarget(null); setVoidReason("");
@@ -175,7 +175,7 @@ export default function CashierPage() {
               <CreditCard size={23} weight="duotone" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-title-medium font-semibold">Kasir Utama</p>
+              <p className="truncate text-title-medium font-semibold">Main cashier</p>
               <p className="text-label-medium uppercase tracking-[0.16em] text-on-surface-variant">Payment desk</p>
             </div>
           </div>
@@ -196,11 +196,11 @@ export default function CashierPage() {
               value={qr}
               onChange={(event) => setQr(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter") lookup(); }}
-              placeholder="Kode QR peserta"
+              placeholder="Participant QR code"
               className="h-12 min-w-0 flex-1 rounded-md border border-outline bg-surface-container-lowest px-4 text-body-large text-on-surface outline-none transition-colors focus:border-primary"
-              aria-label="Kode QR peserta"
+              aria-label="Participant QR code"
             />
-            <Button variant="tonal" disabled={!online || loading} onClick={() => lookup()}>Cari</Button>
+            <Button variant="tonal" disabled={!online || loading} onClick={() => lookup()}>Search</Button>
           </div>
           <div className="flex gap-2">
             <Button className="flex-1" size="md" onClick={() => { setScanning(true); setError(""); }} disabled={!online} icon={<Scan size={19} weight="bold" />}>
@@ -210,13 +210,13 @@ export default function CashierPage() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter") void searchParticipants(); }}
-              placeholder="Cari nama / perusahaan"
+              placeholder="Search name / company"
               className="h-12 min-w-0 flex-1 rounded-md border border-outline bg-surface-container-lowest px-4 text-body-large text-on-surface outline-none transition-colors focus:border-primary"
-              aria-label="Cari nama atau perusahaan peserta"
+              aria-label="Search participant name or company"
             />
             <IconButton
               variant="outlined"
-              label="Cari peserta"
+              label="Search participants"
               onClick={() => void searchParticipants()}
               disabled={!online || searching || !searchTerm.trim()}
             >
@@ -228,7 +228,7 @@ export default function CashierPage() {
               pembayaran, jadi tinggi yang melompat saat hasil tiba menggeser
               daftar tagihan tepat ketika kasir hendak menekannya. */}
           {searching && <SearchResultsSkeleton rows={3} className="overflow-hidden rounded-lg bg-surface-container" />}
-          <p aria-live="polite" className="sr-only">{searching ? "Mencari peserta" : searchHits.length > 0 ? `${searchHits.length} peserta ditemukan` : ""}</p>
+          <p aria-live="polite" className="sr-only">{searching ? "Searching participants" : searchHits.length > 0 ? `${searchHits.length} participants found` : ""}</p>
 
           {!searching && searchHits.length > 0 && (
             <div className="rise-in-fast divide-y divide-outline-variant overflow-hidden rounded-lg border border-outline-variant bg-surface-container">
@@ -237,7 +237,7 @@ export default function CashierPage() {
                   <UserCircle size={30} weight="duotone" className="shrink-0 text-primary" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-body-medium font-semibold">{hit.name}</span>
-                    <span className="block truncate text-body-small text-on-surface-variant">{hit.company ?? "Instansi tidak diisi"}</span>
+                    <span className="block truncate text-body-small text-on-surface-variant">{hit.company ?? "No organisation"}</span>
                   </span>
                   <span className="shrink-0 text-right">
                     {hit.pending_count > 0 ? (
@@ -246,7 +246,7 @@ export default function CashierPage() {
                         <span className="block text-label-small text-on-surface-variant">{hit.pending_count} pending</span>
                       </>
                     ) : (
-                      <span className="text-label-small text-on-surface-variant">Tidak ada tagihan</span>
+                      <span className="text-label-small text-on-surface-variant">Nothing to pay</span>
                     )}
                   </span>
                 </button>
@@ -254,7 +254,7 @@ export default function CashierPage() {
             </div>
           )}
 
-          {searchTerm && !searching && searchHits.length === 0 && <p className="text-body-small text-on-surface-variant">Tekan cari untuk mencari peserta.</p>}
+          {searchTerm && !searching && searchHits.length === 0 && <p className="text-body-small text-on-surface-variant">Press search to find participants.</p>}
         </div>
 
         {error && (
@@ -269,7 +269,7 @@ export default function CashierPage() {
           // dari "belum berubah".
           <div key={success.join("|")} role="status" className="scan-flash mb-5 flex items-center justify-between gap-3 rounded-lg bg-success-container p-4 text-body-medium text-on-success-container">
             <span className="flex items-center gap-2"><CheckCircle size={20} weight="fill" /> Lunas: {success.join(" · ")}</span>
-            <Button variant="text" size="sm" className="text-current" onClick={() => setSuccess([])}>Tutup</Button>
+            <Button variant="text" size="sm" className="text-current" onClick={() => setSuccess([])}>Close</Button>
           </div>
         )}
 
@@ -277,12 +277,12 @@ export default function CashierPage() {
           <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
             <div className="flex items-center gap-2">
               <UsersThree size={20} className="text-primary" />
-              <h2 className="text-title-medium font-semibold">Antrean pembayaran</h2>
+              <h2 className="text-title-medium font-semibold">Payment queue</h2>
             </div>
             <span className="text-label-large font-semibold tabular-nums text-on-surface-variant">{queue.length} peserta menunggu</span>
           </div>
           {queue.length === 0 ? (
-            <p className="p-6 text-center text-body-medium text-on-surface-variant">Belum ada order pending.</p>
+            <p className="p-6 text-center text-body-medium text-on-surface-variant">No pending orders yet.</p>
           ) : (
             <div className="divide-y divide-outline-variant">
               {queue.map((entry) => (
@@ -290,7 +290,7 @@ export default function CashierPage() {
                   <UserCircle size={34} weight="duotone" className="text-primary" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body-large font-semibold">{entry.name}</p>
-                    <p className="truncate text-body-small text-on-surface-variant">{entry.company ?? "Instansi tidak diisi"} · {entry.orders_count} order</p>
+                    <p className="truncate text-body-small text-on-surface-variant">{entry.company ?? "No organisation"} · {entry.orders_count} order</p>
                   </div>
                   <span className="text-body-medium font-semibold tabular-nums">{formatRupiah(entry.total)}</span>
                 </button>
@@ -311,13 +311,13 @@ export default function CashierPage() {
                   </div>
                 </>
               ) : (
-                <p className="text-body-medium text-on-surface-variant">Cari peserta dari QR badge.</p>
+                <p className="text-body-medium text-on-surface-variant">Find a participant from their badge QR.</p>
               )}
             </div>
 
             {orders.length === 0 ? (
               <div className="p-10 text-center text-body-medium text-on-surface-variant">
-                <Receipt size={42} className="mx-auto mb-3 opacity-40" />Tidak ada order pending.
+                <Receipt size={42} className="mx-auto mb-3 opacity-40" />No pending orders.
               </div>
             ) : (
               <div className="divide-y divide-outline-variant">
@@ -328,11 +328,11 @@ export default function CashierPage() {
                       checked={selected.includes(order.id)}
                       onChange={() => setSelected((current) => current.includes(order.id) ? current.filter((id) => id !== order.id) : [...current, order.id])}
                       className="size-5 accent-[var(--md-sys-color-primary)]"
-                      aria-label={`Pilih order ${order.code}`}
+                      aria-label={`Select order ${order.code}`}
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-body-large font-semibold">{order.code} <span className="font-normal text-on-surface-variant">· Booth {order.booth_id}</span></p>
-                      <p className="mt-1 text-body-small text-on-surface-variant">{order.has_discount_item ? "Item diskon" : "Reguler"} — {order.pickup_mode === "immediate" ? "Serahkan langsung" : "Ambil setelah lunas"}</p>
+                      <p className="mt-1 text-body-small text-on-surface-variant">{order.has_discount_item ? "Discount item" : "Regular"} — {order.pickup_mode === "immediate" ? "Hand over now" : "Pick up after payment"}</p>
                     </div>
                     <p className="text-body-large font-semibold tabular-nums">{formatRupiah(order.total_amount)}</p>
                     <Button variant="text" size="sm" className="text-error" onClick={() => { setVoidTarget(order); setVoidReason(""); setError(""); }}>Void</Button>
@@ -357,12 +357,12 @@ export default function CashierPage() {
           <Card className="sm:p-7">
             <div className="flex items-center gap-3">
               <Receipt size={23} className="text-primary" />
-              <h2 className="text-title-medium font-semibold">Konfirmasi pembayaran</h2>
+              <h2 className="text-title-medium font-semibold">Confirm payment</h2>
             </div>
 
             {methods.length === 0 ? (
               <div className="mt-7 flex gap-3 rounded-lg bg-warning-container p-4 text-body-medium text-on-warning-container">
-                <WarningCircle size={20} weight="fill" className="shrink-0" /> Belum ada metode pembayaran aktif. Hubungi admin.
+                <WarningCircle size={20} weight="fill" className="shrink-0" /> No active payment method yet. Contact an admin.
               </div>
             ) : (
               <div className={`mt-7 grid gap-2 ${methods.length > 2 ? "grid-cols-3" : "grid-cols-2"}`}>
@@ -385,7 +385,7 @@ export default function CashierPage() {
 
             {activeMethod?.requires_reference ? (
               <div className="mt-7">
-                <label htmlFor="approval" className="text-label-large font-semibold">{activeMethod.reference_label ?? "Nomor referensi"}</label>
+                <label htmlFor="approval" className="text-label-large font-semibold">{activeMethod.reference_label ?? "Reference number"}</label>
                 <input
                   id="approval"
                   inputMode="numeric"
@@ -411,10 +411,10 @@ export default function CashierPage() {
               onClick={settle}
               trailingIcon={loading ? undefined : <ArrowRight size={20} weight="bold" />}
             >
-              {loading ? "Memproses..." : "Tandai lunas"}
+              {loading ? "Processing…" : "Mark as paid"}
             </Button>
             <p className="mt-3 flex items-center justify-center gap-2 text-center text-body-small text-on-surface-variant">
-              <WarningCircle size={16} /> Untuk membatalkan, tekan Void pada order di daftar tagihan.
+              <WarningCircle size={16} /> To cancel, press Void on the order in the list.
             </p>
           </Card>
         </div>
@@ -424,18 +424,18 @@ export default function CashierPage() {
           <div className="fixed inset-0 z-40 flex flex-col bg-[var(--display-bg)] text-[var(--display-ink)]">
             <header className="flex items-center justify-between p-5">
               <div>
-                <p className="text-label-medium uppercase tracking-[0.2em] opacity-70">Kasir</p>
+                <p className="text-label-medium uppercase tracking-[0.2em] opacity-70">Cashier</p>
                 <p className="mt-1 text-title-medium font-semibold">Scanner QR</p>
               </div>
-              <Button variant="outlined" className="border-current text-current" onClick={() => setScanning(false)}>Tutup</Button>
+              <Button variant="outlined" className="border-current text-current" onClick={() => setScanning(false)}>Close</Button>
             </header>
             <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
               <div className="relative aspect-square w-full max-w-sm overflow-hidden rounded-2xl border border-current/50">
-                <video ref={videoRef} className="size-full object-cover" autoPlay muted playsInline aria-label="Pratinjau kamera scanner QR" />
+                <video ref={videoRef} className="size-full object-cover" autoPlay muted playsInline aria-label="QR scanner camera preview" />
                 <div className="pointer-events-none absolute inset-8 rounded-lg border-2 border-warning" />
                 {!online && <div className="absolute inset-0 flex items-center justify-center bg-scrim/80 p-6 text-center text-body-medium font-semibold">Offline — kamera scanner dinonaktifkan.</div>}
               </div>
-              <p className="mt-8 text-title-medium font-semibold">Arahkan kamera ke QR badge</p>
+              <p className="mt-8 text-title-medium font-semibold">Point the camera at the badge QR</p>
               <p className="mt-2 text-body-medium opacity-70">Scanner membaca otomatis. Pastikan QR terlihat utuh.</p>
             </div>
           </div>
@@ -448,10 +448,10 @@ export default function CashierPage() {
           tone="danger"
           icon={<WarningCircle size={22} weight="fill" />}
           title={`Void order ${voidTarget?.code ?? ""}`}
-          description="Order dibatalkan dan tidak bisa dibayar. Kuota item diskon peserta kembali tersedia. Alasan wajib diisi."
+          description="The order is cancelled and cannot be paid. The participant's discount item quota is available again. A reason is required."
           actions={
             <>
-              <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Batal</Button>
+              <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Cancel</Button>
               <Button variant="danger" className="flex-1" loading={loading} disabled={!online || !voidReason.trim()} onClick={confirmVoid}>
                 Void order
               </Button>
@@ -460,11 +460,11 @@ export default function CashierPage() {
         >
           <TextArea
             className="mt-5"
-            label="Alasan void"
+            label="Void reason"
             value={voidReason}
             onChange={(event) => setVoidReason(event.target.value)}
             rows={3}
-            placeholder="Contoh: EDC gagal, salah input nominal"
+            placeholder="e.g. card terminal failed, wrong amount"
           />
         </Dialog>
       </div>

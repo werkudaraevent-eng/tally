@@ -71,14 +71,14 @@ export async function POST(request: Request) {
       fieldErrors: {
         [source]: [
           source === "file"
-            ? "Tidak ada baris yang terbaca. Pastikan kolom pertama berisi nama, atau unduh templatnya."
-            : "Tidak ada baris yang terbaca.",
+            ? "No rows could be read. Make sure the first column holds names, or download the template."
+            : "No rows could be read.",
         ],
       },
     });
   }
   if (rows.length > MAX_ROWS) {
-    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { [source]: [`Maksimal ${MAX_ROWS} baris per daftar.`] } });
+    return apiError("VALIDATION_ERROR", 422, { fieldErrors: { [source]: [`Maximum ${MAX_ROWS} rows per list.`] } });
   }
 
   const client = getSupabaseServiceClient();
@@ -128,22 +128,22 @@ async function readJsonRequest(request: Request): Promise<ReadResult> {
 
 async function readFileRequest(request: Request): Promise<ReadResult> {
   const form = await request.formData().catch(() => null);
-  if (!form) return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { file: ["Berkas tidak terbaca."] } }) };
+  if (!form) return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { file: ["The file could not be read."] } }) };
 
   const rawName = form.get("name");
   const name = typeof rawName === "string" ? rawName.trim() : "";
   if (!name || name.length > 120) {
-    return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { name: ["Nama daftar wajib diisi."] } }) };
+    return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { name: ["Enter a list name."] } }) };
   }
   const rawNote = form.get("note");
   const note = typeof rawNote === "string" ? rawNote.trim() : "";
 
   const file = form.get("file");
   if (!(file instanceof File)) {
-    return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { file: ["Berkas tidak ditemukan."] } }) };
+    return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { file: ["No file found."] } }) };
   }
   if (file.size === 0 || file.size > MAX_FILE_BYTES) {
-    return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { file: ["Ukuran berkas maksimal 10 MB."] } }) };
+    return { response: apiError("VALIDATION_ERROR", 422, { fieldErrors: { file: ["Maximum file size is 10 MB."] } }) };
   }
 
   // Jenis berkas ditentukan dari EKSTENSI, bukan dari `file.type`.
@@ -161,14 +161,14 @@ async function readFileRequest(request: Request): Promise<ReadResult> {
     // "format tidak didukung" tidak memberi tahu apa yang harus dilakukan.
     return {
       response: apiError("VALIDATION_ERROR", 422, {
-        fieldErrors: { file: ["Format .xls lama tidak didukung. Buka di Excel lalu Save As .xlsx."] },
+        fieldErrors: { file: ["The old .xls format is not supported. Open it in Excel and Save As .xlsx."] },
       }),
     };
   }
   if (!isXlsx && !isText) {
     return {
       response: apiError("VALIDATION_ERROR", 422, {
-        fieldErrors: { file: ["Format harus .xlsx, .csv, atau .txt."] },
+        fieldErrors: { file: ["The format must be .xlsx, .csv or .txt."] },
       }),
     };
   }
@@ -178,7 +178,7 @@ async function readFileRequest(request: Request): Promise<ReadResult> {
     if ("error" in result) {
       return {
         response: apiError("VALIDATION_ERROR", 422, {
-          fieldErrors: { file: ["Berkas Excel tidak terbaca. Pastikan berkasnya tidak rusak atau terproteksi kata sandi."] },
+          fieldErrors: { file: ["The Excel file could not be read. Make sure it is not damaged or password-protected."] },
         }),
       };
     }

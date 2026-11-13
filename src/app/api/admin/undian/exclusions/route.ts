@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       participant_id: row.participant_id,
       reason: row.reason,
       created_at: row.created_at,
-      name: row.participants?.name ?? "(peserta terhapus)",
+      name: row.participants?.name ?? "(participant deleted)",
       company: row.participants?.company ?? null,
     })),
   });

@@ -18,7 +18,7 @@ export async function GET() {
 
   const ExcelJS = (await import("exceljs")).default;
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Daftar Tiket Tambahan");
+  const sheet = workbook.addWorksheet("Bonus ticket list");
 
   sheet.addRow([...BONUS_TEMPLATE_HEADERS]);
   sheet.getRow(1).font = { bold: true };
@@ -34,22 +34,22 @@ export async function GET() {
   sheet.getColumn(1).numFmt = "@";
 
   // Cara mengisi di sheet kedua, supaya tidak terbaca sebagai baris data.
-  const help = workbook.addWorksheet("Cara mengisi");
+  const help = workbook.addWorksheet("How to fill in");
   help.getColumn(1).width = 100;
   const notes = [
-    "CARA MENGISI DAFTAR TIKET TAMBAHAN",
+    "HOW TO FILL IN THE BONUS TICKET LIST",
     "",
-    "1. Satu orang per baris, mulai baris ke-2. Jangan hapus baris judulnya.",
-    "2. Hapus dua baris contoh sebelum mengupload.",
-    "3. Isi QR peserta ATAU Email. Cukup salah satu; kalau keduanya diisi, QR yang dipakai.",
-    "4. Nama hanya untuk memudahkan panitia mengecek. Nama TIDAK dipakai untuk mencocokkan.",
+    "1. One person per row, starting on row 2. Do not delete the heading row.",
+    "2. Delete the two example rows before uploading.",
+    "3. Enter the Participant QR OR the Email. One is enough; if both are filled in, the QR is used.",
+    "4. Name only helps the team check the list. Name is NOT used for matching.",
     "",
-    "CATATAN",
+    "NOTES",
     "",
-    "- Jumlah tiket tambahan diatur di aturan hadiah, bukan di berkas ini.",
-    "  Untuk tingkat berbeda (mis. VIP +4, VVIP +9), buat dua berkas dan dua aturan.",
-    "- Orang yang sama ditulis dua kali dihitung sekali.",
-    "- Maksimal 5000 baris. Selain .xlsx, sistem juga menerima .csv.",
+    "- The number of bonus tickets is set in the prize rule, not in this file.",
+    "  For different tiers (e.g. VIP +4, VVIP +9), make two files and two rules.",
+    "- The same person listed twice counts once.",
+    "- Maximum 5000 rows. Besides .xlsx, the system also accepts .csv.",
   ];
   for (const line of notes) help.addRow([line]);
   help.getRow(1).font = { bold: true, size: 14 };
@@ -59,7 +59,7 @@ export async function GET() {
   return new Response(buffer as ArrayBuffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": 'attachment; filename="templat-tiket-tambahan.xlsx"',
+      "Content-Disposition": 'attachment; filename="bonus-ticket-template.xlsx"',
       "Cache-Control": "no-store",
     },
   });

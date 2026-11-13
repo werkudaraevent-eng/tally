@@ -58,7 +58,7 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 // staf booth ke panitia pusat.
 function errorMessage(data: Record<string, unknown>, response: Response, fallback: string) {
   const error = data.error as { message?: string } | undefined;
-  return error?.message ?? `${fallback} (kode ${response.status})`;
+  return error?.message ?? `${fallback} (code ${response.status})`;
 }
 // Input rupiah tampil dengan pemisah ribuan (mis. "250.000") agar admin booth
 // tidak salah baca nominal besar. Nilai asli tetap disimpan sebagai digit.
@@ -100,7 +100,7 @@ const amountParts = (value: string) => value.split("+").filter((part) => part !=
 // WAJIB dipakai di SEMUA tempat yang dulu menulis `Number(regularAmount) || 0`.
 // `Number("12000+5000")` adalah NaN dan `NaN || 0` adalah 0, jadi satu tempat yang
 // terlewat tidak akan gagal build maupun melempar error — ia hanya diam-diam
-// membaca nol. Pada `emptyOrder` itu berarti tombol "Buat order" mati sendiri saat
+// membaca nol. Pada `emptyOrder` itu berarti tombol "Create order" mati sendiri saat
 // staf memasukkan penjumlahan, dan pada body kiriman berarti order tersimpan
 // dengan nominal Rp 0.
 const amountTotal = (value: string) => amountParts(value).reduce((sum, part) => sum + part, 0);
@@ -118,10 +118,10 @@ const groupAmountInput = (value: string) => value.split("+").map((part) => group
 // berganti sendiri di mode gelap dan di mode kontras tinggi.
 const orderStatusBadge = (status: string): { label: string; tone: ChipTone } => {
   switch (status) {
-    case "paid": return { label: "Lunas — siap diserahkan", tone: "success" };
-    case "handed_over": return { label: "Sudah diserahkan", tone: "neutral" };
+    case "paid": return { label: "Paid, ready to hand over", tone: "success" };
+    case "handed_over": return { label: "Handed over", tone: "neutral" };
     case "void": return { label: "Void", tone: "error" };
-    default: return { label: "Menunggu kasir", tone: "warning" };
+    default: return { label: "Waiting for cashier", tone: "warning" };
   }
 };
 
@@ -193,14 +193,14 @@ export default function BoothPage() {
   const visibleHistory = showAllHistory ? history : history.slice(0, 5);
 
   const lookupParticipant = useCallback(async (qr = "") => {
-    if (!online) { setMessage("Offline — sambungkan internet sebelum scan."); return; }
-    if (!booth) { setMessage("Booth belum termuat. Muat ulang halaman."); return; }
+    if (!online) { setMessage("Offline. Connect to the internet before scanning."); return; }
+    if (!booth) { setMessage("Booth not loaded. Reload the page."); return; }
     setPending(true); setMessage("");
     const response = await fetch(`/api/participants/by-qr?qr=${encodeURIComponent(qr)}&boothId=${booth.id}`).catch(() => null);
-    if (!response) { setPending(false); setMessage("Gagal menghubungi server. Cek koneksi, lalu scan ulang."); return; }
+    if (!response) { setPending(false); setMessage("Could not reach the server. Check the connection, then scan again."); return; }
     const data = await readJson(response);
     setPending(false);
-    if (!response.ok) { setMessage(errorMessage(data, response, "Peserta tidak ditemukan.")); return; }
+    if (!response.ok) { setMessage(errorMessage(data, response, "Participant not found.")); return; }
     setParticipant(data.participant as BoothParticipant);
     setExistingOrders((data.existing_orders_at_this_booth ?? []) as ExistingOrder[]);
     setProgress((data.progress ?? null) as { visited: number; total: number } | null);
@@ -212,7 +212,7 @@ export default function BoothPage() {
     // setelah staf mengisi nominal dan ditolak server. Panelnya tetap ditampilkan
     // dengan nama peserta supaya staf bisa menyebutkan nama itu ke meja registrasi.
     if ((data.participant_removed ?? false) === true) {
-      setMessage("Peserta ini sudah dihapus panitia pusat, jadi order tidak dapat dibuat. Arahkan peserta ke meja registrasi.");
+      setMessage("This participant was removed by the organiser, so no order can be made. Send them to the registration desk.");
     }
     // Nominal WAJIB kembali kosong setiap kali peserta berganti. Tanpa ini,
     // peserta berikutnya mewarisi angka peserta sebelumnya dan tombol tetap aktif
@@ -239,9 +239,9 @@ export default function BoothPage() {
           void lookupParticipant(value);
         }
       } else if (error && error.name !== "NotFoundException") {
-        setMessage("Kamera tidak dapat membaca QR. Pastikan izin kamera aktif.");
+        setMessage("The camera cannot read the QR. Make sure camera permission is on.");
       }
-    }).then((value) => { controls = value; if (stopped) controls.stop(); }).catch(() => setMessage("Kamera tidak tersedia atau izin kamera ditolak."));
+    }).then((value) => { controls = value; if (stopped) controls.stop(); }).catch(() => setMessage("Camera not available or camera permission was denied."));
     return () => { stopped = true; controls?.stop(); };
   }, [lookupParticipant, online, scanning]);
 
@@ -253,10 +253,10 @@ export default function BoothPage() {
     setResults([]);
     setSearching(true); setMessage("");
     const response = await fetch(`/api/booth/participants?q=${encodeURIComponent(searchTerm)}&boothId=${booth.id}`).catch(() => null);
-    if (!response) { setSearching(false); setMessage("Gagal menghubungi server. Cek koneksi, lalu cari ulang."); return; }
+    if (!response) { setSearching(false); setMessage("Could not reach the server. Check the connection, then search again."); return; }
     const data = await readJson(response);
     setSearching(false);
-    if (!response.ok) { setMessage(errorMessage(data, response, "Pencarian gagal.")); return; }
+    if (!response.ok) { setMessage(errorMessage(data, response, "Search failed.")); return; }
     setResults((data.participants ?? []) as BoothParticipant[]);
   }
 
@@ -302,7 +302,7 @@ export default function BoothPage() {
   // Berpindah booth WAJIB membuang peserta, penawaran, dan nominal yang sedang
   // terbuka. Panel peserta dihitung untuk booth sebelumnya — penawarannya, batas
   // diskonnya, dan riwayat order di booth itu — jadi meneruskannya berarti admin
-  // menekan "Buat order" atas dasar keterangan booth yang salah.
+  // menekan "Create order" atas dasar keterangan booth yang salah.
   async function selectBooth(boothId: number) {
     setParticipant(null); setResults([]); setSearch(false); setOffers([]); setSelectedOffers([]);
     setExistingOrders([]); setProgress(null); setDiscount(false); setRegularAmount("");
@@ -314,8 +314,8 @@ export default function BoothPage() {
   useEffect(() => { const initial = window.setTimeout(() => { void loadContext(); void loadHistory(); void loadSettings(); }, 0); const historyTimer = window.setInterval(() => { void loadHistory(); }, 15000); const settingsTimer = window.setInterval(() => { void loadSettings(); }, 30000); return () => { window.clearTimeout(initial); window.clearInterval(historyTimer); window.clearInterval(settingsTimer); }; }, []);
 
   async function createOrder() {
-    if (!participant || !online) { setMessage("Offline — order tidak boleh dibuat."); return; }
-    if (!booth) { setMessage("Booth belum termuat. Muat ulang halaman."); return; }
+    if (!participant || !online) { setMessage("Offline. Orders cannot be made."); return; }
+    if (!booth) { setMessage("Booth not loaded. Reload the page."); return; }
     setPending(true); setMessage("");
     const response = await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_code: `${booth.code}-${orderCode.padStart(3, "0")}`, participant_id: participant.id, booth_id: booth.id, has_discount_item: discount, regular_amount: booth.transactions_enabled === false ? 0 : amountTotal(regularAmount), offer_codes: selectedOffers }) }).catch(() => null);
     // Jaringan putus di tengah kiriman adalah satu-satunya kegagalan yang TIDAK
@@ -324,9 +324,9 @@ export default function BoothPage() {
     // staf dapat memastikan sendiri sebelum mengulang.
     if (!response) {
       setPending(false);
-      const failure = "Kiriman terputus. Periksa daftar Order booth ini di sebelah — bila order sudah muncul di sana, JANGAN dibuat ulang.";
+      const failure = "The request was cut off. Check this booth's Orders list next to this panel. If the order is already there, do NOT make it again.";
       setMessage(failure);
-      toast.error("Order gagal dibuat", failure);
+      toast.error("Could not create the order", failure);
       void loadHistory();
       return;
     }
@@ -334,9 +334,9 @@ export default function BoothPage() {
     setPending(false);
     if (!response.ok) {
       const code = (data.error as { code?: string } | undefined)?.code;
-      const failure = code === "DISCOUNT_ALREADY_TAKEN" ? "Item diskon peserta sudah pernah diambil di booth ini." : errorMessage(data, response, "Order gagal dibuat.");
+      const failure = code === "DISCOUNT_ALREADY_TAKEN" ? "This participant has already taken the discount item at this booth." : errorMessage(data, response, "Could not create the order.");
       setMessage(failure);
-      toast.error("Order gagal dibuat", failure);
+      toast.error("Could not create the order", failure);
       // Nomor dinaikkan sendiri saat bentrok, bukan diserahkan ke staf.
       //
       // BR-19c: nomor dihitung `max + 1` saat layar dimuat, jadi dua perangkat di
@@ -356,14 +356,14 @@ export default function BoothPage() {
     }
     // Tanpa kasir, order sudah final: jangan suruh peserta ke kasir.
     const instruction = !cashierRequired
-      ? (pickupMode === "immediate" ? "Order tercatat lunas. Serahkan barang sekarang." : "Order tercatat lunas. Tempel stiker dan simpan di rak.")
-      : (pickupMode === "immediate" ? "Serahkan barang sekarang, arahkan peserta ke kasir." : "Tempel stiker, simpan di rak, arahkan peserta ke kasir.");
+      ? (pickupMode === "immediate" ? "Order recorded as paid. Hand over the item now." : "Order recorded as paid. Put a sticker on it and keep it on the shelf.")
+      : (pickupMode === "immediate" ? "Hand over the item now, and send the participant to the cashier." : "Put a sticker on it, keep it on the shelf, and send the participant to the cashier.");
     // Kode diambil dari respons bila ada, kalau tidak disusun kembali dari kolom
     // yang baru dikirim. Status 201 berarti order SUDAH tersimpan, jadi layar tidak
     // boleh menampilkan "undefined" hanya karena body-nya gagal terbaca — nomor itu
     // yang disebutkan staf ke peserta.
     const savedCode = (data.order as { code?: string } | undefined)?.code ?? `${booth.code}-${orderCode.padStart(3, "0")}`;
-    toast.success(`Order ${savedCode} dibuat`, instruction);
+    toast.success(`Order ${savedCode} created`, instruction);
     setSuccess(savedCode);
     setParticipant(null);
     setRegularAmount("");
@@ -372,13 +372,13 @@ export default function BoothPage() {
   }
 
   async function handOverOrder(orderId: string) {
-    if (!online) { setMessage("Offline — penyerahan barang tidak boleh diproses."); return; }
+    if (!online) { setMessage("Offline. Hand-overs cannot be processed."); return; }
     setPending(true); setMessage("");
     const response = await fetch(`/api/orders/${orderId}/hand-over`, { method: "POST" }).catch(() => null);
     if (!response) {
       setPending(false);
-      setMessage("Kiriman terputus. Data diperbarui — periksa status order sebelum mengulang.");
-      toast.error("Penyerahan barang gagal", "Kiriman terputus. Periksa status order.");
+      setMessage("The request was cut off. Data refreshed: check the order status before trying again.");
+      toast.error("Hand-over failed", "The request was cut off. Check the order status.");
       void loadHistory();
       return;
     }
@@ -388,14 +388,14 @@ export default function BoothPage() {
       // Kegagalan biasanya berarti layar memegang status usang (mis. order
       // sudah di-void atau belum benar-benar lunas). Selalu muat ulang data
       // agar kartu menampilkan kondisi sebenarnya, bukan hanya pesan error.
-      const failure = errorMessage(data, response, "Penyerahan barang gagal.");
+      const failure = errorMessage(data, response, "Hand-over failed.");
       setMessage(failure);
-      toast.error("Penyerahan barang gagal", `${failure} Data diperbarui.`);
+      toast.error("Hand-over failed", `${failure} Data diperbarui.`);
       if (participant) void lookupParticipant(participant.qr_code);
       void loadHistory();
       return;
     }
-    toast.success("Barang diserahkan", `Order ${(data.order as { code?: string } | undefined)?.code ?? ""} selesai.`.trim());
+    toast.success("Item handed over", `Order ${(data.order as { code?: string } | undefined)?.code ?? ""} complete.`.trim());
     if (participant) void lookupParticipant(participant.qr_code);
     void loadHistory();
   }
@@ -404,26 +404,26 @@ export default function BoothPage() {
   // Ini satu-satunya jalan koreksi salah input saat kasir tidak dipakai.
   async function confirmVoid() {
     if (!voidTarget) return;
-    if (!online) { setMessage("Offline — void tidak boleh diproses."); return; }
+    if (!online) { setMessage("Offline. Voids cannot be processed."); return; }
     setPending(true); setMessage("");
     const response = await fetch(`/api/orders/${voidTarget.id}/void`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: voidReason.trim() }) }).catch(() => null);
     if (!response) {
       setPending(false);
-      setMessage("Kiriman terputus. Data diperbarui — periksa apakah order sudah berstatus Void sebelum mengulang.");
-      toast.error("Void gagal", "Kiriman terputus. Periksa status order.");
+      setMessage("The request was cut off. Data refreshed: check whether the order is already Void before trying again.");
+      toast.error("Void failed", "The request was cut off. Check the order status.");
       void loadHistory();
       return;
     }
     const data = await readJson(response);
     setPending(false);
     if (!response.ok) {
-      const failure = errorMessage(data, response, "Void gagal.");
+      const failure = errorMessage(data, response, "Void failed.");
       setMessage(failure);
-      toast.error("Void gagal", failure);
+      toast.error("Void failed", failure);
       void loadHistory();
       return;
     }
-    toast.warning(`Order ${voidTarget.code} dibatalkan`, "Kuota item diskon peserta kembali tersedia.");
+    toast.warning(`Order ${voidTarget.code} voided`, "The participant's discount item quota is available again.");
     setVoidTarget(null); setVoidReason("");
     if (participant) void lookupParticipant(participant.qr_code);
     void loadHistory();
@@ -496,22 +496,22 @@ export default function BoothPage() {
   // harus bisa menyebutkan angka yang kurang ke peserta di tempat.
   function offerBlockedLabel(offer: OfferOption): string {
     switch (offer.blocked_reason) {
-      case "QUOTA_REACHED": return offer.scope === "global" ? "Sudah pernah diambil peserta ini" : "Sudah diambil di booth ini";
-      case "OUT_OF_STOCK": return "Stok habis";
+      case "QUOTA_REACHED": return offer.scope === "global" ? "Already taken by this participant" : "Already taken at this booth";
+      case "OUT_OF_STOCK": return "Out of stock";
       case "CONDITIONS_NOT_MET": {
         const failed = offer.condition_result?.failed ?? [];
-        if (failed.length === 0) return "Syarat penawaran belum terpenuhi";
+        if (failed.length === 0) return "Offer conditions not met";
         // Subjek WAJIB eksplisit ("belanja peserta ..."). Versi lama memakai
         // "— baru Rp 0" tanpa subjek, dan itu terbaca sebagai harga itemnya yang
         // Rp 0, padahal angka itu total belanja peserta.
         return failed.map((item) => {
           if (item.var === "total_spend") {
-            const scope = item.scope === "this_booth" ? "di booth ini" : item.scope === "booth" ? "di booth tertentu" : "di semua booth";
-            return `Syarat: belanja peserta ${scope} minimal ${formatRupiah(item.value ?? 0)}. Belanja peserta saat ini ${formatRupiah(Number(item.actual ?? 0))}.`;
+            const scope = item.scope === "this_booth" ? "at this booth" : item.scope === "booth" ? "at a specific booth" : "at all booths";
+            return `Condition: participant spending ${scope} of at least ${formatRupiah(item.value ?? 0)}. Current spending ${formatRupiah(Number(item.actual ?? 0))}.`;
           }
-          if (item.var === "booth_count") return `Syarat: peserta sudah belanja di minimal ${item.value} booth. Peserta ini baru ${item.actual} booth.`;
-          if (item.var === "participant_type") return `Syarat: khusus tipe ${(item.values ?? []).join("/")}. Peserta ini tipe ${item.actual ?? "-"}.`;
-          return "Syarat penawaran belum terpenuhi";
+          if (item.var === "booth_count") return `Condition: participant has bought at ${item.value} booths or more. This participant has bought at ${item.actual}.`;
+          if (item.var === "participant_type") return `Condition: only for type ${(item.values ?? []).join("/")}. This participant is ${item.actual ?? "-"}.`;
+          return "Offer conditions not met";
         }).join(" · ");
       }
       default: return "";
@@ -540,29 +540,29 @@ export default function BoothPage() {
                 // bekerja tanpa JavaScript pihak ketiga di Wi-Fi venue yang lambat.
                 ? (
                   <>
-                    <label htmlFor="booth-selector" className="sr-only">Pilih booth yang sedang Anda tangani</label>
+                    <label htmlFor="booth-selector" className="sr-only">Pick the booth you are running</label>
                     <select
                       id="booth-selector"
                       value={booth?.id ?? ""}
                       onChange={(event) => { const value = Number(event.target.value); if (value) void selectBooth(value); }}
                       className="w-full max-w-[16rem] truncate rounded-sm border border-outline bg-surface-container px-2 py-1 text-body-large font-semibold leading-tight text-on-surface"
                     >
-                      <option value="" disabled>Pilih booth...</option>
+                      <option value="" disabled>Pick a booth…</option>
                       {booths.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}
                     </select>
                   </>
                 )
-                : <p className="truncate text-title-medium font-semibold leading-tight">{booth?.name ?? "Memuat booth..."}</p>}
+                : <p className="truncate text-title-medium font-semibold leading-tight">{booth?.name ?? "Loading booth…"}</p>}
               <p className="mt-0.5 truncate text-body-small text-on-surface-variant">
-                <span className="font-semibold uppercase tracking-[0.12em]">{booths.length > 0 ? "Panitia" : "Admin Booth"}</span>
+                <span className="font-semibold uppercase tracking-[0.12em]">{booths.length > 0 ? "Staff" : "Booth admin"}</span>
                 {operator ? ` · ${operator}` : ""}
               </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <StatusChip tone="neutral" className="min-h-11" icon={<Package size={18} className="shrink-0 text-primary" />}>
-              <span className="hidden sm:inline">{pickupMode === "immediate" ? "Serahkan langsung" : "Barang disimpan di rak booth"}</span>
-              <span className="sm:hidden">{pickupMode === "immediate" ? "Langsung" : "Disimpan"}</span>
+              <span className="hidden sm:inline">{pickupMode === "immediate" ? "Hand over now" : "Item kept on the booth shelf"}</span>
+              <span className="sm:hidden">{pickupMode === "immediate" ? "Now" : "Kept"}</span>
             </StatusChip>
             <HelpPanel role="booth" />
             <LogoutButton />
@@ -586,15 +586,15 @@ export default function BoothPage() {
           <section key={success} className="scan-flash flex min-h-[65dvh] items-center justify-center rounded-2xl bg-success-container p-8 text-center text-on-success-container">
             <div>
               <CheckCircle size={80} weight="fill" className="mx-auto" />
-              <p className="mt-6 text-label-large font-semibold uppercase tracking-[0.2em] opacity-80">Order berhasil dibuat</p>
+              <p className="mt-6 text-label-large font-semibold uppercase tracking-[0.2em] opacity-80">Order created</p>
               {/* Kode order adalah satu-satunya hal yang disebutkan staf ke peserta.
                   Skala display-large M3 dipakai apa adanya: dibaca dari jarak satu
                   meja, sambil berdiri, di ruangan yang berisik. */}
               <h1 className="mt-3 text-display-large font-semibold tracking-[-0.04em]">{success}</h1>
               <p className="mt-5 max-w-md text-body-large opacity-90">
                 {!cashierRequired
-                  ? (pickupMode === "immediate" ? "Order tercatat lunas. Serahkan barang sekarang. Peserta tidak perlu ke kasir." : "Order tercatat lunas. Tempel stiker pada barang, simpan di rak. Peserta tidak perlu ke kasir.")
-                  : (pickupMode === "immediate" ? "Serahkan barang sekarang. Arahkan peserta ke kasir untuk membayar." : "Tempel stiker pada barang, simpan di rak. Arahkan peserta ke kasir.")}
+                  ? (pickupMode === "immediate" ? "Order recorded as paid. Hand over the item now. The participant does not need to go to the cashier." : "Order recorded as paid. Put a sticker on the item and keep it on the shelf. The participant does not need to go to the cashier.")
+                  : (pickupMode === "immediate" ? "Hand over the item now. Send the participant to the cashier to pay." : "Put a sticker on the item and keep it on the shelf. Send the participant to the cashier.")}
               </p>
               <Button
                 variant="outlined"
@@ -602,7 +602,7 @@ export default function BoothPage() {
                 className="mt-10 border-current"
                 onClick={() => { setSuccess(""); setParticipant(null); setSearch(true); }}
               >
-                Kembali ke pencarian peserta
+                Back to participant search
               </Button>
             </div>
           </section>
@@ -624,7 +624,7 @@ export default function BoothPage() {
                       aksi navigasi harus terlihat jelas dapat ditekan. */}
                   <div className="border-b border-outline-variant p-4">
                     <Button variant="tonal" size="lg" block onClick={backToParticipantSearch} icon={<ArrowLeft size={20} weight="bold" />}>
-                      Ganti peserta lain
+                      Switch participant
                     </Button>
                   </div>
 
@@ -642,14 +642,14 @@ export default function BoothPage() {
                       Namanya tetap tampil supaya staf dapat menyebutkannya ke meja registrasi. */}
                   {participantRemoved && (
                     <div role="alert" className="m-5 rounded-lg bg-error-container p-5 text-on-error-container">
-                      <p className="flex items-center gap-2 text-title-medium font-semibold"><Prohibit size={22} weight="fill" /> PESERTA SUDAH DIHAPUS PANITIA</p>
-                      <p className="mt-2 text-body-medium">Order tidak dapat dibuat untuk peserta ini. Arahkan peserta ke meja registrasi lebih dulu.</p>
+                      <p className="flex items-center gap-2 text-title-medium font-semibold"><Prohibit size={22} weight="fill" /> PARTICIPANT REMOVED BY ORGANISER</p>
+                      <p className="mt-2 text-body-medium">No order can be made for this participant. Send them to the registration desk first.</p>
                     </div>
                   )}
 
                   {progress && (
                     <div className="flex items-center justify-between gap-4 border-b border-outline-variant px-5 py-4">
-                      <span className="text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Progress peserta</span>
+                      <span className="text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Participant progress</span>
                       <span className="flex items-center gap-3">
                         <span className="flex items-center gap-1.5" aria-hidden="true">
                           {Array.from({ length: progress.total }).map((_, dot) => (
@@ -671,20 +671,20 @@ export default function BoothPage() {
                         key={order.id}
                         className={`m-5 rounded-lg p-5 ${order.status === "paid" ? "bg-success-container text-on-success-container" : "bg-error-container text-on-error-container"}`}
                       >
-                        <p className="flex items-center gap-2 text-title-medium font-semibold"><Package size={22} weight="fill" /> BARANG SIAP DIAMBIL</p>
-                        <p className="mt-2 text-body-medium">{order.code} · {order.has_discount_item ? "Item diskon" : "Reguler"} · {formatRupiah(order.total_amount)}</p>
+                        <p className="flex items-center gap-2 text-title-medium font-semibold"><Package size={22} weight="fill" /> ITEM READY FOR PICK-UP</p>
+                        <p className="mt-2 text-body-medium">{order.code} · {order.has_discount_item ? "Discount item" : "Regular"} · {formatRupiah(order.total_amount)}</p>
                         {order.status === "paid" ? (
                           <>
                             <p className="mt-1 flex items-center gap-1 text-body-medium font-semibold">
                               <CheckCircle size={16} weight="fill" /> LUNAS{order.paid_at ? ` ${formatEventTime(order.paid_at, timeZone)}` : ""}
                             </p>
                             <Button className="mt-4" block onClick={() => handOverOrder(order.id)} disabled={pending || !online}>
-                              Serahkan barang
+                              Hand over item
                             </Button>
                           </>
                         ) : (
                           <p className="mt-2 text-body-medium font-semibold">
-                            {cashierRequired ? "BELUM LUNAS — arahkan peserta ke kasir" : "BELUM LUNAS — order lama sebelum kasir dimatikan. Hubungi admin."}
+                            {cashierRequired ? "NOT PAID: send the participant to the cashier" : "NOT PAID: older order from before the cashier was turned off. Contact an admin."}
                           </p>
                         )}
                       </div>
@@ -692,11 +692,11 @@ export default function BoothPage() {
 
                   <div className="m-5 space-y-3">
                     {offers.length === 0 ? (
-                      <p className="rounded-lg bg-surface-container-high p-5 text-body-medium text-on-surface-variant">Tidak ada item spesial di booth ini.</p>
+                      <p className="rounded-lg bg-surface-container-high p-5 text-body-medium text-on-surface-variant">No special items at this booth.</p>
                     ) : (
                       <>
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <p className="text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Item spesial</p>
+                          <p className="text-label-medium font-semibold uppercase tracking-[0.14em] text-on-surface-variant">Special items</p>
                           <p className="text-body-small text-on-surface-variant">
                             Total belanja peserta ini di semua booth <span className="font-semibold tabular-nums text-on-surface">{formatRupiah(accumulated)}</span>
                           </p>
@@ -713,16 +713,16 @@ export default function BoothPage() {
                                 {blocked ? <XCircle size={22} weight="fill" className="shrink-0" /> : chosen ? <CheckCircle size={22} weight="fill" className="shrink-0" /> : <span className="mt-0.5 size-[22px] shrink-0 rounded-xs border-2 border-current" />}
                                 <span className="min-w-0">
                                   {offer.name.toUpperCase()}
-                                  {offer.scope === "global" && <span className="ml-2 rounded-xs bg-surface-container-lowest px-2 py-0.5 text-label-small font-semibold uppercase tracking-[0.08em] text-on-surface-variant">Semua booth</span>}
+                                  {offer.scope === "global" && <span className="ml-2 rounded-xs bg-surface-container-lowest px-2 py-0.5 text-label-small font-semibold uppercase tracking-[0.08em] text-on-surface-variant">All booths</span>}
                                 </span>
                               </p>
                               <p className="mt-2 text-body-medium tabular-nums">{formatRupiah(offer.price)}</p>
                               {/* Alasan spesifik, bukan sekadar "tidak tersedia": staf booth harus bisa
                                   menjelaskan ke peserta kenapa item tidak bisa diambil. */}
-                              <p className="mt-2 text-body-small">{blocked ? offerBlockedLabel(offer) : "Ketuk untuk memasukkan item ini ke order."}</p>
+                              <p className="mt-2 text-body-small">{blocked ? offerBlockedLabel(offer) : "Tap to add this item to the order."}</p>
                               <label className={`m3-state mt-4 flex min-h-12 items-center gap-3 rounded-sm border border-current px-4 text-label-large font-semibold ${blocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
                                 <input type="checkbox" checked={chosen} disabled={blocked} onChange={() => toggleOffer(offer)} className="size-5 accent-[var(--md-sys-color-primary)]" />
-                                {blocked ? "Tidak tersedia" : chosen ? "Dipilih" : `Ambil ${offer.name}`}
+                                {blocked ? "Not available" : chosen ? "Selected" : `Take ${offer.name}`}
                               </label>
                             </div>
                           );
@@ -734,10 +734,10 @@ export default function BoothPage() {
                   <div className={`grid gap-4 p-5 pt-0 ${transactionsEnabled ? "sm:grid-cols-2" : ""}`}>
                     {transactionsEnabled ? (
                       <label className="text-label-large font-semibold">
-                        Item reguler (Rp)
+                        Regular items (Rp)
                         <input
                           value={groupAmountInput(regularAmount)}
-                          placeholder="Wajib diisi"
+                          placeholder="Required"
                           aria-describedby="regular-amount-help"
                           aria-invalid={amountMissing || amountTooLarge}
                           onChange={(event) => setRegularAmount(sanitizeAmountInput(event.target.value))}
@@ -767,12 +767,12 @@ export default function BoothPage() {
                         {amountTooLarge
                           ? <span id="regular-amount-help" className="mt-2 block text-body-small font-normal text-warning">Jumlahnya terlalu besar. Batas satu order {formatRupiah(MAX_ORDER_AMOUNT)}. Periksa apakah ada suku yang kelebihan angka nol.</span>
                           : amountMissing
-                            ? <span id="regular-amount-help" className="mt-2 block text-body-small font-normal text-warning">Wajib diisi. Kalau peserta tidak beli item reguler, tulis 0.</span>
-                            : <span id="regular-amount-help" className="mt-2 block text-body-small font-normal text-on-surface-variant">Nominal item reguler yang dibeli peserta di booth ini. Beberapa barang boleh dijumlahkan langsung di sini, contoh 12000+5000+3000.</span>}
+                            ? <span id="regular-amount-help" className="mt-2 block text-body-small font-normal text-warning">Required. If the participant bought no regular items, enter 0.</span>
+                            : <span id="regular-amount-help" className="mt-2 block text-body-small font-normal text-on-surface-variant">Amount of regular items the participant bought at this booth. You can add several items here, e.g. 12000+5000+3000.</span>}
                       </label>
                     ) : null}
                     <label className="text-label-large font-semibold">
-                      {pickupMode === "immediate" ? "Nomor order" : "Nomor stiker"} {booth?.code ?? "booth"} <span className="font-normal text-on-surface-variant">(otomatis lanjut)</span>
+                      {pickupMode === "immediate" ? "Order number" : "Sticker number"} {booth?.code ?? "booth"} <span className="font-normal text-on-surface-variant">(auto-increments)</span>
                       <input
                         value={orderCode}
                         onChange={(event) => setOrderCode(event.target.value.replace(/\D/g, "").slice(0, 3))}
@@ -813,17 +813,17 @@ export default function BoothPage() {
                       disabled={!orderCode || !participant || amountMissing || amountTooLarge || emptyOrder || participantRemoved}
                       onClick={createOrder}
                     >
-                      {pending ? "Menyimpan..." : participantRemoved ? "Peserta sudah dihapus panitia" : amountMissing ? "Isi nominal dulu" : amountTooLarge ? "Nominal terlalu besar" : emptyOrder ? (transactionsEnabled ? "Isi nominal atau pilih item" : "Pilih item dulu") : transactionsEnabled ? "Buat order" : "Catat serah terima"}
+                      {pending ? "Saving…" : participantRemoved ? "Participant removed by organiser" : amountMissing ? "Enter the amount first" : amountTooLarge ? "Amount too large" : emptyOrder ? (transactionsEnabled ? "Enter an amount or pick an item" : "Pick an item first") : transactionsEnabled ? "Create order" : "Record hand-over"}
                     </Button>
                   </div>
                 </div>
               ) : !booth ? (
                 <EmptyState
                   icon={<Storefront size={40} weight="duotone" className="text-primary" />}
-                  title={booths.length > 0 ? "Pilih booth dulu" : "Memuat booth..."}
+                  title={booths.length > 0 ? "Pick a booth first" : "Loading booth…"}
                   description={booths.length > 0
-                    ? "Akun panitia tidak terikat pada satu booth. Pilih booth yang sedang Anda tangani di bagian atas layar — order yang Anda buat akan tercatat atas nama booth itu."
-                    : "Jika pesan ini bertahan, muat ulang halaman."}
+                    ? "This staff account is not tied to one booth. Pick the booth you are running at the top of the screen; your orders are recorded under that booth."
+                    : "If this message stays, reload the page."}
                 />
               ) : (
                 <>
@@ -839,20 +839,20 @@ export default function BoothPage() {
                   </button>
 
                   <Button variant="outlined" size="lg" block className="mt-3" onClick={() => setSearch(!search)} icon={<MagnifyingGlass size={20} />}>
-                    Cari peserta manual
+                    Search participant manually
                   </Button>
 
                   {search && (
                     <Card className="mt-3" padded={false}>
                       <div className="p-4">
-                        <label htmlFor="manual-search" className="text-label-large font-semibold">Nama atau instansi peserta</label>
+                        <label htmlFor="manual-search" className="text-label-large font-semibold">Participant name or organisation</label>
                         <div className="mt-2 flex gap-2">
                           <input
                             id="manual-search"
                             value={searchTerm}
                             onChange={(event) => setSearchTerm(event.target.value)}
                             onKeyDown={(event) => { if (event.key === "Enter") void searchParticipants(); }}
-                            placeholder="Contoh: Ratna atau nama perusahaan"
+                            placeholder="e.g. Ratna or a company name"
                             className="h-12 min-w-0 flex-1 rounded-md border border-outline bg-surface-container-lowest px-3 text-body-large text-on-surface outline-none transition-colors focus:border-primary"
                           />
                           <Button
@@ -860,11 +860,11 @@ export default function BoothPage() {
                             disabled={searching || pending || !online || !searchTerm.trim()}
                             icon={searching ? <Spinner size={17} /> : undefined}
                           >
-                            {searching ? "Mencari" : "Cari"}
+                            {searching ? "Searching" : "Search"}
                           </Button>
                         </div>
 
-                        {/* Kerangka hasil, bukan sekadar teks "Mencari...".
+                        {/* Kerangka hasil, bukan sekadar teks "Searching…".
                             Tingginya sama dengan daftar hasil sungguhan, jadi kartu tidak
                             melompat saat data tiba dan tombol di bawahnya tidak bergeser
                             tepat ketika admin booth hendak menekannya. */}
@@ -872,7 +872,7 @@ export default function BoothPage() {
 
                         {/* Status diumumkan sekali lewat teks live, karena kerangka di atas
                             sengaja disembunyikan dari pembaca layar. */}
-                        <p aria-live="polite" className="sr-only">{searching ? "Mencari peserta" : results.length > 0 ? `${results.length} peserta ditemukan` : ""}</p>
+                        <p aria-live="polite" className="sr-only">{searching ? "Searching participants" : results.length > 0 ? `${results.length} participants found` : ""}</p>
 
                         {!searching && results.length > 0 && (
                           // `rise-in-fast`: hasil menggantikan kerangka dengan naik-pudar
@@ -884,7 +884,7 @@ export default function BoothPage() {
                                 menampilkan panel item spesial kosong. */}
                             {/* Baris hasil pencarian sebelumnya hanya berubah warna saat hover, jadi
                                 di perangkat sentuh tidak ada petunjuk sama sekali bahwa ini dapat
-                                ditekan. Ikon + label "Pilih" membuatnya eksplisit. */}
+                                ditekan. Ikon + label "Pick" membuatnya eksplisit. */}
                             {results.map((item) => (
                               <button
                                 key={item.id}
@@ -895,15 +895,15 @@ export default function BoothPage() {
                                 <UserCircle size={34} weight="duotone" className="shrink-0 text-primary" />
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-body-large font-semibold">{item.name}</span>
-                                  <span className="block truncate text-body-small text-on-surface-variant">{item.company ?? "Instansi tidak diisi"}{item.title ? ` · ${item.title}` : ""}</span>
+                                  <span className="block truncate text-body-small text-on-surface-variant">{item.company ?? "No organisation"}{item.title ? ` · ${item.title}` : ""}</span>
                                 </span>
-                                <span className="shrink-0 text-label-large font-semibold text-primary">Pilih</span>
+                                <span className="shrink-0 text-label-large font-semibold text-primary">Pick</span>
                               </button>
                             ))}
                           </div>
                         )}
 
-                        {searchTerm && !searching && results.length === 0 && <p className="mt-3 text-body-medium text-on-surface-variant">Peserta tidak ditemukan.</p>}
+                        {searchTerm && !searching && results.length === 0 && <p className="mt-3 text-body-medium text-on-surface-variant">Participant not found.</p>}
                       </div>
                     </Card>
                   )}
@@ -922,13 +922,13 @@ export default function BoothPage() {
                       <div key={item.id} className="rounded-lg bg-surface-container-lowest p-3 text-on-surface">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-body-large font-semibold">{item.participants?.name ?? "Peserta"}</p>
+                            <p className="truncate text-body-large font-semibold">{item.participants?.name ?? "Participant"}</p>
                             <p className="mt-0.5 truncate text-body-small text-on-surface-variant">{item.code} · {formatRupiah(item.total_amount)}</p>
                           </div>
-                          <StatusChip tone="success">Lunas</StatusChip>
+                          <StatusChip tone="success">Paid</StatusChip>
                         </div>
                         <Button className="mt-3" block onClick={() => handOverOrder(item.id)} disabled={pending || !online}>
-                          Serahkan barang
+                          Hand over item
                         </Button>
                       </div>
                     ))}
@@ -941,18 +941,18 @@ export default function BoothPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-title-medium font-semibold">Order booth {booth?.code ?? "ini"}</p>
-                      <p className="mt-0.5 text-body-small text-on-surface-variant">Ketuk nama untuk buat order lagi.</p>
+                      <p className="mt-0.5 text-body-small text-on-surface-variant">Tap a name to make another order.</p>
                     </div>
                     {history.length > 5 && (
                       <Button variant="text" size="sm" onClick={() => setShowAllHistory((open) => !open)}>
-                        {showAllHistory ? "Tampilkan 5 terakhir" : `Lihat semua (${history.length})`}
+                        {showAllHistory ? "Show last 5" : `See all (${history.length})`}
                       </Button>
                     )}
                   </div>
 
                   <div className="mt-3 divide-y divide-outline-variant">
                     {history.length === 0 ? (
-                      <p className="py-4 text-body-medium text-on-surface-variant">Belum ada order.</p>
+                      <p className="py-4 text-body-medium text-on-surface-variant">No orders yet.</p>
                     ) : visibleHistory.map((item) => {
                       const badge = orderStatusBadge(item.status);
                       const canVoid = Boolean(item.auto_settled) && item.status !== "void";
@@ -962,11 +962,11 @@ export default function BoothPage() {
                             type="button"
                             onClick={() => { if (item.participants?.qr_code) void lookupParticipant(item.participants.qr_code); }}
                             disabled={!online || !item.participants?.qr_code}
-                            title={item.participants?.name ? `Buat order baru untuk ${item.participants.name}` : undefined}
+                            title={item.participants?.name ? `New order for ${item.participants.name}` : undefined}
                             className="m3-state flex min-w-0 flex-1 items-start gap-3 rounded-sm px-2 py-1 text-left disabled:cursor-not-allowed"
                           >
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-body-medium font-semibold">{item.participants?.name ?? "Peserta"}</p>
+                              <p className="truncate text-body-medium font-semibold">{item.participants?.name ?? "Participant"}</p>
                               <p className="mt-0.5 truncate text-body-small text-on-surface-variant">{item.code} · {formatEventDateTime(item.created_at, timeZone)}</p>
                               <StatusChip tone={badge.tone} className="mt-1.5 min-h-7 text-label-medium">{badge.label}</StatusChip>
                             </div>
@@ -1008,10 +1008,10 @@ export default function BoothPage() {
           tone="danger"
           icon={<XCircle size={22} weight="fill" />}
           title={`Void order ${voidTarget?.code ?? ""}`}
-          description="Order dibatalkan dan nilainya keluar dari hitungan top spender. Kuota item diskon peserta kembali tersedia. Alasan wajib diisi dan tercatat di audit log."
+          description="The order is cancelled and its value leaves the top spender count. The participant's discount item quota is available again. A reason is required and recorded in the audit trail."
           actions={
             <>
-              <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Batal</Button>
+              <Button variant="outlined" className="flex-1" onClick={() => { setVoidTarget(null); setVoidReason(""); }}>Cancel</Button>
               <Button variant="danger" className="flex-1" loading={pending} disabled={!online || !voidReason.trim()} onClick={confirmVoid}>
                 Void order
               </Button>
@@ -1020,11 +1020,11 @@ export default function BoothPage() {
         >
           <TextArea
             className="mt-5"
-            label="Alasan void"
+            label="Void reason"
             value={voidReason}
             onChange={(event) => setVoidReason(event.target.value)}
             rows={3}
-            placeholder="Contoh: salah input nominal, peserta batal"
+            placeholder="e.g. wrong amount, participant cancelled"
           />
         </Dialog>
 
@@ -1036,18 +1036,18 @@ export default function BoothPage() {
             <header className="flex items-center justify-between p-5">
               <div>
                 <p className="text-label-medium uppercase tracking-[0.2em] opacity-70">{booth?.name ?? "Booth"}</p>
-                <p className="mt-1 text-title-medium font-semibold">Scanner QR</p>
+                <p className="mt-1 text-title-medium font-semibold">QR scanner</p>
               </div>
-              <Button variant="outlined" className="border-current text-current" onClick={() => setScanning(false)}>Tutup</Button>
+              <Button variant="outlined" className="border-current text-current" onClick={() => setScanning(false)}>Close</Button>
             </header>
             <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
               <div className="relative aspect-square w-full max-w-sm overflow-hidden rounded-2xl border border-current/50">
-                <video ref={videoRef} className="size-full object-cover" autoPlay muted playsInline aria-label="Pratinjau kamera scanner QR" />
+                <video ref={videoRef} className="size-full object-cover" autoPlay muted playsInline aria-label="QR scanner camera preview" />
                 <div className="pointer-events-none absolute inset-8 rounded-lg border-2 border-warning" />
-                {!online && <div className="absolute inset-0 flex items-center justify-center bg-scrim/80 p-6 text-center text-body-medium font-semibold">Offline — kamera scanner dinonaktifkan.</div>}
+                {!online && <div className="absolute inset-0 flex items-center justify-center bg-scrim/80 p-6 text-center text-body-medium font-semibold">Offline. The scanner camera is off.</div>}
               </div>
-              <p className="mt-8 text-title-medium font-semibold">Arahkan kamera ke QR badge</p>
-              <p className="mt-2 text-body-medium opacity-70">Scanner membaca otomatis. Pastikan QR terlihat utuh.</p>
+              <p className="mt-8 text-title-medium font-semibold">Point the camera at the badge QR</p>
+              <p className="mt-2 text-body-medium opacity-70">The scanner reads automatically. Make sure the whole QR is visible.</p>
             </div>
           </div>
         )}

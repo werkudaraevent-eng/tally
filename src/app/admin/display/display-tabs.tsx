@@ -14,17 +14,17 @@ export function DisplayTabs({ revealMode }: {
       revealMode === "staged" ? "bg-accent-soft text-primary" : "bg-surface-container-high text-on-surface-variant",
     )}>
       <span aria-hidden className={cx("size-1.5 rounded-full", revealMode === "staged" ? "bg-primary" : "bg-outline")} />
-      {revealMode === "staged" ? "Aktif" : "Mati"}
+      {revealMode === "staged" ? "On" : "Off"}
     </span>
   ) : null;
 
   return (
     <LinkTabs
-      label="Bagian papan peringkat"
+      label="Leaderboard sections"
       tabs={[
-        { href: "/admin/display", label: "Setelan" },
-        { href: "/admin/display/reveal", label: "Reveal bertahap", badge },
-        { href: "/admin/display/exclusions", label: "Pengecualian" },
+        { href: "/admin/display", label: "Settings" },
+        { href: "/admin/display/reveal", label: "Staged reveal", badge },
+        { href: "/admin/display/exclusions", label: "Exclusions" },
       ]}
     />
   );

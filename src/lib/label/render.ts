@@ -54,7 +54,7 @@ export async function renderLabelToCanvas(
 	canvas.width = settings.width_px;
 	canvas.height = settings.height_px;
 	const ctx = canvas.getContext("2d");
-	if (!ctx) throw new Error("Kanvas tidak tersedia di peramban ini.");
+	if (!ctx) throw new Error("Canvas is not available in this browser.");
 
 	ctx.fillStyle = "#ffffff";
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
