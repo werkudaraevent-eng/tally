@@ -700,9 +700,9 @@ export function AdminShell({
               {aiSiap ? (
                 <Button
                   variant="tonal"
-                  size="sm"
+                  size="md"
                   shape="pill"
-                  icon={<Sparkle size={16} weight="fill" aria-hidden />}
+                  icon={<Sparkle size={16} weight="fill" className="text-primary" aria-hidden />}
                   onClick={() => bukaPalet(true)}
                   aria-label="Ask AI"
                   className="shrink-0 max-sm:w-9 max-sm:px-0 max-sm:[&>span:last-child]:sr-only"

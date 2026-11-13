@@ -437,10 +437,11 @@ export function CommandPalette({
                         // hasil memuat setengah jumlah tujuan pada tinggi yang sama,
                         // dan daftar yang harus digulir lebih lambat daripada
                         // mengetik dua huruf lagi.
-                        className={`flex h-10 w-full items-center gap-2.5 rounded-lg px-2 text-left ${aktif ? "bg-[var(--press-hover)]" : ""}`}
+                        // Contoh boleh dua baris: di HP pertanyaan yang terpotong tidak bisa dibaca.
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 text-left ${item.grup === "contoh" ? "min-h-10 py-2" : "h-10"} ${aktif ? "bg-[var(--press-hover)]" : ""}`}
                       >
                         <Icon size={16} weight={item.grup === "ai" || item.grup === "contoh" ? "fill" : undefined} className={`shrink-0 ${item.grup === "ai" || item.grup === "contoh" ? "text-primary" : "text-on-surface-variant"}`} />
-                        <span className="min-w-0 shrink-[2] truncate text-body-medium text-on-surface">{item.label}</span>
+                        <span className={`min-w-0 shrink-[2] text-body-medium text-on-surface ${item.grup === "contoh" ? "line-clamp-2" : "truncate"}`}>{item.label}</span>
                         {item.grup === "contoh" ? (
                           aktif ? <span className="ml-auto flex shrink-0 items-center gap-1.5 text-label-medium text-on-surface-variant max-sm:hidden">Ask <kbd className="m3-kbd">&crarr;</kbd></span> : null
                         ) : item.grup === "ai" ? (
