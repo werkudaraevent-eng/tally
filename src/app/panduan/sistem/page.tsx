@@ -90,6 +90,13 @@ const BAGIAN: Bagian[] = [
           "Every role except Super admin needs access to each event, given in Users & roles.",
         ],
       },
+      {
+        judul: "Ask AI and Quick search",
+        poin: [
+          "Ctrl K (or the search box) finds any page of the menu. When the owner has connected AI on /ai and turned on Ask AI, a row “Ask AI” answers how-to questions in a few steps, with buttons to the right pages.",
+          "Ask AI only knows this guide and the menu. It sees no participant or event data and changes nothing. Each question is counted on /ai against the monthly limit.",
+        ],
+      },
     ],
   },
   {
@@ -118,6 +125,13 @@ const BAGIAN: Bagian[] = [
           "Import matches people on QR code, so re-importing a file updates them instead of adding them twice. Empty cells never erase data.",
           "Columns you only need internally (Batch, Gender, Department) are staff-only questions: Registration → Edit form → turn off “Ask on the registration form”. They are then columns and filters, and conditions in Agenda and Directions.",
           "Registration and invited guests: turn registration on when people register through the form; invited guests get a personal link.",
+        ],
+      },
+      {
+        judul: "d. Client domain (optional)",
+        poin: [
+          "Event settings → Event → Event page address connects the client’s own address (for example acara.client.co.id). Send the instructions to the client’s IT team; once they add the DNS record and the secure padlock is set up, it says Domain active.",
+          "Only participant pages are served there: event page, registration, participant area. Staff screens (/admin, /scan, /booth, /cashier) stay on the Tally address.",
         ],
       },
     ],
@@ -232,6 +246,23 @@ const BAGIAN: Bagian[] = [
           1100,
           511,
         ),
+      },
+      {
+        judul: "Read room numbers with AI",
+        langkah: [
+          "Logistics → Hotel stays → Import → Read with AI. It shows only when the owner has connected AI on /ai and turned the feature on.",
+          "Add up to 10 files at once: the hotel’s rooming list PDF, photos of room keys, chat screenshots, Excel or a chat export. Together at most 4 MB; photos are made smaller first.",
+          "AI reads guest name, hotel and room number only. Tally matches each name to people already in Stays and fills in their room numbers. Nobody moves room or hotel.",
+          "Check the “x of y” lines above the preview (name not found, two people with this name, not at that hotel), then Save as with any import.",
+        ],
+      },
+      {
+        judul: "Undo a Hotel stays import",
+        poin: [
+          "After saving a Hotel stays import (Excel or Read with AI), Import shows Last import with the file, time and who saved it, and Undo import.",
+          "Undo shows what goes back first, then puts room numbers, labels, room and bed types and everyone’s stays back as they were. Rooms and hotels the import created are removed when empty.",
+          "Anything changed after the import (a person moved, a room renumbered) is left as it is and listed. Only the latest import, within 7 days, once. Vehicles and Tickets imports have no undo.",
+        ],
       },
     ],
   },
@@ -402,8 +433,32 @@ const BAGIAN: Bagian[] = [
     ],
   },
   {
+    id: "pesan",
+    judul: "10. Messages and announcements",
+    ringkas: "Everything Tally sends to participants. Every kind of send is off until you turn it on for this event.",
+    isi: [
+      {
+        judul: "Post an announcement",
+        langkah: [
+          "Messages → Announcements → New announcement: title, text, an optional photo (with a description for screen readers) and a link.",
+          "Choose who gets it: all participant accounts, approved only, people who match 1 to 3 conditions (the same fields as Agenda Who sees it, plus Organisation), or specific people.",
+          "Pin it to keep it on top. Turn on email only if it should also go to their inbox.",
+          "It shows in the bell on the event page and in the participant area. Each announcement shows how many have seen it, who hasn’t yet, and a one-click message to them.",
+        ],
+      },
+      {
+        judul: "Email blasts and tracking",
+        poin: [
+          "Messages → Blasts sends an email to a chosen group; test it on a draft event or a test address first.",
+          "Email tracking (Automated emails → Announcement and blast emails, off by default) shows Clicked, which is reliable, and Opened, which is an estimate. Apple Mail opens every image itself, so those are counted apart.",
+          "Registration confirmations and sign-in links are never tracked.",
+        ],
+      },
+    ],
+  },
+  {
     id: "panggung",
-    judul: "10. Stage screens",
+    judul: "11. Stage screens",
     ringkas: "Open them in a separate window before the MC starts, then send it to the projector.",
     isi: [
       {
@@ -412,6 +467,8 @@ const BAGIAN: Bagian[] = [
           "Prizes & rules: prizes, who may win (conditions such as checked in, checkpoint points, form answers), win-again rules and stage look.",
           "Operator panel: choose a prize, draw, then CONFIRM the winner. Without confirmation the result is not recorded. Rehearsal mode records nothing.",
           "Readiness at the top says what is still missing before a draw can run.",
+          "Phone lights: every phone with the participant area open becomes a light in the room. On Draw all phones play the same colour show; only the winners’ phones end gold with their name and seat, so the desk can check them. Rehearse with a participant type that has Committee access.",
+          "Card machine: a 3D vending machine drops a card pack and turns one card per winner, up to 30 per pack. It runs at least 8 seconds; the editor warns if the duration is shorter.",
         ],
       },
       {
@@ -431,7 +488,7 @@ const BAGIAN: Bagian[] = [
   },
   {
     id: "sesudah",
-    judul: "11. After the event",
+    judul: "12. After the event",
     ringkas: "Closing the books and keeping the record.",
     isi: [
       {
@@ -442,11 +499,43 @@ const BAGIAN: Bagian[] = [
           "Audit trail (Super admin, Event settings): who changed what and when.",
         ],
       },
+      {
+        judul: "Feedback (Kilas balik)",
+        langkah: [
+          "Feedback → Build: the questions, when it opens and closes, the opening and closing text and the look. Preview as a participant before anyone sees it.",
+          "Feedback → Send: invite through the bell and email, then remind only those who haven’t answered.",
+          "Feedback → Results: response rate, a summary per question and every answer with the participant columns you choose; download as .xlsx.",
+        ],
+      },
+      {
+        judul: "Event report for management",
+        poin: [
+          "Event report (under Dashboard) builds a 16:9 deck from the event’s own data each time it opens. Titles are worked out from the figures and can be reworded; no AI writes them.",
+          "Hide, move or retitle slides, add a committee note, add a chart from a choice question or a short text slide. Save as PDF → Download PDF saves the deck as a 16:9 PDF.",
+          "What’s counted (header button) leaves out test data without deleting it: a trial participant, a participant type, or a whole source such as Online registration or Feedback.",
+          "Share with client puts the deck in the client view Report tab.",
+        ],
+      },
+      {
+        judul: "Daily highlights for the client",
+        poin: [
+          "Event report → Daily highlights: a 9:16 set of images per event day, for the committee to send to the client after each day. Tally never sends it.",
+          "Each page shows one finding with a comparison, and every percentage also shows its count. Press Lock figures once a day is final; Unlock, then Lock figures again, to rebuild it with new pages.",
+          "A highlight link lets the client open the day without an account.",
+        ],
+      },
+      {
+        judul: "Event photos and videos",
+        poin: [
+          "Participant area → Event photos and videos (off by default): one link for the whole event, one per Agenda day, or one per Agenda item. Each shows only after its day or item has ended.",
+          "Tally stores only the links (Google Drive, Dropbox…); links must start with https://. Tell participants opens an announcement filled with the link for you to publish.",
+        ],
+      },
     ],
   },
   {
     id: "masalah",
-    judul: "12. Common problems",
+    judul: "13. Common problems",
     ringkas: "",
     isi: [
       {
