@@ -2,6 +2,8 @@
 
 import { ArrowsClockwise, CaretDown, CheckCircle, DownloadSimple, FileArrowUp, Plus, SuitcaseRolling, UsersThree, Warning, XCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import { BacaAiPeserta, RingkasanAiPeserta, type JawabanAiPeserta } from "@/components/admin/impor-peserta/baca-ai";
+import { useUndoImporPeserta } from "@/components/admin/impor-peserta/undo-impor";
 import { ParticipantList, type ParticipantListHandle, type ParticipantStats } from "@/components/admin/participant-list";
 import { useIzinKustom } from "@/components/admin/page-context";
 import { ExportMenu } from "@/components/admin/export-menu";
@@ -9,6 +11,7 @@ import { SyncMenu } from "@/components/admin/sync-menu";
 import { useAutoSync, useScannerConfig, useScannerSync } from "@/components/admin/scanner-panel";
 import { useToast } from "@/components/toast";
 import { formatEventDateTime } from "@/lib/datetime";
+import { eventApiPath } from "@/lib/event-url";
 import { plural } from "@/lib/plural";
 import { useEventTimeZone } from "@/lib/use-event-timezone";
 import { Banner, Button, ButtonLink, Dialog, MetaSeparator, Popover, usePopoverAnchor, WorkspaceHeader, WorkspacePage } from "@/components/m3";
@@ -71,15 +74,30 @@ export default function ParticipantsAdminPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
+  // Bacaan "Read with AI" yang sedang di pratinjau; run-nya ditutup bila tidak di-Apply.
+  const [bacaanAi, setBacaanAi] = useState<JawabanAiPeserta | null>(null);
 
-  function closeImport() { setImportOpen(false); setImportFile(null); setPreview(null); setError(""); }
+  function tutupRunAi(jawaban: JawabanAiPeserta | null) {
+    if (!jawaban?.run_id) return;
+    void fetch(eventApiPath("/api/admin/participants/import/ai"), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: jawaban.run_id, status: "closed" }) }).catch(() => null);
+  }
 
-  async function runImport(dryRun: boolean) {
-    if (!importFile) return;
+  function closeImport() { tutupRunAi(bacaanAi); setBacaanAi(null); setImportOpen(false); setImportFile(null); setPreview(null); setError(""); }
+
+  const undo = useUndoImporPeserta({
+    open: importOpen,
+    aktif: !importFile && !preview && !bacaanAi && !importing,
+    onSelesai: () => setReloadKey((key) => key + 1),
+    onTutup: closeImport,
+  });
+
+  async function runImport(dryRun: boolean, berkas = importFile, ai = bacaanAi) {
+    if (!berkas) return;
     setImporting(true); setError(""); setMessage("");
     const form = new FormData();
-    form.append("file", importFile);
+    form.append("file", berkas);
     form.append("dry_run", dryRun ? "true" : "false");
+    if (ai?.run_id) form.append("ai_run_id", String(ai.run_id));
     const response = await fetch("/api/admin/participants/import", { method: "POST", body: form, signal: AbortSignal.timeout(120000) }).catch(() => null);
     setImporting(false);
     if (!response) { setError("Connection lost while uploading the file."); return; }
@@ -90,7 +108,8 @@ export default function ParticipantsAdminPage() {
       return;
     }
     if (dryRun) { setPreview(body as ImportPreview); return; }
-    closeImport();
+    setBacaanAi(null);
+    setImportOpen(false); setImportFile(null); setPreview(null);
     const kodeBaru = body.generated > 0 ? ` (${body.generated} with a generated QR code)` : "";
     toast.success("Import complete", `${body.inserted} added${kodeBaru}, ${body.updated} updated, ${body.rejected} rejected.`);
     const kursi = typeof body.seats_set === "number" ? ` ${plural(body.seats_set, "seat")} set in ${body.seat_session}.` : "";
@@ -153,38 +172,46 @@ export default function ParticipantsAdminPage() {
       <Dialog
         open={importOpen}
         onClose={closeImport}
-        dismissible={!importing}
+        dismissible={!importing && !undo.sibuk}
         size="lg"
-        title="Import participants from CSV or XLSX"
-        description="A row with a QR code updates the participant who has that code, or adds them if the code is new. A row without a QR code adds a new participant with a generated code. Participants from Scanner API only get their email, phone and answers updated."
-        actions={
+        title={undo.judul ?? "Import participants from CSV or XLSX"}
+        description={undo.judul ? undefined : "A row with a QR code updates the participant who has that code, or adds them if the code is new. A row without a QR code adds a new participant with a generated code. Participants from Scanner API only get their email, phone and answers updated."}
+        actions={undo.aksi ?? (
           <>
             <Button variant="outlined" disabled={importing} onClick={closeImport}>Cancel</Button>
             {preview
               ? <Button simpan loading={importing} disabled={barisDiterapkan === 0} onClick={() => void runImport(false)}>Apply to {plural(barisDiterapkan, "row")}</Button>
               : <Button loading={importing} disabled={!importFile} onClick={() => void runImport(true)}>Preview import</Button>}
           </>
-        }
+        )}
       >
-        <div className="flex flex-col gap-4 text-body-medium">
+        {undo.isi ?? <div className="flex flex-col gap-4 text-body-medium">
+          {undo.baris}
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-container-high p-3">
             <span className="min-w-0 flex-1 text-on-surface-variant">No file yet? The template has the built-in columns, the extra questions (including staff-only ones) and two sample rows.</span>
             <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=xlsx" icon={<DownloadSimple size={16} />}>XLSX template</ButtonLink>
             <ButtonLink native variant="outlined" size="sm" href="/api/admin/participants/export?template=1&format=csv" icon={<DownloadSimple size={16} />}>CSV template</ButtonLink>
           </div>
+          <BacaAiPeserta
+            open={importOpen}
+            disabled={importing}
+            onMulai={() => { tutupRunAi(bacaanAi); setBacaanAi(null); setImportFile(null); setPreview(null); setError(""); }}
+            onBerkas={(berkas, jawaban) => { setBacaanAi(jawaban); setImportFile(berkas); void runImport(true, berkas, jawaban); }}
+          />
           <p className="text-on-surface-variant">
             Columns are recognised from the first row, in English or Indonesian (for example organisation or perusahaan, phone or no_hp). Only <span className="font-medium text-on-surface">name</span> is required. Leave <span className="font-medium text-on-surface">qr_code</span> empty unless the person already has a code, for example from an export or a printed badge. A row without a code is rejected when its email already belongs to a participant, or its phone when it has no email, and the preview names that person&apos;s code. Empty cells never erase existing details.
           </p>
           <label className="block font-medium">
-            File
+            {bacaanAi ? "File (or choose your own to replace the AI reading)" : "File"}
             <input
               type="file"
               accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={(event) => { setImportFile(event.target.files?.[0] ?? null); setPreview(null); }}
+              onChange={(event) => { tutupRunAi(bacaanAi); setBacaanAi(null); setImportFile(event.target.files?.[0] ?? null); setPreview(null); }}
               className="mt-1.5 block w-full rounded-md border border-outline bg-surface-container-lowest p-2 text-body-medium file:mr-3 file:rounded file:border-0 file:bg-surface-container-high file:px-3 file:py-1 file:text-body-medium file:font-medium"
             />
           </label>
           {error ? <p role="alert" className="flex items-start gap-2 rounded-md bg-error-soft p-3 text-error"><XCircle size={16} className="mt-0.5 shrink-0" />{error}</p> : null}
+          {bacaanAi ? <RingkasanAiPeserta jawaban={bacaanAi} /> : null}
           {preview ? (
             <div className="rounded-md border border-outline-variant p-3">
               <p className="font-medium">{preview.file_name}, {plural(preview.rows, "row")} read</p>
@@ -207,7 +234,7 @@ export default function ParticipantsAdminPage() {
               ) : null}
             </div>
           ) : null}
-        </div>
+        </div>}
       </Dialog>
     </WorkspacePage>
     </div>

@@ -6,6 +6,7 @@ import { validateAnswers } from "@/lib/registration-fields";
 import { normalizeSeatLabel } from "@/lib/seat-map";
 import { applyImportSeats, loadSeatLabels, loadTallySeatSessions } from "@/lib/seat-tally";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { akhiriRun } from "@/lib/ai/server";
 
 /** 4 MB. 5.000 baris peserta jauh di bawah ini; berkas yang lebih besar
  *  hampir pasti memuat gambar atau sheet lain yang tidak akan dibaca. */
@@ -41,6 +42,9 @@ export async function POST(request: Request) {
   if (file.size > MAX_BYTES) return apiError("IMPORT_TOO_LARGE", 422);
 
   const dryRun = String(form?.get("dry_run") ?? "") !== "false";
+  // Berkas yang disiapkan "Read with AI": nomor pemakaiannya, untuk angka di halaman AI dan Undo.
+  const aiRun = Number(form?.get("ai_run_id") ?? "");
+  const aiRunId = Number.isInteger(aiRun) && aiRun > 0 ? aiRun : null;
   const isXlsx = /\.xlsx$/i.test(file.name) || file.type.includes("spreadsheetml");
 
   let matrix: string[][];
@@ -156,6 +160,23 @@ export async function POST(request: Request) {
     } catch {
       return apiError("INTERNAL_ERROR", 500, { message: "Participants were imported, but their seats weren't saved. Import the same file again to set the seats." });
     }
+  }
+
+  // Jejak untuk Undo import (sesudah migrasi 202611130030; sebelumnya RPC tidak
+  // mengirim import_id dan tidak ada yang dicatat). Gagal mencatat nama berkas
+  // tidak menggagalkan impor yang sudah tersimpan.
+  const importId = (data as { import_id?: number | null }).import_id ?? null;
+  if (!dryRun) {
+    // Hanya pemakaian AI milik acara ini yang ditautkan.
+    const run = aiRunId
+      ? (await getSupabaseServiceClient().from("ai_runs").select("id").eq("id", aiRunId).eq("event_id", auth.scope.event.id).maybeSingle()).data
+      : null;
+    if (importId) {
+      await getSupabaseServiceClient().from("participant_imports" as never)
+        .update({ file_name: file.name.slice(0, 200), ...(run ? { ai_run_id: aiRunId } : {}) } as never)
+        .eq("id", importId).eq("event_id", auth.scope.event.id);
+    }
+    if (run && aiRunId) await akhiriRun(aiRunId, auth.scope.event.id, "saved");
   }
 
   return Response.json({
