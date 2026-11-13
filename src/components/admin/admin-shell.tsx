@@ -1,10 +1,10 @@
 "use client";
 
-import { GearSix, List, Question, SidebarSimple, Storefront, X } from "@phosphor-icons/react";
+import { GearSix, List, Question, SidebarSimple, Sparkle, Storefront, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { IconButton, TopAppBar } from "@/components/m3";
+import { Button, IconButton, TopAppBar } from "@/components/m3";
 import { eventApiPath } from "@/lib/event-url";
 import { halamanPertama, modulHalaman, tingkatModul, type IzinPeran } from "@/lib/auth/izin-modul";
 import { klikUlang } from "@/lib/jaga-navigasi";
@@ -12,6 +12,7 @@ import { EventMenu, type EventPilihan } from "@/components/admin/event-menu";
 import { cariHalaman, grupDari, navigation } from "@/components/admin/nav-config";
 import { AdminBarSlotsProvider, AdminHeaderScrollProvider, AdminPageProvider } from "@/components/admin/page-context";
 import { CommandPalette, QuickSearchButton } from "@/components/admin/quick-search";
+import { useAiSiap } from "@/components/admin/tanya-ai";
 import { SidebarNav } from "@/components/admin/sidebar-nav";
 import { useOpenGroups, usePinnedSidebar, useRecents } from "@/components/admin/sidebar-store";
 import { cakupanAkses, UserMenu } from "@/components/admin/user-menu";
@@ -104,9 +105,14 @@ export function AdminShell({
   const pathname = usePathname();
   const eventPrefix = pathname.match(/^\/e\/[^/]+/)?.[0] ?? "";
   const logicalPathname = eventPrefix ? pathname.slice(eventPrefix.length) || "/" : pathname;
+  // Halaman AI (`/ai`) ada di luar acara, jadi kembali dari sana mengganti
+  // `eventPrefix` dan jawabannya dibaca ulang dengan sendirinya.
+  const aiSiap = useAiSiap(eventPrefix);
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletTerbuka, setPaletTerbuka] = useState(false);
+  /** Palet dibuka dari tombol Ask AI, bukan dari kotak cari atau Ctrl K. */
+  const [paletAi, setPaletAi] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [akun, setAkun] = useState<{ username: string; role: string } | null>(null);
   const [events, setEvents] = useState<EventPilihan[]>([]);
@@ -371,8 +377,9 @@ export function AdminShell({
   // seperti itu masih ada ("Existing memoization could not be preserved").
   // Tidak ada yang hilang: keduanya hanya dipakai sebagai prop dan di dalam efek
   // di bawah, yang menerima keduanya lewat daftar dependensi.
-  function bukaPalet() {
+  function bukaPalet(modeAi = false) {
     pembukaPalet.current = document.activeElement as HTMLElement | null;
+    setPaletAi(modeAi);
     setPaletTerbuka(true);
     // Palet menutupi rel, jadi rel yang sedang mengintip tidak punya alasan
     // tetap terbuka di belakangnya.
@@ -406,6 +413,7 @@ export function AdminShell({
         return;
       }
       pembukaPalet.current = document.activeElement as HTMLElement | null;
+      setPaletAi(false);
       setPaletTerbuka(true);
       tutupPeek();
     };
@@ -578,7 +586,7 @@ export function AdminShell({
         </div>
 
         <div className="m3-quick-wrap shrink-0 overflow-hidden px-3 pt-3">
-          <QuickSearchButton onOpen={bukaPalet} collapsed={rail} />
+          <QuickSearchButton onOpen={() => bukaPalet()} collapsed={rail} ai={aiSiap} />
         </div>
 
         {/* `min-h-0` WAJIB. Tanpa itu anak flex menolak menyusut di bawah tinggi
@@ -686,6 +694,22 @@ export function AdminShell({
           actions={
             <>
               <div ref={setSlotAksi} className="contents" />
+              {/* Hanya saat Ask AI siap; acara tanpa AI tetap 0 px berubah.
+                  Di layar sempit tinggal ikonnya, dengan nama yang sama untuk
+                  pembaca layar. */}
+              {aiSiap ? (
+                <Button
+                  variant="tonal"
+                  size="sm"
+                  shape="pill"
+                  icon={<Sparkle size={16} weight="fill" aria-hidden />}
+                  onClick={() => bukaPalet(true)}
+                  aria-label="Ask AI"
+                  className="shrink-0 max-sm:w-9 max-sm:px-0 max-sm:[&>span:last-child]:sr-only"
+                >
+                  <span>Ask AI</span>
+                </Button>
+              ) : null}
               <UserMenu
                 username={akun?.username ?? null}
                 role={peranKustom?.name ?? akun?.role ?? null}
@@ -747,6 +771,8 @@ export function AdminShell({
         <CommandPalette
           bolehHref={izin ? bolehHref : undefined}
           onClose={tutupPalet}
+          aiSiap={aiSiap}
+          modeAi={paletAi}
           eventPrefix={eventPrefix}
           events={events}
           recents={izin ? recents.filter((item) => bolehHref(item.path)) : recents}
