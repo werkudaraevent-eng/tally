@@ -375,6 +375,18 @@ begin
     from jsonb_array_elements(imp.changes) e
    where e->'before' is null or jsonb_typeof(e->'before') = 'null';
   if cardinality(baru) > 0 then
+    -- Kunci baris peserta baru dulu: check-in yang masuk di antara pemeriksaan
+    -- dan penghapusan tidak ikut terhapus lewat ON DELETE CASCADE.
+    perform 1 from public.participants where event_id = p_event_id and id = any(baru) for update;
+    -- Data sesudah impor yang tersimpan di baris peserta itu sendiri: kursi,
+    -- foto, walk-in. Dibaca lewat to_jsonb karena kolom ini tidak semua ada di
+    -- migrasi repo (seats hanya di produksi).
+    select terpakai || coalesce(array_agg(p.id), '{}') into terpakai
+      from public.participants p
+     where p.event_id = p_event_id and p.id = any(baru)
+       and ((jsonb_typeof(to_jsonb(p)->'seats') = 'array' and jsonb_array_length(to_jsonb(p)->'seats') > 0)
+            or coalesce(to_jsonb(p)->>'photo_url', '') <> ''
+            or (to_jsonb(p)->'walk_in_at') is not null and jsonb_typeof(to_jsonb(p)->'walk_in_at') <> 'null');
     for fk in
       select c2.conrelid::regclass as tabel, a.attname as kolom
         from pg_constraint c2
