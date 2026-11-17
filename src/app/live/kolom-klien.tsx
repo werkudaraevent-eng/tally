@@ -29,24 +29,26 @@ export function KolomKlienDialog({ open, onClose, slug, pertanyaan, checkpoint, 
   onClose: () => void;
   slug: string;
   pertanyaan: StatusPertanyaan[];
-  checkpoint: CheckpointAdmin[];
-  onSaved: (keys: string[], checkpoints: number[]) => void;
+  /** Null = gagal dibaca: bagian itu menulis galat, dan Save tidak mengubah pilihan check-in point. */
+  checkpoint: CheckpointAdmin[] | null;
+  onSaved: (keys: string[], checkpoints: number[] | null) => void;
 }) {
   const [pilihan, setPilihan] = useState<Set<string>>(() => new Set(pertanyaan.filter((p) => p.status === "shared").map((p) => p.key)));
-  const [pilihanCp, setPilihanCp] = useState<Set<number>>(() => new Set(checkpoint.filter((c) => c.shared).map((c) => c.id)));
+  const [pilihanCp, setPilihanCp] = useState<Set<number>>(() => new Set((checkpoint ?? []).filter((c) => c.shared).map((c) => c.id)));
   const [menyimpan, setMenyimpan] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
-  const kosong = pertanyaan.length === 0 && checkpoint.length === 0;
+  const kosong = pertanyaan.length === 0 && checkpoint !== null && checkpoint.length === 0;
 
   async function simpan() {
     setMenyimpan(true);
     setGalat(null);
     const keys = pertanyaan.map((p) => p.key).filter((key) => pilihan.has(key));
-    const checkpoints = checkpoint.map((c) => c.id).filter((id) => pilihanCp.has(id));
+    // Daftar gagal dibaca: `checkpoints` tidak dikirim, server mempertahankan yang tersimpan.
+    const checkpoints = checkpoint ? checkpoint.map((c) => c.id).filter((id) => pilihanCp.has(id)) : null;
     const response = await fetch(`/e/${encodeURIComponent(slug)}/api/live/columns`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keys, checkpoints }),
+      body: JSON.stringify(checkpoints ? { keys, checkpoints } : { keys }),
     }).catch(() => null);
     setMenyimpan(false);
     if (!response?.ok) {
@@ -85,10 +87,14 @@ export function KolomKlienDialog({ open, onClose, slug, pertanyaan, checkpoint, 
         <>
           <section aria-labelledby="klien-cp-judul" className="mt-4">
             <h3 id="klien-cp-judul" className="text-title-small font-semibold text-on-surface">Check-in points</h3>
-            <p className="mt-1 text-body-medium text-on-surface-variant">
-              {checkpoint.length ? "Shows the time each person was first scanned there, or Not yet." : <>This event has no check-in points yet. Add them in <a href={`/e/${encodeURIComponent(slug)}/admin/attendance`} className="font-medium text-primary underline">Check-in</a>.</>}
-            </p>
-            {checkpoint.length ? (
+            {checkpoint === null ? (
+              <p role="alert" className="mt-1 text-body-medium text-error">Couldn&apos;t load check-in points. Reload the page. Saving now keeps the client&apos;s current check-in point columns.</p>
+            ) : (
+              <p className="mt-1 text-body-medium text-on-surface-variant">
+                {checkpoint.length ? "Shows the time each person was first scanned there, or Not yet." : <>This event has no check-in points yet. Add them in <a href={`/e/${encodeURIComponent(slug)}/admin/attendance`} className="font-medium text-primary underline">Check-in</a>.</>}
+              </p>
+            )}
+            {checkpoint?.length ? (
               <ul className="mt-2 divide-y divide-outline-variant">
                 {checkpoint.map((c) => (
                   <li key={c.id} className="py-3">
