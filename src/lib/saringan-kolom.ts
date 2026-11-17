@@ -112,7 +112,11 @@ export function kolomSaringanKustom(fields: RegistrationField[], sesi: SesiSarin
  * (KOLOM_KLIEN, tanpa Name yang sudah dicari lewat kotak cari) dan jawaban yang
  * dibagikan admin. Tidak ada QR code, tidak ada jawaban yang tidak disetujui.
  */
-export function kolomSaringanKlien(jawaban: Array<{ key: string; label: string; type: RegistrationFieldType }>): KolomSaringan[] {
+export function kolomSaringanKlien(
+  jawaban: Array<{ key: string; label: string; type: RegistrationFieldType }>,
+  /** Check-in point yang dibagikan admin: "Yes" bila sudah dipindai di sana (lib/live/checkpoint-klien.ts). */
+  checkpoint: Array<{ id: number; label: string }> = [],
+): KolomSaringan[] {
   return [
     { key: "company", label: "Organisation", jenis: "pilihan", grup: "kolom" },
     { key: "title", label: "Job title", jenis: "teks", grup: "kolom" },
@@ -121,6 +125,7 @@ export function kolomSaringanKlien(jawaban: Array<{ key: string; label: string; 
     { key: "participant_type", label: "Type", jenis: "pilihan", grup: "kolom" },
     { key: "registered_at", label: "Registered", jenis: "tanggal", grup: "kolom" },
     { key: "checked_in", label: "Checked in", jenis: "pilihan", grup: "kolom" },
+    ...checkpoint.map<KolomSaringan>((item) => ({ key: `checkpoint:${item.id}`, label: item.label, jenis: "pilihan", grup: "kolom" })),
     ...jawaban.map<KolomSaringan>((item) => ({ key: `answer:${item.key}`, label: item.label, jenis: jenisPertanyaan(item.type), grup: "jawaban" })),
   ];
 }

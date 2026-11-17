@@ -23,6 +23,10 @@ assert.deepEqual(bacaSaringan(null, admin), []);
 const klien = kolomSaringanKlien([{ key: "sesi", label: "Which breakout session?", type: "select" }]);
 assert.deepEqual(bacaSaringan(json([{ k: "answer:diet", has: "veg" }, { k: "qr_code", has: "REG" }, { k: "field:sesi", in: ["BR 1"] }]), klien), []);
 assert.deepEqual(bacaSaringan(json([{ k: "answer:sesi", in: ["BR 1"] }]), klien), [{ k: "answer:sesi", in: ["BR 1"] }]);
+// Check-in point klien: hanya yang dibagikan admin.
+const klienCp = kolomSaringanKlien([], [{ id: 7, label: "Gala dinner" }]);
+assert.deepEqual(bacaSaringan(json([{ k: "checkpoint:7", in: ["Yes"] }, { k: "checkpoint:8", in: ["Yes"] }]), klienCp), [{ k: "checkpoint:7", in: ["Yes"] }]);
+assert.deepEqual(bacaSaringan(json([{ k: "checkpoint:7", in: ["Yes"] }]), klien), []);
 
 // Cocok.
 assert.equal(cocokSatu(" BR 1 ", { k: "x", in: ["BR 1"] }), true);

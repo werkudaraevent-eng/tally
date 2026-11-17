@@ -1,6 +1,6 @@
 import { requireRequestEvent } from "@/lib/auth/request-event";
 import { apiError } from "@/lib/api";
-import { KOLOM_KLIEN, kolomJawabanKlien, saringBarisKlien, semuaBarisKlien, waktuBerkas } from "@/lib/live/data";
+import { KOLOM_KLIEN, kolomCheckpointAcara, kolomJawabanKlien, saringBarisKlien, semuaBarisKlien, waktuBerkas } from "@/lib/live/data";
 import { bacaSaringan, kolomSaringanKlien } from "@/lib/saringan-kolom";
 import { CONTENT_TYPES, buildCsv, buildXlsx, exportFilename } from "@/lib/participants-io";
 import { normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
@@ -18,6 +18,9 @@ import { normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
  * Jawaban form tambahan ikut HANYA untuk pertanyaan yang dipilih admin di
  * registration_form_config.client_fields (kolomJawabanKlien), sesudah kolom inti
  * dan dalam urutan form. Pertanyaan baru tetap tertutup sampai admin memilihnya.
+ * Check-in point yang dipilih admin (client_checkpoints) ikut sebagai kolom
+ * waktu pindaian pertama, sesudah Checked in dan sebelum jawaban, sama dengan
+ * urutan di layar.
  */
 export async function GET(request: Request) {
   const auth = await requireRequestEvent(request, ["viewer", "admin"], { readOnly: true });
@@ -30,20 +33,23 @@ export async function GET(request: Request) {
 
   try {
     const jawaban = kolomJawabanKlien(event.registration_form_config);
+    const cps = await kolomCheckpointAcara(event.id, event.registration_form_config);
     const headers = [
       ...KOLOM_KLIEN.map((kolom) => (kolom.key === "registered_at" ? `${kolom.label} (${timeZoneAbbr(zona)})` : kolom.label)),
+      ...cps.map((kolom) => `${kolom.label} (${timeZoneAbbr(zona)})`),
       ...jawaban.map((kolom) => kolom.label),
     ];
     // Kata cari dan "+ Filter" yang sedang dipakai di layar ikut ke berkas.
-    const saringan = bacaSaringan(params.get("f"), kolomSaringanKlien(jawaban));
+    const saringan = bacaSaringan(params.get("f"), kolomSaringanKlien(jawaban, cps));
     if (!saringan) return apiError("VALIDATION_ERROR", 422, { message: "Unknown filter." });
     const q = (params.get("q") ?? "").slice(0, 100);
-    const rows = saringBarisKlien(await semuaBarisKlien(event.id, jawaban), q, saringan, zona).map((baris) => [
+    const rows = saringBarisKlien(await semuaBarisKlien(event.id, jawaban, cps), q, saringan, zona).map((baris) => [
       ...KOLOM_KLIEN.map(({ key }) => {
         if (key === "registered_at") return waktuBerkas(baris.registered_at, zona);
         if (key === "checked_in") return baris.checked_in ? "Yes" : "No";
         return baris[key] ?? "";
       }),
+      ...cps.map(({ id }) => (baris.checkpoints[String(id)] ? waktuBerkas(baris.checkpoints[String(id)], zona) : "")),
       ...jawaban.map(({ key }) => baris.answers[key] ?? ""),
     ]);
     // Berkas ini dibuka klien di spreadsheet: sel yang terbaca rumus dinetralkan.

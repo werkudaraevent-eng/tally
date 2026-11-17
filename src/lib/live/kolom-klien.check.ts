@@ -46,6 +46,7 @@ assert.equal(teksJawaban({ key: "x", label: "X", type: "text" }, null), "");
 // Duplikasi acara: persetujuan tidak ikut, isi form lain tetap.
 assert.deepEqual(tanpaPersetujuanKlien({ fields: [sesi], theme: { seed: "#123456" }, client_fields: disetujui }), { fields: [sesi], theme: { seed: "#123456" } });
 assert.equal(tanpaPersetujuanKlien({ fields: [sesi] }), null);
+assert.deepEqual(tanpaPersetujuanKlien({ fields: [sesi], client_checkpoints: [4] }), { fields: [sesi] });
 assert.equal(tanpaPersetujuanKlien(null), null);
 assert.deepEqual(kolomJawabanKlien(tanpaPersetujuanKlien({ fields: [sesi], client_fields: disetujui })), []);
 
