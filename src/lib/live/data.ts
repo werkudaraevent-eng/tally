@@ -153,8 +153,19 @@ export async function checkpointUntukAdmin(eventId: string, config: unknown) {
   if (error) throw new Error(error.message);
   const sesi = (data ?? []) as Array<{ id: number; name: string; is_active: boolean | null }>;
   const dibagikan = new Set(kolomCheckpointKlien(config, sesi).map((c) => c.id));
+  // Peserta yang dihapus di sumber tidak dihitung, sama dengan "+ Filter" klien
+  // (QA #477 L2). Satu hitungan gagal = seluruh daftar gagal: angka 0 palsu
+  // ("No scans yet" untuk checkpoint yang ramai) lebih menyesatkan (L1).
   const jumlah = await Promise.all(sesi.map((s) =>
-    client.from("attendance_scans").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("session_id", s.id).eq("is_duplicate", false)));
+    client
+      .from("attendance_scans")
+      .select("id,participants!inner(id)", { count: "exact", head: true })
+      .eq("event_id", eventId)
+      .eq("session_id", s.id)
+      .eq("is_duplicate", false)
+      .is("participants.source_removed_at", null)));
+  const galatHitung = jumlah.find((h) => h.error)?.error;
+  if (galatHitung) throw new Error(galatHitung.message);
   return sesi.map((s, i) => ({ id: s.id, name: s.name, active: s.is_active !== false, scanned: jumlah[i].count ?? 0, shared: dibagikan.has(s.id) }));
 }
 
