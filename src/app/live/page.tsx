@@ -42,15 +42,10 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
   // Event report yang dibagikan panitia dan highlight harian yang dikunci: salinan, bukan data terbaru.
   const [laporan, checkpoint] = await Promise.all([
     snapshotKlien(resolved.scope.event.id).catch(() => null),
-<<<<<<< HEAD
     // Gagal dibaca: null, bukan []. Dialog lalu menulis galat di bagian itu dan
     // Save tidak mengirim `checkpoints`, supaya pilihan yang tersimpan tidak
     // terhapus diam-diam (QA #477 M1).
     admin ? checkpointUntukAdmin(resolved.scope.event.id, config).catch((galat) => { console.error("Check-in point klien gagal:", galat); return null; }) : Promise.resolve(undefined),
-=======
-    // Gagal dibaca: dialog tetap terbuka untuk jawaban form, tanpa daftar check-in point.
-    admin ? checkpointUntukAdmin(resolved.scope.event.id, config).catch((galat) => { console.error("Check-in point klien gagal:", galat); return []; }) : Promise.resolve(undefined),
->>>>>>> origin/claude/project-thread-r6r8ol
   ]);
   return (
     <LiveClient

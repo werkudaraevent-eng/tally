@@ -362,11 +362,7 @@ Booth, Cashier and Scanner can open only an Active event. Every role except Supe
 ### Client view
 - **For:** Viewer accounts (the client).
 - **Shows at:** `/e/<slug>/live`: counts (registered, awaiting approval, checked in), the list with fixed columns plus the form answers the admin chose to share, search, filters, download. Refreshes every 30 s. A Report tab appears once the committee shares the Event report or locks a Daily highlights day. On top, Daily highlights: one cover per locked day; tap plays that day full screen like stories (tap right for next, left for back, then straight into the next day; arrow keys and Esc on a computer, the page behind cannot be reached while it plays; no timer, so figures can be read; the key figure, people icons and bars animate, off with reduced motion). Below, the shared deck with Save as PDF.
-<<<<<<< HEAD
 - **CMS:** on that page, Columns opens "What the client sees": Check-in points (each check-in point from Check-in setup with how many were scanned; switched on, it adds a column with the time of the person's first scan there or Not yet, also in the download and + Filter) and Form answers (which form answers the client sees; file uploads never). Both none by default. The standard Check-in column counts a scan at any check-in point. Check-in point columns show Tally scans only: people marked present by the Scanner API show Checked in but Not yet in every check-in point column.
-=======
-- **CMS:** on that page, Columns opens "What the client sees": Check-in points (each check-in point from Check-in setup with how many were scanned; switched on, it adds a column with the time of the person's first scan there or Not yet, also in the download and + Filter) and Form answers (which form answers the client sees; file uploads never). Both none by default. The standard Check-in column counts a scan at any check-in point.
->>>>>>> origin/claude/project-thread-r6r8ol
 
 ### Event settings
 - **Event:** time zone (WIB default, WITA, WIT), email sender name and reply-to, organiser contact (shown on the event page, closed-registration page, invitation and participant area), booth order flow, client domain.
