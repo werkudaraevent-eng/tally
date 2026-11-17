@@ -57,8 +57,13 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   preview: boolean;
   /** Hanya untuk admin: pertanyaan yang bisa dibagikan, dengan status persetujuannya. */
   pertanyaanKlien?: StatusPertanyaan[];
+<<<<<<< HEAD
   /** Hanya untuk admin: check-in point acara, dengan tanda mana yang dibagikan. Null = gagal dibaca. */
   checkpointKlien?: CheckpointAdmin[] | null;
+=======
+  /** Hanya untuk admin: check-in point acara, dengan tanda mana yang dibagikan. */
+  checkpointKlien?: CheckpointAdmin[];
+>>>>>>> origin/claude/project-thread-r6r8ol
   /** Event report yang dibagikan panitia (Share with client). Null = tanpa tab Report. */
   laporan?: ReactNode;
 }) {
@@ -89,8 +94,13 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   const [digeser, setDigeser] = useState(false);
   const [aturKolom, setAturKolom] = useState(false);
   const [pertanyaan, setPertanyaan] = useState(pertanyaanKlien ?? []);
+<<<<<<< HEAD
   const [checkpoint, setCheckpoint] = useState(checkpointKlien ?? null);
   const dibagikan = pertanyaan.filter((p) => p.status === "shared").length + (checkpoint ?? []).filter((c) => c.shared).length;
+=======
+  const [checkpoint, setCheckpoint] = useState(checkpointKlien ?? []);
+  const dibagikan = pertanyaan.filter((p) => p.status === "shared").length + checkpoint.filter((c) => c.shared).length;
+>>>>>>> origin/claude/project-thread-r6r8ol
   const perluDitinjau = pertanyaan.some((p) => p.status === "changed");
 
   useEffect(() => {
@@ -303,7 +313,11 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
             checkpoint={checkpoint}
             onSaved={(keys, ids) => {
               setPertanyaan((lama) => lama.map((p) => ({ ...p, status: keys.includes(p.key) ? "shared" : "off", approvedLabel: undefined })));
+<<<<<<< HEAD
               if (ids) setCheckpoint((lama) => lama && lama.map((c) => ({ ...c, shared: ids.includes(c.id) })));
+=======
+              setCheckpoint((lama) => lama.map((c) => ({ ...c, shared: ids.includes(c.id) })));
+>>>>>>> origin/claude/project-thread-r6r8ol
               setAturKolom(false);
               void muat();
             }}
