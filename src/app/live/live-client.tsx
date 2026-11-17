@@ -10,7 +10,7 @@ import { cx } from "@/lib/m3/cx";
 import type { BarisKlien } from "@/lib/live/data";
 import { DEFAULT_TIME_ZONE, normalizeTimeZone, timeZoneAbbr } from "@/lib/timezone";
 import type { StatusPertanyaan } from "@/lib/live/kolom-klien";
-import { KolomKlienDialog } from "./kolom-klien";
+import { KolomKlienDialog, type CheckpointAdmin } from "./kolom-klien";
 import { SaringanKolom, type NilaiKolom } from "@/components/admin/saringan-kolom";
 import { bacaSaringanMentah, type KolomSaringan, type Saringan } from "@/lib/saringan-kolom";
 
@@ -20,6 +20,8 @@ type Data = {
   counts: { registered: number; today: number; pending: number; checked_in: number };
   /** Pertanyaan form yang dibagikan admin, dalam urutan form. */
   answer_columns: { key: string; label: string }[];
+  /** Check-in point yang dibagikan admin, dalam urutan Check-in setup. Tidak ada di respons lama. */
+  checkpoint_columns?: { id: number; label: string }[];
   /** Kolom yang bisa disaring di layar ini; disusun server dari kolom klien dan jawaban yang dibagikan. */
   filter_columns?: KolomSaringan[];
   rows: BarisKlien[];
@@ -46,7 +48,7 @@ const LEBAR_KOLOM = [10.5, 9.125, 7.875, 12.5, 11.5, 5.25, 7.75, 8];
 const LEBAR_INTI = LEBAR_KOLOM.reduce((a, b) => a + b, 0);
 const LEBAR_JAWABAN = 11.5;
 
-export function LiveClient({ slug, eventName, username, role, preview, pertanyaanKlien, laporan }: {
+export function LiveClient({ slug, eventName, username, role, preview, pertanyaanKlien, checkpointKlien, laporan }: {
   slug: string;
   eventName: string;
   username: string;
@@ -55,6 +57,8 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   preview: boolean;
   /** Hanya untuk admin: pertanyaan yang bisa dibagikan, dengan status persetujuannya. */
   pertanyaanKlien?: StatusPertanyaan[];
+  /** Hanya untuk admin: check-in point acara, dengan tanda mana yang dibagikan. */
+  checkpointKlien?: CheckpointAdmin[];
   /** Event report yang dibagikan panitia (Share with client). Null = tanpa tab Report. */
   laporan?: ReactNode;
 }) {
@@ -85,7 +89,8 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   const [digeser, setDigeser] = useState(false);
   const [aturKolom, setAturKolom] = useState(false);
   const [pertanyaan, setPertanyaan] = useState(pertanyaanKlien ?? []);
-  const dibagikan = pertanyaan.filter((p) => p.status === "shared").length;
+  const [checkpoint, setCheckpoint] = useState(checkpointKlien ?? []);
+  const dibagikan = pertanyaan.filter((p) => p.status === "shared").length + checkpoint.filter((c) => c.shared).length;
   const perluDitinjau = pertanyaan.some((p) => p.status === "changed");
 
   useEffect(() => {
@@ -214,10 +219,11 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
   };
   const ariaSort = (kunci: Urut) => (sort === kunci ? (dir === "asc" ? "ascending" : "descending") : undefined);
   const jawaban = data?.answer_columns ?? [];
-  // Dengan kolom jawaban, tabel tidak muat di jendela mana pun: selalu pakai
-  // wadah geser dan salinan kepala, bukan <thead> sticky bawaan.
-  const lebar = jawaban.length > 0;
-  const lebarTabel = `${LEBAR_INTI + jawaban.length * LEBAR_JAWABAN}rem`;
+  const cps = data?.checkpoint_columns ?? [];
+  // Dengan kolom jawaban atau check-in point, tabel tidak muat di jendela mana
+  // pun: selalu pakai wadah geser dan salinan kepala, bukan <thead> sticky bawaan.
+  const lebar = jawaban.length + cps.length > 0;
+  const lebarTabel = `${LEBAR_INTI + (jawaban.length + cps.length) * LEBAR_JAWABAN}rem`;
   const selPertama = cx("sticky left-0 z-[1] border-b border-outline-variant px-4 py-0", digeser && "border-r");
   const barisKepala = (salinan: boolean) => (
       <tr className="h-10">
@@ -229,6 +235,9 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
         <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Type</th>
         <th scope="col" aria-sort={salinan ? undefined : ariaSort("registered_at")} className="border-b border-outline-variant px-3 py-0 font-medium">{kepala("Registered", "registered_at", salinan)}</th>
         <th scope="col" className="border-b border-outline-variant px-3 py-0 font-medium">Check-in</th>
+        {cps.map((c) => (
+          <th key={`cp-${c.id}`} scope="col" title={c.label} className="truncate border-b border-outline-variant px-3 py-0 font-medium">{c.label}</th>
+        ))}
         {jawaban.map((k) => (
           <th key={k.key} scope="col" title={k.label} className="truncate border-b border-outline-variant px-3 py-0 font-medium">{k.label}</th>
         ))}
@@ -244,6 +253,7 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
           digeser, dan 10,5 rem menutupi hampir separuh layar 390 (QA #102). */}
       <col className="w-[10.5rem] max-sm:w-[7.5rem]" />
       {LEBAR_KOLOM.slice(1).map((lebar, i) => <col key={i} style={{ width: `${lebar}rem` }} />)}
+      {cps.map((c) => <col key={`cp-${c.id}`} style={{ width: `${LEBAR_JAWABAN}rem` }} />)}
       {jawaban.map((k) => <col key={k.key} style={{ width: `${LEBAR_JAWABAN}rem` }} />)}
     </colgroup>
   );
@@ -290,8 +300,10 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
             onClose={() => setAturKolom(false)}
             slug={slug}
             pertanyaan={pertanyaan}
-            onSaved={(keys) => {
+            checkpoint={checkpoint}
+            onSaved={(keys, ids) => {
               setPertanyaan((lama) => lama.map((p) => ({ ...p, status: keys.includes(p.key) ? "shared" : "off", approvedLabel: undefined })));
+              setCheckpoint((lama) => lama.map((c) => ({ ...c, shared: ids.includes(c.id) })));
               setAturKolom(false);
               void muat();
             }}
@@ -338,21 +350,22 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
             {data?.filter_columns ? <SaringanKolom kolom={data.filter_columns} nilai={saringan} onChange={ubahSaringan} muatNilai={muatNilai} /> : null}
             <span className="px-1 text-body-medium text-on-surface-variant tabular-nums">
               {/* Admin di ponsel: kata "participants" disembunyikan supaya
-                  tombol Form answers dan Download muat sebaris di bawah pencarian. */}
+                  tombol Columns dan Download muat sebaris di bawah pencarian. */}
               {data ? <>{data.total.toLocaleString("en-GB")}<span className={cx(pertanyaanKlien && "max-sm:sr-only")}> {data.total === 1 ? "participant" : "participants"}</span></> : ""}
             </span>
             {pertanyaanKlien ? (
-              // Hanya admin. Jumlah di label: admin tahu sekilas apakah ada jawaban
-              // form yang sedang terbuka untuk klien. Di ponsel hanya ikon dan
-              // angkanya, supaya pencarian, tombol ini, dan Download muat dua baris.
+              // Hanya admin. Jumlah di label: admin tahu sekilas berapa kolom
+              // tambahan (check-in point dan jawaban form) yang sedang terbuka untuk
+              // klien. Di ponsel hanya ikon dan angkanya, supaya pencarian, tombol
+              // ini, dan Download muat dua baris.
               <Button
                 variant="outlined"
                 icon={perluDitinjau ? <Warning size={18} weight="fill" className="text-warning" /> : <Columns size={18} />}
-                aria-label={`Form answers: ${dibagikan} shared${perluDitinjau ? ", some need re-approval" : ""}`}
+                aria-label={`Columns: ${dibagikan} shared${perluDitinjau ? ", some need re-approval" : ""}`}
                 title={perluDitinjau ? "Some shared questions changed and need re-approval" : undefined}
                 onClick={() => setAturKolom(true)}
               >
-                <span className="max-sm:hidden">Form answers</span>
+                <span className="max-sm:hidden">Columns</span>
                 {dibagikan > 0 ? <span className="tabular-nums"><span className="max-sm:hidden"> · </span>{dibagikan}</span> : null}
               </Button>
             ) : null}
@@ -418,6 +431,15 @@ export function LiveClient({ slug, eventName, username, role, preview, pertanyaa
                         <td className="border-b border-outline-variant px-3 py-0">
                           {baris.checked_in ? <StatusChip dot tone="success" className="align-middle">Checked in</StatusChip> : <span className="text-on-surface-variant">Not yet</span>}
                         </td>
+                        {cps.map((c) => {
+                          // Waktu pindaian pertama di check-in point ini, atau belum.
+                          const waktu = baris.checkpoints?.[String(c.id)];
+                          return (
+                            <td key={`cp-${c.id}`} className="truncate border-b border-outline-variant px-3 py-0 tabular-nums">
+                              {waktu ? tanggalJam(waktu) : <span className="text-on-surface-variant">Not yet</span>}
+                            </td>
+                          );
+                        })}
                         {jawaban.map((k) => (
                           <td key={k.key} className="truncate border-b border-outline-variant px-3 py-0" title={baris.answers[k.key] || undefined}>{baris.answers[k.key] || <Kosong />}</td>
                         ))}

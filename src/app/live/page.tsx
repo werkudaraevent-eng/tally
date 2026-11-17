@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/login";
 import { requireEventScope } from "@/lib/auth/event-scope";
 import type { RegistrationFormConfig } from "@/lib/domain";
 import { statusPertanyaanKlien } from "@/lib/live/kolom-klien";
+import { checkpointUntukAdmin } from "@/lib/live/data";
 import { roleHome } from "@/lib/role-home";
 import { snapshotKlien } from "@/lib/laporan/server";
 import { LaporanKlien } from "./laporan-klien";
@@ -39,7 +40,11 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
   const admin = resolved.scope.role === "admin" || resolved.scope.role === "super_admin";
   const config = resolved.scope.event.registration_form_config as RegistrationFormConfig | null;
   // Event report yang dibagikan panitia dan highlight harian yang dikunci: salinan, bukan data terbaru.
-  const laporan = await snapshotKlien(resolved.scope.event.id).catch(() => null);
+  const [laporan, checkpoint] = await Promise.all([
+    snapshotKlien(resolved.scope.event.id).catch(() => null),
+    // Gagal dibaca: dialog tetap terbuka untuk jawaban form, tanpa daftar check-in point.
+    admin ? checkpointUntukAdmin(resolved.scope.event.id, config).catch((galat) => { console.error("Check-in point klien gagal:", galat); return []; }) : Promise.resolve(undefined),
+  ]);
   return (
     <LiveClient
       slug={resolved.scope.event.slug}
@@ -48,6 +53,7 @@ export default async function LivePage({ searchParams }: { searchParams: Promise
       role={resolved.scope.role}
       preview={resolved.scope.role !== "viewer"}
       pertanyaanKlien={admin ? statusPertanyaanKlien(config) : undefined}
+      checkpointKlien={checkpoint}
       laporan={laporan ? <LaporanKlien slug={resolved.scope.event.slug} deck={laporan.deck} dibagikan={laporan.shared_at} harian={laporan.harian} zona={resolved.scope.event.time_zone} /> : null}
     />
   );

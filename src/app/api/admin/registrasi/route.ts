@@ -265,6 +265,8 @@ export async function PATCH(request: Request) {
     // Sama seperti tema: jawaban untuk klien diatur di layar Client view.
     // Yang dibuang hanya persetujuan milik pertanyaan yang dihapus (QA #102 H1).
     client_fields: rapikanPersetujuan(tersimpan?.client_fields, formBaru.fields as RegistrationField[]),
+    // Check-in point untuk klien juga diatur di Client view: dipertahankan utuh.
+    client_checkpoints: tersimpan?.client_checkpoints,
     // Kunci yang hilang dari susunan diingat: jawabannya masih tersimpan, dan
     // kunci otomatis pertanyaan baru tidak boleh menghidupkannya diam-diam
     // (kolom staf yang dihapus lalu muncul lagi di formulir Lengkapi data).

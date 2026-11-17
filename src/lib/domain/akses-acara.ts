@@ -154,6 +154,12 @@ export type RegistrationFormConfig = {
    */
   client_fields?: ClientFieldApproval[];
   /**
+   * Id check-in point (attendance_sessions) yang tampil sebagai kolom di layar
+   * klien dan unduhannya: waktu pindaian pertama. Kosong/tidak ada = tidak
+   * satu pun. Diatur dari layar Client view. Lihat src/lib/live/checkpoint-klien.ts.
+   */
+  client_checkpoints?: number[];
+  /**
    * Kunci pertanyaan yang sudah hilang dari susunan (dihapus, atau Data key-nya
    * diganti). Jawabannya tetap tersimpan di participants.extra, jadi kunci
    * otomatis pertanyaan baru tidak boleh memakainya: kolom staf yang dihapus

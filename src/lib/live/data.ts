@@ -2,6 +2,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeTimeZone, timeZoneOffset, type EventTimeZone } from "@/lib/timezone";
 import { cocokSemua, hariDiZona, hitungNilai, type Saringan } from "../saringan-kolom";
 import { teksJawaban, type KolomJawaban } from "./kolom-klien";
+import { AWALAN_CHECKPOINT, kolomCheckpointKlien, waktuPertama, type KolomCheckpoint } from "./checkpoint-klien";
 
 export { kolomJawabanKlien, pertanyaanUntukKlien, statusPertanyaanKlien, type KolomJawaban } from "./kolom-klien";
 
@@ -52,6 +53,11 @@ export type BarisKlien = {
   checked_in: boolean;
   /** Jawaban form yang diizinkan admin untuk klien, per kunci field. Lihat `kolomJawabanKlien`. */
   answers: Record<string, string>;
+  /**
+   * Pindaian pertama di check-in point yang dibagikan admin, per id sesi (ISO);
+   * kunci tanpa nilai = belum dipindai di sana. Lihat `kolomCheckpointAcara`.
+   */
+  checkpoints: Record<string, string>;
 };
 
 export type UrutKlien = "registered_at" | "name" | "company";
@@ -109,7 +115,75 @@ function keBaris(baris: BarisDb, formPertama: Map<string, string>, kolom: KolomJ
     registered_at: waktuTerdaftar(baris.id, baris.created_at, formPertama),
     checked_in: (baris.attendance_scans?.length ?? 0) > 0 || Boolean(baris.source_checked_in),
     answers: Object.fromEntries(kolom.map((k) => [k.key, teksJawaban(k, baris.extra?.[k.key])])),
+    checkpoints: {},
   };
+}
+
+/**
+ * Kolom check-in point yang dibagikan admin, dalam urutan Check-in setup.
+ * Dibaca dari sesi yang masih ada: sesi yang dihapus hilang dari kolom.
+ */
+export async function kolomCheckpointAcara(eventId: string, config: unknown): Promise<KolomCheckpoint[]> {
+  if (!((config ?? {}) as { client_checkpoints?: unknown[] }).client_checkpoints?.length) return [];
+  const { data, error } = await getSupabaseServiceClient()
+    .from("attendance_sessions")
+    .select("id,name")
+    .eq("event_id", eventId)
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(error.message);
+  return kolomCheckpointKlien(config, (data ?? []) as Array<{ id: number; name: string }>);
+}
+
+/**
+ * Check-in point acara untuk dialog admin "What the client sees": urutan
+ * Check-in setup, berapa orang sudah dipindai (pindaian pertama saja), dan mana
+ * yang sedang dibagikan. Hanya untuk admin.
+ */
+export async function checkpointUntukAdmin(eventId: string, config: unknown) {
+  const client = getSupabaseServiceClient();
+  const { data, error } = await client
+    .from("attendance_sessions")
+    .select("id,name,is_active")
+    .eq("event_id", eventId)
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(error.message);
+  const sesi = (data ?? []) as Array<{ id: number; name: string; is_active: boolean | null }>;
+  const dibagikan = new Set(kolomCheckpointKlien(config, sesi).map((c) => c.id));
+  const jumlah = await Promise.all(sesi.map((s) =>
+    client.from("attendance_scans").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("session_id", s.id).eq("is_duplicate", false)));
+  return sesi.map((s, i) => ({ id: s.id, name: s.name, active: s.is_active !== false, scanned: jumlah[i].count ?? 0, shared: dibagikan.has(s.id) }));
+}
+
+type BarisScan = { id: number; participant_id: string; session_id: number; scanned_at: string };
+
+/**
+ * Isi `checkpoints` tiap baris: waktu pindaian pertama di sesi yang dibagikan.
+ * Satu halaman tabel (paling banyak 100 baris) hanya membaca pindaian peserta
+ * di halaman itu; daftar utuh (saringan, unduhan) membaca pindaian sesi itu
+ * saja, per 1000 berurutan menurut id.
+ */
+async function isiCheckpoint(eventId: string, rows: BarisKlien[], cps: KolomCheckpoint[]) {
+  if (!cps.length || !rows.length) return rows;
+  const ids = rows.length <= 100 ? rows.map((r) => r.id) : null;
+  const scans = await bacaBerurut<BarisScan>(() => {
+    let kueri = getSupabaseServiceClient()
+      .from("attendance_scans")
+      .select("id,participant_id,session_id,scanned_at")
+      .eq("event_id", eventId)
+      .in("session_id", cps.map((c) => c.id));
+    if (ids) kueri = kueri.in("participant_id", ids);
+    return kueri as unknown as KueriKeyset<BarisScan>;
+  });
+  const pertama = waktuPertama(scans);
+  for (const r of rows) {
+    const isi = pertama.get(r.id) ?? {};
+    r.checkpoints = Object.fromEntries(cps.map((c) => [String(c.id), isi[String(c.id)] ?? ""]));
+  }
+  return rows;
 }
 
 function pesertaAktif(eventId: string) {
@@ -227,10 +301,12 @@ export async function halamanKlien(
   opsi: { q: string; sort: UrutKlien; dir: "asc" | "desc"; limit: number; offset: number },
   kolom: KolomJawaban[],
   saringan: { daftar: Saringan[]; zona: string } = { daftar: [], zona: "Asia/Jakarta" },
+  cps: KolomCheckpoint[] = [],
 ) {
   const cari = filterCari(opsi.q);
-  if (saringan.daftar.length) return halamanTersaring(eventId, cari, opsi, kolom, saringan.daftar, saringan.zona);
-  return opsi.sort === "registered_at" ? halamanMenurutWaktu(eventId, cari, opsi, kolom) : halamanMenurutKolom(eventId, cari, opsi, kolom);
+  if (saringan.daftar.length) return halamanTersaring(eventId, cari, opsi, kolom, saringan.daftar, saringan.zona, cps);
+  const halaman = await (opsi.sort === "registered_at" ? halamanMenurutWaktu(eventId, cari, opsi, kolom) : halamanMenurutKolom(eventId, cari, opsi, kolom));
+  return { ...halaman, rows: await isiCheckpoint(eventId, halaman.rows, cps) };
 }
 
 /**
@@ -243,6 +319,7 @@ export function nilaiKlien(zona: string) {
   return (baris: BarisKlien, kunci: string): string => {
     if (kunci === "registered_at") return hariDiZona(baris.registered_at, zona);
     if (kunci === "checked_in") return baris.checked_in ? "Yes" : "No";
+    if (kunci.startsWith(AWALAN_CHECKPOINT)) return baris.checkpoints[kunci.slice(AWALAN_CHECKPOINT.length)] ? "Yes" : "No";
     if (kunci.startsWith("answer:")) return (baris.answers[kunci.slice(7)] ?? "").trim();
     const v = baris[kunci as "company" | "title" | "email" | "phone" | "participant_type"];
     return typeof v === "string" ? v.trim() : "";
@@ -250,7 +327,7 @@ export function nilaiKlien(zona: string) {
 }
 
 /** Semua baris aktif yang cocok dengan kata cari, dengan waktu terdaftar dan jawaban. */
-async function semuaBarisCocok(eventId: string, cari: string | null, kolom: KolomJawaban[]) {
+async function semuaBarisCocok(eventId: string, cari: string | null, kolom: KolomJawaban[], cps: KolomCheckpoint[]) {
   const [baris, form] = await Promise.all([
     bacaSemua<BarisDb>(() => {
       let kueri = pesertaAktif(eventId);
@@ -259,7 +336,7 @@ async function semuaBarisCocok(eventId: string, cari: string | null, kolom: Kolo
     }, (b) => b.id),
     semuaFormPertama(eventId),
   ]);
-  return baris.map((b) => keBaris(b, form, kolom));
+  return isiCheckpoint(eventId, baris.map((b) => keBaris(b, form, kolom)), cps);
 }
 
 /**
@@ -274,11 +351,12 @@ async function halamanTersaring(
   kolom: KolomJawaban[],
   saringan: Saringan[],
   zona: string,
+  cps: KolomCheckpoint[],
 ) {
   const nilai = nilaiKlien(zona);
   const arah = opsi.dir === "asc" ? 1 : -1;
   const kunci = (b: BarisKlien) => (opsi.sort === "registered_at" ? b.registered_at : (opsi.sort === "name" ? b.name : b.company) ?? "");
-  const cocok = (await semuaBarisCocok(eventId, cari, kolom))
+  const cocok = (await semuaBarisCocok(eventId, cari, kolom, cps))
     .filter((b) => cocokSemua(b, saringan, nilai))
     .sort((a, b) => {
       const x = kunci(a), y = kunci(b);
@@ -291,8 +369,8 @@ async function halamanTersaring(
 }
 
 /** Nilai yang ada di satu kolom pilihan layar klien beserta jumlahnya. */
-export async function nilaiKolomKlien(eventId: string, kunci: string, kolom: KolomJawaban[], zona: string) {
-  return hitungNilai(await semuaBarisCocok(eventId, null, kolom), kunci, nilaiKlien(zona));
+export async function nilaiKolomKlien(eventId: string, kunci: string, kolom: KolomJawaban[], zona: string, cps: KolomCheckpoint[] = []) {
+  return hitungNilai(await semuaBarisCocok(eventId, null, kolom, cps), kunci, nilaiKlien(zona));
 }
 
 /** Saring baris unduhan dengan kata cari dan "+ Filter" yang sama dengan layar. */
@@ -365,13 +443,13 @@ async function jumlahAktif(eventId: string, cari: string | null) {
 }
 
 /** Semua baris untuk unduhan, urut waktu terdaftar. */
-export async function semuaBarisKlien(eventId: string, kolom: KolomJawaban[]): Promise<BarisKlien[]> {
+export async function semuaBarisKlien(eventId: string, kolom: KolomJawaban[], cps: KolomCheckpoint[] = []): Promise<BarisKlien[]> {
   const [baris, form] = await Promise.all([
     bacaBerurut<BarisDb>(() => pesertaAktif(eventId) as unknown as KueriKeyset<BarisDb>),
     semuaFormPertama(eventId, true),
   ]);
-  return baris
-    .map((b) => keBaris(b, form, kolom))
+  const rows = await isiCheckpoint(eventId, baris.map((b) => keBaris(b, form, kolom)), cps);
+  return rows
     .sort((a, b) => Date.parse(a.registered_at) - Date.parse(b.registered_at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
